@@ -1,0 +1,21 @@
+﻿:mod:`earth2studio.io`.NetCDF4Backend
+============================================
+
+.. currentmodule:: earth2studio.io
+
+.. autoclass:: NetCDF4Backend
+
+   
+    .. automethod:: initialize
+    .. automethod:: write
+   
+
+.. _sphx_glr_backref_earth2studio.io.NetCDF4Backend:
+
+.. minigallery:: earth2studio.io.NetCDF4Backend
+      :add-heading:
+      :heading-level: ^
+
+.. raw:: html
+
+    <div class="clearer"></div>

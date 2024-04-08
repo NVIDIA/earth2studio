@@ -1,0 +1,20 @@
+﻿:mod:`earth2studio.perturbation`.Zero
+============================================
+
+.. currentmodule:: earth2studio.perturbation
+
+.. autoclass:: Zero
+
+   
+    .. automethod:: __call__
+   
+
+.. _sphx_glr_backref_earth2studio.perturbation.Zero:
+
+.. minigallery:: earth2studio.perturbation.Zero
+      :add-heading:
+      :heading-level: ^
+
+.. raw:: html
+
+    <div class="clearer"></div>
