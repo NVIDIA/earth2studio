@@ -1,0 +1,191 @@
+[build-system]
+requires = ["setuptools", "setuptools-scm"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "earth2studio"
+authors = [
+  { name="NVIDIA Modulus Team"},
+]
+description = "Earth-2 Inference Studio is a Python-based AI framework that enables climate researchers and scientists to explore and experiment with the use of AI models for weather and climate."
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "Apache 2.0"}
+dependencies = [
+    "boto3>=1.26.0",
+    "cdsapi >= 0.6.1",
+    "cfgrib >= 0.9.10.3",
+    "cftime",
+    "eccodes>=1.4.0",
+    "ecmwflibs>=0.5.2",
+    "ecmwf-opendata>=0.2.0",
+    "fsspec>=2023.1.0",
+    "gcsfs",
+    "h5py>=3.2.0",
+    "h5netcdf>=1.0.0",
+    "herbie-data",
+    "huggingface-hub>=0.4.0",
+    "importlib_metadata",
+    "loguru",
+    "netCDF4>=1.6.4",
+    "numpy",
+    "nvidia-modulus >= 0.4.0",
+    "python-dotenv",
+    "s3fs>=2023.5.0",
+    "setuptools>=67.6.0",
+    "torch>=2.0.0",
+    "torch_harmonics>=0.5.0",
+    "tqdm>=4.65.0",
+    "xarray>=2023.1.0",
+    "zarr>=2.14.2",
+]
+
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+]
+dynamic = ["version"]
+
+[project.urls]
+Homepage = "https://github.com/NVIDIA/earth2studio"
+Documentation = "https://nvidia.github.io/earth2studio"
+Issues = "https://github.com/NVIDIA/earth2studio/issues"
+Changelog = "https://github.com/NVIDIA/earth2studio/blob/main/CHANGELOG.md"
+
+[project.optional-dependencies]
+fengwu = [
+    "onnxruntime-gpu>=1.14.0",
+]
+sfno = [
+    "makani[all] @ git+https://github.com/NVIDIA/modulus-makani.git@v0.1.0",
+    "jsbeautifier", # makani
+    "pynvml", # makani
+    "numba", # makani
+]
+pangu = [
+    "onnxruntime-gpu>=1.14.0",
+]
+dev = [
+    "pre-commit",
+    "pytest>=6.0.0",
+    "pytest-timeout>=2.0.1",
+    "pytest-skip-slow>=0.0.5",
+    "pyyaml>=6.0",
+    "black==22.10.0",
+    "interrogate==1.5.0",
+    "coverage>=7.2.0",
+    "ruff==0.1.5",
+]
+docs = [
+    "sphinx-design",
+    "sphinx>=6.0.0",
+    "jupytext>=1.15.0",
+    "sphinx-autodoc-typehints>=1.24.0",
+    "sphinx-gallery>=0.12.0",
+    "myst-parser>=0.18.0",
+    "sphinx-favicon>=1.0.1",
+    "pydata-sphinx-theme==0.15.2",
+]
+
+[tool.setuptools.dynamic]
+version = {attr = "earth2studio.__version__"}
+
+[tool.setuptools.packages.find]
+include = ["earth2studio", "earth2studio.*"]
+
+[tool.ruff]
+# Enable flake8/pycodestyle (`E`), Pyflakes (`F`), flake8-bandit (`S`),
+# isort (`I`), and performance 'PERF' rules.
+select = ["E", "F", "S", "I", "PERF"]
+fixable = ["I"]
+
+# Never enforce `E402`, `E501` (line length violations),
+# and `S311` (random number generators)
+ignore = ["E501", "S311"]
+
+# Exclude the examples and experimental folders
+exclude = ["examples", "modulus/experimental"]
+
+[tool.ruff.per-file-ignores]
+# Ignore `F401` (import violations) in all `__init__.py` files, and in `docs/*.py`.
+"__init__.py" = ["F401"]
+"docs/*.py" = ["F401"]
+
+# Ignore `S101` (assertions) in all `test` files.
+"test/*.py" = ["S101"]
+
+[tool.pytest.ini_options]
+testpaths = ["test"]
+norecursedirs = [".git", "third_party"]
+# show extra info on xfailed, xpassed, and skipped tests
+addopts = ["-vv", "-r", "xfXs"]
+markers = [
+    "slow: marks tests as slow (deselect with: -m 'not slow')",
+    "cli: marks tests which run CLIs"
+]
+asyncio_mode = "auto"
+
+# ==== Coverage.py configuration (ran using pytest-cov) ====
+# See: https://coverage.readthedocs.io/en/latest/config.html
+[tool.coverage.run]
+branch = true
+concurrency = ["multiprocessing", "thread"]
+source = ["earth2studio"]
+omit = [
+    "third_party/*",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+]
+exclude_also = [
+    # Don't complain about abstract methods, they aren't run:
+    "@(abc\\.)?abstractmethod",
+    # Don't complain about protocols:
+    "@runtime_checkable",
+]
+omit = [
+    # omit anything in a .local directory anywhere
+    "test/*",
+    "earth2studio/models/nn/*",
+]
+show_missing = true
+fail_under = 75
+
+[tool.coverage.xml]
+output = "e2studio.coverage.xml"
+
+[tool.interrogate]
+ignore-init-method = true
+ignore-init-module = true
+ignore-magic = true
+ignore-semiprivate = true
+ignore-private = true
+ignore-property-decorators = true
+ignore-module = true
+ignore-nested-functions = true
+ignore-nested-classes = true
+fail-under = 95
+color = true
+omit-covered-files = false
+verbose = 2
+exclude = ["setup.py", "test/*", "docs", "build"]
+ignore-regex = ["^get$", "^mock_.*", ".*BaseClass.*"]
+
+# ==== MyPy configuration ====
+# See: https://mypy.readthedocs.io/en/stable/config_file.html
+[tool.mypy]
+python_version = "3.10"
+packages = ['earth2studio']
+exclude = [
+    '^(examples|test|docs)'
+]
+disallow_untyped_calls = true
+disallow_untyped_defs = true
+check_untyped_defs = true
+implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+follow_imports = 'skip' # TODO: Should eventually shut off

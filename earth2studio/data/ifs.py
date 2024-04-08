@@ -1,0 +1,278 @@
+# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+import hashlib
+import os
+import pathlib
+import shutil
+from datetime import datetime
+
+import boto3
+import botocore
+import ecmwf.opendata
+import numpy as np
+import xarray as xr
+from botocore import UNSIGNED
+from loguru import logger
+from modulus.distributed.manager import DistributedManager
+from tqdm import tqdm
+
+from earth2studio.data.utils import prep_data_inputs
+from earth2studio.lexicon import IFSLexicon
+from earth2studio.utils.type import TimeArray, VariableArray
+
+logger.remove()
+logger.add(lambda msg: tqdm.write(msg, end=""), colorize=True)
+LOCAL_CACHE = os.path.join(os.path.expanduser("~"), ".cache", "earth2studio")
+
+
+class IFS:
+    """The integrated forecast system (IFS) initial state data source provided on an
+    equirectangular grid. This data is part of ECMWF's open data project on AWS. This
+    data source is provided on a 0.4 degree lat lon grid at 6-hour intervals spanning
+    from Jan 18th 2023 to present date.
+
+    Parameters
+    ----------
+    cache : bool, optional
+        Cache data source on local memory, by default True
+    verbose : bool, optional
+        Print download progress, by default True
+
+    Warning
+    -------
+    This is a remote data source and can potentially download a large amount of data
+    to your local machine for large requests.
+
+    Note
+    ----
+    This data source only fetches the initial state of control forecast of IFS and does
+    not fetch an predicted time steps.
+
+    Note
+    ----
+    Additional information on the data repository can be referenced here:
+
+    - https://confluence.ecmwf.int/display/DAC/ECMWF+open+data%3A+real-time+forecasts
+    - https://registry.opendata.aws/ecmwf-forecasts/
+    """
+
+    IFS_BUCKET_NAME = "ecmwf-forecasts"
+    IFS_LAT = np.linspace(90, -90, 451)
+    IFS_LON = np.linspace(0, 359.6, 900)
+
+    def __init__(self, cache: bool = True, verbose: bool = True):
+        self._cache = cache
+        self._verbose = verbose
+        self.client = ecmwf.opendata.Client(source="aws")
+
+    def __call__(
+        self,
+        time: datetime | list[datetime] | TimeArray,
+        variable: str | list[str] | VariableArray,
+    ) -> xr.DataArray:
+        """Function to get data.
+
+        Parameters
+        ----------
+        time : datetime | list[datetime] | TimeArray
+            Timestamps to return data for (UTC).
+        variable : str | list[str] | VariableArray
+            String, list of strings or array of strings that refer to variables to
+            return. Must be in IFS lexicon.
+
+        Returns
+        -------
+        xr.DataArray
+            IFS weather data array
+        """
+        time, variable = prep_data_inputs(time, variable)
+
+        # Create cache dir if doesnt exist
+        pathlib.Path(self.cache).mkdir(parents=True, exist_ok=True)
+
+        # Make sure input time is valid
+        self._validate_time(time)
+
+        # Fetch index file for requested time
+        data_arrays = []
+        for t0 in time:
+            data_array = self.fetch_ifs_dataarray(t0, variable)
+            data_arrays.append(data_array)
+
+        # Delete cache if needed
+        if not self._cache:
+            shutil.rmtree(self.cache)
+
+        return xr.concat(data_arrays, dim="time")
+
+    def fetch_ifs_dataarray(
+        self,
+        time: datetime,
+        variables: list[str],
+    ) -> xr.DataArray:
+        """Retrives IFS data array for given date time by fetching variable grib files
+        using the ecmwf opendata package and combining grib files into a data array.
+
+        Parameters
+        ----------
+        time : datetime
+            Date time to fetch
+        variables : list[str]
+            list of atmosphric variables to fetch. Must be supported in IFS lexicon
+
+        Returns
+        -------
+        xr.DataArray
+            IFS data array for given date time
+        """
+        ifsda = xr.DataArray(
+            data=np.empty((1, len(variables), len(self.IFS_LAT), len(self.IFS_LON))),
+            dims=["time", "variable", "lat", "lon"],
+            coords={
+                "time": [time],
+                "variable": variables,
+                "lat": self.IFS_LAT,
+                "lon": self.IFS_LON,
+            },
+        )
+
+        # TODO: Add MP here, can further optimize by combining pressure levels
+        # Not doing until tested.
+        for i, variable in enumerate(
+            tqdm(
+                variables, desc=f"Fetching IFS for {time}", disable=(not self._verbose)
+            )
+        ):
+            # Convert from Earth-2 Studio variable ID to GFS id and modifier
+            try:
+                ifs_name, modifier = IFSLexicon[variable]
+            except KeyError as e:
+                logger.error(f"Variable id {variable} not found in IFS lexicon")
+                raise e
+
+            variable, levtype, level = ifs_name.split("::")
+
+            logger.debug(f"Fetching IFS grib file for variable: {variable} at {time}")
+            grib_file = self._download_ifs_grib_cached(variable, levtype, level, time)
+            # Open into xarray data-array
+            # Provided [-180, 180], roll to [0, 360]
+            da = xr.open_dataarray(
+                grib_file, engine="cfgrib", backend_kwargs={"indexpath": ""}
+            ).roll(longitude=-len(self.IFS_LON) // 2)
+            ifsda[0, i] = modifier(da.values)
+
+        return ifsda
+
+    def _validate_time(self, times: list[datetime]) -> None:
+        """Verify if date time is valid for IFS
+
+        Parameters
+        ----------
+        times : list[datetime]
+            list of date times to fetch data
+        """
+        for time in times:
+            if not time.hour % 6 == 0:
+                raise ValueError(
+                    f"Requested date time {time} needs to be 6 hour interval for IFS"
+                )
+
+            if time < datetime(year=2023, month=1, day=18):
+                raise ValueError(
+                    f"Requested date time {time} needs to be after January 18th, 2023 for IFS"
+                )
+
+            if not self.available(time):
+                raise ValueError(f"Requested date time {time} not available in IFS")
+
+    def _download_ifs_grib_cached(
+        self,
+        variable: str,
+        levtype: str,
+        level: str | list[str],
+        time: datetime,
+    ) -> str:
+        if isinstance(level, str):
+            level = [level]
+
+        sha = hashlib.sha256(f"{variable}_{levtype}_{'_'.join(level)}_{time}".encode())
+        filename = sha.hexdigest()
+
+        cache_path = os.path.join(self.cache, filename)
+
+        if not pathlib.Path(cache_path).is_file():
+            request = {
+                "date": time,
+                "type": "fc",
+                "param": variable,
+                "levtype": levtype,
+                "step": 0,  # Would change this for forecasts
+                "target": cache_path,
+            }
+            if levtype == "pl":  # Pressure levels
+                request["levelist"] = level
+            # Download
+            self.client.retrieve(**request)
+
+        return cache_path
+
+    @property
+    def cache(self) -> str:
+        """Get the appropriate cache location."""
+        cache_location = os.path.join(LOCAL_CACHE, "ifs")
+        if not self._cache:
+            cache_location = os.path.join(
+                cache_location, f"tmp_{DistributedManager().rank}"
+            )
+        return cache_location
+
+    @classmethod
+    def available(
+        cls,
+        time: datetime | np.datetime64,
+    ) -> bool:
+        """Checks if given date time is avaliable in the IFS AWS data store
+
+        Parameters
+        ----------
+        time : datetime | np.datetime64
+            Date time to access
+
+        Returns
+        -------
+        bool
+            If date time is avaiable
+        """
+        if isinstance(time, np.datetime64):  # np.datetime64 -> datetime
+            _unix = np.datetime64(0, "s")
+            _ds = np.timedelta64(1, "s")
+            time = datetime.utcfromtimestamp((time - _unix) / _ds)
+
+        s3 = boto3.client(
+            "s3", config=botocore.config.Config(signature_version=UNSIGNED)
+        )
+        # Object store directory for given time
+        file_name = f"{time.year}{time.month:0>2}{time.day:0>2}/{time.hour:0>2}z/"
+        try:
+            resp = s3.list_objects_v2(
+                Bucket=cls.IFS_BUCKET_NAME, Prefix=file_name, Delimiter="/", MaxKeys=1
+            )
+        except botocore.exceptions.ClientError as e:
+            logger.error("Failed to access from IFS S3 bucket")
+            raise e
+
+        return "KeyCount" in resp and resp["KeyCount"] > 0
