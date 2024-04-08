@@ -25,7 +25,7 @@ Our mission is to enable everyone to build, research and explore AI driven meteo
 Install Earth-2 Studio from source:
 
 ```bash
-git clone https://gitlab-master.nvidia.com/modulus/earth-2/earth2-inference-studio.git
+git clone https://github.com/NVIDIA/earth2studio.git
 
 cd earth2-inference-studio
 
