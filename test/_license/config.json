@@ -1,0 +1,11 @@
+{
+    "copyright_file": "header.txt",
+    "dir": "../../",
+    "exclude-dir": [
+        "../../build/",
+        "../../docs/"
+      ],
+    "include-ext": [
+        ".py"
+    ]
+  }

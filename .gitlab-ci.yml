@@ -1,0 +1,24 @@
+stages:
+  - docs
+  - wheel
+  - test
+
+pages:
+  tags:
+    - pages
+  stage: docs
+  script:
+  - echo "Publishing docs!"
+  - mkdir -p public
+  - ls | grep -v public | xargs mv -t public
+  publish: public
+  artifacts:
+    paths:
+    - public
+  rules:
+    - if: $CI_COMMIT_BRANCH == "gl-pages"
+
+include:
+  - project: 'modulus/modulus-ci'
+    ref: earth-2
+    file: '.gitlab-ci/earth2/studio/wheel.gitlab-ci.yml'
