@@ -110,9 +110,9 @@ VARIABLES = [
 
 
 class SFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
-    """Spherical Fourier Operator Network global prognostic model. 
+    """Spherical Fourier Operator Network global prognostic model.
     Consists of a single model with a time-step size of 6 hours.
-    FourCastNet operates on 0.25 degree lat-lon grid (south-pole excluding) 
+    FourCastNet operates on 0.25 degree lat-lon grid (south-pole excluding)
     equirectangular grid with 73 variables.
 
     Note
@@ -170,7 +170,7 @@ class SFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     def __str__(self) -> str:
         return "sfno_73ch_small"
-    
+
     @classmethod
     def load_default_package(cls) -> Package:
         """Load prognostic package"""

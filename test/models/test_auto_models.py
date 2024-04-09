@@ -20,7 +20,7 @@ import pytest
 
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.dx import ClimateNet, CorrDiffTaiwan, PrecipitationAFNO
-from earth2studio.models.px import DLWP, FCN, FengWu, Pangu3, Pangu6, Pangu24, SFNO
+from earth2studio.models.px import DLWP, FCN, SFNO, FengWu, Pangu3, Pangu6, Pangu24
 
 
 @pytest.fixture
