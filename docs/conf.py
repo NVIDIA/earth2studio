@@ -80,31 +80,30 @@ html_css_files = [
     "css/custom.css",
 ]
 html_theme_options = {
-    "announcement": "Earth-2 Inference Studio is in Alpha!",
+    "announcement": "Earth-2 Inference Studio is now OSS!",
     "logo": {
         "text": "Earth-2 Inference Studio",
         "image_light": "_static/NVIDIA-Logo-V-ForScreen-ForLightBG.png",
         "image_dark": "_static/NVIDIA-Logo-V-ForScreen-ForDarkBG.png",
     },
-    "navbar_start": ["navbar-logo"],
     "navbar_align": "left",
-    # "navbar_start": ["navbar-logo", "version-switcher"],
-    # "switcher": {
-    #     "json_url": "https://raw.githubusercontent.com/NVIDIA/earth2-inference-studio/gh-pages/_static/switcher.json",
-    #     "version_match": doc_version,  # Set DOC_VERSION env variable to change
-    # },
-    # "external_links": [
-    #     {
-    #         "name": "Changelog",
-    #         "url": "https://gitlab-master.nvidia.com/modulus/earth-2/earth2-inference-studio/blob/main/CHANGELOG.md",
-    #     },
-    # ],
+    "navbar_start": ["navbar-logo", "version-switcher"],
+    "switcher": {
+        "json_url": "https://gitlab-master.nvidia.com/modulus/earth-2/earth2studio/-/raw/5dae5dbe2795b790d6b84f28b730be2821dd0e71/_static/switcher.json",
+        "version_match": doc_version,  # Set DOC_VERSION env variable to change
+    },
+    "external_links": [
+        {
+            "name": "Changelog",
+            "url": "https://gitlab-master.nvidia.com/modulus/earth-2/earth2-inference-studio/blob/main/CHANGELOG.md",
+        },
+    ],
     "icon_links": [
         {
             # Label for this link
-            "name": "Gitlab",
+            "name": "Github",
             # URL where the link will redirect
-            "url": "https://gitlab-master.nvidia.com/modulus/earth-2/earth2-inference-studio",  # required
+            "url": "https://github.com/NVIDIA/earth2studio",  # required
             # Icon class (if "type": "fontawesome"), or path to local image (if "type": "local")
             "icon": "fa-brands fa-square-github",
             # The type of image to be used (see below for details)
