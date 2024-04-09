@@ -86,12 +86,13 @@ html_theme_options = {
         "image_light": "_static/NVIDIA-Logo-V-ForScreen-ForLightBG.png",
         "image_dark": "_static/NVIDIA-Logo-V-ForScreen-ForDarkBG.png",
     },
+    "navbar_start": ["navbar-logo"],
     "navbar_align": "left",
-    "navbar_start": ["navbar-logo", "version-switcher"],
-    "switcher": {
-        "json_url": "https://gitlab-master.nvidia.com/modulus/earth-2/earth2studio/-/raw/5dae5dbe2795b790d6b84f28b730be2821dd0e71/_static/switcher.json",
-        "version_match": doc_version,  # Set DOC_VERSION env variable to change
-    },
+    # "navbar_start": ["navbar-logo", "version-switcher"],
+    # "switcher": {
+    #     "json_url": "https://gitlab-master.nvidia.com/modulus/earth-2/earth2studio/-/raw/5dae5dbe2795b790d6b84f28b730be2821dd0e71/_static/switcher.json",
+    #     "version_match": doc_version,  # Set DOC_VERSION env variable to change
+    # },
     "external_links": [
         {
             "name": "Changelog",
