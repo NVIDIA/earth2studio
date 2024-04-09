@@ -15,8 +15,8 @@ Our mission is to enable everyone to build, research and explore AI driven meteo
 **- Earth-2 Studio Documentation -**
 <!-- markdownlint-enable MD036 -->
 
-[Install](e2studio_install_url) | [User-Guide](e2studio_userguide_url) |
-[Examples](e2studio_examples_url) | [API](e2studio_api_url)
+[Install][e2studio_install_url] | [User-Guide][e2studio_userguide_url] |
+[Examples][e2studio_examples_url] | [API][e2studio_api_url]
 
 </div>
 
@@ -58,11 +58,11 @@ workflows, pipelines, APIs, packages, etc. via modular components including:
 - IO utilities for exporting predicted data to user friendly formats
 - Suite of perturbation methods for building ensemble predictions
 - Sample workflows and examples for common tasks / use cases
-- Seamless integration into other Nvidia packages including [Modulus](modulus_repo_url).
+- Seamless integration into other Nvidia packages including [Modulus][modulus_repo_url].
 
-For a more complete list of feature set, be sure to view the [documentation](e2studio_features_url).
+For a more complete list of feature set, be sure to view the [documentation][e2studio_docs_url].
 Don't see what you need?
-Great news, extension and customization are at the heart of our [design](e2studio_customization_url).
+Great news, extension and customization are at the heart of our [design][e2studio_customization_url].
 
 ## Contributors
 
@@ -72,7 +72,7 @@ requirements and the userguide for higher level philosophy, structure, and desig
 ## License
 
 Earth-2 Inference Studio is provided under the Apache License 2.0, please see
-[LICENSE file](e2studio_license_url) for full license text.
+[LICENSE file][e2studio_license_url] for full license text.
 
 <!-- Badge links -->
 
