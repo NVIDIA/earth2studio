@@ -86,7 +86,6 @@ html_theme_options = {
         "image_light": "_static/NVIDIA-Logo-V-ForScreen-ForLightBG.png",
         "image_dark": "_static/NVIDIA-Logo-V-ForScreen-ForDarkBG.png",
     },
-    "navbar_start": ["navbar-logo"],
     "navbar_align": "left",
     "navbar_start": ["navbar-logo", "version-switcher"],
     "switcher": {
