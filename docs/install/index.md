@@ -50,6 +50,9 @@ Use the optional install commands to add these dependencies.
    * - FengWu
      - `pip install earth2studio[fengwu]`
      - ONNX Runtime
+   * - SFNO
+     - `pip install earth2studio[sfno]`
+     - [Modulus-Makani](https://github.com/NVIDIA/modulus-makani)
 ```
 
 ## For Developers

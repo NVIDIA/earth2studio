@@ -20,3 +20,4 @@ from earth2studio.models.px.fcn import FCN
 from earth2studio.models.px.fengwu import FengWu
 from earth2studio.models.px.pangu import Pangu3, Pangu6, Pangu24
 from earth2studio.models.px.persistence import Persistence
+from earth2studio.models.px.sfno import SFNO

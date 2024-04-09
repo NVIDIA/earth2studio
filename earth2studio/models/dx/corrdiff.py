@@ -166,15 +166,11 @@ class CorrDiffTaiwan(torch.nn.Module, AutoModelMixin):
         """Load diagnostic from package"""
         cached_path = package.get("corrdiff_inference_package.zip")
         residual = Module.from_checkpoint(
-            package.get(
                 cached_path + "/corrdiff_inference_package/checkpoints/diffusion.mdlus"
-            )
         ).eval()
 
         regression = Module.from_checkpoint(
-            package.get(
                 cached_path + "/corrdiff_inference_package/checkpoints/regression.mdlus"
-            )
         ).eval()
 
         # Get dataset for lat/lon grid info and centers/stds
