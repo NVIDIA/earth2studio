@@ -16,16 +16,17 @@
 
 # %%
 """
-Running Ensemble Inference
-==========================
+Single Variable Perturbation Method
+===================================
 
-Intermediate ensemble inference workflow.
+Intermediate ensemble inference using a custom perturbation method.
 
 This example will demonstrate how to run a an ensemble inference workflow
-with a custom perturbation method.
+with a custom perturbation method that only applies noise to a specific variable.
 
 In this example you will learn:
 
+- How to extend an existing pertubration method
 - How to instantiate a built in prognostic model
 - Creating a data source and IO object
 - Running a simple built in workflow
@@ -119,6 +120,7 @@ def run_ensemble(
     x, coords = fetch_data(
         source=data,
         time=time,
+        lead_time=prognostic.input_coords["lead_time"],
         variable=prognostic.input_coords["variable"],
         device=device,
     )
@@ -131,10 +133,7 @@ def run_ensemble(
     # Set up IO backend
     total_coords = coords.copy()
     total_coords["lead_time"] = np.asarray(
-        [
-            coords["lead_time"] + prognostic.output_coords["lead_time"] * i
-            for i in range(nsteps + 1)
-        ]
+        [prognostic.output_coords["lead_time"] * i for i in range(nsteps + 1)]
     ).flatten()
 
     var_names = total_coords.pop("variable")
@@ -168,7 +167,7 @@ def run_ensemble(
 #
 # We need the following:
 #
-# - Prognostic Model: Use the built in FourCastNet model :py:class:`earth2studio.models.px.FCN`.
+# - Prognostic Model: Use the built in DLWP model :py:class:`earth2studio.models.px.DLWP`.
 # - perturbation_method: Extend the Spherical Gaussian Method :py:class:`earth2studio.perturbation.SphericalGaussian`.
 # - Datasource: Pull data from the GFS data api :py:class:`earth2studio.data.GFS`.
 # - IO Backend: Lets save the outputs into a Zarr store :py:class:`earth2studio.io.ZarrBackend`.
@@ -179,25 +178,25 @@ import torch
 from collections import OrderedDict
 from typing import Union, List
 
-from earth2studio.models.px import FCN
+from earth2studio.models.px import DLWP
 from earth2studio.perturbation import PerturbationMethod, SphericalGaussian
 from earth2studio.data import GFS
 from earth2studio.io import ZarrBackend
 from earth2studio.utils.type import CoordSystem
 
 # Load the default model package which downloads the check point from NGC
-package = FCN.load_default_package()
-model = FCN.load_model(package)
+package = DLWP.load_default_package()
+model = DLWP.load_model(package)
 
 # Create the data source
 data = GFS()
 
-# Instantiate the pertubation method
+# %%
 # The perturbation method in 02_ensemble_workflow.py is naive because it applies the
 # same noise amplitude to every variable. We can create a custom wrapper that only
 # applies the perturbation method to a particular variable instead.
 
-
+# %%
 class ApplyToVariable:
     """Apply a perturbation to only a particular variable."""
 
@@ -277,7 +276,7 @@ def plot_(axi, data, title, cmap):
     axi.gridlines()
 
 
-for variable, cmap in zip(["t2m", "tcvw"], ["coolwarm", "Blues"]):
+for variable, cmap in zip(["t2m", "tcwv"], ["coolwarm", "Blues"]):
     step = 0  # lead time = 24 hrs
 
     plt.close("all")
@@ -308,4 +307,4 @@ for variable, cmap in zip(["t2m", "tcvw"], ["coolwarm", "Blues"]):
         cmap,
     )
 
-    plt.savefig(f"outputs/02_{forecast}_{variable}_{step}_ensemble.jpg")
+    plt.savefig(f"outputs/04_{forecast}_{variable}_{step}_ensemble.jpg")
