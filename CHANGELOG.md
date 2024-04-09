@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Initial Release of earth2studio
+- SFNO model `sfno_73ch_small`.
 
 ### Changed
 
