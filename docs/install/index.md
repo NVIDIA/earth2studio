@@ -15,7 +15,7 @@ pip install earth2studio
 To install the latest main branch version of Earth2Studio:
 
 ```bash
-git clone https://gitlab-master.nvidia.com/modulus/earth-2/earth2-inference-studio.git
+git clone https://github.com/NVIDIA/earth2studio.git
 
 cd earth2-inference-studio
 
@@ -60,7 +60,7 @@ Use the optional install commands to add these dependencies.
 For developers, use an edittable install of Earth-2 Studio with the `dev` option:
 
 ```bash
-git clone https://gitlab-master.nvidia.com/modulus/earth-2/earth2-inference-studio.git
+git clone https://github.com/NVIDIA/earth2studio.git
 
 cd earth2-inference-studio
 

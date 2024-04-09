@@ -120,6 +120,7 @@ def run_ensemble(
     x, coords = fetch_data(
         source=data,
         time=time,
+        lead_time=prognostic.input_coords["lead_time"],
         variable=prognostic.input_coords["variable"],
         device=device,
     )
@@ -132,10 +133,7 @@ def run_ensemble(
     # Set up IO backend
     total_coords = coords.copy()
     total_coords["lead_time"] = np.asarray(
-        [
-            coords["lead_time"] + prognostic.output_coords["lead_time"] * i
-            for i in range(nsteps + 1)
-        ]
+        [prognostic.output_coords["lead_time"] * i for i in range(nsteps + 1)]
     ).flatten()
 
     var_names = total_coords.pop("variable")
