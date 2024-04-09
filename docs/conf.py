@@ -80,7 +80,7 @@ html_css_files = [
     "css/custom.css",
 ]
 html_theme_options = {
-    "announcement": "Earth-2 Inference Studio is in Alpha!",
+    "announcement": "Earth-2 Inference Studio is now OSS!",
     "logo": {
         "text": "Earth-2 Inference Studio",
         "image_light": "_static/NVIDIA-Logo-V-ForScreen-ForLightBG.png",
