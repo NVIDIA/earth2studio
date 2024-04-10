@@ -6,7 +6,7 @@
 
 Computation times
 =================
-**07:18.535** total execution time for 4 files **from all galleries**:
+**07:00.073** total execution time for 3 files **from all galleries**:
 
 .. container::
 
@@ -33,14 +33,11 @@ Computation times
      - Time
      - Mem (MB)
    * - :ref:`sphx_glr_examples_02_ensemble_workflow.py` (``../examples/02_ensemble_workflow.py``)
-     - 03:17.707
-     - 0.0
-   * - :ref:`sphx_glr_examples_04_ensemble_workflow_extend.py` (``../examples/04_ensemble_workflow_extend.py``)
-     - 02:40.844
+     - 06:04.127
      - 0.0
    * - :ref:`sphx_glr_examples_01_simple_workflow.py` (``../examples/01_simple_workflow.py``)
-     - 01:05.009
+     - 00:49.896
      - 0.0
    * - :ref:`sphx_glr_examples_03_corrdiff_inference.py` (``../examples/03_corrdiff_inference.py``)
-     - 00:14.975
+     - 00:06.050
      - 0.0
