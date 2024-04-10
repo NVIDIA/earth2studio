@@ -69,7 +69,7 @@ and commonly used workflows.
 
 .. raw:: html
 
-    <div class="sphx-glr-thumbcontainer" tooltip="Intermediate ensemble inference workflow.">
+    <div class="sphx-glr-thumbcontainer" tooltip="Intermediate ensemble inference using a custom perturbation method.">
 
 .. only:: html
 
@@ -80,7 +80,7 @@ and commonly used workflows.
 
 .. raw:: html
 
-      <div class="sphx-glr-thumbnail-title">Running Ensemble Inference</div>
+      <div class="sphx-glr-thumbnail-title">Single Variable Perturbation Method</div>
     </div>
 
 

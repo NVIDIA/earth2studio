@@ -56,7 +56,7 @@ method that accepts the following:
 - data: Initialized data source to fetch initial conditions from
 - io: IOBackend
 
-.. GENERATED FROM PYTHON SOURCE LINES 58-165
+.. GENERATED FROM PYTHON SOURCE LINES 58-163
 
 .. code-block:: Python
 
@@ -125,6 +125,7 @@ method that accepts the following:
         x, coords = fetch_data(
             source=data,
             time=time,
+            lead_time=prognostic.input_coords["lead_time"],
             variable=prognostic.input_coords["variable"],
             device=device,
         )
@@ -137,10 +138,7 @@ method that accepts the following:
         # Set up IO backend
         total_coords = coords.copy()
         total_coords["lead_time"] = np.asarray(
-            [
-                coords["lead_time"] + prognostic.output_coords["lead_time"] * i
-                for i in range(nsteps + 1)
-            ]
+            [prognostic.output_coords["lead_time"] * i for i in range(nsteps + 1)]
         ).flatten()
 
         var_names = total_coords.pop("variable")
@@ -168,7 +166,7 @@ method that accepts the following:
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 166-178
+.. GENERATED FROM PYTHON SOURCE LINES 164-176
 
 Set Up
 ------
@@ -183,7 +181,7 @@ We need the following:
 
 %%
 
-.. GENERATED FROM PYTHON SOURCE LINES 178-203
+.. GENERATED FROM PYTHON SOURCE LINES 176-201
 
 .. code-block:: Python
 
@@ -213,7 +211,7 @@ We need the following:
     io = ZarrBackend(file_name="outputs/ensemble_sg.zarr", chunks=chunks)
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 204-214
+.. GENERATED FROM PYTHON SOURCE LINES 202-212
 
 Execute the Workflow
 --------------------
@@ -226,7 +224,7 @@ For the forecast we will predict for two days (these will get executed as a batc
 20 forecast steps which is 5 days.
 %%
 
-.. GENERATED FROM PYTHON SOURCE LINES 214-219
+.. GENERATED FROM PYTHON SOURCE LINES 212-217
 
 .. code-block:: Python
 
@@ -236,7 +234,7 @@ For the forecast we will predict for two days (these will get executed as a batc
     io = run_ensemble(["2024-01-01"], nsteps, nensemble, model, sg, data, io)
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 220-226
+.. GENERATED FROM PYTHON SOURCE LINES 218-224
 
 Post Processing
 ---------------
@@ -245,7 +243,7 @@ fields on projects of a sphere.
 
 Notice that the Zarr IO function has additional APIs to interact with the stored data.
 
-.. GENERATED FROM PYTHON SOURCE LINES 228-282
+.. GENERATED FROM PYTHON SOURCE LINES 226-280
 
 .. code-block:: Python
 

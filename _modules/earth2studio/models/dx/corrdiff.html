@@ -101,7 +101,7 @@
 
 
   <div class="bd-header-announcement container-fluid bd-header-announcement">
-    <div class="bd-header-announcement__content">Earth-2 Inference Studio is in Alpha!</div>
+    <div class="bd-header-announcement__content">Earth-2 Inference Studio is now OSS!</div>
   </div>
 
   
@@ -174,6 +174,13 @@
                       </a>
                     </li>
                 
+
+                <li class="nav-item">
+                  <a class="nav-link nav-external" href="https://gitlab-master.nvidia.com/modulus/earth-2/earth2-inference-studio/blob/main/CHANGELOG.md">
+                    Changelog
+                  </a>
+                </li>
+                
   </ul>
 </nav></div>
       
@@ -220,8 +227,8 @@ document.write(`
           
           
           
-          <a href="https://gitlab-master.nvidia.com/modulus/earth-2/earth2-inference-studio" title="Gitlab" class="nav-link" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><span><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i></span>
-            <span class="sr-only">Gitlab</span></a>
+          <a href="https://github.com/NVIDIA/earth2studio" title="Github" class="nav-link" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><span><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i></span>
+            <span class="sr-only">Github</span></a>
         </li>
 </ul></div>
       
@@ -297,6 +304,13 @@ document.write(`
                       </a>
                     </li>
                 
+
+                <li class="nav-item">
+                  <a class="nav-link nav-external" href="https://gitlab-master.nvidia.com/modulus/earth-2/earth2-inference-studio/blob/main/CHANGELOG.md">
+                    Changelog
+                  </a>
+                </li>
+                
   </ul>
 </nav></div>
         
@@ -329,8 +343,8 @@ document.write(`
           
           
           
-          <a href="https://gitlab-master.nvidia.com/modulus/earth-2/earth2-inference-studio" title="Gitlab" class="nav-link" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><span><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i></span>
-            <span class="sr-only">Gitlab</span></a>
+          <a href="https://github.com/NVIDIA/earth2studio" title="Github" class="nav-link" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><span><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i></span>
+            <span class="sr-only">Github</span></a>
         </li>
 </ul></div>
         
@@ -566,15 +580,11 @@ document.write(`
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Load diagnostic from package&quot;&quot;&quot;</span>
         <span class="n">cached_path</span> <span class="o">=</span> <span class="n">package</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;corrdiff_inference_package.zip&quot;</span><span class="p">)</span>
         <span class="n">residual</span> <span class="o">=</span> <span class="n">Module</span><span class="o">.</span><span class="n">from_checkpoint</span><span class="p">(</span>
-            <span class="n">package</span><span class="o">.</span><span class="n">get</span><span class="p">(</span>
-                <span class="n">cached_path</span> <span class="o">+</span> <span class="s2">&quot;/corrdiff_inference_package/checkpoints/diffusion.mdlus&quot;</span>
-            <span class="p">)</span>
+            <span class="n">cached_path</span> <span class="o">+</span> <span class="s2">&quot;/corrdiff_inference_package/checkpoints/diffusion.mdlus&quot;</span>
         <span class="p">)</span><span class="o">.</span><span class="n">eval</span><span class="p">()</span>
 
         <span class="n">regression</span> <span class="o">=</span> <span class="n">Module</span><span class="o">.</span><span class="n">from_checkpoint</span><span class="p">(</span>
-            <span class="n">package</span><span class="o">.</span><span class="n">get</span><span class="p">(</span>
-                <span class="n">cached_path</span> <span class="o">+</span> <span class="s2">&quot;/corrdiff_inference_package/checkpoints/regression.mdlus&quot;</span>
-            <span class="p">)</span>
+            <span class="n">cached_path</span> <span class="o">+</span> <span class="s2">&quot;/corrdiff_inference_package/checkpoints/regression.mdlus&quot;</span>
         <span class="p">)</span><span class="o">.</span><span class="n">eval</span><span class="p">()</span>
 
         <span class="c1"># Get dataset for lat/lon grid info and centers/stds</span>

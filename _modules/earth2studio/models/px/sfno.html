@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>earth2studio.models.px.fcn &#8212; Earth-2 Inference Studio 0.1.0a0 documentation</title>
+    <title>earth2studio.models.px.sfno &#8212; Earth-2 Inference Studio 0.1.0a0 documentation</title>
   
   
   
@@ -44,7 +44,7 @@
     <script src="../../../../_static/doctools.js?v=888ff710"></script>
     <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../../_static/design-tabs.js?v=36754332"></script>
-    <script>DOCUMENTATION_OPTIONS.pagename = '_modules/earth2studio/models/px/fcn';</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = '_modules/earth2studio/models/px/sfno';</script>
     <link rel="index" title="Index" href="../../../../genindex.html" />
     <link rel="search" title="Search" href="../../../../search.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
@@ -404,7 +404,7 @@ document.write(`
 <div id="searchbox"></div>
                 <article class="bd-article">
                   
-  <h1>Source code for earth2studio.models.px.fcn</h1><div class="highlight"><pre>
+  <h1>Source code for earth2studio.models.px.sfno</h1><div class="highlight"><pre>
 <span></span><span class="c1"># SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION &amp; AFFILIATES.</span>
 <span class="c1"># SPDX-FileCopyrightText: All rights reserved.</span>
 <span class="c1"># SPDX-License-Identifier: Apache-2.0</span>
@@ -426,59 +426,112 @@ document.write(`
 
 <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 <span class="kn">import</span> <span class="nn">torch</span>
-<span class="kn">from</span> <span class="nn">modulus.models.afno</span> <span class="kn">import</span> <span class="n">AFNO</span>
+
+<span class="k">try</span><span class="p">:</span>
+    <span class="kn">from</span> <span class="nn">makani.models.model_package</span> <span class="kn">import</span> <span class="n">load_model_package</span>
+<span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+    <span class="n">load_model_package</span> <span class="o">=</span> <span class="kc">None</span>
 
 <span class="kn">from</span> <span class="nn">earth2studio.models.auto</span> <span class="kn">import</span> <span class="n">AutoModelMixin</span><span class="p">,</span> <span class="n">Package</span>
-<span class="kn">from</span> <span class="nn">earth2studio.models.batch</span> <span class="kn">import</span> <span class="n">batch_func</span>
 <span class="kn">from</span> <span class="nn">earth2studio.models.px.base</span> <span class="kn">import</span> <span class="n">PrognosticModel</span>
 <span class="kn">from</span> <span class="nn">earth2studio.models.px.utils</span> <span class="kn">import</span> <span class="n">PrognosticMixin</span>
 <span class="kn">from</span> <span class="nn">earth2studio.utils</span> <span class="kn">import</span> <span class="n">handshake_coords</span><span class="p">,</span> <span class="n">handshake_dim</span>
+<span class="kn">from</span> <span class="nn">earth2studio.utils.time</span> <span class="kn">import</span> <span class="n">timearray_to_datetime</span>
 <span class="kn">from</span> <span class="nn">earth2studio.utils.type</span> <span class="kn">import</span> <span class="n">CoordSystem</span>
 
 <span class="n">VARIABLES</span> <span class="o">=</span> <span class="p">[</span>
     <span class="s2">&quot;u10m&quot;</span><span class="p">,</span>
     <span class="s2">&quot;v10m&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;u100m&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;v100m&quot;</span><span class="p">,</span>
     <span class="s2">&quot;t2m&quot;</span><span class="p">,</span>
     <span class="s2">&quot;sp&quot;</span><span class="p">,</span>
     <span class="s2">&quot;msl&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;t850&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;u1000&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;v1000&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;z1000&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;u850&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;v850&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;z850&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;u500&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;v500&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;z500&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;t500&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;z50&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;r500&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;r850&quot;</span><span class="p">,</span>
     <span class="s2">&quot;tcwv&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;u100m&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;v100m&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;u50&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;u100&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;u150&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;u200&quot;</span><span class="p">,</span>
     <span class="s2">&quot;u250&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;u300&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;u400&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;u500&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;u600&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;u700&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;u850&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;u925&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;u1000&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;v50&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;v100&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;v150&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;v200&quot;</span><span class="p">,</span>
     <span class="s2">&quot;v250&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;v300&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;v400&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;v500&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;v600&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;v700&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;v850&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;v925&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;v1000&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;z50&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;z100&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;z150&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;z200&quot;</span><span class="p">,</span>
     <span class="s2">&quot;z250&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;z300&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;z400&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;z500&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;z600&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;z700&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;z850&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;z925&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;z1000&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;t50&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;t100&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;t150&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;t200&quot;</span><span class="p">,</span>
     <span class="s2">&quot;t250&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;t300&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;t400&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;t500&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;t600&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;t700&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;t850&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;t925&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;t1000&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;q50&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;q100&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;q150&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;q200&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;q250&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;q300&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;q400&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;q500&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;q600&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;q700&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;q850&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;q925&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;q1000&quot;</span><span class="p">,</span>
 <span class="p">]</span>
 
 
-<div class="viewcode-block" id="FCN">
-<a class="viewcode-back" href="../../../../modules/generated/models/px/earth2studio.models.px.FCN.html#earth2studio.models.px.FCN">[docs]</a>
-<span class="k">class</span> <span class="nc">FCN</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">,</span> <span class="n">AutoModelMixin</span><span class="p">,</span> <span class="n">PrognosticMixin</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;FourCastNet global prognostic model. Consists of a single model with a time-step</span>
-<span class="sd">    size of 6 hours. FourCastNet operates on 0.25 degree lat-lon grid (south-pole</span>
-<span class="sd">    excluding) equirectangular grid with 26 variables.</span>
+<div class="viewcode-block" id="SFNO">
+<a class="viewcode-back" href="../../../../modules/generated/models/px/earth2studio.models.px.SFNO.html#earth2studio.models.px.SFNO">[docs]</a>
+<span class="k">class</span> <span class="nc">SFNO</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">,</span> <span class="n">AutoModelMixin</span><span class="p">,</span> <span class="n">PrognosticMixin</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Spherical Fourier Operator Network global prognostic model.</span>
+<span class="sd">    Consists of a single model with a time-step size of 6 hours.</span>
+<span class="sd">    FourCastNet operates on 0.25 degree lat-lon grid (south-pole excluding)</span>
+<span class="sd">    equirectangular grid with 73 variables.</span>
 
 <span class="sd">    Note</span>
 <span class="sd">    ----</span>
-<span class="sd">    This model is a retrained version on more atmospgeric variables from the FourCastNet</span>
-<span class="sd">    paper. For additional information see the following resources:</span>
+<span class="sd">    This model and checkpoint are trained using Modulus-Makani. For more information</span>
+<span class="sd">    see the following references:</span>
 
-<span class="sd">    - https://arxiv.org/abs/2202.11214</span>
-<span class="sd">    - https://catalog.ngc.nvidia.com/orgs/nvidia/teams/modulus/models/modulus_fcn</span>
+<span class="sd">    - https://arxiv.org/abs/2306.03838</span>
+<span class="sd">    - https://github.com/NVIDIA/modulus-makani</span>
+<span class="sd">    - https://catalog.ngc.nvidia.com/orgs/nvidia/teams/modulus/models/sfno_73ch_small</span>
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
@@ -500,58 +553,71 @@ document.write(`
         <span class="bp">self</span><span class="o">.</span><span class="n">model</span> <span class="o">=</span> <span class="n">core_model</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">register_buffer</span><span class="p">(</span><span class="s2">&quot;center&quot;</span><span class="p">,</span> <span class="n">center</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">register_buffer</span><span class="p">(</span><span class="s2">&quot;scale&quot;</span><span class="p">,</span> <span class="n">scale</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">variables</span> <span class="o">=</span> <span class="n">VARIABLES</span>
 
-    <span class="n">input_coords</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">(</span>
-        <span class="p">{</span>
-            <span class="s2">&quot;batch&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">1</span><span class="p">),</span>
-            <span class="s2">&quot;lead_time&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">np</span><span class="o">.</span><span class="n">timedelta64</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;h&quot;</span><span class="p">)]),</span>
-            <span class="s2">&quot;variable&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">VARIABLES</span><span class="p">),</span>
-            <span class="s2">&quot;lat&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">90</span><span class="p">,</span> <span class="o">-</span><span class="mi">90</span><span class="p">,</span> <span class="mi">720</span><span class="p">,</span> <span class="n">endpoint</span><span class="o">=</span><span class="kc">False</span><span class="p">),</span>
-            <span class="s2">&quot;lon&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">360</span><span class="p">,</span> <span class="mi">1440</span><span class="p">,</span> <span class="n">endpoint</span><span class="o">=</span><span class="kc">False</span><span class="p">),</span>
-        <span class="p">}</span>
-    <span class="p">)</span>
+        <span class="n">lat</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mf">90.0</span><span class="p">,</span> <span class="o">-</span><span class="mf">90.0</span><span class="p">,</span> <span class="mi">721</span><span class="p">)</span>
+        <span class="n">lon</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">360</span><span class="p">,</span> <span class="mi">1440</span><span class="p">,</span> <span class="n">endpoint</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">input_coords</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">(</span>
+            <span class="p">{</span>
+                <span class="s2">&quot;time&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">1</span><span class="p">),</span>
+                <span class="s2">&quot;lead_time&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">np</span><span class="o">.</span><span class="n">timedelta64</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;h&quot;</span><span class="p">)]),</span>
+                <span class="s2">&quot;variable&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">VARIABLES</span><span class="p">),</span>
+                <span class="s2">&quot;lat&quot;</span><span class="p">:</span> <span class="n">lat</span><span class="p">,</span>
+                <span class="s2">&quot;lon&quot;</span><span class="p">:</span> <span class="n">lon</span><span class="p">,</span>
+            <span class="p">}</span>
+        <span class="p">)</span>
 
-    <span class="n">output_coords</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">(</span>
-        <span class="p">{</span>
-            <span class="s2">&quot;batch&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">1</span><span class="p">),</span>
-            <span class="s2">&quot;lead_time&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">np</span><span class="o">.</span><span class="n">timedelta64</span><span class="p">(</span><span class="mi">6</span><span class="p">,</span> <span class="s2">&quot;h&quot;</span><span class="p">)]),</span>
-            <span class="s2">&quot;variable&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">VARIABLES</span><span class="p">),</span>
-            <span class="s2">&quot;lat&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">90</span><span class="p">,</span> <span class="o">-</span><span class="mi">90</span><span class="p">,</span> <span class="mi">720</span><span class="p">,</span> <span class="n">endpoint</span><span class="o">=</span><span class="kc">False</span><span class="p">),</span>
-            <span class="s2">&quot;lon&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">360</span><span class="p">,</span> <span class="mi">1440</span><span class="p">,</span> <span class="n">endpoint</span><span class="o">=</span><span class="kc">False</span><span class="p">),</span>
-        <span class="p">}</span>
-    <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">output_coords</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">(</span>
+            <span class="p">{</span>
+                <span class="s2">&quot;time&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">1</span><span class="p">),</span>
+                <span class="s2">&quot;lead_time&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">np</span><span class="o">.</span><span class="n">timedelta64</span><span class="p">(</span><span class="mi">6</span><span class="p">,</span> <span class="s2">&quot;h&quot;</span><span class="p">)]),</span>
+                <span class="s2">&quot;variable&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">VARIABLES</span><span class="p">),</span>
+                <span class="s2">&quot;lat&quot;</span><span class="p">:</span> <span class="n">lat</span><span class="p">,</span>
+                <span class="s2">&quot;lon&quot;</span><span class="p">:</span> <span class="n">lon</span><span class="p">,</span>
+            <span class="p">}</span>
+        <span class="p">)</span>
 
-    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-        <span class="k">return</span> <span class="s2">&quot;fcn&quot;</span>
+    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">return</span> <span class="s2">&quot;sfno_73ch_small&quot;</span>
 
-<div class="viewcode-block" id="FCN.load_default_package">
-<a class="viewcode-back" href="../../../../modules/generated/models/px/earth2studio.models.px.FCN.html#earth2studio.models.px.FCN.load_default_package">[docs]</a>
+<div class="viewcode-block" id="SFNO.load_default_package">
+<a class="viewcode-back" href="../../../../modules/generated/models/px/earth2studio.models.px.SFNO.html#earth2studio.models.px.SFNO.load_default_package">[docs]</a>
     <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">load_default_package</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Package</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Load prognostic package&quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="n">Package</span><span class="p">(</span><span class="s2">&quot;ngc://models/nvidia/modulus/modulus_fcn@v0.2&quot;</span><span class="p">)</span></div>
+        <span class="k">return</span> <span class="n">Package</span><span class="p">(</span>
+            <span class="s2">&quot;ngc://models/nvidia/modulus/sfno_73ch_small@0.1.0/sfno_73ch_small&quot;</span>
+        <span class="p">)</span></div>
 
 
-<div class="viewcode-block" id="FCN.load_model">
-<a class="viewcode-back" href="../../../../modules/generated/models/px/earth2studio.models.px.FCN.html#earth2studio.models.px.FCN.load_model">[docs]</a>
+<div class="viewcode-block" id="SFNO.load_model">
+<a class="viewcode-back" href="../../../../modules/generated/models/px/earth2studio.models.px.SFNO.html#earth2studio.models.px.SFNO.load_model">[docs]</a>
     <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">load_model</span><span class="p">(</span>
         <span class="bp">cls</span><span class="p">,</span>
         <span class="n">package</span><span class="p">:</span> <span class="n">Package</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">PrognosticModel</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Load prognostic from package&quot;&quot;&quot;</span>
-        <span class="c1"># Ghetto at the moment because NGC files are zipped. This will download zip and</span>
-        <span class="c1"># unpack them then give the cached folder location from which we can then</span>
-        <span class="c1"># access the needed files.</span>
-        <span class="n">cached_path</span> <span class="o">=</span> <span class="n">package</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;fcn.zip&quot;</span><span class="p">)</span>
-        <span class="n">model</span> <span class="o">=</span> <span class="n">AFNO</span><span class="o">.</span><span class="n">from_checkpoint</span><span class="p">(</span><span class="n">cached_path</span> <span class="o">+</span> <span class="s2">&quot;/fcn/fcn.mdlus&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">load_model_package</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ImportError</span><span class="p">(</span>
+                <span class="s2">&quot;Modulus Makani required for FCNv2. Install the [sfno] optional dependencies&quot;</span>
+            <span class="p">)</span>
+        <span class="n">model</span> <span class="o">=</span> <span class="n">load_model_package</span><span class="p">(</span><span class="n">package</span><span class="p">)</span>
         <span class="n">model</span><span class="o">.</span><span class="n">eval</span><span class="p">()</span>
 
-        <span class="n">local_center</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">cached_path</span> <span class="o">+</span> <span class="s2">&quot;/fcn/global_means.npy&quot;</span><span class="p">))</span>
-        <span class="n">local_std</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">cached_path</span> <span class="o">+</span> <span class="s2">&quot;/fcn/global_stds.npy&quot;</span><span class="p">))</span>
-        <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">center</span><span class="o">=</span><span class="n">local_center</span><span class="p">,</span> <span class="n">scale</span><span class="o">=</span><span class="n">local_std</span><span class="p">)</span></div>
+        <span class="c1"># Load center and std normalizations</span>
+        <span class="n">local_center</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">package</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;global_means.npy&quot;</span><span class="p">)))[</span>
+            <span class="p">:,</span> <span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">VARIABLES</span><span class="p">)</span>
+        <span class="p">]</span>
+        <span class="n">local_std</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">package</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;global_stds.npy&quot;</span><span class="p">)))[</span>
+            <span class="p">:,</span> <span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">VARIABLES</span><span class="p">)</span>
+        <span class="p">]</span>
+
+        <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span>
+            <span class="n">model</span><span class="p">,</span>
+            <span class="n">center</span><span class="o">=</span><span class="n">local_center</span><span class="p">,</span>
+            <span class="n">scale</span><span class="o">=</span><span class="n">local_std</span><span class="p">,</span>
+        <span class="p">)</span></div>
 
 
     <span class="nd">@torch</span><span class="o">.</span><span class="n">inference_mode</span><span class="p">()</span>
@@ -561,19 +627,20 @@ document.write(`
         <span class="n">coords</span><span class="p">:</span> <span class="n">CoordSystem</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">CoordSystem</span><span class="p">]:</span>
         <span class="n">output_coords</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">output_coords</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
-        <span class="n">output_coords</span><span class="p">[</span><span class="s2">&quot;batch&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">coords</span><span class="p">[</span><span class="s2">&quot;batch&quot;</span><span class="p">]</span>
+        <span class="n">output_coords</span><span class="p">[</span><span class="s2">&quot;time&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">coords</span><span class="p">[</span><span class="s2">&quot;time&quot;</span><span class="p">]</span>
         <span class="n">output_coords</span><span class="p">[</span><span class="s2">&quot;lead_time&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">output_coords</span><span class="p">[</span><span class="s2">&quot;lead_time&quot;</span><span class="p">]</span> <span class="o">+</span> <span class="n">coords</span><span class="p">[</span><span class="s2">&quot;lead_time&quot;</span><span class="p">]</span>
 
         <span class="n">x</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">squeeze</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
         <span class="n">x</span> <span class="o">=</span> <span class="p">(</span><span class="n">x</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">center</span><span class="p">)</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">scale</span>
-        <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+        <span class="k">for</span> <span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">t</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">coords</span><span class="p">[</span><span class="s2">&quot;time&quot;</span><span class="p">]):</span>
+            <span class="n">t</span> <span class="o">=</span> <span class="n">timearray_to_datetime</span><span class="p">(</span><span class="n">t</span> <span class="o">+</span> <span class="n">coords</span><span class="p">[</span><span class="s2">&quot;lead_time&quot;</span><span class="p">])</span>
+            <span class="n">x</span><span class="p">[</span><span class="n">i</span> <span class="p">:</span> <span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="n">i</span> <span class="p">:</span> <span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">],</span> <span class="n">t</span><span class="p">)</span>
         <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">scale</span> <span class="o">*</span> <span class="n">x</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">center</span>
         <span class="n">x</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">x</span><span class="p">,</span> <span class="n">output_coords</span>
 
-<div class="viewcode-block" id="FCN.__call__">
-<a class="viewcode-back" href="../../../../modules/generated/models/px/earth2studio.models.px.FCN.html#earth2studio.models.px.FCN.__call__">[docs]</a>
-    <span class="nd">@batch_func</span><span class="p">()</span>
+<div class="viewcode-block" id="SFNO.__call__">
+<a class="viewcode-back" href="../../../../modules/generated/models/px/earth2studio.models.px.SFNO.html#earth2studio.models.px.SFNO.__call__">[docs]</a>
     <span class="k">def</span> <span class="fm">__call__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
@@ -589,12 +656,12 @@ document.write(`
 <span class="sd">            Input coordinate system</span>
 
 <span class="sd">        Returns</span>
-<span class="sd">        -------</span>
-<span class="sd">        tuple[torch.Tensor, CoordSystem]</span>
-<span class="sd">            Output tensor and coordinate system 6 hours in the future</span>
+<span class="sd">        ------</span>
+<span class="sd">        x : torch.Tensor</span>
+<span class="sd">        coords : CoordSystem</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">input_coords</span><span class="o">.</span><span class="n">items</span><span class="p">()):</span>
-            <span class="k">if</span> <span class="n">key</span> <span class="o">!=</span> <span class="s2">&quot;batch&quot;</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">key</span> <span class="o">!=</span> <span class="s2">&quot;time&quot;</span><span class="p">:</span>
                 <span class="n">handshake_dim</span><span class="p">(</span><span class="n">coords</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">i</span><span class="p">)</span>
                 <span class="n">handshake_coords</span><span class="p">(</span><span class="n">coords</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">input_coords</span><span class="p">,</span> <span class="n">key</span><span class="p">)</span>
 
@@ -603,14 +670,13 @@ document.write(`
         <span class="k">return</span> <span class="n">x</span><span class="p">,</span> <span class="n">coords</span></div>
 
 
-    <span class="nd">@batch_func</span><span class="p">()</span>
     <span class="k">def</span> <span class="nf">_default_generator</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">coords</span><span class="p">:</span> <span class="n">CoordSystem</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Generator</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">CoordSystem</span><span class="p">],</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">]:</span>
         <span class="n">coords</span> <span class="o">=</span> <span class="n">coords</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
 
         <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">input_coords</span><span class="o">.</span><span class="n">items</span><span class="p">()):</span>
-            <span class="k">if</span> <span class="n">key</span> <span class="o">!=</span> <span class="s2">&quot;batch&quot;</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">key</span> <span class="o">!=</span> <span class="s2">&quot;time&quot;</span><span class="p">:</span>
                 <span class="n">handshake_dim</span><span class="p">(</span><span class="n">coords</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">i</span><span class="p">)</span>
                 <span class="n">handshake_coords</span><span class="p">(</span><span class="n">coords</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">input_coords</span><span class="p">,</span> <span class="n">key</span><span class="p">)</span>
 
@@ -628,8 +694,8 @@ document.write(`
 
             <span class="k">yield</span> <span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
 
-<div class="viewcode-block" id="FCN.create_iterator">
-<a class="viewcode-back" href="../../../../modules/generated/models/px/earth2studio.models.px.FCN.html#earth2studio.models.px.FCN.create_iterator">[docs]</a>
+<div class="viewcode-block" id="SFNO.create_iterator">
+<a class="viewcode-back" href="../../../../modules/generated/models/px/earth2studio.models.px.SFNO.html#earth2studio.models.px.SFNO.create_iterator">[docs]</a>
     <span class="k">def</span> <span class="nf">create_iterator</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">coords</span><span class="p">:</span> <span class="n">CoordSystem</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Iterator</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">CoordSystem</span><span class="p">]]:</span>

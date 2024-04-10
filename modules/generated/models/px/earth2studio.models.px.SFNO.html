@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
     <link href="../../../../_static/favicon.ico" rel="icon" type="image/x-icon">
-    <title>earth2studio.models.px.FengWu &#8212; Earth-2 Inference Studio 0.1.0a0 documentation</title>
+    <title>earth2studio.models.px.SFNO &#8212; Earth-2 Inference Studio 0.1.0a0 documentation</title>
   
   
   
@@ -45,11 +45,11 @@
     <script src="../../../../_static/doctools.js?v=888ff710"></script>
     <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../../_static/design-tabs.js?v=36754332"></script>
-    <script>DOCUMENTATION_OPTIONS.pagename = 'modules/generated/models/px/earth2studio.models.px.FengWu';</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'modules/generated/models/px/earth2studio.models.px.SFNO';</script>
     <link rel="index" title="Index" href="../../../../genindex.html" />
     <link rel="search" title="Search" href="../../../../search.html" />
-    <link rel="next" title="earth2studio.models.px.Pangu24" href="earth2studio.models.px.Pangu24.html" />
-    <link rel="prev" title="earth2studio.models.px.FCN" href="earth2studio.models.px.FCN.html" />
+    <link rel="next" title="earth2studio.models.dx.CorrDiffTaiwan" href="../dx/earth2studio.models.dx.CorrDiffTaiwan.html" />
+    <link rel="prev" title="earth2studio.models.px.Persistence" href="earth2studio.models.px.Persistence.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   </head>
@@ -366,12 +366,12 @@ document.write(`
 <li class="toctree-l1 current active has-children"><a class="reference internal" href="../../../models.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models</span></code>: Models</a><input checked="" class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-1"><i class="fa-solid fa-chevron-down"></i></label><ul class="current">
 <li class="toctree-l2"><a class="reference internal" href="earth2studio.models.px.DLWP.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.DLWP</a></li>
 <li class="toctree-l2"><a class="reference internal" href="earth2studio.models.px.FCN.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.FCN</a></li>
-<li class="toctree-l2 current active"><a class="current reference internal" href="#"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.FengWu</a></li>
+<li class="toctree-l2"><a class="reference internal" href="earth2studio.models.px.FengWu.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.FengWu</a></li>
 <li class="toctree-l2"><a class="reference internal" href="earth2studio.models.px.Pangu24.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.Pangu24</a></li>
 <li class="toctree-l2"><a class="reference internal" href="earth2studio.models.px.Pangu6.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.Pangu6</a></li>
 <li class="toctree-l2"><a class="reference internal" href="earth2studio.models.px.Pangu3.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.Pangu3</a></li>
 <li class="toctree-l2"><a class="reference internal" href="earth2studio.models.px.Persistence.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.Persistence</a></li>
-<li class="toctree-l2"><a class="reference internal" href="earth2studio.models.px.SFNO.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.SFNO</a></li>
+<li class="toctree-l2 current active"><a class="current reference internal" href="#"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.SFNO</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../dx/earth2studio.models.dx.CorrDiffTaiwan.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.dx</span></code>.CorrDiffTaiwan</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../dx/earth2studio.models.dx.ClimateNet.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.dx</span></code>.ClimateNet</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../dx/earth2studio.models.dx.PrecipitationAFNO.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.dx</span></code>.PrecipitationAFNO</a></li>
@@ -488,43 +488,38 @@ document.write(`
 <div id="searchbox"></div>
                 <article class="bd-article">
                   
-  <section id="earth2studio-models-px-fengwu">
-<h1><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.FengWu<a class="headerlink" href="#earth2studio-models-px-fengwu" title="Link to this heading">#</a></h1>
+  <section id="earth2studio-models-px-sfno">
+<h1><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.SFNO<a class="headerlink" href="#earth2studio-models-px-sfno" title="Link to this heading">#</a></h1>
 <dl class="py class">
-<dt class="sig sig-object py" id="earth2studio.models.px.FengWu">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">earth2studio.models.px.</span></span><span class="sig-name descname"><span class="pre">FengWu</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ort</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">center</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scale</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/earth2studio/models/px/fengwu.html#FengWu"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.px.FengWu" title="Link to this definition">#</a></dt>
-<dd><p>FengWu (operational) weather model consists of single auto-regressive model with
-a time-step size of 6 hours. FengWu operates on 0.25 degree lat-lon grid (south-pole
-including) equirectangular grid with 69 atmospheric/surface variables. This model
-uses two time-steps as an input.</p>
+<dt class="sig sig-object py" id="earth2studio.models.px.SFNO">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">earth2studio.models.px.</span></span><span class="sig-name descname"><span class="pre">SFNO</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">core_model</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">center</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scale</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/earth2studio/models/px/sfno.html#SFNO"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.px.SFNO" title="Link to this definition">#</a></dt>
+<dd><p>Spherical Fourier Operator Network global prognostic model.
+Consists of a single model with a time-step size of 6 hours.
+FourCastNet operates on 0.25 degree lat-lon grid (south-pole excluding)
+equirectangular grid with 73 variables.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>This model uses the ONNX checkpoint from the original publication repository. This
-checkpoint is a operational version to the one used in the paper which requires less
-variables. For additional information see the following resources:</p>
+<p>This model and checkpoint are trained using Modulus-Makani. For more information
+see the following references:</p>
 <ul class="simple">
-<li><p><a class="reference external" href="https://arxiv.org/abs/2304.02948">https://arxiv.org/abs/2304.02948</a></p></li>
-<li><p><a class="github reference external" href="https://github.com/OpenEarthLab/FengWu">OpenEarthLab/FengWu</a></p></li>
+<li><p><a class="reference external" href="https://arxiv.org/abs/2306.03838">https://arxiv.org/abs/2306.03838</a></p></li>
+<li><p><a class="github reference external" href="https://github.com/NVIDIA/modulus-makani">NVIDIA/modulus-makani</a></p></li>
+<li><p><a class="reference external" href="https://catalog.ngc.nvidia.com/orgs/nvidia/teams/modulus/models/sfno_73ch_small">https://catalog.ngc.nvidia.com/orgs/nvidia/teams/modulus/models/sfno_73ch_small</a></p></li>
 </ul>
-</div>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>To avoid ONNX init session overhead of this model we recommend setting the default
-Pytorch device to the correct target prior to model construction.</p>
 </div>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>ort</strong> (<em>str</em>) – Path to FengWu 6 hour onnx file</p></li>
-<li><p><strong>center</strong> (<em>torch.Tensor</em>) – Model variable center normalization tensor of size [69]</p></li>
-<li><p><strong>scale</strong> (<em>torch.Tensor</em>) – Model variable scale normalization tensor of size [69]</p></li>
+<li><p><strong>core_model</strong> (<em>torch.nn.Module</em>) – Core PyTorch model with loaded weights</p></li>
+<li><p><strong>center</strong> (<em>torch.Tensor</em>) – Model center normalization tensor of size [26]</p></li>
+<li><p><strong>scale</strong> (<em>torch.Tensor</em>) – Model scale normalization tensor of size [26]</p></li>
 </ul>
 </dd>
 </dl>
 <dl class="py method">
-<dt class="sig sig-object py" id="earth2studio.models.px.FengWu.__call__">
-<span class="sig-name descname"><span class="pre">__call__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">coords</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/earth2studio/models/px/fengwu.html#FengWu.__call__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.px.FengWu.__call__" title="Link to this definition">#</a></dt>
-<dd><p>Runs 6 hour prognostic model 1 step.</p>
+<dt class="sig sig-object py" id="earth2studio.models.px.SFNO.__call__">
+<span class="sig-name descname"><span class="pre">__call__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">coords</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/earth2studio/models/px/sfno.html#SFNO.__call__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.px.SFNO.__call__" title="Link to this definition">#</a></dt>
+<dd><p>Runs prognostic model 1 step.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
@@ -533,17 +528,21 @@ Pytorch device to the correct target prior to model construction.</p>
 </ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p>Output tensor and coordinate system 6 hours in the future</p>
+<dd class="field-even"><p><ul class="simple">
+<li><p><strong>x</strong> (<em>torch.Tensor</em>)</p></li>
+<li><p><strong>coords</strong> (<em>CoordSystem</em>)</p></li>
+</ul>
+</p>
 </dd>
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>tuple[torch.Tensor, CoordSystem]</p>
+<dd class="field-odd"><p>tuple[<em>Tensor</em>, <em>OrderedDict</em>[str, <em>ndarray</em>]]</p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py method">
-<dt class="sig sig-object py" id="earth2studio.models.px.FengWu.create_iterator">
-<span class="sig-name descname"><span class="pre">create_iterator</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">coords</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/earth2studio/models/px/fengwu.html#FengWu.create_iterator"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.px.FengWu.create_iterator" title="Link to this definition">#</a></dt>
+<dt class="sig sig-object py" id="earth2studio.models.px.SFNO.create_iterator">
+<span class="sig-name descname"><span class="pre">create_iterator</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">coords</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/earth2studio/models/px/sfno.html#SFNO.create_iterator"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.px.SFNO.create_iterator" title="Link to this definition">#</a></dt>
 <dd><p>Creates a iterator which can be used to perform time-integration of the
 prognostic model. Will return the initial condition first (0th step).</p>
 <dl class="field-list simple">
@@ -564,8 +563,8 @@ output data tensor and coordinate system dictionary.</p>
 </dd></dl>
 
 <dl class="py method">
-<dt class="sig sig-object py" id="earth2studio.models.px.FengWu.load_default_package">
-<em class="property"><span class="pre">classmethod</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">load_default_package</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/earth2studio/models/px/fengwu.html#FengWu.load_default_package"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.px.FengWu.load_default_package" title="Link to this definition">#</a></dt>
+<dt class="sig sig-object py" id="earth2studio.models.px.SFNO.load_default_package">
+<em class="property"><span class="pre">classmethod</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">load_default_package</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/earth2studio/models/px/sfno.html#SFNO.load_default_package"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.px.SFNO.load_default_package" title="Link to this definition">#</a></dt>
 <dd><p>Load prognostic package</p>
 <dl class="field-list simple">
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
@@ -575,8 +574,8 @@ output data tensor and coordinate system dictionary.</p>
 </dd></dl>
 
 <dl class="py method">
-<dt class="sig sig-object py" id="earth2studio.models.px.FengWu.load_model">
-<em class="property"><span class="pre">classmethod</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">load_model</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">package</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/earth2studio/models/px/fengwu.html#FengWu.load_model"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.px.FengWu.load_model" title="Link to this definition">#</a></dt>
+<dt class="sig sig-object py" id="earth2studio.models.px.SFNO.load_model">
+<em class="property"><span class="pre">classmethod</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">load_model</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">package</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/earth2studio/models/px/sfno.html#SFNO.load_model"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.px.SFNO.load_model" title="Link to this definition">#</a></dt>
 <dd><p>Load prognostic from package</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -603,20 +602,20 @@ output data tensor and coordinate system dictionary.</p>
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="earth2studio.models.px.FCN.html"
+       href="earth2studio.models.px.Persistence.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.FCN</p>
+        <p class="prev-next-title"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.Persistence</p>
       </div>
     </a>
     <a class="right-next"
-       href="earth2studio.models.px.Pangu24.html"
+       href="../dx/earth2studio.models.dx.CorrDiffTaiwan.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.Pangu24</p>
+        <p class="prev-next-title"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.dx</span></code>.CorrDiffTaiwan</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
@@ -638,11 +637,11 @@ output data tensor and coordinate system dictionary.</p>
   </div>
   <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="visible nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.models.px.FengWu"><code class="docutils literal notranslate"><span class="pre">FengWu</span></code></a><ul class="nav section-nav flex-column">
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.models.px.FengWu.__call__"><code class="docutils literal notranslate"><span class="pre">FengWu.__call__()</span></code></a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.models.px.FengWu.create_iterator"><code class="docutils literal notranslate"><span class="pre">FengWu.create_iterator()</span></code></a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.models.px.FengWu.load_default_package"><code class="docutils literal notranslate"><span class="pre">FengWu.load_default_package()</span></code></a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.models.px.FengWu.load_model"><code class="docutils literal notranslate"><span class="pre">FengWu.load_model()</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.models.px.SFNO"><code class="docutils literal notranslate"><span class="pre">SFNO</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.models.px.SFNO.__call__"><code class="docutils literal notranslate"><span class="pre">SFNO.__call__()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.models.px.SFNO.create_iterator"><code class="docutils literal notranslate"><span class="pre">SFNO.create_iterator()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.models.px.SFNO.load_default_package"><code class="docutils literal notranslate"><span class="pre">SFNO.load_default_package()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.models.px.SFNO.load_model"><code class="docutils literal notranslate"><span class="pre">SFNO.load_model()</span></code></a></li>
 </ul>
 </li>
 </ul>
@@ -651,7 +650,7 @@ output data tensor and coordinate system dictionary.</p>
   <div class="sidebar-secondary-item">
 
   <div class="tocsection sourcelink">
-    <a href="../../../../_sources/modules/generated/models/px/earth2studio.models.px.FengWu.rst.txt">
+    <a href="../../../../_sources/modules/generated/models/px/earth2studio.models.px.SFNO.rst.txt">
       <i class="fa-solid fa-file-lines"></i> Show Source
     </a>
   </div>

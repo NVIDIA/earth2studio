@@ -18,23 +18,24 @@
 .. _sphx_glr_examples_04_ensemble_workflow_extend.py:
 
 
-Running Ensemble Inference
-==========================
+Single Variable Perturbation Method
+===================================
 
-Intermediate ensemble inference workflow.
+Intermediate ensemble inference using a custom perturbation method.
 
 This example will demonstrate how to run a an ensemble inference workflow
-with a custom perturbation method.
+with a custom perturbation method that only applies noise to a specific variable.
 
 In this example you will learn:
 
+- How to extend an existing pertubration method
 - How to instantiate a built in prognostic model
 - Creating a data source and IO object
 - Running a simple built in workflow
 - Extend a built-in method using custom code.
 - Post-processing results
 
-.. GENERATED FROM PYTHON SOURCE LINES 37-55
+.. GENERATED FROM PYTHON SOURCE LINES 38-56
 
 Creating an Ensemble Workflow
 -----------------------------------
@@ -55,7 +56,7 @@ method that accepts the following:
 - data: Initialized data source to fetch initial conditions from
 - io: IOBackend
 
-.. GENERATED FROM PYTHON SOURCE LINES 57-164
+.. GENERATED FROM PYTHON SOURCE LINES 58-163
 
 .. code-block:: Python
 
@@ -124,6 +125,7 @@ method that accepts the following:
         x, coords = fetch_data(
             source=data,
             time=time,
+            lead_time=prognostic.input_coords["lead_time"],
             variable=prognostic.input_coords["variable"],
             device=device,
         )
@@ -136,10 +138,7 @@ method that accepts the following:
         # Set up IO backend
         total_coords = coords.copy()
         total_coords["lead_time"] = np.asarray(
-            [
-                coords["lead_time"] + prognostic.output_coords["lead_time"] * i
-                for i in range(nsteps + 1)
-            ]
+            [prognostic.output_coords["lead_time"] * i for i in range(nsteps + 1)]
         ).flatten()
 
         var_names = total_coords.pop("variable")
@@ -167,7 +166,7 @@ method that accepts the following:
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 165-177
+.. GENERATED FROM PYTHON SOURCE LINES 164-176
 
 Set Up
 ------
@@ -175,14 +174,14 @@ With the ensemble workflow defined, we now need to create the indivdual componen
 
 We need the following:
 
-- Prognostic Model: Use the built in FourCastNet model :py:class:`earth2studio.models.px.FCN`.
+- Prognostic Model: Use the built in DLWP model :py:class:`earth2studio.models.px.DLWP`.
 - perturbation_method: Extend the Spherical Gaussian Method :py:class:`earth2studio.perturbation.SphericalGaussian`.
 - Datasource: Pull data from the GFS data api :py:class:`earth2studio.data.GFS`.
 - IO Backend: Lets save the outputs into a Zarr store :py:class:`earth2studio.io.ZarrBackend`.
 
 %%
 
-.. GENERATED FROM PYTHON SOURCE LINES 177-231
+.. GENERATED FROM PYTHON SOURCE LINES 176-194
 
 .. code-block:: Python
 
@@ -191,24 +190,29 @@ We need the following:
     from collections import OrderedDict
     from typing import Union, List
 
-    from earth2studio.models.px import FCN
+    from earth2studio.models.px import DLWP
     from earth2studio.perturbation import PerturbationMethod, SphericalGaussian
     from earth2studio.data import GFS
     from earth2studio.io import ZarrBackend
     from earth2studio.utils.type import CoordSystem
 
     # Load the default model package which downloads the check point from NGC
-    package = FCN.load_default_package()
-    model = FCN.load_model(package)
+    package = DLWP.load_default_package()
+    model = DLWP.load_model(package)
 
     # Create the data source
     data = GFS()
 
-    # Instantiate the pertubation method
-    # The perturbation method in 02_ensemble_workflow.py is naive because it applies the
-    # same noise amplitude to every variable. We can create a custom wrapper that only
-    # applies the perturbation method to a particular variable instead.
 
+.. GENERATED FROM PYTHON SOURCE LINES 195-198
+
+The perturbation method in 02_ensemble_workflow.py is naive because it applies the
+same noise amplitude to every variable. We can create a custom wrapper that only
+applies the perturbation method to a particular variable instead.
+
+.. GENERATED FROM PYTHON SOURCE LINES 200-230
+
+.. code-block:: Python
 
     class ApplyToVariable:
         """Apply a perturbation to only a particular variable."""
@@ -241,7 +245,7 @@ We need the following:
     io = ZarrBackend(file_name="outputs/ensemble_avsg.zarr", chunks=chunks)
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 232-242
+.. GENERATED FROM PYTHON SOURCE LINES 231-241
 
 Execute the Workflow
 --------------------
@@ -254,7 +258,7 @@ For the forecast we will predict for 10 forecast steps which is 2.5 days. To red
 computation time we will only simulate 8 ensemble members.
 %%
 
-.. GENERATED FROM PYTHON SOURCE LINES 242-247
+.. GENERATED FROM PYTHON SOURCE LINES 241-246
 
 .. code-block:: Python
 
@@ -264,7 +268,7 @@ computation time we will only simulate 8 ensemble members.
     io = run_ensemble(["2024-01-01"], nsteps, nensemble, model, avsg, data, io)
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 248-254
+.. GENERATED FROM PYTHON SOURCE LINES 247-253
 
 Post Processing
 ---------------
@@ -273,7 +277,7 @@ fields on projects of a sphere.
 
 Notice that the Zarr IO function has additional APIs to interact with the stored data.
 
-.. GENERATED FROM PYTHON SOURCE LINES 256-312
+.. GENERATED FROM PYTHON SOURCE LINES 255-311
 
 .. code-block:: Python
 
@@ -301,7 +305,7 @@ Notice that the Zarr IO function has additional APIs to interact with the stored
         axi.gridlines()
 
 
-    for variable, cmap in zip(["t2m", "tcvw"], ["coolwarm", "Blues"]):
+    for variable, cmap in zip(["t2m", "tcwv"], ["coolwarm", "Blues"]):
         step = 0  # lead time = 24 hrs
 
         plt.close("all")
@@ -332,7 +336,7 @@ Notice that the Zarr IO function has additional APIs to interact with the stored
             cmap,
         )
 
-        plt.savefig(f"outputs/02_{forecast}_{variable}_{step}_ensemble.jpg")
+        plt.savefig(f"outputs/04_{forecast}_{variable}_{step}_ensemble.jpg")
 
 
 .. _sphx_glr_download_examples_04_ensemble_workflow_extend.py:
