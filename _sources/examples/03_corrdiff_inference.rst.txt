@@ -147,6 +147,12 @@ For this workflow, we specify
 
 
 
+
+
+
+
+
+
 .. GENERATED FROM PYTHON SOURCE LINES 145-156
 
 Set Up
@@ -183,6 +189,12 @@ It's clear we need the following:
     io = ZarrBackend()
 
 
+
+
+
+
+
+
 .. GENERATED FROM PYTHON SOURCE LINES 176-185
 
 Execute the Workflow
@@ -200,6 +212,36 @@ Typhon Koinu
 .. code-block:: Python
 
     io = run(["2023-10-04T18:00:00"], corrdiff, data, io, number_of_samples=1)
+
+
+
+
+
+.. rst-class:: sphx-glr-script-out
+
+ .. code-block:: none
+
+    2024-04-10 00:24:58.599 | INFO     | __main__:run:96 - Running corrdiff inference!
+    2024-04-10 00:24:58.599 | INFO     | __main__:run:98 - Inference device: cuda
+    2024-04-10 00:24:59.038 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:151 - Fetching GFS index file: 2023-10-04 18:00:00
+    Fetching GFS for 2023-10-04 18:00:00:   0%|          | 0/12 [00:00<?, ?it/s]                                                                                2024-04-10 00:24:59.434 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: tcwv at 2023-10-04 18:00:00
+    Fetching GFS for 2023-10-04 18:00:00:   0%|          | 0/12 [00:00<?, ?it/s]    Fetching GFS for 2023-10-04 18:00:00:   8%|▊         | 1/12 [00:00<00:08,  1.28it/s]                                                                                        2024-04-10 00:25:00.215 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: z500 at 2023-10-04 18:00:00
+    Fetching GFS for 2023-10-04 18:00:00:   8%|▊         | 1/12 [00:00<00:08,  1.28it/s]    Fetching GFS for 2023-10-04 18:00:00:  17%|█▋        | 2/12 [00:01<00:06,  1.59it/s]                                                                                        2024-04-10 00:25:00.738 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: t500 at 2023-10-04 18:00:00
+    Fetching GFS for 2023-10-04 18:00:00:  17%|█▋        | 2/12 [00:01<00:06,  1.59it/s]    Fetching GFS for 2023-10-04 18:00:00:  25%|██▌       | 3/12 [00:01<00:04,  2.06it/s]                                                                                        2024-04-10 00:25:01.052 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: u500 at 2023-10-04 18:00:00
+    Fetching GFS for 2023-10-04 18:00:00:  25%|██▌       | 3/12 [00:01<00:04,  2.06it/s]    Fetching GFS for 2023-10-04 18:00:00:  33%|███▎      | 4/12 [00:01<00:03,  2.51it/s]                                                                                        2024-04-10 00:25:01.319 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: v500 at 2023-10-04 18:00:00
+    Fetching GFS for 2023-10-04 18:00:00:  33%|███▎      | 4/12 [00:01<00:03,  2.51it/s]    Fetching GFS for 2023-10-04 18:00:00:  42%|████▏     | 5/12 [00:02<00:02,  2.78it/s]                                                                                        2024-04-10 00:25:01.611 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: z850 at 2023-10-04 18:00:00
+    Fetching GFS for 2023-10-04 18:00:00:  42%|████▏     | 5/12 [00:02<00:02,  2.78it/s]    Fetching GFS for 2023-10-04 18:00:00:  50%|█████     | 6/12 [00:02<00:02,  2.67it/s]                                                                                        2024-04-10 00:25:02.014 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: t850 at 2023-10-04 18:00:00
+    Fetching GFS for 2023-10-04 18:00:00:  50%|█████     | 6/12 [00:02<00:02,  2.67it/s]    Fetching GFS for 2023-10-04 18:00:00:  58%|█████▊    | 7/12 [00:03<00:02,  2.49it/s]                                                                                        2024-04-10 00:25:02.468 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: u850 at 2023-10-04 18:00:00
+    Fetching GFS for 2023-10-04 18:00:00:  58%|█████▊    | 7/12 [00:03<00:02,  2.49it/s]    Fetching GFS for 2023-10-04 18:00:00:  67%|██████▋   | 8/12 [00:03<00:01,  2.68it/s]                                                                                        2024-04-10 00:25:02.783 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: v850 at 2023-10-04 18:00:00
+    Fetching GFS for 2023-10-04 18:00:00:  67%|██████▋   | 8/12 [00:03<00:01,  2.68it/s]    Fetching GFS for 2023-10-04 18:00:00:  75%|███████▌  | 9/12 [00:03<00:01,  2.73it/s]                                                                                        2024-04-10 00:25:03.132 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: t2m at 2023-10-04 18:00:00
+    Fetching GFS for 2023-10-04 18:00:00:  75%|███████▌  | 9/12 [00:03<00:01,  2.73it/s]    Fetching GFS for 2023-10-04 18:00:00:  83%|████████▎ | 10/12 [00:04<00:00,  2.41it/s]                                                                                         2024-04-10 00:25:03.656 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: u10m at 2023-10-04 18:00:00
+    Fetching GFS for 2023-10-04 18:00:00:  83%|████████▎ | 10/12 [00:04<00:00,  2.41it/s]    Fetching GFS for 2023-10-04 18:00:00:  92%|█████████▏| 11/12 [00:04<00:00,  2.65it/s]                                                                                         2024-04-10 00:25:03.951 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: v10m at 2023-10-04 18:00:00
+    Fetching GFS for 2023-10-04 18:00:00:  92%|█████████▏| 11/12 [00:04<00:00,  2.65it/s]    Fetching GFS for 2023-10-04 18:00:00: 100%|██████████| 12/12 [00:04<00:00,  2.74it/s]    Fetching GFS for 2023-10-04 18:00:00: 100%|██████████| 12/12 [00:04<00:00,  2.47it/s]
+    2024-04-10 00:25:04.303 | SUCCESS  | __main__:run:111 - Fetched data from GFS
+    2024-04-10 00:25:04.308 | INFO     | __main__:run:136 - Inference starting!
+    2024-04-10 00:25:05.474 | SUCCESS  | __main__:run:140 - Inference complete
+
+
 
 
 .. GENERATED FROM PYTHON SOURCE LINES 190-196
@@ -264,6 +306,29 @@ Notice that the Zarr IO function has additional APIs to interact with the stored
     ax2.set_title("10-meter Wind Speed")
 
     plt.savefig(f"outputs/03_corr_diff_prediction.jpg")
+
+
+
+.. image-sg:: /examples/images/sphx_glr_03_corrdiff_inference_001.png
+   :alt: Radar Reflectivity, 2-meter Temperature, 10-meter Wind Speed
+   :srcset: /examples/images/sphx_glr_03_corrdiff_inference_001.png, /examples/images/sphx_glr_03_corrdiff_inference_001_2_00x.png 2.00x
+   :class: sphx-glr-single-img
+
+
+.. rst-class:: sphx-glr-script-out
+
+ .. code-block:: none
+
+    /usr/local/lib/python3.10/dist-packages/cartopy/io/__init__.py:241: DownloadWarning: Downloading: https://naturalearth.s3.amazonaws.com/10m_physical/ne_10m_coastline.zip
+      warnings.warn(f'Downloading: {url}', DownloadWarning)
+
+
+
+
+
+.. rst-class:: sphx-glr-timing
+
+   **Total running time of the script:** (0 minutes 14.975 seconds)
 
 
 .. _sphx_glr_download_examples_03_corrdiff_inference.py:

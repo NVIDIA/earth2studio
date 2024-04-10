@@ -48,6 +48,7 @@
     <script>DOCUMENTATION_OPTIONS.pagename = 'examples/03_corrdiff_inference';</script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Single Variable Perturbation Method" href="04_ensemble_workflow_extend.html" />
     <link rel="prev" title="Running Ensemble Inference" href="02_ensemble_workflow.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
@@ -103,7 +104,7 @@
 
 
   <div class="bd-header-announcement container-fluid bd-header-announcement">
-    <div class="bd-header-announcement__content">Earth-2 Inference Studio is in Alpha!</div>
+    <div class="bd-header-announcement__content">Earth-2 Inference Studio is now OSS!</div>
   </div>
 
   
@@ -176,6 +177,13 @@
                       </a>
                     </li>
                 
+
+                <li class="nav-item">
+                  <a class="nav-link nav-external" href="https://gitlab-master.nvidia.com/modulus/earth-2/earth2-inference-studio/blob/main/CHANGELOG.md">
+                    Changelog
+                  </a>
+                </li>
+                
   </ul>
 </nav></div>
       
@@ -222,8 +230,8 @@ document.write(`
           
           
           
-          <a href="https://gitlab-master.nvidia.com/modulus/earth-2/earth2-inference-studio" title="Gitlab" class="nav-link" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><span><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i></span>
-            <span class="sr-only">Gitlab</span></a>
+          <a href="https://github.com/NVIDIA/earth2studio" title="Github" class="nav-link" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><span><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i></span>
+            <span class="sr-only">Github</span></a>
         </li>
 </ul></div>
       
@@ -301,6 +309,13 @@ document.write(`
                       </a>
                     </li>
                 
+
+                <li class="nav-item">
+                  <a class="nav-link nav-external" href="https://gitlab-master.nvidia.com/modulus/earth-2/earth2-inference-studio/blob/main/CHANGELOG.md">
+                    Changelog
+                  </a>
+                </li>
+                
   </ul>
 </nav></div>
         
@@ -333,8 +348,8 @@ document.write(`
           
           
           
-          <a href="https://gitlab-master.nvidia.com/modulus/earth-2/earth2-inference-studio" title="Gitlab" class="nav-link" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><span><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i></span>
-            <span class="sr-only">Gitlab</span></a>
+          <a href="https://github.com/NVIDIA/earth2studio" title="Github" class="nav-link" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><span><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i></span>
+            <span class="sr-only">Github</span></a>
         </li>
 </ul></div>
         
@@ -351,6 +366,7 @@ document.write(`
 <li class="toctree-l1"><a class="reference internal" href="01_simple_workflow.html">Running Simple Inference</a></li>
 <li class="toctree-l1"><a class="reference internal" href="02_ensemble_workflow.html">Running Ensemble Inference</a></li>
 <li class="toctree-l1 current active"><a class="current reference internal" href="#">Generative Down Sampling</a></li>
+<li class="toctree-l1"><a class="reference internal" href="04_ensemble_workflow_extend.html">Single Variable Perturbation Method</a></li>
 </ul>
 </div>
 </nav></div>
@@ -570,75 +586,75 @@ Typhon Koinu</p>
 <div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="n">io</span> <span class="o">=</span> <span class="n">run</span><span class="p">([</span><span class="s2">&quot;2023-10-04T18:00:00&quot;</span><span class="p">],</span> <span class="n">corrdiff</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">io</span><span class="p">,</span> <span class="n">number_of_samples</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
 </pre></div>
 </div>
-<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>2024-04-05 21:57:44.285 | INFO     | __main__:run:96 - Running corrdiff inference!
-2024-04-05 21:57:44.285 | INFO     | __main__:run:98 - Inference device: cuda
-2024-04-05 21:57:44.726 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:151 - Fetching GFS index file: 2023-10-04 18:00:00
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>2024-04-10 00:24:58.599 | INFO     | __main__:run:96 - Running corrdiff inference!
+2024-04-10 00:24:58.599 | INFO     | __main__:run:98 - Inference device: cuda
+2024-04-10 00:24:59.038 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:151 - Fetching GFS index file: 2023-10-04 18:00:00
 
 Fetching GFS for 2023-10-04 18:00:00:   0%|          | 0/12 [00:00&lt;?, ?it/s]
 
-2024-04-05 21:57:45.118 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: tcwv at 2023-10-04 18:00:00
+2024-04-10 00:24:59.434 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: tcwv at 2023-10-04 18:00:00
 
 Fetching GFS for 2023-10-04 18:00:00:   0%|          | 0/12 [00:00&lt;?, ?it/s]
-Fetching GFS for 2023-10-04 18:00:00:   8%|▊         | 1/12 [00:00&lt;00:07,  1.39it/s]
+Fetching GFS for 2023-10-04 18:00:00:   8%|▊         | 1/12 [00:00&lt;00:08,  1.28it/s]
 
-2024-04-05 21:57:45.838 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: z500 at 2023-10-04 18:00:00
+2024-04-10 00:25:00.215 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: z500 at 2023-10-04 18:00:00
 
-Fetching GFS for 2023-10-04 18:00:00:   8%|▊         | 1/12 [00:00&lt;00:07,  1.39it/s]
-Fetching GFS for 2023-10-04 18:00:00:  17%|█▋        | 2/12 [00:01&lt;00:06,  1.48it/s]
+Fetching GFS for 2023-10-04 18:00:00:   8%|▊         | 1/12 [00:00&lt;00:08,  1.28it/s]
+Fetching GFS for 2023-10-04 18:00:00:  17%|█▋        | 2/12 [00:01&lt;00:06,  1.59it/s]
 
-2024-04-05 21:57:46.481 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: t500 at 2023-10-04 18:00:00
+2024-04-10 00:25:00.738 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: t500 at 2023-10-04 18:00:00
 
-Fetching GFS for 2023-10-04 18:00:00:  17%|█▋        | 2/12 [00:01&lt;00:06,  1.48it/s]
-Fetching GFS for 2023-10-04 18:00:00:  25%|██▌       | 3/12 [00:01&lt;00:04,  2.05it/s]
+Fetching GFS for 2023-10-04 18:00:00:  17%|█▋        | 2/12 [00:01&lt;00:06,  1.59it/s]
+Fetching GFS for 2023-10-04 18:00:00:  25%|██▌       | 3/12 [00:01&lt;00:04,  2.06it/s]
 
-2024-04-05 21:57:46.745 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: u500 at 2023-10-04 18:00:00
+2024-04-10 00:25:01.052 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: u500 at 2023-10-04 18:00:00
 
-Fetching GFS for 2023-10-04 18:00:00:  25%|██▌       | 3/12 [00:01&lt;00:04,  2.05it/s]
-Fetching GFS for 2023-10-04 18:00:00:  33%|███▎      | 4/12 [00:01&lt;00:03,  2.50it/s]
+Fetching GFS for 2023-10-04 18:00:00:  25%|██▌       | 3/12 [00:01&lt;00:04,  2.06it/s]
+Fetching GFS for 2023-10-04 18:00:00:  33%|███▎      | 4/12 [00:01&lt;00:03,  2.51it/s]
 
-2024-04-05 21:57:47.011 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: v500 at 2023-10-04 18:00:00
+2024-04-10 00:25:01.319 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: v500 at 2023-10-04 18:00:00
 
-Fetching GFS for 2023-10-04 18:00:00:  33%|███▎      | 4/12 [00:01&lt;00:03,  2.50it/s]
-Fetching GFS for 2023-10-04 18:00:00:  42%|████▏     | 5/12 [00:02&lt;00:02,  2.83it/s]
+Fetching GFS for 2023-10-04 18:00:00:  33%|███▎      | 4/12 [00:01&lt;00:03,  2.51it/s]
+Fetching GFS for 2023-10-04 18:00:00:  42%|████▏     | 5/12 [00:02&lt;00:02,  2.78it/s]
 
-2024-04-05 21:57:47.282 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: z850 at 2023-10-04 18:00:00
+2024-04-10 00:25:01.611 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: z850 at 2023-10-04 18:00:00
 
-Fetching GFS for 2023-10-04 18:00:00:  42%|████▏     | 5/12 [00:02&lt;00:02,  2.83it/s]
-Fetching GFS for 2023-10-04 18:00:00:  50%|█████     | 6/12 [00:02&lt;00:02,  2.79it/s]
+Fetching GFS for 2023-10-04 18:00:00:  42%|████▏     | 5/12 [00:02&lt;00:02,  2.78it/s]
+Fetching GFS for 2023-10-04 18:00:00:  50%|█████     | 6/12 [00:02&lt;00:02,  2.67it/s]
 
-2024-04-05 21:57:47.648 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: t850 at 2023-10-04 18:00:00
+2024-04-10 00:25:02.014 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: t850 at 2023-10-04 18:00:00
 
-Fetching GFS for 2023-10-04 18:00:00:  50%|█████     | 6/12 [00:02&lt;00:02,  2.79it/s]
-Fetching GFS for 2023-10-04 18:00:00:  58%|█████▊    | 7/12 [00:02&lt;00:01,  2.78it/s]
+Fetching GFS for 2023-10-04 18:00:00:  50%|█████     | 6/12 [00:02&lt;00:02,  2.67it/s]
+Fetching GFS for 2023-10-04 18:00:00:  58%|█████▊    | 7/12 [00:03&lt;00:02,  2.49it/s]
 
-2024-04-05 21:57:48.010 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: u850 at 2023-10-04 18:00:00
+2024-04-10 00:25:02.468 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: u850 at 2023-10-04 18:00:00
 
-Fetching GFS for 2023-10-04 18:00:00:  58%|█████▊    | 7/12 [00:02&lt;00:01,  2.78it/s]
-Fetching GFS for 2023-10-04 18:00:00:  67%|██████▋   | 8/12 [00:03&lt;00:01,  3.02it/s]
+Fetching GFS for 2023-10-04 18:00:00:  58%|█████▊    | 7/12 [00:03&lt;00:02,  2.49it/s]
+Fetching GFS for 2023-10-04 18:00:00:  67%|██████▋   | 8/12 [00:03&lt;00:01,  2.68it/s]
 
-2024-04-05 21:57:48.281 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: v850 at 2023-10-04 18:00:00
+2024-04-10 00:25:02.783 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: v850 at 2023-10-04 18:00:00
 
-Fetching GFS for 2023-10-04 18:00:00:  67%|██████▋   | 8/12 [00:03&lt;00:01,  3.02it/s]
-Fetching GFS for 2023-10-04 18:00:00:  75%|███████▌  | 9/12 [00:03&lt;00:01,  2.91it/s]
+Fetching GFS for 2023-10-04 18:00:00:  67%|██████▋   | 8/12 [00:03&lt;00:01,  2.68it/s]
+Fetching GFS for 2023-10-04 18:00:00:  75%|███████▌  | 9/12 [00:03&lt;00:01,  2.73it/s]
 
-2024-04-05 21:57:48.653 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: t2m at 2023-10-04 18:00:00
+2024-04-10 00:25:03.132 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: t2m at 2023-10-04 18:00:00
 
-Fetching GFS for 2023-10-04 18:00:00:  75%|███████▌  | 9/12 [00:03&lt;00:01,  2.91it/s]
-Fetching GFS for 2023-10-04 18:00:00:  83%|████████▎ | 10/12 [00:03&lt;00:00,  2.65it/s]
+Fetching GFS for 2023-10-04 18:00:00:  75%|███████▌  | 9/12 [00:03&lt;00:01,  2.73it/s]
+Fetching GFS for 2023-10-04 18:00:00:  83%|████████▎ | 10/12 [00:04&lt;00:00,  2.41it/s]
 
-2024-04-05 21:57:49.108 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: u10m at 2023-10-04 18:00:00
+2024-04-10 00:25:03.656 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: u10m at 2023-10-04 18:00:00
 
-Fetching GFS for 2023-10-04 18:00:00:  83%|████████▎ | 10/12 [00:03&lt;00:00,  2.65it/s]
-Fetching GFS for 2023-10-04 18:00:00:  92%|█████████▏| 11/12 [00:04&lt;00:00,  2.73it/s]
+Fetching GFS for 2023-10-04 18:00:00:  83%|████████▎ | 10/12 [00:04&lt;00:00,  2.41it/s]
+Fetching GFS for 2023-10-04 18:00:00:  92%|█████████▏| 11/12 [00:04&lt;00:00,  2.65it/s]
 
-2024-04-05 21:57:49.446 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: v10m at 2023-10-04 18:00:00
+2024-04-10 00:25:03.951 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: v10m at 2023-10-04 18:00:00
 
-Fetching GFS for 2023-10-04 18:00:00:  92%|█████████▏| 11/12 [00:04&lt;00:00,  2.73it/s]
-Fetching GFS for 2023-10-04 18:00:00: 100%|██████████| 12/12 [00:04&lt;00:00,  2.84it/s]
-Fetching GFS for 2023-10-04 18:00:00: 100%|██████████| 12/12 [00:04&lt;00:00,  2.58it/s]
-2024-04-05 21:57:49.790 | SUCCESS  | __main__:run:111 - Fetched data from GFS
-2024-04-05 21:57:49.795 | INFO     | __main__:run:136 - Inference starting!
-2024-04-05 21:57:50.991 | SUCCESS  | __main__:run:140 - Inference complete
+Fetching GFS for 2023-10-04 18:00:00:  92%|█████████▏| 11/12 [00:04&lt;00:00,  2.65it/s]
+Fetching GFS for 2023-10-04 18:00:00: 100%|██████████| 12/12 [00:04&lt;00:00,  2.74it/s]
+Fetching GFS for 2023-10-04 18:00:00: 100%|██████████| 12/12 [00:04&lt;00:00,  2.47it/s]
+2024-04-10 00:25:04.303 | SUCCESS  | __main__:run:111 - Fetched data from GFS
+2024-04-10 00:25:04.308 | INFO     | __main__:run:136 - Inference starting!
+2024-04-10 00:25:05.474 | SUCCESS  | __main__:run:140 - Inference complete
 </pre></div>
 </div>
 </section>
@@ -702,7 +718,7 @@ fields on projections of a sphere.</p>
   warnings.warn(f&#39;Downloading: {url}&#39;, DownloadWarning)
 </pre></div>
 </div>
-<p class="sphx-glr-timing"><strong>Total running time of the script:</strong> (0 minutes 15.718 seconds)</p>
+<p class="sphx-glr-timing"><strong>Total running time of the script:</strong> (0 minutes 14.975 seconds)</p>
 <div class="sphx-glr-footer sphx-glr-footer-example docutils container" id="sphx-glr-download-examples-03-corrdiff-inference-py">
 <div class="sphx-glr-download sphx-glr-download-jupyter docutils container">
 <p><a class="reference download internal" download="" href="../_downloads/e42b74505dfae2e6800424963f7bf7e0/03_corrdiff_inference.ipynb"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">Jupyter</span> <span class="pre">notebook:</span> <span class="pre">03_corrdiff_inference.ipynb</span></code></a></p>
@@ -733,6 +749,15 @@ fields on projections of a sphere.</p>
         <p class="prev-next-subtitle">previous</p>
         <p class="prev-next-title">Running Ensemble Inference</p>
       </div>
+    </a>
+    <a class="right-next"
+       href="04_ensemble_workflow_extend.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">Single Variable Perturbation Method</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
     </a>
 </div>
                 </footer>

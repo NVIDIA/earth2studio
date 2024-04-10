@@ -16,29 +16,29 @@
 
 # %%
 """
-Running Ensemble Inference
-==========================
+Single Variable Perturbation Method
+===================================
 
-Simple ensemble inference workflow.
+Intermediate ensemble inference using a custom perturbation method.
 
-This example will demonstrate how to run a simple inference workflow to generate a
-simple ensemble forecast using one of the built in models of Earth-2 Inference
-Studio.
+This example will demonstrate how to run a an ensemble inference workflow
+with a custom perturbation method that only applies noise to a specific variable.
 
 In this example you will learn:
 
+- How to extend an existing pertubration method
 - How to instantiate a built in prognostic model
 - Creating a data source and IO object
-- Select a perturbation method
 - Running a simple built in workflow
+- Extend a built-in method using custom code.
 - Post-processing results
 """
 
 # %%
-# Creating a Simple Ensemble Workflow
+# Creating an Ensemble Workflow
 # -----------------------------------
 #
-# To start lets begin with creating a simple ensemble workflow to use. We encourage
+# To start lets begin with creating a ensemble workflow to use. We encourage
 # users to explore and experiment with their own custom workflows that borrow ideas from
 # built in workflows inside :py:obj:`earth2studio.run` or the examples.
 #
@@ -167,8 +167,8 @@ def run_ensemble(
 #
 # We need the following:
 #
-# - Prognostic Model: Use the built in FourCastNet model :py:class:`earth2studio.models.px.FCN`.
-# - perturbation_method: Use the Spherical Gaussian Method :py:class:`earth2studio.perturbation.SphericalGaussian`.
+# - Prognostic Model: Use the built in DLWP model :py:class:`earth2studio.models.px.DLWP`.
+# - perturbation_method: Extend the Spherical Gaussian Method :py:class:`earth2studio.perturbation.SphericalGaussian`.
 # - Datasource: Pull data from the GFS data api :py:class:`earth2studio.data.GFS`.
 # - IO Backend: Lets save the outputs into a Zarr store :py:class:`earth2studio.io.ZarrBackend`.
 #
@@ -178,25 +178,54 @@ import torch
 from collections import OrderedDict
 from typing import Union, List
 
-from earth2studio.models.px import FCN
+from earth2studio.models.px import DLWP
 from earth2studio.perturbation import PerturbationMethod, SphericalGaussian
 from earth2studio.data import GFS
 from earth2studio.io import ZarrBackend
 from earth2studio.utils.type import CoordSystem
 
 # Load the default model package which downloads the check point from NGC
-package = FCN.load_default_package()
-model = FCN.load_model(package)
-
-# Instantiate the pertubation method
-sg = SphericalGaussian(noise_amplitude=0.05)
+package = DLWP.load_default_package()
+model = DLWP.load_model(package)
 
 # Create the data source
 data = GFS()
 
+# %%
+# The perturbation method in 02_ensemble_workflow.py is naive because it applies the
+# same noise amplitude to every variable. We can create a custom wrapper that only
+# applies the perturbation method to a particular variable instead.
+
+# %%
+class ApplyToVariable:
+    """Apply a perturbation to only a particular variable."""
+
+    def __init__(self, pm: PerturbationMethod, variable: Union[str, List[str]]):
+        self.pm = pm
+        if isinstance(variable, str):
+            variable = [variable]
+        self.variable = variable
+
+    @torch.inference_mode()
+    def __call__(
+        self,
+        x: torch.Tensor,
+        coords: CoordSystem,
+    ) -> torch.Tensor:
+        # Construct perturbation
+        dx = self.pm(x, coords)
+        # Find variable in data
+        ind = np.in1d(coords["variable"], self.variable)
+        dx[..., ~ind, :, :] = 0.0
+        return dx
+
+
+# Generate a new noise amplitude that specifically targets 't2m' with a 1 K noise amplitude
+avsg = ApplyToVariable(SphericalGaussian(noise_amplitude=1.0), "t2m")
+
 # Create the IO handler, store in memory
 chunks = {"ensemble": 1, "time": 1}
-io = ZarrBackend(file_name="outputs/ensemble_sg.zarr", chunks=chunks)
+io = ZarrBackend(file_name="outputs/ensemble_avsg.zarr", chunks=chunks)
 
 # %%
 # Execute the Workflow
@@ -206,13 +235,13 @@ io = ZarrBackend(file_name="outputs/ensemble_sg.zarr", chunks=chunks)
 # then post process. Some have additional APIs that can be handy for post-processing or
 # saving to file. Check the API docs for more information.
 #
-# For the forecast we will predict for two days (these will get executed as a batch) for
-# 20 forecast steps which is 5 days.
+# For the forecast we will predict for 10 forecast steps which is 2.5 days. To reduce
+# computation time we will only simulate 8 ensemble members.
 # %%
 
 nsteps = 10
 nensemble = 8
-io = run_ensemble(["2024-01-01"], nsteps, nensemble, model, sg, data, io)
+io = run_ensemble(["2024-01-01"], nsteps, nensemble, model, avsg, data, io)
 
 # %%
 # Post Processing
@@ -225,24 +254,11 @@ io = run_ensemble(["2024-01-01"], nsteps, nensemble, model, sg, data, io)
 # %%
 import matplotlib.pyplot as plt
 import cartopy.crs as ccrs
-import cartopy.feature as cfeature
-from matplotlib.colors import TwoSlopeNorm
 
 forecast = "2024-01-01"
-variable = "t2m"
-step = 0  # lead time = 24 hrs
-
-plt.close("all")
-# Create a Robinson projection
-projection = ccrs.Robinson()
-
-# Create a figure and axes with the specified projection
-fig, (ax1, ax2, ax3) = plt.subplots(
-    nrows=1, ncols=3, subplot_kw={"projection": projection}, figsize=(12, 5)
-)
 
 
-def plot_(axi, data, title):
+def plot_(axi, data, title, cmap):
     """Convenience function for plotting pcolormesh."""
     # Plot the field using pcolormesh
     im = axi.pcolormesh(
@@ -250,7 +266,7 @@ def plot_(axi, data, title):
         io["lat"][:],
         data,
         transform=ccrs.PlateCarree(),
-        cmap="coolwarm",
+        cmap=cmap,
     )
     plt.colorbar(im, ax=axi)
     # Set title
@@ -260,20 +276,35 @@ def plot_(axi, data, title):
     axi.gridlines()
 
 
-plot_(
-    ax1,
-    io[variable][0, 0, step],
-    f"{forecast} - Lead time: {6*step}hrs - Member: {0}",
-)
-plot_(
-    ax2,
-    io[variable][1, 0, step],
-    f"{forecast} - Lead time: {6*step}hrs - Member: {1}",
-)
-plot_(
-    ax3,
-    np.std(io[variable][:, 0, step], axis=0),
-    f"{forecast} - Lead time: {6*step}hrs - Std",
-)
+for variable, cmap in zip(["t2m", "tcwv"], ["coolwarm", "Blues"]):
+    step = 0  # lead time = 24 hrs
 
-plt.savefig(f"outputs/02_{forecast}_{variable}_{step}_ensemble.jpg")
+    plt.close("all")
+    # Create a Robinson projection
+    projection = ccrs.Robinson()
+
+    # Create a figure and axes with the specified projection
+    fig, (ax1, ax2, ax3) = plt.subplots(
+        nrows=1, ncols=3, subplot_kw={"projection": projection}, figsize=(12, 5)
+    )
+
+    plot_(
+        ax1,
+        io[variable][0, 0, step],
+        f"{forecast} - Lead time: {6*step}hrs - Member: {0}",
+        cmap,
+    )
+    plot_(
+        ax2,
+        io[variable][1, 0, step],
+        f"{forecast} - Lead time: {6*step}hrs - Member: {1}",
+        cmap,
+    )
+    plot_(
+        ax3,
+        np.std(io[variable][:, 0, step], axis=0),
+        f"{forecast} - Lead time: {6*step}hrs - Std",
+        cmap,
+    )
+
+    plt.savefig(f"outputs/04_{forecast}_{variable}_{step}_ensemble.jpg")
