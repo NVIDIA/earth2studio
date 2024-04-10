@@ -1,0 +1,712 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../../../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>earth2studio.models.batch &#8212; Earth-2 Inference Studio 0.1.0a0 documentation</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "light";
+  </script>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../../../_static/styles/theme.css?digest=8d27b9dea8ad943066ae" rel="stylesheet" />
+<link href="../../../_static/styles/bootstrap.css?digest=8d27b9dea8ad943066ae" rel="stylesheet" />
+<link href="../../../_static/styles/pydata-sphinx-theme.css?digest=8d27b9dea8ad943066ae" rel="stylesheet" />
+
+  
+  <link href="../../../_static/vendor/fontawesome/6.5.1/css/all.min.css?digest=8d27b9dea8ad943066ae" rel="stylesheet" />
+  <link rel="preload" as="font" type="font/woff2" crossorigin href="../../../_static/vendor/fontawesome/6.5.1/webfonts/fa-solid-900.woff2" />
+<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../_static/vendor/fontawesome/6.5.1/webfonts/fa-brands-400.woff2" />
+<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../_static/vendor/fontawesome/6.5.1/webfonts/fa-regular-400.woff2" />
+
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=a746c00c" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/sg_gallery.css?v=61a4c737" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/sg_gallery-binder.css?v=f4aeca0c" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/sg_gallery-dataframe.css?v=2082cf3c" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/sg_gallery-rendered-html.css?v=1277b6f3" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/design-style.1e8bd061cd6da7fc9cf755528e8ffc24.min.css?v=0a3b3ea7" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/css/custom.css?v=0b10f1a0" />
+  
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../../../_static/scripts/bootstrap.js?digest=8d27b9dea8ad943066ae" />
+<link rel="preload" as="script" href="../../../_static/scripts/pydata-sphinx-theme.js?digest=8d27b9dea8ad943066ae" />
+  <script src="../../../_static/vendor/fontawesome/6.5.1/js/all.min.js?digest=8d27b9dea8ad943066ae"></script>
+
+    <script src="../../../_static/documentation_options.js?v=edcd63a1"></script>
+    <script src="../../../_static/doctools.js?v=888ff710"></script>
+    <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../_static/design-tabs.js?v=36754332"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = '_modules/earth2studio/models/batch';</script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <a id="pst-skip-link" class="skip-link" href="#main-content">Skip to main content</a>
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>
+    Back to top
+  </button>
+
+  
+  <input type="checkbox"
+          class="sidebar-toggle"
+          name="__primary"
+          id="__primary"/>
+  <label class="overlay overlay-primary" for="__primary"></label>
+  
+  <input type="checkbox"
+          class="sidebar-toggle"
+          name="__secondary"
+          id="__secondary"/>
+  <label class="overlay overlay-secondary" for="__secondary"></label>
+  
+  <div class="search-button__wrapper">
+    <div class="search-button__overlay"></div>
+    <div class="search-button__search-container">
+<form class="bd-search d-flex align-items-center"
+      action="../../../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         id="search-input"
+         placeholder="Search the docs ..."
+         aria-label="Search the docs ..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form></div>
+  </div>
+
+
+  <div class="bd-header-announcement container-fluid bd-header-announcement">
+    <div class="bd-header-announcement__content">Earth-2 Inference Studio is now OSS!</div>
+  </div>
+
+  
+    <header class="bd-header navbar navbar-expand-lg bd-navbar">
+<div class="bd-header__inner bd-page-width">
+  <label class="sidebar-toggle primary-toggle" for="__primary">
+    <span class="fa-solid fa-bars"></span>
+  </label>
+  
+  
+  <div class=" navbar-header-items__start">
+    
+      <div class="navbar-item">
+
+  
+
+<a class="navbar-brand logo" href="../../../index.html">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="../../../_static/NVIDIA-Logo-V-ForScreen-ForLightBG.png" class="logo__image only-light" alt=""/>
+    <script>document.write(`<img src="../../../_static/NVIDIA-Logo-V-ForScreen-ForDarkBG.png" class="logo__image only-dark" alt=""/>`);</script>
+  
+  
+    <p class="title logo__title">Earth-2 Inference Studio</p>
+  
+</a></div>
+    
+  </div>
+  
+  <div class=" navbar-header-items">
+    
+    <div class="me-auto navbar-header-items__center">
+      
+        <div class="navbar-item">
+<nav class="navbar-nav">
+  <ul class="bd-navbar-elements navbar-nav">
+    
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="../../../install/index.html">
+                        Install
+                      </a>
+                    </li>
+                
+
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="../../../userguide/index.html">
+                        User Guide
+                      </a>
+                    </li>
+                
+
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="../../../modules/index.html">
+                        API
+                      </a>
+                    </li>
+                
+
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="../../../examples/index.html">
+                        Examples
+                      </a>
+                    </li>
+                
+
+                <li class="nav-item">
+                  <a class="nav-link nav-external" href="https://gitlab-master.nvidia.com/modulus/earth-2/earth2-inference-studio/blob/main/CHANGELOG.md">
+                    Changelog
+                  </a>
+                </li>
+                
+  </ul>
+</nav></div>
+      
+    </div>
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+ <script>
+ document.write(`
+   <button class="btn navbar-btn search-button-field search-button__button" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass"></i>
+    <span class="search-button__default-text">Search</span>
+    <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+   </button>
+ `);
+ </script>
+        </div>
+      
+      
+        <div class="navbar-item">
+
+<script>
+document.write(`
+  <button class="btn btn-sm navbar-btn theme-switch-button" title="light/dark" aria-label="light/dark" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <span class="theme-switch nav-link" data-mode="light"><i class="fa-solid fa-sun fa-lg"></i></span>
+    <span class="theme-switch nav-link" data-mode="dark"><i class="fa-solid fa-moon fa-lg"></i></span>
+    <span class="theme-switch nav-link" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg"></i></span>
+  </button>
+`);
+</script></div>
+      
+        <div class="navbar-item"><ul class="navbar-icon-links navbar-nav"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/NVIDIA/earth2studio" title="Github" class="nav-link" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><span><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i></span>
+            <span class="sr-only">Github</span></a>
+        </li>
+</ul></div>
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+
+ <script>
+ document.write(`
+   <button class="btn navbar-btn search-button-field search-button__button" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass"></i>
+    <span class="search-button__default-text">Search</span>
+    <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+   </button>
+ `);
+ </script>
+    </div>
+  
+
+  
+</div>
+
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+        
+      
+      <div class="bd-sidebar-primary bd-sidebar hide-on-wide">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+      <div class="sidebar-header-items__center">
+        
+          <div class="navbar-item">
+<nav class="navbar-nav">
+  <ul class="bd-navbar-elements navbar-nav">
+    
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="../../../install/index.html">
+                        Install
+                      </a>
+                    </li>
+                
+
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="../../../userguide/index.html">
+                        User Guide
+                      </a>
+                    </li>
+                
+
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="../../../modules/index.html">
+                        API
+                      </a>
+                    </li>
+                
+
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="../../../examples/index.html">
+                        Examples
+                      </a>
+                    </li>
+                
+
+                <li class="nav-item">
+                  <a class="nav-link nav-external" href="https://gitlab-master.nvidia.com/modulus/earth-2/earth2-inference-studio/blob/main/CHANGELOG.md">
+                    Changelog
+                  </a>
+                </li>
+                
+  </ul>
+</nav></div>
+        
+      </div>
+    
+    
+    
+      <div class="sidebar-header-items__end">
+        
+          <div class="navbar-item">
+
+<script>
+document.write(`
+  <button class="btn btn-sm navbar-btn theme-switch-button" title="light/dark" aria-label="light/dark" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <span class="theme-switch nav-link" data-mode="light"><i class="fa-solid fa-sun fa-lg"></i></span>
+    <span class="theme-switch nav-link" data-mode="dark"><i class="fa-solid fa-moon fa-lg"></i></span>
+    <span class="theme-switch nav-link" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg"></i></span>
+  </button>
+`);
+</script></div>
+        
+          <div class="navbar-item"><ul class="navbar-icon-links navbar-nav"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/NVIDIA/earth2studio" title="Github" class="nav-link" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><span><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i></span>
+            <span class="sr-only">Github</span></a>
+        </li>
+</ul></div>
+        
+      </div>
+    
+  </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+  </div>
+  
+  <div id="rtd-footer-container"></div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main">
+        
+        
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item">
+
+
+
+<nav aria-label="Breadcrumb">
+  <ul class="bd-breadcrumbs">
+    
+    <li class="breadcrumb-item breadcrumb-home">
+      <a href="../../../index.html" class="nav-link" aria-label="Home">
+        <i class="fa-solid fa-home"></i>
+      </a>
+    </li>
+    
+    <li class="breadcrumb-item"><a href="../../index.html" class="nav-link">Module code</a></li>
+    
+    <li class="breadcrumb-item active" aria-current="page">earth2studio...</li>
+  </ul>
+</nav>
+</div>
+      
+    </div>
+  
+  
+</div>
+</div>
+              
+              
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <h1>Source code for earth2studio.models.batch</h1><div class="highlight"><pre>
+<span></span><span class="c1"># SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION &amp; AFFILIATES.</span>
+<span class="c1"># SPDX-FileCopyrightText: All rights reserved.</span>
+<span class="c1"># SPDX-License-Identifier: Apache-2.0</span>
+<span class="c1">#</span>
+<span class="c1"># Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);</span>
+<span class="c1"># you may not use this file except in compliance with the License.</span>
+<span class="c1"># You may obtain a copy of the License at</span>
+<span class="c1">#</span>
+<span class="c1"># http://www.apache.org/licenses/LICENSE-2.0</span>
+<span class="c1">#</span>
+<span class="c1"># Unless required by applicable law or agreed to in writing, software</span>
+<span class="c1"># distributed under the License is distributed on an &quot;AS IS&quot; BASIS,</span>
+<span class="c1"># WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.</span>
+<span class="c1"># See the License for the specific language governing permissions and</span>
+<span class="c1"># limitations under the License.</span>
+<span class="kn">import</span> <span class="nn">functools</span>
+<span class="kn">import</span> <span class="nn">inspect</span>
+<span class="kn">import</span> <span class="nn">sys</span>
+<span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">OrderedDict</span>
+<span class="kn">from</span> <span class="nn">itertools</span> <span class="kn">import</span> <span class="n">chain</span><span class="p">,</span> <span class="n">islice</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Iterator</span><span class="p">,</span> <span class="n">TypeVar</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">torch</span>
+
+<span class="kn">from</span> <span class="nn">earth2studio.utils.type</span> <span class="kn">import</span> <span class="n">CoordSystem</span>
+
+<span class="n">FuncType</span> <span class="o">=</span> <span class="n">Callable</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span>
+<span class="n">F</span> <span class="o">=</span> <span class="n">TypeVar</span><span class="p">(</span><span class="s2">&quot;F&quot;</span><span class="p">,</span> <span class="n">bound</span><span class="o">=</span><span class="n">FuncType</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="batch_func">
+<a class="viewcode-back" href="../../../modules/generated/models/earth2studio.models.batch.batch_func.html#earth2studio.models.batch.batch_func">[docs]</a>
+<span class="k">class</span> <span class="nc">batch_func</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Batch utility mixin which can be added to prognostic and diagnostic models</span>
+<span class="sd">    to help enable support for automatic batching of data. This class contains a</span>
+<span class="sd">    decorator function which should be added to calls where this functionality is</span>
+<span class="sd">    desired.</span>
+
+<span class="sd">    Note</span>
+<span class="sd">    ----</span>
+<span class="sd">    A model attributes `input_coords` and `output_coords` must have &quot;batch&quot; as the</span>
+<span class="sd">    coordinate system of the first dimensions. I.e. first key entry needs to be &quot;batch&quot;.</span>
+
+<span class="sd">    Example</span>
+<span class="sd">    -------</span>
+<span class="sd">    .. highlight:: python</span>
+<span class="sd">    .. code-block:: python</span>
+
+<span class="sd">        class Model():</span>
+
+<span class="sd">            input_coords = OrderedDict([(&quot;batch&quot;, np.empty(1)), ...])</span>
+<span class="sd">            output_coords = OrderedDict([(&quot;batch&quot;, np.empty(1)), ...])</span>
+
+<span class="sd">            @batch_func()</span>
+<span class="sd">            def __call__(</span>
+<span class="sd">                self,</span>
+<span class="sd">                x: torch.Tensor,</span>
+<span class="sd">                coords: CoordSystem,</span>
+<span class="sd">            ) -&gt; tuple[torch.Tensor, CoordSystem]:</span>
+<span class="sd">                ...</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">func</span><span class="p">:</span> <span class="n">F</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Callable</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">inspect</span><span class="o">.</span><span class="n">isgeneratorfunction</span><span class="p">(</span><span class="n">func</span><span class="p">):</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_batch_wrap_generator</span><span class="p">(</span><span class="n">func</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_batch_wrap</span><span class="p">(</span><span class="n">func</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_compress_batch</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">model</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">coords</span><span class="p">:</span> <span class="n">CoordSystem</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">CoordSystem</span><span class="p">,</span> <span class="n">CoordSystem</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Size</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Compresses dimensions into the models batch dimension</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        model : Any</span>
+<span class="sd">            Any object, prognostic / diagnostic model that has a input_coords property</span>
+<span class="sd">        x : torch.Tensor</span>
+<span class="sd">            Input tensor to compress</span>
+<span class="sd">        coords : CoordSystem</span>
+<span class="sd">            Input coordinate system</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        tuple[ torch.Tensor, CoordSystem, CoordSystem, torch.Size, ]</span>
+<span class="sd">            Returns batch compressed tensor, compressed coords, the coords of the batch</span>
+<span class="sd">            dimensions and the shape of the batched dimensions. Later two are needed for</span>
+<span class="sd">            decompression.</span>
+
+<span class="sd">        Raises</span>
+<span class="sd">        ------</span>
+<span class="sd">        ValueError</span>
+<span class="sd">            If model&#39;s input_coords do not contain the batch dimension</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="p">(</span>
+            <span class="nb">next</span><span class="p">(</span><span class="nb">iter</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">input_coords</span><span class="p">))</span> <span class="o">!=</span> <span class="s2">&quot;batch&quot;</span>
+            <span class="ow">and</span> <span class="nb">next</span><span class="p">(</span><span class="nb">iter</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">output_coords</span><span class="p">))</span> <span class="o">!=</span> <span class="s2">&quot;batch&quot;</span>
+        <span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;Model coordinate systems not compatible with batch processing&quot;</span>
+            <span class="p">)</span>
+
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">coords</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;Input tensor shape does not match the provided coordinates&quot;</span>
+            <span class="p">)</span>
+        <span class="n">flatten_coords</span><span class="p">:</span> <span class="n">CoordSystem</span>
+        <span class="n">batched_coords</span><span class="p">:</span> <span class="n">CoordSystem</span>
+        <span class="c1"># If dims of input is one less than input coords, just prepend batch dim</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">input_coords</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">flatten_coords</span> <span class="o">=</span> <span class="n">coords</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+            <span class="n">flatten_coords</span><span class="o">.</span><span class="n">update</span><span class="p">({</span><span class="s2">&quot;batch&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mi">0</span><span class="p">])})</span>
+            <span class="n">flatten_coords</span><span class="o">.</span><span class="n">move_to_end</span><span class="p">(</span><span class="s2">&quot;batch&quot;</span><span class="p">,</span> <span class="n">last</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">x</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span> <span class="n">flatten_coords</span><span class="p">,</span> <span class="n">OrderedDict</span><span class="p">({}),</span> <span class="n">torch</span><span class="o">.</span><span class="n">Size</span><span class="p">([])</span>
+
+        <span class="n">i</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">coords</span><span class="p">)</span> <span class="o">-</span> <span class="nb">len</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">input_coords</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span> <span class="o">+</span> <span class="mi">1</span>
+        <span class="n">batched_shape</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[:</span><span class="n">i</span><span class="p">]</span>
+        <span class="c1"># Prep coordinate dicts</span>
+        <span class="n">batched_coords</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">(</span><span class="n">islice</span><span class="p">(</span><span class="n">coords</span><span class="o">.</span><span class="n">items</span><span class="p">(),</span> <span class="mi">0</span><span class="p">,</span> <span class="n">i</span><span class="p">))</span>
+        <span class="n">flatten_coords</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">(</span><span class="n">islice</span><span class="p">(</span><span class="n">coords</span><span class="o">.</span><span class="n">items</span><span class="p">(),</span> <span class="n">i</span><span class="p">,</span> <span class="kc">None</span><span class="p">))</span>
+        <span class="n">flatten_coords</span><span class="o">.</span><span class="n">update</span><span class="p">({</span><span class="s2">&quot;batch&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">1</span><span class="p">)})</span>
+        <span class="n">flatten_coords</span><span class="o">.</span><span class="n">move_to_end</span><span class="p">(</span><span class="s2">&quot;batch&quot;</span><span class="p">,</span> <span class="n">last</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="c1"># Flatten batch dims</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">flatten</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">start_dim</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">end_dim</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">batched_coords</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="n">flatten_coords</span><span class="p">[</span><span class="s2">&quot;batch&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+
+        <span class="k">return</span> <span class="n">x</span><span class="p">,</span> <span class="n">flatten_coords</span><span class="p">,</span> <span class="n">batched_coords</span><span class="p">,</span> <span class="n">batched_shape</span>
+
+    <span class="k">def</span> <span class="nf">_decompress_batch</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">out</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+        <span class="n">out_coords</span><span class="p">:</span> <span class="n">CoordSystem</span><span class="p">,</span>
+        <span class="n">batched_coords</span><span class="p">:</span> <span class="n">CoordSystem</span><span class="p">,</span>
+        <span class="n">batched_shape</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Size</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">CoordSystem</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Decompresses the batch dimension of a tensor</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        out : torch.Tensor</span>
+<span class="sd">            Batched tensor to decompress</span>
+<span class="sd">        out_coords : CoordSystem</span>
+<span class="sd">            Compressed coordinates</span>
+<span class="sd">        batched_coords : CoordSystem</span>
+<span class="sd">            The coords of the batch dimensions</span>
+<span class="sd">        batched_shape : torch.Size</span>
+<span class="sd">            The shape of the batched dimensions</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        tuple[torch.Tensor, CoordSystem]</span>
+<span class="sd">            Uncompressed tensor and coordinates</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="c1"># Reconstruct batch dims</span>
+        <span class="n">out</span> <span class="o">=</span> <span class="n">out</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">batched_shape</span> <span class="o">+</span> <span class="n">out</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">:])</span>
+        <span class="n">out_coords</span> <span class="o">=</span> <span class="n">out_coords</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="k">del</span> <span class="n">out_coords</span><span class="p">[</span><span class="s2">&quot;batch&quot;</span><span class="p">]</span>
+        <span class="n">out_coords</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">(</span><span class="n">chain</span><span class="p">(</span><span class="n">batched_coords</span><span class="o">.</span><span class="n">items</span><span class="p">(),</span> <span class="n">out_coords</span><span class="o">.</span><span class="n">items</span><span class="p">()))</span>
+        <span class="k">return</span> <span class="n">out</span><span class="p">,</span> <span class="n">out_coords</span>
+
+    <span class="k">def</span> <span class="nf">_batch_wrap</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">func</span><span class="p">:</span> <span class="n">Callable</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Callable</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Standard batch function decorator&quot;&quot;&quot;</span>
+        <span class="c1"># TODO: Better typing for model object</span>
+        <span class="nd">@functools</span><span class="o">.</span><span class="n">wraps</span><span class="p">(</span><span class="n">func</span><span class="p">)</span>
+        <span class="k">def</span> <span class="nf">_wrapper</span><span class="p">(</span>
+            <span class="n">model</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">coords</span><span class="p">:</span> <span class="n">CoordSystem</span>
+        <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">CoordSystem</span><span class="p">]:</span>
+
+            <span class="n">x</span><span class="p">,</span> <span class="n">flatten_coords</span><span class="p">,</span> <span class="n">batched_coords</span><span class="p">,</span> <span class="n">batched_shape</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_compress_batch</span><span class="p">(</span>
+                <span class="n">model</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">coords</span>
+            <span class="p">)</span>
+
+            <span class="c1"># Model forward</span>
+            <span class="n">out</span><span class="p">,</span> <span class="n">out_coords</span> <span class="o">=</span> <span class="n">func</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">flatten_coords</span><span class="p">)</span>
+            <span class="n">out</span><span class="p">,</span> <span class="n">out_coords</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_decompress_batch</span><span class="p">(</span>
+                <span class="n">out</span><span class="p">,</span> <span class="n">out_coords</span><span class="p">,</span> <span class="n">batched_coords</span><span class="p">,</span> <span class="n">batched_shape</span>
+            <span class="p">)</span>
+            <span class="k">return</span> <span class="n">out</span><span class="p">,</span> <span class="n">out_coords</span>
+
+        <span class="k">return</span> <span class="n">_wrapper</span>
+
+    <span class="k">def</span> <span class="nf">_batch_wrap_generator</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">func</span><span class="p">:</span> <span class="n">Callable</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Callable</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Wrapper generator functions, for each output we need to decompress batches&quot;&quot;&quot;</span>
+        <span class="c1"># Based on Pytorch: # https://github.com/pytorch/pytorch/pull/68617/files</span>
+        <span class="c1"># TODO: Better typing for model object</span>
+        <span class="nd">@functools</span><span class="o">.</span><span class="n">wraps</span><span class="p">(</span><span class="n">func</span><span class="p">)</span>
+        <span class="k">def</span> <span class="nf">_wrapper</span><span class="p">(</span>
+            <span class="n">model</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">coords</span><span class="p">:</span> <span class="n">CoordSystem</span>
+        <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Iterator</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">CoordSystem</span><span class="p">]]:</span>
+
+            <span class="n">x</span><span class="p">,</span> <span class="n">flatten_coords</span><span class="p">,</span> <span class="n">batched_coords</span><span class="p">,</span> <span class="n">batched_shape</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_compress_batch</span><span class="p">(</span>
+                <span class="n">model</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">coords</span>
+            <span class="p">)</span>
+
+            <span class="n">gen</span> <span class="o">=</span> <span class="n">func</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">flatten_coords</span><span class="p">)</span>
+
+            <span class="c1"># Run the generator</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="c1"># Prime it</span>
+                <span class="n">response</span> <span class="o">=</span> <span class="n">gen</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="kc">None</span><span class="p">)</span>
+
+                <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
+                    <span class="k">try</span><span class="p">:</span>
+                        <span class="c1"># Forward the response to our caller and get its next request</span>
+                        <span class="n">out</span><span class="p">,</span> <span class="n">out_coords</span> <span class="o">=</span> <span class="n">response</span>
+                        <span class="n">out</span><span class="p">,</span> <span class="n">out_coords</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_decompress_batch</span><span class="p">(</span>
+                            <span class="n">out</span><span class="p">,</span> <span class="n">out_coords</span><span class="p">,</span> <span class="n">batched_coords</span><span class="p">,</span> <span class="n">batched_shape</span>
+                        <span class="p">)</span>
+                        <span class="n">request</span> <span class="o">=</span> <span class="k">yield</span> <span class="n">out</span><span class="p">,</span> <span class="n">out_coords</span>
+
+                    <span class="k">except</span> <span class="ne">GeneratorExit</span><span class="p">:</span>  <span class="c1"># noqa: PERF203</span>
+                        <span class="c1"># Inform the still active generator about its imminent closure</span>
+                        <span class="n">gen</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+                        <span class="k">raise</span>
+
+                    <span class="k">except</span> <span class="ne">BaseException</span><span class="p">:</span>
+                        <span class="c1"># Propagate the exception thrown at us by the caller</span>
+                        <span class="n">response</span> <span class="o">=</span> <span class="n">gen</span><span class="o">.</span><span class="n">throw</span><span class="p">(</span><span class="o">*</span><span class="n">sys</span><span class="o">.</span><span class="n">exc_info</span><span class="p">())</span>
+
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="c1"># Get next response from generator</span>
+                        <span class="n">response</span> <span class="o">=</span> <span class="n">gen</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="n">request</span><span class="p">)</span>
+
+            <span class="k">except</span> <span class="ne">StopIteration</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                <span class="c1"># The generator informed us that it is done</span>
+                <span class="k">return</span> <span class="n">e</span><span class="o">.</span><span class="n">value</span>
+
+        <span class="k">return</span> <span class="n">_wrapper</span></div>
+
+</pre></div>
+
+                </article>
+              
+              
+              
+              
+              
+                <footer class="prev-next-footer">
+                  
+<div class="prev-next-area">
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+                <div class="bd-sidebar-secondary bd-toc"></div>
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+          </footer>
+        
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script src="../../../_static/scripts/bootstrap.js?digest=8d27b9dea8ad943066ae"></script>
+<script src="../../../_static/scripts/pydata-sphinx-theme.js?digest=8d27b9dea8ad943066ae"></script>
+
+  <footer class="bd-footer">
+<div class="bd-footer__inner bd-page-width">
+  
+    <div class="footer-items__start">
+      
+        <div class="footer-item">
+
+  <p class="copyright">
+    
+      © Copyright 2024, NVIDIA.
+      <br/>
+    
+  </p>
+</div>
+      
+        <div class="footer-item">
+
+  <p class="sphinx-version">
+    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 7.2.6.
+    <br/>
+  </p>
+</div>
+      
+    </div>
+  
+  
+  
+    <div class="footer-items__end">
+      
+        <div class="footer-item">
+<p class="theme-version">
+  Built with the <a href="https://pydata-sphinx-theme.readthedocs.io/en/stable/index.html">PyData Sphinx Theme</a> 0.15.2.
+</p></div>
+      
+    </div>
+  
+</div>
+
+  </footer>
+  </body>
+</html>
