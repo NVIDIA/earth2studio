@@ -220,9 +220,9 @@ class GFS:
                     f"Requested date time {time} needs to be 6 hour interval for GFS"
                 )
             # To update search "gfs." at https://noaa-gfs-bdp-pds.s3.amazonaws.com/index.html
-            if time < datetime(year=2021, month=2, day=20):
+            if time < datetime(year=2021, month=2, day=17):
                 raise ValueError(
-                    f"Requested date time {time} needs to be after February 20th, 2021 for GFS"
+                    f"Requested date time {time} needs to be after February 17th, 2021 for GFS"
                 )
 
             if not self.available(time):
