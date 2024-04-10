@@ -70,7 +70,6 @@ import numpy as np
 import torch
 from loguru import logger
 from tqdm import tqdm
-import os
 from earth2studio.data import DataSource, fetch_data
 from earth2studio.io import IOBackend
 from earth2studio.models.px import PrognosticModel
