@@ -106,7 +106,7 @@ def test_gfs_cache(time, variable, cache):
 @pytest.mark.parametrize(
     "time",
     [
-        datetime.datetime(year=2021, month=2, day=19),
+        datetime.datetime(year=2021, month=2, day=16),
         datetime.datetime(year=2023, month=1, day=1, hour=13),
         datetime.datetime.now(),
     ],
