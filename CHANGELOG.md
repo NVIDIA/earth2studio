@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Initial Release of earth2studio
 - Added model perturbation example.
+- SFNO model `sfno_73ch_small`.
 
 ### Changed
 
