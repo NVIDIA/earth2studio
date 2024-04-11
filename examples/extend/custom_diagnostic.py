@@ -164,7 +164,7 @@ def run(
     io: IOBackend,
     device: Optional[torch.device] = None,
 ) -> IOBackend:
-    """Simple built in deterministic workflow
+    """Simple diagnostic workflow
 
     Parameters
     ----------
