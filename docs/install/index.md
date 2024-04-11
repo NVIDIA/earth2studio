@@ -73,7 +73,7 @@ Notes: Requires [Modulus-Makani](https://github.com/NVIDIA/modulus-makani) to be
 installed manually.
 
 ```bash
-pip install makani[all] @ git+https://github.com/NVIDIA/modulus-makani.git@v0.1.0
+pip install git+https://github.com/NVIDIA/modulus-makani.git@v0.1.0[all]
 pip install earth2studio[sfno]
 ```
 
@@ -98,7 +98,7 @@ You can install Earth2Studio in a running container directly:
 ```bash
 docker run -i -t nvcr.io/nvidia/modulus/modulus:24.04
 
->>> pip install makani[all] @ git+https://github.com/NVIDIA/modulus-makani.git@v0.1.0
+>>> pip install git+https://github.com/NVIDIA/modulus-makani.git@v0.1.0[all]
 
 >>> pip install earth2studio[all]
 ```
@@ -108,7 +108,7 @@ or build your own Earth2Studio container using a Dockerfile:
 ```dockerfile
 FROM nvcr.io/nvidia/modulus/modulus
 
-RUN pip install makani[all] @ git+https://github.com/NVIDIA/modulus-makani.git@v0.1.0
+RUN pip install git+https://github.com/NVIDIA/modulus-makani.git@v0.1.0[all]
 
 RUN pip install earth2studio[all]
 ```
@@ -124,7 +124,7 @@ Note that for ONNX models to work we will need a [specific install](https://onnx
 docker run -i -t nvcr.io/nvidia/modulus/modulus:24.04
 
 >>> pip install onnxruntime-gpu --extra-index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/onnxruntime-cuda-12/pypi/simple/
->>> pip install makani[all] @ git+https://github.com/NVIDIA/modulus-makani.git@v0.1.0
+>>> pip install git+https://github.com/NVIDIA/modulus-makani.git@v0.1.0[all]
 
 >>> pip install earth2studio[pangu,fengwu,sfno]
 ```
@@ -144,7 +144,7 @@ conda activate earth2studio
 conda install pytorch torchvision torchaudio pytorch-cuda=12.1 -c pytorch -c nvidia
 conda install eccodes python-eccodes -c conda-forge
 pip install onnxruntime-gpu --extra-index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/onnxruntime-cuda-12/pypi/simple/
-pip install makani[all] @ git+https://github.com/NVIDIA/modulus-makani.git@v0.1.0
+pip install git+https://github.com/NVIDIA/modulus-makani.git@v0.1.0[all]
 
 git clone https://github.com/NVIDIA/apex
 pip install -v --disable-pip-version-check --no-cache-dir --no-build-isolation \
