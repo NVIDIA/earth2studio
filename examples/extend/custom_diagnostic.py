@@ -16,8 +16,8 @@
 
 # %%
 """
-Extending Diagostic Models
-==========================
+Extending Diagnostic Models
+===========================
 
 Implementing a custom diagnostic model
 
