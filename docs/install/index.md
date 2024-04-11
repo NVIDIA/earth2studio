@@ -1,3 +1,4 @@
+<!-- markdownlint-disable MD025 -->
 # Install
 
 ## Install from PyPi
@@ -81,14 +82,14 @@ pip install earth2studio[sfno]
 
 Using `pip install earth2studio[all]` will install all optional functionality dependencies.
 
-## Earth2Studio Environments
+# Environments
 
 For the best experience we recommend creating a fresh environment whether that be using
 a Docker container or a conda environment.
 Below are some recipes for creating a handful of environments that we recommend for
 setting up Earth2Studio to run all build in models.
 
-### Modulus Docker Container
+## Modulus Docker Container
 
 The recommend environment to run Earth2Studio in is the [Modulus docker container](https://catalog.ngc.nvidia.com/orgs/nvidia/teams/modulus/containers/modulus).
 This is the way the team develops with and is the primary test bed.
@@ -112,7 +113,7 @@ RUN pip makani[all] @ git+https://github.com/NVIDIA/modulus-makani.git@v0.1.0
 RUN pip install earth2studio[all]
 ```
 
-### PyTorch Docker Container
+## PyTorch Docker Container
 
 Modulus docker container is shipped with some packages that are not directly needed by
 Earth2Studio.
@@ -128,7 +129,7 @@ docker run -i -t nvcr.io/nvidia/modulus/modulus:24.04
 >>> pip install earth2studio[pangu,fengwu,sfno]
 ```
 
-### Conda Environment
+## Conda Environment
 
 🚧 Under construction 🚧
 
@@ -152,7 +153,7 @@ pip install -v --disable-pip-version-check --no-cache-dir --no-build-isolation \
 pip install earth2studio[all]
 ```
 
-## For Developers
+# For Developers
 
 For developers, use an edittable install of Earth-2 Studio with the `dev` option:
 
@@ -178,7 +179,7 @@ To install documentation dependencies use:
 pip install .[docs]
 ```
 
-## Configuration
+# Configuration
 
 Earth2Studio uses a few environment variables to configure various parts of the package.
 The import ones are:

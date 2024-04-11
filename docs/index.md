@@ -4,10 +4,10 @@ Welcome to the Earth-2 studio.
 
 ## Install
 
-Information about getting Earth-2 studio up and running, as well as key concepts.
+Get Earth2Studio installed.
 
 ```{toctree}
-:maxdepth: 2
+:maxdepth: 1
 
 install/index
 ```
