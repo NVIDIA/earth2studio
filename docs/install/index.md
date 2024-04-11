@@ -1,7 +1,5 @@
 # Install
 
-🚧 Under construction 🚧
-
 ## Install from PyPi
 
 To get the latest release of Earth2Studio install from the Python index:
@@ -22,13 +20,22 @@ cd earth2-inference-studio
 pip install .
 ```
 
+Verify installation using:
+
+```bash
+python
+
+>>> import earth2studio
+>>> earth2studio.__version__
+```
+
 :::{admonition} Base Install Limitations
 :class: warning
 
 The base pip install does not guarentee all functionality and/or examples are
 operational due to optional dependencies.
 We encourage users that face package issues to familize themselves with the optional
-model installs and suggested enviroment set up for the most complete experience.
+model installs and suggested environment set up for the most complete experience.
 :::
 
 ## Model Dependencies
@@ -46,13 +53,81 @@ Use the optional install commands to add these dependencies.
      - Install Notes
    * - Pangu
      - `pip install earth2studio[pangu]`
-     - ONNX Runtime
+     - [ONNX GPU Runtime](https://onnxruntime.ai/docs/install/)
    * - FengWu
      - `pip install earth2studio[fengwu]`
-     - ONNX Runtime
+     - [ONNX GPU Runtime](https://onnxruntime.ai/docs/install/)
    * - SFNO
-     - `pip install earth2studio[sfno]`
+     - `pip install git+https://github.com/NVIDIA/modulus-makani.git@v0.1.0
+        pip install earth2studio[sfno]`
      - [Modulus-Makani](https://github.com/NVIDIA/modulus-makani)
+```
+
+Using `pip install earth2studio[all]` will install all optional functionality dependencies.
+
+## Earth2Studio Environments
+
+For the best experience we recommend creating a fresh environment whether that be using
+a Docker container or a conda environment.
+Below are some recipes for creating a handful of environments that we recommend for
+setting up Earth2Studio to run all build in models.
+
+### Modulus Docker Container
+
+The recommend environment to run Earth2Studio in is the [Modulus docker container](https://catalog.ngc.nvidia.com/orgs/nvidia/teams/modulus/containers/modulus).
+This is the way the team develops with and is the primary test bed.
+You can install Earth2Studio in a running container directly:
+
+```bash
+docker run -i -t nvcr.io/nvidia/modulus/modulus:24.04
+
+>>> pip makani[all] @ git+https://github.com/NVIDIA/modulus-makani.git@v0.1.0
+
+>>> pip install earth2studio[all]
+```
+
+or build your own Earth2Studio container using:
+
+```dockerfile
+FROM nvcr.io/nvidia/modulus/modulus
+
+RUN pip makani[all] @ git+https://github.com/NVIDIA/modulus-makani.git@v0.1.0
+
+RUN pip install earth2studio[all]
+```
+
+### PyTorch Docker Container
+
+Modulus docker container is shipped with some packages that are not directly needed by
+Earth2Studio.
+Thus some may prefer to install from the PyTorch container.
+Note that for ONNX models to work we will need a [specific install](https://onnxruntime.ai/docs/install/#install-onnx-runtime-ort-1):
+
+```bash
+docker run -i -t nvcr.io/nvidia/modulus/modulus:24.04
+
+>>> pip install onnxruntime-gpu --extra-index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/onnxruntime-cuda-12/pypi/simple/
+>>> pip makani[all] @ git+https://github.com/NVIDIA/modulus-makani.git@v0.1.0
+
+>>> pip install earth2studio[pangu,fengwu,sfno]
+```
+
+### Conda Enviroment
+
+For instances where Docker is not an option, we recommend creating a conda environment.
+Ensuring the PyTorch is running on your GPU is essential, make sure you are [installing](https://pytorch.org/get-started/locally/)
+the correct PyTorch for your hardward and CUDA is accessible.
+
+```bash
+conda create -n earth2studio python=3.10
+conda activate earth2studio
+
+conda install pytorch torchvision torchaudio pytorch-cuda=12.1 -c pytorch -c nvidia
+conda install eccodes python-eccodes -c conda-forge
+pip install onnxruntime-gpu --extra-index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/onnxruntime-cuda-12/pypi/simple/
+pip makani[all] @ git+https://github.com/NVIDIA/modulus-makani.git@v0.1.0
+
+pip install earth2studio[all]
 ```
 
 ## For Developers
@@ -83,7 +158,7 @@ pip install .[docs]
 
 ## Configuration
 
-Earth2Studio uses a few enviroment variables to configure various parts of the package.
+Earth2Studio uses a few environment variables to configure various parts of the package.
 The import ones are:
 
 - `EARTH2STUDIO_CACHE`: The location of the cache used for Earth2Studio. This is a file

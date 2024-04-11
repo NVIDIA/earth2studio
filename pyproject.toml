@@ -58,13 +58,20 @@ fengwu = [
     "onnxruntime-gpu>=1.14.0",
 ]
 sfno = [
-    "makani[all] @ git+https://github.com/NVIDIA/modulus-makani.git@v0.1.0",
+    # makani needs to be installed manually
+    # "makani[all] @ git+https://github.com/NVIDIA/modulus-makani.git@v0.1.0",
     "jsbeautifier", # makani
     "pynvml", # makani
     "numba", # makani
 ]
 pangu = [
     "onnxruntime-gpu>=1.14.0",
+]
+all = [
+    "onnxruntime-gpu>=1.14.0",
+    "jsbeautifier",
+    "pynvml",
+    "numba",
 ]
 dev = [
     "pre-commit",
