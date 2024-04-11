@@ -63,3 +63,8 @@ docs-full:
 	$(MAKE) -C docs clean
 	rm -rf examples/outputs
 	PLOT_GALLERY=True RUN_STALE_EXAMPLES=True $(MAKE) -C docs html
+
+.PHONY: docs-dev
+docs-dev:
+	rm -rf examples/outputs
+	PLOT_GALLERY=True RUN_STALE_EXAMPLES=True FILENAME_PATTERN=$(FILENAME) $(MAKE) -C docs html

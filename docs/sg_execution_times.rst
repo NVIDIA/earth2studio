@@ -6,7 +6,7 @@
 
 Computation times
 =================
-**00:10.494** total execution time for 5 files **from all galleries**:
+**00:39.440** total execution time for 6 files **from all galleries**:
 
 .. container::
 
@@ -32,8 +32,8 @@ Computation times
    * - Example
      - Time
      - Mem (MB)
-   * - :ref:`sphx_glr_examples_extend_custom_prognostic.py` (``../examples/extend/custom_prognostic.py``)
-     - 00:10.494
+   * - :ref:`sphx_glr_examples_extend_custom_diagnostic.py` (``../examples/extend/custom_diagnostic.py``)
+     - 00:39.440
      - 0.0
    * - :ref:`sphx_glr_examples_01_simple_workflow.py` (``../examples/01_simple_workflow.py``)
      - 00:00.000
@@ -45,5 +45,8 @@ Computation times
      - 00:00.000
      - 0.0
    * - :ref:`sphx_glr_examples_04_ensemble_workflow_extend.py` (``../examples/04_ensemble_workflow_extend.py``)
+     - 00:00.000
+     - 0.0
+   * - :ref:`sphx_glr_examples_extend_custom_prognostic.py` (``../examples/extend/custom_prognostic.py``)
      - 00:00.000
      - 0.0

@@ -123,8 +123,8 @@ class CustomDiagnostic(torch.nn.Module):
 # :py:func:`__call__` API
 # ~~~~~~~~~~~~~~~~~~~~~~~
 # The call function is the main API of diagnostic models that have a tensor and
-# coordinate system as input/output. This function first valids the coordinate system
-# are to be expected. Then both the input data tensor and also coordinate system are
+# coordinate system as input/output. This function first validates that the coordinate
+# system is correct. Then both the input data tensor and also coordinate system are
 # updated and returned.
 #
 # .. note::

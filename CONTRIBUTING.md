@@ -176,9 +176,7 @@ For development, its recommend to use the following process:
 make docs
 
 # Run this to generate your example
-rm -rf examples/outputs
-PLOT_GALLERY=True RUN_STALE_EXAMPLES=True FILENAME_PATTERN=<Example file name.py> \
-make -C docs html
+make docs-dev FILENAME=<example filename .py>
 ```
 
 Build files will always be in `docs/_build/html`.
