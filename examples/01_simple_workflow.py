@@ -90,6 +90,8 @@ import earth2studio.run as run
 nsteps = 20
 io = run.deterministic(["2024-01-01"], nsteps, model, data, io)
 
+print(io.root.tree())
+
 # %%
 # Post Processing
 # ---------------

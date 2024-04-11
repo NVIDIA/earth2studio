@@ -1,4 +1,4 @@
-.. _extend_examples:
+.. _extension_examples:
 
 Extending Earth2Studio
 ----------------------

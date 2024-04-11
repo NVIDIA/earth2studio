@@ -112,7 +112,7 @@ docker run -i -t nvcr.io/nvidia/modulus/modulus:24.04
 >>> pip install earth2studio[pangu,fengwu,sfno]
 ```
 
-### Conda Enviroment
+### Conda Environment
 
 For instances where Docker is not an option, we recommend creating a conda environment.
 Ensuring the PyTorch is running on your GPU is essential, make sure you are [installing](https://pytorch.org/get-started/locally/)
