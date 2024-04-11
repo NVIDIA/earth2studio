@@ -219,7 +219,15 @@ output_coords = {
 }
 
 # Forst run the unperturbed model forcast
-# io_unperturbed = run_ensemble([forecast_date], nsteps, nensemble, model, data, io_unperturbed, output_coords=output_coords)
+io_unperturbed = run_ensemble(
+    [forecast_date],
+    nsteps,
+    nensemble,
+    model,
+    data,
+    io_unperturbed,
+    output_coords=output_coords,
+)
 
 # Introduce slight model perturbation
 # front_hook / rear_hook map (x, coords) -> (x, coords)
@@ -237,7 +245,15 @@ model.front_hook = lambda x, coords: (
 io_perturbed = ZarrBackend(
     file_name="outputs/ensemble_model_perturbation.zarr", chunks=chunks
 )
-# io_perturbed = run_ensemble([forecast_date], nsteps, nensemble, model, data, io_perturbed, output_coords=output_coords)
+io_perturbed = run_ensemble(
+    [forecast_date],
+    nsteps,
+    nensemble,
+    model,
+    data,
+    io_perturbed,
+    output_coords=output_coords,
+)
 
 # %%
 # Post Processing
