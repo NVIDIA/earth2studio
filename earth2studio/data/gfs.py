@@ -206,8 +206,9 @@ class GFS:
 
         return gfsda
 
-    def _validate_time(self, times: list[datetime]) -> None:
-        """Verify if date time is valid for GFS
+    @classmethod
+    def _validate_time(cls, times: list[datetime]) -> None:
+        """Verify if date time is valid for GFS based on offline knowledge
 
         Parameters
         ----------
@@ -215,18 +216,19 @@ class GFS:
             list of date times to fetch data
         """
         for time in times:
-            if not time.hour % 6 == 0:
+            if not time.hour % 6 == 0 or not time.minute == 0 or not time.second == 0:
                 raise ValueError(
                     f"Requested date time {time} needs to be 6 hour interval for GFS"
                 )
             # To update search "gfs." at https://noaa-gfs-bdp-pds.s3.amazonaws.com/index.html
+            # They are slowly adding more data
             if time < datetime(year=2021, month=2, day=17):
                 raise ValueError(
                     f"Requested date time {time} needs to be after February 17th, 2021 for GFS"
                 )
 
-            if not self.available(time):
-                raise ValueError(f"Requested date time {time} not available in GFS")
+            # if not self.available(time):
+            #     raise ValueError(f"Requested date time {time} not available in GFS")
 
     def _fetch_index(self, time: datetime) -> dict[str, tuple[int, int]]:
         """Fetch GFS atmospheric index file
@@ -330,6 +332,12 @@ class GFS:
             _unix = np.datetime64(0, "s")
             _ds = np.timedelta64(1, "s")
             time = datetime.utcfromtimestamp((time - _unix) / _ds)
+
+        # Offline checks
+        try:
+            cls._validate_time([time])
+        except ValueError:
+            return False
 
         s3 = boto3.client(
             "s3", config=botocore.config.Config(signature_version=UNSIGNED)
