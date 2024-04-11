@@ -216,7 +216,7 @@ class GFS:
             list of date times to fetch data
         """
         for time in times:
-            if not time.hour % 6 == 0:
+            if not time.hour % 6 == 0 or not time.minute == 0 or not time.second == 0:
                 raise ValueError(
                     f"Requested date time {time} needs to be 6 hour interval for GFS"
                 )
