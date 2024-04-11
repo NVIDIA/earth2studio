@@ -28,7 +28,7 @@ In this example you will learn:
 
 - API requirements of diagnostic models
 - Implementing a custom diagnostic model
-- Running this model in existing workflows
+- Running this custom model in a workflow with built in prognostic
 """
 
 # %%
@@ -151,7 +151,7 @@ from tqdm import tqdm
 from earth2studio.data import DataSource, fetch_data
 from earth2studio.io import IOBackend
 from earth2studio.models.px import PrognosticModel
-from earth2studio.models.px import DiagnosticModel
+from earth2studio.models.dx import DiagnosticModel
 from earth2studio.utils.coords import extract_coords, map_coords
 from earth2studio.utils.time import to_time_array
 
@@ -216,7 +216,7 @@ def run(
     total_coords.move_to_end("lead_time", last=False)
     total_coords.move_to_end("time", last=False)
 
-    for name, value in diagnostic.out_coords.items():
+    for name, value in diagnostic.output_coords.items():
         if name == "batch":
             continue
         total_coords[name] = value
@@ -234,7 +234,7 @@ def run(
         for step, (x, coords) in enumerate(model):
 
             # Run diagnostic
-            x, coords = map_coords(x, coords, diagnostic.output_coords)
+            x, coords = map_coords(x, coords, diagnostic.input_coords)
             x, coords = diagnostic(x, coords)
 
             io.write(*extract_coords(x, coords))
@@ -261,6 +261,7 @@ from dotenv import load_dotenv
 
 load_dotenv()  # TODO: make common example prep function
 
+from earth2studio.models.px import DLWP
 from earth2studio.data import GFS
 from earth2studio.io import ZarrBackend
 
@@ -280,13 +281,12 @@ io = ZarrBackend()
 # %%
 # Execute the Workflow
 # --------------------
-# Because the prognostic meets the needs of the interface, the workflow will execute
-# just like any other model.
+# Running our workflow with a build in prognostic model and a custom diagnostic is as
+# simple as the following.
 
 # %%
-import earth2studio.run as run
 
-nsteps = 24
+nsteps = 20
 io = run(["2024-01-01"], nsteps, model, diagnostic, data, io)
 
 print(io.root.tree())
@@ -302,6 +302,8 @@ import os
 
 os.makedirs("outputs", exist_ok=True)
 import matplotlib.pyplot as plt
+from mpl_toolkits.axes_grid1 import make_axes_locatable
+import cartopy.crs as ccrs
 
 forecast = "2024-01-01"
 variable = "t2m_c"
@@ -309,21 +311,38 @@ variable = "t2m_c"
 plt.close("all")
 
 # Create a figure and axes with the specified projection
-fig, ax = plt.subplots(0, 2, figsize=(6, 4))
+fig, ax = plt.subplots(
+    1,
+    5,
+    figsize=(12, 4),
+    subplot_kw={"projection": ccrs.Orthographic()},
+    constrained_layout=True,
+)
 
-# Plot u10m every 6 hours
-ax[0, 0].imshow(io[variable][0, 0], vmin=-20, vmax=20)
-ax[0, 1].imshow(io[variable][0, 6], vmin=-20, vmax=20)
-ax[1, 0].imshow(io[variable][0, 12], vmin=-20, vmax=20)
-ax[1, 1].imshow(io[variable][0, 18], vmin=-20, vmax=20)
-
-
-# Set title
-plt.suptitle(f"{variable} - {forecast}")
 times = io["lead_time"].astype("timedelta64[h]").astype(int)
-ax[0, 0].set_title(f"Lead time: {times[0]}hrs")
-ax[0, 1].set_title(f"Lead time: {times[6]}hrs")
-ax[1, 0].set_title(f"Lead time: {times[12]}hrs")
-ax[1, 1].set_title(f"Lead time: {times[18]}hrs")
+step = 4  # 24hrs
+for i, t in enumerate(range(0, 20, step)):
 
-plt.savefig("outputs/custom_prognostic_prediction.jpg", bbox_inches="tight")
+    ctr = ax[i].contourf(
+        io["lon"][:],
+        io["lat"][:],
+        io[variable][0, t],
+        vmin=-10,
+        vmax=30,
+        transform=ccrs.PlateCarree(),
+        levels=20,
+        cmap="coolwarm",
+    )
+    ax[i].set_title(f"{times[t]}hrs")
+    ax[i].coastlines()
+    ax[i].gridlines()
+
+plt.suptitle(f"{variable} - {forecast}")
+
+cbar = plt.cm.ScalarMappable(cmap="coolwarm")
+cbar.set_array(io[variable][0, 0])
+cbar.set_clim(-10.0, 30)
+cbar = fig.colorbar(cbar, ax=ax[-1], orientation="vertical", label="C", shrink=0.8)
+
+
+plt.savefig("outputs/custom_diagnostic_dlwp_prediction.jpg")

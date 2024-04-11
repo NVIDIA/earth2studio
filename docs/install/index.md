@@ -102,7 +102,7 @@ docker run -i -t nvcr.io/nvidia/modulus/modulus:24.04
 >>> pip install earth2studio[all]
 ```
 
-or build your own Earth2Studio container using:
+or build your own Earth2Studio container using a Dockerfile:
 
 ```dockerfile
 FROM nvcr.io/nvidia/modulus/modulus
