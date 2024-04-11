@@ -43,25 +43,41 @@ model installs and suggested environment set up for the most complete experience
 Some models require additional dependencies which are not installed by default.
 Use the optional install commands to add these dependencies.
 
-```{list-table}
-    :widths: 25 40 15
-    :header-rows: 1
+::::{tab-set}
 
+:::{tab-item} FengWu
 
-   * - Model
-     - Install Command
-     - Install Notes
-   * - Pangu
-     - `pip install earth2studio[pangu]`
-     - [ONNX GPU Runtime](https://onnxruntime.ai/docs/install/)
-   * - FengWu
-     - `pip install earth2studio[fengwu]`
-     - [ONNX GPU Runtime](https://onnxruntime.ai/docs/install/)
-   * - SFNO
-     - `pip install git+https://github.com/NVIDIA/modulus-makani.git@v0.1.0
-        pip install earth2studio[sfno]`
-     - [Modulus-Makani](https://github.com/NVIDIA/modulus-makani)
+Notes: Requires [ONNX GPU Runtime](https://onnxruntime.ai/docs/install/). May need
+manual install depending on CUDA version.
+
+```bash
+pip install earth2studio[fengwu]
 ```
+
+:::
+
+:::{tab-item} Pangu
+
+Notes: Requires [ONNX GPU Runtime](https://onnxruntime.ai/docs/install/). May need
+manual install depending on CUDA version.
+
+```bash
+pip install earth2studio[pangu]
+```
+
+:::
+
+:::{tab-item} SFNO
+Notes: Requires [Modulus-Makani](https://github.com/NVIDIA/modulus-makani) to be
+installed manually.
+
+```bash
+pip install git+https://github.com/NVIDIA/modulus-makani.git@v0.1.0
+pip install earth2studio[sfno]
+```
+
+:::
+::::
 
 Using `pip install earth2studio[all]` will install all optional functionality dependencies.
 
