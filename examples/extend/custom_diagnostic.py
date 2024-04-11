@@ -46,7 +46,6 @@ In this example you will learn:
 # to get the required :py:obj:`to(device)` method for free.
 
 # %%
-from typing import Generator, Iterator
 from collections import OrderedDict
 
 import numpy as np
