@@ -16,10 +16,10 @@
 
 # %%
 """
-Running Ensemble Inference
+Model Hook Injection: Perturbation
 ==========================
 
-Extended ensemble inference workflow.
+Adding model noise by using custom hooks.
 
 This example will demonstrate how to run a an ensemble inference workflow to generate a
 perturbed ensemble forecast. This perturbation is done by injecting code into the model
@@ -42,7 +42,7 @@ In this example you will learn:
 # Creating an Ensemble Workflow
 # -----------------------------------
 #
-# To start lets begin with creating a ensemble workflow to use. We encourage
+# To start lets begin with creating an ensemble workflow to use. We encourage
 # users to explore and experiment with their own custom workflows that borrow ideas from
 # built in workflows inside :py:obj:`earth2studio.run` or the examples.
 #
@@ -70,6 +70,7 @@ import numpy as np
 import torch
 from loguru import logger
 from tqdm import tqdm
+
 from earth2studio.data import DataSource, fetch_data
 from earth2studio.io import IOBackend
 from earth2studio.models.px import PrognosticModel
@@ -171,7 +172,7 @@ def run_ensemble(
 #
 # We need the following:
 #
-# - Prognostic Model: Use the built in FourCastNet model :py:class:`earth2studio.models.px.FCN`.
+# - Prognostic Model: Use the built in FourCastNet model :py:class:`earth2studio.models.px.DLWP`.
 # - Datasource: Pull data from the GFS data api :py:class:`earth2studio.data.GFS`.
 # - IO Backend: Lets save the outputs into a Zarr store :py:class:`earth2studio.io.ZarrBackend`.
 #
@@ -251,7 +252,13 @@ io_perturbed = ZarrBackend(
 import matplotlib.pyplot as plt
 import cartopy.crs as ccrs
 import matplotlib.animation as animation
+from matplotlib.colors import LogNorm
 
+
+levels_unperturbed = np.linspace(0, io_unperturbed["tcwv"][:].max())
+levels_perturbed = np.linspace(0, io_perturbed["tcwv"][:].max())
+
+std_levels_perturbed = np.linspace(0, io_perturbed["tcwv"][:].std(axis=0).max())
 
 plt.close("all")
 fig = plt.figure(figsize=(20, 10), tight_layout=True)
@@ -259,11 +266,6 @@ ax0 = fig.add_subplot(2, 2, 1, projection=ccrs.PlateCarree())
 ax1 = fig.add_subplot(2, 2, 2, projection=ccrs.PlateCarree())
 ax2 = fig.add_subplot(2, 2, 3, projection=ccrs.PlateCarree())
 ax3 = fig.add_subplot(2, 2, 4, projection=ccrs.PlateCarree())
-
-levels_unperturbed = np.linspace(0, io_unperturbed["tcwv"][:].max())
-levels_perturbed = np.linspace(0, io_perturbed["tcwv"][:].max())
-
-std_levels_perturbed = np.linspace(0, io_perturbed["tcwv"][:].std(axis=0).max())
 
 
 def update(frame):
@@ -290,8 +292,9 @@ def update(frame):
         io_unperturbed["lat"][:],
         io_unperturbed["tcwv"][:, 0, frame].std(axis=0),
         transform=ccrs.PlateCarree(),
-        cmap="RdPu_r",
+        cmap="RdPu",
         levels=std_levels_perturbed,
+        norm=LogNorm(vmin=1e-1, vmax=std_levels_perturbed[-1]),
     )
     ax1.coastlines()
     ax1.gridlines()
@@ -312,8 +315,9 @@ def update(frame):
         io_perturbed["lat"][:],
         io_perturbed["tcwv"][:, 0, frame].std(axis=0),
         transform=ccrs.PlateCarree(),
-        cmap="RdPu_r",
+        cmap="RdPu",
         levels=std_levels_perturbed,
+        norm=LogNorm(vmin=1e-1, vmax=std_levels_perturbed[-1]),
     )
     ax3.coastlines()
     ax3.gridlines()
@@ -348,14 +352,32 @@ def update(frame):
         ax2.set_title("Perturbed Ensemble Mean - tcwv + z500 contours")
         ax2.set_title("Perturbed Ensemble Std - tcwv")
 
-        plt.colorbar(im0, ax=ax0, shrink=0.5, label="kg m^-2")
-        plt.colorbar(im1, ax=ax1, shrink=0.5, label="kg m^-2")
-        plt.colorbar(im2, ax=ax2, shrink=0.5, label="kg m^-2")
-        plt.colorbar(im3, ax=ax3, shrink=0.5, label="kg m^-2")
+        plt.colorbar(
+            im0, ax=ax0, shrink=0.75, pad=0.04, label="kg m^-2", format="%2.1f"
+        )
+        plt.colorbar(
+            im1, ax=ax1, shrink=0.75, pad=0.04, label="kg m^-2", format="%1.2e"
+        )
+        plt.colorbar(
+            im2, ax=ax2, shrink=0.75, pad=0.04, label="kg m^-2", format="%2.1f"
+        )
+        plt.colorbar(
+            im3, ax=ax3, shrink=0.75, pad=0.04, label="kg m^-2", format="%1.2e"
+        )
 
 
-update(0)
-ani = animation.FuncAnimation(
-    fig=fig, func=update, frames=range(1, nsteps), cache_frame_data=False
-)
-ani.save(f"outputs/model_perturbation_{forecast_date}.gif", dpi=300)
+# Uncomment this for animation
+# update(0)
+# ani = animation.FuncAnimation(
+# fig=fig, func=update, frames=range(1, nsteps), cache_frame_data=False
+# )
+# ani.save(f"outputs/model_perturbation_{forecast_date}.gif", dpi=300)
+
+# Here we plot a handful of images
+for lt in [0, 10, 20, 30, 40]:
+    update(lt)
+    plt.savefig(
+        f"outputs/model_perturbation_{forecast_date}_leadtime_{lt}.png",
+        dpi=300,
+        bbox_inches="tight",
+    )
