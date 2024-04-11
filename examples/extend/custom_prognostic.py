@@ -22,7 +22,7 @@ Extending Prognostic Models
 Implementing a custom prognostic model
 
 This example will demonstrate how extend Earth2Studio by implementing a custom
-prognostic model.
+prognostic model and running it in a general workflow.
 
 In this example you will learn:
 

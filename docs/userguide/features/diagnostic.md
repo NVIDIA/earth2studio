@@ -1,3 +1,5 @@
+(diagnostic_model_userguide)=
+
 # Diagnostic Models
 
 Diagnostic models in Earth2Studio provides a set of models that are independent of time,

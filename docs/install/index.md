@@ -114,6 +114,8 @@ docker run -i -t nvcr.io/nvidia/modulus/modulus:24.04
 
 ### Conda Environment
 
+🚧 Under construction 🚧
+
 For instances where Docker is not an option, we recommend creating a conda environment.
 Ensuring the PyTorch is running on your GPU is essential, make sure you are [installing](https://pytorch.org/get-started/locally/)
 the correct PyTorch for your hardward and CUDA is accessible.
@@ -126,6 +128,10 @@ conda install pytorch torchvision torchaudio pytorch-cuda=12.1 -c pytorch -c nvi
 conda install eccodes python-eccodes -c conda-forge
 pip install onnxruntime-gpu --extra-index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/onnxruntime-cuda-12/pypi/simple/
 pip makani[all] @ git+https://github.com/NVIDIA/modulus-makani.git@v0.1.0
+
+git clone https://github.com/NVIDIA/apex
+pip install -v --disable-pip-version-check --no-cache-dir --no-build-isolation \
+--global-option="--cpp_ext" --global-option="--cuda_ext" ./apex
 
 pip install earth2studio[all]
 ```
