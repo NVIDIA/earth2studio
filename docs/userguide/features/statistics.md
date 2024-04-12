@@ -12,7 +12,7 @@ makes statistics less flexible than diagnostic models but have fewer API require
 Statistics API only specify a {func}`__call__` method that matches similar methods
 across the package.
 
-```{literalinclude} ../../../earth2studio/io/base.py
+```{literalinclude} ../../../earth2studio/statistics/base.py
     :lines: 24-43
     :language: python
 ```
@@ -39,7 +39,7 @@ inputs. Otherwise, the API and requirements are similar to the statistics requir
 
 ## Metrics Interface
 
-```{literalinclude} ../../../earth2studio/io/base.py
+```{literalinclude} ../../../earth2studio/statistics/base.py
     :lines: 45-
     :language: python
 ```
