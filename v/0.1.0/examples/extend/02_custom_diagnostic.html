@@ -1,0 +1,974 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link href="../../_static/favicon.ico" rel="icon" type="image/x-icon">
+    <title>Extending Diagnostic Models &#8212; Earth-2 Inference Studio 0.1.0 documentation</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "light";
+  </script>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../../_static/styles/theme.css?digest=8d27b9dea8ad943066ae" rel="stylesheet" />
+<link href="../../_static/styles/bootstrap.css?digest=8d27b9dea8ad943066ae" rel="stylesheet" />
+<link href="../../_static/styles/pydata-sphinx-theme.css?digest=8d27b9dea8ad943066ae" rel="stylesheet" />
+
+  
+  <link href="../../_static/vendor/fontawesome/6.5.1/css/all.min.css?digest=8d27b9dea8ad943066ae" rel="stylesheet" />
+  <link rel="preload" as="font" type="font/woff2" crossorigin href="../../_static/vendor/fontawesome/6.5.1/webfonts/fa-solid-900.woff2" />
+<link rel="preload" as="font" type="font/woff2" crossorigin href="../../_static/vendor/fontawesome/6.5.1/webfonts/fa-brands-400.woff2" />
+<link rel="preload" as="font" type="font/woff2" crossorigin href="../../_static/vendor/fontawesome/6.5.1/webfonts/fa-regular-400.woff2" />
+
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=a746c00c" />
+    <link rel="stylesheet" type="text/css" href="../../_static/sg_gallery.css?v=61a4c737" />
+    <link rel="stylesheet" type="text/css" href="../../_static/sg_gallery-binder.css?v=f4aeca0c" />
+    <link rel="stylesheet" type="text/css" href="../../_static/sg_gallery-dataframe.css?v=2082cf3c" />
+    <link rel="stylesheet" type="text/css" href="../../_static/sg_gallery-rendered-html.css?v=1277b6f3" />
+    <link rel="stylesheet" type="text/css" href="../../_static/design-style.1e8bd061cd6da7fc9cf755528e8ffc24.min.css?v=0a3b3ea7" />
+    <link rel="stylesheet" type="text/css" href="../../_static/css/custom.css?v=0b10f1a0" />
+  
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=8d27b9dea8ad943066ae" />
+<link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=8d27b9dea8ad943066ae" />
+  <script src="../../_static/vendor/fontawesome/6.5.1/js/all.min.js?digest=8d27b9dea8ad943066ae"></script>
+
+    <script src="../../_static/documentation_options.js?v=01f34227"></script>
+    <script src="../../_static/doctools.js?v=888ff710"></script>
+    <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../_static/design-tabs.js?v=36754332"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'examples/extend/02_custom_diagnostic';</script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="prev" title="Extending Prognostic Models" href="01_custom_prognostic.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <a id="pst-skip-link" class="skip-link" href="#main-content">Skip to main content</a>
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>
+    Back to top
+  </button>
+
+  
+  <input type="checkbox"
+          class="sidebar-toggle"
+          name="__primary"
+          id="__primary"/>
+  <label class="overlay overlay-primary" for="__primary"></label>
+  
+  <input type="checkbox"
+          class="sidebar-toggle"
+          name="__secondary"
+          id="__secondary"/>
+  <label class="overlay overlay-secondary" for="__secondary"></label>
+  
+  <div class="search-button__wrapper">
+    <div class="search-button__overlay"></div>
+    <div class="search-button__search-container">
+<form class="bd-search d-flex align-items-center"
+      action="../../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         id="search-input"
+         placeholder="Search the docs ..."
+         aria-label="Search the docs ..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form></div>
+  </div>
+
+
+  <div class="bd-header-announcement container-fluid bd-header-announcement">
+    <div class="bd-header-announcement__content">Earth-2 Inference Studio is now OSS!</div>
+  </div>
+
+  
+    <header class="bd-header navbar navbar-expand-lg bd-navbar">
+<div class="bd-header__inner bd-page-width">
+  <label class="sidebar-toggle primary-toggle" for="__primary">
+    <span class="fa-solid fa-bars"></span>
+  </label>
+  
+  
+  <div class=" navbar-header-items__start">
+    
+      <div class="navbar-item">
+
+  
+
+<a class="navbar-brand logo" href="../../index.html">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="../../_static/NVIDIA-Logo-V-ForScreen-ForLightBG.png" class="logo__image only-light" alt=""/>
+    <script>document.write(`<img src="../../_static/NVIDIA-Logo-V-ForScreen-ForDarkBG.png" class="logo__image only-dark" alt=""/>`);</script>
+  
+  
+    <p class="title logo__title">Earth-2 Inference Studio</p>
+  
+</a></div>
+    
+  </div>
+  
+  <div class=" navbar-header-items">
+    
+    <div class="me-auto navbar-header-items__center">
+      
+        <div class="navbar-item">
+<nav class="navbar-nav">
+  <ul class="bd-navbar-elements navbar-nav">
+    
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="../../install/index.html">
+                        Install
+                      </a>
+                    </li>
+                
+
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="../../userguide/index.html">
+                        User Guide
+                      </a>
+                    </li>
+                
+
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="../../modules/index.html">
+                        API
+                      </a>
+                    </li>
+                
+
+                    <li class="nav-item current active">
+                      <a class="nav-link nav-internal" href="../index.html">
+                        Examples
+                      </a>
+                    </li>
+                
+
+                <li class="nav-item">
+                  <a class="nav-link nav-external" href="https://gitlab-master.nvidia.com/modulus/earth-2/earth2-inference-studio/blob/main/CHANGELOG.md">
+                    Changelog
+                  </a>
+                </li>
+                
+  </ul>
+</nav></div>
+      
+    </div>
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+ <script>
+ document.write(`
+   <button class="btn navbar-btn search-button-field search-button__button" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass"></i>
+    <span class="search-button__default-text">Search</span>
+    <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+   </button>
+ `);
+ </script>
+        </div>
+      
+      
+        <div class="navbar-item">
+
+<script>
+document.write(`
+  <button class="btn btn-sm navbar-btn theme-switch-button" title="light/dark" aria-label="light/dark" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <span class="theme-switch nav-link" data-mode="light"><i class="fa-solid fa-sun fa-lg"></i></span>
+    <span class="theme-switch nav-link" data-mode="dark"><i class="fa-solid fa-moon fa-lg"></i></span>
+    <span class="theme-switch nav-link" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg"></i></span>
+  </button>
+`);
+</script></div>
+      
+        <div class="navbar-item"><ul class="navbar-icon-links navbar-nav"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/NVIDIA/earth2studio" title="Github" class="nav-link" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><span><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i></span>
+            <span class="sr-only">Github</span></a>
+        </li>
+</ul></div>
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+
+ <script>
+ document.write(`
+   <button class="btn navbar-btn search-button-field search-button__button" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass"></i>
+    <span class="search-button__default-text">Search</span>
+    <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+   </button>
+ `);
+ </script>
+    </div>
+  
+
+  
+    <label class="sidebar-toggle secondary-toggle" for="__secondary" tabindex="0">
+      <span class="fa-solid fa-outdent"></span>
+    </label>
+  
+</div>
+
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+      <div class="bd-sidebar-primary bd-sidebar">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+      <div class="sidebar-header-items__center">
+        
+          <div class="navbar-item">
+<nav class="navbar-nav">
+  <ul class="bd-navbar-elements navbar-nav">
+    
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="../../install/index.html">
+                        Install
+                      </a>
+                    </li>
+                
+
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="../../userguide/index.html">
+                        User Guide
+                      </a>
+                    </li>
+                
+
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="../../modules/index.html">
+                        API
+                      </a>
+                    </li>
+                
+
+                    <li class="nav-item current active">
+                      <a class="nav-link nav-internal" href="../index.html">
+                        Examples
+                      </a>
+                    </li>
+                
+
+                <li class="nav-item">
+                  <a class="nav-link nav-external" href="https://gitlab-master.nvidia.com/modulus/earth-2/earth2-inference-studio/blob/main/CHANGELOG.md">
+                    Changelog
+                  </a>
+                </li>
+                
+  </ul>
+</nav></div>
+        
+      </div>
+    
+    
+    
+      <div class="sidebar-header-items__end">
+        
+          <div class="navbar-item">
+
+<script>
+document.write(`
+  <button class="btn btn-sm navbar-btn theme-switch-button" title="light/dark" aria-label="light/dark" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <span class="theme-switch nav-link" data-mode="light"><i class="fa-solid fa-sun fa-lg"></i></span>
+    <span class="theme-switch nav-link" data-mode="dark"><i class="fa-solid fa-moon fa-lg"></i></span>
+    <span class="theme-switch nav-link" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg"></i></span>
+  </button>
+`);
+</script></div>
+        
+          <div class="navbar-item"><ul class="navbar-icon-links navbar-nav"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/NVIDIA/earth2studio" title="Github" class="nav-link" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><span><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i></span>
+            <span class="sr-only">Github</span></a>
+        </li>
+</ul></div>
+        
+      </div>
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item">
+<nav class="bd-docs-nav bd-links"
+     aria-label="Section Navigation">
+  <p class="bd-links__title" role="heading" aria-level="1">Section Navigation</p>
+  <div class="bd-toc-item navbar-nav"><ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../01_simple_workflow.html">Running Simple Inference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../02_ensemble_workflow.html">Running Ensemble Inference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../03_corrdiff_inference.html">Generative Down Sampling</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../04_ensemble_workflow_extend.html">Single Variable Perturbation Method</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../05_model_perturbation_hook.html">Model Hook Injection: Perturbation</a></li>
+</ul>
+<ul class="current nav bd-sidenav">
+<li class="toctree-l1 current active has-children"><a class="reference internal" href="index.html">Extending Earth2Studio</a><input checked="" class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-1"><i class="fa-solid fa-chevron-down"></i></label><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="01_custom_prognostic.html">Extending Prognostic Models</a></li>
+<li class="toctree-l2 current active"><a class="current reference internal" href="#">Extending Diagnostic Models</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+  </div>
+  
+  <div id="rtd-footer-container"></div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main">
+        
+        
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item">
+
+
+
+<nav aria-label="Breadcrumb">
+  <ul class="bd-breadcrumbs">
+    
+    <li class="breadcrumb-item breadcrumb-home">
+      <a href="../../index.html" class="nav-link" aria-label="Home">
+        <i class="fa-solid fa-home"></i>
+      </a>
+    </li>
+    
+    <li class="breadcrumb-item"><a href="../index.html" class="nav-link">Examples</a></li>
+    
+    
+    <li class="breadcrumb-item"><a href="index.html" class="nav-link">Extending Earth2Studio</a></li>
+    
+    <li class="breadcrumb-item active" aria-current="page">Extending...</li>
+  </ul>
+</nav>
+</div>
+      
+    </div>
+  
+  
+</div>
+</div>
+              
+              
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <div class="sphx-glr-download-link-note admonition note">
+<p class="admonition-title">Note</p>
+<p><a class="reference internal" href="#sphx-glr-download-examples-extend-02-custom-diagnostic-py"><span class="std std-ref">Go to the end</span></a>
+to download the full example code</p>
+</div>
+<section class="sphx-glr-example-title" id="extending-diagnostic-models">
+<span id="sphx-glr-examples-extend-02-custom-diagnostic-py"></span><h1>Extending Diagnostic Models<a class="headerlink" href="#extending-diagnostic-models" title="Link to this heading">#</a></h1>
+<p>Implementing a custom diagnostic model</p>
+<p>This example will demonstrate how extend Earth2Studio by implementing a custom
+diagnostic model and running it in a general workflow.</p>
+<p>In this example you will learn:</p>
+<ul class="simple">
+<li><p>API requirements of diagnostic models</p></li>
+<li><p>Implementing a custom diagnostic model</p></li>
+<li><p>Running this custom model in a workflow with built in prognostic</p></li>
+</ul>
+<section id="custom-diagnostic">
+<h2>Custom Diagnostic<a class="headerlink" href="#custom-diagnostic" title="Link to this heading">#</a></h2>
+<p>As dicussed in the <a class="reference internal" href="../../userguide/features/diagnostic.html#diagnostic-model-userguide"><span class="std std-ref">Diagnostic Models</span></a> section of the userguide,
+Earth2Studio defines a diagnostic model through a simple interface
+<code class="xref py py-class docutils literal notranslate"><span class="pre">earth2studio.models.dx.base.Diagnostic</span> <span class="pre">Model</span></code>. This can be used to help
+guide the required APIs needed to successfully create our own model.</p>
+<p>In this example, lets consider a simple diagnostic that converts the surface
+temperature in Kelvin to Celcius to make it more readable for the average person.</p>
+<p>Our diagnostic model has a base class of <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.nn.Module</span></code> which allows us
+to get the required <code class="xref py py-obj docutils literal notranslate"><span class="pre">to(device)</span></code> method for free.</p>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">OrderedDict</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">torch</span>
+
+<span class="kn">from</span> <span class="nn">earth2studio.models.batch</span> <span class="kn">import</span> <span class="n">batch_func</span>
+<span class="kn">from</span> <span class="nn">earth2studio.utils</span> <span class="kn">import</span> <span class="n">handshake_coords</span><span class="p">,</span> <span class="n">handshake_dim</span>
+<span class="kn">from</span> <span class="nn">earth2studio.utils.type</span> <span class="kn">import</span> <span class="n">CoordSystem</span>
+
+
+<span class="k">class</span> <span class="nc">CustomDiagnostic</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Custom dianostic model&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+
+    <span class="n">input_coords</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">(</span>
+        <span class="p">{</span>
+            <span class="s2">&quot;batch&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">1</span><span class="p">),</span>
+            <span class="s2">&quot;variable&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="s2">&quot;t2m&quot;</span><span class="p">]),</span>
+            <span class="s2">&quot;lat&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">90</span><span class="p">,</span> <span class="o">-</span><span class="mi">90</span><span class="p">,</span> <span class="mi">721</span><span class="p">),</span>
+            <span class="s2">&quot;lon&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">360</span><span class="p">,</span> <span class="mi">1440</span><span class="p">,</span> <span class="n">endpoint</span><span class="o">=</span><span class="kc">False</span><span class="p">),</span>
+        <span class="p">}</span>
+    <span class="p">)</span>
+
+    <span class="n">output_coords</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">(</span>
+        <span class="p">{</span>
+            <span class="s2">&quot;batch&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">1</span><span class="p">),</span>
+            <span class="s2">&quot;variable&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="s2">&quot;t2m_c&quot;</span><span class="p">]),</span>
+            <span class="s2">&quot;lat&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">90</span><span class="p">,</span> <span class="o">-</span><span class="mi">90</span><span class="p">,</span> <span class="mi">721</span><span class="p">),</span>
+            <span class="s2">&quot;lon&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">360</span><span class="p">,</span> <span class="mi">1440</span><span class="p">,</span> <span class="n">endpoint</span><span class="o">=</span><span class="kc">False</span><span class="p">),</span>
+        <span class="p">}</span>
+    <span class="p">)</span>
+
+    <span class="nd">@batch_func</span><span class="p">()</span>
+    <span class="k">def</span> <span class="fm">__call__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+        <span class="n">coords</span><span class="p">:</span> <span class="n">CoordSystem</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">CoordSystem</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Runs diagnostic model</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        x : torch.Tensor</span>
+<span class="sd">            Input tensor</span>
+<span class="sd">        coords : CoordSystem</span>
+<span class="sd">            Input coordinate system</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">input_coords</span><span class="o">.</span><span class="n">items</span><span class="p">()):</span>
+            <span class="k">if</span> <span class="n">key</span> <span class="o">!=</span> <span class="s2">&quot;batch&quot;</span><span class="p">:</span>
+                <span class="n">handshake_dim</span><span class="p">(</span><span class="n">coords</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">i</span><span class="p">)</span>
+                <span class="n">handshake_coords</span><span class="p">(</span><span class="n">coords</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">input_coords</span><span class="p">,</span> <span class="n">key</span><span class="p">)</span>
+
+        <span class="n">out_coords</span> <span class="o">=</span> <span class="n">coords</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="n">out_coords</span><span class="p">[</span><span class="s2">&quot;variable&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">output_coords</span><span class="p">[</span><span class="s2">&quot;variable&quot;</span><span class="p">]</span>
+        <span class="n">out</span> <span class="o">=</span> <span class="n">x</span> <span class="o">-</span> <span class="mf">273.15</span>  <span class="c1"># To celcius</span>
+
+        <span class="k">return</span> <span class="n">out</span><span class="p">,</span> <span class="n">out_coords</span>
+</pre></div>
+</div>
+<section id="input-output-coordinates">
+<h3>Input/Output Coordinates<a class="headerlink" href="#input-output-coordinates" title="Link to this heading">#</a></h3>
+<p>Defining the input/output coordinate systems is essential for any model in
+Earth2Studio since this how both the package and users can learn what type of data
+the model expects. Have a look at <a class="reference internal" href="../../userguide/intro/data.html#coordinates-userguide"><span class="std std-ref">Coordinate Systems</span></a> for details on
+coordinate system. For this diagnostic model, we simply define the input coordinates
+to be the global surface temperature specificed in
+<a href="#id1"><span class="problematic" id="id2">:py:file:`earth2studio.lexicon.base.py`</span></a>. The output is a custom variable
+<a href="#id3"><span class="problematic" id="id4">:py:var:`t2m_c`</span></a> that represents the temperature in Celcius.</p>
+</section>
+<section id="call-api">
+<h3><code class="xref py py-func docutils literal notranslate"><span class="pre">__call__()</span></code> API<a class="headerlink" href="#call-api" title="Link to this heading">#</a></h3>
+<p>The call function is the main API of diagnostic models that have a tensor and
+coordinate system as input/output. This function first validates that the coordinate
+system is correct. Then both the input data tensor and also coordinate system are
+updated and returned.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>You may notice the <code class="xref py py-func docutils literal notranslate"><span class="pre">batch_func()</span></code> decorator, which is used to make batched
+operations easier. For more details about this refer to the <span class="xref std std-ref">batch_function_userguide</span>
+section of the userguide.</p>
+</div>
+</section>
+</section>
+<section id="set-up">
+<h2>Set Up<a class="headerlink" href="#set-up" title="Link to this heading">#</a></h2>
+<p>With the custom diagnostic model defined, its now easily usable in a workflow. Lets
+create our own simple diagnostic workflow based on the ones that exist already in
+Earth2Studio.</p>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">datetime</span> <span class="kn">import</span> <span class="n">datetime</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Optional</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">torch</span>
+<span class="kn">from</span> <span class="nn">loguru</span> <span class="kn">import</span> <span class="n">logger</span>
+<span class="kn">from</span> <span class="nn">tqdm</span> <span class="kn">import</span> <span class="n">tqdm</span>
+
+<span class="kn">from</span> <span class="nn">earth2studio.data</span> <span class="kn">import</span> <span class="n">DataSource</span><span class="p">,</span> <span class="n">fetch_data</span>
+<span class="kn">from</span> <span class="nn">earth2studio.io</span> <span class="kn">import</span> <span class="n">IOBackend</span>
+<span class="kn">from</span> <span class="nn">earth2studio.models.px</span> <span class="kn">import</span> <span class="n">PrognosticModel</span>
+<span class="kn">from</span> <span class="nn">earth2studio.models.dx</span> <span class="kn">import</span> <span class="n">DiagnosticModel</span>
+<span class="kn">from</span> <span class="nn">earth2studio.utils.coords</span> <span class="kn">import</span> <span class="n">extract_coords</span><span class="p">,</span> <span class="n">map_coords</span>
+<span class="kn">from</span> <span class="nn">earth2studio.utils.time</span> <span class="kn">import</span> <span class="n">to_time_array</span>
+
+
+<span class="k">def</span> <span class="nf">run</span><span class="p">(</span>
+    <span class="n">time</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="n">datetime</span><span class="p">]</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">datetime64</span><span class="p">],</span>
+    <span class="n">nsteps</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+    <span class="n">prognostic</span><span class="p">:</span> <span class="n">PrognosticModel</span><span class="p">,</span>
+    <span class="n">diagnostic</span><span class="p">:</span> <span class="n">DiagnosticModel</span><span class="p">,</span>
+    <span class="n">data</span><span class="p">:</span> <span class="n">DataSource</span><span class="p">,</span>
+    <span class="n">io</span><span class="p">:</span> <span class="n">IOBackend</span><span class="p">,</span>
+    <span class="n">device</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">device</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">IOBackend</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Simple diagnostic workflow</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    time : list[str] | list[datetime] | list[np.datetime64]</span>
+<span class="sd">        List of string, datetimes or np.datetime64</span>
+<span class="sd">    nsteps : int</span>
+<span class="sd">        Number of forecast steps</span>
+<span class="sd">    prognostic : PrognosticModel</span>
+<span class="sd">        Prognostic models</span>
+<span class="sd">    data : DataSource</span>
+<span class="sd">        Data source</span>
+<span class="sd">    io : IOBackend</span>
+<span class="sd">        IO object</span>
+<span class="sd">    device : Optional[torch.device], optional</span>
+<span class="sd">        Device to run inference on, by default None</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    IOBackend</span>
+<span class="sd">        Output IO object</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Running diagnostic workflow!&quot;</span><span class="p">)</span>
+    <span class="c1"># Load model onto the device</span>
+    <span class="n">device</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">device</span><span class="p">(</span><span class="s2">&quot;cuda&quot;</span> <span class="k">if</span> <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">is_available</span><span class="p">()</span> <span class="k">else</span> <span class="s2">&quot;cpu&quot;</span><span class="p">)</span>
+    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Inference device: </span><span class="si">{</span><span class="n">device</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="n">prognostic</span> <span class="o">=</span> <span class="n">prognostic</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
+    <span class="c1"># Fetch data from data source and load onto device</span>
+    <span class="n">time</span> <span class="o">=</span> <span class="n">to_time_array</span><span class="p">(</span><span class="n">time</span><span class="p">)</span>
+    <span class="n">x</span><span class="p">,</span> <span class="n">coords</span> <span class="o">=</span> <span class="n">fetch_data</span><span class="p">(</span>
+        <span class="n">source</span><span class="o">=</span><span class="n">data</span><span class="p">,</span>
+        <span class="n">time</span><span class="o">=</span><span class="n">time</span><span class="p">,</span>
+        <span class="n">lead_time</span><span class="o">=</span><span class="n">prognostic</span><span class="o">.</span><span class="n">input_coords</span><span class="p">[</span><span class="s2">&quot;lead_time&quot;</span><span class="p">],</span>
+        <span class="n">variable</span><span class="o">=</span><span class="n">prognostic</span><span class="o">.</span><span class="n">input_coords</span><span class="p">[</span><span class="s2">&quot;variable&quot;</span><span class="p">],</span>
+        <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">logger</span><span class="o">.</span><span class="n">success</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Fetched data from </span><span class="si">{</span><span class="n">data</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+    <span class="c1"># Set up IO backend</span>
+    <span class="n">total_coords</span> <span class="o">=</span> <span class="n">prognostic</span><span class="o">.</span><span class="n">output_coords</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+    <span class="k">del</span> <span class="n">total_coords</span><span class="p">[</span><span class="s2">&quot;batch&quot;</span><span class="p">]</span>  <span class="c1"># Unsafe if batch not supported</span>
+    <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">total_coords</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="k">if</span> <span class="n">value</span><span class="o">.</span><span class="n">shape</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">del</span> <span class="n">total_coords</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
+    <span class="n">total_coords</span><span class="p">[</span><span class="s2">&quot;time&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">time</span>
+    <span class="n">total_coords</span><span class="p">[</span><span class="s2">&quot;lead_time&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span>
+        <span class="p">[</span><span class="n">prognostic</span><span class="o">.</span><span class="n">output_coords</span><span class="p">[</span><span class="s2">&quot;lead_time&quot;</span><span class="p">]</span> <span class="o">*</span> <span class="n">i</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">nsteps</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)]</span>
+    <span class="p">)</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span>
+    <span class="n">total_coords</span><span class="o">.</span><span class="n">move_to_end</span><span class="p">(</span><span class="s2">&quot;lead_time&quot;</span><span class="p">,</span> <span class="n">last</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="n">total_coords</span><span class="o">.</span><span class="n">move_to_end</span><span class="p">(</span><span class="s2">&quot;time&quot;</span><span class="p">,</span> <span class="n">last</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+    <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">diagnostic</span><span class="o">.</span><span class="n">output_coords</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="k">if</span> <span class="n">name</span> <span class="o">==</span> <span class="s2">&quot;batch&quot;</span><span class="p">:</span>
+            <span class="k">continue</span>
+        <span class="n">total_coords</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
+
+    <span class="n">var_names</span> <span class="o">=</span> <span class="n">total_coords</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">&quot;variable&quot;</span><span class="p">)</span>
+    <span class="n">io</span><span class="o">.</span><span class="n">add_array</span><span class="p">(</span><span class="n">total_coords</span><span class="p">,</span> <span class="n">var_names</span><span class="p">)</span>
+
+    <span class="c1"># Map lat and lon if needed</span>
+    <span class="n">x</span><span class="p">,</span> <span class="n">coords</span> <span class="o">=</span> <span class="n">map_coords</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="p">,</span> <span class="n">prognostic</span><span class="o">.</span><span class="n">input_coords</span><span class="p">)</span>
+    <span class="c1"># Create prognostic iterator</span>
+    <span class="n">model</span> <span class="o">=</span> <span class="n">prognostic</span><span class="o">.</span><span class="n">create_iterator</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="p">)</span>
+
+    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Inference starting!&quot;</span><span class="p">)</span>
+    <span class="k">with</span> <span class="n">tqdm</span><span class="p">(</span><span class="n">total</span><span class="o">=</span><span class="n">nsteps</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">desc</span><span class="o">=</span><span class="s2">&quot;Running inference&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">pbar</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">step</span><span class="p">,</span> <span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">model</span><span class="p">):</span>
+
+            <span class="c1"># Run diagnostic</span>
+            <span class="n">x</span><span class="p">,</span> <span class="n">coords</span> <span class="o">=</span> <span class="n">map_coords</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="p">,</span> <span class="n">diagnostic</span><span class="o">.</span><span class="n">input_coords</span><span class="p">)</span>
+            <span class="n">x</span><span class="p">,</span> <span class="n">coords</span> <span class="o">=</span> <span class="n">diagnostic</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="p">)</span>
+
+            <span class="n">io</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="o">*</span><span class="n">extract_coords</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="p">))</span>
+            <span class="n">pbar</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">step</span> <span class="o">==</span> <span class="n">nsteps</span><span class="p">:</span>
+                <span class="k">break</span>
+
+    <span class="n">logger</span><span class="o">.</span><span class="n">success</span><span class="p">(</span><span class="s2">&quot;Inference complete&quot;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">io</span>
+</pre></div>
+</div>
+<p>Lets instantiate the components needed.</p>
+<ul class="simple">
+<li><p>Prognostic Model: Use the built in DLWP model <a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.DLWP.html#earth2studio.models.px.DLWP" title="earth2studio.models.px.DLWP"><code class="xref py py-class docutils literal notranslate"><span class="pre">earth2studio.models.px.DLWP</span></code></a>.</p></li>
+<li><p>Diagnostic Model: The custom diagnostic model defined above</p></li>
+<li><p>Datasource: Pull data from the GFS data api <a class="reference internal" href="../../modules/generated/data/earth2studio.data.GFS.html#earth2studio.data.GFS" title="earth2studio.data.GFS"><code class="xref py py-class docutils literal notranslate"><span class="pre">earth2studio.data.GFS</span></code></a>.</p></li>
+<li><p>IO Backend: Lets save the outputs into a Zarr store <a class="reference internal" href="../../modules/generated/io/earth2studio.io.ZarrBackend.html#earth2studio.io.ZarrBackend" title="earth2studio.io.ZarrBackend"><code class="xref py py-class docutils literal notranslate"><span class="pre">earth2studio.io.ZarrBackend</span></code></a>.</p></li>
+</ul>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">OrderedDict</span>
+<span class="kn">from</span> <span class="nn">dotenv</span> <span class="kn">import</span> <span class="n">load_dotenv</span>
+
+<span class="n">load_dotenv</span><span class="p">()</span>  <span class="c1"># TODO: make common example prep function</span>
+
+<span class="kn">from</span> <span class="nn">earth2studio.models.px</span> <span class="kn">import</span> <span class="n">DLWP</span>
+<span class="kn">from</span> <span class="nn">earth2studio.data</span> <span class="kn">import</span> <span class="n">GFS</span>
+<span class="kn">from</span> <span class="nn">earth2studio.io</span> <span class="kn">import</span> <span class="n">ZarrBackend</span>
+
+<span class="c1"># Load the default model package which downloads the check point from NGC</span>
+<span class="n">package</span> <span class="o">=</span> <span class="n">DLWP</span><span class="o">.</span><span class="n">load_default_package</span><span class="p">()</span>
+<span class="n">model</span> <span class="o">=</span> <span class="n">DLWP</span><span class="o">.</span><span class="n">load_model</span><span class="p">(</span><span class="n">package</span><span class="p">)</span>
+
+<span class="c1"># Diagnostic model</span>
+<span class="n">diagnostic</span> <span class="o">=</span> <span class="n">CustomDiagnostic</span><span class="p">()</span>
+
+<span class="c1"># Create the data source</span>
+<span class="n">data</span> <span class="o">=</span> <span class="n">GFS</span><span class="p">()</span>
+
+<span class="c1"># Create the IO handler, store in memory</span>
+<span class="n">io</span> <span class="o">=</span> <span class="n">ZarrBackend</span><span class="p">()</span>
+</pre></div>
+</div>
+</section>
+<section id="execute-the-workflow">
+<h2>Execute the Workflow<a class="headerlink" href="#execute-the-workflow" title="Link to this heading">#</a></h2>
+<p>Running our workflow with a build in prognostic model and a custom diagnostic is as
+simple as the following.</p>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="n">nsteps</span> <span class="o">=</span> <span class="mi">20</span>
+<span class="n">io</span> <span class="o">=</span> <span class="n">run</span><span class="p">([</span><span class="s2">&quot;2024-01-01&quot;</span><span class="p">],</span> <span class="n">nsteps</span><span class="p">,</span> <span class="n">model</span><span class="p">,</span> <span class="n">diagnostic</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">io</span><span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="n">io</span><span class="o">.</span><span class="n">root</span><span class="o">.</span><span class="n">tree</span><span class="p">())</span>
+</pre></div>
+</div>
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>2024-04-12 05:55:58.095 | INFO     | __main__:run:189 - Running diagnostic workflow!
+2024-04-12 05:55:58.096 | INFO     | __main__:run:192 - Inference device: cuda
+2024-04-12 05:55:58.102 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:151 - Fetching GFS index file: 2023-12-31 18:00:00
+
+Fetching GFS for 2023-12-31 18:00:00:   0%|          | 0/7 [00:00&lt;?, ?it/s]
+
+2024-04-12 05:55:58.232 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: t850 at 2023-12-31 18:00:00
+
+Fetching GFS for 2023-12-31 18:00:00:   0%|          | 0/7 [00:00&lt;?, ?it/s]
+
+2024-04-12 05:55:58.251 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: z1000 at 2023-12-31 18:00:00
+
+Fetching GFS for 2023-12-31 18:00:00:   0%|          | 0/7 [00:00&lt;?, ?it/s]
+
+2024-04-12 05:55:58.270 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: z700 at 2023-12-31 18:00:00
+
+Fetching GFS for 2023-12-31 18:00:00:   0%|          | 0/7 [00:00&lt;?, ?it/s]
+
+2024-04-12 05:55:58.288 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: z500 at 2023-12-31 18:00:00
+
+Fetching GFS for 2023-12-31 18:00:00:   0%|          | 0/7 [00:00&lt;?, ?it/s]
+
+2024-04-12 05:55:58.306 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: z300 at 2023-12-31 18:00:00
+
+Fetching GFS for 2023-12-31 18:00:00:   0%|          | 0/7 [00:00&lt;?, ?it/s]
+
+2024-04-12 05:55:58.324 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: tcwv at 2023-12-31 18:00:00
+
+Fetching GFS for 2023-12-31 18:00:00:   0%|          | 0/7 [00:00&lt;?, ?it/s]
+Fetching GFS for 2023-12-31 18:00:00:  86%|████████▌ | 6/7 [00:00&lt;00:00, 54.26it/s]
+
+2024-04-12 05:55:58.342 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: t2m at 2023-12-31 18:00:00
+
+Fetching GFS for 2023-12-31 18:00:00:  86%|████████▌ | 6/7 [00:00&lt;00:00, 54.26it/s]
+Fetching GFS for 2023-12-31 18:00:00: 100%|██████████| 7/7 [00:00&lt;00:00, 54.44it/s]
+2024-04-12 05:55:58.367 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:151 - Fetching GFS index file: 2024-01-01 00:00:00
+
+Fetching GFS for 2024-01-01 00:00:00:   0%|          | 0/7 [00:00&lt;?, ?it/s]
+
+2024-04-12 05:55:58.474 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: t850 at 2024-01-01 00:00:00
+
+Fetching GFS for 2024-01-01 00:00:00:   0%|          | 0/7 [00:00&lt;?, ?it/s]
+
+2024-04-12 05:55:58.498 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: z1000 at 2024-01-01 00:00:00
+
+Fetching GFS for 2024-01-01 00:00:00:   0%|          | 0/7 [00:00&lt;?, ?it/s]
+
+2024-04-12 05:55:58.517 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: z700 at 2024-01-01 00:00:00
+
+Fetching GFS for 2024-01-01 00:00:00:   0%|          | 0/7 [00:00&lt;?, ?it/s]
+
+2024-04-12 05:55:58.536 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: z500 at 2024-01-01 00:00:00
+
+Fetching GFS for 2024-01-01 00:00:00:   0%|          | 0/7 [00:00&lt;?, ?it/s]
+
+2024-04-12 05:55:58.555 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: z300 at 2024-01-01 00:00:00
+
+Fetching GFS for 2024-01-01 00:00:00:   0%|          | 0/7 [00:00&lt;?, ?it/s]
+Fetching GFS for 2024-01-01 00:00:00:  71%|███████▏  | 5/7 [00:00&lt;00:00, 49.79it/s]
+
+2024-04-12 05:55:58.575 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: tcwv at 2024-01-01 00:00:00
+
+Fetching GFS for 2024-01-01 00:00:00:  71%|███████▏  | 5/7 [00:00&lt;00:00, 49.79it/s]
+
+2024-04-12 05:55:58.594 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: t2m at 2024-01-01 00:00:00
+
+Fetching GFS for 2024-01-01 00:00:00:  71%|███████▏  | 5/7 [00:00&lt;00:00, 49.79it/s]
+Fetching GFS for 2024-01-01 00:00:00: 100%|██████████| 7/7 [00:00&lt;00:00, 50.71it/s]
+2024-04-12 05:55:58.637 | SUCCESS  | __main__:run:203 - Fetched data from GFS
+2024-04-12 05:55:58.656 | INFO     | __main__:run:231 - Inference starting!
+
+Running inference:   0%|          | 0/21 [00:00&lt;?, ?it/s]
+Running inference:  10%|▉         | 2/21 [00:00&lt;00:01, 16.41it/s]
+Running inference:  19%|█▉        | 4/21 [00:00&lt;00:01, 16.09it/s]
+Running inference:  29%|██▊       | 6/21 [00:00&lt;00:00, 15.87it/s]
+Running inference:  38%|███▊      | 8/21 [00:00&lt;00:00, 15.26it/s]
+Running inference:  48%|████▊     | 10/21 [00:00&lt;00:00, 14.78it/s]
+Running inference:  57%|█████▋    | 12/21 [00:00&lt;00:00, 14.40it/s]
+Running inference:  67%|██████▋   | 14/21 [00:00&lt;00:00, 14.04it/s]
+Running inference:  76%|███████▌  | 16/21 [00:01&lt;00:00, 13.72it/s]
+Running inference:  86%|████████▌ | 18/21 [00:01&lt;00:00, 13.40it/s]
+Running inference:  95%|█████████▌| 20/21 [00:01&lt;00:00, 13.29it/s]
+Running inference: 100%|██████████| 21/21 [00:01&lt;00:00, 14.12it/s]
+2024-04-12 05:56:00.143 | SUCCESS  | __main__:run:244 - Inference complete
+/
+ ├── lat (721,) float64
+ ├── lead_time (21,) timedelta64[h]
+ ├── lon (1440,) float64
+ ├── t2m_c (1, 21, 721, 1440) float32
+ └── time (1,) datetime64[ns]
+</pre></div>
+</div>
+</section>
+<section id="post-processing">
+<h2>Post Processing<a class="headerlink" href="#post-processing" title="Link to this heading">#</a></h2>
+<p>To confirm that out prognostic model is working as expect, we should expect the fields
+to be progressively more noisy as time progresses.</p>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">os</span>
+
+<span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="s2">&quot;outputs&quot;</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="k">as</span> <span class="nn">plt</span>
+<span class="kn">from</span> <span class="nn">mpl_toolkits.axes_grid1</span> <span class="kn">import</span> <span class="n">make_axes_locatable</span>
+<span class="kn">import</span> <span class="nn">cartopy.crs</span> <span class="k">as</span> <span class="nn">ccrs</span>
+
+<span class="n">forecast</span> <span class="o">=</span> <span class="s2">&quot;2024-01-01&quot;</span>
+<span class="n">variable</span> <span class="o">=</span> <span class="s2">&quot;t2m_c&quot;</span>
+
+<span class="n">plt</span><span class="o">.</span><span class="n">close</span><span class="p">(</span><span class="s2">&quot;all&quot;</span><span class="p">)</span>
+
+<span class="c1"># Create a figure and axes with the specified projection</span>
+<span class="n">fig</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span>
+    <span class="mi">1</span><span class="p">,</span>
+    <span class="mi">5</span><span class="p">,</span>
+    <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">12</span><span class="p">,</span> <span class="mi">4</span><span class="p">),</span>
+    <span class="n">subplot_kw</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;projection&quot;</span><span class="p">:</span> <span class="n">ccrs</span><span class="o">.</span><span class="n">Orthographic</span><span class="p">()},</span>
+    <span class="n">constrained_layout</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="n">times</span> <span class="o">=</span> <span class="n">io</span><span class="p">[</span><span class="s2">&quot;lead_time&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="s2">&quot;timedelta64[h]&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">)</span>
+<span class="n">step</span> <span class="o">=</span> <span class="mi">4</span>  <span class="c1"># 24hrs</span>
+<span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">t</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">20</span><span class="p">,</span> <span class="n">step</span><span class="p">)):</span>
+
+    <span class="n">ctr</span> <span class="o">=</span> <span class="n">ax</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">contourf</span><span class="p">(</span>
+        <span class="n">io</span><span class="p">[</span><span class="s2">&quot;lon&quot;</span><span class="p">][:],</span>
+        <span class="n">io</span><span class="p">[</span><span class="s2">&quot;lat&quot;</span><span class="p">][:],</span>
+        <span class="n">io</span><span class="p">[</span><span class="n">variable</span><span class="p">][</span><span class="mi">0</span><span class="p">,</span> <span class="n">t</span><span class="p">],</span>
+        <span class="n">vmin</span><span class="o">=-</span><span class="mi">10</span><span class="p">,</span>
+        <span class="n">vmax</span><span class="o">=</span><span class="mi">30</span><span class="p">,</span>
+        <span class="n">transform</span><span class="o">=</span><span class="n">ccrs</span><span class="o">.</span><span class="n">PlateCarree</span><span class="p">(),</span>
+        <span class="n">levels</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span>
+        <span class="n">cmap</span><span class="o">=</span><span class="s2">&quot;coolwarm&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">ax</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">times</span><span class="p">[</span><span class="n">t</span><span class="p">]</span><span class="si">}</span><span class="s2">hrs&quot;</span><span class="p">)</span>
+    <span class="n">ax</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">coastlines</span><span class="p">()</span>
+    <span class="n">ax</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">gridlines</span><span class="p">()</span>
+
+<span class="n">plt</span><span class="o">.</span><span class="n">suptitle</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">variable</span><span class="si">}</span><span class="s2"> - </span><span class="si">{</span><span class="n">forecast</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+<span class="n">cbar</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">cm</span><span class="o">.</span><span class="n">ScalarMappable</span><span class="p">(</span><span class="n">cmap</span><span class="o">=</span><span class="s2">&quot;coolwarm&quot;</span><span class="p">)</span>
+<span class="n">cbar</span><span class="o">.</span><span class="n">set_array</span><span class="p">(</span><span class="n">io</span><span class="p">[</span><span class="n">variable</span><span class="p">][</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">])</span>
+<span class="n">cbar</span><span class="o">.</span><span class="n">set_clim</span><span class="p">(</span><span class="o">-</span><span class="mf">10.0</span><span class="p">,</span> <span class="mi">30</span><span class="p">)</span>
+<span class="n">cbar</span> <span class="o">=</span> <span class="n">fig</span><span class="o">.</span><span class="n">colorbar</span><span class="p">(</span><span class="n">cbar</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="n">ax</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">orientation</span><span class="o">=</span><span class="s2">&quot;vertical&quot;</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s2">&quot;C&quot;</span><span class="p">,</span> <span class="n">shrink</span><span class="o">=</span><span class="mf">0.8</span><span class="p">)</span>
+
+
+<span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="s2">&quot;outputs/custom_diagnostic_dlwp_prediction.jpg&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<img src="../../_images/sphx_glr_02_custom_diagnostic_001.png" srcset="../../_images/sphx_glr_02_custom_diagnostic_001.png, ../../_images/sphx_glr_02_custom_diagnostic_001_2_00x.png 2.00x" alt="t2m_c - 2024-01-01, 0hrs, 24hrs, 48hrs, 72hrs, 96hrs" class = "sphx-glr-single-img"/><p class="sphx-glr-timing"><strong>Total running time of the script:</strong> (0 minutes 42.548 seconds)</p>
+<div class="sphx-glr-footer sphx-glr-footer-example docutils container" id="sphx-glr-download-examples-extend-02-custom-diagnostic-py">
+<div class="sphx-glr-download sphx-glr-download-jupyter docutils container">
+<p><a class="reference download internal" download="" href="../../_downloads/6f0367f9a872ea000c53f249d88e3153/02_custom_diagnostic.ipynb"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">Jupyter</span> <span class="pre">notebook:</span> <span class="pre">02_custom_diagnostic.ipynb</span></code></a></p>
+</div>
+<div class="sphx-glr-download sphx-glr-download-python docutils container">
+<p><a class="reference download internal" download="" href="../../_downloads/9870251076ba6e59e9850520931cb11c/02_custom_diagnostic.py"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">Python</span> <span class="pre">source</span> <span class="pre">code:</span> <span class="pre">02_custom_diagnostic.py</span></code></a></p>
+</div>
+</div>
+<p class="sphx-glr-signature"><a class="reference external" href="https://sphinx-gallery.github.io">Gallery generated by Sphinx-Gallery</a></p>
+</section>
+</section>
+
+
+                </article>
+              
+              
+              
+              
+              
+                <footer class="prev-next-footer">
+                  
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="01_custom_prognostic.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">Extending Prognostic Models</p>
+      </div>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+                <div class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item">
+<div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> On this page
+  </div>
+  <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#custom-diagnostic">Custom Diagnostic</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#input-output-coordinates">Input/Output Coordinates</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#call-api"><code class="xref py py-func docutils literal notranslate"><span class="pre">__call__()</span></code> API</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#set-up">Set Up</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#execute-the-workflow">Execute the Workflow</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#post-processing">Post Processing</a></li>
+</ul>
+  </nav></div>
+
+  <div class="sidebar-secondary-item">
+
+  <div class="tocsection sourcelink">
+    <a href="../../_sources/examples/extend/02_custom_diagnostic.rst.txt">
+      <i class="fa-solid fa-file-lines"></i> Show Source
+    </a>
+  </div>
+</div>
+
+</div></div>
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+          </footer>
+        
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script src="../../_static/scripts/bootstrap.js?digest=8d27b9dea8ad943066ae"></script>
+<script src="../../_static/scripts/pydata-sphinx-theme.js?digest=8d27b9dea8ad943066ae"></script>
+
+  <footer class="bd-footer">
+<div class="bd-footer__inner bd-page-width">
+  
+    <div class="footer-items__start">
+      
+        <div class="footer-item">
+
+  <p class="copyright">
+    
+      © Copyright 2024, NVIDIA.
+      <br/>
+    
+  </p>
+</div>
+      
+        <div class="footer-item">
+
+  <p class="sphinx-version">
+    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 7.2.6.
+    <br/>
+  </p>
+</div>
+      
+    </div>
+  
+  
+  
+    <div class="footer-items__end">
+      
+        <div class="footer-item">
+<p class="theme-version">
+  Built with the <a href="https://pydata-sphinx-theme.readthedocs.io/en/stable/index.html">PyData Sphinx Theme</a> 0.15.2.
+</p></div>
+      
+    </div>
+  
+</div>
+
+  </footer>
+  </body>
+</html>

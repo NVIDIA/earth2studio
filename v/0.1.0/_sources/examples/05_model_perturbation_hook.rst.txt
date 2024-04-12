@@ -171,6 +171,12 @@ method that accepts the following:
 
 
 
+
+
+
+
+
+
 .. GENERATED FROM PYTHON SOURCE LINES 169-183
 
 Set Up
@@ -209,6 +215,12 @@ inference request.
     # Create the IO handler, store in memory
     chunks = {"ensemble": 1, "time": 1}
     io_unperturbed = ZarrBackend(file_name="outputs/ensemble.zarr", chunks=chunks)
+
+
+
+
+
+
 
 
 
@@ -273,6 +285,65 @@ saving to file. Check the API docs for more information.
         io_perturbed,
         output_coords=output_coords,
     )
+
+
+
+
+
+.. rst-class:: sphx-glr-script-out
+
+ .. code-block:: none
+
+    2024-04-12 05:54:51.897 | INFO     | __main__:run_ensemble:115 - Running ensemble inference!
+    2024-04-12 05:54:51.897 | INFO     | __main__:run_ensemble:119 - Inference device: cuda
+    2024-04-12 05:54:51.904 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:151 - Fetching GFS index file: 2024-01-29 18:00:00
+    Fetching GFS for 2024-01-29 18:00:00:   0%|          | 0/7 [00:00<?, ?it/s]                                                                               2024-04-12 05:54:52.245 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: t850 at 2024-01-29 18:00:00
+    Fetching GFS for 2024-01-29 18:00:00:   0%|          | 0/7 [00:00<?, ?it/s]    Fetching GFS for 2024-01-29 18:00:00:  14%|█▍        | 1/7 [00:05<00:34,  5.77s/it]                                                                                       2024-04-12 05:54:58.018 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: z1000 at 2024-01-29 18:00:00
+    Fetching GFS for 2024-01-29 18:00:00:  14%|█▍        | 1/7 [00:05<00:34,  5.77s/it]    Fetching GFS for 2024-01-29 18:00:00:  29%|██▊       | 2/7 [00:09<00:22,  4.46s/it]                                                                                       2024-04-12 05:55:01.563 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: z700 at 2024-01-29 18:00:00
+    Fetching GFS for 2024-01-29 18:00:00:  29%|██▊       | 2/7 [00:09<00:22,  4.46s/it]    Fetching GFS for 2024-01-29 18:00:00:  43%|████▎     | 3/7 [00:11<00:13,  3.40s/it]                                                                                       2024-04-12 05:55:03.695 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: z500 at 2024-01-29 18:00:00
+    Fetching GFS for 2024-01-29 18:00:00:  43%|████▎     | 3/7 [00:11<00:13,  3.40s/it]    Fetching GFS for 2024-01-29 18:00:00:  57%|█████▋    | 4/7 [00:12<00:07,  2.60s/it]                                                                                       2024-04-12 05:55:05.069 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: z300 at 2024-01-29 18:00:00
+    Fetching GFS for 2024-01-29 18:00:00:  57%|█████▋    | 4/7 [00:12<00:07,  2.60s/it]    Fetching GFS for 2024-01-29 18:00:00:  71%|███████▏  | 5/7 [00:13<00:04,  2.06s/it]                                                                                       2024-04-12 05:55:06.170 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: tcwv at 2024-01-29 18:00:00
+    Fetching GFS for 2024-01-29 18:00:00:  71%|███████▏  | 5/7 [00:13<00:04,  2.06s/it]    Fetching GFS for 2024-01-29 18:00:00:  86%|████████▌ | 6/7 [00:15<00:01,  1.78s/it]                                                                                       2024-04-12 05:55:07.420 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: t2m at 2024-01-29 18:00:00
+    Fetching GFS for 2024-01-29 18:00:00:  86%|████████▌ | 6/7 [00:15<00:01,  1.78s/it]    Fetching GFS for 2024-01-29 18:00:00: 100%|██████████| 7/7 [00:16<00:00,  1.62s/it]    Fetching GFS for 2024-01-29 18:00:00: 100%|██████████| 7/7 [00:16<00:00,  2.35s/it]
+    2024-04-12 05:55:08.699 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:151 - Fetching GFS index file: 2024-01-30 00:00:00
+    Fetching GFS for 2024-01-30 00:00:00:   0%|          | 0/7 [00:00<?, ?it/s]                                                                               2024-04-12 05:55:08.792 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: t850 at 2024-01-30 00:00:00
+    Fetching GFS for 2024-01-30 00:00:00:   0%|          | 0/7 [00:00<?, ?it/s]    Fetching GFS for 2024-01-30 00:00:00:  14%|█▍        | 1/7 [00:01<00:08,  1.41s/it]                                                                                       2024-04-12 05:55:10.201 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: z1000 at 2024-01-30 00:00:00
+    Fetching GFS for 2024-01-30 00:00:00:  14%|█▍        | 1/7 [00:01<00:08,  1.41s/it]    Fetching GFS for 2024-01-30 00:00:00:  29%|██▊       | 2/7 [00:02<00:06,  1.34s/it]                                                                                       2024-04-12 05:55:11.485 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: z700 at 2024-01-30 00:00:00
+    Fetching GFS for 2024-01-30 00:00:00:  29%|██▊       | 2/7 [00:02<00:06,  1.34s/it]    Fetching GFS for 2024-01-30 00:00:00:  43%|████▎     | 3/7 [00:03<00:05,  1.29s/it]                                                                                       2024-04-12 05:55:12.723 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: z500 at 2024-01-30 00:00:00
+    Fetching GFS for 2024-01-30 00:00:00:  43%|████▎     | 3/7 [00:03<00:05,  1.29s/it]    Fetching GFS for 2024-01-30 00:00:00:  57%|█████▋    | 4/7 [00:05<00:03,  1.27s/it]                                                                                       2024-04-12 05:55:13.969 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: z300 at 2024-01-30 00:00:00
+    Fetching GFS for 2024-01-30 00:00:00:  57%|█████▋    | 4/7 [00:05<00:03,  1.27s/it]    Fetching GFS for 2024-01-30 00:00:00:  71%|███████▏  | 5/7 [00:06<00:02,  1.24s/it]                                                                                       2024-04-12 05:55:15.161 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: tcwv at 2024-01-30 00:00:00
+    Fetching GFS for 2024-01-30 00:00:00:  71%|███████▏  | 5/7 [00:06<00:02,  1.24s/it]    Fetching GFS for 2024-01-30 00:00:00:  86%|████████▌ | 6/7 [00:07<00:01,  1.26s/it]                                                                                       2024-04-12 05:55:16.457 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: t2m at 2024-01-30 00:00:00
+    Fetching GFS for 2024-01-30 00:00:00:  86%|████████▌ | 6/7 [00:07<00:01,  1.26s/it]    Fetching GFS for 2024-01-30 00:00:00: 100%|██████████| 7/7 [00:08<00:00,  1.28s/it]    Fetching GFS for 2024-01-30 00:00:00: 100%|██████████| 7/7 [00:08<00:00,  1.28s/it]
+    2024-04-12 05:55:17.815 | SUCCESS  | __main__:run_ensemble:131 - Fetched data from GFS
+    2024-04-12 05:55:17.834 | INFO     | __main__:run_ensemble:154 - Inference starting!
+    Running inference:   0%|          | 0/49 [00:00<?, ?it/s]    Running inference:   4%|▍         | 2/49 [00:00<00:06,  7.35it/s]    Running inference:   6%|▌         | 3/49 [00:00<00:05,  7.68it/s]    Running inference:   8%|▊         | 4/49 [00:00<00:06,  6.70it/s]    Running inference:  10%|█         | 5/49 [00:00<00:06,  7.08it/s]    Running inference:  12%|█▏        | 6/49 [00:00<00:06,  6.15it/s]    Running inference:  14%|█▍        | 7/49 [00:01<00:06,  6.60it/s]    Running inference:  16%|█▋        | 8/49 [00:01<00:06,  5.98it/s]    Running inference:  18%|█▊        | 9/49 [00:01<00:06,  6.40it/s]    Running inference:  20%|██        | 10/49 [00:01<00:06,  5.85it/s]    Running inference:  22%|██▏       | 11/49 [00:01<00:06,  6.09it/s]    Running inference:  24%|██▍       | 12/49 [00:01<00:06,  5.42it/s]    Running inference:  27%|██▋       | 13/49 [00:02<00:06,  5.62it/s]    Running inference:  29%|██▊       | 14/49 [00:02<00:06,  5.08it/s]    Running inference:  31%|███       | 15/49 [00:02<00:06,  5.21it/s]    Running inference:  33%|███▎      | 16/49 [00:02<00:06,  4.88it/s]    Running inference:  35%|███▍      | 17/49 [00:02<00:06,  5.09it/s]    Running inference:  37%|███▋      | 18/49 [00:03<00:06,  4.74it/s]    Running inference:  39%|███▉      | 19/49 [00:03<00:06,  4.93it/s]    Running inference:  41%|████      | 20/49 [00:03<00:06,  4.58it/s]    Running inference:  43%|████▎     | 21/49 [00:03<00:05,  4.79it/s]    Running inference:  45%|████▍     | 22/49 [00:04<00:06,  4.45it/s]    Running inference:  47%|████▋     | 23/49 [00:04<00:05,  4.64it/s]    Running inference:  49%|████▉     | 24/49 [00:04<00:05,  4.39it/s]    Running inference:  51%|█████     | 25/49 [00:04<00:05,  4.50it/s]    Running inference:  53%|█████▎    | 26/49 [00:05<00:05,  4.25it/s]    Running inference:  55%|█████▌    | 27/49 [00:05<00:04,  4.41it/s]    Running inference:  57%|█████▋    | 28/49 [00:05<00:04,  4.21it/s]    Running inference:  59%|█████▉    | 29/49 [00:05<00:04,  4.15it/s]    Running inference:  61%|██████    | 30/49 [00:06<00:04,  3.89it/s]    Running inference:  63%|██████▎   | 31/49 [00:06<00:04,  4.04it/s]    Running inference:  65%|██████▌   | 32/49 [00:06<00:04,  3.85it/s]    Running inference:  67%|██████▋   | 33/49 [00:06<00:03,  4.01it/s]    Running inference:  69%|██████▉   | 34/49 [00:07<00:03,  3.79it/s]    Running inference:  71%|███████▏  | 35/49 [00:07<00:03,  3.90it/s]    Running inference:  73%|███████▎  | 36/49 [00:07<00:03,  3.70it/s]    Running inference:  76%|███████▌  | 37/49 [00:07<00:03,  3.80it/s]    Running inference:  78%|███████▊  | 38/49 [00:08<00:03,  3.61it/s]    Running inference:  80%|███████▉  | 39/49 [00:08<00:02,  3.80it/s]    Running inference:  82%|████████▏ | 40/49 [00:08<00:02,  3.52it/s]    Running inference:  84%|████████▎ | 41/49 [00:08<00:02,  3.67it/s]    Running inference:  86%|████████▌ | 42/49 [00:09<00:02,  3.45it/s]    Running inference:  88%|████████▊ | 43/49 [00:09<00:01,  3.51it/s]    Running inference:  90%|████████▉ | 44/49 [00:09<00:01,  3.30it/s]    Running inference:  92%|█████████▏| 45/49 [00:10<00:01,  3.44it/s]    Running inference:  94%|█████████▍| 46/49 [00:10<00:00,  3.22it/s]    Running inference:  96%|█████████▌| 47/49 [00:10<00:00,  3.29it/s]    Running inference:  98%|█████████▊| 48/49 [00:11<00:00,  3.17it/s]    Running inference: 100%|██████████| 49/49 [00:11<00:00,  3.31it/s]    Running inference: 100%|██████████| 49/49 [00:11<00:00,  4.29it/s]
+    2024-04-12 05:55:29.266 | SUCCESS  | __main__:run_ensemble:164 - Inference complete
+    2024-04-12 05:55:29.266 | INFO     | __main__:run_ensemble:115 - Running ensemble inference!
+    2024-04-12 05:55:29.266 | INFO     | __main__:run_ensemble:119 - Inference device: cuda
+    2024-04-12 05:55:29.267 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:151 - Fetching GFS index file: 2024-01-29 18:00:00
+    Fetching GFS for 2024-01-29 18:00:00:   0%|          | 0/7 [00:00<?, ?it/s]                                                                               2024-04-12 05:55:29.558 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: t850 at 2024-01-29 18:00:00
+    Fetching GFS for 2024-01-29 18:00:00:   0%|          | 0/7 [00:00<?, ?it/s]                                                                               2024-04-12 05:55:29.595 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: z1000 at 2024-01-29 18:00:00
+    Fetching GFS for 2024-01-29 18:00:00:   0%|          | 0/7 [00:00<?, ?it/s]                                                                               2024-04-12 05:55:29.614 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: z700 at 2024-01-29 18:00:00
+    Fetching GFS for 2024-01-29 18:00:00:   0%|          | 0/7 [00:00<?, ?it/s]                                                                               2024-04-12 05:55:29.632 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: z500 at 2024-01-29 18:00:00
+    Fetching GFS for 2024-01-29 18:00:00:   0%|          | 0/7 [00:00<?, ?it/s]                                                                               2024-04-12 05:55:29.655 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: z300 at 2024-01-29 18:00:00
+    Fetching GFS for 2024-01-29 18:00:00:   0%|          | 0/7 [00:00<?, ?it/s]    Fetching GFS for 2024-01-29 18:00:00:  71%|███████▏  | 5/7 [00:00<00:00, 43.61it/s]                                                                                       2024-04-12 05:55:29.673 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: tcwv at 2024-01-29 18:00:00
+    Fetching GFS for 2024-01-29 18:00:00:  71%|███████▏  | 5/7 [00:00<00:00, 43.61it/s]                                                                                       2024-04-12 05:55:29.691 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: t2m at 2024-01-29 18:00:00
+    Fetching GFS for 2024-01-29 18:00:00:  71%|███████▏  | 5/7 [00:00<00:00, 43.61it/s]    Fetching GFS for 2024-01-29 18:00:00: 100%|██████████| 7/7 [00:00<00:00, 46.57it/s]
+    2024-04-12 05:55:29.715 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:151 - Fetching GFS index file: 2024-01-30 00:00:00
+    Fetching GFS for 2024-01-30 00:00:00:   0%|          | 0/7 [00:00<?, ?it/s]                                                                               2024-04-12 05:55:29.793 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: t850 at 2024-01-30 00:00:00
+    Fetching GFS for 2024-01-30 00:00:00:   0%|          | 0/7 [00:00<?, ?it/s]                                                                               2024-04-12 05:55:29.811 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: z1000 at 2024-01-30 00:00:00
+    Fetching GFS for 2024-01-30 00:00:00:   0%|          | 0/7 [00:00<?, ?it/s]                                                                               2024-04-12 05:55:29.829 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: z700 at 2024-01-30 00:00:00
+    Fetching GFS for 2024-01-30 00:00:00:   0%|          | 0/7 [00:00<?, ?it/s]                                                                               2024-04-12 05:55:29.852 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: z500 at 2024-01-30 00:00:00
+    Fetching GFS for 2024-01-30 00:00:00:   0%|          | 0/7 [00:00<?, ?it/s]                                                                               2024-04-12 05:55:29.870 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: z300 at 2024-01-30 00:00:00
+    Fetching GFS for 2024-01-30 00:00:00:   0%|          | 0/7 [00:00<?, ?it/s]                                                                               2024-04-12 05:55:29.887 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: tcwv at 2024-01-30 00:00:00
+    Fetching GFS for 2024-01-30 00:00:00:   0%|          | 0/7 [00:00<?, ?it/s]    Fetching GFS for 2024-01-30 00:00:00:  86%|████████▌ | 6/7 [00:00<00:00, 53.32it/s]                                                                                       2024-04-12 05:55:29.905 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: t2m at 2024-01-30 00:00:00
+    Fetching GFS for 2024-01-30 00:00:00:  86%|████████▌ | 6/7 [00:00<00:00, 53.32it/s]    Fetching GFS for 2024-01-30 00:00:00: 100%|██████████| 7/7 [00:00<00:00, 53.22it/s]
+    2024-04-12 05:55:29.954 | SUCCESS  | __main__:run_ensemble:131 - Fetched data from GFS
+    2024-04-12 05:55:29.974 | INFO     | __main__:run_ensemble:154 - Inference starting!
+    Running inference:   0%|          | 0/49 [00:00<?, ?it/s]    Running inference:   4%|▍         | 2/49 [00:00<00:05,  8.12it/s]    Running inference:   6%|▌         | 3/49 [00:00<00:05,  8.54it/s]    Running inference:   8%|▊         | 4/49 [00:00<00:06,  6.74it/s]    Running inference:  10%|█         | 5/49 [00:00<00:06,  6.93it/s]    Running inference:  12%|█▏        | 6/49 [00:00<00:07,  6.07it/s]    Running inference:  14%|█▍        | 7/49 [00:01<00:06,  6.28it/s]    Running inference:  16%|█▋        | 8/49 [00:01<00:07,  5.71it/s]    Running inference:  18%|█▊        | 9/49 [00:01<00:06,  5.84it/s]    Running inference:  20%|██        | 10/49 [00:01<00:07,  5.26it/s]    Running inference:  22%|██▏       | 11/49 [00:01<00:06,  5.52it/s]    Running inference:  24%|██▍       | 12/49 [00:02<00:07,  5.06it/s]    Running inference:  27%|██▋       | 13/49 [00:02<00:06,  5.29it/s]    Running inference:  29%|██▊       | 14/49 [00:02<00:07,  4.91it/s]    Running inference:  31%|███       | 15/49 [00:02<00:06,  5.16it/s]    Running inference:  33%|███▎      | 16/49 [00:02<00:06,  4.83it/s]    Running inference:  35%|███▍      | 17/49 [00:03<00:06,  5.07it/s]    Running inference:  37%|███▋      | 18/49 [00:03<00:06,  4.81it/s]    Running inference:  39%|███▉      | 19/49 [00:03<00:05,  5.09it/s]    Running inference:  41%|████      | 20/49 [00:03<00:06,  4.75it/s]    Running inference:  43%|████▎     | 21/49 [00:03<00:05,  4.90it/s]    Running inference:  45%|████▍     | 22/49 [00:04<00:05,  4.55it/s]    Running inference:  47%|████▋     | 23/49 [00:04<00:05,  4.85it/s]    Running inference:  49%|████▉     | 24/49 [00:04<00:05,  4.55it/s]    Running inference:  51%|█████     | 25/49 [00:04<00:04,  4.83it/s]    Running inference:  53%|█████▎    | 26/49 [00:04<00:05,  4.55it/s]    Running inference:  55%|█████▌    | 27/49 [00:05<00:04,  4.78it/s]    Running inference:  57%|█████▋    | 28/49 [00:05<00:04,  4.50it/s]    Running inference:  59%|█████▉    | 29/49 [00:05<00:04,  4.68it/s]    Running inference:  61%|██████    | 30/49 [00:05<00:04,  4.37it/s]    Running inference:  63%|██████▎   | 31/49 [00:06<00:03,  4.52it/s]    Running inference:  65%|██████▌   | 32/49 [00:06<00:04,  4.05it/s]    Running inference:  67%|██████▋   | 33/49 [00:06<00:03,  4.07it/s]    Running inference:  69%|██████▉   | 34/49 [00:06<00:03,  3.80it/s]    Running inference:  71%|███████▏  | 35/49 [00:07<00:03,  3.88it/s]    Running inference:  73%|███████▎  | 36/49 [00:07<00:03,  3.63it/s]    Running inference:  76%|███████▌  | 37/49 [00:07<00:03,  3.87it/s]    Running inference:  78%|███████▊  | 38/49 [00:08<00:02,  3.70it/s]    Running inference:  80%|███████▉  | 39/49 [00:08<00:02,  3.91it/s]    Running inference:  82%|████████▏ | 40/49 [00:08<00:02,  3.70it/s]    Running inference:  84%|████████▎ | 41/49 [00:08<00:02,  3.83it/s]    Running inference:  86%|████████▌ | 42/49 [00:09<00:02,  3.49it/s]    Running inference:  88%|████████▊ | 43/49 [00:09<00:01,  3.45it/s]    Running inference:  90%|████████▉ | 44/49 [00:09<00:01,  3.22it/s]    Running inference:  92%|█████████▏| 45/49 [00:10<00:01,  3.36it/s]    Running inference:  94%|█████████▍| 46/49 [00:10<00:00,  3.20it/s]    Running inference:  96%|█████████▌| 47/49 [00:10<00:00,  3.24it/s]    Running inference:  98%|█████████▊| 48/49 [00:11<00:00,  3.10it/s]    Running inference: 100%|██████████| 49/49 [00:11<00:00,  3.18it/s]    Running inference: 100%|██████████| 49/49 [00:11<00:00,  4.32it/s]
+    2024-04-12 05:55:41.322 | SUCCESS  | __main__:run_ensemble:164 - Inference complete
+
+
 
 
 .. GENERATED FROM PYTHON SOURCE LINES 259-266
@@ -421,6 +492,357 @@ Notice that the Zarr IO function has additional APIs to interact with the stored
             dpi=300,
             bbox_inches="tight",
         )
+
+
+
+.. image-sg:: /examples/images/sphx_glr_05_model_perturbation_hook_001.png
+   :alt: Forecast Starting on 2024-01-30 - Lead Time - 240 hours
+   :srcset: /examples/images/sphx_glr_05_model_perturbation_hook_001.png, /examples/images/sphx_glr_05_model_perturbation_hook_001_2_00x.png 2.00x
+   :class: sphx-glr-single-img
+
+
+.. rst-class:: sphx-glr-script-out
+
+ .. code-block:: none
+
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1642: UserWarning: Log scale: values of z <= 0 have been masked
+      result = super().contourf(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1642: UserWarning: Log scale: values of z <= 0 have been masked
+      result = super().contourf(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /home/jenkins/agent/workspace/Studio-Build-Docs/repo/examples/05_model_perturbation_hook.py:374: UserWarning: Attempt to set non-positive ylim on a log-scaled axis will be ignored.
+      plt.colorbar(
+    /home/jenkins/agent/workspace/Studio-Build-Docs/repo/examples/05_model_perturbation_hook.py:380: UserWarning: Attempt to set non-positive ylim on a log-scaled axis will be ignored.
+      plt.colorbar(
+    /usr/local/lib/python3.10/dist-packages/cartopy/io/__init__.py:241: DownloadWarning: Downloading: https://naturalearth.s3.amazonaws.com/50m_physical/ne_50m_coastline.zip
+      warnings.warn(f'Downloading: {url}', DownloadWarning)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
+      result = super().contour(*args, **kwargs)
+
+
+
+
+
+.. rst-class:: sphx-glr-timing
+
+   **Total running time of the script:** (1 minutes 1.915 seconds)
 
 
 .. _sphx_glr_download_examples_05_model_perturbation_hook.py:
