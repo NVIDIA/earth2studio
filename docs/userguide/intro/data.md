@@ -51,6 +51,8 @@ or interact with these two data structures.
 The combonation of both the data tensor and respective coordinate system provides
 complete information one needs to interpret any stage of a workflow.
 
+(coordinates_userguide)=
+
 ## Coordinate Systems
 
 As previously discussed, coordinate dictionaries are a critical part of Earth-2
