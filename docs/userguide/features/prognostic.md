@@ -71,33 +71,7 @@ for step, (x, coords) in enumerate(model_iterator):
 Integrating your own prognostic is easy, just satisfy the inferface above.
 We recommend users have a look at the custom prognostic example which will step users
 through the simple process of implementing you're own prognostic model for your personal
-needs.
-
-```{eval-rst}
-.. start-sphx-glr-thumbnails
-
-
-.. raw:: html
-
-    <div class="sphx-glr-thumbnails">
-
-
-.. raw:: html
-
-    <div class="sphx-glr-thumbcontainer" tooltip="TODO: Update this to custom prognostic">
-
-.. only:: html
-
-  .. image:: /examples/images/thumb/sphx_glr_01_simple_workflow_thumb.png
-    :alt:
-
-  :ref:`sphx_glr_examples_01_simple_workflow.py`
-
-.. raw:: html
-
-      <div class="sphx-glr-thumbnail-title">Running Simple Inference</div>
-    </div>
-```
+needs in the {ref}`extension_examples` examples.
 
 ## Contributing a Prognostic Models
 
