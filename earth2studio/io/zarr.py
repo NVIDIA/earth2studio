@@ -116,6 +116,10 @@ class ZarrBackend:
                 f"The number of input tensors and array names must be the same but got {len(data)} and {len(array_name)}."
             )
 
+        # Set fill value to None if not already given
+        if "fill_value" not in kwargs:
+            kwargs["fill_value"] = None
+
         for dim, values in coords.items():
             if dim not in self.coords:
                 self.root.create_dataset(
@@ -123,16 +127,15 @@ class ZarrBackend:
                     shape=values.shape,
                     chunks=values.shape,
                     dtype=values.dtype,
+                    **kwargs,
                 )
                 self.root[dim][:] = values
+                self.root[dim].attrs["_ARRAY_DIMENSIONS"] = [dim]
 
         self.coords = self.coords | coords
 
         shape = [len(v) for v in coords.values()]
         chunks = [self.chunks.get(dim, len(coords[dim])) for dim in coords]
-        # Set fill value to None if not already given
-        if "fill_value" not in kwargs:
-            kwargs["fill_value"] = None
 
         for name, di in zip(array_name, data):
             if name in self.root and not kwargs.get("overwrite", False):
