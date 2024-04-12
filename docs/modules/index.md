@@ -1,8 +1,8 @@
 # API Reference
 
 This is the API reference for Earth-2 Inference Studio. Please refer to the full user
-guide and examples for further details on how to this package as API documentaiton
-alone my not provide sufficient information.
+guide and examples for further details on how to use this package as API documentaiton
+alone may not provide sufficient information.
 
 ```{toctree}
 :maxdepth: 1
