@@ -1,4 +1,6 @@
 <!-- markdownlint-disable MD025 -->
+(install_guide)=
+
 # Install
 
 ## Install from PyPi
