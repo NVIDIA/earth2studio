@@ -181,6 +181,8 @@ To install documentation dependencies use:
 pip install .[docs]
 ```
 
+(configuration_userguide)=
+
 # Configuration
 
 Earth2Studio uses a few environment variables to configure various parts of the package.

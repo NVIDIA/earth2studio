@@ -26,6 +26,12 @@ The full requirements for a standard diagnostic model our defined explicitly in 
     :language: python
 ```
 
+:::{note}
+While not a requirement, build in remote data sources offer local caching when fetching
+data which is stored in the Earth2Studio cache. See {ref}`configuration_userguide` for
+details on how to customize this location.
+:::
+
 ## Data Source Usage
 
 The {func}`__call__` function is the way data is fetched from the data source and placed
