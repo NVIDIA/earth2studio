@@ -22,7 +22,7 @@ Running Ensemble Inference
 Simple ensemble inference workflow.
 
 This example will demonstrate how to run a simple inference workflow to generate a
-simple ensemble forecast using one of the built in models of Earth-2 Inference
+ensemble forecast using one of the built in models of Earth-2 Inference
 Studio.
 
 In this example you will learn:
