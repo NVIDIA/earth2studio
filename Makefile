@@ -1,6 +1,7 @@
 install:
-	pip install --upgrade pip && \
-	pip install -e .[pangu,sfno]
+	pip install --upgrade pip
+	pip install -e .[all]
+	pip install "makani[all] @ git+https://github.com/NVIDIA/modulus-makani.git@v0.1.0"
 
 .PHONY: setup-ci
 setup-ci:
@@ -62,3 +63,8 @@ docs-full:
 	$(MAKE) -C docs clean
 	rm -rf examples/outputs
 	PLOT_GALLERY=True RUN_STALE_EXAMPLES=True $(MAKE) -C docs html
+
+.PHONY: docs-dev
+docs-dev:
+	rm -rf examples/outputs
+	PLOT_GALLERY=True RUN_STALE_EXAMPLES=True FILENAME_PATTERN=$(FILENAME) $(MAKE) -C docs html
