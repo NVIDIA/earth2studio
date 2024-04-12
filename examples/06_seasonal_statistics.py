@@ -165,10 +165,10 @@ def run_stats(
 #
 # We need the following:
 #
-# - Prognostic Model: Use the built in FourCastNet model :py:class:`earth2studio.models.px.FCN`.
+# - Prognostic Model: Use the built in Pangu 24 hour model :py:class:`earth2studio.models.px.Pangu24`.
 # - statistic: We define our own statistic: the Southern Oscillation Index (SOI).
 # - Datasource: Pull data from the GFS data api :py:class:`earth2studio.data.GFS`.
-# - IO Backend: Lets save the outputs into a Zarr store :py:class:`earth2studio.io.ZarrBackend`.
+# - IO Backend: Lets save the outputs into a NetCDF4 store :py:class:`earth2studio.io.NetCDF4Backend`.
 #
 # %%
 import numpy as np
@@ -228,7 +228,7 @@ class SOI:
         ds["date"] = dates
         ds = ds.set_index("date")
         ds = ds.drop(["Year", "Day", "SOI"], axis=1)
-        ds = ds.rolling(14, min_periods=1).mean().dropna()
+        ds = ds.rolling(30, min_periods=1).mean().dropna()
 
         self.climatological_means = torch.tensor(
             ds.groupby(ds.index.month).mean().to_numpy(), dtype=torch.float32
@@ -352,14 +352,13 @@ io = run_stats(["2022-01-01"], nsteps, nensemble, model, soi, data, io)
 # %%
 import matplotlib.pyplot as plt
 
-times = io["time"] + io["lead_time"]
+times = io["time"][:].flatten() + io["lead_time"][:].flatten()
 
-fig = plt.figure(figsize=(8, 4))
+fig = plt.figure(figsize=(12, 4))
 ax = fig.add_subplot(1, 1, 1)
-ax.plot(times, io["soi"][:])
+ax.plot(times, io["soi"][:].flatten())
 ax.set_title("Southern Oscillation Index")
 ax.grid("on")
 
 plt.savefig("outputs/southern_oscillation_index_prediction_2022.png")
-
 io.close()
