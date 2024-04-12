@@ -4,12 +4,12 @@
 
 While input data handling is primarily managed by the data sources in
 {ref}`earth2studio.data`, output handling is managed by the IO backends available
-in {ref}`earthstudio.io`. These backends are designed to balance the ability for
+in {ref}`earth2studio.io`. These backends are designed to balance the ability for
 users to customize the arrays and metadata within the exposed backend while also
 making it easy to design resuable workflows.
 
 The key extension of the typical `(x, coords)` data structure movement throughout
-the rest of the `earthstudio` code and output store compatibility is the notion of
+the rest of the `earth2studio` code and output store compatibility is the notion of
 an `array_name`. Names distinguish between different arrays within the backend and
 is currently a requirement for storing Datasets in `xarray`, `zarr`, and `netcdf`.
 This means that the user must supply a name when adding an array to a store or when
