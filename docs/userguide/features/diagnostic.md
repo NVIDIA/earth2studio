@@ -52,9 +52,8 @@ x, coords = model(x, coords)  # Predict a single time-step
 ## Custom Diagnostic Models
 
 Integrating your own diagnostic is easy, just satisfy the inferface above.
-We recommend users have a look at the custom prognostic example which will step users
-through the simple process of implementing you're own diagnostic model for your personal
-needs in the {ref}`extension_examples` examples.
+We recommend users have a look at the {ref}`extension_examples` examples, which will
+step users through the simple process of implementing your own diagnostic model.
 
 ## Contributing a Diagnostic Models
 
