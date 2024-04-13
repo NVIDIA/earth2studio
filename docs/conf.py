@@ -47,7 +47,7 @@ sys.path.insert(0, modulus.as_posix())
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 version = ".".join(release.split(".")[:2])
-project = "Earth-2 Inference Studio"
+project = "Earth-2 Studio"
 copyright = "2024, NVIDIA"
 author = "NVIDIA"
 

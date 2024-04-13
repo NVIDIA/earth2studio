@@ -16,332 +16,290 @@
 
 # %%
 """
-Extending Diagnostic Models
-===========================
+Extending Data Sources
+======================
 
-Implementing a custom diagnostic model
+Implementing a custom data source
 
-This example will demonstrate how extend Earth2Studio by implementing a custom
-diagnostic model and running it in a general workflow.
+This example will demonstrate how extend Earth2Studio by implementing a custom data
+source to use in a built in workflow.
 
 In this example you will learn:
 
-- API requirements of diagnostic models
-- Implementing a custom diagnostic model
-- Running this custom model in a workflow with built in prognostic
+- API requirements of data soruces
+- Implementing a custom data soruce
 """
 
 # %%
-# Custom Diagnostic
-# -----------------
-# As dicussed in the :ref:`diagnostic_model_userguide` section of the userguide,
-# Earth2Studio defines a diagnostic model through a simple interface
-# :py:class:`earth2studio.models.dx.base.Diagnostic Model`. This can be used to help
-# guide the required APIs needed to successfully create our own model.
+# Custom Data Source
+# ------------------
+# Earth2Studio defines the required APIs for data sources in
+# :py:class:`earth2studio.data.base.DataSource` which requires just a call function.
+# For this example, lets consider extending an existing remote data source with another
+# atmospheric field we can calculate.
 #
-# In this example, lets consider a simple diagnostic that converts the surface
-# temperature in Kelvin to Celcius to make it more readable for the average person.
-#
-# Our diagnostic model has a base class of :py:class:`torch.nn.Module` which allows us
-# to get the required :py:obj:`to(device)` method for free.
+# The ARCO data source provide the ERA5 dataset in a cloud optimized format, however
+# only provides specific humdity. This is a problem for models that may use relative
+# humidity as an input. Based on ECMWF documentation we can calculate the relative
+# humidity based on temperature and geo-potential.
 
 # %%
-from collections import OrderedDict
+from datetime import datetime
 
 import numpy as np
-import torch
+import xarray as xr
 
-from earth2studio.models.batch import batch_func
-from earth2studio.utils import handshake_coords, handshake_dim
-from earth2studio.utils.type import CoordSystem
+from earth2studio.data import ARCO, GFS
+from earth2studio.data.utils import prep_data_inputs
+from earth2studio.utils.type import TimeArray, VariableArray
 
 
-class CustomDiagnostic(torch.nn.Module):
-    """Custom dianostic model"""
+class CustomDataSource:
+    """Custom ARCO datasource"""
 
-    def __init__(self):
-        super().__init__()
+    relative_humidity_ids = [
+        "r50",
+        "r100",
+        "r150",
+        "r200",
+        "r250",
+        "r300",
+        "r400",
+        "r500",
+        "r600",
+        "r700",
+        "r850",
+        "r925",
+        "r1000",
+    ]
 
-    input_coords = OrderedDict(
-        {
-            "batch": np.empty(1),
-            "variable": np.array(["t2m"]),
-            "lat": np.linspace(90, -90, 721),
-            "lon": np.linspace(0, 360, 1440, endpoint=False),
-        }
-    )
+    def __init__(self, cache: bool = True, verbose: bool = True):
+        self.arco = ARCO(cache, verbose)
 
-    output_coords = OrderedDict(
-        {
-            "batch": np.empty(1),
-            "variable": np.array(["t2m_c"]),
-            "lat": np.linspace(90, -90, 721),
-            "lon": np.linspace(0, 360, 1440, endpoint=False),
-        }
-    )
-
-    @batch_func()
     def __call__(
         self,
-        x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
-        """Runs diagnostic model
+        time: datetime | list[datetime] | TimeArray,
+        variable: str | list[str] | VariableArray,
+    ) -> xr.DataArray:
+        """Function to get data.
 
         Parameters
         ----------
-        x : torch.Tensor
-            Input tensor
-        coords : CoordSystem
-            Input coordinate system
+        time : datetime | list[datetime] | TimeArray
+            Timestamps to return data for (UTC).
+        variable : str | list[str] | VariableArray
+            String, list of strings or array of strings that refer to variables to
+            return. Must be in IFS lexicon.
+
+        Returns
+        -------
+        xr.DataArray
         """
-        for i, (key, value) in enumerate(self.input_coords.items()):
-            if key != "batch":
-                handshake_dim(coords, key, i)
-                handshake_coords(coords, self.input_coords, key)
+        time, variable = prep_data_inputs(time, variable)
 
-        out_coords = coords.copy()
-        out_coords["variable"] = self.output_coords["variable"]
-        out = x - 273.15  # To celcius
+        # Replace relative humidity with respective temperature
+        # and specifc humidity fields
+        variable_expanded = []
+        for v in variable:
+            if v in self.relative_humidity_ids:
+                level = int(v[1:])
+                variable_expanded.extend([f"t{level}", f"q{level}"])
+            else:
+                variable_expanded.append(v)
+        variable_expanded = list(set(variable_expanded))
 
-        return out, out_coords
+        # Fetch from ARCO
+        da_exp = self.arco(time, variable_expanded)
 
+        # Calculate relative humidity when needed
+        arrays = []
+        for v in variable:
+            if v in self.relative_humidity_ids:
+                level = int(v[1:])
+                t = da_exp.sel(variable=f"t{level}").values
+                q = da_exp.sel(variable=f"q{level}").values
+                rh = self.calc_relative_humdity(t, q, 100 * level)
+                arrays.append(rh)
+            else:
+                arrays.append(da_exp.sel(variable=v).values)
 
-# %%
-# Input/Output Coordinates
-# ~~~~~~~~~~~~~~~~~~~~~~~~
-# Defining the input/output coordinate systems is essential for any model in
-# Earth2Studio since this how both the package and users can learn what type of data
-# the model expects. Have a look at :ref:`coordinates_userguide` for details on
-# coordinate system. For this diagnostic model, we simply define the input coordinates
-# to be the global surface temperature specificed in
-# :py:file:`earth2studio.lexicon.base.py`. The output is a custom variable
-# :py:var:`t2m_c` that represents the temperature in Celcius.
+        da = xr.DataArray(
+            data=np.stack(arrays, axis=1),
+            dims=["time", "variable", "lat", "lon"],
+            coords=dict(
+                time=da_exp.coords["time"].values,
+                variable=np.array(variable),
+                lat=da_exp.coords["lat"].values,
+                lon=da_exp.coords["lon"].values,
+            ),
+        )
+        return da
+
+    def calc_relative_humdity(
+        self, temperature: np.array, specific_humidity: np.array, pressure: float
+    ) -> np.array:
+        """Relative humidity calculation
+
+        Parameters
+        ----------
+        temperature : np.array
+            Temperture field (K)
+        specific_humidity : np.array
+            Specific humidity field (g.kg-1)
+        pressure : float
+            Pressure (P)
+
+        Returns
+        -------
+        np.array
+        """
+        epsilon = 0.621981
+        p = pressure
+        q = specific_humidity
+        t = temperature
+
+        e = (p * q * (1.0 / epsilon)) / (1 + q * (1.0 / (epsilon) - 1))
+
+        es_w = 611.21 * np.exp(17.502 * (t - 273.16) / (t - 32.19))
+        es_i = 611.21 * np.exp(22.587 * (t - 273.16) / (t + 0.7))
+
+        alpha = np.clip((t - 250.16) / (273.16 - 250.16), 0, 1.2) ** 2
+        es = alpha * es_w + (1 - alpha) * es_i
+        rh = 100 * e / es
+
+        return rh
+
 
 # %%
 # :py:func:`__call__` API
 # ~~~~~~~~~~~~~~~~~~~~~~~
-# The call function is the main API of diagnostic models that have a tensor and
-# coordinate system as input/output. This function first validates that the coordinate
-# system is correct. Then both the input data tensor and also coordinate system are
-# updated and returned.
+# The call function is the main API of data source which return the Xarray data array
+# with the requested data. For this custom data source we intercept relative humdity
+# variables, replace them with temperature and specific humidity requests then calculate
+# the realtive humidty from these fields. Note that the ARCO data source is handling
+# the remote complexity, we are just manipulating numpy arrays
+
+# %%
+# :py:func:`calc_relative_humdity`
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# Based on the calculations ECMWF uses in their IFS numerical simulator which accounts
+# for estimating the water vapor and ice present in the atmosphere.
 #
 # .. note::
-#   You may notice the :py:func:`batch_func` decorator, which is used to make batched
-#   operations easier. For more details about this refer to the :ref:`batch_function_userguide`
-#   section of the userguide.
+#   See reference, equation 7.98 onwards:
+#   https://www.ecmwf.int/en/elibrary/81370-ifs-documentation-cy48r1-part-iv-physical-processes
 
 # %%
-# Set Up
-# ------
-# With the custom diagnostic model defined, its now easily usable in a workflow. Lets
-# create our own simple diagnostic workflow based on the ones that exist already in
-# Earth2Studio.
+# Verification
+# ------------
+# Before plugging this into our workflow, lets quickly verify our data source is
+# consistent with when GFS provides for relative humidity.
 
 # %%
-from datetime import datetime
-from typing import Optional
+ds = CustomDataSource()
+da_custom = ds(time=datetime(2022, 1, 1, hour=0), variable=["r500"])
 
-import numpy as np
-import torch
-from loguru import logger
-from tqdm import tqdm
+ds_gfs = GFS()
+da_gfs = ds_gfs(time=datetime(2022, 1, 1, hour=0), variable=["r500"])
 
-from earth2studio.data import DataSource, fetch_data
-from earth2studio.io import IOBackend
-from earth2studio.models.px import PrognosticModel
-from earth2studio.models.dx import DiagnosticModel
-from earth2studio.utils.coords import extract_coords, map_coords
-from earth2studio.utils.time import to_time_array
+print(da_custom)
 
+# %%
+import os
 
-def run(
-    time: list[str] | list[datetime] | list[np.datetime64],
-    nsteps: int,
-    prognostic: PrognosticModel,
-    diagnostic: DiagnosticModel,
-    data: DataSource,
-    io: IOBackend,
-    device: Optional[torch.device] = None,
-) -> IOBackend:
-    """Simple diagnostic workflow
+os.makedirs("outputs", exist_ok=True)
+import cartopy.crs as ccrs
+import matplotlib.pyplot as plt
 
-    Parameters
-    ----------
-    time : list[str] | list[datetime] | list[np.datetime64]
-        List of string, datetimes or np.datetime64
-    nsteps : int
-        Number of forecast steps
-    prognostic : PrognosticModel
-        Prognostic models
-    data : DataSource
-        Data source
-    io : IOBackend
-        IO object
-    device : Optional[torch.device], optional
-        Device to run inference on, by default None
+fig, ax = plt.subplots(
+    1,
+    2,
+    figsize=(10, 3),
+    subplot_kw={"projection": ccrs.Mollweide()},
+    constrained_layout=True,
+)
 
-    Returns
-    -------
-    IOBackend
-        Output IO object
-    """
-    logger.info("Running diagnostic workflow!")
-    # Load model onto the device
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    logger.info(f"Inference device: {device}")
-    prognostic = prognostic.to(device)
-    # Fetch data from data source and load onto device
-    time = to_time_array(time)
-    x, coords = fetch_data(
-        source=data,
-        time=time,
-        lead_time=prognostic.input_coords["lead_time"],
-        variable=prognostic.input_coords["variable"],
-        device=device,
-    )
-    logger.success(f"Fetched data from {data.__class__.__name__}")
+ax[0].imshow(
+    da_custom.sel(variable="r500")[0], transform=ccrs.PlateCarree(), vmin=0, vmax=100
+)
+ax[1].imshow(
+    da_gfs.sel(variable="r500")[0], transform=ccrs.PlateCarree(), vmin=0, vmax=100
+)
 
-    # Set up IO backend
-    total_coords = prognostic.output_coords.copy()
-    del total_coords["batch"]  # Unsafe if batch not supported
-    for key, value in total_coords.items():
-        if value.shape == 0:
-            del total_coords[key]
-    total_coords["time"] = time
-    total_coords["lead_time"] = np.asarray(
-        [prognostic.output_coords["lead_time"] * i for i in range(nsteps + 1)]
-    ).flatten()
-    total_coords.move_to_end("lead_time", last=False)
-    total_coords.move_to_end("time", last=False)
+ax[0].set_title("Custom ARCO")
+ax[1].set_title("GFS")
+plt.suptitle("r500", fontsize=24)
+cbar = plt.cm.ScalarMappable()
+cbar.set_array(da_custom.sel(variable="r500")[0])
+cbar.set_clim(0, 100)
+cbar = fig.colorbar(cbar, ax=ax[-1], orientation="vertical", shrink=0.8)
 
-    for name, value in diagnostic.output_coords.items():
-        if name == "batch":
-            continue
-        total_coords[name] = value
-
-    var_names = total_coords.pop("variable")
-    io.add_array(total_coords, var_names)
-
-    # Map lat and lon if needed
-    x, coords = map_coords(x, coords, prognostic.input_coords)
-    # Create prognostic iterator
-    model = prognostic.create_iterator(x, coords)
-
-    logger.info("Inference starting!")
-    with tqdm(total=nsteps + 1, desc="Running inference") as pbar:
-        for step, (x, coords) in enumerate(model):
-
-            # Run diagnostic
-            x, coords = map_coords(x, coords, diagnostic.input_coords)
-            x, coords = diagnostic(x, coords)
-
-            io.write(*extract_coords(x, coords))
-            pbar.update(1)
-            if step == nsteps:
-                break
-
-    logger.success("Inference complete")
-    return io
+plt.savefig("outputs/custom_datasource_gfs_versus_custom.jpg")
 
 
 # %%
+# Execute Workflow
+# ----------------
+# Now lets use our data source to run deterministic inference with a model that requires
+# relative humidity. :mod:`earth2studio.models.px.FCN` is one such model. Since we are
+# using ARCO, we can run inference for a time quite far back in time.
+#
 # Lets instantiate the components needed.
 #
-# - Prognostic Model: Use the built in DLWP model :py:class:`earth2studio.models.px.DLWP`.
-# - Diagnostic Model: The custom diagnostic model defined above
+# - Prognostic Model: Use the built in FourCastNet Model :py:class:`earth2studio.models.px.FCN`.
 # - Datasource: Pull data from the GFS data api :py:class:`earth2studio.data.GFS`.
 # - IO Backend: Lets save the outputs into a Zarr store :py:class:`earth2studio.io.ZarrBackend`.
 
 # %%
-import numpy as np
-from collections import OrderedDict
 from dotenv import load_dotenv
 
 load_dotenv()  # TODO: make common example prep function
 
-from earth2studio.models.px import DLWP
-from earth2studio.data import GFS
+import earth2studio.run as run
 from earth2studio.io import ZarrBackend
+from earth2studio.models.px import FCN
 
-# Load the default model package which downloads the check point from NGC
-package = DLWP.load_default_package()
-model = DLWP.load_model(package)
-
-# Diagnostic model
-diagnostic = CustomDiagnostic()
+package = FCN.load_default_package()
+model = FCN.load_model(package)
 
 # Create the data source
-data = GFS()
+data = CustomDataSource()
 
 # Create the IO handler, store in memory
 io = ZarrBackend()
 
-# %%
-# Execute the Workflow
-# --------------------
-# Running our workflow with a build in prognostic model and a custom diagnostic is as
-# simple as the following.
-
-# %%
-
-nsteps = 20
-io = run(["2024-01-01"], nsteps, model, diagnostic, data, io)
+nsteps = 4
+io = run.deterministic(["1993-04-05"], nsteps, model, data, io)
 
 print(io.root.tree())
 
 # %%
 # Post Processing
 # ---------------
-# To confirm that out prognostic model is working as expect, we should expect the fields
+# To confirm that our model is working as expect, we should expect the fields
 # to be progressively more noisy as time progresses.
 
 # %%
-import os
-
-os.makedirs("outputs", exist_ok=True)
-import matplotlib.pyplot as plt
-from mpl_toolkits.axes_grid1 import make_axes_locatable
-import cartopy.crs as ccrs
-
-forecast = "2024-01-01"
-variable = "t2m_c"
+forecast = "1993-04-05"
+variable = "tcwv"
 
 plt.close("all")
 
 # Create a figure and axes with the specified projection
-fig, ax = plt.subplots(
-    1,
-    5,
-    figsize=(12, 4),
-    subplot_kw={"projection": ccrs.Orthographic()},
-    constrained_layout=True,
-)
+fig, ax = plt.subplots(2, 2, figsize=(6, 4))
 
-times = io["lead_time"].astype("timedelta64[h]").astype(int)
-step = 4  # 24hrs
-for i, t in enumerate(range(0, 20, step)):
+# Plot tcwv every 6 hours
+ax[0, 0].imshow(io[variable][0, 0], vmin=0, vmax=80, cmap="magma")
+ax[0, 1].imshow(io[variable][0, 1], vmin=0, vmax=80, cmap="magma")
+ax[1, 0].imshow(io[variable][0, 2], vmin=0, vmax=80, cmap="magma")
+ax[1, 1].imshow(io[variable][0, 3], vmin=0, vmax=80, cmap="magma")
 
-    ctr = ax[i].contourf(
-        io["lon"][:],
-        io["lat"][:],
-        io[variable][0, t],
-        vmin=-10,
-        vmax=30,
-        transform=ccrs.PlateCarree(),
-        levels=20,
-        cmap="coolwarm",
-    )
-    ax[i].set_title(f"{times[t]}hrs")
-    ax[i].coastlines()
-    ax[i].gridlines()
-
+# Set title
 plt.suptitle(f"{variable} - {forecast}")
+times = io["lead_time"].astype("timedelta64[h]").astype(int)
+ax[0, 0].set_title(f"Lead time: {times[0]}hrs")
+ax[0, 1].set_title(f"Lead time: {times[1]}hrs")
+ax[1, 0].set_title(f"Lead time: {times[2]}hrs")
+ax[1, 1].set_title(f"Lead time: {times[3]}hrs")
 
-cbar = plt.cm.ScalarMappable(cmap="coolwarm")
-cbar.set_array(io[variable][0, 0])
-cbar.set_clim(-10.0, 30)
-cbar = fig.colorbar(cbar, ax=ax[-1], orientation="vertical", label="C", shrink=0.8)
-
-
-plt.savefig("outputs/custom_diagnostic_dlwp_prediction.jpg")
+plt.savefig("outputs/custom_datasource_prediction.jpg", bbox_inches="tight")

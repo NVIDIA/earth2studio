@@ -48,8 +48,8 @@ In this example you will learn:
 # different devices. If your model is PyTorch, then this will be easy.
 
 # %%
-from typing import Generator, Iterator
 from collections import OrderedDict
+from typing import Generator, Iterator
 
 import numpy as np
 import torch
@@ -207,8 +207,9 @@ class CustomPrognostic(torch.nn.Module):
 # - IO Backend: Lets save the outputs into a Zarr store :py:class:`earth2studio.io.ZarrBackend`.
 
 # %%
-import numpy as np
 from collections import OrderedDict
+
+import numpy as np
 from dotenv import load_dotenv
 
 load_dotenv()  # TODO: make common example prep function
@@ -242,7 +243,7 @@ print(io.root.tree())
 # %%
 # Post Processing
 # ---------------
-# To confirm that out prognostic model is working as expect, we should expect the fields
+# To confirm that our prognostic model is working as expect, we should expect the fields
 # to be progressively more noisy as time progresses.
 
 # %%
