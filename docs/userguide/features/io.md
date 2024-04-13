@@ -3,19 +3,18 @@
 # Output Handling
 
 While input data handling is primarily managed by the data sources in
-{ref}`earth2studio.data`, output handling is managed by the IO backends available
-in {ref}`earth2studio.io`. These backends are designed to balance the ability for
+{mod}`earth2studio.data`, output handling is managed by the IO backends available
+in {mod}`earth2studio.io`. These backends are designed to balance the ability for
 users to customize the arrays and metadata within the exposed backend while also
 making it easy to design resuable workflows.
 
 The key extension of the typical `(x, coords)` data structure movement throughout
 the rest of the `earth2studio` code and output store compatibility is the notion of
 an `array_name`. Names distinguish between different arrays within the backend and
-is currently a requirement for storing Datasets in `xarray`, `zarr`, and `netcdf`.
+is currently a requirement for storing `Datasets` in `xarray`, `zarr`, and `netcdf`.
 This means that the user must supply a name when adding an array to a store or when
 writing an array. A frequent pattern is to extract one dimension of an array,
-such as `variable` to act as individual arrays in the backend. To support this
-pattern we expose the {mod}`earth2studio.utils.coords.extract_coords` function.
+such as `"variable"` to act as individual arrays in the backend, see the examples below.
 
 ## IO Backend Interface
 
@@ -38,12 +37,12 @@ adds an array to the underlying store and any attached coordinates, and `write`,
 which explicity stores the passed data in the backend. The `write` command may
 induce synchronization if the input tensor resides on the GPU and the store. Most
 stores make a conversion from PyTorch to numpy in this process. The
-`{mod}earth2studio.io.kv` has the option for storing data on the GPU, which can be
+{mod}`earth2studio.io.kv` backend has the option for storing data on the GPU, which can be
 done asynchronously.
 
 Most data stores offer a number of additional utilities such as `__contains__`,
 `__getitem__`, `__len__`, and `__iter__`. For examples, see the implementation in
-`earth2studio/io/zarr.py`:
+{mod}`earth2studio.io.ZarrBackend`:
 
 ```{literalinclude} ../../../earth2studio/io/zarr.py
     :lines: 53-81
@@ -111,8 +110,8 @@ io.add_array(total_coords, var_names)
 
 ## Writing to the store
 
-Once the data arrays have been initialized, writing to the arrays are a single line of
-code.
+Once the data arrays have been initialized in the backend, writing to those arrays
+is a single line of code.
 
 ```python
 x, coords = model(x, coords)

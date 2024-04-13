@@ -6,7 +6,7 @@
 .. autoclass:: {{ objname }}
 
    {% block methods %}
-    .. automethod:: initialize
+    .. automethod:: add_array
     .. automethod:: write
    {% endblock %}
 

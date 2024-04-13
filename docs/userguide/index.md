@@ -32,6 +32,8 @@ intro/data
 
 features/prognostic
 features/diagnostic
+features/io
+features/statistics
 ```
 
 ## Support

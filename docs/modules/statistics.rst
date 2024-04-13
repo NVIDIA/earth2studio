@@ -12,7 +12,7 @@ Various statistic and metric calculations for analysing inference data.
 .. autosummary::
     :nosignatures:
     :toctree: generated/statistics/
-    :template: class.rst
+    :template: statistics.rst
 
     statistics.mean
     statistics.variance
