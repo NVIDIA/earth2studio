@@ -56,7 +56,7 @@ In this example you will learn:
 
 # %%
 from datetime import datetime
-from typing import Optional
+
 from dotenv import load_dotenv
 
 load_dotenv()  # TODO: make common example prep function
@@ -70,7 +70,7 @@ from earth2studio.data import DataSource, fetch_data
 from earth2studio.io import IOBackend
 from earth2studio.models.px import PrognosticModel
 from earth2studio.perturbation import PerturbationMethod
-from earth2studio.utils.coords import map_coords, extract_coords
+from earth2studio.utils.coords import extract_coords, map_coords
 from earth2studio.utils.time import to_time_array
 
 logger.remove()
@@ -173,15 +173,14 @@ def run_ensemble(
 # - IO Backend: Lets save the outputs into a Zarr store :py:class:`earth2studio.io.ZarrBackend`.
 #
 # %%
-import numpy as np
-import torch
-from collections import OrderedDict
-from typing import Union, List
+from typing import List, Union
 
-from earth2studio.models.px import DLWP
-from earth2studio.perturbation import PerturbationMethod, SphericalGaussian
+import numpy as np
+
 from earth2studio.data import GFS
 from earth2studio.io import ZarrBackend
+from earth2studio.models.px import DLWP
+from earth2studio.perturbation import PerturbationMethod, SphericalGaussian
 from earth2studio.utils.type import CoordSystem
 
 # Load the default model package which downloads the check point from NGC
@@ -252,8 +251,8 @@ io = run_ensemble(["2024-01-01"], nsteps, nensemble, model, avsg, data, io)
 # Notice that the Zarr IO function has additional APIs to interact with the stored data.
 
 # %%
-import matplotlib.pyplot as plt
 import cartopy.crs as ccrs
+import matplotlib.pyplot as plt
 
 forecast = "2024-01-01"
 

@@ -52,6 +52,23 @@ components.
 
 .. raw:: html
 
+    <div class="sphx-glr-thumbcontainer" tooltip="Implementing a custom data source">
+
+.. only:: html
+
+  .. image:: /examples/extend/images/thumb/sphx_glr_03_custom_datasource_thumb.png
+    :alt:
+
+  :ref:`sphx_glr_examples_extend_03_custom_datasource.py`
+
+.. raw:: html
+
+      <div class="sphx-glr-thumbnail-title">Extending Data Sources</div>
+    </div>
+
+
+.. raw:: html
+
     </div>
 
 
@@ -60,4 +77,5 @@ components.
 
    /examples/extend/01_custom_prognostic
    /examples/extend/02_custom_diagnostic
+   /examples/extend/03_custom_datasource
 

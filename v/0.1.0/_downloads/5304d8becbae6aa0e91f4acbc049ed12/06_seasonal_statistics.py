@@ -57,14 +57,13 @@ In this example you will learn:
 
 # %%
 from datetime import datetime
-from typing import Optional
+
 from dotenv import load_dotenv
 
 load_dotenv()  # TODO: make common example prep function
 
 import numpy as np
 import pandas as pd
-import torch
 from loguru import logger
 from tqdm import tqdm
 
@@ -171,13 +170,14 @@ def run_stats(
 # - IO Backend: Lets save the outputs into a NetCDF4 store :py:class:`earth2studio.io.NetCDF4Backend`.
 #
 # %%
-import numpy as np
-import torch
 from collections import OrderedDict
 
-from earth2studio.models.px import Pangu24
+import numpy as np
+import torch
+
 from earth2studio.data import GFS
 from earth2studio.io import NetCDF4Backend
+from earth2studio.models.px import Pangu24
 from earth2studio.utils.type import CoordSystem
 
 # Load the default model package which downloads the check point from NGC
