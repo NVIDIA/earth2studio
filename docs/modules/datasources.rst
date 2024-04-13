@@ -1,3 +1,5 @@
+.. _earth2studio.data:
+
 :mod:`earth2studio.data`: Data Sources
 --------------------------------------
 

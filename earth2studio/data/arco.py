@@ -19,11 +19,11 @@ import pathlib
 import shutil
 from datetime import datetime
 
+import fsspec
 import gcsfs
 import numpy as np
 import xarray as xr
 import zarr
-from fsspec.implementations.cached import CachingFileSystem
 from loguru import logger
 from modulus.distributed.manager import DistributedManager
 from tqdm import tqdm
@@ -68,17 +68,18 @@ class ARCO:
         self._verbose = verbose
 
         if self._cache:
-            gcs = CachingFileSystem(
+            gcstore = fsspec.get_mapper(
+                "gs://gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3",
                 target_protocol="gs",
                 cache_storage=self.cache,
-                expiry_time=6000,
+                target_options={"anon": True, "default_block_size": 2**20},
             )
         else:
             gcs = gcsfs.GCSFileSystem(cache_timeout=-1)
-        gcstore = gcsfs.GCSMap(
-            "gs://gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3",
-            gcs=gcs,
-        )
+            gcstore = gcsfs.GCSMap(
+                "gs://gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3",
+                gcs=gcs,
+            )
         self.zarr_group = zarr.open(gcstore, mode="r")
 
     def __call__(

@@ -53,15 +53,13 @@ In this example you will learn:
 # - IO Backend: Lets save the outputs into a Zarr store :py:class:`earth2studio.io.ZarrBackend`.
 
 # %%
-import numpy as np
-from collections import OrderedDict
 from dotenv import load_dotenv
 
 load_dotenv()  # TODO: make common example prep function
 
-from earth2studio.models.px import FCN
 from earth2studio.data import GFS
 from earth2studio.io import ZarrBackend
+from earth2studio.models.px import FCN
 
 # Load the default model package which downloads the check point from NGC
 package = FCN.load_default_package()
@@ -105,10 +103,8 @@ print(io.root.tree())
 import os
 
 os.makedirs("outputs", exist_ok=True)
-import matplotlib.pyplot as plt
 import cartopy.crs as ccrs
-import cartopy.feature as cfeature
-from matplotlib.colors import TwoSlopeNorm
+import matplotlib.pyplot as plt
 
 forecast = "2024-01-01"
 variable = "t2m"

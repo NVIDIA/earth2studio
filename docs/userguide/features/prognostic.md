@@ -40,7 +40,9 @@ of control over how the time-series prediction of models.
 checkpoints that can be auto downloaded and cached. See the Automodel guide for
 additional details.
 
-## Single Step Prediction
+## Prognostic Usage
+
+### Single Step Prediction
 
 A prognostic model can be called for single time-step using the call function.
 
@@ -51,7 +53,7 @@ coords = CoordSystem(...)  # Coordinate system
 x, coords = model(x, coords)  # Predict a single time-step
 ```
 
-## Time-series Prediction
+### Time-series Prediction
 
 To predict a time-series, the create generator API can be used to create an interable
 data source to generate time-series data as the model rolls out.
