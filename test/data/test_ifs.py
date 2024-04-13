@@ -14,14 +14,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import datetime
 import pathlib
 import shutil
+from datetime import datetime, timedelta
 
 import numpy as np
 import pytest
 
 from earth2studio.data import IFS
+
+
+def now6h():
+    """Get closest 6 hour timestamp"""
+    now_time = datetime.now().timestamp()
+    now_time = now_time - now_time % 21600
+    return datetime.fromtimestamp(now_time)
 
 
 @pytest.mark.slow
@@ -30,16 +37,15 @@ from earth2studio.data import IFS
 @pytest.mark.parametrize(
     "time",
     [
-        datetime.datetime(year=2023, month=1, day=31),
+        now6h() - timedelta(hours=6),
         [
-            datetime.datetime(year=2023, month=10, day=15, hour=18),
-            datetime.datetime(year=2023, month=12, day=1, hour=12),
+            now6h() - timedelta(days=1),
+            now6h() - timedelta(days=1, hours=6),
         ],
     ],
 )
 @pytest.mark.parametrize("variable", ["tcwv", ["sp"]])
 def test_ifs_fetch(time, variable):
-
     ds = IFS(cache=False)
     data = ds(time, variable)
     shape = data.shape
@@ -47,13 +53,13 @@ def test_ifs_fetch(time, variable):
     if isinstance(variable, str):
         variable = [variable]
 
-    if isinstance(time, datetime.datetime):
+    if isinstance(time, datetime):
         time = [time]
 
     assert shape[0] == len(time)
     assert shape[1] == len(variable)
-    assert shape[2] == 451
-    assert shape[3] == 900
+    assert shape[2] == 721
+    assert shape[3] == 1440
     assert not np.isnan(data.values).any()
     assert IFS.available(time[0])
     assert np.array_equal(data.coords["variable"].values, np.array(variable))
@@ -65,7 +71,7 @@ def test_ifs_fetch(time, variable):
 @pytest.mark.parametrize(
     "time",
     [
-        np.array([np.datetime64("2024-01-01T00:00")]),
+        np.array([now6h() - timedelta(days=2)], dtype="datetime64"),
     ],
 )
 @pytest.mark.parametrize("variable", [["u10m", "tcwv"]])
@@ -78,8 +84,8 @@ def test_ifs_cache(time, variable, cache):
 
     assert shape[0] == 1
     assert shape[1] == len(variable)
-    assert shape[2] == 451
-    assert shape[3] == 900
+    assert shape[2] == 721
+    assert shape[3] == 1440
     assert not np.isnan(data.values).any()
     # Cahce should be present
     assert pathlib.Path(ds.cache).is_dir() == cache
@@ -90,8 +96,8 @@ def test_ifs_cache(time, variable, cache):
 
     assert shape[0] == 1
     assert shape[1] == 1
-    assert shape[2] == 451
-    assert shape[3] == 900
+    assert shape[2] == 721
+    assert shape[3] == 1440
     assert not np.isnan(data.values).any()
 
     try:
@@ -104,12 +110,12 @@ def test_ifs_cache(time, variable, cache):
 @pytest.mark.parametrize(
     "time",
     [
-        datetime.datetime(year=2023, month=1, day=17),
-        datetime.datetime(year=2023, month=2, day=2, hour=1),
-        datetime.datetime.now(),
+        now6h() - timedelta(days=1, minutes=1),
+        now6h() - timedelta(days=5),
+        datetime(year=1993, month=4, day=5),
     ],
 )
-@pytest.mark.parametrize("variable", ["mpl"])
+@pytest.mark.parametrize("variable", ["msl"])
 def test_ifs_available(time, variable):
     assert not IFS.available(time)
     with pytest.raises(ValueError):
