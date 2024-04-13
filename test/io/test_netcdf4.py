@@ -36,6 +36,13 @@ from earth2studio.utils.coords import extract_coords
     ],
 )
 @pytest.mark.parametrize(
+    "lead_time",
+    [
+        np.array([np.timedelta64(0, "h")]),
+        np.array([np.timedelta64(-6, "h"), np.timedelta64(0, "h")]),
+    ],
+)
+@pytest.mark.parametrize(
     "variable",
     [
         ["t2m"],
@@ -44,12 +51,16 @@ from earth2studio.utils.coords import extract_coords
 )
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
 def test_netcdf4_fields(
-    time: List[np.datetime64], variable: List[str], device: str
+    time: List[np.datetime64],
+    lead_time: List[np.datetime64],
+    variable: List[str],
+    device: str,
 ) -> None:
 
     total_coords = OrderedDict(
         {
             "time": np.asarray(time),
+            "lead_time": lead_time,
             "variable": np.asarray(variable),
             "lat": np.linspace(-90, 90, 180),
             "lon": np.linspace(0, 360, 360, endpoint=False),
@@ -78,11 +89,11 @@ def test_netcdf4_fields(
     assert nc[array_name].shape == shape
 
     # Test __len__
-    assert len(nc) == 5
+    assert len(nc) == 6
 
     # Test __iter__
     for array in nc:
-        assert array in ["fields", "time", "variable", "lat", "lon"]
+        assert array in ["fields", "time", "lead_time", "variable", "lat", "lon"]
 
     # Test add_array with torch.Tensor
     nc.add_array(
@@ -105,14 +116,15 @@ def test_netcdf4_fields(
     partial_coords = OrderedDict(
         {
             "time": np.asarray(time)[:1],
+            "lead_time": np.asarray(lead_time)[:1],
             "variable": np.asarray(variable)[:1],
             "lat": total_coords["lat"],
             "lon": total_coords["lon"][:180],
         }
     )
-    partial_data = torch.randn((1, 1, 180, 180), device=device)
+    partial_data = torch.randn((1, 1, 1, 180, 180), device=device)
     nc.write(partial_data, partial_coords, array_name)
-    assert np.allclose(nc[array_name][0, 0, :, :180], partial_data.to("cpu").numpy())
+    assert np.allclose(nc[array_name][0, 0, 0, :, :180], partial_data.to("cpu").numpy())
     nc.close()
 
     # Test Directory Store
@@ -141,15 +153,16 @@ def test_netcdf4_fields(
         partial_coords = OrderedDict(
             {
                 "time": np.asarray(time)[:1],
+                "lead_time": np.asarray(lead_time)[:1],
                 "variable": np.asarray(variable)[:1],
                 "lat": total_coords["lat"],
                 "lon": total_coords["lon"][:180],
             }
         )
-        partial_data = torch.randn((1, 1, 180, 180), device=device)
+        partial_data = torch.randn((1, 1, 1, 180, 180), device=device)
         nc.write(partial_data, partial_coords, array_name)
         assert np.allclose(
-            nc[array_name][0, 0, :, :180], partial_data.to("cpu").numpy()
+            nc[array_name][0, 0, 0, :, :180], partial_data.to("cpu").numpy()
         )
         nc.close()
 

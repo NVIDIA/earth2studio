@@ -116,6 +116,12 @@ class NetCDF4Backend:
                 data = timearray_to_datetime(data)
                 data = date2num(data, units=var.units, calendar=var.calendar)
 
+            elif np.issubdtype(data.dtype, np.timedelta64):
+                units, _ = np.datetime_data(data[0])
+                data = data / np.timedelta64(1, units)
+                var = self.root.createVariable(name, "i8", (name,))
+                var.units = units
+                var.calendar = "gregorian"
             else:
                 var = self.root.createVariable(name, data.dtype, (name,))
 
@@ -161,7 +167,6 @@ class NetCDF4Backend:
             )
 
         for c, v in coords.items():
-            print(c, list(self.coords))
             if c not in self.coords:
                 self.add_dimension(c, v.shape, v)
 
