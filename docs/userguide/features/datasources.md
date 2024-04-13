@@ -27,7 +27,7 @@ The full requirements for a standard diagnostic model our defined explicitly in 
 ```
 
 :::{note}
-While not a requirement, build in remote data sources offer local caching when fetching
+While not a requirement, built in remote data sources offer local caching when fetching
 data which is stored in the Earth2Studio cache. See {ref}`configuration_userguide` for
 details on how to customize this location.
 :::
