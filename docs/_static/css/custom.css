@@ -16,7 +16,7 @@ html {
 }
 
 .bd-page-width {
-  max-width: 80%;  /* default is 88rem */
+  max-width: 100rem;  /* default is 88rem */
 }
 
 /*******************************************************************************

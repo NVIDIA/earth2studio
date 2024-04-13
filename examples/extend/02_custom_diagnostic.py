@@ -149,8 +149,8 @@ from tqdm import tqdm
 
 from earth2studio.data import DataSource, fetch_data
 from earth2studio.io import IOBackend
-from earth2studio.models.px import PrognosticModel
 from earth2studio.models.dx import DiagnosticModel
+from earth2studio.models.px import PrognosticModel
 from earth2studio.utils.coords import extract_coords, map_coords
 from earth2studio.utils.time import to_time_array
 
@@ -254,15 +254,16 @@ def run(
 # - IO Backend: Lets save the outputs into a Zarr store :py:class:`earth2studio.io.ZarrBackend`.
 
 # %%
-import numpy as np
 from collections import OrderedDict
+
+import numpy as np
 from dotenv import load_dotenv
 
 load_dotenv()  # TODO: make common example prep function
 
-from earth2studio.models.px import DLWP
 from earth2studio.data import GFS
 from earth2studio.io import ZarrBackend
+from earth2studio.models.px import DLWP
 
 # Load the default model package which downloads the check point from NGC
 package = DLWP.load_default_package()
@@ -300,9 +301,8 @@ print(io.root.tree())
 import os
 
 os.makedirs("outputs", exist_ok=True)
-import matplotlib.pyplot as plt
-from mpl_toolkits.axes_grid1 import make_axes_locatable
 import cartopy.crs as ccrs
+import matplotlib.pyplot as plt
 
 forecast = "2024-01-01"
 variable = "t2m_c"
