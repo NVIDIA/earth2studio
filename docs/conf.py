@@ -80,9 +80,9 @@ html_css_files = [
     "css/custom.css",
 ]
 html_theme_options = {
-    "announcement": "Earth-2 Inference Studio is now OSS!",
+    "announcement": "Earth-2 Studio is now OSS!",
     "logo": {
-        "text": "Earth-2 Inference Studio",
+        "text": "Earth-2 Studio",
         "image_light": "_static/NVIDIA-Logo-V-ForScreen-ForLightBG.png",
         "image_dark": "_static/NVIDIA-Logo-V-ForScreen-ForDarkBG.png",
     },
@@ -96,7 +96,7 @@ html_theme_options = {
     "external_links": [
         {
             "name": "Changelog",
-            "url": "https://gitlab-master.nvidia.com/modulus/earth-2/earth2-inference-studio/blob/main/CHANGELOG.md",
+            "url": "https://github.com/NVIDIA/earth2studio/blob/main/CHANGELOG.md",
         },
     ],
     "icon_links": [
