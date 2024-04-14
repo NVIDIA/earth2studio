@@ -451,8 +451,8 @@ document.write(`
 <span class="k">class</span> <span class="nc">IFS</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;The integrated forecast system (IFS) initial state data source provided on an</span>
 <span class="sd">    equirectangular grid. This data is part of ECMWF&#39;s open data project on AWS. This</span>
-<span class="sd">    data source is provided on a 0.4 degree lat lon grid at 6-hour intervals spanning</span>
-<span class="sd">    from Jan 18th 2023 to present date.</span>
+<span class="sd">    data source is provided on a 0.25 degree lat lon grid at 6-hour intervals for the</span>
+<span class="sd">    most recent 4 days.</span>
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
@@ -480,8 +480,8 @@ document.write(`
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="n">IFS_BUCKET_NAME</span> <span class="o">=</span> <span class="s2">&quot;ecmwf-forecasts&quot;</span>
-    <span class="n">IFS_LAT</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">90</span><span class="p">,</span> <span class="o">-</span><span class="mi">90</span><span class="p">,</span> <span class="mi">451</span><span class="p">)</span>
-    <span class="n">IFS_LON</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mf">359.6</span><span class="p">,</span> <span class="mi">900</span><span class="p">)</span>
+    <span class="n">IFS_LAT</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">90</span><span class="p">,</span> <span class="o">-</span><span class="mi">90</span><span class="p">,</span> <span class="mi">721</span><span class="p">)</span>
+    <span class="n">IFS_LON</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mf">359.75</span><span class="p">,</span> <span class="mi">1440</span><span class="p">)</span>
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cache</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span> <span class="n">verbose</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span> <span class="o">=</span> <span class="n">cache</span>
@@ -589,7 +589,8 @@ document.write(`
 
         <span class="k">return</span> <span class="n">ifsda</span>
 
-    <span class="k">def</span> <span class="nf">_validate_time</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">times</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">datetime</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">_validate_time</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">times</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">datetime</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Verify if date time is valid for IFS</span>
 
 <span class="sd">        Parameters</span>
@@ -598,18 +599,18 @@ document.write(`
 <span class="sd">            list of date times to fetch data</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">for</span> <span class="n">time</span> <span class="ow">in</span> <span class="n">times</span><span class="p">:</span>
-            <span class="k">if</span> <span class="ow">not</span> <span class="n">time</span><span class="o">.</span><span class="n">hour</span> <span class="o">%</span> <span class="mi">6</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">time</span><span class="o">.</span><span class="n">timestamp</span><span class="p">()</span> <span class="o">%</span> <span class="mi">21600</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
                 <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
                     <span class="sa">f</span><span class="s2">&quot;Requested date time </span><span class="si">{</span><span class="n">time</span><span class="si">}</span><span class="s2"> needs to be 6 hour interval for IFS&quot;</span>
                 <span class="p">)</span>
 
-            <span class="k">if</span> <span class="n">time</span> <span class="o">&lt;</span> <span class="n">datetime</span><span class="p">(</span><span class="n">year</span><span class="o">=</span><span class="mi">2023</span><span class="p">,</span> <span class="n">month</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">day</span><span class="o">=</span><span class="mi">18</span><span class="p">):</span>
+            <span class="k">if</span> <span class="p">(</span><span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span> <span class="o">-</span> <span class="n">time</span><span class="p">)</span><span class="o">.</span><span class="n">days</span> <span class="o">&gt;</span> <span class="mi">4</span><span class="p">:</span>
                 <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                    <span class="sa">f</span><span class="s2">&quot;Requested date time </span><span class="si">{</span><span class="n">time</span><span class="si">}</span><span class="s2"> needs to be after January 18th, 2023 for IFS&quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;Requested date time </span><span class="si">{</span><span class="n">time</span><span class="si">}</span><span class="s2"> needs to be within the past 4 days for IFS&quot;</span>
                 <span class="p">)</span>
 
-            <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">available</span><span class="p">(</span><span class="n">time</span><span class="p">):</span>
-                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Requested date time </span><span class="si">{</span><span class="n">time</span><span class="si">}</span><span class="s2"> not available in IFS&quot;</span><span class="p">)</span>
+            <span class="c1"># if not self.available(time):</span>
+            <span class="c1">#     raise ValueError(f&quot;Requested date time {time} not available in IFS&quot;)</span>
 
     <span class="k">def</span> <span class="nf">_download_ifs_grib_cached</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
@@ -675,6 +676,12 @@ document.write(`
             <span class="n">_unix</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">datetime64</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;s&quot;</span><span class="p">)</span>
             <span class="n">_ds</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">timedelta64</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;s&quot;</span><span class="p">)</span>
             <span class="n">time</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">utcfromtimestamp</span><span class="p">((</span><span class="n">time</span> <span class="o">-</span> <span class="n">_unix</span><span class="p">)</span> <span class="o">/</span> <span class="n">_ds</span><span class="p">)</span>
+
+        <span class="c1"># Offline checks</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="bp">cls</span><span class="o">.</span><span class="n">_validate_time</span><span class="p">([</span><span class="n">time</span><span class="p">])</span>
+        <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">False</span>
 
         <span class="n">s3</span> <span class="o">=</span> <span class="n">boto3</span><span class="o">.</span><span class="n">client</span><span class="p">(</span>
             <span class="s2">&quot;s3&quot;</span><span class="p">,</span> <span class="n">config</span><span class="o">=</span><span class="n">botocore</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">Config</span><span class="p">(</span><span class="n">signature_version</span><span class="o">=</span><span class="n">UNSIGNED</span><span class="p">)</span>

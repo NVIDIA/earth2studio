@@ -6,7 +6,7 @@
 
 Computation times
 =================
-**10:04.139** total execution time for 6 files **from examples**:
+**10:27.729** total execution time for 6 files **from examples**:
 
 .. container::
 
@@ -33,20 +33,20 @@ Computation times
      - Time
      - Mem (MB)
    * - :ref:`sphx_glr_examples_02_ensemble_workflow.py` (``02_ensemble_workflow.py``)
-     - 03:06.139
+     - 03:27.568
      - 0.0
    * - :ref:`sphx_glr_examples_04_ensemble_workflow_extend.py` (``04_ensemble_workflow_extend.py``)
-     - 02:42.041
+     - 02:41.358
      - 0.0
    * - :ref:`sphx_glr_examples_06_seasonal_statistics.py` (``06_seasonal_statistics.py``)
-     - 02:12.785
+     - 02:01.673
      - 0.0
    * - :ref:`sphx_glr_examples_01_simple_workflow.py` (``01_simple_workflow.py``)
-     - 01:02.704
+     - 01:19.149
      - 0.0
    * - :ref:`sphx_glr_examples_05_model_perturbation_hook.py` (``05_model_perturbation_hook.py``)
-     - 00:42.231
+     - 00:44.054
      - 0.0
    * - :ref:`sphx_glr_examples_03_corrdiff_inference.py` (``03_corrdiff_inference.py``)
-     - 00:18.239
+     - 00:13.927
      - 0.0

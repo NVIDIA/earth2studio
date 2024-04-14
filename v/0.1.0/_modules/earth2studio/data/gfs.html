@@ -628,7 +628,7 @@ document.write(`
 <span class="sd">            list of date times to fetch data</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">for</span> <span class="n">time</span> <span class="ow">in</span> <span class="n">times</span><span class="p">:</span>
-            <span class="k">if</span> <span class="ow">not</span> <span class="n">time</span><span class="o">.</span><span class="n">hour</span> <span class="o">%</span> <span class="mi">6</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">time</span><span class="o">.</span><span class="n">minute</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">time</span><span class="o">.</span><span class="n">second</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">time</span><span class="o">.</span><span class="n">timestamp</span><span class="p">()</span> <span class="o">%</span> <span class="mi">21600</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
                 <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
                     <span class="sa">f</span><span class="s2">&quot;Requested date time </span><span class="si">{</span><span class="n">time</span><span class="si">}</span><span class="s2"> needs to be 6 hour interval for GFS&quot;</span>
                 <span class="p">)</span>
