@@ -477,14 +477,16 @@ document.write(`
 <span class="sd">        str</span>
 <span class="sd">            path to asset</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="c1"># TODO upstream to modulus</span>
+        <span class="c1"># TODO upstream to modulus, change to returning the file object (let fspsec deal</span>
+        <span class="c1"># with the cache checks) not a string? Not sure if will work with ONNX</span>
         <span class="n">path</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_fullpath</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">path</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;hf://&quot;</span><span class="p">):</span>
             <span class="n">sha</span> <span class="o">=</span> <span class="n">hashlib</span><span class="o">.</span><span class="n">sha256</span><span class="p">(</span><span class="n">path</span><span class="o">.</span><span class="n">encode</span><span class="p">())</span>
             <span class="n">filename</span> <span class="o">=</span> <span class="n">sha</span><span class="o">.</span><span class="n">hexdigest</span><span class="p">()</span>
             <span class="n">cache_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cache_dir</span><span class="p">),</span> <span class="n">filename</span><span class="p">)</span>
-            <span class="n">fs</span> <span class="o">=</span> <span class="n">HfFileSystem</span><span class="p">()</span>
-            <span class="n">fs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">cache_path</span><span class="p">,</span> <span class="n">recursive</span><span class="o">=</span><span class="n">recursive</span><span class="p">)</span>
+            <span class="n">fs</span> <span class="o">=</span> <span class="n">HfFileSystem</span><span class="p">(</span><span class="n">target_options</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;default_block_size&quot;</span><span class="p">:</span> <span class="mi">2</span><span class="o">**</span><span class="mi">20</span><span class="p">})</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isfile</span><span class="p">(</span><span class="n">cache_path</span><span class="p">):</span>
+                <span class="n">fs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">cache_path</span><span class="p">,</span> <span class="n">recursive</span><span class="o">=</span><span class="n">recursive</span><span class="p">)</span>
             <span class="k">return</span> <span class="n">cache_path</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">_download_cached</span><span class="p">(</span>
