@@ -35,6 +35,7 @@ E2STUDIO_VOCAB = {
     "msl": "mean sea level pressure",
     "tcwv": "total column water vapor",
     "tp": "total precipitation",
+    "tp06": "total precipitation accumulated over past 6 hours",
     "fg10m": "maximum 10 m wind gust since previous post-processing",
     "lsm": "land-sea mask",
     "zsl": "geopotential at mean sea-level",
