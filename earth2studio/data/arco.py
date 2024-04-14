@@ -17,7 +17,7 @@
 import os
 import pathlib
 import shutil
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import fsspec
 import gcsfs
@@ -174,6 +174,11 @@ class ARCO:
 
             arco_variable, level = arco_name.split("::")
 
+            # special variables
+            if variable == "tp06":
+                arcoda[0, i] = modifier(self._fetch_tp06(time))
+                continue
+
             shape = self.zarr_group[arco_variable].shape
             # Static variables
             if len(shape) == 2:
@@ -189,6 +194,16 @@ class ARCO:
                 )
 
         return arcoda
+
+    def _fetch_tp06(self, time: datetime) -> np.array:
+        """Handle special tp06 variable"""
+        tp06_array = np.zeros((self.ARCO_LAT.shape[0], self.ARCO_LON.shape[0]))
+        # Accumulate over past 6 hours
+        for i in range(6):
+            time_index = self._get_time_index(time - timedelta(hours=i))
+            tp06_array += self.zarr_group["total_precipitation"][time_index]
+
+        return tp06_array
 
     @property
     def cache(self) -> str:
@@ -249,15 +264,12 @@ class ARCO:
         return int(divmod(duration.total_seconds(), 3600)[0])
 
     @classmethod
-    def available(
-        cls,
-        time: datetime | np.datetime64,
-    ) -> bool:
+    def available(cls, time: datetime) -> bool:
         """Checks if given date time is avaliable in the ARCO data source
 
         Parameters
         ----------
-        time : datetime | np.datetime64
+        time : datetime
             Date time to access
 
         Returns
@@ -265,11 +277,6 @@ class ARCO:
         bool
             If date time is avaiable
         """
-        if isinstance(time, np.datetime64):  # np.datetime64 -> datetime
-            _unix = np.datetime64(0, "s")
-            _ds = np.timedelta64(1, "s")
-            time = datetime.utcfromtimestamp((time - _unix) / _ds)
-
         # Offline checks
         try:
             cls._validate_time([time])
