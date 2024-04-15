@@ -473,6 +473,8 @@ document.write(`
     <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
         <span class="k">return</span> <span class="s2">&quot;_&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">reduction_dimensions</span> <span class="o">+</span> <span class="p">[</span><span class="s2">&quot;mean&quot;</span><span class="p">])</span>
 
+<div class="viewcode-block" id="mean.__call__">
+<a class="viewcode-back" href="../../../modules/generated/statistics/earth2studio.statistics.mean.html#earth2studio.statistics.mean.__call__">[docs]</a>
     <span class="k">def</span> <span class="fm">__call__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">coords</span><span class="p">:</span> <span class="n">CoordSystem</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">CoordSystem</span><span class="p">]:</span>
@@ -517,6 +519,7 @@ document.write(`
 
             <span class="bp">self</span><span class="o">.</span><span class="n">n</span> <span class="o">+=</span> <span class="n">weights_sum</span>
             <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">sum</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">n</span><span class="p">,</span> <span class="n">output_coords</span></div>
+</div>
 
 
 
@@ -566,6 +569,8 @@ document.write(`
     <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
         <span class="k">return</span> <span class="s2">&quot;_&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">reduction_dimensions</span> <span class="o">+</span> <span class="p">[</span><span class="s2">&quot;variance&quot;</span><span class="p">])</span>
 
+<div class="viewcode-block" id="variance.__call__">
+<a class="viewcode-back" href="../../../modules/generated/statistics/earth2studio.statistics.variance.html#earth2studio.statistics.variance.__call__">[docs]</a>
     <span class="k">def</span> <span class="fm">__call__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">coords</span><span class="p">:</span> <span class="n">CoordSystem</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">CoordSystem</span><span class="p">]:</span>
@@ -627,6 +632,7 @@ document.write(`
                 <span class="bp">self</span><span class="o">.</span><span class="n">sum2</span> <span class="o">/</span> <span class="n">torch</span><span class="o">.</span><span class="n">maximum</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">n</span> <span class="o">-</span> <span class="mf">1.0</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="mf">1.0</span><span class="p">)),</span>
                 <span class="n">output_coords</span><span class="p">,</span>
             <span class="p">)</span></div>
+</div>
 
 
 

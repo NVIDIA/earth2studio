@@ -420,6 +420,7 @@ document.write(`
 <li class="toctree-l2"><a class="reference internal" href="../utils/earth2studio.utils.coords.handshake_coords.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.utils.coords</span></code>.handshake_coords</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../utils/earth2studio.utils.coords.handshake_size.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.utils.coords</span></code>.handshake_size</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../utils/earth2studio.utils.coords.map_coords.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.utils.coords</span></code>.map_coords</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../utils/earth2studio.utils.coords.extract_coords.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.utils.coords</span></code>.extract_coords</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../utils/earth2studio.utils.time.timearray_to_datetime.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.utils.time</span></code>.timearray_to_datetime</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../utils/earth2studio.utils.time.to_time_array.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.utils.time</span></code>.to_time_array</a></li>
 </ul>
@@ -503,6 +504,29 @@ will create a directory store with this file name. If not, will create a memory 
 </ul>
 </dd>
 </dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="earth2studio.io.ZarrBackend.add_array">
+<span class="sig-name descname"><span class="pre">add_array</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">coords</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">array_name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/earth2studio/io/zarr.html#ZarrBackend.add_array"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.io.ZarrBackend.add_array" title="Link to this definition">#</a></dt>
+<dd><p>Add an array to the existing zarr group.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>coords</strong> (<em>CoordSystem</em>) – Ordered dict of coordinate information.</p></li>
+<li><p><strong>array_name</strong> (<em>str</em>) – Name to add to zarr group for the new array.</p></li>
+<li><p><strong>data</strong> (<em>torch.Tensor</em><em> | </em><em>list</em><em>[</em><em>torch.Tensor</em><em>]</em><em>, </em><em>optional</em>) – Optional data to initialize the array with. If None, then
+the array is NaN initialized (zarr default).
+Can also pass a list of tensors, which must match in length to the
+list of array_names passed. If a list of tensors is passed, it is assumed
+that each tensor share <cite>coords</cite>.</p></li>
+<li><p><strong>kwargs</strong> (<em>Any</em>) – Optional keyword arguments passed to zarr dataset constructor.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
 <dl class="py method">
 <dt class="sig sig-object py" id="earth2studio.io.ZarrBackend.write">
 <span class="sig-name descname"><span class="pre">write</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">coords</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">array_name</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/earth2studio/io/zarr.html#ZarrBackend.write"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.io.ZarrBackend.write" title="Link to this definition">#</a></dt>
@@ -599,6 +623,7 @@ will create a directory store with this file name. If not, will create a memory 
   <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="visible nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.io.ZarrBackend"><code class="docutils literal notranslate"><span class="pre">ZarrBackend</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.io.ZarrBackend.add_array"><code class="docutils literal notranslate"><span class="pre">ZarrBackend.add_array()</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.io.ZarrBackend.write"><code class="docutils literal notranslate"><span class="pre">ZarrBackend.write()</span></code></a></li>
 </ul>
 </li>

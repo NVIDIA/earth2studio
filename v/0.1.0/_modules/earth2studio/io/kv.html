@@ -479,6 +479,8 @@ document.write(`
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Return an iterator over KV store member names.&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">root</span> <span class="o">|</span> <span class="bp">self</span><span class="o">.</span><span class="n">coords</span><span class="p">)</span><span class="o">.</span><span class="fm">__iter__</span><span class="p">()</span>
 
+<div class="viewcode-block" id="KVBackend.add_array">
+<a class="viewcode-back" href="../../../modules/generated/io/earth2studio.io.KVBackend.html#earth2studio.io.KVBackend.add_array">[docs]</a>
     <span class="k">def</span> <span class="nf">add_array</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">coords</span><span class="p">:</span> <span class="n">CoordSystem</span><span class="p">,</span>
@@ -529,7 +531,8 @@ document.write(`
                 <span class="n">shape</span> <span class="o">=</span> <span class="p">[</span><span class="nb">len</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">coords</span><span class="o">.</span><span class="n">values</span><span class="p">()]</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">root</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span>
                     <span class="n">shape</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">device</span>
-                <span class="p">)</span>
+                <span class="p">)</span></div>
+
 
 <div class="viewcode-block" id="KVBackend.write">
 <a class="viewcode-back" href="../../../modules/generated/io/earth2studio.io.KVBackend.html#earth2studio.io.KVBackend.write">[docs]</a>

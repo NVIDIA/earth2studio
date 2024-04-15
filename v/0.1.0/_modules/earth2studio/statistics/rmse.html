@@ -471,6 +471,8 @@ document.write(`
     <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
         <span class="k">return</span> <span class="s2">&quot;_&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">reduction_dimensions</span> <span class="o">+</span> <span class="p">[</span><span class="s2">&quot;rmse&quot;</span><span class="p">])</span>
 
+<div class="viewcode-block" id="rmse.__call__">
+<a class="viewcode-back" href="../../../modules/generated/statistics/earth2studio.statistics.rmse.html#earth2studio.statistics.rmse.__call__">[docs]</a>
     <span class="k">def</span> <span class="fm">__call__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
@@ -505,6 +507,7 @@ document.write(`
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">mse</span><span class="p">,</span> <span class="n">output_coords</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mean</span><span class="p">((</span><span class="n">x</span> <span class="o">-</span> <span class="n">y</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span><span class="p">,</span> <span class="n">x_coords</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">mse</span><span class="p">),</span> <span class="n">output_coords</span></div>
+</div>
 
 </pre></div>
 

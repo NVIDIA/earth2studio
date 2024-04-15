@@ -420,6 +420,7 @@ document.write(`
 <li class="toctree-l2"><a class="reference internal" href="../utils/earth2studio.utils.coords.handshake_coords.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.utils.coords</span></code>.handshake_coords</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../utils/earth2studio.utils.coords.handshake_size.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.utils.coords</span></code>.handshake_size</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../utils/earth2studio.utils.coords.map_coords.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.utils.coords</span></code>.map_coords</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../utils/earth2studio.utils.coords.extract_coords.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.utils.coords</span></code>.extract_coords</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../utils/earth2studio.utils.time.timearray_to_datetime.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.utils.time</span></code>.timearray_to_datetime</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../utils/earth2studio.utils.time.to_time_array.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.utils.time</span></code>.to_time_array</a></li>
 </ul>
@@ -512,6 +513,33 @@ the square root operation after calculating the running mean squared error.</p><
 </ul>
 </dd>
 </dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="earth2studio.statistics.rmse.__call__">
+<span class="sig-name descname"><span class="pre">__call__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x_coords</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y_coords</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/earth2studio/statistics/rmse.html#rmse.__call__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.statistics.rmse.__call__" title="Link to this definition">#</a></dt>
+<dd><p>Apply metric to data <cite>x</cite> and <cite>y</cite>, checking that their coordinates
+are broadcastable. While reducing over <cite>reduction_dims</cite>.</p>
+<p>If batch_update was passed True upon metric initialization then this method
+returns the running sample RMSE over all seen batches.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>x</strong> (<em>torch.Tensor</em>) – Input tensor #1 intended to apply metric to.</p></li>
+<li><p><strong>x_coords</strong> (<em>CoordSystem</em>) – Ordered dict representing coordinate system that describes the <cite>x</cite> tensor.
+‘reduction_dims’ must be in coords.</p></li>
+<li><p><strong>y</strong> (<em>torch.Tensor</em>) – Input tensor #2 intended to apply statistic to.</p></li>
+<li><p><strong>y_coords</strong> (<em>CoordSystem</em>) – Ordered dict representing coordinate system that describes the <cite>y</cite> tensor.
+‘reduction_dims’ must be in coords.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Returns root mean squared error tensor with appropriate reduced coordinates.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>tuple[torch.Tensor, CoordSystem]</p>
+</dd>
+</dl>
+</dd></dl>
+
 </dd></dl>
 
 <div class="clearer"></div></section>
@@ -562,7 +590,10 @@ the square root operation after calculating the running mean squared error.</p><
   </div>
   <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="visible nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.statistics.rmse"><code class="docutils literal notranslate"><span class="pre">rmse</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.statistics.rmse"><code class="docutils literal notranslate"><span class="pre">rmse</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.statistics.rmse.__call__"><code class="docutils literal notranslate"><span class="pre">rmse.__call__()</span></code></a></li>
+</ul>
+</li>
 </ul>
   </nav></div>
 

@@ -420,6 +420,7 @@ document.write(`
 <li class="toctree-l2"><a class="reference internal" href="../utils/earth2studio.utils.coords.handshake_coords.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.utils.coords</span></code>.handshake_coords</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../utils/earth2studio.utils.coords.handshake_size.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.utils.coords</span></code>.handshake_size</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../utils/earth2studio.utils.coords.map_coords.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.utils.coords</span></code>.map_coords</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../utils/earth2studio.utils.coords.extract_coords.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.utils.coords</span></code>.extract_coords</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../utils/earth2studio.utils.time.timearray_to_datetime.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.utils.time</span></code>.timearray_to_datetime</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../utils/earth2studio.utils.time.to_time_array.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.utils.time</span></code>.to_time_array</a></li>
 </ul>
@@ -512,6 +513,25 @@ By default False.</p></li>
 </ul>
 </dd>
 </dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="earth2studio.statistics.mean.__call__">
+<span class="sig-name descname"><span class="pre">__call__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">coords</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/earth2studio/statistics/moments.html#mean.__call__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.statistics.mean.__call__" title="Link to this definition">#</a></dt>
+<dd><p>Apply the mean operation over the tensor x.</p>
+<p>If batch_update was passed True upon metric initialization then this method
+returns the running sample mean over all seen batches.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>x</strong> (<em>torch.Tensor</em>) – Input data to compute sample mean.</p></li>
+<li><p><strong>coords</strong> (<em>CoordSystem</em>) – Coordinates referring to the input data, x.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>tuple[<em>Tensor</em>, <em>OrderedDict</em>[str, <em>ndarray</em>]]</p>
+</dd>
+</dl>
+</dd></dl>
+
 </dd></dl>
 
 <div class="clearer"></div></section>
@@ -562,7 +582,10 @@ By default False.</p></li>
   </div>
   <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="visible nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.statistics.mean"><code class="docutils literal notranslate"><span class="pre">mean</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.statistics.mean"><code class="docutils literal notranslate"><span class="pre">mean</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.statistics.mean.__call__"><code class="docutils literal notranslate"><span class="pre">mean.__call__()</span></code></a></li>
+</ul>
+</li>
 </ul>
   </nav></div>
 
