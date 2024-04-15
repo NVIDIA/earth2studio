@@ -79,7 +79,7 @@ def test_bred_vec(
     x = x.to(device)
 
     prtb = BredVector(model, amplitude, steps, ensemble, seeding_perturbation_method)
-    dx = prtb(x, coords)
+    dx, coords = prtb(x, coords)
 
     # Don't have a good statistical test for this at the moment
     assert dx.shape == x.shape
