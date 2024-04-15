@@ -30,7 +30,7 @@ class Zero:
         self,
         x: torch.Tensor,
         coords: CoordSystem,
-    ) -> torch.Tensor:
+    ) -> tuple[torch.Tensor, CoordSystem]:
         """Apply perturbation method
 
         Parameters
@@ -42,7 +42,7 @@ class Zero:
 
         Returns
         -------
-        torch.Tensor
-            Perturbation noise tensor
+        tuple[torch.Tensor, CoordSystem]:
+            Ouput tensor and respective coordinate system dictionary
         """
-        return torch.zeros_like(x)
+        return torch.zeros_like(x), coords

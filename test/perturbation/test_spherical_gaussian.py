@@ -53,7 +53,7 @@ def test_spherical_gaussian(x, coords, amplitude, alpha, tau, sigma, device):
     x = x.to(device)
 
     prtb = SphericalGaussian(amplitude, alpha, tau, sigma)
-    dx = prtb(x, coords)
+    dx, coords = prtb(x, coords)
 
     assert dx.shape == x.shape
     assert torch.allclose(

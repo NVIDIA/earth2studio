@@ -143,7 +143,8 @@ def run_ensemble(
     x, coords = map_coords(x, coords, prognostic.input_coords)
 
     # Perturb ensemble
-    x += perturbation_method(x, coords)
+    dx, coords = perturbation_method(x, coords)
+    x += dx
 
     # Create prognostic iterator
     model = prognostic.create_iterator(x, coords)
