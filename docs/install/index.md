@@ -119,21 +119,19 @@ RUN pip install earth2studio[all]
 
 Modulus docker container is shipped with some packages that are not directly needed by
 Earth2Studio.
-Thus some may prefer to install from the PyTorch container.
+Thus some may prefer to install from the [PyTorch container](https://catalog.ngc.nvidia.com/orgs/nvidia/containers/pytorch).
 Note that for ONNX models to work we will need a [specific install](https://onnxruntime.ai/docs/install/#install-onnx-runtime-ort-1):
 
 ```bash
-docker run -i -t nvcr.io/nvidia/modulus/modulus:24.04
+docker run -i -t nvcr.io/nvidia/pytorch:24.01-py3
 
->>> pip install onnxruntime-gpu --extra-index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/onnxruntime-cuda-12/pypi/simple/
+>>> pip install onnx onnxruntime-gpu --extra-index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/onnxruntime-cuda-12/pypi/simple/
 >>> pip install "makani[all] @ git+https://github.com/NVIDIA/modulus-makani.git@v0.1.0"
 
 >>> pip install earth2studio[pangu,fengwu,sfno]
 ```
 
 ## Conda Environment
-
-🚧 Under construction 🚧
 
 For instances where Docker is not an option, we recommend creating a conda environment.
 Ensuring the PyTorch is running on your GPU is essential, make sure you are [installing](https://pytorch.org/get-started/locally/)
@@ -143,14 +141,10 @@ the correct PyTorch for your hardward and CUDA is accessible.
 conda create -n earth2studio python=3.10
 conda activate earth2studio
 
-conda install pytorch torchvision torchaudio pytorch-cuda=12.1 -c pytorch -c nvidia
+conda install pytorch pytorch-cuda=12.1 -c pytorch -c nvidia
 conda install eccodes python-eccodes -c conda-forge
-pip install onnxruntime-gpu --extra-index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/onnxruntime-cuda-12/pypi/simple/
+pip install onnx onnxruntime-gpu --extra-index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/onnxruntime-cuda-12/pypi/simple/
 pip install "makani[all] @ git+https://github.com/NVIDIA/modulus-makani.git@v0.1.0"
-
-git clone https://github.com/NVIDIA/apex
-pip install -v --disable-pip-version-check --no-cache-dir --no-build-isolation \
---global-option="--cpp_ext" --global-option="--cuda_ext" ./apex
 
 pip install earth2studio[all]
 ```

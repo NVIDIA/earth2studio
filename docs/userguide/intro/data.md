@@ -21,31 +21,9 @@ represents the geophyiscal coordinate system the tensor represents.
 For example, perturbation methods operate by using a data tensor and coordinate system
 to generate a noise tensor:
 
-```python
-class PerturbationMethod(Protocol):
-    """Perturbation interface."""
-
-    @torch.inference_mode()
-    def __call__(
-        self,
-        x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> torch.Tensor:
-        """Apply perturbation method
-
-        Parameters
-        ----------
-        x : torch.Tensor
-            Input tensor intended to apply perturbation on
-        coords : CoordSystem
-            Ordered dict representing coordinate system that discribes the tensor
-
-        Returns
-        -------
-        torch.Tensor
-            Perturbation noise tensor
-        """
-        pass
+```{literalinclude} ../../../earth2studio/perturbation/base.py
+    :lines: 25-
+    :language: python
 ```
 
 In later sections, users will find that most components have APIs that either generate
