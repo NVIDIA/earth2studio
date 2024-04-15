@@ -72,7 +72,7 @@ class BredVector:
         self,
         x: torch.Tensor,
         coords: CoordSystem,
-    ) -> torch.Tensor:
+    ) -> tuple[torch.Tensor, CoordSystem]:
         """Apply perturbation method
 
         Parameters
@@ -84,8 +84,10 @@ class BredVector:
 
         Returns
         -------
-        torch.Tensor
-            Perturbation noise tensor
+        Returns
+        -------
+        tuple[torch.Tensor, CoordSystem]:
+            Ouput tensor and respective coordinate system dictionary
         """
         dx = self.seeding_perturbation_method(x, coords)
 
@@ -103,4 +105,4 @@ class BredVector:
 
         gamma = torch.norm(x) / torch.norm(x + dx)
 
-        return dx * self.noise_amplitude * gamma
+        return dx * self.noise_amplitude * gamma, coords
