@@ -6,8 +6,7 @@
 .. autoclass:: {{ objname }}
 
    {% block methods %}
-    .. automethod:: add_array
-    .. automethod:: write
+    .. automethod:: __call__
    {% endblock %}
 
 .. _sphx_glr_backref_{{module}}.{{objname}}:
