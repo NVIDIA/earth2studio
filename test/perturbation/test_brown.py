@@ -56,7 +56,7 @@ def test_brown(x, coords, amplitude, reddening, device):
     x = x.to(device)
 
     prtb = Brown(amplitude, reddening)
-    dx = prtb(x, coords)
+    dx, coords = prtb(x, coords)
 
     # Don't have a good statistical test for this at the moment
     assert dx.shape == x.shape

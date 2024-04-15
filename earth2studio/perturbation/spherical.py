@@ -62,7 +62,7 @@ class SphericalGaussian:
         self,
         x: torch.Tensor,
         coords: CoordSystem,
-    ) -> torch.Tensor:
+    ) -> tuple[torch.Tensor, CoordSystem]:
         """Apply perturbation method
 
         Parameters
@@ -75,8 +75,8 @@ class SphericalGaussian:
 
         Returns
         -------
-        torch.Tensor
-            Perturbation noise tensor
+        tuple[torch.Tensor, CoordSystem]:
+            Ouput tensor and respective coordinate system dictionary
         """
         shape = x.shape
         # Check the required dimensions are present
@@ -108,7 +108,7 @@ class SphericalGaussian:
         else:
             noise = sample_noise
 
-        return self.noise_amplitude * noise
+        return self.noise_amplitude * noise, coords
 
 
 class GaussianRandomFieldS2(torch.nn.Module):

@@ -36,7 +36,7 @@ class Gaussian:
         self,
         x: torch.Tensor,
         coords: CoordSystem,
-    ) -> torch.Tensor:
+    ) -> tuple[torch.Tensor, CoordSystem]:
         """Apply perturbation method
 
         Parameters
@@ -48,7 +48,7 @@ class Gaussian:
 
         Returns
         -------
-        torch.Tensor
-            Perturbation noise tensor
+        tuple[torch.Tensor, CoordSystem]:
+            Ouput tensor and respective coordinate system dictionary
         """
-        return self.noise_amplitude * torch.randn_like(x)
+        return self.noise_amplitude * torch.randn_like(x), coords

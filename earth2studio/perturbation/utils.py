@@ -120,7 +120,7 @@ class Perturbation:
         x0 = (x0 - center) / scale
 
         # Compute noise
-        noise = self.method(x0, coords)
+        noise, coords = self.method(x0, coords)
         # Apply noise and unnormalize
         x0 = scale * (x0 + noise) + center
 

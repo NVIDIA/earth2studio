@@ -40,7 +40,7 @@ class Brown:
         self,
         x: torch.Tensor,
         coords: CoordSystem,
-    ) -> torch.Tensor:
+    ) -> tuple[torch.Tensor, CoordSystem]:
         """Apply perturbation method
 
         Parameters
@@ -53,8 +53,8 @@ class Brown:
 
         Returns
         -------
-        torch.Tensor
-            Perturbation noise tensor
+        tuple[torch.Tensor, CoordSystem]:
+            Ouput tensor and respective coordinate system dictionary
         """
         shape = x.shape
         # Check the required dimensions are present
@@ -63,7 +63,7 @@ class Brown:
 
         noise = self._generate_noise_correlated(tuple(shape), device=x.device)
 
-        return self.noise_amplitude * noise
+        return self.noise_amplitude * noise, coords
 
     def _generate_noise_correlated(
         self, shape: tuple[int, ...], device: torch.device
