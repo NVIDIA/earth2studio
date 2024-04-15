@@ -62,6 +62,7 @@ In this example you will learn:
 # %%
 from collections import OrderedDict
 from datetime import datetime
+
 from dotenv import load_dotenv
 
 load_dotenv()  # TODO: make common example prep function
@@ -74,7 +75,7 @@ from tqdm import tqdm
 from earth2studio.data import DataSource, fetch_data
 from earth2studio.io import IOBackend
 from earth2studio.models.px import PrognosticModel
-from earth2studio.utils.coords import CoordSystem, map_coords, extract_coords
+from earth2studio.utils.coords import CoordSystem, extract_coords, map_coords
 from earth2studio.utils.time import to_time_array
 
 logger.remove()
@@ -172,7 +173,7 @@ def run_ensemble(
 #
 # We need the following:
 #
-# - Prognostic Model: Use the built in FourCastNet model :py:class:`earth2studio.models.px.DLWP`.
+# - Prognostic Model: Use the built in DLWP model :py:class:`earth2studio.models.px.DLWP`.
 # - Datasource: Pull data from the GFS data api :py:class:`earth2studio.data.GFS`.
 # - IO Backend: Lets save the outputs into a Zarr store :py:class:`earth2studio.io.ZarrBackend`.
 #
@@ -181,11 +182,10 @@ def run_ensemble(
 # inference request.
 # %%
 import numpy as np
-import torch
 
-from earth2studio.models.px import DLWP
 from earth2studio.data import GFS
 from earth2studio.io import ZarrBackend
+from earth2studio.models.px import DLWP
 
 # Load the default model package which downloads the check point from NGC
 package = DLWP.load_default_package()
@@ -265,11 +265,9 @@ io_perturbed = run_ensemble(
 # Notice that the Zarr IO function has additional APIs to interact with the stored data.
 
 #%%
-import matplotlib.pyplot as plt
 import cartopy.crs as ccrs
-import matplotlib.animation as animation
+import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm
-
 
 levels_unperturbed = np.linspace(0, io_unperturbed["tcwv"][:].max())
 levels_perturbed = np.linspace(0, io_perturbed["tcwv"][:].max())
@@ -383,6 +381,7 @@ def update(frame):
 
 
 # Uncomment this for animation
+# import matplotlib.animation as animation
 # update(0)
 # ani = animation.FuncAnimation(
 # fig=fig, func=update, frames=range(1, nsteps), cache_frame_data=False

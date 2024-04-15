@@ -62,7 +62,7 @@ from loguru import logger
 from earth2studio.data import DataSource, prep_data_array
 from earth2studio.io import IOBackend
 from earth2studio.models.dx import CorrDiffTaiwan
-from earth2studio.utils.coords import map_coords, extract_coords
+from earth2studio.utils.coords import extract_coords, map_coords
 from earth2studio.utils.time import to_time_array
 
 
@@ -157,8 +157,8 @@ def run(
 # %%
 from dotenv import load_dotenv
 
-from earth2studio.io import ZarrBackend
 from earth2studio.data import GFS
+from earth2studio.io import ZarrBackend
 
 load_dotenv()  # TODO: make common example prep function
 
@@ -195,8 +195,8 @@ io = run(["2023-10-04T18:00:00"], corrdiff, data, io, number_of_samples=1)
 # Notice that the Zarr IO function has additional APIs to interact with the stored data.
 
 # %%
-import matplotlib.pyplot as plt
 import cartopy.crs as ccrs
+import matplotlib.pyplot as plt
 
 projection = ccrs.LambertConformal(
     central_longitude=io["lon"][:].mean(),
@@ -243,4 +243,4 @@ ax2.coastlines()
 ax2.gridlines()
 ax2.set_title("10-meter Wind Speed")
 
-plt.savefig(f"outputs/03_corr_diff_prediction.jpg")
+plt.savefig("outputs/03_corr_diff_prediction.jpg")

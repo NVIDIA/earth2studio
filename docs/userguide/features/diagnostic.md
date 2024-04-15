@@ -37,7 +37,7 @@ Diagnostic models also tend to extend one class:
 checkpoints that can be auto downloaded and cached. See the Automodel guide for
 additional details.
 
-## Diagnostic Prediction
+## Diagnostic Usage
 
 The work horse of diagnostic models is the {func}`__call__` function which takes in
 a data tensor with coordinate system and returns the primary output.

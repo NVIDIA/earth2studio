@@ -32,6 +32,7 @@ intro/data
 
 features/prognostic
 features/diagnostic
+features/datasources
 features/io
 features/statistics
 ```
@@ -39,7 +40,7 @@ features/statistics
 ## Support
 
 ```{toctree}
-:maxdepth: 2
-
-troubleshooting
+:maxdepth: 1
+support/troubleshooting
+support/faq
 ```

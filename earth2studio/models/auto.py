@@ -68,14 +68,16 @@ class Package:
         str
             path to asset
         """
-        # TODO upstream to modulus
+        # TODO upstream to modulus, change to returning the file object (let fspsec deal
+        # with the cache checks) not a string? Not sure if will work with ONNX
         path = self._fullpath(path)
         if path.startswith("hf://"):
             sha = hashlib.sha256(path.encode())
             filename = sha.hexdigest()
             cache_path = os.path.join(str(self.cache_dir), filename)
-            fs = HfFileSystem()
-            fs.get(path, cache_path, recursive=recursive)
+            fs = HfFileSystem(target_options={"default_block_size": 2**20})
+            if not os.path.isfile(cache_path):
+                fs.get(path, cache_path, recursive=recursive)
             return cache_path
         else:
             return _download_cached(

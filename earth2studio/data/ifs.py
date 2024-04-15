@@ -42,8 +42,8 @@ LOCAL_CACHE = os.path.join(os.path.expanduser("~"), ".cache", "earth2studio")
 class IFS:
     """The integrated forecast system (IFS) initial state data source provided on an
     equirectangular grid. This data is part of ECMWF's open data project on AWS. This
-    data source is provided on a 0.4 degree lat lon grid at 6-hour intervals spanning
-    from Jan 18th 2023 to present date.
+    data source is provided on a 0.25 degree lat lon grid at 6-hour intervals for the
+    most recent 4 days.
 
     Parameters
     ----------
@@ -71,8 +71,8 @@ class IFS:
     """
 
     IFS_BUCKET_NAME = "ecmwf-forecasts"
-    IFS_LAT = np.linspace(90, -90, 451)
-    IFS_LON = np.linspace(0, 359.6, 900)
+    IFS_LAT = np.linspace(90, -90, 721)
+    IFS_LON = np.linspace(0, 359.75, 1440)
 
     def __init__(self, cache: bool = True, verbose: bool = True):
         self._cache = cache
@@ -177,7 +177,8 @@ class IFS:
 
         return ifsda
 
-    def _validate_time(self, times: list[datetime]) -> None:
+    @classmethod
+    def _validate_time(cls, times: list[datetime]) -> None:
         """Verify if date time is valid for IFS
 
         Parameters
@@ -186,18 +187,18 @@ class IFS:
             list of date times to fetch data
         """
         for time in times:
-            if not time.hour % 6 == 0:
+            if not time.timestamp() % 21600 == 0:
                 raise ValueError(
                     f"Requested date time {time} needs to be 6 hour interval for IFS"
                 )
 
-            if time < datetime(year=2023, month=1, day=18):
+            if (datetime.now() - time).days > 4:
                 raise ValueError(
-                    f"Requested date time {time} needs to be after January 18th, 2023 for IFS"
+                    f"Requested date time {time} needs to be within the past 4 days for IFS"
                 )
 
-            if not self.available(time):
-                raise ValueError(f"Requested date time {time} not available in IFS")
+            # if not self.available(time):
+            #     raise ValueError(f"Requested date time {time} not available in IFS")
 
     def _download_ifs_grib_cached(
         self,
@@ -261,6 +262,12 @@ class IFS:
             _unix = np.datetime64(0, "s")
             _ds = np.timedelta64(1, "s")
             time = datetime.utcfromtimestamp((time - _unix) / _ds)
+
+        # Offline checks
+        try:
+            cls._validate_time([time])
+        except ValueError:
+            return False
 
         s3 = boto3.client(
             "s3", config=botocore.config.Config(signature_version=UNSIGNED)
