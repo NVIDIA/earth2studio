@@ -33,6 +33,8 @@ intro/data
 features/prognostic
 features/diagnostic
 features/datasources
+features/io
+features/statistics
 ```
 
 ## Support
