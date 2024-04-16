@@ -16,14 +16,19 @@
 
 # %%
 """
-Generative Down Sampling
+Generative Downscaling
 ========================
 
-Generative down-sampling over Taiwan using CorrDiff diffusion model.
+Generative downscaling over Taiwan using CorrDiff diffusion model.
 
 This example will demonstrate how to user Nvidia's CorrDiff model, trained for
-predicting weather over Taiwan, to perform generative downsampling from quater degree
+predicting weather over Taiwan, to perform generative downscaling from quater degree
 global forcast data to ~3km.
+
+This checkpoint was trained on ERA5 data and WRF data that spans 2018-2021 at one hour
+time resolution. In this example, we demonstrate an application to GFS data for a typhoon
+super-resolution from 2023. The model's performance on GFS data and on data from this year
+has not been evaluated.
 
 In this example you will learn:
 
