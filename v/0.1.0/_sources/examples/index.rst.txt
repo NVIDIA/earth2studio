@@ -48,7 +48,7 @@ and commonly used workflows.
 
 .. raw:: html
 
-    <div class="sphx-glr-thumbcontainer" tooltip="Generative down-sampling over Taiwan using CorrDiff diffusion model.">
+    <div class="sphx-glr-thumbcontainer" tooltip="Generative downscaling over Taiwan using CorrDiff diffusion model.">
 
 .. only:: html
 
@@ -59,7 +59,7 @@ and commonly used workflows.
 
 .. raw:: html
 
-      <div class="sphx-glr-thumbnail-title">Generative Down Sampling</div>
+      <div class="sphx-glr-thumbnail-title">Generative Downscaling</div>
     </div>
 
 

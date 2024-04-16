@@ -56,127 +56,10 @@ method that accepts the following:
 - data: Initialized data source to fetch initial conditions from
 - io: IOBackend
 
-.. GENERATED FROM PYTHON SOURCE LINES 58-163
-
-.. code-block:: Python
-
-    from datetime import datetime
-
-    from dotenv import load_dotenv
-
-    load_dotenv()  # TODO: make common example prep function
-
-    import numpy as np
-    import torch
-    from loguru import logger
-    from tqdm import tqdm
-
-    from earth2studio.data import DataSource, fetch_data
-    from earth2studio.io import IOBackend
-    from earth2studio.models.px import PrognosticModel
-    from earth2studio.perturbation import PerturbationMethod
-    from earth2studio.utils.coords import extract_coords, map_coords
-    from earth2studio.utils.time import to_time_array
-
-    logger.remove()
-    logger.add(lambda msg: tqdm.write(msg, end=""), colorize=True)
-
-
-    def run_ensemble(
-        time: list[str] | list[datetime] | list[np.datetime64],
-        nsteps: int,
-        nensemble: int,
-        prognostic: PrognosticModel,
-        perturbation_method: PerturbationMethod,
-        data: DataSource,
-        io: IOBackend,
-    ) -> IOBackend:
-        """Simple ensemble workflow
-
-        Parameters
-        ----------
-        time : list[str] | list[datetime] | list[np.datetime64]
-            List of string, datetimes or np.datetime64
-        nsteps : int
-            Number of forecast steps
-        nensemble : int
-            Number of ensemble members to run inference for.
-        prognostic : PrognosticModel
-            Prognostic models
-        perturbation_method : PerturbationMethod
-            Method of perturbing the initial condition to form an ensemble.
-        data : DataSource
-            Data source
-        io : IOBackend
-            IO object
-
-        Returns
-        -------
-        IOBackend
-            Output IO object
-        """
-        logger.info("Running simple workflow!")
-        # Load model onto the device
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        logger.info(f"Inference device: {device}")
-        prognostic = prognostic.to(device)
-        # Fetch data from data source and load onto device
-        time = to_time_array(time)
-        x, coords = fetch_data(
-            source=data,
-            time=time,
-            lead_time=prognostic.input_coords["lead_time"],
-            variable=prognostic.input_coords["variable"],
-            device=device,
-        )
-        logger.success(f"Fetched data from {data.__class__.__name__}")
-
-        # Expand x, coords for ensemble
-        x = x.unsqueeze(0).repeat(nensemble, *([1] * x.ndim))
-        coords = {"ensemble": np.arange(nensemble)} | coords
-
-        # Set up IO backend
-        total_coords = coords.copy()
-        total_coords["lead_time"] = np.asarray(
-            [prognostic.output_coords["lead_time"] * i for i in range(nsteps + 1)]
-        ).flatten()
-
-        var_names = total_coords.pop("variable")
-        io.add_array(total_coords, var_names)
-
-        # Map lat and lon if needed
-        x, coords = map_coords(x, coords, prognostic.input_coords)
-
-        # Perturb ensemble
-        x += perturbation_method(x, coords)
-
-        # Create prognostic iterator
-        model = prognostic.create_iterator(x, coords)
-
-        logger.info("Inference starting!")
-        with tqdm(total=nsteps + 1, desc="Running inference") as pbar:
-            for step, (x, coords) in enumerate(model):
-                io.write(*extract_coords(x, coords))
-                pbar.update(1)
-                if step == nsteps:
-                    break
-
-        logger.success("Inference complete")
-        return io
-
-
-
-
-
-
-
-
-
-.. GENERATED FROM PYTHON SOURCE LINES 164-176
+.. GENERATED FROM PYTHON SOURCE LINES 58-69
 
 Set Up
 ------
-With the ensemble workflow defined, we now need to create the indivdual components.
 
 We need the following:
 
@@ -187,30 +70,35 @@ We need the following:
 
 %%
 
-.. GENERATED FROM PYTHON SOURCE LINES 176-197
+.. GENERATED FROM PYTHON SOURCE LINES 69-95
 
 .. code-block:: Python
+
+    from dotenv import load_dotenv
+
+    load_dotenv()  # TODO: make common example prep function
 
     import numpy as np
 
     from earth2studio.data import GFS
     from earth2studio.io import ZarrBackend
     from earth2studio.models.px import FCN
-    from earth2studio.perturbation import PerturbationMethod, SphericalGaussian
+    from earth2studio.perturbation import SphericalGaussian
+    from earth2studio.run import ensemble
 
     # Load the default model package which downloads the check point from NGC
     package = FCN.load_default_package()
     model = FCN.load_model(package)
 
     # Instantiate the pertubation method
-    sg = SphericalGaussian(noise_amplitude=0.05)
+    sg = SphericalGaussian(noise_amplitude=0.15)
 
     # Create the data source
     data = GFS()
 
     # Create the IO handler, store in memory
     chunks = {"ensemble": 1, "time": 1}
-    io = ZarrBackend(file_name="outputs/ensemble_sg.zarr", chunks=chunks)
+    io = ZarrBackend(file_name="outputs/02_ensemble_sg.zarr", chunks=chunks)
 
 
 
@@ -219,7 +107,7 @@ We need the following:
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 198-208
+.. GENERATED FROM PYTHON SOURCE LINES 96-106
 
 Execute the Workflow
 --------------------
@@ -228,18 +116,29 @@ Workflow will return the provided IO object back to the user, which can be used 
 then post process. Some have additional APIs that can be handy for post-processing or
 saving to file. Check the API docs for more information.
 
-For the forecast we will predict for two days (these will get executed as a batch) for
-20 forecast steps which is 5 days.
+For the forecast we will predict for 10 steps (for FCN, this is 60 hours) with 8 ensemble
+members which will be ran in 2 batches with batch size 4.
 %%
 
-.. GENERATED FROM PYTHON SOURCE LINES 208-213
+.. GENERATED FROM PYTHON SOURCE LINES 106-122
 
 .. code-block:: Python
 
 
     nsteps = 10
     nensemble = 8
-    io = run_ensemble(["2024-01-01"], nsteps, nensemble, model, sg, data, io)
+    batch_size = 2
+    io = ensemble(
+        ["2024-01-01"],
+        nsteps,
+        nensemble,
+        model,
+        data,
+        io,
+        sg,
+        batch_size=batch_size,
+        output_coords={"variable": np.array(["t2m", "tcwv"])},
+    )
 
 
 
@@ -249,45 +148,97 @@ For the forecast we will predict for two days (these will get executed as a batc
 
  .. code-block:: none
 
-    2024-04-15 19:06:15.339 | INFO     | __main__:run_ensemble:113 - Running simple workflow!
-    2024-04-15 19:06:15.339 | INFO     | __main__:run_ensemble:116 - Inference device: cuda
-    2024-04-15 19:06:15.364 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:151 - Fetching GFS index file: 2024-01-01 00:00:00
-    Fetching GFS for 2024-01-01 00:00:00:   0%|          | 0/26 [00:00<?, ?it/s]                                                                                2024-04-15 19:06:15.793 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: u10m at 2024-01-01 00:00:00
-    Fetching GFS for 2024-01-01 00:00:00:   0%|          | 0/26 [00:00<?, ?it/s]                                                                                2024-04-15 19:06:15.815 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: v10m at 2024-01-01 00:00:00
-    Fetching GFS for 2024-01-01 00:00:00:   0%|          | 0/26 [00:00<?, ?it/s]                                                                                2024-04-15 19:06:15.834 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: t2m at 2024-01-01 00:00:00
-    Fetching GFS for 2024-01-01 00:00:00:   0%|          | 0/26 [00:00<?, ?it/s]                                                                                2024-04-15 19:06:15.854 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: sp at 2024-01-01 00:00:00
-    Fetching GFS for 2024-01-01 00:00:00:   0%|          | 0/26 [00:00<?, ?it/s]                                                                                2024-04-15 19:06:15.873 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: msl at 2024-01-01 00:00:00
-    Fetching GFS for 2024-01-01 00:00:00:   0%|          | 0/26 [00:00<?, ?it/s]                                                                                2024-04-15 19:06:15.891 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: t850 at 2024-01-01 00:00:00
-    Fetching GFS for 2024-01-01 00:00:00:   0%|          | 0/26 [00:00<?, ?it/s]    Fetching GFS for 2024-01-01 00:00:00:  23%|██▎       | 6/26 [00:00<00:00, 51.47it/s]                                                                                        2024-04-15 19:06:15.910 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: u1000 at 2024-01-01 00:00:00
-    Fetching GFS for 2024-01-01 00:00:00:  23%|██▎       | 6/26 [00:00<00:00, 51.47it/s]                                                                                        2024-04-15 19:06:15.929 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: v1000 at 2024-01-01 00:00:00
-    Fetching GFS for 2024-01-01 00:00:00:  23%|██▎       | 6/26 [00:00<00:00, 51.47it/s]                                                                                        2024-04-15 19:06:15.948 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: z1000 at 2024-01-01 00:00:00
-    Fetching GFS for 2024-01-01 00:00:00:  23%|██▎       | 6/26 [00:00<00:00, 51.47it/s]                                                                                        2024-04-15 19:06:15.967 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: u850 at 2024-01-01 00:00:00
-    Fetching GFS for 2024-01-01 00:00:00:  23%|██▎       | 6/26 [00:00<00:00, 51.47it/s]                                                                                        2024-04-15 19:06:15.985 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: v850 at 2024-01-01 00:00:00
-    Fetching GFS for 2024-01-01 00:00:00:  23%|██▎       | 6/26 [00:00<00:00, 51.47it/s]                                                                                        2024-04-15 19:06:16.004 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: z850 at 2024-01-01 00:00:00
-    Fetching GFS for 2024-01-01 00:00:00:  23%|██▎       | 6/26 [00:00<00:00, 51.47it/s]    Fetching GFS for 2024-01-01 00:00:00:  46%|████▌     | 12/26 [00:00<00:00, 52.47it/s]                                                                                         2024-04-15 19:06:16.023 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: u500 at 2024-01-01 00:00:00
-    Fetching GFS for 2024-01-01 00:00:00:  46%|████▌     | 12/26 [00:00<00:00, 52.47it/s]                                                                                         2024-04-15 19:06:16.041 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: v500 at 2024-01-01 00:00:00
-    Fetching GFS for 2024-01-01 00:00:00:  46%|████▌     | 12/26 [00:00<00:00, 52.47it/s]                                                                                         2024-04-15 19:06:16.060 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: z500 at 2024-01-01 00:00:00
-    Fetching GFS for 2024-01-01 00:00:00:  46%|████▌     | 12/26 [00:00<00:00, 52.47it/s]                                                                                         2024-04-15 19:06:16.079 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: t500 at 2024-01-01 00:00:00
-    Fetching GFS for 2024-01-01 00:00:00:  46%|████▌     | 12/26 [00:00<00:00, 52.47it/s]                                                                                         2024-04-15 19:06:16.098 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: z50 at 2024-01-01 00:00:00
-    Fetching GFS for 2024-01-01 00:00:00:  46%|████▌     | 12/26 [00:00<00:00, 52.47it/s]                                                                                         2024-04-15 19:06:16.117 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: r500 at 2024-01-01 00:00:00
-    Fetching GFS for 2024-01-01 00:00:00:  46%|████▌     | 12/26 [00:00<00:00, 52.47it/s]    Fetching GFS for 2024-01-01 00:00:00:  69%|██████▉   | 18/26 [00:00<00:00, 52.85it/s]                                                                                         2024-04-15 19:06:16.135 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: r850 at 2024-01-01 00:00:00
-    Fetching GFS for 2024-01-01 00:00:00:  69%|██████▉   | 18/26 [00:00<00:00, 52.85it/s]                                                                                         2024-04-15 19:06:16.154 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: tcwv at 2024-01-01 00:00:00
-    Fetching GFS for 2024-01-01 00:00:00:  69%|██████▉   | 18/26 [00:00<00:00, 52.85it/s]                                                                                         2024-04-15 19:06:16.173 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: u100m at 2024-01-01 00:00:00
-    Fetching GFS for 2024-01-01 00:00:00:  69%|██████▉   | 18/26 [00:00<00:00, 52.85it/s]                                                                                         2024-04-15 19:06:16.192 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: v100m at 2024-01-01 00:00:00
-    Fetching GFS for 2024-01-01 00:00:00:  69%|██████▉   | 18/26 [00:00<00:00, 52.85it/s]                                                                                         2024-04-15 19:06:16.212 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: u250 at 2024-01-01 00:00:00
-    Fetching GFS for 2024-01-01 00:00:00:  69%|██████▉   | 18/26 [00:00<00:00, 52.85it/s]                                                                                         2024-04-15 19:06:16.230 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: v250 at 2024-01-01 00:00:00
-    Fetching GFS for 2024-01-01 00:00:00:  69%|██████▉   | 18/26 [00:00<00:00, 52.85it/s]    Fetching GFS for 2024-01-01 00:00:00:  92%|█████████▏| 24/26 [00:00<00:00, 52.90it/s]                                                                                         2024-04-15 19:06:16.249 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: z250 at 2024-01-01 00:00:00
-    Fetching GFS for 2024-01-01 00:00:00:  92%|█████████▏| 24/26 [00:00<00:00, 52.90it/s]                                                                                         2024-04-15 19:06:16.267 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: t250 at 2024-01-01 00:00:00
-    Fetching GFS for 2024-01-01 00:00:00:  92%|█████████▏| 24/26 [00:00<00:00, 52.90it/s]    Fetching GFS for 2024-01-01 00:00:00: 100%|██████████| 26/26 [00:00<00:00, 52.75it/s]
-    2024-04-15 19:06:16.359 | SUCCESS  | __main__:run_ensemble:127 - Fetched data from GFS
-    2024-04-15 19:06:19.257 | INFO     | __main__:run_ensemble:151 - Inference starting!
-    Running inference:   0%|          | 0/11 [00:00<?, ?it/s]    Running inference:   9%|▉         | 1/11 [00:07<01:16,  7.66s/it]    Running inference:  18%|█▊        | 2/11 [00:18<01:26,  9.57s/it]    Running inference:  27%|██▋       | 3/11 [00:30<01:23, 10.49s/it]    Running inference:  36%|███▋      | 4/11 [00:42<01:17, 11.14s/it]    Running inference:  45%|████▌     | 5/11 [00:55<01:10, 11.80s/it]    Running inference:  55%|█████▍    | 6/11 [01:08<01:01, 12.39s/it]    Running inference:  64%|██████▎   | 7/11 [01:22<00:51, 12.92s/it]    Running inference:  73%|███████▎  | 8/11 [01:37<00:40, 13.60s/it]    Running inference:  82%|████████▏ | 9/11 [01:53<00:28, 14.25s/it]    Running inference:  91%|█████████ | 10/11 [02:10<00:14, 14.96s/it]    Running inference: 100%|██████████| 11/11 [02:27<00:00, 15.76s/it]    Running inference: 100%|██████████| 11/11 [02:27<00:00, 13.43s/it]
-    2024-04-15 19:08:46.935 | SUCCESS  | __main__:run_ensemble:159 - Inference complete
+    2024-04-16 23:13:49.291 | INFO     | earth2studio.run:ensemble:157 - Running ensemble inference!
+    2024-04-16 23:13:49.292 | INFO     | earth2studio.run:ensemble:165 - Inference device: cuda
+    2024-04-16 23:13:49.316 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:151 - Fetching GFS index file: 2024-01-01 00:00:00
+    Fetching GFS for 2024-01-01 00:00:00:   0%|          | 0/26 [00:00<?, ?it/s]                                                                                2024-04-16 23:13:49.693 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: u10m at 2024-01-01 00:00:00
+    Fetching GFS for 2024-01-01 00:00:00:   0%|          | 0/26 [00:00<?, ?it/s]                                                                                2024-04-16 23:13:49.713 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: v10m at 2024-01-01 00:00:00
+    Fetching GFS for 2024-01-01 00:00:00:   0%|          | 0/26 [00:00<?, ?it/s]                                                                                2024-04-16 23:13:49.732 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: t2m at 2024-01-01 00:00:00
+    Fetching GFS for 2024-01-01 00:00:00:   0%|          | 0/26 [00:00<?, ?it/s]                                                                                2024-04-16 23:13:49.751 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: sp at 2024-01-01 00:00:00
+    Fetching GFS for 2024-01-01 00:00:00:   0%|          | 0/26 [00:00<?, ?it/s]                                                                                2024-04-16 23:13:49.770 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: msl at 2024-01-01 00:00:00
+    Fetching GFS for 2024-01-01 00:00:00:   0%|          | 0/26 [00:00<?, ?it/s]                                                                                2024-04-16 23:13:49.789 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: t850 at 2024-01-01 00:00:00
+    Fetching GFS for 2024-01-01 00:00:00:   0%|          | 0/26 [00:00<?, ?it/s]    Fetching GFS for 2024-01-01 00:00:00:  23%|██▎       | 6/26 [00:00<00:00, 52.56it/s]                                                                                        2024-04-16 23:13:49.808 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: u1000 at 2024-01-01 00:00:00
+    Fetching GFS for 2024-01-01 00:00:00:  23%|██▎       | 6/26 [00:00<00:00, 52.56it/s]                                                                                        2024-04-16 23:13:49.827 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: v1000 at 2024-01-01 00:00:00
+    Fetching GFS for 2024-01-01 00:00:00:  23%|██▎       | 6/26 [00:00<00:00, 52.56it/s]                                                                                        2024-04-16 23:13:49.845 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: z1000 at 2024-01-01 00:00:00
+    Fetching GFS for 2024-01-01 00:00:00:  23%|██▎       | 6/26 [00:00<00:00, 52.56it/s]                                                                                        2024-04-16 23:13:49.864 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: u850 at 2024-01-01 00:00:00
+    Fetching GFS for 2024-01-01 00:00:00:  23%|██▎       | 6/26 [00:00<00:00, 52.56it/s]                                                                                        2024-04-16 23:13:49.883 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: v850 at 2024-01-01 00:00:00
+    Fetching GFS for 2024-01-01 00:00:00:  23%|██▎       | 6/26 [00:00<00:00, 52.56it/s]                                                                                        2024-04-16 23:13:49.902 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: z850 at 2024-01-01 00:00:00
+    Fetching GFS for 2024-01-01 00:00:00:  23%|██▎       | 6/26 [00:00<00:00, 52.56it/s]    Fetching GFS for 2024-01-01 00:00:00:  46%|████▌     | 12/26 [00:00<00:00, 52.89it/s]                                                                                         2024-04-16 23:13:49.921 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: u500 at 2024-01-01 00:00:00
+    Fetching GFS for 2024-01-01 00:00:00:  46%|████▌     | 12/26 [00:00<00:00, 52.89it/s]                                                                                         2024-04-16 23:13:49.940 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: v500 at 2024-01-01 00:00:00
+    Fetching GFS for 2024-01-01 00:00:00:  46%|████▌     | 12/26 [00:00<00:00, 52.89it/s]                                                                                         2024-04-16 23:13:49.959 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: z500 at 2024-01-01 00:00:00
+    Fetching GFS for 2024-01-01 00:00:00:  46%|████▌     | 12/26 [00:00<00:00, 52.89it/s]                                                                                         2024-04-16 23:13:49.978 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: t500 at 2024-01-01 00:00:00
+    Fetching GFS for 2024-01-01 00:00:00:  46%|████▌     | 12/26 [00:00<00:00, 52.89it/s]                                                                                         2024-04-16 23:13:49.997 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: z50 at 2024-01-01 00:00:00
+    Fetching GFS for 2024-01-01 00:00:00:  46%|████▌     | 12/26 [00:00<00:00, 52.89it/s]                                                                                         2024-04-16 23:13:50.016 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: r500 at 2024-01-01 00:00:00
+    Fetching GFS for 2024-01-01 00:00:00:  46%|████▌     | 12/26 [00:00<00:00, 52.89it/s]    Fetching GFS for 2024-01-01 00:00:00:  69%|██████▉   | 18/26 [00:00<00:00, 52.61it/s]                                                                                         2024-04-16 23:13:50.036 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: r850 at 2024-01-01 00:00:00
+    Fetching GFS for 2024-01-01 00:00:00:  69%|██████▉   | 18/26 [00:00<00:00, 52.61it/s]                                                                                         2024-04-16 23:13:50.055 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: tcwv at 2024-01-01 00:00:00
+    Fetching GFS for 2024-01-01 00:00:00:  69%|██████▉   | 18/26 [00:00<00:00, 52.61it/s]                                                                                         2024-04-16 23:13:50.074 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: u100m at 2024-01-01 00:00:00
+    Fetching GFS for 2024-01-01 00:00:00:  69%|██████▉   | 18/26 [00:00<00:00, 52.61it/s]                                                                                         2024-04-16 23:13:50.092 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: v100m at 2024-01-01 00:00:00
+    Fetching GFS for 2024-01-01 00:00:00:  69%|██████▉   | 18/26 [00:00<00:00, 52.61it/s]                                                                                         2024-04-16 23:13:50.111 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: u250 at 2024-01-01 00:00:00
+    Fetching GFS for 2024-01-01 00:00:00:  69%|██████▉   | 18/26 [00:00<00:00, 52.61it/s]                                                                                         2024-04-16 23:13:50.130 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: v250 at 2024-01-01 00:00:00
+    Fetching GFS for 2024-01-01 00:00:00:  69%|██████▉   | 18/26 [00:00<00:00, 52.61it/s]    Fetching GFS for 2024-01-01 00:00:00:  92%|█████████▏| 24/26 [00:00<00:00, 52.73it/s]                                                                                         2024-04-16 23:13:50.149 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: z250 at 2024-01-01 00:00:00
+    Fetching GFS for 2024-01-01 00:00:00:  92%|█████████▏| 24/26 [00:00<00:00, 52.73it/s]                                                                                         2024-04-16 23:13:50.168 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: t250 at 2024-01-01 00:00:00
+    Fetching GFS for 2024-01-01 00:00:00:  92%|█████████▏| 24/26 [00:00<00:00, 52.73it/s]    Fetching GFS for 2024-01-01 00:00:00: 100%|██████████| 26/26 [00:00<00:00, 52.69it/s]
+    2024-04-16 23:13:50.245 | SUCCESS  | earth2studio.run:ensemble:177 - Fetched data from GFS
+    2024-04-16 23:13:50.250 | INFO     | earth2studio.run:ensemble:196 - Starting 8 Member Ensemble Inference with             4 number of batches.
+    Total Ensemble Batches:   0%|          | 0/4 [00:00<?, ?it/s]
+    Running batch 0 inference:   0%|          | 0/11 [00:00<?, ?it/s]
+    Running batch 0 inference:   9%|▉         | 1/11 [00:00<00:01,  6.93it/s]
+    Running batch 0 inference:  18%|█▊        | 2/11 [00:00<00:03,  2.99it/s]
+    Running batch 0 inference:  27%|██▋       | 3/11 [00:00<00:02,  3.10it/s]
+    Running batch 0 inference:  36%|███▋      | 4/11 [00:01<00:02,  3.13it/s]
+    Running batch 0 inference:  45%|████▌     | 5/11 [00:01<00:01,  3.11it/s]
+    Running batch 0 inference:  55%|█████▍    | 6/11 [00:01<00:01,  3.04it/s]
+    Running batch 0 inference:  64%|██████▎   | 7/11 [00:02<00:01,  2.96it/s]
+    Running batch 0 inference:  73%|███████▎  | 8/11 [00:02<00:01,  2.90it/s]
+    Running batch 0 inference:  82%|████████▏ | 9/11 [00:02<00:00,  2.82it/s]
+    Running batch 0 inference:  91%|█████████ | 10/11 [00:03<00:00,  2.73it/s]
+    Running batch 0 inference: 100%|██████████| 11/11 [00:03<00:00,  2.69it/s]
+                                                                                  Total Ensemble Batches:  25%|██▌       | 1/4 [00:06<00:19,  6.66s/it]
+    Running batch 2 inference:   0%|          | 0/11 [00:00<?, ?it/s]
+    Running batch 2 inference:   9%|▉         | 1/11 [00:00<00:01,  6.76it/s]
+    Running batch 2 inference:  18%|█▊        | 2/11 [00:00<00:02,  4.17it/s]
+    Running batch 2 inference:  27%|██▋       | 3/11 [00:00<00:02,  3.71it/s]
+    Running batch 2 inference:  36%|███▋      | 4/11 [00:01<00:02,  3.44it/s]
+    Running batch 2 inference:  45%|████▌     | 5/11 [00:01<00:01,  3.30it/s]
+    Running batch 2 inference:  55%|█████▍    | 6/11 [00:01<00:01,  3.12it/s]
+    Running batch 2 inference:  64%|██████▎   | 7/11 [00:02<00:01,  2.98it/s]
+    Running batch 2 inference:  73%|███████▎  | 8/11 [00:02<00:01,  2.89it/s]
+    Running batch 2 inference:  82%|████████▏ | 9/11 [00:02<00:00,  2.81it/s]
+    Running batch 2 inference:  91%|█████████ | 10/11 [00:03<00:00,  2.74it/s]
+    Running batch 2 inference: 100%|██████████| 11/11 [00:03<00:00,  2.68it/s]
+                                                                                  Total Ensemble Batches:  50%|█████     | 2/4 [00:13<00:12,  6.48s/it]
+    Running batch 4 inference:   0%|          | 0/11 [00:00<?, ?it/s]
+    Running batch 4 inference:   9%|▉         | 1/11 [00:00<00:01,  6.80it/s]
+    Running batch 4 inference:  18%|█▊        | 2/11 [00:00<00:02,  4.22it/s]
+    Running batch 4 inference:  27%|██▋       | 3/11 [00:00<00:02,  3.78it/s]
+    Running batch 4 inference:  36%|███▋      | 4/11 [00:01<00:01,  3.54it/s]
+    Running batch 4 inference:  45%|████▌     | 5/11 [00:01<00:01,  3.32it/s]
+    Running batch 4 inference:  55%|█████▍    | 6/11 [00:01<00:01,  3.21it/s]
+    Running batch 4 inference:  64%|██████▎   | 7/11 [00:02<00:01,  3.11it/s]
+    Running batch 4 inference:  73%|███████▎  | 8/11 [00:02<00:01,  2.98it/s]
+    Running batch 4 inference:  82%|████████▏ | 9/11 [00:02<00:00,  2.91it/s]
+    Running batch 4 inference:  91%|█████████ | 10/11 [00:03<00:00,  2.83it/s]
+    Running batch 4 inference: 100%|██████████| 11/11 [00:03<00:00,  2.76it/s]
+                                                                                  Total Ensemble Batches:  75%|███████▌  | 3/4 [00:19<00:06,  6.39s/it]
+    Running batch 6 inference:   0%|          | 0/11 [00:00<?, ?it/s]
+    Running batch 6 inference:   9%|▉         | 1/11 [00:00<00:01,  5.97it/s]
+    Running batch 6 inference:  18%|█▊        | 2/11 [00:00<00:02,  3.92it/s]
+    Running batch 6 inference:  27%|██▋       | 3/11 [00:00<00:02,  3.59it/s]
+    Running batch 6 inference:  36%|███▋      | 4/11 [00:01<00:02,  3.35it/s]
+    Running batch 6 inference:  45%|████▌     | 5/11 [00:01<00:01,  3.18it/s]
+    Running batch 6 inference:  55%|█████▍    | 6/11 [00:01<00:01,  3.07it/s]
+    Running batch 6 inference:  64%|██████▎   | 7/11 [00:02<00:01,  2.99it/s]
+    Running batch 6 inference:  73%|███████▎  | 8/11 [00:02<00:01,  2.90it/s]
+    Running batch 6 inference:  82%|████████▏ | 9/11 [00:02<00:00,  2.83it/s]
+    Running batch 6 inference:  91%|█████████ | 10/11 [00:03<00:00,  2.77it/s]
+    Running batch 6 inference: 100%|██████████| 11/11 [00:03<00:00,  2.73it/s]
+                                                                                  Total Ensemble Batches: 100%|██████████| 4/4 [00:25<00:00,  6.39s/it]    Total Ensemble Batches: 100%|██████████| 4/4 [00:25<00:00,  6.42s/it]
+    2024-04-16 23:14:15.948 | SUCCESS  | earth2studio.run:ensemble:242 - Ensemble Inference complete
 
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 214-220
+.. GENERATED FROM PYTHON SOURCE LINES 123-129
 
 Post Processing
 ---------------
@@ -296,7 +247,7 @@ fields on projects of a sphere.
 
 Notice that the Zarr IO function has additional APIs to interact with the stored data.
 
-.. GENERATED FROM PYTHON SOURCE LINES 222-274
+.. GENERATED FROM PYTHON SOURCE LINES 131-187
 
 .. code-block:: Python
 
@@ -304,20 +255,9 @@ Notice that the Zarr IO function has additional APIs to interact with the stored
     import matplotlib.pyplot as plt
 
     forecast = "2024-01-01"
-    variable = "t2m"
-    step = 0  # lead time = 24 hrs
-
-    plt.close("all")
-    # Create a Robinson projection
-    projection = ccrs.Robinson()
-
-    # Create a figure and axes with the specified projection
-    fig, (ax1, ax2, ax3) = plt.subplots(
-        nrows=1, ncols=3, subplot_kw={"projection": projection}, figsize=(12, 5)
-    )
 
 
-    def plot_(axi, data, title):
+    def plot_(axi, data, title, cmap):
         """Convenience function for plotting pcolormesh."""
         # Plot the field using pcolormesh
         im = axi.pcolormesh(
@@ -325,9 +265,9 @@ Notice that the Zarr IO function has additional APIs to interact with the stored
             io["lat"][:],
             data,
             transform=ccrs.PlateCarree(),
-            cmap="coolwarm",
+            cmap=cmap,
         )
-        plt.colorbar(im, ax=axi)
+        plt.colorbar(im, ax=axi, shrink=0.6, pad=0.04)
         # Set title
         axi.set_title(title)
         # Add coastlines and gridlines
@@ -335,28 +275,43 @@ Notice that the Zarr IO function has additional APIs to interact with the stored
         axi.gridlines()
 
 
-    plot_(
-        ax1,
-        io[variable][0, 0, step],
-        f"{forecast} - Lead time: {6*step}hrs - Member: {0}",
-    )
-    plot_(
-        ax2,
-        io[variable][1, 0, step],
-        f"{forecast} - Lead time: {6*step}hrs - Member: {1}",
-    )
-    plot_(
-        ax3,
-        np.std(io[variable][:, 0, step], axis=0),
-        f"{forecast} - Lead time: {6*step}hrs - Std",
-    )
+    for variable, cmap in zip(["t2m", "tcwv"], ["coolwarm", "Blues"]):
+        step = 4  # lead time = 24 hrs
 
-    plt.savefig(f"outputs/02_{forecast}_{variable}_{step}_ensemble.jpg")
+        plt.close("all")
+        # Create a Robinson projection
+        projection = ccrs.Robinson()
+
+        # Create a figure and axes with the specified projection
+        fig, (ax1, ax2, ax3) = plt.subplots(
+            nrows=1, ncols=3, subplot_kw={"projection": projection}, figsize=(16, 3)
+        )
+
+        plot_(
+            ax1,
+            io[variable][0, 0, step],
+            f"{forecast} - Lead time: {6*step}hrs - Member: {0}",
+            cmap,
+        )
+        plot_(
+            ax2,
+            io[variable][1, 0, step],
+            f"{forecast} - Lead time: {6*step}hrs - Member: {1}",
+            cmap,
+        )
+        plot_(
+            ax3,
+            np.std(io[variable][:, 0, step], axis=0),
+            f"{forecast} - Lead time: {6*step}hrs - Std",
+            cmap,
+        )
+
+        plt.savefig(f"outputs/02_{forecast}_{variable}_{step}_ensemble.jpg")
 
 
 
 .. image-sg:: /examples/images/sphx_glr_02_ensemble_workflow_001.png
-   :alt: 2024-01-01 - Lead time: 0hrs - Member: 0, 2024-01-01 - Lead time: 0hrs - Member: 1, 2024-01-01 - Lead time: 0hrs - Std
+   :alt: 2024-01-01 - Lead time: 24hrs - Member: 0, 2024-01-01 - Lead time: 24hrs - Member: 1, 2024-01-01 - Lead time: 24hrs - Std
    :srcset: /examples/images/sphx_glr_02_ensemble_workflow_001.png, /examples/images/sphx_glr_02_ensemble_workflow_001_2_00x.png 2.00x
    :class: sphx-glr-single-img
 
@@ -367,7 +322,7 @@ Notice that the Zarr IO function has additional APIs to interact with the stored
 
 .. rst-class:: sphx-glr-timing
 
-   **Total running time of the script:** (3 minutes 32.822 seconds)
+   **Total running time of the script:** (2 minutes 24.042 seconds)
 
 
 .. _sphx_glr_download_examples_02_ensemble_workflow.py:
