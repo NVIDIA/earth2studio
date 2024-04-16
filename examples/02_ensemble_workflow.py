@@ -55,115 +55,8 @@ In this example you will learn:
 # - io: IOBackend
 
 # %%
-from datetime import datetime
-
-from dotenv import load_dotenv
-
-load_dotenv()  # TODO: make common example prep function
-
-import numpy as np
-import torch
-from loguru import logger
-from tqdm import tqdm
-
-from earth2studio.data import DataSource, fetch_data
-from earth2studio.io import IOBackend
-from earth2studio.models.px import PrognosticModel
-from earth2studio.perturbation import PerturbationMethod
-from earth2studio.utils.coords import extract_coords, map_coords
-from earth2studio.utils.time import to_time_array
-
-logger.remove()
-logger.add(lambda msg: tqdm.write(msg, end=""), colorize=True)
-
-
-def run_ensemble(
-    time: list[str] | list[datetime] | list[np.datetime64],
-    nsteps: int,
-    nensemble: int,
-    prognostic: PrognosticModel,
-    perturbation_method: PerturbationMethod,
-    data: DataSource,
-    io: IOBackend,
-) -> IOBackend:
-    """Simple ensemble workflow
-
-    Parameters
-    ----------
-    time : list[str] | list[datetime] | list[np.datetime64]
-        List of string, datetimes or np.datetime64
-    nsteps : int
-        Number of forecast steps
-    nensemble : int
-        Number of ensemble members to run inference for.
-    prognostic : PrognosticModel
-        Prognostic models
-    perturbation_method : PerturbationMethod
-        Method of perturbing the initial condition to form an ensemble.
-    data : DataSource
-        Data source
-    io : IOBackend
-        IO object
-
-    Returns
-    -------
-    IOBackend
-        Output IO object
-    """
-    logger.info("Running simple workflow!")
-    # Load model onto the device
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    logger.info(f"Inference device: {device}")
-    prognostic = prognostic.to(device)
-    # Fetch data from data source and load onto device
-    time = to_time_array(time)
-    x, coords = fetch_data(
-        source=data,
-        time=time,
-        lead_time=prognostic.input_coords["lead_time"],
-        variable=prognostic.input_coords["variable"],
-        device=device,
-    )
-    logger.success(f"Fetched data from {data.__class__.__name__}")
-
-    # Expand x, coords for ensemble
-    x = x.unsqueeze(0).repeat(nensemble, *([1] * x.ndim))
-    coords = {"ensemble": np.arange(nensemble)} | coords
-
-    # Set up IO backend
-    total_coords = coords.copy()
-    total_coords["lead_time"] = np.asarray(
-        [prognostic.output_coords["lead_time"] * i for i in range(nsteps + 1)]
-    ).flatten()
-
-    var_names = total_coords.pop("variable")
-    io.add_array(total_coords, var_names)
-
-    # Map lat and lon if needed
-    x, coords = map_coords(x, coords, prognostic.input_coords)
-
-    # Perturb ensemble
-    x += perturbation_method(x, coords)
-
-    # Create prognostic iterator
-    model = prognostic.create_iterator(x, coords)
-
-    logger.info("Inference starting!")
-    with tqdm(total=nsteps + 1, desc="Running inference") as pbar:
-        for step, (x, coords) in enumerate(model):
-            io.write(*extract_coords(x, coords))
-            pbar.update(1)
-            if step == nsteps:
-                break
-
-    logger.success("Inference complete")
-    return io
-
-
-# %%
 # Set Up
 # ------
-# With the ensemble workflow defined, we now need to create the indivdual components.
 #
 # We need the following:
 #
@@ -173,26 +66,31 @@ def run_ensemble(
 # - IO Backend: Lets save the outputs into a Zarr store :py:class:`earth2studio.io.ZarrBackend`.
 #
 # %%
+from dotenv import load_dotenv
+
+load_dotenv()  # TODO: make common example prep function
+
 import numpy as np
 
 from earth2studio.data import GFS
 from earth2studio.io import ZarrBackend
 from earth2studio.models.px import FCN
-from earth2studio.perturbation import PerturbationMethod, SphericalGaussian
+from earth2studio.perturbation import SphericalGaussian
+from earth2studio.run import ensemble
 
 # Load the default model package which downloads the check point from NGC
 package = FCN.load_default_package()
 model = FCN.load_model(package)
 
 # Instantiate the pertubation method
-sg = SphericalGaussian(noise_amplitude=0.05)
+sg = SphericalGaussian(noise_amplitude=0.15)
 
 # Create the data source
 data = GFS()
 
 # Create the IO handler, store in memory
 chunks = {"ensemble": 1, "time": 1}
-io = ZarrBackend(file_name="outputs/ensemble_sg.zarr", chunks=chunks)
+io = ZarrBackend(file_name="outputs/02_ensemble_sg.zarr", chunks=chunks)
 
 # %%
 # Execute the Workflow
@@ -202,13 +100,25 @@ io = ZarrBackend(file_name="outputs/ensemble_sg.zarr", chunks=chunks)
 # then post process. Some have additional APIs that can be handy for post-processing or
 # saving to file. Check the API docs for more information.
 #
-# For the forecast we will predict for two days (these will get executed as a batch) for
-# 20 forecast steps which is 5 days.
+# For the forecast we will predict for 10 steps (for FCN, this is 60 hours) with 8 ensemble
+# members which will be ran in 2 batches with batch size 4.
 # %%
 
 nsteps = 10
 nensemble = 8
-io = run_ensemble(["2024-01-01"], nsteps, nensemble, model, sg, data, io)
+batch_size = 4
+io = ensemble(
+    ["2024-01-01"],
+    nsteps,
+    nensemble,
+    model,
+    data,
+    io,
+    batch_size=batch_size,
+    perturbation_method=sg,
+    output_coords={"variable": np.array(["t2m", "tcwv"])},
+    device="cuda:0",
+)
 
 # %%
 # Post Processing
@@ -223,20 +133,9 @@ import cartopy.crs as ccrs
 import matplotlib.pyplot as plt
 
 forecast = "2024-01-01"
-variable = "t2m"
-step = 0  # lead time = 24 hrs
-
-plt.close("all")
-# Create a Robinson projection
-projection = ccrs.Robinson()
-
-# Create a figure and axes with the specified projection
-fig, (ax1, ax2, ax3) = plt.subplots(
-    nrows=1, ncols=3, subplot_kw={"projection": projection}, figsize=(12, 5)
-)
 
 
-def plot_(axi, data, title):
+def plot_(axi, data, title, cmap):
     """Convenience function for plotting pcolormesh."""
     # Plot the field using pcolormesh
     im = axi.pcolormesh(
@@ -244,9 +143,9 @@ def plot_(axi, data, title):
         io["lat"][:],
         data,
         transform=ccrs.PlateCarree(),
-        cmap="coolwarm",
+        cmap=cmap,
     )
-    plt.colorbar(im, ax=axi)
+    plt.colorbar(im, ax=axi, shrink=0.6, pad=0.04)
     # Set title
     axi.set_title(title)
     # Add coastlines and gridlines
@@ -254,20 +153,35 @@ def plot_(axi, data, title):
     axi.gridlines()
 
 
-plot_(
-    ax1,
-    io[variable][0, 0, step],
-    f"{forecast} - Lead time: {6*step}hrs - Member: {0}",
-)
-plot_(
-    ax2,
-    io[variable][1, 0, step],
-    f"{forecast} - Lead time: {6*step}hrs - Member: {1}",
-)
-plot_(
-    ax3,
-    np.std(io[variable][:, 0, step], axis=0),
-    f"{forecast} - Lead time: {6*step}hrs - Std",
-)
+for variable, cmap in zip(["t2m", "tcwv"], ["coolwarm", "Blues"]):
+    step = 0  # lead time = 24 hrs
 
-plt.savefig(f"outputs/02_{forecast}_{variable}_{step}_ensemble.jpg")
+    plt.close("all")
+    # Create a Robinson projection
+    projection = ccrs.Robinson()
+
+    # Create a figure and axes with the specified projection
+    fig, (ax1, ax2, ax3) = plt.subplots(
+        nrows=1, ncols=3, subplot_kw={"projection": projection}, figsize=(16, 3)
+    )
+
+    plot_(
+        ax1,
+        io[variable][0, 0, step],
+        f"{forecast} - Lead time: {6*step}hrs - Member: {0}",
+        cmap,
+    )
+    plot_(
+        ax2,
+        io[variable][1, 0, step],
+        f"{forecast} - Lead time: {6*step}hrs - Member: {1}",
+        cmap,
+    )
+    plot_(
+        ax3,
+        np.std(io[variable][:, 0, step], axis=0),
+        f"{forecast} - Lead time: {6*step}hrs - Std",
+        cmap,
+    )
+
+    plt.savefig(f"outputs/02_{forecast}_{variable}_{step}_ensemble.jpg")

@@ -60,113 +60,6 @@ In this example you will learn:
 #      a proper subset of model output coordinates.
 
 # %%
-from collections import OrderedDict
-from datetime import datetime
-
-from dotenv import load_dotenv
-
-load_dotenv()  # TODO: make common example prep function
-
-import numpy as np
-import torch
-from loguru import logger
-from tqdm import tqdm
-
-from earth2studio.data import DataSource, fetch_data
-from earth2studio.io import IOBackend
-from earth2studio.models.px import PrognosticModel
-from earth2studio.utils.coords import CoordSystem, extract_coords, map_coords
-from earth2studio.utils.time import to_time_array
-
-logger.remove()
-logger.add(lambda msg: tqdm.write(msg, end=""), colorize=True)
-
-
-def run_ensemble(
-    time: list[str] | list[datetime] | list[np.datetime64],
-    nsteps: int,
-    nensemble: int,
-    prognostic: PrognosticModel,
-    data: DataSource,
-    io: IOBackend,
-    output_coords: CoordSystem = OrderedDict({}),
-) -> IOBackend:
-    """Ensemble workflow
-
-    Parameters
-    ----------
-    time : list[str] | list[datetime] | list[np.datetime64]
-        List of string, datetimes or np.datetime64
-    nsteps : int
-        Number of forecast steps
-    nensemble : int
-        Number of ensemble members to run inference for.
-    prognostic : PrognosticModel
-        Prognostic models
-    data : DataSource
-        Data source
-    io : IOBackend
-        IO object
-
-    Returns
-    -------
-    IOBackend
-        Output IO object
-    """
-    logger.info("Running ensemble inference!")
-
-    # Load model onto the device
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    logger.info(f"Inference device: {device}")
-    prognostic = prognostic.to(device)
-
-    # Fetch data from data source and load onto device
-    time = to_time_array(time)
-    x, coords = fetch_data(
-        source=data,
-        time=time,
-        lead_time=prognostic.input_coords["lead_time"],
-        variable=prognostic.input_coords["variable"],
-        device=device,
-    )
-    logger.success(f"Fetched data from {data.__class__.__name__}")
-
-    # Expand x, coords for ensemble
-    x = x.unsqueeze(0).repeat(nensemble, *([1] * x.ndim))
-    coords = {"ensemble": np.arange(nensemble)} | coords
-
-    # Set up IO backend with information from output_coords (if applicable).
-    total_coords = coords.copy()
-    total_coords["lead_time"] = np.asarray(
-        [prognostic.output_coords["lead_time"] * i for i in range(nsteps + 1)]
-    ).flatten()
-    for key, value in total_coords.items():
-        total_coords[key] = output_coords.get(key, value)
-
-    variables_to_save = total_coords.pop("variable")
-    io.add_array(total_coords, variables_to_save)
-
-    # Map lat and lon if needed
-    x, coords = map_coords(x, coords, prognostic.input_coords)
-
-    # Create prognostic iterator
-    model = prognostic.create_iterator(x, coords)
-
-    logger.info("Inference starting!")
-    with tqdm(total=nsteps + 1, desc="Running inference") as pbar:
-        for step, (x, coords) in enumerate(model):
-            # Subselect domain/variables as indicated in output_coords
-            x, coords = map_coords(x, coords, output_coords)
-            io.write(*extract_coords(x, coords))
-            pbar.update(1)
-            if step == nsteps:
-                break
-
-    logger.success("Inference complete")
-    return io
-
-
-# %%
 # Set Up
 # ------
 # With the ensemble workflow defined, we now need to create the indivdual components.
@@ -181,11 +74,17 @@ def run_ensemble(
 # default (identity) forward and rear hooks. Then we will define new hooks for the model and rerun the
 # inference request.
 # %%
+
+from dotenv import load_dotenv
+
+load_dotenv()  # TODO: make common example prep function
+
 import numpy as np
 
 from earth2studio.data import GFS
 from earth2studio.io import ZarrBackend
 from earth2studio.models.px import DLWP
+from earth2studio.run import ensemble
 
 # Load the default model package which downloads the check point from NGC
 package = DLWP.load_default_package()
@@ -196,7 +95,7 @@ data = GFS()
 
 # Create the IO handler, store in memory
 chunks = {"ensemble": 1, "time": 1}
-io_unperturbed = ZarrBackend(file_name="outputs/ensemble.zarr", chunks=chunks)
+io_unperturbed = ZarrBackend(file_name="outputs/05_ensemble.zarr", chunks=chunks)
 
 
 # %%
@@ -211,6 +110,7 @@ io_unperturbed = ZarrBackend(file_name="outputs/ensemble.zarr", chunks=chunks)
 
 nsteps = 4 * 12
 nensemble = 16
+batch_size = 4
 forecast_date = "2024-01-30"
 output_coords = {
     "lat": np.arange(25.0, 60.0, 0.25),
@@ -219,7 +119,7 @@ output_coords = {
 }
 
 # Forst run the unperturbed model forcast
-io_unperturbed = run_ensemble(
+io_unperturbed = ensemble(
     [forecast_date],
     nsteps,
     nensemble,
@@ -227,10 +127,15 @@ io_unperturbed = run_ensemble(
     data,
     io_unperturbed,
     output_coords=output_coords,
+    batch_size=batch_size,
+    device="cuda:0",
 )
 
 # Introduce slight model perturbation
 # front_hook / rear_hook map (x, coords) -> (x, coords)
+# Note that center.unsqueeze(-1) is DLWP specific since it operates
+# on a cubed sphere with grid dimensions (nface, lat, lon) instead of
+# just (lat,lon). To switch out the model, consider removing the .unsqueeze
 model.front_hook = lambda x, coords: (
     x
     - 0.05
@@ -243,9 +148,9 @@ model.front_hook = lambda x, coords: (
 # Also could use model.rear_hook = ...
 
 io_perturbed = ZarrBackend(
-    file_name="outputs/ensemble_model_perturbation.zarr", chunks=chunks
+    file_name="outputs/05_ensemble_model_perturbation.zarr", chunks=chunks
 )
-io_perturbed = run_ensemble(
+io_perturbed = ensemble(
     [forecast_date],
     nsteps,
     nensemble,
@@ -253,6 +158,8 @@ io_perturbed = run_ensemble(
     data,
     io_perturbed,
     output_coords=output_coords,
+    batch_size=batch_size,
+    device="cuda:0",
 )
 
 # %%
@@ -271,6 +178,7 @@ from matplotlib.colors import LogNorm
 
 levels_unperturbed = np.linspace(0, io_unperturbed["tcwv"][:].max())
 levels_perturbed = np.linspace(0, io_perturbed["tcwv"][:].max())
+
 
 std_levels_perturbed = np.linspace(0, io_perturbed["tcwv"][:].std(axis=0).max())
 
@@ -308,7 +216,7 @@ def update(frame):
         transform=ccrs.PlateCarree(),
         cmap="RdPu",
         levels=std_levels_perturbed,
-        norm=LogNorm(vmin=1e-1, vmax=std_levels_perturbed[-1]),
+        norm=LogNorm(vmin=1e-8, vmax=std_levels_perturbed[-1]),
     )
     ax1.coastlines()
     ax1.gridlines()
@@ -331,7 +239,7 @@ def update(frame):
         transform=ccrs.PlateCarree(),
         cmap="RdPu",
         levels=std_levels_perturbed,
-        norm=LogNorm(vmin=1e-1, vmax=std_levels_perturbed[-1]),
+        norm=LogNorm(vmin=1e-8, vmax=std_levels_perturbed[-1]),
     )
     ax3.coastlines()
     ax3.gridlines()
@@ -386,13 +294,13 @@ def update(frame):
 # ani = animation.FuncAnimation(
 # fig=fig, func=update, frames=range(1, nsteps), cache_frame_data=False
 # )
-# ani.save(f"outputs/model_perturbation_{forecast_date}.gif", dpi=300)
+# ani.save(f"outputs/05_model_perturbation_{forecast_date}.gif", dpi=300)
 
 # Here we plot a handful of images
 for lt in [0, 10, 20, 30, 40]:
     update(lt)
     plt.savefig(
-        f"outputs/model_perturbation_{forecast_date}_leadtime_{lt}.png",
+        f"outputs/05_model_perturbation_{forecast_date}_leadtime_{lt}.png",
         dpi=300,
         bbox_inches="tight",
     )
