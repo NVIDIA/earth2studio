@@ -9,7 +9,7 @@ mystified. Show me your data structures, and I won't usually need your code; it'
 obvious." - *Fred Brooks*
 :::
 
-Earth-2 Inference Studio aims to keep data simple and interpretable between components.
+Earth2Studio aims to keep data simple and interpretable between components.
 Given that this package interacts with geo-physial data, the common data-structure
 inside workflows is the pairing of:
 
@@ -58,12 +58,12 @@ coords = OrderedDict({
 })
 ```
 
-Much of Earth-2 Inference Studio typically operates on a lat-lon grid but it's not
+Much of Earth2Studio typically operates on a lat-lon grid but it's not
 required to.
 
 ### Standard Coordinate Names
 
-Earth-2 Inference Studio has a dimension naming standard for its built in feature set.
+Earth2Studio has a dimension naming standard for its built in feature set.
 We encourage users to follow similar naming schemes for compatability between Earth-2
 Inference Studio when possible and the packages we interface with.
 
@@ -100,7 +100,7 @@ Inference Studio when possible and the packages we interface with.
 
 The downside of using a dictionary to store coordinates is that manipulating the data
 tensor and then updating the coordinate array is not a manual process.
-To help make this process less tedious, Earth-2 Inference Studio has several utility
+To help make this process less tedious, Earth2Studio has several utility
 functions that make interacting with coordinates easier.
 The bulk of these can be found in the [Earth2Studio Utilities](earth2studio.utils_api).
 
@@ -111,7 +111,7 @@ The bulk of these can be found in the [Earth2Studio Utilities](earth2studio.util
 ## Inference on the GPU
 
 It is beneficial to leverage the GPU for as many processes as possible.
-Earth-2 Inference Studio aims to get data from the data source and immediately convert
+Earth2Studio aims to get data from the data source and immediately convert
 it into the tensor, coord data struction on the device.
 From there, the data is kept on the GPU until the very last moment when writes are
 needed to in-memory or to file.
