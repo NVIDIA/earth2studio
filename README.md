@@ -23,14 +23,10 @@ Our mission is to enable everyone to build, research and explore AI driven meteo
 
 ## Quick start
 
-Install Earth2Studio from source:
+Install Earth2Studio:
 
 ```bash
-git clone https://github.com/NVIDIA/earth2studio.git
-
-cd earth2-inference-studio
-
-pip install .
+pip install earth2studio
 ```
 
 Run a deterministic weather prediction in just a few lines of code:
@@ -38,14 +34,14 @@ Run a deterministic weather prediction in just a few lines of code:
 ```python
 from earth2studio.models.px import DLWP
 from earth2studio.data import GFS
-from earth2studio.io import NetCDF
+from earth2studio.io import NetCDF4Backend
 from earth2studio.run import deterministic as run
 
 model = DLWP.load_model(DLWP.load_default_package())
 ds = GFS()
-io = NetCDF("output.nc")
+io = NetCDF4Backend("output.nc")
 
-run(time=["2024-01-01"], nsteps=10, model, ds, io)
+run(["2024-01-01"], 10, model, ds, io)
 ```
 
 ## Features
