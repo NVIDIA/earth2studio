@@ -18,7 +18,7 @@ import hashlib
 import os
 import pathlib
 import shutil
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import boto3
 import botocore
@@ -216,7 +216,7 @@ class GFS:
             list of date times to fetch data
         """
         for time in times:
-            if not time.timestamp() % 21600 == 0:
+            if (time - datetime(1900, 1, 1)) % timedelta(hours=6) != timedelta(hours=0):
                 raise ValueError(
                     f"Requested date time {time} needs to be 6 hour interval for GFS"
                 )
