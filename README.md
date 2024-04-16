@@ -6,6 +6,7 @@
 [![python version][e2studio_python_img]][e2studio_python_url]
 [![license][e2studio_license_img]][e2studio_license_url]
 [![format][e2studio_format_img]][e2studio_format_url]
+[![coverage][e2studio_cov_img]][e2studio_cov_url]
 
 Earth2Studio is a Python-based package designed to get users up and running
 with AI weather and climate models *fast*.
@@ -79,10 +80,12 @@ Earth2Studio is provided under the Apache License 2.0, please see
 [e2studio_python_img]: https://img.shields.io/badge/Python-3.10%2B-blue?style=flat-square&logo=python
 [e2studio_license_img]: https://img.shields.io/badge/License-Apache%202.0-green?style=flat-square
 [e2studio_format_img]: https://img.shields.io/badge/Code%20Style-Black-black?style=flat-square
+[e2studio_cov_img]: https://img.shields.io/codecov/c/github/nickgeneva/earth2studio?style=flat-square&logo=codecov
 
 [e2studio_python_url]: https://www.python.org/downloads/
 [e2studio_license_url]: ./LICENSE
 [e2studio_format_url]: https://github.com/psf/black
+[e2studio_cov_url]: ./test/
 
 <!-- Doc links -->
 [e2studio_docs_url]: https://nvidia.github.io/earth2studio/
