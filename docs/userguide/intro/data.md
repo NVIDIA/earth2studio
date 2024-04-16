@@ -102,7 +102,7 @@ The downside of using a dictionary to store coordinates is that manipulating the
 tensor and then updating the coordinate array is not a manual process.
 To help make this process less tedious, Earth-2 Inference Studio has several utility
 functions that make interacting with coordinates easier.
-The bulk of these can be found in the [Earth-2 Studio Utilities](earth2studio.utils_api).
+The bulk of these can be found in the [Earth2Studio Utilities](earth2studio.utils_api).
 
 :::{warning}
 🚧 Under construction, todo: add some example here! 🚧

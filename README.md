@@ -7,12 +7,12 @@
 [![license][e2studio_license_img]][e2studio_license_url]
 [![format][e2studio_format_img]][e2studio_format_url]
 
-Earth-2 Studio is a Python-based package designed to get users up and running
+Earth2Studio is a Python-based package designed to get users up and running
 with AI weather and climate models *fast*.
 Our mission is to enable everyone to build, research and explore AI driven meteorology.
 
 <!-- markdownlint-disable MD036 -->
-**- Earth-2 Studio Documentation -**
+**- Earth2Studio Documentation -**
 <!-- markdownlint-enable MD036 -->
 
 [Install][e2studio_install_url] | [User-Guide][e2studio_userguide_url] |
@@ -22,7 +22,7 @@ Our mission is to enable everyone to build, research and explore AI driven meteo
 
 ## Quick start
 
-Install Earth-2 Studio from source:
+Install Earth2Studio from source:
 
 ```bash
 git clone https://github.com/NVIDIA/earth2studio.git
@@ -49,7 +49,7 @@ run(time=["2024-01-01"], nsteps=10, model, ds, io)
 
 ## Features
 
-Earth-2 Studio focuses on providing users the tools to build their own
+Earth2Studio focuses on providing users the tools to build their own
 workflows, pipelines, APIs, packages, etc. via modular components including:
 
 - Collection of pre-trained weather/climate prediction models

@@ -100,7 +100,7 @@ class HRRR:
         # Make sure input time is valid
         self._validate_time(time)
 
-        # Convert from Earth-2 Studio variable ID to HRRR id and modifier
+        # Convert from Earth2Studio variable ID to HRRR id and modifier
         sfc_vars = {}
         prs_vars = {}
         for var in variable:

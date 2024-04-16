@@ -175,7 +175,7 @@ class GFS:
                 variables, desc=f"Fetching GFS for {time}", disable=(not self._verbose)
             )
         ):
-            # Convert from Earth-2 Studio variable ID to GFS id and modifier
+            # Convert from Earth2Studio variable ID to GFS id and modifier
             try:
                 gfs_name, modifier = GFSLexicon[variable]
             except KeyError:

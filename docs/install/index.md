@@ -151,7 +151,7 @@ pip install earth2studio[all]
 
 # For Developers
 
-For developers, use an edittable install of Earth-2 Studio with the `dev` option:
+For developers, use an edittable install of Earth2Studio with the `dev` option:
 
 ```bash
 git clone https://github.com/NVIDIA/earth2studio.git
@@ -161,7 +161,7 @@ cd earth2-inference-studio
 pip install -e .[dev]
 ```
 
-Earth-2 Studio uses pre-commit which also should be installed immediately by developers:
+Earth2Studio uses pre-commit which also should be installed immediately by developers:
 
 ```bash
 pre-commit install
