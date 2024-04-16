@@ -225,7 +225,7 @@ class ARCO:
             list of date times to fetch data
         """
         for time in times:
-            if not time.minute == 0 and time.second == 0:
+            if not (time - datetime(1900, 1, 1)).total_seconds() % 3600 == 0:
                 raise ValueError(
                     f"Requested date time {time} needs to be 1 hour interval for ARCO"
                 )
