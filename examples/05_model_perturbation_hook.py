@@ -216,7 +216,7 @@ def update(frame):
         transform=ccrs.PlateCarree(),
         cmap="RdPu",
         levels=std_levels_perturbed,
-        norm=LogNorm(vmin=1e-8, vmax=std_levels_perturbed[-1]),
+        norm=LogNorm(vmin=1e-1, vmax=std_levels_perturbed[-1]),
     )
     ax1.coastlines()
     ax1.gridlines()
@@ -239,7 +239,7 @@ def update(frame):
         transform=ccrs.PlateCarree(),
         cmap="RdPu",
         levels=std_levels_perturbed,
-        norm=LogNorm(vmin=1e-8, vmax=std_levels_perturbed[-1]),
+        norm=LogNorm(vmin=1e-1, vmax=std_levels_perturbed[-1]),
     )
     ax3.coastlines()
     ax3.gridlines()
