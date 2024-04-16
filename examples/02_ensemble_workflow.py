@@ -106,7 +106,7 @@ io = ZarrBackend(file_name="outputs/02_ensemble_sg.zarr", chunks=chunks)
 
 nsteps = 10
 nensemble = 8
-batch_size = 4
+batch_size = 2
 io = ensemble(
     ["2024-01-01"],
     nsteps,
@@ -114,10 +114,9 @@ io = ensemble(
     model,
     data,
     io,
+    sg,
     batch_size=batch_size,
-    perturbation_method=sg,
     output_coords={"variable": np.array(["t2m", "tcwv"])},
-    device="cuda:0",
 )
 
 # %%
@@ -154,7 +153,7 @@ def plot_(axi, data, title, cmap):
 
 
 for variable, cmap in zip(["t2m", "tcwv"], ["coolwarm", "Blues"]):
-    step = 0  # lead time = 24 hrs
+    step = 4  # lead time = 24 hrs
 
     plt.close("all")
     # Create a Robinson projection

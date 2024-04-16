@@ -84,6 +84,7 @@ import numpy as np
 from earth2studio.data import GFS
 from earth2studio.io import ZarrBackend
 from earth2studio.models.px import DLWP
+from earth2studio.perturbation import Zero
 from earth2studio.run import ensemble
 
 # Load the default model package which downloads the check point from NGC
@@ -126,9 +127,9 @@ io_unperturbed = ensemble(
     model,
     data,
     io_unperturbed,
+    Zero(),
     output_coords=output_coords,
     batch_size=batch_size,
-    device="cuda:0",
 )
 
 # Introduce slight model perturbation
@@ -157,9 +158,9 @@ io_perturbed = ensemble(
     model,
     data,
     io_perturbed,
+    Zero(),
     output_coords=output_coords,
     batch_size=batch_size,
-    device="cuda:0",
 )
 
 # %%

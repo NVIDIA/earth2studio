@@ -27,7 +27,7 @@ from tqdm import tqdm
 from earth2studio.data import DataSource, fetch_data
 from earth2studio.io import IOBackend
 from earth2studio.models.px import PrognosticModel
-from earth2studio.perturbation import PerturbationMethod, Zero
+from earth2studio.perturbation import PerturbationMethod
 from earth2studio.utils.coords import CoordSystem, extract_coords, map_coords
 from earth2studio.utils.time import to_time_array
 
@@ -120,8 +120,8 @@ def ensemble(
     prognostic: PrognosticModel,
     data: DataSource,
     io: IOBackend,
+    perturbation_method: PerturbationMethod,
     batch_size: Optional[int] = None,
-    perturbation_method: PerturbationMethod = Zero(),
     output_coords: CoordSystem = OrderedDict({}),
     device: Optional[torch.device] = None,
 ) -> IOBackend:
@@ -135,16 +135,20 @@ def ensemble(
         Number of forecast steps
     nensemble : int
         Number of ensemble members to run inference for.
-    batch_size: int
-        Number of ensemble members to run in a single batch.
     prognostic : PrognosticModel
         Prognostic models
     data : DataSource
         Data source
     io : IOBackend
         IO object
+    perturbation_method : PerturbationMethod
+        Method to perturb the initial condition to create an ensemble.
+    batch_size: Optional[int], optional
+        Number of ensemble members to run in a single batch,
+        by default None.
     device : Optional[torch.device], optional
         Device to run inference on, by default None
+
     Returns
     -------
     IOBackend

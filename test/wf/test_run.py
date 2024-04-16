@@ -89,8 +89,8 @@ def test_run_ensemble(
         model,
         data,
         io,
+        perturbation_method,
         batch_size=batch_size,
-        perturbation_method=perturbation_method,
         device=device,
     )
 
