@@ -1,6 +1,6 @@
 # About
 
-Earth-2 Inference Studio is a Python package built to empower researchers, scientists,
+Earth2Studio is a Python package built to empower researchers, scientists,
 and enthusiasts in the fields of weather and climate science with the latest artificial
 intelligence models/capabilities.
 With an intuitive design and comprehensive feature set, this package serves as a robust
@@ -18,17 +18,18 @@ enable this.
 - Modularity
 - Simple and Explicit Data
 - API Consistency
-- User progression
+- User Progression
 - Test Coverage and Stability
 - Performance
 
 (*in relative order of importance*)
 :::
 
-The design philosophy of Earth-2 Inference Studio embodies a modular architecture where
+The design philosophy of Earth2Studio embodies a modular architecture where
 the inference workflow acts as a flexible adhesive, seamlessly binding together various
 specialized software components with well-defined interfaces.
-Each component within the package serves a distint purpose in typical inference workflows.
+Each component within the package serves a distinct purpose in typical inference
+workflows.
 
 ```{figure} https://gitlab-master.nvidia.com/ngeneva/earth-2-studio-assets/-/raw/main/e2studio-arch.png
 :alt: earth2studio-arch
@@ -36,7 +37,7 @@ Each component within the package serves a distint purpose in typical inference 
 :align: center
 ```
 
-By viewing the inference workflow as a dynamic connector, Earth-2 Inference Studio
+By viewing the inference workflow as a dynamic connector, Earth2Studio
 facilitates effortless integration of these components, allowing researchers to easily
 swap out or augment functionalities to suit their specific needs.
 We recognize that many users will have their own custom workflow needs, thus encourage
@@ -48,14 +49,14 @@ users to use the provided features as a starting point to build their own.
 :align: center
 ```
 
-Signficiant importance is placed on the intefrace that enables the connection between
+Significant importance is placed on the interface that enables the connection between
 the components and the workflow.
 These are simple python protocols that all variants of a particular component must share.
 This not only enables a consistent API but also the generalization of workflows.
 
 ## Key Features
 
-While Earth-2 Inference Studio contains a large collection of general utilities,
+While Earth2Studio contains a large collection of general utilities,
 functions and tooling the following six are considered the core.
 For more information on these features, see the dedicated documentation for each.
 
@@ -66,7 +67,7 @@ For more information on these features, see the dedicated documentation for each
 :class-card: sd-text-black
 Built-in Workflows
 ^^^
-Multiple built-in infernce workflows to accelerate your development and research.
+Multiple built-in inference workflows to accelerate your development and research.
 ::::
 
 ::::{grid-item-card}
@@ -75,7 +76,7 @@ Multiple built-in infernce workflows to accelerate your development and research
 Prognostic Models
 ^^^
 Support for the latest AI weather forecast models
-offered under on coherrent interface.
+offered under a coherent interface.
 ::::
 
 ::::{grid-item-card}
@@ -108,7 +109,7 @@ Simple, yet powerful IO utilities to export data for post-processing.
 Statistical Operators
 ^^^
 Statistical methods to fuse directly into your inference workflow for more complex
-uncertainity analysis.
+uncertainty analysis.
 ::::
 
 :::::

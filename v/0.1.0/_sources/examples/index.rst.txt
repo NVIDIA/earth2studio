@@ -3,7 +3,7 @@
 Examples
 ========
 
-This is a collection of examples in Earth-2 Studio that demonstrate various functionality
+This is a collection of examples in Earth2Studio that demonstrate various functionality
 and commonly used workflows.
 
 
@@ -133,7 +133,7 @@ and commonly used workflows.
 Extending Earth2Studio
 ----------------------
 
-Examples focused on demonstrating how to extend Earth-2 Studio with user-defined
+Examples focused on demonstrating how to extend Earth2Studio with user-defined
 components.
 
 

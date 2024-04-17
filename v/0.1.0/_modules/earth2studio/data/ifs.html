@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>earth2studio.data.ifs &#8212; Earth-2 Studio 0.1.0 documentation</title>
+    <title>earth2studio.data.ifs &#8212; Earth2Studio 0.1.0 documentation</title>
   
   
   
@@ -101,7 +101,7 @@
 
 
   <div class="bd-header-announcement container-fluid bd-header-announcement">
-    <div class="bd-header-announcement__content">Earth-2 Studio is now OSS!</div>
+    <div class="bd-header-announcement__content">Earth2Studio is now OSS!</div>
   </div>
 
   
@@ -133,7 +133,7 @@
     <script>document.write(`<img src="../../../_static/NVIDIA-Logo-V-ForScreen-ForDarkBG.png" class="logo__image only-dark" alt=""/>`);</script>
   
   
-    <p class="title logo__title">Earth-2 Studio</p>
+    <p class="title logo__title">Earth2Studio</p>
   
 </a></div>
     
@@ -569,7 +569,7 @@ document.write(`
                 <span class="n">variables</span><span class="p">,</span> <span class="n">desc</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;Fetching IFS for </span><span class="si">{</span><span class="n">time</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">disable</span><span class="o">=</span><span class="p">(</span><span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_verbose</span><span class="p">)</span>
             <span class="p">)</span>
         <span class="p">):</span>
-            <span class="c1"># Convert from Earth-2 Studio variable ID to GFS id and modifier</span>
+            <span class="c1"># Convert from Earth2Studio variable ID to GFS id and modifier</span>
             <span class="k">try</span><span class="p">:</span>
                 <span class="n">ifs_name</span><span class="p">,</span> <span class="n">modifier</span> <span class="o">=</span> <span class="n">IFSLexicon</span><span class="p">[</span><span class="n">variable</span><span class="p">]</span>
             <span class="k">except</span> <span class="ne">KeyError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
@@ -599,7 +599,7 @@ document.write(`
 <span class="sd">            list of date times to fetch data</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">for</span> <span class="n">time</span> <span class="ow">in</span> <span class="n">times</span><span class="p">:</span>
-            <span class="k">if</span> <span class="ow">not</span> <span class="n">time</span><span class="o">.</span><span class="n">timestamp</span><span class="p">()</span> <span class="o">%</span> <span class="mi">21600</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="n">time</span> <span class="o">-</span> <span class="n">datetime</span><span class="p">(</span><span class="mi">1900</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span><span class="o">.</span><span class="n">total_seconds</span><span class="p">()</span> <span class="o">%</span> <span class="mi">21600</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
                 <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
                     <span class="sa">f</span><span class="s2">&quot;Requested date time </span><span class="si">{</span><span class="n">time</span><span class="si">}</span><span class="s2"> needs to be 6 hour interval for IFS&quot;</span>
                 <span class="p">)</span>
@@ -751,7 +751,7 @@ document.write(`
         <div class="footer-item">
 
   <p class="sphinx-version">
-    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 7.3.0.
+    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 7.3.1.
     <br/>
   </p>
 </div>

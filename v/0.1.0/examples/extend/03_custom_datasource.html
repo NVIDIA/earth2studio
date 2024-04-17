@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
     <link href="../../_static/favicon.ico" rel="icon" type="image/x-icon">
-    <title>Extending Data Sources &#8212; Earth-2 Studio 0.1.0 documentation</title>
+    <title>Extending Data Sources &#8212; Earth2Studio 0.1.0 documentation</title>
   
   
   
@@ -103,7 +103,7 @@
 
 
   <div class="bd-header-announcement container-fluid bd-header-announcement">
-    <div class="bd-header-announcement__content">Earth-2 Studio is now OSS!</div>
+    <div class="bd-header-announcement__content">Earth2Studio is now OSS!</div>
   </div>
 
   
@@ -135,7 +135,7 @@
     <script>document.write(`<img src="../../_static/NVIDIA-Logo-V-ForScreen-ForDarkBG.png" class="logo__image only-dark" alt=""/>`);</script>
   
   
-    <p class="title logo__title">Earth-2 Studio</p>
+    <p class="title logo__title">Earth2Studio</p>
   
 </a></div>
     
@@ -621,25 +621,25 @@ consistent with when GFS provides for relative humidity.</p>
 </div>
 <div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>Fetching ARCO for 2022-01-01 00:00:00:   0%|          | 0/2 [00:00&lt;?, ?it/s]
 
-2024-04-16 23:23:00.821 | DEBUG    | earth2studio.data.arco:fetch_arco_dataarray:166 - Fetching ARCO zarr array for variable: q500 at 2022-01-01T00:00:00
+2024-04-17 00:56:22.899 | DEBUG    | earth2studio.data.arco:fetch_arco_dataarray:166 - Fetching ARCO zarr array for variable: t500 at 2022-01-01T00:00:00
 
 Fetching ARCO for 2022-01-01 00:00:00:   0%|          | 0/2 [00:00&lt;?, ?it/s]
-Fetching ARCO for 2022-01-01 00:00:00:  50%|█████     | 1/2 [00:04&lt;00:04,  4.44s/it]
+Fetching ARCO for 2022-01-01 00:00:00:  50%|█████     | 1/2 [00:02&lt;00:02,  2.89s/it]
 
-2024-04-16 23:23:05.265 | DEBUG    | earth2studio.data.arco:fetch_arco_dataarray:166 - Fetching ARCO zarr array for variable: t500 at 2022-01-01T00:00:00
+2024-04-17 00:56:25.793 | DEBUG    | earth2studio.data.arco:fetch_arco_dataarray:166 - Fetching ARCO zarr array for variable: q500 at 2022-01-01T00:00:00
 
-Fetching ARCO for 2022-01-01 00:00:00:  50%|█████     | 1/2 [00:04&lt;00:04,  4.44s/it]
-Fetching ARCO for 2022-01-01 00:00:00: 100%|██████████| 2/2 [00:08&lt;00:00,  3.94s/it]
-Fetching ARCO for 2022-01-01 00:00:00: 100%|██████████| 2/2 [00:08&lt;00:00,  4.01s/it]
-2024-04-16 23:23:08.872 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:151 - Fetching GFS index file: 2022-01-01 00:00:00
-
-Fetching GFS for 2022-01-01 00:00:00:   0%|          | 0/1 [00:00&lt;?, ?it/s]
-
-2024-04-16 23:23:09.189 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: r500 at 2022-01-01 00:00:00
+Fetching ARCO for 2022-01-01 00:00:00:  50%|█████     | 1/2 [00:02&lt;00:02,  2.89s/it]
+Fetching ARCO for 2022-01-01 00:00:00: 100%|██████████| 2/2 [00:07&lt;00:00,  3.62s/it]
+Fetching ARCO for 2022-01-01 00:00:00: 100%|██████████| 2/2 [00:07&lt;00:00,  3.51s/it]
+2024-04-17 00:56:29.944 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:151 - Fetching GFS index file: 2022-01-01 00:00:00
 
 Fetching GFS for 2022-01-01 00:00:00:   0%|          | 0/1 [00:00&lt;?, ?it/s]
-Fetching GFS for 2022-01-01 00:00:00: 100%|██████████| 1/1 [00:00&lt;00:00,  1.45it/s]
-Fetching GFS for 2022-01-01 00:00:00: 100%|██████████| 1/1 [00:00&lt;00:00,  1.45it/s]
+
+2024-04-17 00:56:30.259 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: r500 at 2022-01-01 00:00:00
+
+Fetching GFS for 2022-01-01 00:00:00:   0%|          | 0/1 [00:00&lt;?, ?it/s]
+Fetching GFS for 2022-01-01 00:00:00: 100%|██████████| 1/1 [00:05&lt;00:00,  5.59s/it]
+Fetching GFS for 2022-01-01 00:00:00: 100%|██████████| 1/1 [00:05&lt;00:00,  5.60s/it]
 &lt;xarray.DataArray (time: 1, variable: 1, lat: 721, lon: 1440)&gt;
 array([[[[ 28.01413468,  28.01413468,  28.01413468, ...,  28.01413468,
            28.01413468,  28.01413468],
@@ -728,152 +728,152 @@ using ARCO, we can run inference for a time quite far back in time.</p>
 <span class="nb">print</span><span class="p">(</span><span class="n">io</span><span class="o">.</span><span class="n">root</span><span class="o">.</span><span class="n">tree</span><span class="p">())</span>
 </pre></div>
 </div>
-<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>2024-04-16 23:23:15.070 | INFO     | earth2studio.run:deterministic:68 - Running simple workflow!
-2024-04-16 23:23:15.070 | INFO     | earth2studio.run:deterministic:71 - Inference device: cuda
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>2024-04-17 00:56:40.751 | INFO     | earth2studio.run:deterministic:68 - Running simple workflow!
+2024-04-17 00:56:40.752 | INFO     | earth2studio.run:deterministic:71 - Inference device: cuda
 
 Fetching ARCO for 1993-04-05 00:00:00:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
-2024-04-16 23:23:17.258 | DEBUG    | earth2studio.data.arco:fetch_arco_dataarray:166 - Fetching ARCO zarr array for variable: v850 at 1993-04-05T00:00:00
+2024-04-17 00:56:41.106 | DEBUG    | earth2studio.data.arco:fetch_arco_dataarray:166 - Fetching ARCO zarr array for variable: t2m at 1993-04-05T00:00:00
 
 Fetching ARCO for 1993-04-05 00:00:00:   0%|          | 0/26 [00:00&lt;?, ?it/s]
-Fetching ARCO for 1993-04-05 00:00:00:   4%|▍         | 1/26 [00:04&lt;01:43,  4.13s/it]
+Fetching ARCO for 1993-04-05 00:00:00:   4%|▍         | 1/26 [00:00&lt;00:21,  1.17it/s]
 
-2024-04-16 23:23:21.387 | DEBUG    | earth2studio.data.arco:fetch_arco_dataarray:166 - Fetching ARCO zarr array for variable: z850 at 1993-04-05T00:00:00
+2024-04-17 00:56:41.961 | DEBUG    | earth2studio.data.arco:fetch_arco_dataarray:166 - Fetching ARCO zarr array for variable: v850 at 1993-04-05T00:00:00
 
-Fetching ARCO for 1993-04-05 00:00:00:   4%|▍         | 1/26 [00:04&lt;01:43,  4.13s/it]
-Fetching ARCO for 1993-04-05 00:00:00:   8%|▊         | 2/26 [00:06&lt;01:12,  3.03s/it]
+Fetching ARCO for 1993-04-05 00:00:00:   4%|▍         | 1/26 [00:00&lt;00:21,  1.17it/s]
+Fetching ARCO for 1993-04-05 00:00:00:   8%|▊         | 2/26 [00:05&lt;01:17,  3.23s/it]
 
-2024-04-16 23:23:23.643 | DEBUG    | earth2studio.data.arco:fetch_arco_dataarray:166 - Fetching ARCO zarr array for variable: z250 at 1993-04-05T00:00:00
+2024-04-17 00:56:46.851 | DEBUG    | earth2studio.data.arco:fetch_arco_dataarray:166 - Fetching ARCO zarr array for variable: t850 at 1993-04-05T00:00:00
 
-Fetching ARCO for 1993-04-05 00:00:00:   8%|▊         | 2/26 [00:06&lt;01:12,  3.03s/it]
-Fetching ARCO for 1993-04-05 00:00:00:  12%|█▏        | 3/26 [00:08&lt;01:00,  2.64s/it]
+Fetching ARCO for 1993-04-05 00:00:00:   8%|▊         | 2/26 [00:05&lt;01:17,  3.23s/it]
+Fetching ARCO for 1993-04-05 00:00:00:  12%|█▏        | 3/26 [00:09&lt;01:17,  3.37s/it]
 
-2024-04-16 23:23:25.814 | DEBUG    | earth2studio.data.arco:fetch_arco_dataarray:166 - Fetching ARCO zarr array for variable: v250 at 1993-04-05T00:00:00
+2024-04-17 00:56:50.384 | DEBUG    | earth2studio.data.arco:fetch_arco_dataarray:166 - Fetching ARCO zarr array for variable: q500 at 1993-04-05T00:00:00
 
-Fetching ARCO for 1993-04-05 00:00:00:  12%|█▏        | 3/26 [00:08&lt;01:00,  2.64s/it]
-Fetching ARCO for 1993-04-05 00:00:00:  15%|█▌        | 4/26 [00:15&lt;01:37,  4.44s/it]
+Fetching ARCO for 1993-04-05 00:00:00:  12%|█▏        | 3/26 [00:09&lt;01:17,  3.37s/it]
+Fetching ARCO for 1993-04-05 00:00:00:  15%|█▌        | 4/26 [00:12&lt;01:10,  3.20s/it]
 
-2024-04-16 23:23:33.028 | DEBUG    | earth2studio.data.arco:fetch_arco_dataarray:166 - Fetching ARCO zarr array for variable: t250 at 1993-04-05T00:00:00
+2024-04-17 00:56:53.319 | DEBUG    | earth2studio.data.arco:fetch_arco_dataarray:166 - Fetching ARCO zarr array for variable: q850 at 1993-04-05T00:00:00
 
-Fetching ARCO for 1993-04-05 00:00:00:  15%|█▌        | 4/26 [00:15&lt;01:37,  4.44s/it]
-Fetching ARCO for 1993-04-05 00:00:00:  19%|█▉        | 5/26 [00:18&lt;01:21,  3.87s/it]
+Fetching ARCO for 1993-04-05 00:00:00:  15%|█▌        | 4/26 [00:12&lt;01:10,  3.20s/it]
+Fetching ARCO for 1993-04-05 00:00:00:  19%|█▉        | 5/26 [00:14&lt;01:03,  3.02s/it]
 
-2024-04-16 23:23:35.888 | DEBUG    | earth2studio.data.arco:fetch_arco_dataarray:166 - Fetching ARCO zarr array for variable: q850 at 1993-04-05T00:00:00
+2024-04-17 00:56:56.028 | DEBUG    | earth2studio.data.arco:fetch_arco_dataarray:166 - Fetching ARCO zarr array for variable: z850 at 1993-04-05T00:00:00
 
-Fetching ARCO for 1993-04-05 00:00:00:  19%|█▉        | 5/26 [00:18&lt;01:21,  3.87s/it]
-Fetching ARCO for 1993-04-05 00:00:00:  23%|██▎       | 6/26 [00:21&lt;01:09,  3.46s/it]
+Fetching ARCO for 1993-04-05 00:00:00:  19%|█▉        | 5/26 [00:14&lt;01:03,  3.02s/it]
+Fetching ARCO for 1993-04-05 00:00:00:  23%|██▎       | 6/26 [00:17&lt;00:55,  2.77s/it]
 
-2024-04-16 23:23:38.539 | DEBUG    | earth2studio.data.arco:fetch_arco_dataarray:166 - Fetching ARCO zarr array for variable: v500 at 1993-04-05T00:00:00
+2024-04-17 00:56:58.323 | DEBUG    | earth2studio.data.arco:fetch_arco_dataarray:166 - Fetching ARCO zarr array for variable: z250 at 1993-04-05T00:00:00
 
-Fetching ARCO for 1993-04-05 00:00:00:  23%|██▎       | 6/26 [00:21&lt;01:09,  3.46s/it]
-Fetching ARCO for 1993-04-05 00:00:00:  27%|██▋       | 7/26 [00:24&lt;01:01,  3.24s/it]
+Fetching ARCO for 1993-04-05 00:00:00:  23%|██▎       | 6/26 [00:17&lt;00:55,  2.77s/it]
+Fetching ARCO for 1993-04-05 00:00:00:  27%|██▋       | 7/26 [00:20&lt;00:57,  3.02s/it]
 
-2024-04-16 23:23:41.341 | DEBUG    | earth2studio.data.arco:fetch_arco_dataarray:166 - Fetching ARCO zarr array for variable: tcwv at 1993-04-05T00:00:00
+2024-04-17 00:57:01.848 | DEBUG    | earth2studio.data.arco:fetch_arco_dataarray:166 - Fetching ARCO zarr array for variable: u500 at 1993-04-05T00:00:00
 
-Fetching ARCO for 1993-04-05 00:00:00:  27%|██▋       | 7/26 [00:24&lt;01:01,  3.24s/it]
-Fetching ARCO for 1993-04-05 00:00:00:  31%|███       | 8/26 [00:24&lt;00:41,  2.28s/it]
+Fetching ARCO for 1993-04-05 00:00:00:  27%|██▋       | 7/26 [00:20&lt;00:57,  3.02s/it]
+Fetching ARCO for 1993-04-05 00:00:00:  31%|███       | 8/26 [00:24&lt;00:55,  3.10s/it]
 
-2024-04-16 23:23:41.561 | DEBUG    | earth2studio.data.arco:fetch_arco_dataarray:166 - Fetching ARCO zarr array for variable: z1000 at 1993-04-05T00:00:00
+2024-04-17 00:57:05.108 | DEBUG    | earth2studio.data.arco:fetch_arco_dataarray:166 - Fetching ARCO zarr array for variable: t500 at 1993-04-05T00:00:00
 
-Fetching ARCO for 1993-04-05 00:00:00:  31%|███       | 8/26 [00:24&lt;00:41,  2.28s/it]
-Fetching ARCO for 1993-04-05 00:00:00:  35%|███▍      | 9/26 [00:26&lt;00:36,  2.16s/it]
+Fetching ARCO for 1993-04-05 00:00:00:  31%|███       | 8/26 [00:24&lt;00:55,  3.10s/it]
+Fetching ARCO for 1993-04-05 00:00:00:  35%|███▍      | 9/26 [00:27&lt;00:56,  3.32s/it]
 
-2024-04-16 23:23:43.444 | DEBUG    | earth2studio.data.arco:fetch_arco_dataarray:166 - Fetching ARCO zarr array for variable: u250 at 1993-04-05T00:00:00
+2024-04-17 00:57:08.908 | DEBUG    | earth2studio.data.arco:fetch_arco_dataarray:166 - Fetching ARCO zarr array for variable: u10m at 1993-04-05T00:00:00
 
-Fetching ARCO for 1993-04-05 00:00:00:  35%|███▍      | 9/26 [00:26&lt;00:36,  2.16s/it]
-Fetching ARCO for 1993-04-05 00:00:00:  38%|███▊      | 10/26 [00:29&lt;00:38,  2.38s/it]
+Fetching ARCO for 1993-04-05 00:00:00:  35%|███▍      | 9/26 [00:27&lt;00:56,  3.32s/it]
+Fetching ARCO for 1993-04-05 00:00:00:  38%|███▊      | 10/26 [00:28&lt;00:39,  2.44s/it]
 
-2024-04-16 23:23:46.336 | DEBUG    | earth2studio.data.arco:fetch_arco_dataarray:166 - Fetching ARCO zarr array for variable: z500 at 1993-04-05T00:00:00
+2024-04-17 00:57:09.388 | DEBUG    | earth2studio.data.arco:fetch_arco_dataarray:166 - Fetching ARCO zarr array for variable: v1000 at 1993-04-05T00:00:00
 
-Fetching ARCO for 1993-04-05 00:00:00:  38%|███▊      | 10/26 [00:29&lt;00:38,  2.38s/it]
-Fetching ARCO for 1993-04-05 00:00:00:  42%|████▏     | 11/26 [00:30&lt;00:33,  2.23s/it]
+Fetching ARCO for 1993-04-05 00:00:00:  38%|███▊      | 10/26 [00:28&lt;00:39,  2.44s/it]
+Fetching ARCO for 1993-04-05 00:00:00:  42%|████▏     | 11/26 [00:32&lt;00:45,  3.03s/it]
 
-2024-04-16 23:23:48.228 | DEBUG    | earth2studio.data.arco:fetch_arco_dataarray:166 - Fetching ARCO zarr array for variable: v10m at 1993-04-05T00:00:00
+2024-04-17 00:57:13.765 | DEBUG    | earth2studio.data.arco:fetch_arco_dataarray:166 - Fetching ARCO zarr array for variable: v10m at 1993-04-05T00:00:00
 
-Fetching ARCO for 1993-04-05 00:00:00:  42%|████▏     | 11/26 [00:30&lt;00:33,  2.23s/it]
-Fetching ARCO for 1993-04-05 00:00:00:  46%|████▌     | 12/26 [00:31&lt;00:24,  1.76s/it]
+Fetching ARCO for 1993-04-05 00:00:00:  42%|████▏     | 11/26 [00:32&lt;00:45,  3.03s/it]
+Fetching ARCO for 1993-04-05 00:00:00:  46%|████▌     | 12/26 [00:33&lt;00:31,  2.23s/it]
 
-2024-04-16 23:23:48.893 | DEBUG    | earth2studio.data.arco:fetch_arco_dataarray:166 - Fetching ARCO zarr array for variable: t850 at 1993-04-05T00:00:00
+2024-04-17 00:57:14.165 | DEBUG    | earth2studio.data.arco:fetch_arco_dataarray:166 - Fetching ARCO zarr array for variable: u1000 at 1993-04-05T00:00:00
 
-Fetching ARCO for 1993-04-05 00:00:00:  46%|████▌     | 12/26 [00:31&lt;00:24,  1.76s/it]
-Fetching ARCO for 1993-04-05 00:00:00:  50%|█████     | 13/26 [00:33&lt;00:23,  1.82s/it]
+Fetching ARCO for 1993-04-05 00:00:00:  46%|████▌     | 12/26 [00:33&lt;00:31,  2.23s/it]
+Fetching ARCO for 1993-04-05 00:00:00:  50%|█████     | 13/26 [00:35&lt;00:29,  2.24s/it]
 
-2024-04-16 23:23:50.874 | DEBUG    | earth2studio.data.arco:fetch_arco_dataarray:166 - Fetching ARCO zarr array for variable: v100m at 1993-04-05T00:00:00
+2024-04-17 00:57:16.429 | DEBUG    | earth2studio.data.arco:fetch_arco_dataarray:166 - Fetching ARCO zarr array for variable: z500 at 1993-04-05T00:00:00
 
-Fetching ARCO for 1993-04-05 00:00:00:  50%|█████     | 13/26 [00:33&lt;00:23,  1.82s/it]
-Fetching ARCO for 1993-04-05 00:00:00:  54%|█████▍    | 14/26 [00:34&lt;00:18,  1.56s/it]
+Fetching ARCO for 1993-04-05 00:00:00:  50%|█████     | 13/26 [00:35&lt;00:29,  2.24s/it]
+Fetching ARCO for 1993-04-05 00:00:00:  54%|█████▍    | 14/26 [00:37&lt;00:25,  2.13s/it]
 
-2024-04-16 23:23:51.834 | DEBUG    | earth2studio.data.arco:fetch_arco_dataarray:166 - Fetching ARCO zarr array for variable: u10m at 1993-04-05T00:00:00
+2024-04-17 00:57:18.299 | DEBUG    | earth2studio.data.arco:fetch_arco_dataarray:166 - Fetching ARCO zarr array for variable: tcwv at 1993-04-05T00:00:00
 
-Fetching ARCO for 1993-04-05 00:00:00:  54%|█████▍    | 14/26 [00:34&lt;00:18,  1.56s/it]
-Fetching ARCO for 1993-04-05 00:00:00:  58%|█████▊    | 15/26 [00:35&lt;00:15,  1.39s/it]
+Fetching ARCO for 1993-04-05 00:00:00:  54%|█████▍    | 14/26 [00:37&lt;00:25,  2.13s/it]
+Fetching ARCO for 1993-04-05 00:00:00:  58%|█████▊    | 15/26 [00:37&lt;00:17,  1.63s/it]
 
-2024-04-16 23:23:52.819 | DEBUG    | earth2studio.data.arco:fetch_arco_dataarray:166 - Fetching ARCO zarr array for variable: v1000 at 1993-04-05T00:00:00
+2024-04-17 00:57:18.758 | DEBUG    | earth2studio.data.arco:fetch_arco_dataarray:166 - Fetching ARCO zarr array for variable: z50 at 1993-04-05T00:00:00
 
-Fetching ARCO for 1993-04-05 00:00:00:  58%|█████▊    | 15/26 [00:35&lt;00:15,  1.39s/it]
-Fetching ARCO for 1993-04-05 00:00:00:  62%|██████▏   | 16/26 [00:38&lt;00:17,  1.76s/it]
+Fetching ARCO for 1993-04-05 00:00:00:  58%|█████▊    | 15/26 [00:37&lt;00:17,  1.63s/it]
+Fetching ARCO for 1993-04-05 00:00:00:  62%|██████▏   | 16/26 [00:39&lt;00:16,  1.69s/it]
 
-2024-04-16 23:23:55.436 | DEBUG    | earth2studio.data.arco:fetch_arco_dataarray:166 - Fetching ARCO zarr array for variable: u1000 at 1993-04-05T00:00:00
+2024-04-17 00:57:20.587 | DEBUG    | earth2studio.data.arco:fetch_arco_dataarray:166 - Fetching ARCO zarr array for variable: sp at 1993-04-05T00:00:00
 
-Fetching ARCO for 1993-04-05 00:00:00:  62%|██████▏   | 16/26 [00:38&lt;00:17,  1.76s/it]
-Fetching ARCO for 1993-04-05 00:00:00:  65%|██████▌   | 17/26 [00:42&lt;00:21,  2.41s/it]
+Fetching ARCO for 1993-04-05 00:00:00:  62%|██████▏   | 16/26 [00:39&lt;00:16,  1.69s/it]
+Fetching ARCO for 1993-04-05 00:00:00:  65%|██████▌   | 17/26 [00:39&lt;00:11,  1.30s/it]
 
-2024-04-16 23:23:59.353 | DEBUG    | earth2studio.data.arco:fetch_arco_dataarray:166 - Fetching ARCO zarr array for variable: t2m at 1993-04-05T00:00:00
+2024-04-17 00:57:20.999 | DEBUG    | earth2studio.data.arco:fetch_arco_dataarray:166 - Fetching ARCO zarr array for variable: u850 at 1993-04-05T00:00:00
 
-Fetching ARCO for 1993-04-05 00:00:00:  65%|██████▌   | 17/26 [00:42&lt;00:21,  2.41s/it]
-Fetching ARCO for 1993-04-05 00:00:00:  69%|██████▉   | 18/26 [00:43&lt;00:17,  2.14s/it]
+Fetching ARCO for 1993-04-05 00:00:00:  65%|██████▌   | 17/26 [00:39&lt;00:11,  1.30s/it]
+Fetching ARCO for 1993-04-05 00:00:00:  69%|██████▉   | 18/26 [00:41&lt;00:12,  1.53s/it]
 
-2024-04-16 23:24:00.873 | DEBUG    | earth2studio.data.arco:fetch_arco_dataarray:166 - Fetching ARCO zarr array for variable: u850 at 1993-04-05T00:00:00
+2024-04-17 00:57:23.042 | DEBUG    | earth2studio.data.arco:fetch_arco_dataarray:166 - Fetching ARCO zarr array for variable: v500 at 1993-04-05T00:00:00
 
-Fetching ARCO for 1993-04-05 00:00:00:  69%|██████▉   | 18/26 [00:43&lt;00:17,  2.14s/it]
-Fetching ARCO for 1993-04-05 00:00:00:  73%|███████▎  | 19/26 [00:46&lt;00:16,  2.32s/it]
+Fetching ARCO for 1993-04-05 00:00:00:  69%|██████▉   | 18/26 [00:41&lt;00:12,  1.53s/it]
+Fetching ARCO for 1993-04-05 00:00:00:  73%|███████▎  | 19/26 [00:44&lt;00:12,  1.83s/it]
 
-2024-04-16 23:24:03.620 | DEBUG    | earth2studio.data.arco:fetch_arco_dataarray:166 - Fetching ARCO zarr array for variable: u100m at 1993-04-05T00:00:00
+2024-04-17 00:57:25.584 | DEBUG    | earth2studio.data.arco:fetch_arco_dataarray:166 - Fetching ARCO zarr array for variable: z1000 at 1993-04-05T00:00:00
 
-Fetching ARCO for 1993-04-05 00:00:00:  73%|███████▎  | 19/26 [00:46&lt;00:16,  2.32s/it]
-Fetching ARCO for 1993-04-05 00:00:00:  77%|███████▋  | 20/26 [00:51&lt;00:18,  3.08s/it]
+Fetching ARCO for 1993-04-05 00:00:00:  73%|███████▎  | 19/26 [00:44&lt;00:12,  1.83s/it]
+Fetching ARCO for 1993-04-05 00:00:00:  77%|███████▋  | 20/26 [00:47&lt;00:13,  2.24s/it]
 
-2024-04-16 23:24:08.460 | DEBUG    | earth2studio.data.arco:fetch_arco_dataarray:166 - Fetching ARCO zarr array for variable: z50 at 1993-04-05T00:00:00
+2024-04-17 00:57:28.772 | DEBUG    | earth2studio.data.arco:fetch_arco_dataarray:166 - Fetching ARCO zarr array for variable: v250 at 1993-04-05T00:00:00
 
-Fetching ARCO for 1993-04-05 00:00:00:  77%|███████▋  | 20/26 [00:51&lt;00:18,  3.08s/it]
-Fetching ARCO for 1993-04-05 00:00:00:  81%|████████  | 21/26 [00:57&lt;00:20,  4.08s/it]
+Fetching ARCO for 1993-04-05 00:00:00:  77%|███████▋  | 20/26 [00:47&lt;00:13,  2.24s/it]
+Fetching ARCO for 1993-04-05 00:00:00:  81%|████████  | 21/26 [00:52&lt;00:14,  2.88s/it]
 
-2024-04-16 23:24:14.867 | DEBUG    | earth2studio.data.arco:fetch_arco_dataarray:166 - Fetching ARCO zarr array for variable: u500 at 1993-04-05T00:00:00
+2024-04-17 00:57:33.132 | DEBUG    | earth2studio.data.arco:fetch_arco_dataarray:166 - Fetching ARCO zarr array for variable: msl at 1993-04-05T00:00:00
 
-Fetching ARCO for 1993-04-05 00:00:00:  81%|████████  | 21/26 [00:57&lt;00:20,  4.08s/it]
-Fetching ARCO for 1993-04-05 00:00:00:  85%|████████▍ | 22/26 [01:00&lt;00:14,  3.59s/it]
+Fetching ARCO for 1993-04-05 00:00:00:  81%|████████  | 21/26 [00:52&lt;00:14,  2.88s/it]
+Fetching ARCO for 1993-04-05 00:00:00:  85%|████████▍ | 22/26 [00:52&lt;00:08,  2.14s/it]
 
-2024-04-16 23:24:17.306 | DEBUG    | earth2studio.data.arco:fetch_arco_dataarray:166 - Fetching ARCO zarr array for variable: q500 at 1993-04-05T00:00:00
+2024-04-17 00:57:33.566 | DEBUG    | earth2studio.data.arco:fetch_arco_dataarray:166 - Fetching ARCO zarr array for variable: t250 at 1993-04-05T00:00:00
 
-Fetching ARCO for 1993-04-05 00:00:00:  85%|████████▍ | 22/26 [01:00&lt;00:14,  3.59s/it]
-Fetching ARCO for 1993-04-05 00:00:00:  88%|████████▊ | 23/26 [01:02&lt;00:09,  3.27s/it]
+Fetching ARCO for 1993-04-05 00:00:00:  85%|████████▍ | 22/26 [00:52&lt;00:08,  2.14s/it]
+Fetching ARCO for 1993-04-05 00:00:00:  88%|████████▊ | 23/26 [00:54&lt;00:06,  2.11s/it]
 
-2024-04-16 23:24:19.837 | DEBUG    | earth2studio.data.arco:fetch_arco_dataarray:166 - Fetching ARCO zarr array for variable: sp at 1993-04-05T00:00:00
+2024-04-17 00:57:35.594 | DEBUG    | earth2studio.data.arco:fetch_arco_dataarray:166 - Fetching ARCO zarr array for variable: u100m at 1993-04-05T00:00:00
 
-Fetching ARCO for 1993-04-05 00:00:00:  88%|████████▊ | 23/26 [01:02&lt;00:09,  3.27s/it]
-Fetching ARCO for 1993-04-05 00:00:00:  92%|█████████▏| 24/26 [01:04&lt;00:05,  2.92s/it]
+Fetching ARCO for 1993-04-05 00:00:00:  88%|████████▊ | 23/26 [00:54&lt;00:06,  2.11s/it]
+Fetching ARCO for 1993-04-05 00:00:00:  92%|█████████▏| 24/26 [00:54&lt;00:03,  1.58s/it]
 
-2024-04-16 23:24:21.939 | DEBUG    | earth2studio.data.arco:fetch_arco_dataarray:166 - Fetching ARCO zarr array for variable: t500 at 1993-04-05T00:00:00
+2024-04-17 00:57:35.936 | DEBUG    | earth2studio.data.arco:fetch_arco_dataarray:166 - Fetching ARCO zarr array for variable: u250 at 1993-04-05T00:00:00
 
-Fetching ARCO for 1993-04-05 00:00:00:  92%|█████████▏| 24/26 [01:04&lt;00:05,  2.92s/it]
-Fetching ARCO for 1993-04-05 00:00:00:  96%|█████████▌| 25/26 [01:08&lt;00:03,  3.14s/it]
+Fetching ARCO for 1993-04-05 00:00:00:  92%|█████████▏| 24/26 [00:54&lt;00:03,  1.58s/it]
+Fetching ARCO for 1993-04-05 00:00:00:  96%|█████████▌| 25/26 [01:00&lt;00:02,  2.74s/it]
 
-2024-04-16 23:24:25.609 | DEBUG    | earth2studio.data.arco:fetch_arco_dataarray:166 - Fetching ARCO zarr array for variable: msl at 1993-04-05T00:00:00
+2024-04-17 00:57:41.402 | DEBUG    | earth2studio.data.arco:fetch_arco_dataarray:166 - Fetching ARCO zarr array for variable: v100m at 1993-04-05T00:00:00
 
-Fetching ARCO for 1993-04-05 00:00:00:  96%|█████████▌| 25/26 [01:08&lt;00:03,  3.14s/it]
-Fetching ARCO for 1993-04-05 00:00:00: 100%|██████████| 26/26 [01:11&lt;00:00,  3.03s/it]
-Fetching ARCO for 1993-04-05 00:00:00: 100%|██████████| 26/26 [01:11&lt;00:00,  2.74s/it]
-2024-04-16 23:24:28.513 | SUCCESS  | earth2studio.run:deterministic:82 - Fetched data from CustomDataSource
-2024-04-16 23:24:28.537 | INFO     | earth2studio.run:deterministic:104 - Inference starting!
+Fetching ARCO for 1993-04-05 00:00:00:  96%|█████████▌| 25/26 [01:00&lt;00:02,  2.74s/it]
+Fetching ARCO for 1993-04-05 00:00:00: 100%|██████████| 26/26 [01:03&lt;00:00,  2.75s/it]
+Fetching ARCO for 1993-04-05 00:00:00: 100%|██████████| 26/26 [01:03&lt;00:00,  2.43s/it]
+2024-04-17 00:57:44.309 | SUCCESS  | earth2studio.run:deterministic:82 - Fetched data from CustomDataSource
+2024-04-17 00:57:44.332 | INFO     | earth2studio.run:deterministic:104 - Inference starting!
 
 Running inference:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 Running inference:  20%|██        | 1/5 [00:00&lt;00:02,  1.64it/s]
 Running inference:  40%|████      | 2/5 [00:01&lt;00:02,  1.47it/s]
-Running inference:  60%|██████    | 3/5 [00:02&lt;00:01,  1.39it/s]
-Running inference:  80%|████████  | 4/5 [00:02&lt;00:00,  1.34it/s]
-Running inference: 100%|██████████| 5/5 [00:03&lt;00:00,  1.29it/s]
+Running inference:  60%|██████    | 3/5 [00:02&lt;00:01,  1.37it/s]
+Running inference:  80%|████████  | 4/5 [00:02&lt;00:00,  1.33it/s]
+Running inference: 100%|██████████| 5/5 [00:03&lt;00:00,  1.30it/s]
 Running inference: 100%|██████████| 5/5 [00:03&lt;00:00,  1.34it/s]
-2024-04-16 23:24:32.262 | SUCCESS  | earth2studio.run:deterministic:112 - Inference complete
+2024-04-17 00:57:48.053 | SUCCESS  | earth2studio.run:deterministic:112 - Inference complete
 /
  ├── lat (720,) float64
  ├── lead_time (5,) timedelta64[h]
@@ -937,7 +937,7 @@ to be progressively more noisy as time progresses.</p>
 <span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="s2">&quot;outputs/custom_datasource_prediction.jpg&quot;</span><span class="p">,</span> <span class="n">bbox_inches</span><span class="o">=</span><span class="s2">&quot;tight&quot;</span><span class="p">)</span>
 </pre></div>
 </div>
-<img src="../../_images/sphx_glr_03_custom_datasource_002.png" srcset="../../_images/sphx_glr_03_custom_datasource_002.png, ../../_images/sphx_glr_03_custom_datasource_002_2_00x.png 2.00x" alt="tcwv - 1993-04-05, Lead time: 0hrs, Lead time: 6hrs, Lead time: 12hrs, Lead time: 18hrs" class = "sphx-glr-single-img"/><p class="sphx-glr-timing"><strong>Total running time of the script:</strong> (1 minutes 43.066 seconds)</p>
+<img src="../../_images/sphx_glr_03_custom_datasource_002.png" srcset="../../_images/sphx_glr_03_custom_datasource_002.png, ../../_images/sphx_glr_03_custom_datasource_002_2_00x.png 2.00x" alt="tcwv - 1993-04-05, Lead time: 0hrs, Lead time: 6hrs, Lead time: 12hrs, Lead time: 18hrs" class = "sphx-glr-single-img"/><p class="sphx-glr-timing"><strong>Total running time of the script:</strong> (1 minutes 36.762 seconds)</p>
 <div class="sphx-glr-footer sphx-glr-footer-example docutils container" id="sphx-glr-download-examples-extend-03-custom-datasource-py">
 <div class="sphx-glr-download sphx-glr-download-jupyter docutils container">
 <p><a class="reference download internal" download="" href="../../_downloads/94cd5407c844023b4f11ecbc0e4de0a1/03_custom_datasource.ipynb"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">Jupyter</span> <span class="pre">notebook:</span> <span class="pre">03_custom_datasource.ipynb</span></code></a></p>
@@ -1041,7 +1041,7 @@ to be progressively more noisy as time progresses.</p>
         <div class="footer-item">
 
   <p class="sphinx-version">
-    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 7.3.0.
+    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 7.3.1.
     <br/>
   </p>
 </div>

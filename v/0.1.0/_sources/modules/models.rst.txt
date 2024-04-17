@@ -16,7 +16,7 @@ Thus are typically used to generate forecast predictions.
 
 .. warning ::
 
-   Pre-trained prognostic models provided in Earth-2 Inference Studio may be provided
+   Pre-trained prognostic models provided in Earth2Studio may be provided
    under different licenses. We encourage users to familiarize themselves with each
    prior to use.
 
@@ -46,7 +46,7 @@ etc.
 
 .. warning ::
 
-   Pre-trained diagnostic models provided in Earth-2 Inference Studio may be provided
+   Pre-trained diagnostic models provided in Earth2Studio may be provided
    under different licenses. We encourage users to familiarize themselves with each
    prior to use.
 

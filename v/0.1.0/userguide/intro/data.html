@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
     <link href="../../_static/favicon.ico" rel="icon" type="image/x-icon">
-    <title>Data Movement &#8212; Earth-2 Studio 0.1.0 documentation</title>
+    <title>Data Movement &#8212; Earth2Studio 0.1.0 documentation</title>
   
   
   
@@ -104,7 +104,7 @@
 
 
   <div class="bd-header-announcement container-fluid bd-header-announcement">
-    <div class="bd-header-announcement__content">Earth-2 Studio is now OSS!</div>
+    <div class="bd-header-announcement__content">Earth2Studio is now OSS!</div>
   </div>
 
   
@@ -136,7 +136,7 @@
     <script>document.write(`<img src="../../_static/NVIDIA-Logo-V-ForScreen-ForDarkBG.png" class="logo__image only-dark" alt=""/>`);</script>
   
   
-    <p class="title logo__title">Earth-2 Studio</p>
+    <p class="title logo__title">Earth2Studio</p>
   
 </a></div>
     
@@ -442,7 +442,7 @@ document.write(`
 mystified. Show me your data structures, and I won’t usually need your code; it’ll be
 obvious.” - <em>Fred Brooks</em></p>
 </div>
-<p>Earth-2 Inference Studio aims to keep data simple and interpretable between components.
+<p>Earth2Studio aims to keep data simple and interpretable between components.
 Given that this package interacts with geo-physial data, the common data-structure
 inside workflows is the pairing of:</p>
 <ol class="arabic simple">
@@ -461,7 +461,7 @@ to generate a noise tensor:</p>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
         <span class="n">coords</span><span class="p">:</span> <span class="n">CoordSystem</span><span class="p">,</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">CoordSystem</span><span class="p">]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Apply perturbation method</span>
 
 <span class="sd">        Parameters</span>
@@ -473,8 +473,8 @@ to generate a noise tensor:</p>
 
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
-<span class="sd">        torch.Tensor</span>
-<span class="sd">            Perturbation noise tensor</span>
+<span class="sd">        tuple[torch.Tensor, CoordSystem]:</span>
+<span class="sd">            Ouput tensor and respective coordinate system dictionary</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">pass</span>
 </pre></div>
@@ -504,11 +504,11 @@ Let’s consider a simple example of a 2D lat-lon grid:</p>
 <span class="p">})</span>
 </pre></div>
 </div>
-<p>Much of Earth-2 Inference Studio typically operates on a lat-lon grid but it’s not
+<p>Much of Earth2Studio typically operates on a lat-lon grid but it’s not
 required to.</p>
 <section id="standard-coordinate-names">
 <h3>Standard Coordinate Names<a class="headerlink" href="#standard-coordinate-names" title="Link to this heading">#</a></h3>
-<p>Earth-2 Inference Studio has a dimension naming standard for its built in feature set.
+<p>Earth2Studio has a dimension naming standard for its built in feature set.
 We encourage users to follow similar naming schemes for compatability between Earth-2
 Inference Studio when possible and the packages we interface with.</p>
 <table class="table">
@@ -557,9 +557,9 @@ Inference Studio has its own naming convention. See lexicon docs more more detai
 <h3>Coordinate Utilities<a class="headerlink" href="#coordinate-utilities" title="Link to this heading">#</a></h3>
 <p>The downside of using a dictionary to store coordinates is that manipulating the data
 tensor and then updating the coordinate array is not a manual process.
-To help make this process less tedious, Earth-2 Inference Studio has several utility
+To help make this process less tedious, Earth2Studio has several utility
 functions that make interacting with coordinates easier.
-The bulk of these can be found in the <a class="reference internal" href="../../modules/utils.html#earth2studio-utils-api"><span class="std std-ref">Earth-2 Studio Utilities</span></a>.</p>
+The bulk of these can be found in the <a class="reference internal" href="../../modules/utils.html#earth2studio-utils-api"><span class="std std-ref">Earth2Studio Utilities</span></a>.</p>
 <div class="admonition warning">
 <p class="admonition-title">Warning</p>
 <p>🚧 Under construction, todo: add some example here! 🚧</p>
@@ -569,7 +569,7 @@ The bulk of these can be found in the <a class="reference internal" href="../../
 <section id="inference-on-the-gpu">
 <h2>Inference on the GPU<a class="headerlink" href="#inference-on-the-gpu" title="Link to this heading">#</a></h2>
 <p>It is beneficial to leverage the GPU for as many processes as possible.
-Earth-2 Inference Studio aims to get data from the data source and immediately convert
+Earth2Studio aims to get data from the data source and immediately convert
 it into the tensor, coord data struction on the device.
 From there, the data is kept on the GPU until the very last moment when writes are
 needed to in-memory or to file.</p>
@@ -690,7 +690,7 @@ with a coordinate system attached to it!</p>
         <div class="footer-item">
 
   <p class="sphinx-version">
-    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 7.3.0.
+    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 7.3.1.
     <br/>
   </p>
 </div>
