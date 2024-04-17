@@ -9,7 +9,7 @@ Used for fetching initial conditions for inference and validation data for scori
 
 .. warning ::
 
-   Each data source provided in Earth-2 Inference Studio may have its own respective
+   Each data source provided in Earth2Studio may have its own respective
    license. We encourage users to familiarize themselves with each and the limitations
    it may impose on their use case.
 

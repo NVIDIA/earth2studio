@@ -46,6 +46,6 @@ class DataSource(Protocol):
         xr.DataArray
             An xarray data-array with the dimensions [time, channel, ....]. The coords
             should be provided. Time coordinate should be a datetime array and the
-            channel coordinate should be array of strings with Earth-2 Studio channel ids.
+            channel coordinate should be array of strings with Earth2Studio channel ids.
         """
         pass

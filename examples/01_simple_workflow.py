@@ -36,7 +36,7 @@ In this example you will learn:
 # %%
 # Set Up
 # ------
-# All workflows inside Earth-2 Inference Studio require constructed components to be
+# All workflows inside Earth2Studio require constructed components to be
 # handed to them. In this example, lets take a look at the most basic:
 # :py:meth:`earth2studio.run.deterministic`.
 

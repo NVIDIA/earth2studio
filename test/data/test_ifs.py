@@ -26,9 +26,9 @@ from earth2studio.data import IFS
 
 def now6h():
     """Get closest 6 hour timestamp"""
-    now_time = datetime.now().timestamp()
-    now_time = now_time - now_time % 21600
-    return datetime.fromtimestamp(now_time)
+    nt = datetime.now()
+    delta_hr = nt.hour % 6
+    return datetime(nt.year, nt.month, nt.day, nt.hour - delta_hr)
 
 
 @pytest.mark.slow
@@ -37,7 +37,7 @@ def now6h():
 @pytest.mark.parametrize(
     "time",
     [
-        now6h() - timedelta(hours=6),
+        now6h() - timedelta(hours=12),
         [
             now6h() - timedelta(days=1),
             now6h() - timedelta(days=1, hours=6),

@@ -7,7 +7,7 @@ name = "earth2studio"
 authors = [
   { name="NVIDIA Modulus Team"},
 ]
-description = "Earth-2 Inference Studio is a Python-based AI framework that enables climate researchers and scientists to explore and experiment with the use of AI models for weather and climate."
+description = "Earth2Studio is a Python-based AI framework that enables climate researchers and scientists to explore and experiment with the use of AI models for weather and climate."
 readme = "README.md"
 requires-python = ">=3.10"
 license = {text = "Apache 2.0"}

@@ -28,7 +28,7 @@ A collection of utilities to manipulate and check coordinate systems dictionarie
 :mod:`earth2studio.utils`: Time
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-A collection of utilities to help interact with time coordinate arrays. Earth-2 Studio
+A collection of utilities to help interact with time coordinate arrays. Earth2Studio
 uses `np.datetime64[ns]` to represent time.
 The following functions can be used to convert to and from these numpy arrays.
 
