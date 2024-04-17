@@ -53,7 +53,7 @@ def test_auto_model(model, model_cache_context):
     Parameters
     ----------
     model : AutoModelMixin
-        Model class that is an auto model in earth-2 studio
+        Model class that is an auto model in Earth2Studio
     model_cache_context : EnvContextManager
         Context manager that changed cache dir for CI, provided via fixture
     """

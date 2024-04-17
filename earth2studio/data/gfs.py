@@ -18,7 +18,7 @@ import hashlib
 import os
 import pathlib
 import shutil
-from datetime import datetime, timedelta
+from datetime import datetime
 
 import boto3
 import botocore
@@ -175,7 +175,7 @@ class GFS:
                 variables, desc=f"Fetching GFS for {time}", disable=(not self._verbose)
             )
         ):
-            # Convert from Earth-2 Studio variable ID to GFS id and modifier
+            # Convert from Earth2Studio variable ID to GFS id and modifier
             try:
                 gfs_name, modifier = GFSLexicon[variable]
             except KeyError:
@@ -216,7 +216,7 @@ class GFS:
             list of date times to fetch data
         """
         for time in times:
-            if (time - datetime(1900, 1, 1)) % timedelta(hours=6) != timedelta(hours=0):
+            if not (time - datetime(1900, 1, 1)).total_seconds() % 21600 == 0:
                 raise ValueError(
                     f"Requested date time {time} needs to be 6 hour interval for GFS"
                 )

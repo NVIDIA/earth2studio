@@ -44,13 +44,6 @@ coverage:
 	coverage combine
 	coverage report --fail-under=89
 
-.PHONY: report
-report:
-	coverage xml
-	curl -Os https://uploader.codecov.io/latest/linux/codecov
-	chmod +x codecov
-	./codecov -v -f e2studio.coverage.xml $(COV_ARGS)
-
 .PHONY: docs
 docs:
 	pip install .[docs]

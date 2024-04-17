@@ -6,13 +6,14 @@
 [![python version][e2studio_python_img]][e2studio_python_url]
 [![license][e2studio_license_img]][e2studio_license_url]
 [![format][e2studio_format_img]][e2studio_format_url]
+[![coverage][e2studio_cov_img]][e2studio_cov_url]
 
-Earth-2 Studio is a Python-based package designed to get users up and running
+Earth2Studio is a Python-based package designed to get users up and running
 with AI weather and climate models *fast*.
 Our mission is to enable everyone to build, research and explore AI driven meteorology.
 
 <!-- markdownlint-disable MD036 -->
-**- Earth-2 Studio Documentation -**
+**- Earth2Studio Documentation -**
 <!-- markdownlint-enable MD036 -->
 
 [Install][e2studio_install_url] | [User-Guide][e2studio_userguide_url] |
@@ -22,14 +23,10 @@ Our mission is to enable everyone to build, research and explore AI driven meteo
 
 ## Quick start
 
-Install Earth-2 Studio from source:
+Install Earth2Studio:
 
 ```bash
-git clone https://github.com/NVIDIA/earth2studio.git
-
-cd earth2-inference-studio
-
-pip install .
+pip install earth2studio
 ```
 
 Run a deterministic weather prediction in just a few lines of code:
@@ -37,19 +34,19 @@ Run a deterministic weather prediction in just a few lines of code:
 ```python
 from earth2studio.models.px import DLWP
 from earth2studio.data import GFS
-from earth2studio.io import NetCDF
+from earth2studio.io import NetCDF4Backend
 from earth2studio.run import deterministic as run
 
 model = DLWP.load_model(DLWP.load_default_package())
 ds = GFS()
-io = NetCDF("output.nc")
+io = NetCDF4Backend("output.nc")
 
-run(time=["2024-01-01"], nsteps=10, model, ds, io)
+run(["2024-01-01"], 10, model, ds, io)
 ```
 
 ## Features
 
-Earth-2 Studio focuses on providing users the tools to build their own
+Earth2Studio focuses on providing users the tools to build their own
 workflows, pipelines, APIs, packages, etc. via modular components including:
 
 - Collection of pre-trained weather/climate prediction models
@@ -71,7 +68,7 @@ requirements and the userguide for higher level philosophy, structure, and desig
 
 ## License
 
-Earth-2 Inference Studio is provided under the Apache License 2.0, please see
+Earth2Studio is provided under the Apache License 2.0, please see
 [LICENSE file][e2studio_license_url] for full license text.
 
 <!-- Badge links -->
@@ -79,10 +76,12 @@ Earth-2 Inference Studio is provided under the Apache License 2.0, please see
 [e2studio_python_img]: https://img.shields.io/badge/Python-3.10%2B-blue?style=flat-square&logo=python
 [e2studio_license_img]: https://img.shields.io/badge/License-Apache%202.0-green?style=flat-square
 [e2studio_format_img]: https://img.shields.io/badge/Code%20Style-Black-black?style=flat-square
+[e2studio_cov_img]: https://img.shields.io/codecov/c/github/nickgeneva/earth2studio?style=flat-square&logo=codecov
 
 [e2studio_python_url]: https://www.python.org/downloads/
 [e2studio_license_url]: ./LICENSE
 [e2studio_format_url]: https://github.com/psf/black
+[e2studio_cov_url]: ./test/
 
 <!-- Doc links -->
 [e2studio_docs_url]: https://nvidia.github.io/earth2studio/

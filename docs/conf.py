@@ -47,7 +47,7 @@ sys.path.insert(0, modulus.as_posix())
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 version = ".".join(release.split(".")[:2])
-project = "Earth-2 Studio"
+project = "Earth2Studio"
 copyright = "2024, NVIDIA"
 author = "NVIDIA"
 
@@ -80,9 +80,9 @@ html_css_files = [
     "css/custom.css",
 ]
 html_theme_options = {
-    "announcement": "Earth-2 Studio is now OSS!",
+    "announcement": "Earth2Studio is now OSS!",
     "logo": {
-        "text": "Earth-2 Studio",
+        "text": "Earth2Studio",
         "image_light": "_static/NVIDIA-Logo-V-ForScreen-ForLightBG.png",
         "image_dark": "_static/NVIDIA-Logo-V-ForScreen-ForDarkBG.png",
     },
