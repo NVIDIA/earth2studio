@@ -5,7 +5,7 @@
 
 ## Install from PyPi
 
-To get the latest release of Earth2Studio install from the Python index:
+To get the latest release of Earth2Studio, install from the Python index:
 
 ```bash
 pip install earth2studio
@@ -35,9 +35,9 @@ python
 :::{admonition} Base Install Limitations
 :class: warning
 
-The base pip install does not guarentee all functionality and/or examples are
+The base pip install does not guarantee all functionality and/or examples are
 operational due to optional dependencies.
-We encourage users that face package issues to familize themselves with the optional
+We encourage users that face package issues to familiarize themselves with the optional
 model installs and suggested environment set up for the most complete experience.
 :::
 
@@ -87,14 +87,14 @@ Using `pip install earth2studio[all]` will install all optional functionality de
 # Environments
 
 For the best experience we recommend creating a fresh environment whether that be using
-a Docker container or a conda environment.
+a Docker container or a Conda environment.
 Below are some recipes for creating a handful of environments that we recommend for
 setting up Earth2Studio to run all build in models.
 
 ## Modulus Docker Container
 
-The recommend environment to run Earth2Studio in is the [Modulus docker container](https://catalog.ngc.nvidia.com/orgs/nvidia/teams/modulus/containers/modulus).
-This is the way the team develops with and is the primary test bed.
+The recommended environment to run Earth2Studio in is the [Modulus docker container](https://catalog.ngc.nvidia.com/orgs/nvidia/teams/modulus/containers/modulus).
+This is the environment the team develops with and is the primary test bed.
 You can install Earth2Studio in a running container directly:
 
 ```bash
@@ -119,13 +119,13 @@ RUN pip install earth2studio[all]
 
 Modulus docker container is shipped with some packages that are not directly needed by
 Earth2Studio.
-Thus some may prefer to install from the PyTorch container.
+Thus, some may prefer to install from the [PyTorch container](https://catalog.ngc.nvidia.com/orgs/nvidia/containers/pytorch).
 Note that for ONNX models to work we will need a [specific install](https://onnxruntime.ai/docs/install/#install-onnx-runtime-ort-1):
 
 ```bash
-docker run -i -t nvcr.io/nvidia/modulus/modulus:24.04
+docker run -i -t nvcr.io/nvidia/pytorch:24.01-py3
 
->>> pip install onnxruntime-gpu --extra-index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/onnxruntime-cuda-12/pypi/simple/
+>>> pip install onnx onnxruntime-gpu --extra-index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/onnxruntime-cuda-12/pypi/simple/
 >>> pip install "makani[all] @ git+https://github.com/NVIDIA/modulus-makani.git@v0.1.0"
 
 >>> pip install earth2studio[pangu,fengwu,sfno]
@@ -133,31 +133,25 @@ docker run -i -t nvcr.io/nvidia/modulus/modulus:24.04
 
 ## Conda Environment
 
-🚧 Under construction 🚧
-
-For instances where Docker is not an option, we recommend creating a conda environment.
+For instances where Docker is not an option, we recommend creating a Conda environment.
 Ensuring the PyTorch is running on your GPU is essential, make sure you are [installing](https://pytorch.org/get-started/locally/)
-the correct PyTorch for your hardward and CUDA is accessible.
+the correct PyTorch for your hardware and CUDA is accessible.
 
 ```bash
 conda create -n earth2studio python=3.10
 conda activate earth2studio
 
-conda install pytorch torchvision torchaudio pytorch-cuda=12.1 -c pytorch -c nvidia
+conda install pytorch pytorch-cuda=12.1 -c pytorch -c nvidia
 conda install eccodes python-eccodes -c conda-forge
-pip install onnxruntime-gpu --extra-index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/onnxruntime-cuda-12/pypi/simple/
+pip install onnx onnxruntime-gpu --extra-index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/onnxruntime-cuda-12/pypi/simple/
 pip install "makani[all] @ git+https://github.com/NVIDIA/modulus-makani.git@v0.1.0"
-
-git clone https://github.com/NVIDIA/apex
-pip install -v --disable-pip-version-check --no-cache-dir --no-build-isolation \
---global-option="--cpp_ext" --global-option="--cuda_ext" ./apex
 
 pip install earth2studio[all]
 ```
 
 # For Developers
 
-For developers, use an edittable install of Earth-2 Studio with the `dev` option:
+For developers, use an editable install of Earth2Studio with the `dev` option:
 
 ```bash
 git clone https://github.com/NVIDIA/earth2studio.git
@@ -167,7 +161,7 @@ cd earth2-inference-studio
 pip install -e .[dev]
 ```
 
-Earth-2 Studio uses pre-commit which also should be installed immediately by developers:
+Earth2Studio uses pre-commit which also should be installed immediately by developers:
 
 ```bash
 pre-commit install
@@ -175,7 +169,7 @@ pre-commit install
 >>> pre-commit installed at .git/hooks/pre-commit
 ```
 
-To install documentation dependencies use:
+To install documentation dependencies, use:
 
 ```bash
 pip install .[docs]

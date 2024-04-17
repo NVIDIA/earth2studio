@@ -120,7 +120,7 @@ class AutoModelMixin:
     def from_pretrained(
         cls, pretrained_model_name_or_path: Optional[str] = None
     ) -> Any:
-        """Loads and instantiates a pre-trained Earth-2 Studio model
+        """Loads and instantiates a pre-trained Earth2Studio model
 
         Parameters
         ----------

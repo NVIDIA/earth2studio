@@ -32,7 +32,7 @@ class Perturbation:
 
     Note
     ----
-    It is a core design principle of Earth-2 Studio to always move data with physical
+    It is a core design principle of Earth2Studio to always move data with physical
     units between components. It is very likely users should provide normalization
     arrays.
 

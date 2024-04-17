@@ -225,7 +225,7 @@ class ARCO:
             list of date times to fetch data
         """
         for time in times:
-            if not time.minute == 0 and time.second == 0:
+            if not (time - datetime(1900, 1, 1)).total_seconds() % 3600 == 0:
                 raise ValueError(
                     f"Requested date time {time} needs to be 1 hour interval for ARCO"
                 )
@@ -264,12 +264,12 @@ class ARCO:
         return int(divmod(duration.total_seconds(), 3600)[0])
 
     @classmethod
-    def available(cls, time: datetime) -> bool:
+    def available(cls, time: datetime | np.datetime64) -> bool:
         """Checks if given date time is avaliable in the ARCO data source
 
         Parameters
         ----------
-        time : datetime
+        time : datetime | np.datetime64
             Date time to access
 
         Returns
@@ -277,6 +277,11 @@ class ARCO:
         bool
             If date time is avaiable
         """
+        if isinstance(time, np.datetime64):  # np.datetime64 -> datetime
+            _unix = np.datetime64(0, "s")
+            _ds = np.timedelta64(1, "s")
+            time = datetime.utcfromtimestamp((time - _unix) / _ds)
+
         # Offline checks
         try:
             cls._validate_time([time])
