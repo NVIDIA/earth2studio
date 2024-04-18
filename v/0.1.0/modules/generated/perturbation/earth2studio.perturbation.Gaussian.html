@@ -427,6 +427,7 @@ document.write(`
 </li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../../workflows.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.run</span></code>: Workflows</a><input class="toctree-checkbox" id="toctree-checkbox-7" name="toctree-checkbox-7" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-7"><i class="fa-solid fa-chevron-down"></i></label><ul>
 <li class="toctree-l2"><a class="reference internal" href="../workflows/earth2studio.run.deterministic.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.run</span></code>.deterministic</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../workflows/earth2studio.run.ensemble.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.run</span></code>.ensemble</a></li>
 </ul>
 </li>
 </ul>
@@ -508,7 +509,7 @@ document.write(`
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>x</strong> (<em>torch.Tensor</em>) – Input tensor intended to apply perturbation on</p></li>
-<li><p><strong>coords</strong> (<em>CoordSystem</em>) – Ordered dict representing coordinate system that discribes the tensor</p></li>
+<li><p><strong>coords</strong> (<em>CoordSystem</em>) – Ordered dict representing coordinate system that describes the tensor</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
@@ -522,7 +523,13 @@ document.write(`
 
 </dd></dl>
 
-<div class="clearer"></div></section>
+<section id="examples-using-earth2studio-perturbation-gaussian">
+<span id="sphx-glr-backref-earth2studio-perturbation-gaussian"></span><h2>Examples using <code class="docutils literal notranslate"><span class="pre">earth2studio.perturbation.Gaussian</span></code><a class="headerlink" href="#examples-using-earth2studio-perturbation-gaussian" title="Link to this heading">#</a></h2>
+<div class="sphx-glr-thumbnails"><div class="sphx-glr-thumbcontainer" tooltip="Adding model noise by using custom hooks."><img alt="" src="../../../_images/sphx_glr_05_model_perturbation_hook_thumb.png" />
+<p><a class="reference internal" href="../../../examples/05_model_perturbation_hook.html#sphx-glr-examples-05-model-perturbation-hook-py"><span class="std std-ref">Model Hook Injection: Perturbation</span></a></p>
+  <div class="sphx-glr-thumbnail-title">Model Hook Injection: Perturbation</div>
+</div></div><div class="clearer"></div></section>
+</section>
 
 
                 </article>
@@ -574,6 +581,7 @@ document.write(`
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.perturbation.Gaussian.__call__"><code class="docutils literal notranslate"><span class="pre">Gaussian.__call__()</span></code></a></li>
 </ul>
 </li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#examples-using-earth2studio-perturbation-gaussian">Examples using <code class="docutils literal notranslate"><span class="pre">earth2studio.perturbation.Gaussian</span></code></a></li>
 </ul>
   </nav></div>
 
@@ -620,7 +628,7 @@ document.write(`
         <div class="footer-item">
 
   <p class="sphinx-version">
-    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 7.3.1.
+    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 7.3.6.
     <br/>
   </p>
 </div>

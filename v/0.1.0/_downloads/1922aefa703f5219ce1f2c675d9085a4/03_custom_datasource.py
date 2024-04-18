@@ -21,7 +21,7 @@ Extending Data Sources
 
 Implementing a custom data source
 
-This example will demonstrate how extend Earth2Studio by implementing a custom data
+This example will demonstrate how to extend Earth2Studio by implementing a custom data
 source to use in a built in workflow.
 
 In this example you will learn:
@@ -35,11 +35,11 @@ In this example you will learn:
 # ------------------
 # Earth2Studio defines the required APIs for data sources in
 # :py:class:`earth2studio.data.base.DataSource` which requires just a call function.
-# For this example, lets consider extending an existing remote data source with another
-# atmospheric field we can calculate.
+# For this example, we will consider extending an existing remote data source with
+# another atmospheric field we can calculate.
 #
 # The ARCO data source provides the ERA5 dataset in a cloud optimized format, however
-# it only provides specific humdity. This is a problem for models that may use relative
+# it only provides specific humidity. This is a problem for models that may use relative
 # humidity as an input. Based on ECMWF documentation we can calculate the relative
 # humidity based on temperature and geo-potential.
 
@@ -143,7 +143,7 @@ class CustomDataSource:
         Parameters
         ----------
         temperature : np.array
-            Temperture field (K)
+            Temperature field (K)
         specific_humidity : np.array
             Specific humidity field (g.kg-1)
         pressure : float
@@ -174,10 +174,10 @@ class CustomDataSource:
 # :py:func:`__call__` API
 # ~~~~~~~~~~~~~~~~~~~~~~~
 # The call function is the main API of data source which return the Xarray data array
-# with the requested data. For this custom data source we intercept relative humdity
+# with the requested data. For this custom data source we intercept relative humidity
 # variables, replace them with temperature and specific humidity requests then calculate
-# the realtive humidty from these fields. Note that the ARCO data source is handling
-# the remote complexity, we are just manipulating numpy arrays
+# the relative humidity from these fields. Note that the ARCO data source is handling
+# the remote complexity, we are just manipulating Numpy arrays
 
 # %%
 # :py:func:`calc_relative_humdity`
@@ -192,7 +192,7 @@ class CustomDataSource:
 # %%
 # Verification
 # ------------
-# Before plugging this into our workflow, lets quickly verify our data source is
+# Before plugging this into our workflow, let's quickly verify our data source is
 # consistent with when GFS provides for relative humidity.
 
 # %%
@@ -240,15 +240,15 @@ plt.savefig("outputs/custom_datasource_gfs_versus_custom.jpg")
 # %%
 # Execute Workflow
 # ----------------
-# Now lets use our data source to run deterministic inference with a model that requires
-# relative humidity. :mod:`earth2studio.models.px.FCN` is one such model. Since we are
-# using ARCO, we can run inference for a time quite far back in time.
+# We will use this custom data source to run deterministic inference with a model that
+# requires relative humidity. :mod:`earth2studio.models.px.FCN` is one such model. Since
+# we are using ARCO, we can run inference for a time quite far back in time.
 #
-# Lets instantiate the components needed.
+# Let's instantiate the components needed.
 #
 # - Prognostic Model: Use the built in FourCastNet Model :py:class:`earth2studio.models.px.FCN`.
 # - Datasource: Pull data from the GFS data api :py:class:`earth2studio.data.GFS`.
-# - IO Backend: Lets save the outputs into a Zarr store :py:class:`earth2studio.io.ZarrBackend`.
+# - IO Backend: Save the outputs into a Zarr store :py:class:`earth2studio.io.ZarrBackend`.
 
 # %%
 from dotenv import load_dotenv
@@ -276,8 +276,8 @@ print(io.root.tree())
 # %%
 # Post Processing
 # ---------------
-# To confirm that our model is working as expect, we should expect the fields
-# to be progressively more noisy as time progresses.
+# To confirm that our model is working as expected, we will plot the total column water
+# vapor field for a few time-steps.
 
 # %%
 forecast = "1993-04-05"

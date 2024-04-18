@@ -23,13 +23,16 @@ Model Hook Injection: Perturbation
 
 Adding model noise by using custom hooks.
 
-This example will demonstrate how to run a an ensemble inference workflow to generate a
+This example will demonstrate how to run an ensemble inference workflow to generate a
 perturbed ensemble forecast. This perturbation is done by injecting code into the model
-front and rear hooks. These hooks are applied to the tensor data before/after the model forward call.
+front and rear hooks.
+These hooks are applied to the tensor data before/after the model forward call.
 
-This example also illustrates how you can subselect data for IO. In this example we will only output
-two variables: total column water vapour (tcwv) and 500 hPa geopotential (z500). To run this make
-sure that the model selected predicts these variables are change appropriately.
+This example also illustrates how you can subselect data for IO. In this example we
+will only output two variables:
+total column water vapor (tcwv) and 500 hPa geopotential (z500).
+To run this, make sure that the model selected predicts these variables are change
+appropriately.
 
 In this example you will learn:
 
@@ -39,12 +42,12 @@ In this example you will learn:
 - Choose a subselection of coordinates to save to an IO object.
 - Post-processing results
 
-.. GENERATED FROM PYTHON SOURCE LINES 42-61
+.. GENERATED FROM PYTHON SOURCE LINES 45-64
 
 Creating an Ensemble Workflow
 -----------------------------------
 
-To start lets begin with creating an ensemble workflow to use. We encourage
+To start let's begin with creating an ensemble workflow to use. We encourage
 users to explore and experiment with their own custom workflows that borrow ideas from
 built in workflows inside :py:obj:`earth2studio.run` or the examples.
 
@@ -61,24 +64,24 @@ method that accepts the following:
 - output_coords: CoordSystem of output coordinates that should be saved. Should be
      a proper subset of model output coordinates.
 
-.. GENERATED FROM PYTHON SOURCE LINES 63-77
+.. GENERATED FROM PYTHON SOURCE LINES 66-80
 
 Set Up
 ------
-With the ensemble workflow defined, we now need to create the indivdual components.
+With the ensemble workflow defined, we now need to create the individual components.
 
 We need the following:
 
 - Prognostic Model: Use the built in DLWP model :py:class:`earth2studio.models.px.DLWP`.
 - Datasource: Pull data from the GFS data api :py:class:`earth2studio.data.GFS`.
-- IO Backend: Lets save the outputs into a Zarr store :py:class:`earth2studio.io.ZarrBackend`.
+- IO Backend: Save the outputs into a Zarr store :py:class:`earth2studio.io.ZarrBackend`.
 
 We will first run the ensemble workflow using an unmodified function, that is a model that has the
 default (identity) forward and rear hooks. Then we will define new hooks for the model and rerun the
 inference request.
 %%
 
-.. GENERATED FROM PYTHON SOURCE LINES 77-102
+.. GENERATED FROM PYTHON SOURCE LINES 80-105
 
 .. code-block:: Python
 
@@ -92,7 +95,7 @@ inference request.
     from earth2studio.data import GFS
     from earth2studio.io import ZarrBackend
     from earth2studio.models.px import DLWP
-    from earth2studio.perturbation import Zero
+    from earth2studio.perturbation import Gaussian
     from earth2studio.run import ensemble
 
     # Load the default model package which downloads the check point from NGC
@@ -114,21 +117,20 @@ inference request.
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 103-111
+.. GENERATED FROM PYTHON SOURCE LINES 106-114
 
 Execute the Workflow
 --------------------
-With all componments intialized, running the workflow is a single line of Python code.
-Workflow will return the provided IO object back to the user, which can be used to
+First, we will run the ensemble workflow but with a :py:meth:`earth2studio.perturbation.Gaussian`
+perturbation as the control.
+
+The workflow will return the provided IO object back to the user, which can be used to
 then post process. Some have additional APIs that can be handy for post-processing or
 saving to file. Check the API docs for more information.
 
-%%
-
-.. GENERATED FROM PYTHON SOURCE LINES 111-166
+.. GENERATED FROM PYTHON SOURCE LINES 116-139
 
 .. code-block:: Python
-
 
     nsteps = 4 * 12
     nensemble = 16
@@ -140,7 +142,7 @@ saving to file. Check the API docs for more information.
         "variable": np.array(["tcwv", "z500"]),
     }
 
-    # Forst run the unperturbed model forcast
+    # First run with no model perturbation
     io_unperturbed = ensemble(
         [forecast_date],
         nsteps,
@@ -148,19 +150,158 @@ saving to file. Check the API docs for more information.
         model,
         data,
         io_unperturbed,
-        Zero(),
+        Gaussian(noise_amplitude=0.01),
         output_coords=output_coords,
         batch_size=batch_size,
     )
 
-    # Introduce slight model perturbation
-    # front_hook / rear_hook map (x, coords) -> (x, coords)
-    # Note that center.unsqueeze(-1) is DLWP specific since it operates
-    # on a cubed sphere with grid dimensions (nface, lat, lon) instead of
-    # just (lat,lon). To switch out the model, consider removing the .unsqueeze
+
+
+
+
+.. rst-class:: sphx-glr-script-out
+
+ .. code-block:: none
+
+    2024-04-18 22:32:28.700 | INFO     | earth2studio.run:ensemble:157 - Running ensemble inference!
+    2024-04-18 22:32:28.701 | INFO     | earth2studio.run:ensemble:165 - Inference device: cuda
+    2024-04-18 22:32:28.708 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:151 - Fetching GFS index file: 2024-01-29 18:00:00
+    Fetching GFS for 2024-01-29 18:00:00:   0%|          | 0/7 [00:00<?, ?it/s]                                                                               2024-04-18 22:32:29.015 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: t850 at 2024-01-29 18:00:00
+    Fetching GFS for 2024-01-29 18:00:00:   0%|          | 0/7 [00:00<?, ?it/s]    Fetching GFS for 2024-01-29 18:00:00:  14%|█▍        | 1/7 [00:05<00:34,  5.77s/it]                                                                                       2024-04-18 22:32:34.781 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: z1000 at 2024-01-29 18:00:00
+    Fetching GFS for 2024-01-29 18:00:00:  14%|█▍        | 1/7 [00:05<00:34,  5.77s/it]    Fetching GFS for 2024-01-29 18:00:00:  29%|██▊       | 2/7 [00:09<00:23,  4.61s/it]                                                                                       2024-04-18 22:32:38.586 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: z700 at 2024-01-29 18:00:00
+    Fetching GFS for 2024-01-29 18:00:00:  29%|██▊       | 2/7 [00:09<00:23,  4.61s/it]    Fetching GFS for 2024-01-29 18:00:00:  43%|████▎     | 3/7 [00:12<00:16,  4.01s/it]                                                                                       2024-04-18 22:32:41.878 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: z500 at 2024-01-29 18:00:00
+    Fetching GFS for 2024-01-29 18:00:00:  43%|████▎     | 3/7 [00:12<00:16,  4.01s/it]    Fetching GFS for 2024-01-29 18:00:00:  57%|█████▋    | 4/7 [00:15<00:10,  3.55s/it]                                                                                       2024-04-18 22:32:44.715 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: z300 at 2024-01-29 18:00:00
+    Fetching GFS for 2024-01-29 18:00:00:  57%|█████▋    | 4/7 [00:15<00:10,  3.55s/it]    Fetching GFS for 2024-01-29 18:00:00:  71%|███████▏  | 5/7 [00:18<00:06,  3.12s/it]                                                                                       2024-04-18 22:32:47.087 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: tcwv at 2024-01-29 18:00:00
+    Fetching GFS for 2024-01-29 18:00:00:  71%|███████▏  | 5/7 [00:18<00:06,  3.12s/it]    Fetching GFS for 2024-01-29 18:00:00:  86%|████████▌ | 6/7 [00:20<00:02,  2.78s/it]                                                                                       2024-04-18 22:32:49.196 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: t2m at 2024-01-29 18:00:00
+    Fetching GFS for 2024-01-29 18:00:00:  86%|████████▌ | 6/7 [00:20<00:02,  2.78s/it]    Fetching GFS for 2024-01-29 18:00:00: 100%|██████████| 7/7 [00:21<00:00,  2.34s/it]    Fetching GFS for 2024-01-29 18:00:00: 100%|██████████| 7/7 [00:21<00:00,  3.09s/it]
+    2024-04-18 22:32:50.645 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:151 - Fetching GFS index file: 2024-01-30 00:00:00
+    Fetching GFS for 2024-01-30 00:00:00:   0%|          | 0/7 [00:00<?, ?it/s]                                                                               2024-04-18 22:32:50.751 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: t850 at 2024-01-30 00:00:00
+    Fetching GFS for 2024-01-30 00:00:00:   0%|          | 0/7 [00:00<?, ?it/s]    Fetching GFS for 2024-01-30 00:00:00:  14%|█▍        | 1/7 [00:01<00:07,  1.20s/it]                                                                                       2024-04-18 22:32:51.952 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: z1000 at 2024-01-30 00:00:00
+    Fetching GFS for 2024-01-30 00:00:00:  14%|█▍        | 1/7 [00:01<00:07,  1.20s/it]    Fetching GFS for 2024-01-30 00:00:00:  29%|██▊       | 2/7 [00:02<00:05,  1.09s/it]                                                                                       2024-04-18 22:32:52.961 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: z700 at 2024-01-30 00:00:00
+    Fetching GFS for 2024-01-30 00:00:00:  29%|██▊       | 2/7 [00:02<00:05,  1.09s/it]    Fetching GFS for 2024-01-30 00:00:00:  43%|████▎     | 3/7 [00:03<00:04,  1.03s/it]                                                                                       2024-04-18 22:32:53.930 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: z500 at 2024-01-30 00:00:00
+    Fetching GFS for 2024-01-30 00:00:00:  43%|████▎     | 3/7 [00:03<00:04,  1.03s/it]    Fetching GFS for 2024-01-30 00:00:00:  57%|█████▋    | 4/7 [00:03<00:02,  1.07it/s]                                                                                       2024-04-18 22:32:54.709 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: z300 at 2024-01-30 00:00:00
+    Fetching GFS for 2024-01-30 00:00:00:  57%|█████▋    | 4/7 [00:03<00:02,  1.07it/s]    Fetching GFS for 2024-01-30 00:00:00:  71%|███████▏  | 5/7 [00:04<00:01,  1.18it/s]                                                                                       2024-04-18 22:32:55.413 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: tcwv at 2024-01-30 00:00:00
+    Fetching GFS for 2024-01-30 00:00:00:  71%|███████▏  | 5/7 [00:04<00:01,  1.18it/s]    Fetching GFS for 2024-01-30 00:00:00:  86%|████████▌ | 6/7 [00:05<00:00,  1.19it/s]                                                                                       2024-04-18 22:32:56.243 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: t2m at 2024-01-30 00:00:00
+    Fetching GFS for 2024-01-30 00:00:00:  86%|████████▌ | 6/7 [00:05<00:00,  1.19it/s]    Fetching GFS for 2024-01-30 00:00:00: 100%|██████████| 7/7 [00:06<00:00,  1.21it/s]    Fetching GFS for 2024-01-30 00:00:00: 100%|██████████| 7/7 [00:06<00:00,  1.11it/s]
+    2024-04-18 22:32:57.085 | SUCCESS  | earth2studio.run:ensemble:177 - Fetched data from GFS
+    2024-04-18 22:32:57.089 | INFO     | earth2studio.run:ensemble:196 - Starting 16 Member Ensemble Inference with             4 number of batches.
+    Total Ensemble Batches:   0%|          | 0/4 [00:00<?, ?it/s]
+    Running batch 0 inference:   0%|          | 0/49 [00:00<?, ?it/s]
+    Running batch 0 inference:   6%|▌         | 3/49 [00:00<00:01, 25.79it/s]
+    Running batch 0 inference:  12%|█▏        | 6/49 [00:00<00:02, 19.58it/s]
+    Running batch 0 inference:  18%|█▊        | 9/49 [00:00<00:02, 19.03it/s]
+    Running batch 0 inference:  22%|██▏       | 11/49 [00:00<00:02, 18.60it/s]
+    Running batch 0 inference:  27%|██▋       | 13/49 [00:00<00:01, 18.04it/s]
+    Running batch 0 inference:  31%|███       | 15/49 [00:00<00:01, 17.33it/s]
+    Running batch 0 inference:  35%|███▍      | 17/49 [00:00<00:01, 16.82it/s]
+    Running batch 0 inference:  39%|███▉      | 19/49 [00:01<00:01, 16.45it/s]
+    Running batch 0 inference:  43%|████▎     | 21/49 [00:01<00:01, 16.12it/s]
+    Running batch 0 inference:  47%|████▋     | 23/49 [00:01<00:01, 15.71it/s]
+    Running batch 0 inference:  51%|█████     | 25/49 [00:01<00:01, 15.29it/s]
+    Running batch 0 inference:  55%|█████▌    | 27/49 [00:01<00:01, 14.89it/s]
+    Running batch 0 inference:  59%|█████▉    | 29/49 [00:01<00:01, 14.26it/s]
+    Running batch 0 inference:  63%|██████▎   | 31/49 [00:01<00:01, 14.10it/s]
+    Running batch 0 inference:  67%|██████▋   | 33/49 [00:02<00:01, 14.01it/s]
+    Running batch 0 inference:  71%|███████▏  | 35/49 [00:02<00:01, 13.85it/s]
+    Running batch 0 inference:  76%|███████▌  | 37/49 [00:02<00:00, 13.45it/s]
+    Running batch 0 inference:  80%|███████▉  | 39/49 [00:02<00:00, 13.56it/s]
+    Running batch 0 inference:  84%|████████▎ | 41/49 [00:02<00:00, 13.49it/s]
+    Running batch 0 inference:  88%|████████▊ | 43/49 [00:02<00:00, 12.95it/s]
+    Running batch 0 inference:  92%|█████████▏| 45/49 [00:03<00:00, 12.59it/s]
+    Running batch 0 inference:  96%|█████████▌| 47/49 [00:03<00:00, 12.45it/s]
+    Running batch 0 inference: 100%|██████████| 49/49 [00:03<00:00, 12.30it/s]
+                                                                                  Total Ensemble Batches:  25%|██▌       | 1/4 [00:03<00:10,  3.35s/it]
+    Running batch 4 inference:   0%|          | 0/49 [00:00<?, ?it/s]
+    Running batch 4 inference:   8%|▊         | 4/49 [00:00<00:01, 26.31it/s]
+    Running batch 4 inference:  14%|█▍        | 7/49 [00:00<00:01, 25.08it/s]
+    Running batch 4 inference:  20%|██        | 10/49 [00:00<00:01, 22.02it/s]
+    Running batch 4 inference:  27%|██▋       | 13/49 [00:00<00:01, 21.18it/s]
+    Running batch 4 inference:  33%|███▎      | 16/49 [00:00<00:01, 19.18it/s]
+    Running batch 4 inference:  37%|███▋      | 18/49 [00:00<00:01, 18.62it/s]
+    Running batch 4 inference:  41%|████      | 20/49 [00:01<00:01, 18.31it/s]
+    Running batch 4 inference:  45%|████▍     | 22/49 [00:01<00:01, 17.52it/s]
+    Running batch 4 inference:  49%|████▉     | 24/49 [00:01<00:01, 16.93it/s]
+    Running batch 4 inference:  53%|█████▎    | 26/49 [00:01<00:01, 16.69it/s]
+    Running batch 4 inference:  57%|█████▋    | 28/49 [00:01<00:01, 16.71it/s]
+    Running batch 4 inference:  61%|██████    | 30/49 [00:01<00:01, 16.53it/s]
+    Running batch 4 inference:  65%|██████▌   | 32/49 [00:01<00:01, 16.37it/s]
+    Running batch 4 inference:  69%|██████▉   | 34/49 [00:01<00:00, 15.97it/s]
+    Running batch 4 inference:  73%|███████▎  | 36/49 [00:02<00:00, 14.70it/s]
+    Running batch 4 inference:  78%|███████▊  | 38/49 [00:02<00:00, 13.90it/s]
+    Running batch 4 inference:  82%|████████▏ | 40/49 [00:02<00:00, 13.08it/s]
+    Running batch 4 inference:  86%|████████▌ | 42/49 [00:02<00:00, 12.48it/s]
+    Running batch 4 inference:  90%|████████▉ | 44/49 [00:02<00:00, 11.89it/s]
+    Running batch 4 inference:  94%|█████████▍| 46/49 [00:02<00:00, 11.55it/s]
+    Running batch 4 inference:  98%|█████████▊| 48/49 [00:03<00:00, 11.26it/s]
+                                                                                  Total Ensemble Batches:  50%|█████     | 2/4 [00:06<00:06,  3.27s/it]
+    Running batch 8 inference:   0%|          | 0/49 [00:00<?, ?it/s]
+    Running batch 8 inference:   6%|▌         | 3/49 [00:00<00:01, 27.66it/s]
+    Running batch 8 inference:  12%|█▏        | 6/49 [00:00<00:01, 22.41it/s]
+    Running batch 8 inference:  18%|█▊        | 9/49 [00:00<00:01, 21.35it/s]
+    Running batch 8 inference:  24%|██▍       | 12/49 [00:00<00:01, 19.32it/s]
+    Running batch 8 inference:  29%|██▊       | 14/49 [00:00<00:01, 18.47it/s]
+    Running batch 8 inference:  33%|███▎      | 16/49 [00:00<00:01, 17.79it/s]
+    Running batch 8 inference:  37%|███▋      | 18/49 [00:00<00:01, 17.11it/s]
+    Running batch 8 inference:  41%|████      | 20/49 [00:01<00:01, 17.28it/s]
+    Running batch 8 inference:  45%|████▍     | 22/49 [00:01<00:01, 17.23it/s]
+    Running batch 8 inference:  49%|████▉     | 24/49 [00:01<00:01, 17.07it/s]
+    Running batch 8 inference:  53%|█████▎    | 26/49 [00:01<00:01, 16.57it/s]
+    Running batch 8 inference:  57%|█████▋    | 28/49 [00:01<00:01, 16.66it/s]
+    Running batch 8 inference:  61%|██████    | 30/49 [00:01<00:01, 15.87it/s]
+    Running batch 8 inference:  65%|██████▌   | 32/49 [00:01<00:01, 15.23it/s]
+    Running batch 8 inference:  69%|██████▉   | 34/49 [00:01<00:01, 14.82it/s]
+    Running batch 8 inference:  73%|███████▎  | 36/49 [00:02<00:00, 13.98it/s]
+    Running batch 8 inference:  78%|███████▊  | 38/49 [00:02<00:00, 13.41it/s]
+    Running batch 8 inference:  82%|████████▏ | 40/49 [00:02<00:00, 12.46it/s]
+    Running batch 8 inference:  86%|████████▌ | 42/49 [00:02<00:00, 11.95it/s]
+    Running batch 8 inference:  90%|████████▉ | 44/49 [00:02<00:00, 11.56it/s]
+    Running batch 8 inference:  94%|█████████▍| 46/49 [00:03<00:00, 11.32it/s]
+    Running batch 8 inference:  98%|█████████▊| 48/49 [00:03<00:00, 11.26it/s]
+                                                                                  Total Ensemble Batches:  75%|███████▌  | 3/4 [00:09<00:03,  3.30s/it]
+    Running batch 12 inference:   0%|          | 0/49 [00:00<?, ?it/s]
+    Running batch 12 inference:   6%|▌         | 3/49 [00:00<00:01, 28.34it/s]
+    Running batch 12 inference:  12%|█▏        | 6/49 [00:00<00:01, 23.25it/s]
+    Running batch 12 inference:  18%|█▊        | 9/49 [00:00<00:01, 21.52it/s]
+    Running batch 12 inference:  24%|██▍       | 12/49 [00:00<00:01, 20.13it/s]
+    Running batch 12 inference:  31%|███       | 15/49 [00:00<00:01, 19.59it/s]
+    Running batch 12 inference:  35%|███▍      | 17/49 [00:00<00:01, 18.68it/s]
+    Running batch 12 inference:  39%|███▉      | 19/49 [00:00<00:01, 17.72it/s]
+    Running batch 12 inference:  43%|████▎     | 21/49 [00:01<00:01, 17.10it/s]
+    Running batch 12 inference:  47%|████▋     | 23/49 [00:01<00:01, 16.46it/s]
+    Running batch 12 inference:  51%|█████     | 25/49 [00:01<00:01, 15.78it/s]
+    Running batch 12 inference:  55%|█████▌    | 27/49 [00:01<00:01, 15.42it/s]
+    Running batch 12 inference:  59%|█████▉    | 29/49 [00:01<00:01, 15.01it/s]
+    Running batch 12 inference:  63%|██████▎   | 31/49 [00:01<00:01, 14.59it/s]
+    Running batch 12 inference:  67%|██████▋   | 33/49 [00:01<00:01, 14.29it/s]
+    Running batch 12 inference:  71%|███████▏  | 35/49 [00:02<00:00, 14.12it/s]
+    Running batch 12 inference:  76%|███████▌  | 37/49 [00:02<00:00, 13.80it/s]
+    Running batch 12 inference:  80%|███████▉  | 39/49 [00:02<00:00, 13.04it/s]
+    Running batch 12 inference:  84%|████████▎ | 41/49 [00:02<00:00, 12.40it/s]
+    Running batch 12 inference:  88%|████████▊ | 43/49 [00:02<00:00, 12.19it/s]
+    Running batch 12 inference:  92%|█████████▏| 45/49 [00:02<00:00, 12.09it/s]
+    Running batch 12 inference:  96%|█████████▌| 47/49 [00:03<00:00, 12.07it/s]
+    Running batch 12 inference: 100%|██████████| 49/49 [00:03<00:00, 11.89it/s]
+                                                                                   Total Ensemble Batches: 100%|██████████| 4/4 [00:13<00:00,  3.30s/it]    Total Ensemble Batches: 100%|██████████| 4/4 [00:13<00:00,  3.30s/it]
+    2024-04-18 22:33:10.292 | SUCCESS  | earth2studio.run:ensemble:242 - Ensemble Inference complete
+
+
+
+
+.. GENERATED FROM PYTHON SOURCE LINES 140-145
+
+Now let's introduce slight model perturbation using the prognostic model hooks defined
+in :py:class:`earth2studio.models.px.utils.PrognosticMixin`.
+Note that :py:obj:`center.unsqueeze(-1)` is DLWP specific since it operates on a cubed sphere
+with grid dimensions (nface, lat, lon) instead of just (lat,lon).
+To switch out the model, consider removing the :py:meth:`unsqueeze` .
+
+.. GENERATED FROM PYTHON SOURCE LINES 147-173
+
+.. code-block:: Python
+
     model.front_hook = lambda x, coords: (
         x
-        - 0.05
+        - 0.1
         * x.var(dim=0)
         * (x - model.center.unsqueeze(-1))
         / (model.scale.unsqueeze(-1)) ** 2
@@ -179,7 +320,7 @@ saving to file. Check the API docs for more information.
         model,
         data,
         io_perturbed,
-        Zero(),
+        Gaussian(noise_amplitude=0.01),
         output_coords=output_coords,
         batch_size=batch_size,
     )
@@ -192,257 +333,140 @@ saving to file. Check the API docs for more information.
 
  .. code-block:: none
 
-    2024-04-17 00:52:21.755 | INFO     | earth2studio.run:ensemble:157 - Running ensemble inference!
-    2024-04-17 00:52:21.755 | INFO     | earth2studio.run:ensemble:165 - Inference device: cuda
-    2024-04-17 00:52:21.762 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:151 - Fetching GFS index file: 2024-01-29 18:00:00
-    Fetching GFS for 2024-01-29 18:00:00:   0%|          | 0/7 [00:00<?, ?it/s]                                                                               2024-04-17 00:52:22.162 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: t850 at 2024-01-29 18:00:00
-    Fetching GFS for 2024-01-29 18:00:00:   0%|          | 0/7 [00:00<?, ?it/s]    Fetching GFS for 2024-01-29 18:00:00:  14%|█▍        | 1/7 [00:00<00:04,  1.38it/s]                                                                                       2024-04-17 00:52:22.884 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: z1000 at 2024-01-29 18:00:00
-    Fetching GFS for 2024-01-29 18:00:00:  14%|█▍        | 1/7 [00:00<00:04,  1.38it/s]    Fetching GFS for 2024-01-29 18:00:00:  29%|██▊       | 2/7 [00:01<00:03,  1.56it/s]                                                                                       2024-04-17 00:52:23.468 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: z700 at 2024-01-29 18:00:00
-    Fetching GFS for 2024-01-29 18:00:00:  29%|██▊       | 2/7 [00:01<00:03,  1.56it/s]    Fetching GFS for 2024-01-29 18:00:00:  43%|████▎     | 3/7 [00:01<00:02,  1.92it/s]                                                                                       2024-04-17 00:52:23.848 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: z500 at 2024-01-29 18:00:00
-    Fetching GFS for 2024-01-29 18:00:00:  43%|████▎     | 3/7 [00:01<00:02,  1.92it/s]    Fetching GFS for 2024-01-29 18:00:00:  57%|█████▋    | 4/7 [00:02<00:01,  1.81it/s]                                                                                       2024-04-17 00:52:24.444 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: z300 at 2024-01-29 18:00:00
-    Fetching GFS for 2024-01-29 18:00:00:  57%|█████▋    | 4/7 [00:02<00:01,  1.81it/s]    Fetching GFS for 2024-01-29 18:00:00:  71%|███████▏  | 5/7 [00:02<00:01,  1.92it/s]                                                                                       2024-04-17 00:52:24.913 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: tcwv at 2024-01-29 18:00:00
-    Fetching GFS for 2024-01-29 18:00:00:  71%|███████▏  | 5/7 [00:02<00:01,  1.92it/s]    Fetching GFS for 2024-01-29 18:00:00:  86%|████████▌ | 6/7 [00:03<00:00,  1.84it/s]                                                                                       2024-04-17 00:52:25.502 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: t2m at 2024-01-29 18:00:00
-    Fetching GFS for 2024-01-29 18:00:00:  86%|████████▌ | 6/7 [00:03<00:00,  1.84it/s]    Fetching GFS for 2024-01-29 18:00:00: 100%|██████████| 7/7 [00:03<00:00,  1.94it/s]    Fetching GFS for 2024-01-29 18:00:00: 100%|██████████| 7/7 [00:03<00:00,  1.85it/s]
-    2024-04-17 00:52:25.963 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:151 - Fetching GFS index file: 2024-01-30 00:00:00
-    Fetching GFS for 2024-01-30 00:00:00:   0%|          | 0/7 [00:00<?, ?it/s]                                                                               2024-04-17 00:52:26.120 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: t850 at 2024-01-30 00:00:00
-    Fetching GFS for 2024-01-30 00:00:00:   0%|          | 0/7 [00:00<?, ?it/s]    Fetching GFS for 2024-01-30 00:00:00:  14%|█▍        | 1/7 [00:00<00:04,  1.40it/s]                                                                                       2024-04-17 00:52:26.834 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: z1000 at 2024-01-30 00:00:00
-    Fetching GFS for 2024-01-30 00:00:00:  14%|█▍        | 1/7 [00:00<00:04,  1.40it/s]    Fetching GFS for 2024-01-30 00:00:00:  29%|██▊       | 2/7 [00:01<00:03,  1.58it/s]                                                                                       2024-04-17 00:52:27.412 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: z700 at 2024-01-30 00:00:00
-    Fetching GFS for 2024-01-30 00:00:00:  29%|██▊       | 2/7 [00:01<00:03,  1.58it/s]    Fetching GFS for 2024-01-30 00:00:00:  43%|████▎     | 3/7 [00:01<00:02,  1.72it/s]                                                                                       2024-04-17 00:52:27.928 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: z500 at 2024-01-30 00:00:00
-    Fetching GFS for 2024-01-30 00:00:00:  43%|████▎     | 3/7 [00:01<00:02,  1.72it/s]    Fetching GFS for 2024-01-30 00:00:00:  57%|█████▋    | 4/7 [00:02<00:01,  2.07it/s]                                                                                       2024-04-17 00:52:28.264 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: z300 at 2024-01-30 00:00:00
-    Fetching GFS for 2024-01-30 00:00:00:  57%|█████▋    | 4/7 [00:02<00:01,  2.07it/s]    Fetching GFS for 2024-01-30 00:00:00:  71%|███████▏  | 5/7 [00:02<00:01,  1.95it/s]                                                                                       2024-04-17 00:52:28.827 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: tcwv at 2024-01-30 00:00:00
-    Fetching GFS for 2024-01-30 00:00:00:  71%|███████▏  | 5/7 [00:02<00:01,  1.95it/s]    Fetching GFS for 2024-01-30 00:00:00:  86%|████████▌ | 6/7 [00:03<00:00,  2.00it/s]                                                                                       2024-04-17 00:52:29.304 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: t2m at 2024-01-30 00:00:00
-    Fetching GFS for 2024-01-30 00:00:00:  86%|████████▌ | 6/7 [00:03<00:00,  2.00it/s]    Fetching GFS for 2024-01-30 00:00:00: 100%|██████████| 7/7 [00:03<00:00,  1.98it/s]    Fetching GFS for 2024-01-30 00:00:00: 100%|██████████| 7/7 [00:03<00:00,  1.89it/s]
-    2024-04-17 00:52:29.858 | SUCCESS  | earth2studio.run:ensemble:177 - Fetched data from GFS
-    2024-04-17 00:52:29.863 | INFO     | earth2studio.run:ensemble:196 - Starting 16 Member Ensemble Inference with             4 number of batches.
+    2024-04-18 22:33:10.297 | INFO     | earth2studio.run:ensemble:157 - Running ensemble inference!
+    2024-04-18 22:33:10.297 | INFO     | earth2studio.run:ensemble:165 - Inference device: cuda
+    2024-04-18 22:33:10.298 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:151 - Fetching GFS index file: 2024-01-29 18:00:00
+    Fetching GFS for 2024-01-29 18:00:00:   0%|          | 0/7 [00:00<?, ?it/s]                                                                               2024-04-18 22:33:10.601 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: t850 at 2024-01-29 18:00:00
+    Fetching GFS for 2024-01-29 18:00:00:   0%|          | 0/7 [00:00<?, ?it/s]                                                                               2024-04-18 22:33:10.624 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: z1000 at 2024-01-29 18:00:00
+    Fetching GFS for 2024-01-29 18:00:00:   0%|          | 0/7 [00:00<?, ?it/s]                                                                               2024-04-18 22:33:10.643 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: z700 at 2024-01-29 18:00:00
+    Fetching GFS for 2024-01-29 18:00:00:   0%|          | 0/7 [00:00<?, ?it/s]                                                                               2024-04-18 22:33:10.661 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: z500 at 2024-01-29 18:00:00
+    Fetching GFS for 2024-01-29 18:00:00:   0%|          | 0/7 [00:00<?, ?it/s]                                                                               2024-04-18 22:33:10.680 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: z300 at 2024-01-29 18:00:00
+    Fetching GFS for 2024-01-29 18:00:00:   0%|          | 0/7 [00:00<?, ?it/s]                                                                               2024-04-18 22:33:10.698 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: tcwv at 2024-01-29 18:00:00
+    Fetching GFS for 2024-01-29 18:00:00:   0%|          | 0/7 [00:00<?, ?it/s]    Fetching GFS for 2024-01-29 18:00:00:  86%|████████▌ | 6/7 [00:00<00:00, 52.35it/s]                                                                                       2024-04-18 22:33:10.716 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: t2m at 2024-01-29 18:00:00
+    Fetching GFS for 2024-01-29 18:00:00:  86%|████████▌ | 6/7 [00:00<00:00, 52.35it/s]    Fetching GFS for 2024-01-29 18:00:00: 100%|██████████| 7/7 [00:00<00:00, 52.47it/s]
+    2024-04-18 22:33:10.742 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:151 - Fetching GFS index file: 2024-01-30 00:00:00
+    Fetching GFS for 2024-01-30 00:00:00:   0%|          | 0/7 [00:00<?, ?it/s]                                                                               2024-04-18 22:33:10.825 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: t850 at 2024-01-30 00:00:00
+    Fetching GFS for 2024-01-30 00:00:00:   0%|          | 0/7 [00:00<?, ?it/s]                                                                               2024-04-18 22:33:10.846 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: z1000 at 2024-01-30 00:00:00
+    Fetching GFS for 2024-01-30 00:00:00:   0%|          | 0/7 [00:00<?, ?it/s]                                                                               2024-04-18 22:33:10.864 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: z700 at 2024-01-30 00:00:00
+    Fetching GFS for 2024-01-30 00:00:00:   0%|          | 0/7 [00:00<?, ?it/s]                                                                               2024-04-18 22:33:10.882 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: z500 at 2024-01-30 00:00:00
+    Fetching GFS for 2024-01-30 00:00:00:   0%|          | 0/7 [00:00<?, ?it/s]                                                                               2024-04-18 22:33:10.901 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: z300 at 2024-01-30 00:00:00
+    Fetching GFS for 2024-01-30 00:00:00:   0%|          | 0/7 [00:00<?, ?it/s]                                                                               2024-04-18 22:33:10.919 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: tcwv at 2024-01-30 00:00:00
+    Fetching GFS for 2024-01-30 00:00:00:   0%|          | 0/7 [00:00<?, ?it/s]    Fetching GFS for 2024-01-30 00:00:00:  86%|████████▌ | 6/7 [00:00<00:00, 53.24it/s]                                                                                       2024-04-18 22:33:10.938 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: t2m at 2024-01-30 00:00:00
+    Fetching GFS for 2024-01-30 00:00:00:  86%|████████▌ | 6/7 [00:00<00:00, 53.24it/s]    Fetching GFS for 2024-01-30 00:00:00: 100%|██████████| 7/7 [00:00<00:00, 53.32it/s]
+    2024-04-18 22:33:11.007 | SUCCESS  | earth2studio.run:ensemble:177 - Fetched data from GFS
+    2024-04-18 22:33:11.012 | INFO     | earth2studio.run:ensemble:196 - Starting 16 Member Ensemble Inference with             4 number of batches.
     Total Ensemble Batches:   0%|          | 0/4 [00:00<?, ?it/s]
     Running batch 0 inference:   0%|          | 0/49 [00:00<?, ?it/s]
-    Running batch 0 inference:   6%|▌         | 3/49 [00:00<00:01, 29.37it/s]
-    Running batch 0 inference:  12%|█▏        | 6/49 [00:00<00:01, 24.62it/s]
-    Running batch 0 inference:  18%|█▊        | 9/49 [00:00<00:01, 23.80it/s]
-    Running batch 0 inference:  24%|██▍       | 12/49 [00:00<00:01, 21.11it/s]
-    Running batch 0 inference:  31%|███       | 15/49 [00:00<00:01, 20.30it/s]
-    Running batch 0 inference:  37%|███▋      | 18/49 [00:00<00:01, 18.95it/s]
-    Running batch 0 inference:  41%|████      | 20/49 [00:01<00:01, 17.94it/s]
-    Running batch 0 inference:  45%|████▍     | 22/49 [00:01<00:01, 17.39it/s]
-    Running batch 0 inference:  49%|████▉     | 24/49 [00:01<00:01, 16.99it/s]
-    Running batch 0 inference:  53%|█████▎    | 26/49 [00:01<00:01, 16.26it/s]
-    Running batch 0 inference:  57%|█████▋    | 28/49 [00:01<00:01, 15.35it/s]
-    Running batch 0 inference:  61%|██████    | 30/49 [00:01<00:01, 15.18it/s]
-    Running batch 0 inference:  65%|██████▌   | 32/49 [00:01<00:01, 14.98it/s]
-    Running batch 0 inference:  69%|██████▉   | 34/49 [00:01<00:01, 14.60it/s]
-    Running batch 0 inference:  73%|███████▎  | 36/49 [00:02<00:00, 14.21it/s]
-    Running batch 0 inference:  78%|███████▊  | 38/49 [00:02<00:00, 13.93it/s]
-    Running batch 0 inference:  82%|████████▏ | 40/49 [00:02<00:00, 13.45it/s]
-    Running batch 0 inference:  86%|████████▌ | 42/49 [00:02<00:00, 13.16it/s]
-    Running batch 0 inference:  90%|████████▉ | 44/49 [00:02<00:00, 13.32it/s]
-    Running batch 0 inference:  94%|█████████▍| 46/49 [00:02<00:00, 13.29it/s]
-    Running batch 0 inference:  98%|█████████▊| 48/49 [00:03<00:00, 13.06it/s]
-                                                                                  Total Ensemble Batches:  25%|██▌       | 1/4 [00:03<00:09,  3.12s/it]
+    Running batch 0 inference:   6%|▌         | 3/49 [00:00<00:01, 27.75it/s]
+    Running batch 0 inference:  12%|█▏        | 6/49 [00:00<00:01, 22.26it/s]
+    Running batch 0 inference:  18%|█▊        | 9/49 [00:00<00:01, 21.21it/s]
+    Running batch 0 inference:  24%|██▍       | 12/49 [00:00<00:01, 19.28it/s]
+    Running batch 0 inference:  29%|██▊       | 14/49 [00:00<00:01, 18.11it/s]
+    Running batch 0 inference:  33%|███▎      | 16/49 [00:00<00:01, 17.49it/s]
+    Running batch 0 inference:  37%|███▋      | 18/49 [00:00<00:01, 16.94it/s]
+    Running batch 0 inference:  41%|████      | 20/49 [00:01<00:01, 16.58it/s]
+    Running batch 0 inference:  45%|████▍     | 22/49 [00:01<00:01, 16.10it/s]
+    Running batch 0 inference:  49%|████▉     | 24/49 [00:01<00:01, 15.52it/s]
+    Running batch 0 inference:  53%|█████▎    | 26/49 [00:01<00:01, 15.43it/s]
+    Running batch 0 inference:  57%|█████▋    | 28/49 [00:01<00:01, 15.43it/s]
+    Running batch 0 inference:  61%|██████    | 30/49 [00:01<00:01, 15.13it/s]
+    Running batch 0 inference:  65%|██████▌   | 32/49 [00:01<00:01, 14.92it/s]
+    Running batch 0 inference:  69%|██████▉   | 34/49 [00:02<00:01, 14.54it/s]
+    Running batch 0 inference:  73%|███████▎  | 36/49 [00:02<00:00, 13.39it/s]
+    Running batch 0 inference:  78%|███████▊  | 38/49 [00:02<00:00, 12.76it/s]
+    Running batch 0 inference:  82%|████████▏ | 40/49 [00:02<00:00, 12.51it/s]
+    Running batch 0 inference:  86%|████████▌ | 42/49 [00:02<00:00, 12.40it/s]
+    Running batch 0 inference:  90%|████████▉ | 44/49 [00:02<00:00, 12.08it/s]
+    Running batch 0 inference:  94%|█████████▍| 46/49 [00:03<00:00, 12.10it/s]
+    Running batch 0 inference:  98%|█████████▊| 48/49 [00:03<00:00, 12.04it/s]
+                                                                                  Total Ensemble Batches:  25%|██▌       | 1/4 [00:03<00:10,  3.34s/it]
     Running batch 4 inference:   0%|          | 0/49 [00:00<?, ?it/s]
-    Running batch 4 inference:   8%|▊         | 4/49 [00:00<00:01, 27.40it/s]
-    Running batch 4 inference:  14%|█▍        | 7/49 [00:00<00:01, 25.36it/s]
-    Running batch 4 inference:  20%|██        | 10/49 [00:00<00:01, 22.45it/s]
-    Running batch 4 inference:  27%|██▋       | 13/49 [00:00<00:01, 21.99it/s]
-    Running batch 4 inference:  33%|███▎      | 16/49 [00:00<00:01, 20.33it/s]
-    Running batch 4 inference:  39%|███▉      | 19/49 [00:00<00:01, 19.47it/s]
-    Running batch 4 inference:  43%|████▎     | 21/49 [00:01<00:01, 18.53it/s]
-    Running batch 4 inference:  47%|████▋     | 23/49 [00:01<00:01, 18.00it/s]
-    Running batch 4 inference:  51%|█████     | 25/49 [00:01<00:01, 16.85it/s]
-    Running batch 4 inference:  55%|█████▌    | 27/49 [00:01<00:01, 16.25it/s]
-    Running batch 4 inference:  59%|█████▉    | 29/49 [00:01<00:01, 16.00it/s]
-    Running batch 4 inference:  63%|██████▎   | 31/49 [00:01<00:01, 15.48it/s]
-    Running batch 4 inference:  67%|██████▋   | 33/49 [00:01<00:01, 15.26it/s]
-    Running batch 4 inference:  71%|███████▏  | 35/49 [00:01<00:00, 14.73it/s]
-    Running batch 4 inference:  76%|███████▌  | 37/49 [00:02<00:00, 14.24it/s]
-    Running batch 4 inference:  80%|███████▉  | 39/49 [00:02<00:00, 14.01it/s]
-    Running batch 4 inference:  84%|████████▎ | 41/49 [00:02<00:00, 13.57it/s]
-    Running batch 4 inference:  88%|████████▊ | 43/49 [00:02<00:00, 13.19it/s]
-    Running batch 4 inference:  92%|█████████▏| 45/49 [00:02<00:00, 13.06it/s]
-    Running batch 4 inference:  96%|█████████▌| 47/49 [00:02<00:00, 12.60it/s]
-    Running batch 4 inference: 100%|██████████| 49/49 [00:03<00:00, 12.20it/s]
-                                                                                  Total Ensemble Batches:  50%|█████     | 2/4 [00:06<00:06,  3.12s/it]
+    Running batch 4 inference:   6%|▌         | 3/49 [00:00<00:01, 26.42it/s]
+    Running batch 4 inference:  12%|█▏        | 6/49 [00:00<00:02, 21.33it/s]
+    Running batch 4 inference:  18%|█▊        | 9/49 [00:00<00:01, 20.36it/s]
+    Running batch 4 inference:  24%|██▍       | 12/49 [00:00<00:01, 18.52it/s]
+    Running batch 4 inference:  29%|██▊       | 14/49 [00:00<00:01, 17.73it/s]
+    Running batch 4 inference:  33%|███▎      | 16/49 [00:00<00:01, 17.52it/s]
+    Running batch 4 inference:  37%|███▋      | 18/49 [00:00<00:01, 17.04it/s]
+    Running batch 4 inference:  41%|████      | 20/49 [00:01<00:01, 16.99it/s]
+    Running batch 4 inference:  45%|████▍     | 22/49 [00:01<00:01, 16.56it/s]
+    Running batch 4 inference:  49%|████▉     | 24/49 [00:01<00:01, 16.38it/s]
+    Running batch 4 inference:  53%|█████▎    | 26/49 [00:01<00:01, 16.17it/s]
+    Running batch 4 inference:  57%|█████▋    | 28/49 [00:01<00:01, 15.94it/s]
+    Running batch 4 inference:  61%|██████    | 30/49 [00:01<00:01, 15.58it/s]
+    Running batch 4 inference:  65%|██████▌   | 32/49 [00:01<00:01, 15.29it/s]
+    Running batch 4 inference:  69%|██████▉   | 34/49 [00:02<00:01, 14.91it/s]
+    Running batch 4 inference:  73%|███████▎  | 36/49 [00:02<00:00, 14.68it/s]
+    Running batch 4 inference:  78%|███████▊  | 38/49 [00:02<00:00, 14.52it/s]
+    Running batch 4 inference:  82%|████████▏ | 40/49 [00:02<00:00, 14.04it/s]
+    Running batch 4 inference:  86%|████████▌ | 42/49 [00:02<00:00, 13.77it/s]
+    Running batch 4 inference:  90%|████████▉ | 44/49 [00:02<00:00, 13.41it/s]
+    Running batch 4 inference:  94%|█████████▍| 46/49 [00:02<00:00, 12.76it/s]
+    Running batch 4 inference:  98%|█████████▊| 48/49 [00:03<00:00, 12.27it/s]
+                                                                                  Total Ensemble Batches:  50%|█████     | 2/4 [00:06<00:06,  3.27s/it]
     Running batch 8 inference:   0%|          | 0/49 [00:00<?, ?it/s]
-    Running batch 8 inference:   6%|▌         | 3/49 [00:00<00:01, 28.33it/s]
-    Running batch 8 inference:  12%|█▏        | 6/49 [00:00<00:01, 23.69it/s]
-    Running batch 8 inference:  18%|█▊        | 9/49 [00:00<00:01, 23.17it/s]
-    Running batch 8 inference:  24%|██▍       | 12/49 [00:00<00:01, 20.70it/s]
-    Running batch 8 inference:  31%|███       | 15/49 [00:00<00:01, 20.36it/s]
-    Running batch 8 inference:  37%|███▋      | 18/49 [00:00<00:01, 18.59it/s]
-    Running batch 8 inference:  41%|████      | 20/49 [00:01<00:01, 17.79it/s]
-    Running batch 8 inference:  45%|████▍     | 22/49 [00:01<00:01, 17.40it/s]
-    Running batch 8 inference:  49%|████▉     | 24/49 [00:01<00:01, 16.98it/s]
-    Running batch 8 inference:  53%|█████▎    | 26/49 [00:01<00:01, 16.63it/s]
-    Running batch 8 inference:  57%|█████▋    | 28/49 [00:01<00:01, 16.33it/s]
-    Running batch 8 inference:  61%|██████    | 30/49 [00:01<00:01, 15.88it/s]
-    Running batch 8 inference:  65%|██████▌   | 32/49 [00:01<00:01, 15.86it/s]
-    Running batch 8 inference:  69%|██████▉   | 34/49 [00:01<00:00, 15.24it/s]
-    Running batch 8 inference:  73%|███████▎  | 36/49 [00:02<00:00, 14.69it/s]
-    Running batch 8 inference:  78%|███████▊  | 38/49 [00:02<00:00, 13.69it/s]
-    Running batch 8 inference:  82%|████████▏ | 40/49 [00:02<00:00, 13.01it/s]
-    Running batch 8 inference:  86%|████████▌ | 42/49 [00:02<00:00, 12.52it/s]
-    Running batch 8 inference:  90%|████████▉ | 44/49 [00:02<00:00, 12.33it/s]
-    Running batch 8 inference:  94%|█████████▍| 46/49 [00:02<00:00, 12.13it/s]
-    Running batch 8 inference:  98%|█████████▊| 48/49 [00:03<00:00, 11.88it/s]
-                                                                                  Total Ensemble Batches:  75%|███████▌  | 3/4 [00:09<00:03,  3.16s/it]
+    Running batch 8 inference:   6%|▌         | 3/49 [00:00<00:01, 29.16it/s]
+    Running batch 8 inference:  12%|█▏        | 6/49 [00:00<00:01, 23.45it/s]
+    Running batch 8 inference:  18%|█▊        | 9/49 [00:00<00:01, 23.28it/s]
+    Running batch 8 inference:  24%|██▍       | 12/49 [00:00<00:01, 20.36it/s]
+    Running batch 8 inference:  31%|███       | 15/49 [00:00<00:01, 19.76it/s]
+    Running batch 8 inference:  37%|███▋      | 18/49 [00:00<00:01, 18.34it/s]
+    Running batch 8 inference:  41%|████      | 20/49 [00:01<00:01, 17.84it/s]
+    Running batch 8 inference:  45%|████▍     | 22/49 [00:01<00:01, 17.05it/s]
+    Running batch 8 inference:  49%|████▉     | 24/49 [00:01<00:01, 16.33it/s]
+    Running batch 8 inference:  53%|█████▎    | 26/49 [00:01<00:01, 16.02it/s]
+    Running batch 8 inference:  57%|█████▋    | 28/49 [00:01<00:01, 15.56it/s]
+    Running batch 8 inference:  61%|██████    | 30/49 [00:01<00:01, 14.83it/s]
+    Running batch 8 inference:  65%|██████▌   | 32/49 [00:01<00:01, 14.28it/s]
+    Running batch 8 inference:  69%|██████▉   | 34/49 [00:02<00:01, 13.89it/s]
+    Running batch 8 inference:  73%|███████▎  | 36/49 [00:02<00:00, 13.71it/s]
+    Running batch 8 inference:  78%|███████▊  | 38/49 [00:02<00:00, 13.41it/s]
+    Running batch 8 inference:  82%|████████▏ | 40/49 [00:02<00:00, 13.42it/s]
+    Running batch 8 inference:  86%|████████▌ | 42/49 [00:02<00:00, 12.92it/s]
+    Running batch 8 inference:  90%|████████▉ | 44/49 [00:02<00:00, 12.11it/s]
+    Running batch 8 inference:  94%|█████████▍| 46/49 [00:03<00:00, 11.53it/s]
+    Running batch 8 inference:  98%|█████████▊| 48/49 [00:03<00:00, 11.41it/s]
+                                                                                  Total Ensemble Batches:  75%|███████▌  | 3/4 [00:09<00:03,  3.29s/it]
     Running batch 12 inference:   0%|          | 0/49 [00:00<?, ?it/s]
-    Running batch 12 inference:   6%|▌         | 3/49 [00:00<00:01, 28.07it/s]
-    Running batch 12 inference:  12%|█▏        | 6/49 [00:00<00:01, 23.08it/s]
-    Running batch 12 inference:  18%|█▊        | 9/49 [00:00<00:01, 22.61it/s]
-    Running batch 12 inference:  24%|██▍       | 12/49 [00:00<00:01, 19.72it/s]
-    Running batch 12 inference:  31%|███       | 15/49 [00:00<00:01, 19.29it/s]
-    Running batch 12 inference:  35%|███▍      | 17/49 [00:00<00:01, 18.21it/s]
-    Running batch 12 inference:  39%|███▉      | 19/49 [00:00<00:01, 17.01it/s]
-    Running batch 12 inference:  43%|████▎     | 21/49 [00:01<00:01, 16.50it/s]
-    Running batch 12 inference:  47%|████▋     | 23/49 [00:01<00:01, 15.90it/s]
-    Running batch 12 inference:  51%|█████     | 25/49 [00:01<00:01, 15.36it/s]
-    Running batch 12 inference:  55%|█████▌    | 27/49 [00:01<00:01, 14.83it/s]
-    Running batch 12 inference:  59%|█████▉    | 29/49 [00:01<00:01, 14.50it/s]
-    Running batch 12 inference:  63%|██████▎   | 31/49 [00:01<00:01, 14.17it/s]
-    Running batch 12 inference:  67%|██████▋   | 33/49 [00:01<00:01, 13.96it/s]
-    Running batch 12 inference:  71%|███████▏  | 35/49 [00:02<00:01, 13.98it/s]
-    Running batch 12 inference:  76%|███████▌  | 37/49 [00:02<00:00, 14.05it/s]
-    Running batch 12 inference:  80%|███████▉  | 39/49 [00:02<00:00, 13.62it/s]
-    Running batch 12 inference:  84%|████████▎ | 41/49 [00:02<00:00, 13.17it/s]
-    Running batch 12 inference:  88%|████████▊ | 43/49 [00:02<00:00, 12.98it/s]
-    Running batch 12 inference:  92%|█████████▏| 45/49 [00:02<00:00, 12.94it/s]
-    Running batch 12 inference:  96%|█████████▌| 47/49 [00:03<00:00, 12.90it/s]
-    Running batch 12 inference: 100%|██████████| 49/49 [00:03<00:00, 12.83it/s]
-                                                                                   Total Ensemble Batches: 100%|██████████| 4/4 [00:12<00:00,  3.19s/it]    Total Ensemble Batches: 100%|██████████| 4/4 [00:12<00:00,  3.17s/it]
-    2024-04-17 00:52:42.558 | SUCCESS  | earth2studio.run:ensemble:242 - Ensemble Inference complete
-    2024-04-17 00:52:42.559 | INFO     | earth2studio.run:ensemble:157 - Running ensemble inference!
-    2024-04-17 00:52:42.559 | INFO     | earth2studio.run:ensemble:165 - Inference device: cuda
-    2024-04-17 00:52:42.560 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:151 - Fetching GFS index file: 2024-01-29 18:00:00
-    Fetching GFS for 2024-01-29 18:00:00:   0%|          | 0/7 [00:00<?, ?it/s]                                                                               2024-04-17 00:52:42.934 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: t850 at 2024-01-29 18:00:00
-    Fetching GFS for 2024-01-29 18:00:00:   0%|          | 0/7 [00:00<?, ?it/s]                                                                               2024-04-17 00:52:42.957 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: z1000 at 2024-01-29 18:00:00
-    Fetching GFS for 2024-01-29 18:00:00:   0%|          | 0/7 [00:00<?, ?it/s]                                                                               2024-04-17 00:52:42.975 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: z700 at 2024-01-29 18:00:00
-    Fetching GFS for 2024-01-29 18:00:00:   0%|          | 0/7 [00:00<?, ?it/s]                                                                               2024-04-17 00:52:42.994 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: z500 at 2024-01-29 18:00:00
-    Fetching GFS for 2024-01-29 18:00:00:   0%|          | 0/7 [00:00<?, ?it/s]                                                                               2024-04-17 00:52:43.012 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: z300 at 2024-01-29 18:00:00
-    Fetching GFS for 2024-01-29 18:00:00:   0%|          | 0/7 [00:00<?, ?it/s]                                                                               2024-04-17 00:52:43.030 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: tcwv at 2024-01-29 18:00:00
-    Fetching GFS for 2024-01-29 18:00:00:   0%|          | 0/7 [00:00<?, ?it/s]    Fetching GFS for 2024-01-29 18:00:00:  86%|████████▌ | 6/7 [00:00<00:00, 52.83it/s]                                                                                       2024-04-17 00:52:43.048 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: t2m at 2024-01-29 18:00:00
-    Fetching GFS for 2024-01-29 18:00:00:  86%|████████▌ | 6/7 [00:00<00:00, 52.83it/s]    Fetching GFS for 2024-01-29 18:00:00: 100%|██████████| 7/7 [00:00<00:00, 53.29it/s]
-    2024-04-17 00:52:43.072 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:151 - Fetching GFS index file: 2024-01-30 00:00:00
-    Fetching GFS for 2024-01-30 00:00:00:   0%|          | 0/7 [00:00<?, ?it/s]                                                                               2024-04-17 00:52:43.156 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: t850 at 2024-01-30 00:00:00
-    Fetching GFS for 2024-01-30 00:00:00:   0%|          | 0/7 [00:00<?, ?it/s]                                                                               2024-04-17 00:52:43.174 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: z1000 at 2024-01-30 00:00:00
-    Fetching GFS for 2024-01-30 00:00:00:   0%|          | 0/7 [00:00<?, ?it/s]                                                                               2024-04-17 00:52:43.192 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: z700 at 2024-01-30 00:00:00
-    Fetching GFS for 2024-01-30 00:00:00:   0%|          | 0/7 [00:00<?, ?it/s]                                                                               2024-04-17 00:52:43.210 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: z500 at 2024-01-30 00:00:00
-    Fetching GFS for 2024-01-30 00:00:00:   0%|          | 0/7 [00:00<?, ?it/s]                                                                               2024-04-17 00:52:43.227 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: z300 at 2024-01-30 00:00:00
-    Fetching GFS for 2024-01-30 00:00:00:   0%|          | 0/7 [00:00<?, ?it/s]                                                                               2024-04-17 00:52:43.245 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: tcwv at 2024-01-30 00:00:00
-    Fetching GFS for 2024-01-30 00:00:00:   0%|          | 0/7 [00:00<?, ?it/s]    Fetching GFS for 2024-01-30 00:00:00:  86%|████████▌ | 6/7 [00:00<00:00, 55.83it/s]                                                                                       2024-04-17 00:52:43.263 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: t2m at 2024-01-30 00:00:00
-    Fetching GFS for 2024-01-30 00:00:00:  86%|████████▌ | 6/7 [00:00<00:00, 55.83it/s]    Fetching GFS for 2024-01-30 00:00:00: 100%|██████████| 7/7 [00:00<00:00, 55.80it/s]
-    2024-04-17 00:52:43.318 | SUCCESS  | earth2studio.run:ensemble:177 - Fetched data from GFS
-    2024-04-17 00:52:43.323 | INFO     | earth2studio.run:ensemble:196 - Starting 16 Member Ensemble Inference with             4 number of batches.
-    Total Ensemble Batches:   0%|          | 0/4 [00:00<?, ?it/s]
-    Running batch 0 inference:   0%|          | 0/49 [00:00<?, ?it/s]
-    Running batch 0 inference:   8%|▊         | 4/49 [00:00<00:01, 27.27it/s]
-    Running batch 0 inference:  14%|█▍        | 7/49 [00:00<00:01, 25.37it/s]
-    Running batch 0 inference:  20%|██        | 10/49 [00:00<00:01, 23.56it/s]
-    Running batch 0 inference:  27%|██▋       | 13/49 [00:00<00:01, 21.61it/s]
-    Running batch 0 inference:  33%|███▎      | 16/49 [00:00<00:01, 19.39it/s]
-    Running batch 0 inference:  37%|███▋      | 18/49 [00:00<00:01, 18.61it/s]
-    Running batch 0 inference:  41%|████      | 20/49 [00:00<00:01, 18.15it/s]
-    Running batch 0 inference:  45%|████▍     | 22/49 [00:01<00:01, 17.58it/s]
-    Running batch 0 inference:  49%|████▉     | 24/49 [00:01<00:01, 17.20it/s]
-    Running batch 0 inference:  53%|█████▎    | 26/49 [00:01<00:01, 16.50it/s]
-    Running batch 0 inference:  57%|█████▋    | 28/49 [00:01<00:01, 15.98it/s]
-    Running batch 0 inference:  61%|██████    | 30/49 [00:01<00:01, 15.79it/s]
-    Running batch 0 inference:  65%|██████▌   | 32/49 [00:01<00:01, 15.52it/s]
-    Running batch 0 inference:  69%|██████▉   | 34/49 [00:01<00:01, 14.78it/s]
-    Running batch 0 inference:  73%|███████▎  | 36/49 [00:02<00:00, 14.26it/s]
-    Running batch 0 inference:  78%|███████▊  | 38/49 [00:02<00:00, 13.69it/s]
-    Running batch 0 inference:  82%|████████▏ | 40/49 [00:02<00:00, 13.26it/s]
-    Running batch 0 inference:  86%|████████▌ | 42/49 [00:02<00:00, 13.02it/s]
-    Running batch 0 inference:  90%|████████▉ | 44/49 [00:02<00:00, 12.75it/s]
-    Running batch 0 inference:  94%|█████████▍| 46/49 [00:02<00:00, 12.70it/s]
-    Running batch 0 inference:  98%|█████████▊| 48/49 [00:03<00:00, 12.48it/s]
-                                                                                  Total Ensemble Batches:  25%|██▌       | 1/4 [00:03<00:09,  3.14s/it]
-    Running batch 4 inference:   0%|          | 0/49 [00:00<?, ?it/s]
-    Running batch 4 inference:   6%|▌         | 3/49 [00:00<00:01, 28.62it/s]
-    Running batch 4 inference:  12%|█▏        | 6/49 [00:00<00:01, 21.76it/s]
-    Running batch 4 inference:  18%|█▊        | 9/49 [00:00<00:01, 21.96it/s]
-    Running batch 4 inference:  24%|██▍       | 12/49 [00:00<00:01, 19.42it/s]
-    Running batch 4 inference:  31%|███       | 15/49 [00:00<00:01, 18.89it/s]
-    Running batch 4 inference:  35%|███▍      | 17/49 [00:00<00:01, 18.25it/s]
-    Running batch 4 inference:  39%|███▉      | 19/49 [00:00<00:01, 17.54it/s]
-    Running batch 4 inference:  43%|████▎     | 21/49 [00:01<00:01, 16.74it/s]
-    Running batch 4 inference:  47%|████▋     | 23/49 [00:01<00:01, 16.07it/s]
-    Running batch 4 inference:  51%|█████     | 25/49 [00:01<00:01, 15.45it/s]
-    Running batch 4 inference:  55%|█████▌    | 27/49 [00:01<00:01, 15.41it/s]
-    Running batch 4 inference:  59%|█████▉    | 29/49 [00:01<00:01, 15.09it/s]
-    Running batch 4 inference:  63%|██████▎   | 31/49 [00:01<00:01, 14.50it/s]
-    Running batch 4 inference:  67%|██████▋   | 33/49 [00:01<00:01, 14.43it/s]
-    Running batch 4 inference:  71%|███████▏  | 35/49 [00:02<00:01, 13.68it/s]
-    Running batch 4 inference:  76%|███████▌  | 37/49 [00:02<00:00, 13.34it/s]
-    Running batch 4 inference:  80%|███████▉  | 39/49 [00:02<00:00, 12.93it/s]
-    Running batch 4 inference:  84%|████████▎ | 41/49 [00:02<00:00, 12.94it/s]
-    Running batch 4 inference:  88%|████████▊ | 43/49 [00:02<00:00, 12.72it/s]
-    Running batch 4 inference:  92%|█████████▏| 45/49 [00:02<00:00, 12.42it/s]
-    Running batch 4 inference:  96%|█████████▌| 47/49 [00:03<00:00, 12.05it/s]
-    Running batch 4 inference: 100%|██████████| 49/49 [00:03<00:00, 12.01it/s]
-                                                                                  Total Ensemble Batches:  50%|█████     | 2/4 [00:06<00:06,  3.24s/it]
-    Running batch 8 inference:   0%|          | 0/49 [00:00<?, ?it/s]
-    Running batch 8 inference:   6%|▌         | 3/49 [00:00<00:01, 28.16it/s]
-    Running batch 8 inference:  12%|█▏        | 6/49 [00:00<00:02, 21.35it/s]
-    Running batch 8 inference:  18%|█▊        | 9/49 [00:00<00:01, 21.45it/s]
-    Running batch 8 inference:  24%|██▍       | 12/49 [00:00<00:01, 19.11it/s]
-    Running batch 8 inference:  29%|██▊       | 14/49 [00:00<00:01, 18.42it/s]
-    Running batch 8 inference:  33%|███▎      | 16/49 [00:00<00:01, 17.68it/s]
-    Running batch 8 inference:  37%|███▋      | 18/49 [00:00<00:01, 17.48it/s]
-    Running batch 8 inference:  41%|████      | 20/49 [00:01<00:01, 16.84it/s]
-    Running batch 8 inference:  45%|████▍     | 22/49 [00:01<00:01, 16.42it/s]
-    Running batch 8 inference:  49%|████▉     | 24/49 [00:01<00:01, 16.21it/s]
-    Running batch 8 inference:  53%|█████▎    | 26/49 [00:01<00:01, 16.23it/s]
-    Running batch 8 inference:  57%|█████▋    | 28/49 [00:01<00:01, 16.18it/s]
-    Running batch 8 inference:  61%|██████    | 30/49 [00:01<00:01, 15.88it/s]
-    Running batch 8 inference:  65%|██████▌   | 32/49 [00:01<00:01, 15.57it/s]
-    Running batch 8 inference:  69%|██████▉   | 34/49 [00:01<00:00, 15.52it/s]
-    Running batch 8 inference:  73%|███████▎  | 36/49 [00:02<00:00, 14.75it/s]
-    Running batch 8 inference:  78%|███████▊  | 38/49 [00:02<00:00, 14.54it/s]
-    Running batch 8 inference:  82%|████████▏ | 40/49 [00:02<00:00, 14.20it/s]
-    Running batch 8 inference:  86%|████████▌ | 42/49 [00:02<00:00, 13.76it/s]
-    Running batch 8 inference:  90%|████████▉ | 44/49 [00:02<00:00, 13.52it/s]
-    Running batch 8 inference:  94%|█████████▍| 46/49 [00:02<00:00, 13.30it/s]
-    Running batch 8 inference:  98%|█████████▊| 48/49 [00:03<00:00, 12.92it/s]
-                                                                                  Total Ensemble Batches:  75%|███████▌  | 3/4 [00:09<00:03,  3.20s/it]
-    Running batch 12 inference:   0%|          | 0/49 [00:00<?, ?it/s]
-    Running batch 12 inference:   6%|▌         | 3/49 [00:00<00:01, 28.67it/s]
-    Running batch 12 inference:  12%|█▏        | 6/49 [00:00<00:01, 22.65it/s]
-    Running batch 12 inference:  18%|█▊        | 9/49 [00:00<00:01, 22.45it/s]
-    Running batch 12 inference:  24%|██▍       | 12/49 [00:00<00:01, 20.12it/s]
-    Running batch 12 inference:  31%|███       | 15/49 [00:00<00:01, 19.28it/s]
-    Running batch 12 inference:  35%|███▍      | 17/49 [00:00<00:01, 18.40it/s]
-    Running batch 12 inference:  39%|███▉      | 19/49 [00:00<00:01, 17.57it/s]
-    Running batch 12 inference:  43%|████▎     | 21/49 [00:01<00:01, 17.14it/s]
-    Running batch 12 inference:  47%|████▋     | 23/49 [00:01<00:01, 16.61it/s]
-    Running batch 12 inference:  51%|█████     | 25/49 [00:01<00:01, 16.21it/s]
-    Running batch 12 inference:  55%|█████▌    | 27/49 [00:01<00:01, 15.69it/s]
-    Running batch 12 inference:  59%|█████▉    | 29/49 [00:01<00:01, 14.99it/s]
-    Running batch 12 inference:  63%|██████▎   | 31/49 [00:01<00:01, 14.56it/s]
-    Running batch 12 inference:  67%|██████▋   | 33/49 [00:01<00:01, 14.26it/s]
-    Running batch 12 inference:  71%|███████▏  | 35/49 [00:02<00:01, 13.89it/s]
-    Running batch 12 inference:  76%|███████▌  | 37/49 [00:02<00:00, 13.71it/s]
-    Running batch 12 inference:  80%|███████▉  | 39/49 [00:02<00:00, 13.56it/s]
-    Running batch 12 inference:  84%|████████▎ | 41/49 [00:02<00:00, 13.38it/s]
-    Running batch 12 inference:  88%|████████▊ | 43/49 [00:02<00:00, 12.86it/s]
-    Running batch 12 inference:  92%|█████████▏| 45/49 [00:02<00:00, 12.62it/s]
-    Running batch 12 inference:  96%|█████████▌| 47/49 [00:03<00:00, 12.46it/s]
-    Running batch 12 inference: 100%|██████████| 49/49 [00:03<00:00, 11.85it/s]
-                                                                                   Total Ensemble Batches: 100%|██████████| 4/4 [00:12<00:00,  3.23s/it]    Total Ensemble Batches: 100%|██████████| 4/4 [00:12<00:00,  3.22s/it]
-    2024-04-17 00:52:56.200 | SUCCESS  | earth2studio.run:ensemble:242 - Ensemble Inference complete
+    Running batch 12 inference:   6%|▌         | 3/49 [00:00<00:01, 27.04it/s]
+    Running batch 12 inference:  12%|█▏        | 6/49 [00:00<00:01, 21.83it/s]
+    Running batch 12 inference:  18%|█▊        | 9/49 [00:00<00:01, 20.12it/s]
+    Running batch 12 inference:  24%|██▍       | 12/49 [00:00<00:02, 18.24it/s]
+    Running batch 12 inference:  29%|██▊       | 14/49 [00:00<00:02, 17.48it/s]
+    Running batch 12 inference:  33%|███▎      | 16/49 [00:00<00:01, 16.90it/s]
+    Running batch 12 inference:  37%|███▋      | 18/49 [00:00<00:01, 16.62it/s]
+    Running batch 12 inference:  41%|████      | 20/49 [00:01<00:01, 16.14it/s]
+    Running batch 12 inference:  45%|████▍     | 22/49 [00:01<00:01, 16.23it/s]
+    Running batch 12 inference:  49%|████▉     | 24/49 [00:01<00:01, 16.07it/s]
+    Running batch 12 inference:  53%|█████▎    | 26/49 [00:01<00:01, 15.49it/s]
+    Running batch 12 inference:  57%|█████▋    | 28/49 [00:01<00:01, 15.42it/s]
+    Running batch 12 inference:  61%|██████    | 30/49 [00:01<00:01, 14.79it/s]
+    Running batch 12 inference:  65%|██████▌   | 32/49 [00:01<00:01, 14.26it/s]
+    Running batch 12 inference:  69%|██████▉   | 34/49 [00:02<00:01, 13.82it/s]
+    Running batch 12 inference:  73%|███████▎  | 36/49 [00:02<00:00, 13.67it/s]
+    Running batch 12 inference:  78%|███████▊  | 38/49 [00:02<00:00, 13.22it/s]
+    Running batch 12 inference:  82%|████████▏ | 40/49 [00:02<00:00, 12.78it/s]
+    Running batch 12 inference:  86%|████████▌ | 42/49 [00:02<00:00, 12.42it/s]
+    Running batch 12 inference:  90%|████████▉ | 44/49 [00:02<00:00, 12.25it/s]
+    Running batch 12 inference:  94%|█████████▍| 46/49 [00:03<00:00, 12.12it/s]
+    Running batch 12 inference:  98%|█████████▊| 48/49 [00:03<00:00, 11.98it/s]
+                                                                                   Total Ensemble Batches: 100%|██████████| 4/4 [00:13<00:00,  3.32s/it]    Total Ensemble Batches: 100%|██████████| 4/4 [00:13<00:00,  3.31s/it]
+    2024-04-18 22:33:24.249 | SUCCESS  | earth2studio.run:ensemble:242 - Ensemble Inference complete
 
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 167-174
+.. GENERATED FROM PYTHON SOURCE LINES 174-181
 
 Post Processing
 ---------------
-The last step is to post process our results. Cartopy is a greate library for plotting
-fields on projects of a sphere. Here we plot and compare the ensemble mean and standard
-deviation from using a unperturbed/perturbed model.
+The last step is to post process our results.
+Here we plot and compare the ensemble mean and standard deviation from using an
+unperturbed/perturbed model.
 
 Notice that the Zarr IO function has additional APIs to interact with the stored data.
 
-.. GENERATED FROM PYTHON SOURCE LINES 176-308
+.. GENERATED FROM PYTHON SOURCE LINES 183-318
 
 .. code-block:: Python
 
@@ -466,6 +490,9 @@ Notice that the Zarr IO function has additional APIs to interact with the stored
 
     def update(frame):
         """This function updates the frame with a new lead time for animation."""
+        import warnings
+
+        warnings.filterwarnings("ignore")
         ax0.clear()
         ax1.clear()
         ax2.clear()
@@ -542,12 +569,12 @@ Notice that the Zarr IO function has additional APIs to interact with the stored
             f'Forecast Starting on {forecast_date} - Lead Time - {io_perturbed["lead_time"][frame]}'
         )
 
-        if frame == 0:
-            ax0.set_title("Unperturbed Ensemble Mean - tcwv + z500 countors")
-            ax1.set_title("Unperturbed Ensemble Std - tcwv")
-            ax2.set_title("Perturbed Ensemble Mean - tcwv + z500 contours")
-            ax2.set_title("Perturbed Ensemble Std - tcwv")
+        ax0.set_title("Unperturbed Ensemble Mean - tcwv + z500 countors")
+        ax1.set_title("Unperturbed Ensemble Std - tcwv")
+        ax2.set_title("Perturbed Ensemble Mean - tcwv + z500 contours")
+        ax3.set_title("Perturbed Ensemble Std - tcwv")
 
+        if frame == 0:
             plt.colorbar(
                 im0, ax=ax0, shrink=0.75, pad=0.04, label="kg m^-2", format="%2.1f"
             )
@@ -570,8 +597,8 @@ Notice that the Zarr IO function has additional APIs to interact with the stored
     # )
     # ani.save(f"outputs/05_model_perturbation_{forecast_date}.gif", dpi=300)
 
-    # Here we plot a handful of images
-    for lt in [0, 10, 20, 30, 40]:
+
+    for lt in [10, 20, 30, 40]:
         update(lt)
         plt.savefig(
             f"outputs/05_model_perturbation_{forecast_date}_leadtime_{lt}.png",
@@ -582,345 +609,10 @@ Notice that the Zarr IO function has additional APIs to interact with the stored
 
 
 .. image-sg:: /examples/images/sphx_glr_05_model_perturbation_hook_001.png
-   :alt: Forecast Starting on 2024-01-30 - Lead Time - 240 hours
+   :alt: Forecast Starting on 2024-01-30 - Lead Time - 240 hours, Unperturbed Ensemble Mean - tcwv + z500 countors, Unperturbed Ensemble Std - tcwv, Perturbed Ensemble Mean - tcwv + z500 contours, Perturbed Ensemble Std - tcwv
    :srcset: /examples/images/sphx_glr_05_model_perturbation_hook_001.png, /examples/images/sphx_glr_05_model_perturbation_hook_001_2_00x.png 2.00x
    :class: sphx-glr-single-img
 
-
-.. rst-class:: sphx-glr-script-out
-
- .. code-block:: none
-
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1642: UserWarning: Log scale: values of z <= 0 have been masked
-      result = super().contourf(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1642: UserWarning: Log scale: values of z <= 0 have been masked
-      result = super().contourf(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /home/jenkins/agent/workspace/Studio-Build-Docs/repo/examples/05_model_perturbation_hook.py:281: UserWarning: Attempt to set non-positive ylim on a log-scaled axis will be ignored.
-      plt.colorbar(
-    /home/jenkins/agent/workspace/Studio-Build-Docs/repo/examples/05_model_perturbation_hook.py:287: UserWarning: Attempt to set non-positive ylim on a log-scaled axis will be ignored.
-      plt.colorbar(
-    /usr/local/lib/python3.10/dist-packages/cartopy/io/__init__.py:241: DownloadWarning: Downloading: https://naturalearth.s3.amazonaws.com/50m_physical/ne_50m_coastline.zip
-      warnings.warn(f'Downloading: {url}', DownloadWarning)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
-    /usr/local/lib/python3.10/dist-packages/cartopy/mpl/geoaxes.py:1601: UserWarning: The following kwargs were not used by contour: 'linestyle'
-      result = super().contour(*args, **kwargs)
 
 
 
@@ -928,7 +620,7 @@ Notice that the Zarr IO function has additional APIs to interact with the stored
 
 .. rst-class:: sphx-glr-timing
 
-   **Total running time of the script:** (0 minutes 47.054 seconds)
+   **Total running time of the script:** (1 minutes 4.451 seconds)
 
 
 .. _sphx_glr_download_examples_05_model_perturbation_hook.py:

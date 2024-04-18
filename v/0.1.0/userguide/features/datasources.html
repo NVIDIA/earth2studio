@@ -446,12 +446,12 @@ the API documentation <a class="reference internal" href="../../modules/datasour
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>Data sources do not represent forecast systems / predictions such as numerical weather
-simulators. They may include initial states these simulators use or outputs from
+simulators. They may include the initial states these simulators use or outputs from
 data assimilation processes.</p>
 </div>
 <section id="data-source-interface">
 <h2>Data Source Interface<a class="headerlink" href="#data-source-interface" title="Link to this heading">#</a></h2>
-<p>The full requirements for a standard diagnostic model our defined explicitly in the
+<p>The full requirements for a standard diagnostic model are defined explicitly in the
 <code class="docutils literal notranslate"><span class="pre">earth2studio/models/dx/base.py</span></code>.</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nd">@runtime_checkable</span>
 <span class="k">class</span> <span class="nc">DataSource</span><span class="p">(</span><span class="n">Protocol</span><span class="p">):</span>
@@ -492,7 +492,7 @@ details on how to customize this location.</p>
 <section id="data-source-usage">
 <h2>Data Source Usage<a class="headerlink" href="#data-source-usage" title="Link to this heading">#</a></h2>
 <p>The <code class="xref py py-func docutils literal notranslate"><span class="pre">__call__()</span></code> function is the way data is fetched from the data source and placed
-into a inmemory Xarray data array.
+into a in memory Xarray data array.
 A user needs to provide both the time(s) and variables for the data source to fetch.
 Variables can differ between data-sources and models.
 The package lexicon is used as the source of truth and translator for data sources
@@ -505,11 +505,11 @@ There are a few utility functions inside Earth2Studio to make this process easy 
 is commonly used in workflows.</p>
 <section id="earth2studio-data-fetch-data">
 <h3><a class="reference internal" href="../../modules/generated/data/earth2studio.data.fetch_data.html#earth2studio.data.fetch_data" title="earth2studio.data.fetch_data"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data.fetch_data</span></code></a><a class="headerlink" href="#earth2studio-data-fetch-data" title="Link to this heading">#</a></h3>
-<p>The <code class="xref py py-func docutils literal notranslate"><span class="pre">fetch_data()</span></code> function is useful utilities for getting a PyTorch tensor and
+<p>The <code class="xref py py-func docutils literal notranslate"><span class="pre">fetch_data()</span></code> function is useful for getting a PyTorch tensor and
 coordinate system for a given model.
-This utility fetches data for a array of times and lead times for the specified
+This utility fetches data for an array of times and lead times for the specified
 variables.
-For example, in the determinsitic workflow <a class="reference internal" href="../../modules/generated/workflows/earth2studio.run.deterministic.html#earth2studio.run.deterministic" title="earth2studio.run.deterministic"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.run.deterministic</span></code></a>, it is
+For example, in the deterministic workflow <a class="reference internal" href="../../modules/generated/workflows/earth2studio.run.deterministic.html#earth2studio.run.deterministic" title="earth2studio.run.deterministic"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.run.deterministic</span></code></a>, it is
 used to get the initial state for the provided prognostic.</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span>    <span class="n">device</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">device</span><span class="p">(</span><span class="s2">&quot;cuda&quot;</span> <span class="k">if</span> <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">is_available</span><span class="p">()</span> <span class="k">else</span> <span class="s2">&quot;cpu&quot;</span><span class="p">)</span>
     <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Inference device: </span><span class="si">{</span><span class="n">device</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
@@ -527,30 +527,30 @@ used to get the initial state for the provided prognostic.</p>
 </section>
 <section id="earth2studio-data-prep-data-array">
 <h3><a class="reference internal" href="../../modules/generated/data/earth2studio.data.prep_data_array.html#earth2studio.data.prep_data_array" title="earth2studio.data.prep_data_array"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data.prep_data_array</span></code></a><a class="headerlink" href="#earth2studio-data-prep-data-array" title="Link to this heading">#</a></h3>
-<p>The <code class="xref py py-func docutils literal notranslate"><span class="pre">prep_data_array()</span></code> is another useful utilities when interacting more directly
+<p>The <code class="xref py py-func docutils literal notranslate"><span class="pre">prep_data_array()</span></code> is another useful utility when interacting more directly
 with a data source.
 This method will take a Xarray data array and return a tensor and coordinate system to
 be used with other components.
-Typically this is used under the hood of various utils in Earth2Studio, but may prove
+Typically, this is used under the hood of various utils in Earth2Studio but may prove
 useful to users implementing custom data sources where greater control is needed.</p>
 </section>
 </section>
 <section id="custom-data-sources">
 <h2>Custom Data Sources<a class="headerlink" href="#custom-data-sources" title="Link to this heading">#</a></h2>
-<p>Custom data sources are often essential when working with a large about / on-prem
+<p>Custom data sources are often essential when working with large / on-prem
 datasets.
-So long as the data source can satify the API outlined in the interface above, it can
-integrate seemlessly into Earth2Studio.
+So long as the data source can satisfy the API outlined in the interface above, it can
+integrate seamlessly into Earth2Studio.
 We recommend users have a look at the <a class="reference internal" href="../../examples/extend/index.html#extension-examples"><span class="std std-ref">Extending Earth2Studio</span></a> examples, which will
 step users through the simple process of implementing your own data source.</p>
 </section>
 <section id="contributing-a-datasource">
 <h2>Contributing a Datasource<a class="headerlink" href="#contributing-a-datasource" title="Link to this heading">#</a></h2>
-<p>We are always looking for new remote data stores that our users may be interested in to
-run inference on.
-Typically we want to make sure data sources can be accessed by all users and allow the
+<p>We are always looking for new remote data stores that our users may be interested in for
+running inference.
+Its essential to make sure data sources can be accessed by all users and allow the
 partial downloads of the data based on the users requests.
-If you happen to manage a data source or have a data source in mind, open up an issue on
+If you happen to manage a data source or have a data source in mind, open an issue on
 the repo and we can discuss.</p>
 </section>
 </section>
@@ -655,7 +655,7 @@ the repo and we can discuss.</p>
         <div class="footer-item">
 
   <p class="sphinx-version">
-    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 7.3.1.
+    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 7.3.6.
     <br/>
   </p>
 </div>
