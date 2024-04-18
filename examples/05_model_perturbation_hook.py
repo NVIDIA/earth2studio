@@ -87,7 +87,7 @@ import numpy as np
 from earth2studio.data import GFS
 from earth2studio.io import ZarrBackend
 from earth2studio.models.px import DLWP
-from earth2studio.perturbation import Zero
+from earth2studio.perturbation import Gaussian
 from earth2studio.run import ensemble
 
 # Load the default model package which downloads the check point from NGC
@@ -105,7 +105,8 @@ io_unperturbed = ZarrBackend(file_name="outputs/05_ensemble.zarr", chunks=chunks
 # %%
 # Execute the Workflow
 # --------------------
-# First, we will run the ensemble workflow but with a zero perturbation as the control.
+# First, we will run the ensemble workflow but with a :py:meth:`earth2studio.perturbation.Gaussian`
+# perturbation as the control.
 #
 # The workflow will return the provided IO object back to the user, which can be used to
 # then post process. Some have additional APIs that can be handy for post-processing or
@@ -122,7 +123,7 @@ output_coords = {
     "variable": np.array(["tcwv", "z500"]),
 }
 
-# Forst run the unperturbed model forcast
+# First run with no model perturbation
 io_unperturbed = ensemble(
     [forecast_date],
     nsteps,
@@ -130,7 +131,7 @@ io_unperturbed = ensemble(
     model,
     data,
     io_unperturbed,
-    Zero(),
+    Gaussian(noise_amplitude=0.01),
     output_coords=output_coords,
     batch_size=batch_size,
 )
@@ -145,7 +146,7 @@ io_unperturbed = ensemble(
 # %%
 model.front_hook = lambda x, coords: (
     x
-    - 0.05
+    - 0.1
     * x.var(dim=0)
     * (x - model.center.unsqueeze(-1))
     / (model.scale.unsqueeze(-1)) ** 2
@@ -164,7 +165,7 @@ io_perturbed = ensemble(
     model,
     data,
     io_perturbed,
-    Zero(),
+    Gaussian(noise_amplitude=0.01),
     output_coords=output_coords,
     batch_size=batch_size,
 )
@@ -199,6 +200,9 @@ ax3 = fig.add_subplot(2, 2, 4, projection=ccrs.PlateCarree())
 
 def update(frame):
     """This function updates the frame with a new lead time for animation."""
+    import warnings
+
+    warnings.filterwarnings("ignore")
     ax0.clear()
     ax1.clear()
     ax2.clear()
@@ -275,12 +279,12 @@ def update(frame):
         f'Forecast Starting on {forecast_date} - Lead Time - {io_perturbed["lead_time"][frame]}'
     )
 
-    if frame == 0:
-        ax0.set_title("Unperturbed Ensemble Mean - tcwv + z500 countors")
-        ax1.set_title("Unperturbed Ensemble Std - tcwv")
-        ax2.set_title("Perturbed Ensemble Mean - tcwv + z500 contours")
-        ax2.set_title("Perturbed Ensemble Std - tcwv")
+    ax0.set_title("Unperturbed Ensemble Mean - tcwv + z500 countors")
+    ax1.set_title("Unperturbed Ensemble Std - tcwv")
+    ax2.set_title("Perturbed Ensemble Mean - tcwv + z500 contours")
+    ax3.set_title("Perturbed Ensemble Std - tcwv")
 
+    if frame == 0:
         plt.colorbar(
             im0, ax=ax0, shrink=0.75, pad=0.04, label="kg m^-2", format="%2.1f"
         )
@@ -303,8 +307,8 @@ def update(frame):
 # )
 # ani.save(f"outputs/05_model_perturbation_{forecast_date}.gif", dpi=300)
 
-# Here we plot a handful of images
-for lt in [0, 10, 20, 30, 40]:
+
+for lt in [10, 20, 30, 40]:
     update(lt)
     plt.savefig(
         f"outputs/05_model_perturbation_{forecast_date}_leadtime_{lt}.png",
