@@ -129,9 +129,9 @@ class SFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     core_model : torch.nn.Module
         Core PyTorch model with loaded weights
     center : torch.Tensor
-        Model center normalization tensor of size [26]
+        Model center normalization tensor of size [73]
     scale : torch.Tensor
-        Model scale normalization tensor of size [26]
+        Model scale normalization tensor of size [73]
     """
 
     def __init__(
