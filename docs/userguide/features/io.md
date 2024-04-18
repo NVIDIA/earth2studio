@@ -4,21 +4,22 @@
 
 While input data handling is primarily managed by the data sources in
 {mod}`earth2studio.data`, output handling is managed by the IO backends available
-in {mod}`earth2studio.io`. These backends are designed to balance the ability for
-users to customize the arrays and metadata within the exposed backend while also
-making it easy to design resuable workflows.
+in {mod}`earth2studio.io`.
+These backends are designed to balance the ability for users to customize the arrays and
+metadata within the exposed backend while also making it easy to design reusable
+workflows.
 
 The key extension of the typical `(x, coords)` data structure movement throughout
 the rest of the `earth2studio` code and output store compatibility is the notion of
 an `array_name`. Names distinguish between different arrays within the backend and
-is currently a requirement for storing `Datasets` in `xarray`, `zarr`, and `netcdf`.
+are currently a requirement for storing `Datasets` in `xarray`, `zarr`, and `netcdf`.
 This means that the user must supply a name when adding an array to a store or when
 writing an array. A frequent pattern is to extract one dimension of an array,
 such as `"variable"` to act as individual arrays in the backend, see the examples below.
 
 ## IO Backend Interface
 
-The full requirements for a standard prognostic model our defined explicitly in the
+The full requirements for a standard IO backend are defined explicitly in the
 `earth2studio/io/base.py`.
 
 ```{literalinclude} ../../../earth2studio/io/base.py
@@ -27,20 +28,21 @@ The full requirements for a standard prognostic model our defined explicitly in 
 ```
 
 :::{note}
-IO Backends do not need to inherit this protocol, this is simply used to define
+IO Backends do not need to inherit this protocol; this is simply used to define
 the required APIs. Some built-in IO backends also may offer additional functionality
 that is not universally supported (and hence not required).
 :::
 
 There are two important methods that must be supported: `add_array`, which
 adds an array to the underlying store and any attached coordinates, and `write`,
-which explicity stores the passed data in the backend. The `write` command may
-induce synchronization if the input tensor resides on the GPU and the store. Most
-stores make a conversion from PyTorch to numpy in this process. The
-{mod}`earth2studio.io.kv` backend has the option for storing data on the GPU, which can be
-done asynchronously.
+which explicitly stores the provided data in the backend.
+The `write` command may induce synchronization if the input tensor resides on the GPU
+and the store.
+Most stores make a conversion from PyTorch to numpy in this process.
+The {mod}`earth2studio.io.kv` backend has the option for storing data on the GPU, which
+can be done asynchronously.
 
-Most data stores offer a number of additional utilities such as `__contains__`,
+Most data stores offer several additional utilities such as `__contains__`,
 `__getitem__`, `__len__`, and `__iter__`. For examples, see the implementation in
 {mod}`earth2studio.io.ZarrBackend`:
 

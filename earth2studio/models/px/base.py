@@ -38,7 +38,7 @@ class PrognosticModel(Protocol):
         x : torch.Tensor
             Input tensor intended to apply diagnostic function on
         coords : CoordSystem
-            Ordered dict representing coordinate system that discribes the tensor
+            Ordered dict representing coordinate system that describes the tensor
 
         Returns
         -------
