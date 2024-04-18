@@ -168,7 +168,7 @@ def run_stats(
 # - statistic: We define our own statistic: the Southern Oscillation Index (SOI).
 # - Datasource: Pull data from the GFS data api :py:class:`earth2studio.data.GFS`.
 # - IO Backend: Save the outputs into a NetCDF4 store :py:class:`earth2studio.io.NetCDF4Backend`.
-#
+
 # %%
 from collections import OrderedDict
 
@@ -334,8 +334,8 @@ soi = SOI()
 # then post process. Some have additional APIs that can be handy for post-processing or
 # saving to file. Check the API docs for more information.
 # We simulate a trajectory of 60 time steps, or 2 months using Pangu24
-# %%
 
+# %%
 nsteps = 60
 nensemble = 1
 io = run_stats(["2022-01-01"], nsteps, nensemble, model, soi, data, io)

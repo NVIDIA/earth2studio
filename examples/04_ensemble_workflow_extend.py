@@ -53,7 +53,7 @@ In this example you will learn:
 # - perturbation_method: Extend the Spherical Gaussian Method :py:class:`earth2studio.perturbation.SphericalGaussian`.
 # - Datasource: Pull data from the GFS data api :py:class:`earth2studio.data.GFS`.
 # - IO Backend: Save the outputs into a Zarr store :py:class:`earth2studio.io.ZarrBackend`.
-#
+
 # %%
 from typing import List, Union
 
@@ -124,6 +124,7 @@ io = ZarrBackend(file_name="outputs/04_ensemble_avsg.zarr", chunks=chunks)
 #
 # For the forecast we will predict for 10 steps (for FCN, this is 60 hours) with 8 ensemble
 # members which will be ran in 2 batches with batch size 4.
+
 # %%
 nsteps = 10
 nensemble = 8
