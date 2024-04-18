@@ -5,8 +5,10 @@ version: 0.1.0
 authors:
   - family-names: Geneva
     given-names: Nicholas
+    orcid: https://orcid.org/0000-0003-4562-459X
   - family-names: Foster
     given-names: Dallas
+    orcid: https://orcid.org/0000-0001-8459-9767
 url: https://github.com/NVIDIA/earth2studio
 repository-code: https://github.com/NVIDIA/earth2studio
 date-released: 2024-04-22
