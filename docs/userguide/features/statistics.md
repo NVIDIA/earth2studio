@@ -23,7 +23,7 @@ examples, the use of a few properties to make statistic handling easier:
 `weights`, which must be broadcastable with `reduction_dimensions`, and `batch_update`,
 which is useful for applying statistics when data comes in streams/batches.
 
-Where applicable, specified `reduction_dimensions` sets a requirement for the
+Where applicable, specified `reduction_dimensions` set a requirement for the
 coordinates passed in the call method.
 
 ## Custom Statistics
@@ -46,7 +46,7 @@ inputs. Otherwise, the API and requirements are similar to the statistics requir
 
 ## Contributing Statistics and Metrics
 
-Want to add your own statistic or metric to the package? Great, we will be happy to
-work with you. At the minimum we expect the model to abide by the interface defined
+Want to add your own statistics or metrics to the package? Great, we will be happy to
+work with you. At the minimum we expect the model to abide by the interfaces defined
 above. We may also work with the user to ensure that there are `reduction_dimensions`
 applicable and, if possible, weight and batching support possible.
