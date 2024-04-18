@@ -7,10 +7,10 @@ name = "earth2studio"
 authors = [
   { name="NVIDIA Modulus Team"},
 ]
-description = "Earth2Studio is a Python-based AI framework that enables climate researchers and scientists to explore and experiment with the use of AI models for weather and climate."
+description = "Open-source deep-learning framework for exploring, building and deploying AI weather/climate workflows."
 readme = "README.md"
 requires-python = ">=3.10"
-license = {text = "Apache 2.0"}
+license = {file = 'LICENSE'}
 dependencies = [
     "boto3>=1.34.50",
     "cdsapi >= 0.6.1",
@@ -44,6 +44,9 @@ classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: Apache Software License",
     "Operating System :: OS Independent",
+    "Intended Audience :: Science/Research",
+    "Environment :: GPU",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
 dynamic = ["version"]
 
