@@ -107,10 +107,10 @@ io_unperturbed = ZarrBackend(file_name="outputs/05_ensemble.zarr", chunks=chunks
 # --------------------
 # First, we will run the ensemble workflow but with a zero perturbation as the control.
 #
-# The Workflow will return the provided IO object back to the user, which can be used to
+# The workflow will return the provided IO object back to the user, which can be used to
 # then post process. Some have additional APIs that can be handy for post-processing or
 # saving to file. Check the API docs for more information.
-#
+
 # %%
 nsteps = 4 * 12
 nensemble = 16
@@ -138,9 +138,9 @@ io_unperturbed = ensemble(
 # %%
 # Now let's introduce slight model perturbation using the prognostic model hooks defined
 # in :py:class:`earth2studio.models.px.utils.PrognosticMixin`.
-# Note that center.unsqueeze(-1) is DLWP specific since it operates on a cubed sphere
+# Note that :py:obj:`center.unsqueeze(-1)` is DLWP specific since it operates on a cubed sphere
 # with grid dimensions (nface, lat, lon) instead of just (lat,lon).
-# To switch out the model, consider removing the py:meth:`unsqueeze`.
+# To switch out the model, consider removing the :py:meth:`unsqueeze` .
 
 # %%
 model.front_hook = lambda x, coords: (
