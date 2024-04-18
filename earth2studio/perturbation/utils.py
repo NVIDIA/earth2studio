@@ -94,7 +94,7 @@ class Perturbation:
         x : torch.Tensor
             Input tensor
         coords : CoordSystem
-            Ordered dict representing coordinate system that discribes the tensor
+            Ordered dict representing coordinate system that describes the tensor
 
         Returns
         -------

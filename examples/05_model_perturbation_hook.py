@@ -21,13 +21,16 @@ Model Hook Injection: Perturbation
 
 Adding model noise by using custom hooks.
 
-This example will demonstrate how to run a an ensemble inference workflow to generate a
+This example will demonstrate how to run an ensemble inference workflow to generate a
 perturbed ensemble forecast. This perturbation is done by injecting code into the model
-front and rear hooks. These hooks are applied to the tensor data before/after the model forward call.
+front and rear hooks.
+These hooks are applied to the tensor data before/after the model forward call.
 
-This example also illustrates how you can subselect data for IO. In this example we will only output
-two variables: total column water vapour (tcwv) and 500 hPa geopotential (z500). To run this make
-sure that the model selected predicts these variables are change appropriately.
+This example also illustrates how you can subselect data for IO. In this example we
+will only output two variables:
+total column water vapor (tcwv) and 500 hPa geopotential (z500).
+To run this, make sure that the model selected predicts these variables are change
+appropriately.
 
 In this example you will learn:
 
@@ -42,7 +45,7 @@ In this example you will learn:
 # Creating an Ensemble Workflow
 # -----------------------------------
 #
-# To start lets begin with creating an ensemble workflow to use. We encourage
+# To start let's begin with creating an ensemble workflow to use. We encourage
 # users to explore and experiment with their own custom workflows that borrow ideas from
 # built in workflows inside :py:obj:`earth2studio.run` or the examples.
 #
@@ -62,13 +65,13 @@ In this example you will learn:
 # %%
 # Set Up
 # ------
-# With the ensemble workflow defined, we now need to create the indivdual components.
+# With the ensemble workflow defined, we now need to create the individual components.
 #
 # We need the following:
 #
 # - Prognostic Model: Use the built in DLWP model :py:class:`earth2studio.models.px.DLWP`.
 # - Datasource: Pull data from the GFS data api :py:class:`earth2studio.data.GFS`.
-# - IO Backend: Lets save the outputs into a Zarr store :py:class:`earth2studio.io.ZarrBackend`.
+# - IO Backend: Save the outputs into a Zarr store :py:class:`earth2studio.io.ZarrBackend`.
 #
 # We will first run the ensemble workflow using an unmodified function, that is a model that has the
 # default (identity) forward and rear hooks. Then we will define new hooks for the model and rerun the
@@ -84,7 +87,7 @@ import numpy as np
 from earth2studio.data import GFS
 from earth2studio.io import ZarrBackend
 from earth2studio.models.px import DLWP
-from earth2studio.perturbation import Zero
+from earth2studio.perturbation import Gaussian
 from earth2studio.run import ensemble
 
 # Load the default model package which downloads the check point from NGC
@@ -102,13 +105,14 @@ io_unperturbed = ZarrBackend(file_name="outputs/05_ensemble.zarr", chunks=chunks
 # %%
 # Execute the Workflow
 # --------------------
-# With all componments intialized, running the workflow is a single line of Python code.
-# Workflow will return the provided IO object back to the user, which can be used to
+# First, we will run the ensemble workflow but with a :py:meth:`earth2studio.perturbation.Gaussian`
+# perturbation as the control.
+#
+# The workflow will return the provided IO object back to the user, which can be used to
 # then post process. Some have additional APIs that can be handy for post-processing or
 # saving to file. Check the API docs for more information.
-#
-# %%
 
+# %%
 nsteps = 4 * 12
 nensemble = 16
 batch_size = 4
@@ -119,7 +123,7 @@ output_coords = {
     "variable": np.array(["tcwv", "z500"]),
 }
 
-# Forst run the unperturbed model forcast
+# First run with no model perturbation
 io_unperturbed = ensemble(
     [forecast_date],
     nsteps,
@@ -127,19 +131,22 @@ io_unperturbed = ensemble(
     model,
     data,
     io_unperturbed,
-    Zero(),
+    Gaussian(noise_amplitude=0.01),
     output_coords=output_coords,
     batch_size=batch_size,
 )
 
-# Introduce slight model perturbation
-# front_hook / rear_hook map (x, coords) -> (x, coords)
-# Note that center.unsqueeze(-1) is DLWP specific since it operates
-# on a cubed sphere with grid dimensions (nface, lat, lon) instead of
-# just (lat,lon). To switch out the model, consider removing the .unsqueeze
+# %%
+# Now let's introduce slight model perturbation using the prognostic model hooks defined
+# in :py:class:`earth2studio.models.px.utils.PrognosticMixin`.
+# Note that :py:obj:`center.unsqueeze(-1)` is DLWP specific since it operates on a cubed sphere
+# with grid dimensions (nface, lat, lon) instead of just (lat,lon).
+# To switch out the model, consider removing the :py:meth:`unsqueeze` .
+
+# %%
 model.front_hook = lambda x, coords: (
     x
-    - 0.05
+    - 0.1
     * x.var(dim=0)
     * (x - model.center.unsqueeze(-1))
     / (model.scale.unsqueeze(-1)) ** 2
@@ -158,7 +165,7 @@ io_perturbed = ensemble(
     model,
     data,
     io_perturbed,
-    Zero(),
+    Gaussian(noise_amplitude=0.01),
     output_coords=output_coords,
     batch_size=batch_size,
 )
@@ -166,9 +173,9 @@ io_perturbed = ensemble(
 # %%
 # Post Processing
 # ---------------
-# The last step is to post process our results. Cartopy is a greate library for plotting
-# fields on projects of a sphere. Here we plot and compare the ensemble mean and standard
-# deviation from using a unperturbed/perturbed model.
+# The last step is to post process our results.
+# Here we plot and compare the ensemble mean and standard deviation from using an
+# unperturbed/perturbed model.
 #
 # Notice that the Zarr IO function has additional APIs to interact with the stored data.
 
@@ -193,6 +200,9 @@ ax3 = fig.add_subplot(2, 2, 4, projection=ccrs.PlateCarree())
 
 def update(frame):
     """This function updates the frame with a new lead time for animation."""
+    import warnings
+
+    warnings.filterwarnings("ignore")
     ax0.clear()
     ax1.clear()
     ax2.clear()
@@ -269,12 +279,12 @@ def update(frame):
         f'Forecast Starting on {forecast_date} - Lead Time - {io_perturbed["lead_time"][frame]}'
     )
 
-    if frame == 0:
-        ax0.set_title("Unperturbed Ensemble Mean - tcwv + z500 countors")
-        ax1.set_title("Unperturbed Ensemble Std - tcwv")
-        ax2.set_title("Perturbed Ensemble Mean - tcwv + z500 contours")
-        ax2.set_title("Perturbed Ensemble Std - tcwv")
+    ax0.set_title("Unperturbed Ensemble Mean - tcwv + z500 countors")
+    ax1.set_title("Unperturbed Ensemble Std - tcwv")
+    ax2.set_title("Perturbed Ensemble Mean - tcwv + z500 contours")
+    ax3.set_title("Perturbed Ensemble Std - tcwv")
 
+    if frame == 0:
         plt.colorbar(
             im0, ax=ax0, shrink=0.75, pad=0.04, label="kg m^-2", format="%2.1f"
         )
@@ -297,8 +307,8 @@ def update(frame):
 # )
 # ani.save(f"outputs/05_model_perturbation_{forecast_date}.gif", dpi=300)
 
-# Here we plot a handful of images
-for lt in [0, 10, 20, 30, 40]:
+
+for lt in [10, 20, 30, 40]:
     update(lt)
     plt.savefig(
         f"outputs/05_model_perturbation_{forecast_date}_leadtime_{lt}.png",

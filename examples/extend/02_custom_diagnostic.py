@@ -21,7 +21,7 @@ Extending Diagnostic Models
 
 Implementing a custom diagnostic model
 
-This example will demonstrate how extend Earth2Studio by implementing a custom
+This example will demonstrate how to extend Earth2Studio by implementing a custom
 diagnostic model and running it in a general workflow.
 
 In this example you will learn:
@@ -34,13 +34,13 @@ In this example you will learn:
 # %%
 # Custom Diagnostic
 # -----------------
-# As dicussed in the :ref:`diagnostic_model_userguide` section of the userguide,
+# As discussed in the :ref:`diagnostic_model_userguide` section of the user guide,
 # Earth2Studio defines a diagnostic model through a simple interface
 # :py:class:`earth2studio.models.dx.base.Diagnostic Model`. This can be used to help
 # guide the required APIs needed to successfully create our own model.
 #
 # In this example, lets consider a simple diagnostic that converts the surface
-# temperature in Kelvin to Celcius to make it more readable for the average person.
+# temperature in Kelvin to Celsius to make it more readable for the average person.
 #
 # Our diagnostic model has a base class of :py:class:`torch.nn.Module` which allows us
 # to get the required :py:obj:`to(device)` method for free.
@@ -111,12 +111,12 @@ class CustomDiagnostic(torch.nn.Module):
 # Input/Output Coordinates
 # ~~~~~~~~~~~~~~~~~~~~~~~~
 # Defining the input/output coordinate systems is essential for any model in
-# Earth2Studio since this how both the package and users can learn what type of data
+# Earth2Studio since this is how both the package and users can learn what type of data
 # the model expects. Have a look at :ref:`coordinates_userguide` for details on
 # coordinate system. For this diagnostic model, we simply define the input coordinates
-# to be the global surface temperature specificed in
+# to be the global surface temperature specified in
 # :py:file:`earth2studio.lexicon.base.py`. The output is a custom variable
-# :py:var:`t2m_c` that represents the temperature in Celcius.
+# :py:var:`t2m_c` that represents the temperature in Celsius.
 
 # %%
 # :py:func:`__call__` API
@@ -129,12 +129,12 @@ class CustomDiagnostic(torch.nn.Module):
 # .. note::
 #   You may notice the :py:func:`batch_func` decorator, which is used to make batched
 #   operations easier. For more details about this refer to the :ref:`batch_function_userguide`
-#   section of the userguide.
+#   section of the user guide.
 
 # %%
 # Set Up
 # ------
-# With the custom diagnostic model defined, its now easily usable in a workflow. Lets
+# With the custom diagnostic model defined, it's now easily usable in a workflow. Let's
 # create our own simple diagnostic workflow based on the ones that exist already in
 # Earth2Studio.
 
@@ -251,7 +251,7 @@ def run(
 # - Prognostic Model: Use the built in DLWP model :py:class:`earth2studio.models.px.DLWP`.
 # - Diagnostic Model: The custom diagnostic model defined above
 # - Datasource: Pull data from the GFS data api :py:class:`earth2studio.data.GFS`.
-# - IO Backend: Lets save the outputs into a Zarr store :py:class:`earth2studio.io.ZarrBackend`.
+# - IO Backend: Save the outputs into a Zarr store :py:class:`earth2studio.io.ZarrBackend`.
 
 # %%
 from collections import OrderedDict
@@ -294,8 +294,7 @@ print(io.root.tree())
 # %%
 # Post Processing
 # ---------------
-# To confirm that out prognostic model is working as expect, we should expect the fields
-# to be progressively more noisy as time progresses.
+# Let's plot the Celsius temperature field from our custom diagnostic model.
 
 # %%
 import os

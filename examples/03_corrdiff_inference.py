@@ -22,8 +22,8 @@ Generative Downscaling
 Generative downscaling over Taiwan using CorrDiff diffusion model.
 
 This example will demonstrate how to user Nvidia's CorrDiff model, trained for
-predicting weather over Taiwan, to perform generative downscaling from quater degree
-global forcast data to ~3km.
+predicting weather over Taiwan, to perform generative downscaling from quarter degree
+global forecast data to ~3km.
 
 This checkpoint was trained on ERA5 data and WRF data that spans 2018-2021 at one hour
 time resolution. In this example, we demonstrate an application to GFS data for a typhoon
@@ -43,7 +43,7 @@ In this example you will learn:
 # -----------------------------------
 #
 # As usual, we start with creating a simple workflow to run CorrDiff in. To maximize the
-# generalizaiton of this workflow, we use dependency injection following the pattern
+# generalization of this workflow, we use dependency injection following the pattern
 # provided inside :py:obj:`earth2studio.run`. Since CorrDiff is a diagnostic model, this
 # workflow won't predict a time-series, rather just an instantaneous prediction.
 #
@@ -149,14 +149,14 @@ def run(
 # %%
 # Set Up
 # ------
-# With the workflow defined, the next step is initialize the needed components from
+# With the workflow defined, the next step is initializing the needed components from
 # Earth-2 studio
 #
 # It's clear we need the following:
 #
 # - Diagnostic Model: CorrDiff model for Taiwan :py:class:`earth2studio.models.dx.CorrDiffTaiwan`.
 # - Datasource: Pull data from the GFS data api :py:class:`earth2studio.data.GFS`.
-# - IO Backend: Lets save the outputs into a Zarr store :py:class:`earth2studio.io.ZarrBackend`.
+# - IO Backend: Save the outputs into a Zarr store :py:class:`earth2studio.io.ZarrBackend`.
 #
 
 # %%
@@ -180,13 +180,13 @@ io = ZarrBackend()
 # %%
 # Execute the Workflow
 # --------------------
-# With all componments intialized, running the workflow is a single line of Python code.
+# With all components initialized, running the workflow is a single line of Python code.
 # Workflow will return the provided IO object back to the user, which can be used to
 # then post process. Some have additional APIs that can be handy for post-processing or
 # saving to file. Check the API docs for more information.
 #
 # For the inference we will predict 1 sample for a particular timestamp representing
-# Typhon Koinu
+# Typhoon Koinu.
 
 # %%
 io = run(["2023-10-04T18:00:00"], corrdiff, data, io, number_of_samples=1)
