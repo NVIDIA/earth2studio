@@ -21,13 +21,16 @@ Model Hook Injection: Perturbation
 
 Adding model noise by using custom hooks.
 
-This example will demonstrate how to run a an ensemble inference workflow to generate a
+This example will demonstrate how to run an ensemble inference workflow to generate a
 perturbed ensemble forecast. This perturbation is done by injecting code into the model
-front and rear hooks. These hooks are applied to the tensor data before/after the model forward call.
+front and rear hooks.
+These hooks are applied to the tensor data before/after the model forward call.
 
-This example also illustrates how you can subselect data for IO. In this example we will only output
-two variables: total column water vapour (tcwv) and 500 hPa geopotential (z500). To run this make
-sure that the model selected predicts these variables are change appropriately.
+This example also illustrates how you can subselect data for IO. In this example we
+will only output two variables:
+total column water vapor (tcwv) and 500 hPa geopotential (z500).
+To run this, make sure that the model selected predicts these variables are change
+appropriately.
 
 In this example you will learn:
 
@@ -42,7 +45,7 @@ In this example you will learn:
 # Creating an Ensemble Workflow
 # -----------------------------------
 #
-# To start lets begin with creating an ensemble workflow to use. We encourage
+# To start let's begin with creating an ensemble workflow to use. We encourage
 # users to explore and experiment with their own custom workflows that borrow ideas from
 # built in workflows inside :py:obj:`earth2studio.run` or the examples.
 #
@@ -62,13 +65,13 @@ In this example you will learn:
 # %%
 # Set Up
 # ------
-# With the ensemble workflow defined, we now need to create the indivdual components.
+# With the ensemble workflow defined, we now need to create the individual components.
 #
 # We need the following:
 #
 # - Prognostic Model: Use the built in DLWP model :py:class:`earth2studio.models.px.DLWP`.
 # - Datasource: Pull data from the GFS data api :py:class:`earth2studio.data.GFS`.
-# - IO Backend: Lets save the outputs into a Zarr store :py:class:`earth2studio.io.ZarrBackend`.
+# - IO Backend: Save the outputs into a Zarr store :py:class:`earth2studio.io.ZarrBackend`.
 #
 # We will first run the ensemble workflow using an unmodified function, that is a model that has the
 # default (identity) forward and rear hooks. Then we will define new hooks for the model and rerun the
@@ -102,13 +105,13 @@ io_unperturbed = ZarrBackend(file_name="outputs/05_ensemble.zarr", chunks=chunks
 # %%
 # Execute the Workflow
 # --------------------
-# With all componments intialized, running the workflow is a single line of Python code.
-# Workflow will return the provided IO object back to the user, which can be used to
+# First, we will run the ensemble workflow but with a zero perturbation as the control.
+#
+# The Workflow will return the provided IO object back to the user, which can be used to
 # then post process. Some have additional APIs that can be handy for post-processing or
 # saving to file. Check the API docs for more information.
 #
 # %%
-
 nsteps = 4 * 12
 nensemble = 16
 batch_size = 4
@@ -132,11 +135,14 @@ io_unperturbed = ensemble(
     batch_size=batch_size,
 )
 
-# Introduce slight model perturbation
-# front_hook / rear_hook map (x, coords) -> (x, coords)
-# Note that center.unsqueeze(-1) is DLWP specific since it operates
-# on a cubed sphere with grid dimensions (nface, lat, lon) instead of
-# just (lat,lon). To switch out the model, consider removing the .unsqueeze
+# %%
+# Now let's introduce slight model perturbation using the prognostic model hooks defined
+# in :py:class:`earth2studio.models.px.utils.PrognosticMixin`.
+# Note that center.unsqueeze(-1) is DLWP specific since it operates on a cubed sphere
+# with grid dimensions (nface, lat, lon) instead of just (lat,lon).
+# To switch out the model, consider removing the py:meth:`unsqueeze`.
+
+# %%
 model.front_hook = lambda x, coords: (
     x
     - 0.05
@@ -166,9 +172,9 @@ io_perturbed = ensemble(
 # %%
 # Post Processing
 # ---------------
-# The last step is to post process our results. Cartopy is a greate library for plotting
-# fields on projects of a sphere. Here we plot and compare the ensemble mean and standard
-# deviation from using a unperturbed/perturbed model.
+# The last step is to post process our results.
+# Here we plot and compare the ensemble mean and standard deviation from using an
+# unperturbed/perturbed model.
 #
 # Notice that the Zarr IO function has additional APIs to interact with the stored data.
 

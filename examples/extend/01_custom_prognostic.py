@@ -21,7 +21,7 @@ Extending Prognostic Models
 
 Implementing a custom prognostic model
 
-This example will demonstrate how extend Earth2Studio by implementing a custom
+This example will demonstrate how to extend Earth2Studio by implementing a custom
 prognostic model and running it in a general workflow.
 
 In this example you will learn:
@@ -34,16 +34,16 @@ In this example you will learn:
 # %%
 # Custom Prognostic
 # -----------------
-# As dicussed in the :ref:`prognostic_model_userguide` section of the userguide,
+# As discussed in the :ref:`prognostic_model_userguide` section of the user guide,
 # Earth2Studio defines a prognostic model through a simple interface
 # :py:class:`earth2studio.models.px.base.PrognosticModel`. This can be used to help
 # guide the required APIs needed to successfully create our own custom prognostic.
 #
-# In this example, lets create a simple prognostic that simply predicts adds normal
+# In this example, let's create a simple prognostic that simply predicts adds normal
 # noise to the surface wind fields every time-step. While not practical, this should
 # demonstrate the APIs one needs to implement for any prognostic.
 #
-# Starting with the constuctor, prognostic models should typically be torch modules.
+# Starting with the constructor, prognostic models should typically be torch modules.
 # Models need to have a :py:obj:`to(device)` method that can move the model between
 # different devices. If your model is PyTorch, then this will be easy.
 
@@ -154,7 +154,7 @@ class CustomPrognostic(torch.nn.Module):
 # Input/Output Coordinates
 # ~~~~~~~~~~~~~~~~~~~~~~~~
 # Defining the input/output coordinate systems is essential for any model in
-# Earth2Studio since this how both the package and users can learn what type of data
+# Earth2Studio since this is how both the package and users can learn what type of data
 # the model expects. Have a look at :ref:`coordinates_userguide` for details on
 # coordinate system. Here, we define the input output coords to be the surface winds
 # and give the model a time-step size of 1 hour.
@@ -163,14 +163,14 @@ class CustomPrognostic(torch.nn.Module):
 # :py:func:`__call__` API
 # ~~~~~~~~~~~~~~~~~~~~~~~
 # The call function is one of the two main APIs used to interact with the prognostic
-# model. The first thing we do is check the coordinat system of the input data is indeed
-# what the model expects. Next we execute the forward pass of our model (apply noise)
+# model. The first thing we do is check the coordinate system of the input data is indeed
+# what the model expects. Next, we execute the forward pass of our model (apply noise)
 # and then update the output coordinate system.
 #
 # .. note::
 #   You may notice the :py:func:`batch_func` decorator, which is used to make batched
 #   operations easier. For more details about this refer to the :ref:`batch_function_userguide`
-#   section of the userguide.
+#   section of the user guide.
 
 # %%
 # :py:func:`create_iterator` API
@@ -180,18 +180,18 @@ class CustomPrognostic(torch.nn.Module):
 # under the hood of the prognostic.
 #
 # A generator in Python is essentially a function that returns an iterator using the
-# :py:obj:`yeild` keyword. In the case of prognostics it yeilds a single time-step
+# :py:obj:`yield` keyword. In the case of prognostics, it yields a single time-step
 # prediction of the model. Note that this allows the model to control its own internal
 # state inside the iterator independent of the workflow.
 #
-# Since this model is auto-regressive, it can theoretically index in time forever. Thus
+# Since this model is auto regressive, it can theoretically index in time forever. Thus,
 # we make the generator an infinite loop. Keep in mind that generators execute on
-# demand, so this infinite loop won't actually cause the program to get stuck.
+# demand, so this infinite loop won't cause the program to get stuck.
 
 # %%
 # Set Up
 # ------
-# With the custom prognostic defined, its now easily usable in a standard workflow. In
+# With the custom prognostic defined, it's now easily usable in a standard workflow. In
 # this example, we will use the build in workflow :py:meth:`earth2studio.run.deterministic`.
 
 # %%
@@ -200,11 +200,11 @@ class CustomPrognostic(torch.nn.Module):
 #    :lines: 35-42
 
 # %%
-# Lets instantiate the components needed.
+# Let's instantiate the components needed.
 #
 # - Prognostic Model: Use our custom prognostic defined above.
 # - Datasource: Pull data from the GFS data api :py:class:`earth2studio.data.GFS`.
-# - IO Backend: Lets save the outputs into a Zarr store :py:class:`earth2studio.io.ZarrBackend`.
+# - IO Backend: Save the outputs into a Zarr store :py:class:`earth2studio.io.ZarrBackend`.
 
 # %%
 from collections import OrderedDict
@@ -243,8 +243,8 @@ print(io.root.tree())
 # %%
 # Post Processing
 # ---------------
-# To confirm that our prognostic model is working as expect, we should expect the fields
-# to be progressively more noisy as time progresses.
+# To confirm that our prognostic model is working as expected, we should see the fields
+# become progressively more noisy as time progresses.
 
 # %%
 import os

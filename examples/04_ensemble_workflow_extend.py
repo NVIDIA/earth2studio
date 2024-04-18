@@ -35,35 +35,24 @@ In this example you will learn:
 """
 
 # %%
-# Creating an Ensemble Workflow
-# -----------------------------------
-#
-# To start lets begin with creating a ensemble workflow to use. We encourage
-# users to explore and experiment with their own custom workflows that borrow ideas from
-# built in workflows inside :py:obj:`earth2studio.run` or the examples.
-#
-# Creating our own generalizable ensemble workflow is easy when we rely on the component
-# interfaces defined in Earth2Studio (use dependency injection). Here we create a run
-# method that accepts the following:
-#
-# - time: Input list of datetimes / strings to run inference for
-# - nsteps: Number of forecast steps to predict
-# - nensemble: Number of ensembles to run for
-# - prognostic: Our initialized prognostic model
-# - perturbation_method: Our initialized pertubation method
-# - data: Initialized data source to fetch initial conditions from
-# - io: IOBackend
-
-# %%
 # Set Up
 # ------
-#
+# All workflows inside Earth2Studio require constructed components to be
+# handed to them. In this example, we will use the built in ensemble workflow
+# :py:meth:`earth2studio.run.ensemble`.
+
+# %%
+# .. literalinclude:: ../../earth2studio/run.py
+#    :language: python
+#    :lines: 116-156
+
+# %%
 # We need the following:
 #
 # - Prognostic Model: Use the built in DLWP model :py:class:`earth2studio.models.px.DLWP`.
 # - perturbation_method: Extend the Spherical Gaussian Method :py:class:`earth2studio.perturbation.SphericalGaussian`.
 # - Datasource: Pull data from the GFS data api :py:class:`earth2studio.data.GFS`.
-# - IO Backend: Lets save the outputs into a Zarr store :py:class:`earth2studio.io.ZarrBackend`.
+# - IO Backend: Save the outputs into a Zarr store :py:class:`earth2studio.io.ZarrBackend`.
 #
 # %%
 from typing import List, Union
@@ -90,9 +79,9 @@ model = DLWP.load_model(package)
 data = GFS()
 
 # %%
-# The perturbation method in 02_ensemble_workflow.py is naive because it applies the
-# same noise amplitude to every variable. We can create a custom wrapper that only
-# applies the perturbation method to a particular variable instead.
+# The perturbation method in :ref:`sphx_glr_02_ensemble_workflow.py` is naive because it
+# applies the same noise amplitude to every variable. We can create a custom wrapper
+# that only applies the perturbation method to a particular variable instead.
 
 # %%
 class ApplyToVariable:
@@ -128,7 +117,7 @@ io = ZarrBackend(file_name="outputs/04_ensemble_avsg.zarr", chunks=chunks)
 # %%
 # Execute the Workflow
 # --------------------
-# With all componments intialized, running the workflow is a single line of Python code.
+# With all components initialized, running the workflow is a single line of Python code.
 # Workflow will return the provided IO object back to the user, which can be used to
 # then post process. Some have additional APIs that can be handy for post-processing or
 # saving to file. Check the API docs for more information.
@@ -154,8 +143,7 @@ io = ensemble(
 # %%
 # Post Processing
 # ---------------
-# The last step is to post process our results. Cartopy is a greate library for plotting
-# fields on projects of a sphere.
+# The last step is to post process our results.
 #
 # Notice that the Zarr IO function has additional APIs to interact with the stored data.
 

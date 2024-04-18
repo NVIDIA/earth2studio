@@ -37,7 +37,7 @@ In this example you will learn:
 # Creating a statistical workflow
 # -----------------------------------
 #
-# To start lets begin with creating a simple inference workflow to use. We encourage
+# Start with creating a simple inference workflow to use. We encourage
 # users to explore and experiment with their own custom workflows that borrow ideas from
 # built in workflows inside :py:obj:`earth2studio.run` or the examples.
 #
@@ -160,14 +160,14 @@ def run_stats(
 # %%
 # Set Up
 # ------
-# With the statistic workflow defined, we now need to create the indivdual components.
+# With the statistical workflow defined, we now need to create the individual components.
 #
 # We need the following:
 #
 # - Prognostic Model: Use the built in Pangu 24 hour model :py:class:`earth2studio.models.px.Pangu24`.
 # - statistic: We define our own statistic: the Southern Oscillation Index (SOI).
 # - Datasource: Pull data from the GFS data api :py:class:`earth2studio.data.GFS`.
-# - IO Backend: Lets save the outputs into a NetCDF4 store :py:class:`earth2studio.io.NetCDF4Backend`.
+# - IO Backend: Save the outputs into a NetCDF4 store :py:class:`earth2studio.io.NetCDF4Backend`.
 #
 # %%
 from collections import OrderedDict
@@ -329,7 +329,7 @@ soi = SOI()
 # %%
 # Execute the Workflow
 # --------------------
-# With all componments intialized, running the workflow is a single line of Python code.
+# With all components initialized, running the workflow is a single line of Python code.
 # Workflow will return the provided IO object back to the user, which can be used to
 # then post process. Some have additional APIs that can be handy for post-processing or
 # saving to file. Check the API docs for more information.
@@ -344,8 +344,7 @@ io = run_stats(["2022-01-01"], nsteps, nensemble, model, soi, data, io)
 # %%
 # Post Processing
 # ---------------
-# The last step is to post process our results. Cartopy is a greate library for plotting
-# fields on projects of a sphere.
+# The last step is to post process our results.
 #
 # Notice that the NetCDF IO function has additional APIs to interact with the stored data.
 
