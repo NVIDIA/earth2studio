@@ -16,3 +16,4 @@ use cases
     :template: function.rst
 
     run.deterministic
+    run.ensemble

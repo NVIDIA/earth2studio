@@ -48,7 +48,7 @@ class Brown:
         x : torch.Tensor
             Input tensor intended to apply perturbation on
         coords : CoordSystem
-            Ordered dict representing coordinate system that discribes the tensor, must
+            Ordered dict representing coordinate system that describes the tensor, must
             contain "lat" and "lon" coordinates in last two dims
 
         Returns

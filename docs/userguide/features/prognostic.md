@@ -3,10 +3,10 @@
 # Prognostic Models
 
 Prognostic models in Earth2Studio provides a set of models designed to perform time
-integration. For example, given a set of atmostpheric fields at a particular time and
-the model auto-regresively predicts the same fields 6 hours into the future.
+integration. For example, given a set of atmospheric fields at a particular time and
+the model auto-regressively predicts the same fields 6 hours into the future.
 
-The usage of prognostic models falls into two catagories which are commonly achieved
+The usage of prognostic models falls into two categories which are commonly achieved
 through two different APIs:
 
 1. Single time-step predictions
@@ -17,7 +17,7 @@ the API documentation {ref}`earth2studio.models.px`.
 
 ## Prognostic Interface
 
-The full requirements for a standard prognostic model our defined explicitly in the
+The full requirements for a standard prognostic model are defined explicitly in the
 `earth2studio/models/px/base.py`.
 
 ```{literalinclude} ../../../earth2studio/models/px/base.py
@@ -55,7 +55,7 @@ x, coords = model(x, coords)  # Predict a single time-step
 
 ### Time-series Prediction
 
-To predict a time-series, the create generator API can be used to create an interable
+To predict a time-series, the create generator API can be used to create an iterable
 data source to generate time-series data as the model rolls out.
 
 ```python
@@ -70,17 +70,16 @@ for step, (x, coords) in enumerate(model_iterator):
 
 ## Custom Prognostic Models
 
-Integrating your own prognostic is easy, just satisfy the inferface above.
+Integrating your own prognostic is easy, just satisfy the interface above.
 We recommend users have a look at the custom prognostic example which will step users
-through the simple process of implementing you're own prognostic model for your personal
+through the simple process of implementing their own prognostic model for their personal
 needs in the {ref}`extension_examples` examples.
 
 ## Contributing a Prognostic Models
 
 Want to add your prognostic to the package? Great, we will be happy to work with you.
 At the minimum we expect the model to abide by the defined interface as well as meet
-the requirements set forth in our contribution guide. Typically we also expect users
-to provide the weights of the model in a downloadable location that can be progmatically
-fetched.
+the requirements set forth in our contribution guide. Typically, users are expected
+to provide the weights of the model in a downloadable location that can be fetched.
 
 Open an issue when you have an initial implementation you would like us to review.
