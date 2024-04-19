@@ -6,7 +6,7 @@
 
 Computation times
 =================
-**13:35.124** total execution time for 9 files **from all galleries**:
+**11:44.388** total execution time for 9 files **from all galleries**:
 
 .. container::
 
@@ -32,30 +32,30 @@ Computation times
    * - Example
      - Time
      - Mem (MB)
+   * - :ref:`sphx_glr_examples_06_seasonal_statistics.py` (``../examples/06_seasonal_statistics.py``)
+     - 02:39.835
+     - 0.0
    * - :ref:`sphx_glr_examples_02_ensemble_workflow.py` (``../examples/02_ensemble_workflow.py``)
-     - 02:22.782
+     - 02:23.324
      - 0.0
    * - :ref:`sphx_glr_examples_04_ensemble_workflow_extend.py` (``../examples/04_ensemble_workflow_extend.py``)
-     - 02:18.684
-     - 0.0
-   * - :ref:`sphx_glr_examples_03_corrdiff_inference.py` (``../examples/03_corrdiff_inference.py``)
-     - 02:15.539
-     - 0.0
-   * - :ref:`sphx_glr_examples_06_seasonal_statistics.py` (``../examples/06_seasonal_statistics.py``)
-     - 02:13.331
+     - 02:17.435
      - 0.0
    * - :ref:`sphx_glr_examples_extend_03_custom_datasource.py` (``../examples/extend/03_custom_datasource.py``)
-     - 01:28.624
-     - 0.0
-   * - :ref:`sphx_glr_examples_05_model_perturbation_hook.py` (``../examples/05_model_perturbation_hook.py``)
-     - 01:04.451
+     - 01:23.758
      - 0.0
    * - :ref:`sphx_glr_examples_01_simple_workflow.py` (``../examples/01_simple_workflow.py``)
-     - 01:04.130
+     - 01:08.737
+     - 0.0
+   * - :ref:`sphx_glr_examples_05_model_perturbation_hook.py` (``../examples/05_model_perturbation_hook.py``)
+     - 00:45.128
      - 0.0
    * - :ref:`sphx_glr_examples_extend_02_custom_diagnostic.py` (``../examples/extend/02_custom_diagnostic.py``)
-     - 00:42.392
+     - 00:44.002
+     - 0.0
+   * - :ref:`sphx_glr_examples_03_corrdiff_inference.py` (``../examples/03_corrdiff_inference.py``)
+     - 00:17.127
      - 0.0
    * - :ref:`sphx_glr_examples_extend_01_custom_prognostic.py` (``../examples/extend/01_custom_prognostic.py``)
-     - 00:05.192
+     - 00:05.041
      - 0.0
