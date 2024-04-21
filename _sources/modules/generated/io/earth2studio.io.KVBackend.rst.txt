@@ -6,7 +6,7 @@
 .. autoclass:: KVBackend
 
    
-    .. automethod:: initialize
+    .. automethod:: add_array
     .. automethod:: write
    
 

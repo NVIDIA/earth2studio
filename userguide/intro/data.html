@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
     <link href="../../_static/favicon.ico" rel="icon" type="image/x-icon">
-    <title>Data Movement &#8212; Earth-2 Inference Studio 0.1.0a0 documentation</title>
+    <title>Data Movement &#8212; Earth2Studio 0.2.0a0 documentation</title>
   
   
   
@@ -34,14 +34,14 @@
     <link rel="stylesheet" type="text/css" href="../../_static/sg_gallery-dataframe.css?v=2082cf3c" />
     <link rel="stylesheet" type="text/css" href="../../_static/sg_gallery-rendered-html.css?v=1277b6f3" />
     <link rel="stylesheet" type="text/css" href="../../_static/design-style.1e8bd061cd6da7fc9cf755528e8ffc24.min.css?v=0a3b3ea7" />
-    <link rel="stylesheet" type="text/css" href="../../_static/css/custom.css?v=0b10f1a0" />
+    <link rel="stylesheet" type="text/css" href="../../_static/css/custom.css?v=58db39a5" />
   
   <!-- Pre-loaded scripts that we'll load fully later -->
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=8d27b9dea8ad943066ae" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=8d27b9dea8ad943066ae" />
   <script src="../../_static/vendor/fontawesome/6.5.1/js/all.min.js?digest=8d27b9dea8ad943066ae"></script>
 
-    <script src="../../_static/documentation_options.js?v=edcd63a1"></script>
+    <script src="../../_static/documentation_options.js?v=312c242a"></script>
     <script src="../../_static/doctools.js?v=9a2dae69"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/design-tabs.js?v=36754332"></script>
@@ -104,7 +104,7 @@
 
 
   <div class="bd-header-announcement container-fluid bd-header-announcement">
-    <div class="bd-header-announcement__content">Earth-2 Inference Studio is now OSS!</div>
+    <div class="bd-header-announcement__content">Earth2Studio is now OSS!</div>
   </div>
 
   
@@ -136,7 +136,7 @@
     <script>document.write(`<img src="../../_static/NVIDIA-Logo-V-ForScreen-ForDarkBG.png" class="logo__image only-dark" alt=""/>`);</script>
   
   
-    <p class="title logo__title">Earth-2 Inference Studio</p>
+    <p class="title logo__title">Earth2Studio</p>
   
 </a></div>
     
@@ -179,7 +179,7 @@
                 
 
                 <li class="nav-item">
-                  <a class="nav-link nav-external" href="https://gitlab-master.nvidia.com/modulus/earth-2/earth2-inference-studio/blob/main/CHANGELOG.md">
+                  <a class="nav-link nav-external" href="https://github.com/NVIDIA/earth2studio/blob/main/CHANGELOG.md">
                     Changelog
                   </a>
                 </li>
@@ -311,7 +311,7 @@ document.write(`
                 
 
                 <li class="nav-item">
-                  <a class="nav-link nav-external" href="https://gitlab-master.nvidia.com/modulus/earth-2/earth2-inference-studio/blob/main/CHANGELOG.md">
+                  <a class="nav-link nav-external" href="https://github.com/NVIDIA/earth2studio/blob/main/CHANGELOG.md">
                     Changelog
                   </a>
                 </li>
@@ -369,9 +369,14 @@ document.write(`
 <ul class="nav bd-sidenav">
 <li class="toctree-l1"><a class="reference internal" href="../features/prognostic.html">Prognostic Models</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../features/diagnostic.html">Diagnostic Models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../features/datasources.html">Data Sources</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../features/io.html">Output Handling</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../features/statistics.html">Statistics</a></li>
+
 </ul>
 <ul class="nav bd-sidenav">
-<li class="toctree-l1"><a class="reference internal" href="../troubleshooting.html">Troubleshooting</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../support/troubleshooting.html">Troubleshooting</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../support/faq.html">Frequently Asked Questions</a></li>
 </ul>
 </div>
 </nav></div>
@@ -430,14 +435,14 @@ document.write(`
                 <article class="bd-article">
                   
   <section id="data-movement">
-<h1>Data Movement<a class="headerlink" href="#data-movement" title="Link to this heading">#</a></h1>
+<span id="data-userguide"></span><h1>Data Movement<a class="headerlink" href="#data-movement" title="Link to this heading">#</a></h1>
 <div class="tip admonition">
 <p class="admonition-title">Keeping Data Transparent</p>
 <p>“Show me your code and conceal your data structures, and I shall continue to be
 mystified. Show me your data structures, and I won’t usually need your code; it’ll be
 obvious.” - <em>Fred Brooks</em></p>
 </div>
-<p>Earth-2 Inference Studio aims to keep data simple and interpretable between components.
+<p>Earth2Studio aims to keep data simple and interpretable between components.
 Given that this package interacts with geo-physial data, the common data-structure
 inside workflows is the pairing of:</p>
 <ol class="arabic simple">
@@ -456,7 +461,7 @@ to generate a noise tensor:</p>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
         <span class="n">coords</span><span class="p">:</span> <span class="n">CoordSystem</span><span class="p">,</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">CoordSystem</span><span class="p">]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Apply perturbation method</span>
 
 <span class="sd">        Parameters</span>
@@ -464,12 +469,12 @@ to generate a noise tensor:</p>
 <span class="sd">        x : torch.Tensor</span>
 <span class="sd">            Input tensor intended to apply perturbation on</span>
 <span class="sd">        coords : CoordSystem</span>
-<span class="sd">            Ordered dict representing coordinate system that discribes the tensor</span>
+<span class="sd">            Ordered dict representing coordinate system that describes the tensor</span>
 
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
-<span class="sd">        torch.Tensor</span>
-<span class="sd">            Perturbation noise tensor</span>
+<span class="sd">        tuple[torch.Tensor, CoordSystem]:</span>
+<span class="sd">            Ouput tensor and respective coordinate system dictionary</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">pass</span>
 </pre></div>
@@ -479,7 +484,7 @@ or interact with these two data structures.
 The combonation of both the data tensor and respective coordinate system provides
 complete information one needs to interpret any stage of a workflow.</p>
 <section id="coordinate-systems">
-<h2>Coordinate Systems<a class="headerlink" href="#coordinate-systems" title="Link to this heading">#</a></h2>
+<span id="coordinates-userguide"></span><h2>Coordinate Systems<a class="headerlink" href="#coordinate-systems" title="Link to this heading">#</a></h2>
 <p>As previously discussed, coordinate dictionaries are a critical part of Earth-2
 Inference Studio’s data movement.
 We wanted the coordinate object to be a fairly primative data object that allows users
@@ -499,11 +504,11 @@ Let’s consider a simple example of a 2D lat-lon grid:</p>
 <span class="p">})</span>
 </pre></div>
 </div>
-<p>Much of Earth-2 Inference Studio typically operates on a lat-lon grid but it’s not
+<p>Much of Earth2Studio typically operates on a lat-lon grid but it’s not
 required to.</p>
 <section id="standard-coordinate-names">
 <h3>Standard Coordinate Names<a class="headerlink" href="#standard-coordinate-names" title="Link to this heading">#</a></h3>
-<p>Earth-2 Inference Studio has a dimension naming standard for its built in feature set.
+<p>Earth2Studio has a dimension naming standard for its built in feature set.
 We encourage users to follow similar naming schemes for compatability between Earth-2
 Inference Studio when possible and the packages we interface with.</p>
 <table class="table">
@@ -552,9 +557,9 @@ Inference Studio has its own naming convention. See lexicon docs more more detai
 <h3>Coordinate Utilities<a class="headerlink" href="#coordinate-utilities" title="Link to this heading">#</a></h3>
 <p>The downside of using a dictionary to store coordinates is that manipulating the data
 tensor and then updating the coordinate array is not a manual process.
-To help make this process less tedious, Earth-2 Inference Studio has several utility
+To help make this process less tedious, Earth2Studio has several utility
 functions that make interacting with coordinates easier.
-The bulk of these can be found in the <a class="reference internal" href="../../modules/utils.html#earth2studio-utils-api"><span class="std std-ref">Earth-2 Studio Utilities</span></a>.</p>
+The bulk of these can be found in the <a class="reference internal" href="../../modules/utils.html#earth2studio-utils-api"><span class="std std-ref">Earth2Studio Utilities</span></a>.</p>
 <div class="admonition warning">
 <p class="admonition-title">Warning</p>
 <p>🚧 Under construction, todo: add some example here! 🚧</p>
@@ -564,7 +569,7 @@ The bulk of these can be found in the <a class="reference internal" href="../../
 <section id="inference-on-the-gpu">
 <h2>Inference on the GPU<a class="headerlink" href="#inference-on-the-gpu" title="Link to this heading">#</a></h2>
 <p>It is beneficial to leverage the GPU for as many processes as possible.
-Earth-2 Inference Studio aims to get data from the data source and immediately convert
+Earth2Studio aims to get data from the data source and immediately convert
 it into the tensor, coord data struction on the device.
 From there, the data is kept on the GPU until the very last moment when writes are
 needed to in-memory or to file.</p>

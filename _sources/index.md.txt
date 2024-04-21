@@ -1,20 +1,20 @@
-# Earth-2 Inference Studio
+# Earth2Studio
 
-Welcome to the Earth-2 studio.
+Welcome to the Earth2Studio.
 
 ## Install
 
-Information about getting Earth-2 studio up and running, as well as key concepts.
+Get Earth2Studio installed.
 
 ```{toctree}
-:maxdepth: 2
+:maxdepth: 1
 
 install/index
 ```
 
 ## User Guide
 
-Information about getting Earth-2 studio up and running, as well as key concepts.
+Information about getting Earth2Studio up and running, as well as key concepts.
 
 ```{toctree}
 :maxdepth: 2
@@ -34,7 +34,7 @@ API <modules/index>
 
 ## Examples
 
-Examples demonstrating various common Earth-2 studio usage patterns.
+Examples demonstrating various common Earth2Studio usage patterns.
 
 ```{toctree}
 :maxdepth: 2

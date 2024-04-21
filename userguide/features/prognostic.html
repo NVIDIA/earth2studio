@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
     <link href="../../_static/favicon.ico" rel="icon" type="image/x-icon">
-    <title>Prognostic Models &#8212; Earth-2 Inference Studio 0.1.0a0 documentation</title>
+    <title>Prognostic Models &#8212; Earth2Studio 0.2.0a0 documentation</title>
   
   
   
@@ -34,14 +34,14 @@
     <link rel="stylesheet" type="text/css" href="../../_static/sg_gallery-dataframe.css?v=2082cf3c" />
     <link rel="stylesheet" type="text/css" href="../../_static/sg_gallery-rendered-html.css?v=1277b6f3" />
     <link rel="stylesheet" type="text/css" href="../../_static/design-style.1e8bd061cd6da7fc9cf755528e8ffc24.min.css?v=0a3b3ea7" />
-    <link rel="stylesheet" type="text/css" href="../../_static/css/custom.css?v=0b10f1a0" />
+    <link rel="stylesheet" type="text/css" href="../../_static/css/custom.css?v=58db39a5" />
   
   <!-- Pre-loaded scripts that we'll load fully later -->
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=8d27b9dea8ad943066ae" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=8d27b9dea8ad943066ae" />
   <script src="../../_static/vendor/fontawesome/6.5.1/js/all.min.js?digest=8d27b9dea8ad943066ae"></script>
 
-    <script src="../../_static/documentation_options.js?v=edcd63a1"></script>
+    <script src="../../_static/documentation_options.js?v=312c242a"></script>
     <script src="../../_static/doctools.js?v=9a2dae69"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/design-tabs.js?v=36754332"></script>
@@ -104,7 +104,7 @@
 
 
   <div class="bd-header-announcement container-fluid bd-header-announcement">
-    <div class="bd-header-announcement__content">Earth-2 Inference Studio is now OSS!</div>
+    <div class="bd-header-announcement__content">Earth2Studio is now OSS!</div>
   </div>
 
   
@@ -136,7 +136,7 @@
     <script>document.write(`<img src="../../_static/NVIDIA-Logo-V-ForScreen-ForDarkBG.png" class="logo__image only-dark" alt=""/>`);</script>
   
   
-    <p class="title logo__title">Earth-2 Inference Studio</p>
+    <p class="title logo__title">Earth2Studio</p>
   
 </a></div>
     
@@ -179,7 +179,7 @@
                 
 
                 <li class="nav-item">
-                  <a class="nav-link nav-external" href="https://gitlab-master.nvidia.com/modulus/earth-2/earth2-inference-studio/blob/main/CHANGELOG.md">
+                  <a class="nav-link nav-external" href="https://github.com/NVIDIA/earth2studio/blob/main/CHANGELOG.md">
                     Changelog
                   </a>
                 </li>
@@ -311,7 +311,7 @@ document.write(`
                 
 
                 <li class="nav-item">
-                  <a class="nav-link nav-external" href="https://gitlab-master.nvidia.com/modulus/earth-2/earth2-inference-studio/blob/main/CHANGELOG.md">
+                  <a class="nav-link nav-external" href="https://github.com/NVIDIA/earth2studio/blob/main/CHANGELOG.md">
                     Changelog
                   </a>
                 </li>
@@ -369,9 +369,14 @@ document.write(`
 <ul class="current nav bd-sidenav">
 <li class="toctree-l1 current active"><a class="current reference internal" href="#">Prognostic Models</a></li>
 <li class="toctree-l1"><a class="reference internal" href="diagnostic.html">Diagnostic Models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="datasources.html">Data Sources</a></li>
+<li class="toctree-l1"><a class="reference internal" href="io.html">Output Handling</a></li>
+<li class="toctree-l1"><a class="reference internal" href="statistics.html">Statistics</a></li>
+
 </ul>
 <ul class="nav bd-sidenav">
-<li class="toctree-l1"><a class="reference internal" href="../troubleshooting.html">Troubleshooting</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../support/troubleshooting.html">Troubleshooting</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../support/faq.html">Frequently Asked Questions</a></li>
 </ul>
 </div>
 </nav></div>
@@ -432,9 +437,9 @@ document.write(`
   <section id="prognostic-models">
 <span id="prognostic-model-userguide"></span><h1>Prognostic Models<a class="headerlink" href="#prognostic-models" title="Link to this heading">#</a></h1>
 <p>Prognostic models in Earth2Studio provides a set of models designed to perform time
-integration. For example, given a set of atmostpheric fields at a particular time and
-the model auto-regresively predicts the same fields 6 hours into the future.</p>
-<p>The usage of prognostic models falls into two catagories which are commonly achieved
+integration. For example, given a set of atmospheric fields at a particular time and
+the model auto-regressively predicts the same fields 6 hours into the future.</p>
+<p>The usage of prognostic models falls into two categories which are commonly achieved
 through two different APIs:</p>
 <ol class="arabic simple">
 <li><p>Single time-step predictions</p></li>
@@ -444,7 +449,7 @@ through two different APIs:</p>
 the API documentation <a class="reference internal" href="../../modules/models.html#earth2studio-models-px"><span class="std std-ref">earth2studio.models.px: Prognostic</span></a>.</p>
 <section id="prognostic-interface">
 <h2>Prognostic Interface<a class="headerlink" href="#prognostic-interface" title="Link to this heading">#</a></h2>
-<p>The full requirements for a standard prognostic model our defined explicitly in the
+<p>The full requirements for a standard prognostic model are defined explicitly in the
 <code class="docutils literal notranslate"><span class="pre">earth2studio/models/px/base.py</span></code>.</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nd">@runtime_checkable</span>
 <span class="k">class</span> <span class="nc">PrognosticModel</span><span class="p">(</span><span class="n">Protocol</span><span class="p">):</span>
@@ -462,7 +467,7 @@ the API documentation <a class="reference internal" href="../../modules/models.h
 <span class="sd">        x : torch.Tensor</span>
 <span class="sd">            Input tensor intended to apply diagnostic function on</span>
 <span class="sd">        coords : CoordSystem</span>
-<span class="sd">            Ordered dict representing coordinate system that discribes the tensor</span>
+<span class="sd">            Ordered dict representing coordinate system that describes the tensor</span>
 
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
@@ -549,8 +554,10 @@ checkpoints that can be auto downloaded and cached. See the Automodel guide for
 additional details.</p></li>
 </ol>
 </section>
+<section id="prognostic-usage">
+<h2>Prognostic Usage<a class="headerlink" href="#prognostic-usage" title="Link to this heading">#</a></h2>
 <section id="single-step-prediction">
-<h2>Single Step Prediction<a class="headerlink" href="#single-step-prediction" title="Link to this heading">#</a></h2>
+<h3>Single Step Prediction<a class="headerlink" href="#single-step-prediction" title="Link to this heading">#</a></h3>
 <p>A prognostic model can be called for single time-step using the call function.</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Assume model is an instance of a PrognosticModel</span>
 <span class="n">x</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">(</span><span class="o">...</span><span class="p">)</span>  <span class="c1"># Input tensor</span>
@@ -560,8 +567,8 @@ additional details.</p></li>
 </div>
 </section>
 <section id="time-series-prediction">
-<h2>Time-series Prediction<a class="headerlink" href="#time-series-prediction" title="Link to this heading">#</a></h2>
-<p>To predict a time-series, the create generator API can be used to create an interable
+<h3>Time-series Prediction<a class="headerlink" href="#time-series-prediction" title="Link to this heading">#</a></h3>
+<p>To predict a time-series, the create generator API can be used to create an iterable
 data source to generate time-series data as the model rolls out.</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Assume model is an instance of a PrognosticModel</span>
 <span class="n">x</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">(</span><span class="o">...</span><span class="p">)</span>  <span class="c1"># Input tensor</span>
@@ -573,23 +580,20 @@ data source to generate time-series data as the model rolls out.</p>
 </pre></div>
 </div>
 </section>
+</section>
 <section id="custom-prognostic-models">
 <h2>Custom Prognostic Models<a class="headerlink" href="#custom-prognostic-models" title="Link to this heading">#</a></h2>
-<p>Integrating your own prognostic is easy, just satisfy the inferface above.
+<p>Integrating your own prognostic is easy, just satisfy the interface above.
 We recommend users have a look at the custom prognostic example which will step users
-through the simple process of implementing you’re own prognostic model for your personal
-needs.</p>
-<div class="sphx-glr-thumbnails"><div class="sphx-glr-thumbcontainer" tooltip="TODO: Update this to custom prognostic"><img alt="" src="../../_images/sphx_glr_01_simple_workflow_thumb.png" />
-<p><a class="reference internal" href="../../examples/01_simple_workflow.html#sphx-glr-examples-01-simple-workflow-py"><span class="std std-ref">Running Simple Inference</span></a></p>
-  <div class="sphx-glr-thumbnail-title">Running Simple Inference</div>
-</div></section>
+through the simple process of implementing their own prognostic model for their personal
+needs in the <a class="reference internal" href="../../examples/extend/index.html#extension-examples"><span class="std std-ref">Extending Earth2Studio</span></a> examples.</p>
+</section>
 <section id="contributing-a-prognostic-models">
 <h2>Contributing a Prognostic Models<a class="headerlink" href="#contributing-a-prognostic-models" title="Link to this heading">#</a></h2>
 <p>Want to add your prognostic to the package? Great, we will be happy to work with you.
 At the minimum we expect the model to abide by the defined interface as well as meet
-the requirements set forth in our contribution guide. Typically we also expect users
-to provide the weights of the model in a downloadable location that can be progmatically
-fetched.</p>
+the requirements set forth in our contribution guide. Typically, users are expected
+to provide the weights of the model in a downloadable location that can be fetched.</p>
 <p>Open an issue when you have an initial implementation you would like us to review.</p>
 </section>
 </section>
@@ -641,8 +645,11 @@ fetched.</p>
   <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="visible nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#prognostic-interface">Prognostic Interface</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#single-step-prediction">Single Step Prediction</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#time-series-prediction">Time-series Prediction</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#prognostic-usage">Prognostic Usage</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#single-step-prediction">Single Step Prediction</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#time-series-prediction">Time-series Prediction</a></li>
+</ul>
+</li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#custom-prognostic-models">Custom Prognostic Models</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#contributing-a-prognostic-models">Contributing a Prognostic Models</a></li>
 </ul>

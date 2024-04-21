@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
     <link href="../_static/favicon.ico" rel="icon" type="image/x-icon">
-    <title>User Guide &#8212; Earth-2 Inference Studio 0.1.0a0 documentation</title>
+    <title>User Guide &#8212; Earth2Studio 0.2.0a0 documentation</title>
   
   
   
@@ -34,14 +34,14 @@
     <link rel="stylesheet" type="text/css" href="../_static/sg_gallery-dataframe.css?v=2082cf3c" />
     <link rel="stylesheet" type="text/css" href="../_static/sg_gallery-rendered-html.css?v=1277b6f3" />
     <link rel="stylesheet" type="text/css" href="../_static/design-style.1e8bd061cd6da7fc9cf755528e8ffc24.min.css?v=0a3b3ea7" />
-    <link rel="stylesheet" type="text/css" href="../_static/css/custom.css?v=0b10f1a0" />
+    <link rel="stylesheet" type="text/css" href="../_static/css/custom.css?v=58db39a5" />
   
   <!-- Pre-loaded scripts that we'll load fully later -->
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=8d27b9dea8ad943066ae" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=8d27b9dea8ad943066ae" />
   <script src="../_static/vendor/fontawesome/6.5.1/js/all.min.js?digest=8d27b9dea8ad943066ae"></script>
 
-    <script src="../_static/documentation_options.js?v=edcd63a1"></script>
+    <script src="../_static/documentation_options.js?v=312c242a"></script>
     <script src="../_static/doctools.js?v=9a2dae69"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/design-tabs.js?v=36754332"></script>
@@ -104,7 +104,7 @@
 
 
   <div class="bd-header-announcement container-fluid bd-header-announcement">
-    <div class="bd-header-announcement__content">Earth-2 Inference Studio is now OSS!</div>
+    <div class="bd-header-announcement__content">Earth2Studio is now OSS!</div>
   </div>
 
   
@@ -136,7 +136,7 @@
     <script>document.write(`<img src="../_static/NVIDIA-Logo-V-ForScreen-ForDarkBG.png" class="logo__image only-dark" alt=""/>`);</script>
   
   
-    <p class="title logo__title">Earth-2 Inference Studio</p>
+    <p class="title logo__title">Earth2Studio</p>
   
 </a></div>
     
@@ -179,7 +179,7 @@
                 
 
                 <li class="nav-item">
-                  <a class="nav-link nav-external" href="https://gitlab-master.nvidia.com/modulus/earth-2/earth2-inference-studio/blob/main/CHANGELOG.md">
+                  <a class="nav-link nav-external" href="https://github.com/NVIDIA/earth2studio/blob/main/CHANGELOG.md">
                     Changelog
                   </a>
                 </li>
@@ -311,7 +311,7 @@ document.write(`
                 
 
                 <li class="nav-item">
-                  <a class="nav-link nav-external" href="https://gitlab-master.nvidia.com/modulus/earth-2/earth2-inference-studio/blob/main/CHANGELOG.md">
+                  <a class="nav-link nav-external" href="https://github.com/NVIDIA/earth2studio/blob/main/CHANGELOG.md">
                     Changelog
                   </a>
                 </li>
@@ -369,9 +369,14 @@ document.write(`
 <ul class="nav bd-sidenav">
 <li class="toctree-l1"><a class="reference internal" href="features/prognostic.html">Prognostic Models</a></li>
 <li class="toctree-l1"><a class="reference internal" href="features/diagnostic.html">Diagnostic Models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="features/datasources.html">Data Sources</a></li>
+<li class="toctree-l1"><a class="reference internal" href="features/io.html">Output Handling</a></li>
+<li class="toctree-l1"><a class="reference internal" href="features/statistics.html">Statistics</a></li>
+
 </ul>
 <ul class="nav bd-sidenav">
-<li class="toctree-l1"><a class="reference internal" href="troubleshooting.html">Troubleshooting</a></li>
+<li class="toctree-l1"><a class="reference internal" href="support/troubleshooting.html">Troubleshooting</a></li>
+<li class="toctree-l1"><a class="reference internal" href="support/faq.html">Frequently Asked Questions</a></li>
 </ul>
 </div>
 </nav></div>
@@ -429,17 +434,17 @@ document.write(`
   <section id="user-guide">
 <h1>User Guide<a class="headerlink" href="#user-guide" title="Link to this heading">#</a></h1>
 <p>🚧 Under construction 🚧</p>
-<p>Welcome to the Earth-2 Inference Studio user guide.
+<p>Welcome to the Earth2Studio user guide.
 This guide provides a verbose documentation of the package and the underlying
 design.
-If you are looking to skip to running code, have a look at the examples instead
+If you want to skip to running code, have a look at the examples instead
 and come back here when you have questions.</p>
-<p>In this user guide, we’ll delve into the intricacies of Earth-2 Inference Studio,
+<p>In this user guide, we’ll delve into the intricacies of Earth2Studio,
 exploring its fundamental components, features, and the ways in which
 it can be extended and customized to suit specific research or production needs.
 Whether you’re a seasoned expert or just beginning your journey in the realm of
 AI-driven weather and climate analysis, this guide aims to equip you with the knowledge
-and resources necessary to leverage the full potential of Earth-2 Inference Studio.</p>
+and resources necessary to leverage the full potential of Earth2Studio.</p>
 <section id="introduction">
 <h2>Introduction<a class="headerlink" href="#introduction" title="Link to this heading">#</a></h2>
 <div class="toctree-wrapper compound">
@@ -455,6 +460,10 @@ and resources necessary to leverage the full potential of Earth-2 Inference Stud
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="features/prognostic.html">Prognostic Models</a></li>
 <li class="toctree-l1"><a class="reference internal" href="features/diagnostic.html">Diagnostic Models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="features/datasources.html">Data Sources</a></li>
+<li class="toctree-l1"><a class="reference internal" href="features/io.html">Output Handling</a></li>
+<li class="toctree-l1"><a class="reference internal" href="features/statistics.html">Statistics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="features/statistics.html#metrics">Metrics</a></li>
 </ul>
 </div>
 </section>
@@ -462,7 +471,8 @@ and resources necessary to leverage the full potential of Earth-2 Inference Stud
 <h2>Support<a class="headerlink" href="#support" title="Link to this heading">#</a></h2>
 <div class="toctree-wrapper compound">
 <ul>
-<li class="toctree-l1"><a class="reference internal" href="troubleshooting.html">Troubleshooting</a></li>
+<li class="toctree-l1"><a class="reference internal" href="support/troubleshooting.html">Troubleshooting</a></li>
+<li class="toctree-l1"><a class="reference internal" href="support/faq.html">Frequently Asked Questions</a></li>
 </ul>
 </div>
 </section>

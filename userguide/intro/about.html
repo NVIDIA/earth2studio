@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
     <link href="../../_static/favicon.ico" rel="icon" type="image/x-icon">
-    <title>About &#8212; Earth-2 Inference Studio 0.1.0a0 documentation</title>
+    <title>About &#8212; Earth2Studio 0.2.0a0 documentation</title>
   
   
   
@@ -34,14 +34,14 @@
     <link rel="stylesheet" type="text/css" href="../../_static/sg_gallery-dataframe.css?v=2082cf3c" />
     <link rel="stylesheet" type="text/css" href="../../_static/sg_gallery-rendered-html.css?v=1277b6f3" />
     <link rel="stylesheet" type="text/css" href="../../_static/design-style.1e8bd061cd6da7fc9cf755528e8ffc24.min.css?v=0a3b3ea7" />
-    <link rel="stylesheet" type="text/css" href="../../_static/css/custom.css?v=0b10f1a0" />
+    <link rel="stylesheet" type="text/css" href="../../_static/css/custom.css?v=58db39a5" />
   
   <!-- Pre-loaded scripts that we'll load fully later -->
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=8d27b9dea8ad943066ae" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=8d27b9dea8ad943066ae" />
   <script src="../../_static/vendor/fontawesome/6.5.1/js/all.min.js?digest=8d27b9dea8ad943066ae"></script>
 
-    <script src="../../_static/documentation_options.js?v=edcd63a1"></script>
+    <script src="../../_static/documentation_options.js?v=312c242a"></script>
     <script src="../../_static/doctools.js?v=9a2dae69"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/design-tabs.js?v=36754332"></script>
@@ -104,7 +104,7 @@
 
 
   <div class="bd-header-announcement container-fluid bd-header-announcement">
-    <div class="bd-header-announcement__content">Earth-2 Inference Studio is now OSS!</div>
+    <div class="bd-header-announcement__content">Earth2Studio is now OSS!</div>
   </div>
 
   
@@ -136,7 +136,7 @@
     <script>document.write(`<img src="../../_static/NVIDIA-Logo-V-ForScreen-ForDarkBG.png" class="logo__image only-dark" alt=""/>`);</script>
   
   
-    <p class="title logo__title">Earth-2 Inference Studio</p>
+    <p class="title logo__title">Earth2Studio</p>
   
 </a></div>
     
@@ -179,7 +179,7 @@
                 
 
                 <li class="nav-item">
-                  <a class="nav-link nav-external" href="https://gitlab-master.nvidia.com/modulus/earth-2/earth2-inference-studio/blob/main/CHANGELOG.md">
+                  <a class="nav-link nav-external" href="https://github.com/NVIDIA/earth2studio/blob/main/CHANGELOG.md">
                     Changelog
                   </a>
                 </li>
@@ -311,7 +311,7 @@ document.write(`
                 
 
                 <li class="nav-item">
-                  <a class="nav-link nav-external" href="https://gitlab-master.nvidia.com/modulus/earth-2/earth2-inference-studio/blob/main/CHANGELOG.md">
+                  <a class="nav-link nav-external" href="https://github.com/NVIDIA/earth2studio/blob/main/CHANGELOG.md">
                     Changelog
                   </a>
                 </li>
@@ -369,9 +369,14 @@ document.write(`
 <ul class="nav bd-sidenav">
 <li class="toctree-l1"><a class="reference internal" href="../features/prognostic.html">Prognostic Models</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../features/diagnostic.html">Diagnostic Models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../features/datasources.html">Data Sources</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../features/io.html">Output Handling</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../features/statistics.html">Statistics</a></li>
+
 </ul>
 <ul class="nav bd-sidenav">
-<li class="toctree-l1"><a class="reference internal" href="../troubleshooting.html">Troubleshooting</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../support/troubleshooting.html">Troubleshooting</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../support/faq.html">Frequently Asked Questions</a></li>
 </ul>
 </div>
 </nav></div>
@@ -431,7 +436,7 @@ document.write(`
                   
   <section id="about">
 <h1>About<a class="headerlink" href="#about" title="Link to this heading">#</a></h1>
-<p>Earth-2 Inference Studio is a Python package built to empower researchers, scientists,
+<p>Earth2Studio is a Python package built to empower researchers, scientists,
 and enthusiasts in the fields of weather and climate science with the latest artificial
 intelligence models/capabilities.
 With an intuitive design and comprehensive feature set, this package serves as a robust
@@ -447,20 +452,21 @@ enable this.</p>
 <li><p>Modularity</p></li>
 <li><p>Simple and Explicit Data</p></li>
 <li><p>API Consistency</p></li>
-<li><p>User progression</p></li>
+<li><p>User Progression</p></li>
 <li><p>Test Coverage and Stability</p></li>
 <li><p>Performance</p></li>
 </ul>
 <p>(<em>in relative order of importance</em>)</p>
 </div>
-<p>The design philosophy of Earth-2 Inference Studio embodies a modular architecture where
+<p>The design philosophy of Earth2Studio embodies a modular architecture where
 the inference workflow acts as a flexible adhesive, seamlessly binding together various
 specialized software components with well-defined interfaces.
-Each component within the package serves a distint purpose in typical inference workflows.</p>
+Each component within the package serves a distinct purpose in typical inference
+workflows.</p>
 <figure class="align-center">
 <a class="reference internal image-reference" href="https://gitlab-master.nvidia.com/ngeneva/earth-2-studio-assets/-/raw/main/e2studio-arch.png"><img alt="earth2studio-arch" src="https://gitlab-master.nvidia.com/ngeneva/earth-2-studio-assets/-/raw/main/e2studio-arch.png" style="width: 500px;" /></a>
 </figure>
-<p>By viewing the inference workflow as a dynamic connector, Earth-2 Inference Studio
+<p>By viewing the inference workflow as a dynamic connector, Earth2Studio
 facilitates effortless integration of these components, allowing researchers to easily
 swap out or augment functionalities to suit their specific needs.
 We recognize that many users will have their own custom workflow needs, thus encourage
@@ -468,14 +474,14 @@ users to use the provided features as a starting point to build their own.</p>
 <figure class="align-center">
 <a class="reference internal image-reference" href="https://gitlab-master.nvidia.com/ngeneva/earth-2-studio-assets/-/raw/main/e2studio-wf-samples.png"><img alt="earth2studio-arch" src="https://gitlab-master.nvidia.com/ngeneva/earth-2-studio-assets/-/raw/main/e2studio-wf-samples.png" style="width: 600px;" /></a>
 </figure>
-<p>Signficiant importance is placed on the intefrace that enables the connection between
+<p>Significant importance is placed on the interface that enables the connection between
 the components and the workflow.
 These are simple python protocols that all variants of a particular component must share.
 This not only enables a consistent API but also the generalization of workflows.</p>
 </section>
 <section id="key-features">
 <h2>Key Features<a class="headerlink" href="#key-features" title="Link to this heading">#</a></h2>
-<p>While Earth-2 Inference Studio contains a large collection of general utilities,
+<p>While Earth2Studio contains a large collection of general utilities,
 functions and tooling the following six are considered the core.
 For more information on these features, see the dedicated documentation for each.</p>
 <div class="sd-container-fluid sd-sphinx-override sd-mb-4 docutils">
@@ -486,7 +492,7 @@ For more information on these features, see the dedicated documentation for each
 <p class="sd-card-text">Built-in Workflows</p>
 </div>
 <div class="sd-card-body docutils">
-<p class="sd-card-text">Multiple built-in infernce workflows to accelerate your development and research.</p>
+<p class="sd-card-text">Multiple built-in inference workflows to accelerate your development and research.</p>
 </div>
 </div>
 </div>
@@ -497,7 +503,7 @@ For more information on these features, see the dedicated documentation for each
 </div>
 <div class="sd-card-body docutils">
 <p class="sd-card-text">Support for the latest AI weather forecast models
-offered under on coherrent interface.</p>
+offered under a coherent interface.</p>
 </div>
 </div>
 </div>
@@ -538,7 +544,7 @@ offered under on coherrent interface.</p>
 </div>
 <div class="sd-card-body docutils">
 <p class="sd-card-text">Statistical methods to fuse directly into your inference workflow for more complex
-uncertainity analysis.</p>
+uncertainty analysis.</p>
 </div>
 </div>
 </div>

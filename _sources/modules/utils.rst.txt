@@ -23,11 +23,12 @@ A collection of utilities to manipulate and check coordinate systems dictionarie
    utils.coords.handshake_coords
    utils.coords.handshake_size
    utils.coords.map_coords
+   utils.coords.extract_coords
 
 :mod:`earth2studio.utils`: Time
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-A collection of utilities to help interact with time coordinate arrays. Earth-2 Studio
+A collection of utilities to help interact with time coordinate arrays. Earth2Studio
 uses `np.datetime64[ns]` to represent time.
 The following functions can be used to convert to and from these numpy arrays.
 
