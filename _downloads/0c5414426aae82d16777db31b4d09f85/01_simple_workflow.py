@@ -36,8 +36,8 @@ In this example you will learn:
 # %%
 # Set Up
 # ------
-# All workflows inside Earth-2 Inference Studio require constructed components to be
-# handed to them. In this example, lets take a look at the most basic:
+# All workflows inside Earth2Studio require constructed components to be
+# handed to them. In this example, let's take a look at the most basic:
 # :py:meth:`earth2studio.run.deterministic`.
 
 # %%
@@ -46,22 +46,20 @@ In this example you will learn:
 #    :lines: 35-42
 
 # %%
-# Thus we need the following:
+# Thus, we need the following:
 #
 # - Prognostic Model: Use the built in FourCastNet Model :py:class:`earth2studio.models.px.FCN`.
 # - Datasource: Pull data from the GFS data api :py:class:`earth2studio.data.GFS`.
-# - IO Backend: Lets save the outputs into a Zarr store :py:class:`earth2studio.io.ZarrBackend`.
+# - IO Backend: Let's save the outputs into a Zarr store :py:class:`earth2studio.io.ZarrBackend`.
 
 # %%
-import numpy as np
-from collections import OrderedDict
 from dotenv import load_dotenv
 
 load_dotenv()  # TODO: make common example prep function
 
-from earth2studio.models.px import FCN
 from earth2studio.data import GFS
 from earth2studio.io import ZarrBackend
+from earth2studio.models.px import FCN
 
 # Load the default model package which downloads the check point from NGC
 package = FCN.load_default_package()
@@ -76,7 +74,7 @@ io = ZarrBackend()
 # %%
 # Execute the Workflow
 # --------------------
-# With all componments intialized, running the workflow is a single line of Python code.
+# With all components initialized, running the workflow is a single line of Python code.
 # Workflow will return the provided IO object back to the user, which can be used to
 # then post process. Some have additional APIs that can be handy for post-processing or
 # saving to file. Check the API docs for more information.
@@ -90,11 +88,13 @@ import earth2studio.run as run
 nsteps = 20
 io = run.deterministic(["2024-01-01"], nsteps, model, data, io)
 
+print(io.root.tree())
+
 # %%
 # Post Processing
 # ---------------
-# The last step is to post process our results. Cartopy is a greate library for plotting
-# fields on projects of a sphere. Here we will just plot the temperature at 2 meters
+# The last step is to post process our results. Cartopy is a great library for plotting
+# fields on projections of a sphere. Here we will just plot the temperature at 2 meters
 # (t2m) 1 day into the forecast.
 #
 # Notice that the Zarr IO function has additional APIs to interact with the stored data.
@@ -103,10 +103,8 @@ io = run.deterministic(["2024-01-01"], nsteps, model, data, io)
 import os
 
 os.makedirs("outputs", exist_ok=True)
-import matplotlib.pyplot as plt
 import cartopy.crs as ccrs
-import cartopy.feature as cfeature
-from matplotlib.colors import TwoSlopeNorm
+import matplotlib.pyplot as plt
 
 forecast = "2024-01-01"
 variable = "t2m"

@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
     <link href="../_static/favicon.ico" rel="icon" type="image/x-icon">
-    <title>Running Simple Inference &#8212; Earth-2 Inference Studio 0.1.0a0 documentation</title>
+    <title>Running Simple Inference &#8212; Earth2Studio 0.2.0a0 documentation</title>
   
   
   
@@ -34,15 +34,15 @@
     <link rel="stylesheet" type="text/css" href="../_static/sg_gallery-dataframe.css?v=2082cf3c" />
     <link rel="stylesheet" type="text/css" href="../_static/sg_gallery-rendered-html.css?v=1277b6f3" />
     <link rel="stylesheet" type="text/css" href="../_static/design-style.1e8bd061cd6da7fc9cf755528e8ffc24.min.css?v=0a3b3ea7" />
-    <link rel="stylesheet" type="text/css" href="../_static/css/custom.css?v=0b10f1a0" />
+    <link rel="stylesheet" type="text/css" href="../_static/css/custom.css?v=58db39a5" />
   
   <!-- Pre-loaded scripts that we'll load fully later -->
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=8d27b9dea8ad943066ae" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=8d27b9dea8ad943066ae" />
   <script src="../_static/vendor/fontawesome/6.5.1/js/all.min.js?digest=8d27b9dea8ad943066ae"></script>
 
-    <script src="../_static/documentation_options.js?v=edcd63a1"></script>
-    <script src="../_static/doctools.js?v=888ff710"></script>
+    <script src="../_static/documentation_options.js?v=312c242a"></script>
+    <script src="../_static/doctools.js?v=9a2dae69"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/design-tabs.js?v=36754332"></script>
     <script>DOCUMENTATION_OPTIONS.pagename = 'examples/01_simple_workflow';</script>
@@ -104,7 +104,7 @@
 
 
   <div class="bd-header-announcement container-fluid bd-header-announcement">
-    <div class="bd-header-announcement__content">Earth-2 Inference Studio is now OSS!</div>
+    <div class="bd-header-announcement__content">Earth2Studio is now OSS!</div>
   </div>
 
   
@@ -136,7 +136,7 @@
     <script>document.write(`<img src="../_static/NVIDIA-Logo-V-ForScreen-ForDarkBG.png" class="logo__image only-dark" alt=""/>`);</script>
   
   
-    <p class="title logo__title">Earth-2 Inference Studio</p>
+    <p class="title logo__title">Earth2Studio</p>
   
 </a></div>
     
@@ -179,7 +179,7 @@
                 
 
                 <li class="nav-item">
-                  <a class="nav-link nav-external" href="https://gitlab-master.nvidia.com/modulus/earth-2/earth2-inference-studio/blob/main/CHANGELOG.md">
+                  <a class="nav-link nav-external" href="https://github.com/NVIDIA/earth2studio/blob/main/CHANGELOG.md">
                     Changelog
                   </a>
                 </li>
@@ -311,7 +311,7 @@ document.write(`
                 
 
                 <li class="nav-item">
-                  <a class="nav-link nav-external" href="https://gitlab-master.nvidia.com/modulus/earth-2/earth2-inference-studio/blob/main/CHANGELOG.md">
+                  <a class="nav-link nav-external" href="https://github.com/NVIDIA/earth2studio/blob/main/CHANGELOG.md">
                     Changelog
                   </a>
                 </li>
@@ -365,8 +365,18 @@ document.write(`
   <div class="bd-toc-item navbar-nav"><ul class="current nav bd-sidenav">
 <li class="toctree-l1 current active"><a class="current reference internal" href="#">Running Simple Inference</a></li>
 <li class="toctree-l1"><a class="reference internal" href="02_ensemble_workflow.html">Running Ensemble Inference</a></li>
-<li class="toctree-l1"><a class="reference internal" href="03_corrdiff_inference.html">Generative Down Sampling</a></li>
+<li class="toctree-l1"><a class="reference internal" href="03_corrdiff_inference.html">Generative Downscaling</a></li>
 <li class="toctree-l1"><a class="reference internal" href="04_ensemble_workflow_extend.html">Single Variable Perturbation Method</a></li>
+<li class="toctree-l1"><a class="reference internal" href="05_model_perturbation_hook.html">Model Hook Injection: Perturbation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="06_seasonal_statistics.html">Statistical Inference</a></li>
+</ul>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1 has-children"><a class="reference internal" href="extend/index.html">Extending Earth2Studio</a><input class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-1"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l2"><a class="reference internal" href="extend/01_custom_prognostic.html">Extending Prognostic Models</a></li>
+<li class="toctree-l2"><a class="reference internal" href="extend/02_custom_diagnostic.html">Extending Diagnostic Models</a></li>
+<li class="toctree-l2"><a class="reference internal" href="extend/03_custom_datasource.html">Extending Data Sources</a></li>
+</ul>
+</li>
 </ul>
 </div>
 </nav></div>
@@ -444,34 +454,32 @@ Studio.</p>
 </ul>
 <section id="set-up">
 <h2>Set Up<a class="headerlink" href="#set-up" title="Link to this heading">#</a></h2>
-<p>All workflows inside Earth-2 Inference Studio require constructed components to be
-handed to them. In this example, lets take a look at the most basic:
+<p>All workflows inside Earth2Studio require constructed components to be
+handed to them. In this example, let’s take a look at the most basic:
 <a class="reference internal" href="../modules/generated/workflows/earth2studio.run.deterministic.html#earth2studio.run.deterministic" title="earth2studio.run.deterministic"><code class="xref py py-meth docutils literal notranslate"><span class="pre">earth2studio.run.deterministic()</span></code></a>.</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">deterministic</span><span class="p">(</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">logger</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="k">lambda</span> <span class="n">msg</span><span class="p">:</span> <span class="n">tqdm</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">msg</span><span class="p">,</span> <span class="n">end</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">),</span> <span class="n">colorize</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">deterministic</span><span class="p">(</span>
     <span class="n">time</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="n">datetime</span><span class="p">]</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">datetime64</span><span class="p">],</span>
     <span class="n">nsteps</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
     <span class="n">prognostic</span><span class="p">:</span> <span class="n">PrognosticModel</span><span class="p">,</span>
     <span class="n">data</span><span class="p">:</span> <span class="n">DataSource</span><span class="p">,</span>
-    <span class="n">io</span><span class="p">:</span> <span class="n">IOBackend</span><span class="p">,</span>
-    <span class="n">device</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">device</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">IOBackend</span><span class="p">:</span>
 </pre></div>
 </div>
-<p>Thus we need the following:</p>
+<p>Thus, we need the following:</p>
 <ul class="simple">
 <li><p>Prognostic Model: Use the built in FourCastNet Model <a class="reference internal" href="../modules/generated/models/px/earth2studio.models.px.FCN.html#earth2studio.models.px.FCN" title="earth2studio.models.px.FCN"><code class="xref py py-class docutils literal notranslate"><span class="pre">earth2studio.models.px.FCN</span></code></a>.</p></li>
 <li><p>Datasource: Pull data from the GFS data api <a class="reference internal" href="../modules/generated/data/earth2studio.data.GFS.html#earth2studio.data.GFS" title="earth2studio.data.GFS"><code class="xref py py-class docutils literal notranslate"><span class="pre">earth2studio.data.GFS</span></code></a>.</p></li>
-<li><p>IO Backend: Lets save the outputs into a Zarr store <a class="reference internal" href="../modules/generated/io/earth2studio.io.ZarrBackend.html#earth2studio.io.ZarrBackend" title="earth2studio.io.ZarrBackend"><code class="xref py py-class docutils literal notranslate"><span class="pre">earth2studio.io.ZarrBackend</span></code></a>.</p></li>
+<li><p>IO Backend: Let’s save the outputs into a Zarr store <a class="reference internal" href="../modules/generated/io/earth2studio.io.ZarrBackend.html#earth2studio.io.ZarrBackend" title="earth2studio.io.ZarrBackend"><code class="xref py py-class docutils literal notranslate"><span class="pre">earth2studio.io.ZarrBackend</span></code></a>.</p></li>
 </ul>
-<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
-<span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">OrderedDict</span>
-<span class="kn">from</span> <span class="nn">dotenv</span> <span class="kn">import</span> <span class="n">load_dotenv</span>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">dotenv</span> <span class="kn">import</span> <span class="n">load_dotenv</span>
 
 <span class="n">load_dotenv</span><span class="p">()</span>  <span class="c1"># TODO: make common example prep function</span>
 
-<span class="kn">from</span> <span class="nn">earth2studio.models.px</span> <span class="kn">import</span> <span class="n">FCN</span>
 <span class="kn">from</span> <span class="nn">earth2studio.data</span> <span class="kn">import</span> <span class="n">GFS</span>
 <span class="kn">from</span> <span class="nn">earth2studio.io</span> <span class="kn">import</span> <span class="n">ZarrBackend</span>
+<span class="kn">from</span> <span class="nn">earth2studio.models.px</span> <span class="kn">import</span> <span class="n">FCN</span>
 
 <span class="c1"># Load the default model package which downloads the check point from NGC</span>
 <span class="n">package</span> <span class="o">=</span> <span class="n">FCN</span><span class="o">.</span><span class="n">load_default_package</span><span class="p">()</span>
@@ -487,7 +495,7 @@ handed to them. In this example, lets take a look at the most basic:
 </section>
 <section id="execute-the-workflow">
 <h2>Execute the Workflow<a class="headerlink" href="#execute-the-workflow" title="Link to this heading">#</a></h2>
-<p>With all componments intialized, running the workflow is a single line of Python code.
+<p>With all components initialized, running the workflow is a single line of Python code.
 Workflow will return the provided IO object back to the user, which can be used to
 then post process. Some have additional APIs that can be handy for post-processing or
 saving to file. Check the API docs for more information.</p>
@@ -497,187 +505,218 @@ saving to file. Check the API docs for more information.</p>
 
 <span class="n">nsteps</span> <span class="o">=</span> <span class="mi">20</span>
 <span class="n">io</span> <span class="o">=</span> <span class="n">run</span><span class="o">.</span><span class="n">deterministic</span><span class="p">([</span><span class="s2">&quot;2024-01-01&quot;</span><span class="p">],</span> <span class="n">nsteps</span><span class="p">,</span> <span class="n">model</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">io</span><span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="n">io</span><span class="o">.</span><span class="n">root</span><span class="o">.</span><span class="n">tree</span><span class="p">())</span>
 </pre></div>
 </div>
-<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>2024-04-10 00:20:33.153 | INFO     | earth2studio.run:deterministic:65 - Running simple workflow!
-2024-04-10 00:20:33.225 | INFO     | earth2studio.run:deterministic:68 - Inference device: cuda
-2024-04-10 00:20:33.703 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:151 - Fetching GFS index file: 2024-01-01 00:00:00
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>2024-04-21 06:29:08.061 | INFO     | earth2studio.run:deterministic:68 - Running simple workflow!
+2024-04-21 06:29:08.132 | INFO     | earth2studio.run:deterministic:71 - Inference device: cuda
+2024-04-21 06:29:08.304 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:151 - Fetching GFS index file: 2024-01-01 00:00:00
 
 Fetching GFS for 2024-01-01 00:00:00:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
-2024-04-10 00:20:34.082 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: u10m at 2024-01-01 00:00:00
+2024-04-21 06:29:08.799 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: u10m at 2024-01-01 00:00:00
 
 Fetching GFS for 2024-01-01 00:00:00:   0%|          | 0/26 [00:00&lt;?, ?it/s]
-Fetching GFS for 2024-01-01 00:00:00:   4%|▍         | 1/26 [00:02&lt;01:04,  2.58s/it]
+Fetching GFS for 2024-01-01 00:00:00:   4%|▍         | 1/26 [00:02&lt;01:06,  2.67s/it]
 
-2024-04-10 00:20:36.660 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: v10m at 2024-01-01 00:00:00
+2024-04-21 06:29:11.469 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: v10m at 2024-01-01 00:00:00
 
-Fetching GFS for 2024-01-01 00:00:00:   4%|▍         | 1/26 [00:02&lt;01:04,  2.58s/it]
-Fetching GFS for 2024-01-01 00:00:00:   8%|▊         | 2/26 [00:02&lt;00:30,  1.25s/it]
+Fetching GFS for 2024-01-01 00:00:00:   4%|▍         | 1/26 [00:02&lt;01:06,  2.67s/it]
+Fetching GFS for 2024-01-01 00:00:00:   8%|▊         | 2/26 [00:03&lt;00:31,  1.32s/it]
 
-2024-04-10 00:20:36.982 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: t2m at 2024-01-01 00:00:00
+2024-04-21 06:29:11.849 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: t2m at 2024-01-01 00:00:00
 
-Fetching GFS for 2024-01-01 00:00:00:   8%|▊         | 2/26 [00:02&lt;00:30,  1.25s/it]
-Fetching GFS for 2024-01-01 00:00:00:  12%|█▏        | 3/26 [00:03&lt;00:19,  1.18it/s]
+Fetching GFS for 2024-01-01 00:00:00:   8%|▊         | 2/26 [00:03&lt;00:31,  1.32s/it]
+Fetching GFS for 2024-01-01 00:00:00:  12%|█▏        | 3/26 [00:03&lt;00:20,  1.11it/s]
 
-2024-04-10 00:20:37.347 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: sp at 2024-01-01 00:00:00
+2024-04-21 06:29:12.247 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: sp at 2024-01-01 00:00:00
 
-Fetching GFS for 2024-01-01 00:00:00:  12%|█▏        | 3/26 [00:03&lt;00:19,  1.18it/s]
-Fetching GFS for 2024-01-01 00:00:00:  15%|█▌        | 4/26 [00:03&lt;00:16,  1.34it/s]
+Fetching GFS for 2024-01-01 00:00:00:  12%|█▏        | 3/26 [00:03&lt;00:20,  1.11it/s]
+Fetching GFS for 2024-01-01 00:00:00:  15%|█▌        | 4/26 [00:04&lt;00:17,  1.23it/s]
 
-2024-04-10 00:20:37.938 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: msl at 2024-01-01 00:00:00
+2024-04-21 06:29:12.924 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: msl at 2024-01-01 00:00:00
 
-Fetching GFS for 2024-01-01 00:00:00:  15%|█▌        | 4/26 [00:03&lt;00:16,  1.34it/s]
-Fetching GFS for 2024-01-01 00:00:00:  19%|█▉        | 5/26 [00:04&lt;00:12,  1.68it/s]
+Fetching GFS for 2024-01-01 00:00:00:  15%|█▌        | 4/26 [00:04&lt;00:17,  1.23it/s]
+Fetching GFS for 2024-01-01 00:00:00:  19%|█▉        | 5/26 [00:04&lt;00:14,  1.47it/s]
 
-2024-04-10 00:20:38.263 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: t850 at 2024-01-01 00:00:00
+2024-04-21 06:29:13.371 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: t850 at 2024-01-01 00:00:00
 
-Fetching GFS for 2024-01-01 00:00:00:  19%|█▉        | 5/26 [00:04&lt;00:12,  1.68it/s]
-Fetching GFS for 2024-01-01 00:00:00:  23%|██▎       | 6/26 [00:04&lt;00:11,  1.69it/s]
+Fetching GFS for 2024-01-01 00:00:00:  19%|█▉        | 5/26 [00:04&lt;00:14,  1.47it/s]
+Fetching GFS for 2024-01-01 00:00:00:  23%|██▎       | 6/26 [00:04&lt;00:11,  1.68it/s]
 
-2024-04-10 00:20:38.851 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: u1000 at 2024-01-01 00:00:00
+2024-04-21 06:29:13.796 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: u1000 at 2024-01-01 00:00:00
 
-Fetching GFS for 2024-01-01 00:00:00:  23%|██▎       | 6/26 [00:04&lt;00:11,  1.69it/s]
-Fetching GFS for 2024-01-01 00:00:00:  27%|██▋       | 7/26 [00:05&lt;00:10,  1.88it/s]
+Fetching GFS for 2024-01-01 00:00:00:  23%|██▎       | 6/26 [00:04&lt;00:11,  1.68it/s]
+Fetching GFS for 2024-01-01 00:00:00:  27%|██▋       | 7/26 [00:05&lt;00:09,  1.97it/s]
 
-2024-04-10 00:20:39.263 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: v1000 at 2024-01-01 00:00:00
+2024-04-21 06:29:14.127 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: v1000 at 2024-01-01 00:00:00
 
-Fetching GFS for 2024-01-01 00:00:00:  27%|██▋       | 7/26 [00:05&lt;00:10,  1.88it/s]
-Fetching GFS for 2024-01-01 00:00:00:  31%|███       | 8/26 [00:05&lt;00:08,  2.00it/s]
+Fetching GFS for 2024-01-01 00:00:00:  27%|██▋       | 7/26 [00:05&lt;00:09,  1.97it/s]
+Fetching GFS for 2024-01-01 00:00:00:  31%|███       | 8/26 [00:05&lt;00:08,  2.22it/s]
 
-2024-04-10 00:20:39.691 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: z1000 at 2024-01-01 00:00:00
+2024-04-21 06:29:14.454 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: z1000 at 2024-01-01 00:00:00
 
-Fetching GFS for 2024-01-01 00:00:00:  31%|███       | 8/26 [00:05&lt;00:08,  2.00it/s]
-Fetching GFS for 2024-01-01 00:00:00:  35%|███▍      | 9/26 [00:05&lt;00:07,  2.25it/s]
+Fetching GFS for 2024-01-01 00:00:00:  31%|███       | 8/26 [00:05&lt;00:08,  2.22it/s]
+Fetching GFS for 2024-01-01 00:00:00:  35%|███▍      | 9/26 [00:05&lt;00:06,  2.46it/s]
 
-2024-04-10 00:20:40.014 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: u850 at 2024-01-01 00:00:00
+2024-04-21 06:29:14.766 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: u850 at 2024-01-01 00:00:00
 
-Fetching GFS for 2024-01-01 00:00:00:  35%|███▍      | 9/26 [00:05&lt;00:07,  2.25it/s]
-Fetching GFS for 2024-01-01 00:00:00:  38%|███▊      | 10/26 [00:06&lt;00:07,  2.22it/s]
+Fetching GFS for 2024-01-01 00:00:00:  35%|███▍      | 9/26 [00:05&lt;00:06,  2.46it/s]
+Fetching GFS for 2024-01-01 00:00:00:  38%|███▊      | 10/26 [00:06&lt;00:06,  2.61it/s]
 
-2024-04-10 00:20:40.480 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: v850 at 2024-01-01 00:00:00
+2024-04-21 06:29:15.096 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: v850 at 2024-01-01 00:00:00
 
-Fetching GFS for 2024-01-01 00:00:00:  38%|███▊      | 10/26 [00:06&lt;00:07,  2.22it/s]
-Fetching GFS for 2024-01-01 00:00:00:  42%|████▏     | 11/26 [00:06&lt;00:06,  2.46it/s]
+Fetching GFS for 2024-01-01 00:00:00:  38%|███▊      | 10/26 [00:06&lt;00:06,  2.61it/s]
+Fetching GFS for 2024-01-01 00:00:00:  42%|████▏     | 11/26 [00:06&lt;00:05,  2.89it/s]
 
-2024-04-10 00:20:40.787 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: z850 at 2024-01-01 00:00:00
+2024-04-21 06:29:15.359 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: z850 at 2024-01-01 00:00:00
 
-Fetching GFS for 2024-01-01 00:00:00:  42%|████▏     | 11/26 [00:06&lt;00:06,  2.46it/s]
-Fetching GFS for 2024-01-01 00:00:00:  46%|████▌     | 12/26 [00:07&lt;00:05,  2.68it/s]
+Fetching GFS for 2024-01-01 00:00:00:  42%|████▏     | 11/26 [00:06&lt;00:05,  2.89it/s]
+Fetching GFS for 2024-01-01 00:00:00:  46%|████▌     | 12/26 [00:06&lt;00:04,  2.99it/s]
 
-2024-04-10 00:20:41.084 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: u500 at 2024-01-01 00:00:00
+2024-04-21 06:29:15.667 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: u500 at 2024-01-01 00:00:00
 
-Fetching GFS for 2024-01-01 00:00:00:  46%|████▌     | 12/26 [00:07&lt;00:05,  2.68it/s]
-Fetching GFS for 2024-01-01 00:00:00:  50%|█████     | 13/26 [00:07&lt;00:04,  2.63it/s]
+Fetching GFS for 2024-01-01 00:00:00:  46%|████▌     | 12/26 [00:06&lt;00:04,  2.99it/s]
+Fetching GFS for 2024-01-01 00:00:00:  50%|█████     | 13/26 [00:07&lt;00:04,  2.74it/s]
 
-2024-04-10 00:20:41.478 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: v500 at 2024-01-01 00:00:00
+2024-04-21 06:29:16.103 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: v500 at 2024-01-01 00:00:00
 
-Fetching GFS for 2024-01-01 00:00:00:  50%|█████     | 13/26 [00:07&lt;00:04,  2.63it/s]
-Fetching GFS for 2024-01-01 00:00:00:  54%|█████▍    | 14/26 [00:07&lt;00:04,  2.44it/s]
+Fetching GFS for 2024-01-01 00:00:00:  50%|█████     | 13/26 [00:07&lt;00:04,  2.74it/s]
+Fetching GFS for 2024-01-01 00:00:00:  54%|█████▍    | 14/26 [00:07&lt;00:04,  2.47it/s]
 
-2024-04-10 00:20:41.957 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: z500 at 2024-01-01 00:00:00
+2024-04-21 06:29:16.598 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: z500 at 2024-01-01 00:00:00
 
-Fetching GFS for 2024-01-01 00:00:00:  54%|█████▍    | 14/26 [00:07&lt;00:04,  2.44it/s]
-Fetching GFS for 2024-01-01 00:00:00:  58%|█████▊    | 15/26 [00:08&lt;00:04,  2.51it/s]
+Fetching GFS for 2024-01-01 00:00:00:  54%|█████▍    | 14/26 [00:07&lt;00:04,  2.47it/s]
+Fetching GFS for 2024-01-01 00:00:00:  58%|█████▊    | 15/26 [00:08&lt;00:04,  2.60it/s]
 
-2024-04-10 00:20:42.332 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: t500 at 2024-01-01 00:00:00
+2024-04-21 06:29:16.938 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: t500 at 2024-01-01 00:00:00
 
-Fetching GFS for 2024-01-01 00:00:00:  58%|█████▊    | 15/26 [00:08&lt;00:04,  2.51it/s]
-Fetching GFS for 2024-01-01 00:00:00:  62%|██████▏   | 16/26 [00:08&lt;00:03,  2.50it/s]
+Fetching GFS for 2024-01-01 00:00:00:  58%|█████▊    | 15/26 [00:08&lt;00:04,  2.60it/s]
+Fetching GFS for 2024-01-01 00:00:00:  62%|██████▏   | 16/26 [00:08&lt;00:03,  2.75it/s]
 
-2024-04-10 00:20:42.732 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: z50 at 2024-01-01 00:00:00
+2024-04-21 06:29:17.252 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: z50 at 2024-01-01 00:00:00
 
-Fetching GFS for 2024-01-01 00:00:00:  62%|██████▏   | 16/26 [00:08&lt;00:03,  2.50it/s]
-Fetching GFS for 2024-01-01 00:00:00:  65%|██████▌   | 17/26 [00:09&lt;00:04,  2.09it/s]
+Fetching GFS for 2024-01-01 00:00:00:  62%|██████▏   | 16/26 [00:08&lt;00:03,  2.75it/s]
+Fetching GFS for 2024-01-01 00:00:00:  65%|██████▌   | 17/26 [00:09&lt;00:03,  2.33it/s]
 
-2024-04-10 00:20:43.394 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: r500 at 2024-01-01 00:00:00
+2024-04-21 06:29:17.834 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: r500 at 2024-01-01 00:00:00
 
-Fetching GFS for 2024-01-01 00:00:00:  65%|██████▌   | 17/26 [00:09&lt;00:04,  2.09it/s]
-Fetching GFS for 2024-01-01 00:00:00:  69%|██████▉   | 18/26 [00:09&lt;00:03,  2.43it/s]
+Fetching GFS for 2024-01-01 00:00:00:  65%|██████▌   | 17/26 [00:09&lt;00:03,  2.33it/s]
+Fetching GFS for 2024-01-01 00:00:00:  69%|██████▉   | 18/26 [00:09&lt;00:03,  2.62it/s]
 
-2024-04-10 00:20:43.652 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: r850 at 2024-01-01 00:00:00
+2024-04-21 06:29:18.103 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: r850 at 2024-01-01 00:00:00
 
-Fetching GFS for 2024-01-01 00:00:00:  69%|██████▉   | 18/26 [00:09&lt;00:03,  2.43it/s]
-Fetching GFS for 2024-01-01 00:00:00:  73%|███████▎  | 19/26 [00:09&lt;00:02,  2.73it/s]
+Fetching GFS for 2024-01-01 00:00:00:  69%|██████▉   | 18/26 [00:09&lt;00:03,  2.62it/s]
+Fetching GFS for 2024-01-01 00:00:00:  73%|███████▎  | 19/26 [00:09&lt;00:02,  2.89it/s]
 
-2024-04-10 00:20:43.910 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: tcwv at 2024-01-01 00:00:00
+2024-04-21 06:29:18.365 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: tcwv at 2024-01-01 00:00:00
 
-Fetching GFS for 2024-01-01 00:00:00:  73%|███████▎  | 19/26 [00:09&lt;00:02,  2.73it/s]
-Fetching GFS for 2024-01-01 00:00:00:  77%|███████▋  | 20/26 [00:10&lt;00:03,  1.87it/s]
+Fetching GFS for 2024-01-01 00:00:00:  73%|███████▎  | 19/26 [00:09&lt;00:02,  2.89it/s]
+Fetching GFS for 2024-01-01 00:00:00:  77%|███████▋  | 20/26 [00:09&lt;00:02,  2.73it/s]
 
-2024-04-10 00:20:44.838 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: u100m at 2024-01-01 00:00:00
+2024-04-21 06:29:18.779 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: u100m at 2024-01-01 00:00:00
 
-Fetching GFS for 2024-01-01 00:00:00:  77%|███████▋  | 20/26 [00:10&lt;00:03,  1.87it/s]
-Fetching GFS for 2024-01-01 00:00:00:  81%|████████  | 21/26 [00:11&lt;00:02,  1.87it/s]
+Fetching GFS for 2024-01-01 00:00:00:  77%|███████▋  | 20/26 [00:09&lt;00:02,  2.73it/s]
+Fetching GFS for 2024-01-01 00:00:00:  81%|████████  | 21/26 [00:10&lt;00:01,  2.56it/s]
 
-2024-04-10 00:20:45.372 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: v100m at 2024-01-01 00:00:00
+2024-04-21 06:29:19.228 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: v100m at 2024-01-01 00:00:00
 
-Fetching GFS for 2024-01-01 00:00:00:  81%|████████  | 21/26 [00:11&lt;00:02,  1.87it/s]
-Fetching GFS for 2024-01-01 00:00:00:  85%|████████▍ | 22/26 [00:11&lt;00:02,  1.99it/s]
+Fetching GFS for 2024-01-01 00:00:00:  81%|████████  | 21/26 [00:10&lt;00:01,  2.56it/s]
+Fetching GFS for 2024-01-01 00:00:00:  85%|████████▍ | 22/26 [00:10&lt;00:01,  2.67it/s]
 
-2024-04-10 00:20:45.798 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: u250 at 2024-01-01 00:00:00
+2024-04-21 06:29:19.563 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: u250 at 2024-01-01 00:00:00
 
-Fetching GFS for 2024-01-01 00:00:00:  85%|████████▍ | 22/26 [00:11&lt;00:02,  1.99it/s]
-Fetching GFS for 2024-01-01 00:00:00:  88%|████████▊ | 23/26 [00:12&lt;00:01,  1.96it/s]
+Fetching GFS for 2024-01-01 00:00:00:  85%|████████▍ | 22/26 [00:10&lt;00:01,  2.67it/s]
+Fetching GFS for 2024-01-01 00:00:00:  88%|████████▊ | 23/26 [00:11&lt;00:01,  2.55it/s]
 
-2024-04-10 00:20:46.328 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: v250 at 2024-01-01 00:00:00
+2024-04-21 06:29:19.999 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: v250 at 2024-01-01 00:00:00
 
-Fetching GFS for 2024-01-01 00:00:00:  88%|████████▊ | 23/26 [00:12&lt;00:01,  1.96it/s]
-Fetching GFS for 2024-01-01 00:00:00:  92%|█████████▏| 24/26 [00:12&lt;00:01,  1.97it/s]
+Fetching GFS for 2024-01-01 00:00:00:  88%|████████▊ | 23/26 [00:11&lt;00:01,  2.55it/s]
+Fetching GFS for 2024-01-01 00:00:00:  92%|█████████▏| 24/26 [00:11&lt;00:00,  2.69it/s]
 
-2024-04-10 00:20:46.829 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: z250 at 2024-01-01 00:00:00
+2024-04-21 06:29:20.324 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: z250 at 2024-01-01 00:00:00
 
-Fetching GFS for 2024-01-01 00:00:00:  92%|█████████▏| 24/26 [00:12&lt;00:01,  1.97it/s]
-Fetching GFS for 2024-01-01 00:00:00:  96%|█████████▌| 25/26 [00:13&lt;00:00,  2.11it/s]
+Fetching GFS for 2024-01-01 00:00:00:  92%|█████████▏| 24/26 [00:11&lt;00:00,  2.69it/s]
+Fetching GFS for 2024-01-01 00:00:00:  96%|█████████▌| 25/26 [00:11&lt;00:00,  2.78it/s]
 
-2024-04-10 00:20:47.225 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: t250 at 2024-01-01 00:00:00
+2024-04-21 06:29:20.653 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:197 - Fetching GFS grib file for variable: t250 at 2024-01-01 00:00:00
 
-Fetching GFS for 2024-01-01 00:00:00:  96%|█████████▌| 25/26 [00:13&lt;00:00,  2.11it/s]
-Fetching GFS for 2024-01-01 00:00:00: 100%|██████████| 26/26 [00:13&lt;00:00,  2.20it/s]
-Fetching GFS for 2024-01-01 00:00:00: 100%|██████████| 26/26 [00:13&lt;00:00,  1.92it/s]
-2024-04-10 00:20:47.705 | SUCCESS  | earth2studio.run:deterministic:79 - Fetched data from GFS
-2024-04-10 00:20:47.937 | INFO     | earth2studio.run:deterministic:101 - Inference starting!
+Fetching GFS for 2024-01-01 00:00:00:  96%|█████████▌| 25/26 [00:11&lt;00:00,  2.78it/s]
+Fetching GFS for 2024-01-01 00:00:00: 100%|██████████| 26/26 [00:12&lt;00:00,  3.03it/s]
+Fetching GFS for 2024-01-01 00:00:00: 100%|██████████| 26/26 [00:12&lt;00:00,  2.15it/s]
+2024-04-21 06:29:20.988 | SUCCESS  | earth2studio.run:deterministic:82 - Fetched data from GFS
+2024-04-21 06:29:21.229 | INFO     | earth2studio.run:deterministic:104 - Inference starting!
 
 Running inference:   0%|          | 0/21 [00:00&lt;?, ?it/s]
-Running inference:   5%|▍         | 1/21 [00:01&lt;00:20,  1.03s/it]
-Running inference:  10%|▉         | 2/21 [00:02&lt;00:28,  1.47s/it]
-Running inference:  14%|█▍        | 3/21 [00:04&lt;00:27,  1.50s/it]
-Running inference:  19%|█▉        | 4/21 [00:05&lt;00:25,  1.51s/it]
-Running inference:  24%|██▍       | 5/21 [00:07&lt;00:24,  1.52s/it]
-Running inference:  29%|██▊       | 6/21 [00:09&lt;00:23,  1.54s/it]
-Running inference:  33%|███▎      | 7/21 [00:10&lt;00:21,  1.56s/it]
-Running inference:  38%|███▊      | 8/21 [00:12&lt;00:20,  1.59s/it]
-Running inference:  43%|████▎     | 9/21 [00:13&lt;00:18,  1.58s/it]
-Running inference:  48%|████▊     | 10/21 [00:15&lt;00:17,  1.61s/it]
-Running inference:  52%|█████▏    | 11/21 [00:17&lt;00:16,  1.65s/it]
-Running inference:  57%|█████▋    | 12/21 [00:19&lt;00:15,  1.70s/it]
-Running inference:  62%|██████▏   | 13/21 [00:20&lt;00:13,  1.74s/it]
-Running inference:  67%|██████▋   | 14/21 [00:22&lt;00:12,  1.75s/it]
-Running inference:  71%|███████▏  | 15/21 [00:24&lt;00:10,  1.76s/it]
-Running inference:  76%|███████▌  | 16/21 [00:26&lt;00:08,  1.75s/it]
-Running inference:  81%|████████  | 17/21 [00:27&lt;00:06,  1.74s/it]
-Running inference:  86%|████████▌ | 18/21 [00:29&lt;00:05,  1.76s/it]
-Running inference:  90%|█████████ | 19/21 [00:31&lt;00:03,  1.71s/it]
-Running inference:  95%|█████████▌| 20/21 [00:32&lt;00:01,  1.70s/it]
-Running inference: 100%|██████████| 21/21 [00:34&lt;00:00,  1.69s/it]
-Running inference: 100%|██████████| 21/21 [00:34&lt;00:00,  1.65s/it]
-2024-04-10 00:21:22.564 | SUCCESS  | earth2studio.run:deterministic:109 - Inference complete
+Running inference:   5%|▍         | 1/21 [00:01&lt;00:22,  1.15s/it]
+Running inference:  10%|▉         | 2/21 [00:02&lt;00:28,  1.51s/it]
+Running inference:  14%|█▍        | 3/21 [00:04&lt;00:27,  1.52s/it]
+Running inference:  19%|█▉        | 4/21 [00:05&lt;00:25,  1.53s/it]
+Running inference:  24%|██▍       | 5/21 [00:07&lt;00:24,  1.54s/it]
+Running inference:  29%|██▊       | 6/21 [00:09&lt;00:23,  1.56s/it]
+Running inference:  33%|███▎      | 7/21 [00:10&lt;00:22,  1.58s/it]
+Running inference:  38%|███▊      | 8/21 [00:12&lt;00:20,  1.61s/it]
+Running inference:  43%|████▎     | 9/21 [00:14&lt;00:19,  1.64s/it]
+Running inference:  48%|████▊     | 10/21 [00:15&lt;00:18,  1.67s/it]
+Running inference:  52%|█████▏    | 11/21 [00:17&lt;00:17,  1.70s/it]
+Running inference:  57%|█████▋    | 12/21 [00:19&lt;00:15,  1.74s/it]
+Running inference:  62%|██████▏   | 13/21 [00:21&lt;00:14,  1.76s/it]
+Running inference:  67%|██████▋   | 14/21 [00:23&lt;00:12,  1.78s/it]
+Running inference:  71%|███████▏  | 15/21 [00:24&lt;00:10,  1.73s/it]
+Running inference:  76%|███████▌  | 16/21 [00:26&lt;00:08,  1.68s/it]
+Running inference:  81%|████████  | 17/21 [00:28&lt;00:06,  1.70s/it]
+Running inference:  86%|████████▌ | 18/21 [00:29&lt;00:05,  1.75s/it]
+Running inference:  90%|█████████ | 19/21 [00:31&lt;00:03,  1.74s/it]
+Running inference:  95%|█████████▌| 20/21 [00:33&lt;00:01,  1.75s/it]
+Running inference: 100%|██████████| 21/21 [00:35&lt;00:00,  1.78s/it]
+Running inference: 100%|██████████| 21/21 [00:35&lt;00:00,  1.68s/it]
+2024-04-21 06:29:56.456 | SUCCESS  | earth2studio.run:deterministic:112 - Inference complete
+/
+ ├── lat (720,) float64
+ ├── lead_time (21,) timedelta64[h]
+ ├── lon (1440,) float64
+ ├── msl (1, 21, 720, 1440) float32
+ ├── r500 (1, 21, 720, 1440) float32
+ ├── r850 (1, 21, 720, 1440) float32
+ ├── sp (1, 21, 720, 1440) float32
+ ├── t250 (1, 21, 720, 1440) float32
+ ├── t2m (1, 21, 720, 1440) float32
+ ├── t500 (1, 21, 720, 1440) float32
+ ├── t850 (1, 21, 720, 1440) float32
+ ├── tcwv (1, 21, 720, 1440) float32
+ ├── time (1,) datetime64[ns]
+ ├── u1000 (1, 21, 720, 1440) float32
+ ├── u100m (1, 21, 720, 1440) float32
+ ├── u10m (1, 21, 720, 1440) float32
+ ├── u250 (1, 21, 720, 1440) float32
+ ├── u500 (1, 21, 720, 1440) float32
+ ├── u850 (1, 21, 720, 1440) float32
+ ├── v1000 (1, 21, 720, 1440) float32
+ ├── v100m (1, 21, 720, 1440) float32
+ ├── v10m (1, 21, 720, 1440) float32
+ ├── v250 (1, 21, 720, 1440) float32
+ ├── v500 (1, 21, 720, 1440) float32
+ ├── v850 (1, 21, 720, 1440) float32
+ ├── z1000 (1, 21, 720, 1440) float32
+ ├── z250 (1, 21, 720, 1440) float32
+ ├── z50 (1, 21, 720, 1440) float32
+ ├── z500 (1, 21, 720, 1440) float32
+ └── z850 (1, 21, 720, 1440) float32
 </pre></div>
 </div>
 </section>
 <section id="post-processing">
 <h2>Post Processing<a class="headerlink" href="#post-processing" title="Link to this heading">#</a></h2>
-<p>The last step is to post process our results. Cartopy is a greate library for plotting
-fields on projects of a sphere. Here we will just plot the temperature at 2 meters
+<p>The last step is to post process our results. Cartopy is a great library for plotting
+fields on projections of a sphere. Here we will just plot the temperature at 2 meters
 (t2m) 1 day into the forecast.</p>
 <p>Notice that the Zarr IO function has additional APIs to interact with the stored data.</p>
 <div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">os</span>
 
 <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="s2">&quot;outputs&quot;</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-<span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="k">as</span> <span class="nn">plt</span>
 <span class="kn">import</span> <span class="nn">cartopy.crs</span> <span class="k">as</span> <span class="nn">ccrs</span>
-<span class="kn">import</span> <span class="nn">cartopy.feature</span> <span class="k">as</span> <span class="nn">cfeature</span>
-<span class="kn">from</span> <span class="nn">matplotlib.colors</span> <span class="kn">import</span> <span class="n">TwoSlopeNorm</span>
+<span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="k">as</span> <span class="nn">plt</span>
 
 <span class="n">forecast</span> <span class="o">=</span> <span class="s2">&quot;2024-01-01&quot;</span>
 <span class="n">variable</span> <span class="o">=</span> <span class="s2">&quot;t2m&quot;</span>
@@ -712,7 +751,7 @@ fields on projects of a sphere. Here we will just plot the temperature at 2 mete
   warnings.warn(f&#39;Downloading: {url}&#39;, DownloadWarning)
 </pre></div>
 </div>
-<p class="sphx-glr-timing"><strong>Total running time of the script:</strong> (1 minutes 5.009 seconds)</p>
+<p class="sphx-glr-timing"><strong>Total running time of the script:</strong> (1 minutes 4.966 seconds)</p>
 <div class="sphx-glr-footer sphx-glr-footer-example docutils container" id="sphx-glr-download-examples-01-simple-workflow-py">
 <div class="sphx-glr-download sphx-glr-download-jupyter docutils container">
 <p><a class="reference download internal" download="" href="../_downloads/61f44c3c6b3101d985213e7c4cf0ae53/01_simple_workflow.ipynb"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">Jupyter</span> <span class="pre">notebook:</span> <span class="pre">01_simple_workflow.ipynb</span></code></a></p>
@@ -820,7 +859,7 @@ fields on projects of a sphere. Here we will just plot the temperature at 2 mete
         <div class="footer-item">
 
   <p class="sphinx-version">
-    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 7.2.6.
+    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 7.3.7.
     <br/>
   </p>
 </div>

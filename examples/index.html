@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
     <link href="../_static/favicon.ico" rel="icon" type="image/x-icon">
-    <title>Examples &#8212; Earth-2 Inference Studio 0.1.0a0 documentation</title>
+    <title>Examples &#8212; Earth2Studio 0.2.0a0 documentation</title>
   
   
   
@@ -34,22 +34,22 @@
     <link rel="stylesheet" type="text/css" href="../_static/sg_gallery-dataframe.css?v=2082cf3c" />
     <link rel="stylesheet" type="text/css" href="../_static/sg_gallery-rendered-html.css?v=1277b6f3" />
     <link rel="stylesheet" type="text/css" href="../_static/design-style.1e8bd061cd6da7fc9cf755528e8ffc24.min.css?v=0a3b3ea7" />
-    <link rel="stylesheet" type="text/css" href="../_static/css/custom.css?v=0b10f1a0" />
+    <link rel="stylesheet" type="text/css" href="../_static/css/custom.css?v=58db39a5" />
   
   <!-- Pre-loaded scripts that we'll load fully later -->
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=8d27b9dea8ad943066ae" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=8d27b9dea8ad943066ae" />
   <script src="../_static/vendor/fontawesome/6.5.1/js/all.min.js?digest=8d27b9dea8ad943066ae"></script>
 
-    <script src="../_static/documentation_options.js?v=edcd63a1"></script>
-    <script src="../_static/doctools.js?v=888ff710"></script>
+    <script src="../_static/documentation_options.js?v=312c242a"></script>
+    <script src="../_static/doctools.js?v=9a2dae69"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/design-tabs.js?v=36754332"></script>
     <script>DOCUMENTATION_OPTIONS.pagename = 'examples/index';</script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
     <link rel="next" title="Running Simple Inference" href="01_simple_workflow.html" />
-    <link rel="prev" title="earth2studio.run.deterministic" href="../modules/generated/workflows/earth2studio.run.deterministic.html" />
+    <link rel="prev" title="earth2studio.run.ensemble" href="../modules/generated/workflows/earth2studio.run.ensemble.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   </head>
@@ -104,7 +104,7 @@
 
 
   <div class="bd-header-announcement container-fluid bd-header-announcement">
-    <div class="bd-header-announcement__content">Earth-2 Inference Studio is now OSS!</div>
+    <div class="bd-header-announcement__content">Earth2Studio is now OSS!</div>
   </div>
 
   
@@ -136,7 +136,7 @@
     <script>document.write(`<img src="../_static/NVIDIA-Logo-V-ForScreen-ForDarkBG.png" class="logo__image only-dark" alt=""/>`);</script>
   
   
-    <p class="title logo__title">Earth-2 Inference Studio</p>
+    <p class="title logo__title">Earth2Studio</p>
   
 </a></div>
     
@@ -179,7 +179,7 @@
                 
 
                 <li class="nav-item">
-                  <a class="nav-link nav-external" href="https://gitlab-master.nvidia.com/modulus/earth-2/earth2-inference-studio/blob/main/CHANGELOG.md">
+                  <a class="nav-link nav-external" href="https://github.com/NVIDIA/earth2studio/blob/main/CHANGELOG.md">
                     Changelog
                   </a>
                 </li>
@@ -311,7 +311,7 @@ document.write(`
                 
 
                 <li class="nav-item">
-                  <a class="nav-link nav-external" href="https://gitlab-master.nvidia.com/modulus/earth-2/earth2-inference-studio/blob/main/CHANGELOG.md">
+                  <a class="nav-link nav-external" href="https://github.com/NVIDIA/earth2studio/blob/main/CHANGELOG.md">
                     Changelog
                   </a>
                 </li>
@@ -365,8 +365,18 @@ document.write(`
   <div class="bd-toc-item navbar-nav"><ul class="nav bd-sidenav">
 <li class="toctree-l1"><a class="reference internal" href="01_simple_workflow.html">Running Simple Inference</a></li>
 <li class="toctree-l1"><a class="reference internal" href="02_ensemble_workflow.html">Running Ensemble Inference</a></li>
-<li class="toctree-l1"><a class="reference internal" href="03_corrdiff_inference.html">Generative Down Sampling</a></li>
+<li class="toctree-l1"><a class="reference internal" href="03_corrdiff_inference.html">Generative Downscaling</a></li>
 <li class="toctree-l1"><a class="reference internal" href="04_ensemble_workflow_extend.html">Single Variable Perturbation Method</a></li>
+<li class="toctree-l1"><a class="reference internal" href="05_model_perturbation_hook.html">Model Hook Injection: Perturbation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="06_seasonal_statistics.html">Statistical Inference</a></li>
+</ul>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1 has-children"><a class="reference internal" href="extend/index.html">Extending Earth2Studio</a><input class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-1"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l2"><a class="reference internal" href="extend/01_custom_prognostic.html">Extending Prognostic Models</a></li>
+<li class="toctree-l2"><a class="reference internal" href="extend/02_custom_diagnostic.html">Extending Diagnostic Models</a></li>
+<li class="toctree-l2"><a class="reference internal" href="extend/03_custom_datasource.html">Extending Data Sources</a></li>
+</ul>
+</li>
 </ul>
 </div>
 </nav></div>
@@ -423,25 +433,41 @@ document.write(`
                   
   <section id="examples">
 <h1>Examples<a class="headerlink" href="#examples" title="Link to this heading">#</a></h1>
-<p>This is a collection of examples in Earth-2 Studio that demonstrate various functionality
+<p>This is a collection of examples in Earth2Studio that demonstrate various functionality
 and commonly used workflows.</p>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>These examples can be downloaded as Jupyter notebooks and Python scripts on the
-<a href="#id1"><span class="problematic" id="id2">`documentation website examples &lt;&gt;`_</span></a>.</p>
-</div>
 <div class="sphx-glr-thumbnails"><div class="sphx-glr-thumbcontainer" tooltip="Simple deterministic inference workflow."><img alt="" src="../_images/sphx_glr_01_simple_workflow_thumb.png" />
 <p><a class="reference internal" href="01_simple_workflow.html#sphx-glr-examples-01-simple-workflow-py"><span class="std std-ref">Running Simple Inference</span></a></p>
   <div class="sphx-glr-thumbnail-title">Running Simple Inference</div>
 </div><div class="sphx-glr-thumbcontainer" tooltip="Simple ensemble inference workflow."><img alt="" src="../_images/sphx_glr_02_ensemble_workflow_thumb.png" />
 <p><a class="reference internal" href="02_ensemble_workflow.html#sphx-glr-examples-02-ensemble-workflow-py"><span class="std std-ref">Running Ensemble Inference</span></a></p>
   <div class="sphx-glr-thumbnail-title">Running Ensemble Inference</div>
-</div><div class="sphx-glr-thumbcontainer" tooltip="Generative down-sampling over Taiwan using CorrDiff diffusion model."><img alt="" src="../_images/sphx_glr_03_corrdiff_inference_thumb.png" />
-<p><a class="reference internal" href="03_corrdiff_inference.html#sphx-glr-examples-03-corrdiff-inference-py"><span class="std std-ref">Generative Down Sampling</span></a></p>
-  <div class="sphx-glr-thumbnail-title">Generative Down Sampling</div>
+</div><div class="sphx-glr-thumbcontainer" tooltip="Generative downscaling over Taiwan using CorrDiff diffusion model."><img alt="" src="../_images/sphx_glr_03_corrdiff_inference_thumb.png" />
+<p><a class="reference internal" href="03_corrdiff_inference.html#sphx-glr-examples-03-corrdiff-inference-py"><span class="std std-ref">Generative Downscaling</span></a></p>
+  <div class="sphx-glr-thumbnail-title">Generative Downscaling</div>
 </div><div class="sphx-glr-thumbcontainer" tooltip="Intermediate ensemble inference using a custom perturbation method."><img alt="" src="../_images/sphx_glr_04_ensemble_workflow_extend_thumb.png" />
 <p><a class="reference internal" href="04_ensemble_workflow_extend.html#sphx-glr-examples-04-ensemble-workflow-extend-py"><span class="std std-ref">Single Variable Perturbation Method</span></a></p>
   <div class="sphx-glr-thumbnail-title">Single Variable Perturbation Method</div>
+</div><div class="sphx-glr-thumbcontainer" tooltip="Adding model noise by using custom hooks."><img alt="" src="../_images/sphx_glr_05_model_perturbation_hook_thumb.png" />
+<p><a class="reference internal" href="05_model_perturbation_hook.html#sphx-glr-examples-05-model-perturbation-hook-py"><span class="std std-ref">Model Hook Injection: Perturbation</span></a></p>
+  <div class="sphx-glr-thumbnail-title">Model Hook Injection: Perturbation</div>
+</div><div class="sphx-glr-thumbcontainer" tooltip="This example will demonstrate how to run a simple inference workflow to generate a forecast and..."><img alt="" src="../_images/sphx_glr_06_seasonal_statistics_thumb.png" />
+<p><a class="reference internal" href="06_seasonal_statistics.html#sphx-glr-examples-06-seasonal-statistics-py"><span class="std std-ref">Statistical Inference</span></a></p>
+  <div class="sphx-glr-thumbnail-title">Statistical Inference</div>
+</div></div><div class="toctree-wrapper compound">
+</div>
+<section id="extending-earth2studio">
+<h2>Extending Earth2Studio<a class="headerlink" href="#extending-earth2studio" title="Link to this heading">#</a></h2>
+<p>Examples focused on demonstrating how to extend Earth2Studio with user-defined
+components.</p>
+<div class="sphx-glr-thumbnails"><div class="sphx-glr-thumbcontainer" tooltip="Implementing a custom prognostic model"><img alt="" src="../_images/sphx_glr_01_custom_prognostic_thumb.png" />
+<p><a class="reference internal" href="extend/01_custom_prognostic.html#sphx-glr-examples-extend-01-custom-prognostic-py"><span class="std std-ref">Extending Prognostic Models</span></a></p>
+  <div class="sphx-glr-thumbnail-title">Extending Prognostic Models</div>
+</div><div class="sphx-glr-thumbcontainer" tooltip="Implementing a custom diagnostic model"><img alt="" src="../_images/sphx_glr_02_custom_diagnostic_thumb.png" />
+<p><a class="reference internal" href="extend/02_custom_diagnostic.html#sphx-glr-examples-extend-02-custom-diagnostic-py"><span class="std std-ref">Extending Diagnostic Models</span></a></p>
+  <div class="sphx-glr-thumbnail-title">Extending Diagnostic Models</div>
+</div><div class="sphx-glr-thumbcontainer" tooltip="Implementing a custom data source"><img alt="" src="../_images/sphx_glr_03_custom_datasource_thumb.png" />
+<p><a class="reference internal" href="extend/03_custom_datasource.html#sphx-glr-examples-extend-03-custom-datasource-py"><span class="std std-ref">Extending Data Sources</span></a></p>
+  <div class="sphx-glr-thumbnail-title">Extending Data Sources</div>
 </div></div><div class="toctree-wrapper compound">
 </div>
 <div class="sphx-glr-footer sphx-glr-footer-gallery docutils container">
@@ -453,6 +479,7 @@ and commonly used workflows.</p>
 </div>
 </div>
 <p class="sphx-glr-signature"><a class="reference external" href="https://sphinx-gallery.github.io">Gallery generated by Sphinx-Gallery</a></p>
+</section>
 </section>
 
 
@@ -466,12 +493,12 @@ and commonly used workflows.</p>
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="../modules/generated/workflows/earth2studio.run.deterministic.html"
+       href="../modules/generated/workflows/earth2studio.run.ensemble.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.run</span></code>.deterministic</p>
+        <p class="prev-next-title"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.run</span></code>.ensemble</p>
       </div>
     </a>
     <a class="right-next"
@@ -492,6 +519,18 @@ and commonly used workflows.</p>
               
                 <div class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
 
+
+  <div class="sidebar-secondary-item">
+<div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> On this page
+  </div>
+  <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#extending-earth2studio">Extending Earth2Studio</a></li>
+</ul>
+  </nav></div>
 
   <div class="sidebar-secondary-item">
 
@@ -536,7 +575,7 @@ and commonly used workflows.</p>
         <div class="footer-item">
 
   <p class="sphinx-version">
-    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 7.2.6.
+    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 7.3.7.
     <br/>
   </p>
 </div>
