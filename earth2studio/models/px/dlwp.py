@@ -105,8 +105,8 @@ class DLWP(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     input_coords = OrderedDict(
         {
-            "batch": np.empty(1),
-            "time": np.empty(1),
+            "batch": np.empty(0),
+            "time": np.empty(0),
             "lead_time": np.array([np.timedelta64(-6, "h"), np.timedelta64(0, "h")]),
             "variable": np.array(VARIABLES),
             "lat": np.linspace(90, -90, 721),
@@ -116,8 +116,8 @@ class DLWP(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     output_coords = OrderedDict(
         {
-            "batch": np.empty(1),
-            "time": np.empty(1),
+            "batch": np.empty(0),
+            "time": np.empty(0),
             "lead_time": np.array([np.timedelta64(6, "h")]),
             "variable": np.array(VARIABLES),
             "lat": np.linspace(90, -90, 721),

@@ -42,11 +42,6 @@ In this example you will learn:
 # :py:meth:`earth2studio.run.ensemble`.
 
 # %%
-# .. literalinclude:: ../../earth2studio/run.py
-#    :language: python
-#    :lines: 116-156
-
-# %%
 # We need the following:
 #
 # - Prognostic Model: Use the built in FourCastNet model :py:class:`earth2studio.models.px.FCN`.

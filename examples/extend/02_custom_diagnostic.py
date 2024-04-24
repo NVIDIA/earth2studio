@@ -64,7 +64,7 @@ class CustomDiagnostic(torch.nn.Module):
 
     input_coords = OrderedDict(
         {
-            "batch": np.empty(1),
+            "batch": np.empty(0),
             "variable": np.array(["t2m"]),
             "lat": np.linspace(90, -90, 721),
             "lon": np.linspace(0, 360, 1440, endpoint=False),
@@ -73,7 +73,7 @@ class CustomDiagnostic(torch.nn.Module):
 
     output_coords = OrderedDict(
         {
-            "batch": np.empty(1),
+            "batch": np.empty(0),
             "variable": np.array(["t2m_c"]),
             "lat": np.linspace(90, -90, 721),
             "lon": np.linspace(0, 360, 1440, endpoint=False),
@@ -134,116 +134,8 @@ class CustomDiagnostic(torch.nn.Module):
 # %%
 # Set Up
 # ------
-# With the custom diagnostic model defined, it's now easily usable in a workflow. Let's
-# create our own simple diagnostic workflow based on the ones that exist already in
-# Earth2Studio.
-
-# %%
-from datetime import datetime
-from typing import Optional
-
-import numpy as np
-import torch
-from loguru import logger
-from tqdm import tqdm
-
-from earth2studio.data import DataSource, fetch_data
-from earth2studio.io import IOBackend
-from earth2studio.models.dx import DiagnosticModel
-from earth2studio.models.px import PrognosticModel
-from earth2studio.utils.coords import extract_coords, map_coords
-from earth2studio.utils.time import to_time_array
-
-
-def run(
-    time: list[str] | list[datetime] | list[np.datetime64],
-    nsteps: int,
-    prognostic: PrognosticModel,
-    diagnostic: DiagnosticModel,
-    data: DataSource,
-    io: IOBackend,
-    device: Optional[torch.device] = None,
-) -> IOBackend:
-    """Simple diagnostic workflow
-
-    Parameters
-    ----------
-    time : list[str] | list[datetime] | list[np.datetime64]
-        List of string, datetimes or np.datetime64
-    nsteps : int
-        Number of forecast steps
-    prognostic : PrognosticModel
-        Prognostic models
-    data : DataSource
-        Data source
-    io : IOBackend
-        IO object
-    device : Optional[torch.device], optional
-        Device to run inference on, by default None
-
-    Returns
-    -------
-    IOBackend
-        Output IO object
-    """
-    logger.info("Running diagnostic workflow!")
-    # Load model onto the device
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    logger.info(f"Inference device: {device}")
-    prognostic = prognostic.to(device)
-    # Fetch data from data source and load onto device
-    time = to_time_array(time)
-    x, coords = fetch_data(
-        source=data,
-        time=time,
-        lead_time=prognostic.input_coords["lead_time"],
-        variable=prognostic.input_coords["variable"],
-        device=device,
-    )
-    logger.success(f"Fetched data from {data.__class__.__name__}")
-
-    # Set up IO backend
-    total_coords = prognostic.output_coords.copy()
-    del total_coords["batch"]  # Unsafe if batch not supported
-    for key, value in total_coords.items():
-        if value.shape == 0:
-            del total_coords[key]
-    total_coords["time"] = time
-    total_coords["lead_time"] = np.asarray(
-        [prognostic.output_coords["lead_time"] * i for i in range(nsteps + 1)]
-    ).flatten()
-    total_coords.move_to_end("lead_time", last=False)
-    total_coords.move_to_end("time", last=False)
-
-    for name, value in diagnostic.output_coords.items():
-        if name == "batch":
-            continue
-        total_coords[name] = value
-
-    var_names = total_coords.pop("variable")
-    io.add_array(total_coords, var_names)
-
-    # Map lat and lon if needed
-    x, coords = map_coords(x, coords, prognostic.input_coords)
-    # Create prognostic iterator
-    model = prognostic.create_iterator(x, coords)
-
-    logger.info("Inference starting!")
-    with tqdm(total=nsteps + 1, desc="Running inference") as pbar:
-        for step, (x, coords) in enumerate(model):
-
-            # Run diagnostic
-            x, coords = map_coords(x, coords, diagnostic.input_coords)
-            x, coords = diagnostic(x, coords)
-
-            io.write(*extract_coords(x, coords))
-            pbar.update(1)
-            if step == nsteps:
-                break
-
-    logger.success("Inference complete")
-    return io
-
+# With the custom diagnostic model defined, the next step is to set up and run a
+# workflow. We will use the build in workflow :py:meth:`earth2studio.run.diagnostic`.
 
 # %%
 # Lets instantiate the components needed.
@@ -285,9 +177,10 @@ io = ZarrBackend()
 # simple as the following.
 
 # %%
+import earth2studio.run as run
 
 nsteps = 20
-io = run(["2024-01-01"], nsteps, model, diagnostic, data, io)
+io = run.dianostic(["2024-01-01"], nsteps, model, diagnostic, data, io)
 
 print(io.root.tree())
 

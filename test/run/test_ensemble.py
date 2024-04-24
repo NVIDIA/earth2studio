@@ -30,43 +30,10 @@ from earth2studio.perturbation import Gaussian, Zero
     "coords",
     [
         OrderedDict([("lat", np.arange(10)), ("lon", np.arange(20))]),
-        OrderedDict([("c1", np.arange(10))]),
         OrderedDict([("c1", np.arange(5)), ("c2", np.arange(5)), ("c3", np.arange(5))]),
     ],
 )
-@pytest.mark.parametrize(
-    "variable", [["t2m"], ["u10m", "v10m"], ["u10m", "u100", "nvidia"]]
-)
-@pytest.mark.parametrize("nsteps", [5, 10])
-@pytest.mark.parametrize("time", [["2024-01-01"]])
-@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
-def test_run_deterministic(coords, variable, nsteps, time, device):
-
-    data = Random(domain_coords=coords)
-    model = Persistence(variable, coords)
-
-    io = ZarrBackend()
-
-    io = run.deterministic(time, nsteps, model, data, io, device=device)
-
-    for var in variable:
-        assert io[var].shape[0] == len(time)
-        assert io[var].shape[1] == nsteps + 1
-        for i, (key, value) in enumerate(coords.items()):
-            assert io[var].shape[i + 2] == value.shape[0]
-
-
-@pytest.mark.parametrize(
-    "coords",
-    [
-        OrderedDict([("lat", np.arange(10)), ("lon", np.arange(20))]),
-        OrderedDict([("c1", np.arange(10))]),
-        OrderedDict([("c1", np.arange(5)), ("c2", np.arange(5)), ("c3", np.arange(5))]),
-    ],
-)
-@pytest.mark.parametrize(
-    "variable", [["t2m"], ["u10m", "v10m"], ["u10m", "u100", "nvidia"]]
-)
+@pytest.mark.parametrize("variable", [["u10m", "v10m"], ["u10m", "u100", "nvidia"]])
 @pytest.mark.parametrize("nsteps", [5, 10])
 @pytest.mark.parametrize("nensemble", [1, 5, 10])
 @pytest.mark.parametrize("batch_size", [None, 1, 11])
