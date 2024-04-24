@@ -116,7 +116,7 @@ it into the tensor, coord data struction on the device.
 From there, the data is kept on the GPU until the very last moment when writes are
 needed to in-memory or to file.
 
-```{figure} https://gitlab-master.nvidia.com/ngeneva/earth-2-studio-assets/-/raw/main/e2studio-data.png
+```{figure} https://huggingface.co/datasets/NickGeneva/Earth2StudioAssets/raw/main/0.2.0/e2studio-data.png
 :alt: earth2studio-data
 :width: 600px
 :align: center
