@@ -29,7 +29,7 @@ dependencies = [
     "loguru",
     "netCDF4>=1.6.4",
     "numpy",
-    "nvidia-modulus >= 0.4.0",
+    "nvidia-modulus >= 0.6.0",
     "python-dotenv",
     "s3fs>=2023.5.0",
     "setuptools>=67.6.0",
