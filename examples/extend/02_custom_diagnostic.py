@@ -173,14 +173,14 @@ io = ZarrBackend()
 # %%
 # Execute the Workflow
 # --------------------
-# Running our workflow with a build in prognostic model and a custom diagnostic is as
-# simple as the following.
+# Running our workflow with a build in prognostic model and a custom diagnostic is the
+# same as running a built in diagnostic.
 
 # %%
 import earth2studio.run as run
 
 nsteps = 20
-io = run.dianostic(["2024-01-01"], nsteps, model, diagnostic, data, io)
+io = run.diagnostic(["2024-01-01"], nsteps, model, diagnostic, data, io)
 
 print(io.root.tree())
 
