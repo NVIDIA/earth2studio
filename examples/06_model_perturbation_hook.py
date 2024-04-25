@@ -60,7 +60,7 @@ In this example you will learn:
 # - data: Initialized data source to fetch initial conditions from
 # - io: io store that data is written to.
 # - output_coords: CoordSystem of output coordinates that should be saved. Should be
-#      a proper subset of model output coordinates.
+#   a proper subset of model output coordinates.
 
 # %%
 # Set Up

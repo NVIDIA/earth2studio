@@ -10,13 +10,13 @@ obvious." - *Fred Brooks*
 :::
 
 Earth2Studio aims to keep data simple and interpretable between components.
-Given that this package interacts with geo-physial data, the common data-structure
+Given that this package interacts with geo-physical data, the common data-structure
 inside workflows is the pairing of:
 
 1. A PyTorch tensor (`torch.Tensor`) on the inference device holding the array data of
 interest.
 2. An OrderedDict of numpy arrays (`CoordSystem`) that
-represents the geophyiscal coordinate system the tensor represents.
+represents the geo-phyiscal coordinate system the tensor represents.
 
 For example, perturbation methods operate by using a data tensor and coordinate system
 to generate a noise tensor:

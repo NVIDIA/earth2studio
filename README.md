@@ -85,7 +85,7 @@ Earth2Studio is provided under the Apache License 2.0, please see
 
 <!-- Doc links -->
 [e2studio_docs_url]: https://nvidia.github.io/earth2studio/
-[e2studio_install_url]: https://nvidia.github.io/earth2studio/install/
+[e2studio_install_url]: https://nvidia.github.io/earth2studio/userguide/about/install.html
 [e2studio_userguide_url]: https://nvidia.github.io/earth2studio/userguide/
 [e2studio_examples_url]: https://nvidia.github.io/earth2studio/examples/
 [e2studio_api_url]: https://nvidia.github.io/earth2studio/modules/
