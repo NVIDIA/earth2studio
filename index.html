@@ -29,6 +29,7 @@
 <link rel="preload" as="font" type="font/woff2" crossorigin href="_static/vendor/fontawesome/6.5.1/webfonts/fa-regular-400.woff2" />
 
     <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=a746c00c" />
+    <link rel="stylesheet" type="text/css" href="_static/togglebutton.css?v=13237357" />
     <link rel="stylesheet" type="text/css" href="_static/sg_gallery.css?v=61a4c737" />
     <link rel="stylesheet" type="text/css" href="_static/sg_gallery-binder.css?v=f4aeca0c" />
     <link rel="stylesheet" type="text/css" href="_static/sg_gallery-dataframe.css?v=2082cf3c" />
@@ -44,7 +45,13 @@
     <script src="_static/documentation_options.js?v=312c242a"></script>
     <script src="_static/doctools.js?v=9a2dae69"></script>
     <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script>let toggleHintShow = 'Click to show';</script>
+    <script>let toggleHintHide = 'Click to hide';</script>
+    <script>let toggleOpenOnPrint = 'true';</script>
+    <script src="_static/togglebutton.js?v=4a39c7ea"></script>
     <script src="_static/design-tabs.js?v=36754332"></script>
+    <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
+    <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
     <script>DOCUMENTATION_OPTIONS.pagename = 'index';</script>
     <script>
         DOCUMENTATION_OPTIONS.theme_version = '0.15.2';
@@ -54,7 +61,7 @@
         </script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
-    <link rel="next" title="Install" href="install/index.html" />
+    <link rel="next" title="User Guide" href="userguide/index.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   </head>
@@ -179,13 +186,6 @@ document.write(`
 <nav class="navbar-nav">
   <ul class="bd-navbar-elements navbar-nav">
     
-                    <li class="nav-item">
-                      <a class="nav-link nav-internal" href="install/index.html">
-                        Install
-                      </a>
-                    </li>
-                
-
                     <li class="nav-item">
                       <a class="nav-link nav-internal" href="userguide/index.html">
                         User Guide
@@ -314,13 +314,6 @@ document.write(`
   <ul class="bd-navbar-elements navbar-nav">
     
                     <li class="nav-item">
-                      <a class="nav-link nav-internal" href="install/index.html">
-                        Install
-                      </a>
-                    </li>
-                
-
-                    <li class="nav-item">
                       <a class="nav-link nav-internal" href="userguide/index.html">
                         User Guide
                       </a>
@@ -414,26 +407,17 @@ document.write(`
   <section id="earth2studio">
 <h1>Earth2Studio<a class="headerlink" href="#earth2studio" title="Link to this heading">#</a></h1>
 <p>Welcome to the Earth2Studio.</p>
-<section id="install">
-<h2>Install<a class="headerlink" href="#install" title="Link to this heading">#</a></h2>
-<p>Get Earth2Studio installed.</p>
-<div class="toctree-wrapper compound">
-<ul>
-<li class="toctree-l1"><a class="reference internal" href="install/index.html">Install</a></li>
-<li class="toctree-l1"><a class="reference internal" href="install/index.html#environments">Environments</a></li>
-<li class="toctree-l1"><a class="reference internal" href="install/index.html#for-developers">For Developers</a></li>
-<li class="toctree-l1"><a class="reference internal" href="install/index.html#configuration">Configuration</a></li>
-</ul>
-</div>
-</section>
 <section id="user-guide">
 <h2>User Guide<a class="headerlink" href="#user-guide" title="Link to this heading">#</a></h2>
 <p>Information about getting Earth2Studio up and running, as well as key concepts.</p>
 <div class="toctree-wrapper compound">
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="userguide/index.html">User Guide</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="userguide/index.html#introduction">Introduction</a></li>
-<li class="toctree-l2"><a class="reference internal" href="userguide/index.html#features">Features</a></li>
+<li class="toctree-l2"><a class="reference internal" href="userguide/index.html#quick-start">Quick Start</a></li>
+<li class="toctree-l2"><a class="reference internal" href="userguide/index.html#about">About</a></li>
+<li class="toctree-l2"><a class="reference internal" href="userguide/index.html#core-components">Core Components</a></li>
+<li class="toctree-l2"><a class="reference internal" href="userguide/index.html#advanced-usage">Advanced Usage</a></li>
+<li class="toctree-l2"><a class="reference internal" href="userguide/index.html#developer-guide">Developer Guide</a></li>
 <li class="toctree-l2"><a class="reference internal" href="userguide/index.html#support">Support</a></li>
 </ul>
 </li>
@@ -483,11 +467,11 @@ document.write(`
                   
 <div class="prev-next-area">
     <a class="right-next"
-       href="install/index.html"
+       href="userguide/index.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">Install</p>
+        <p class="prev-next-title">User Guide</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
@@ -509,7 +493,6 @@ document.write(`
   </div>
   <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="visible nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#install">Install</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#user-guide">User Guide</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#api">API</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#examples">Examples</a></li>

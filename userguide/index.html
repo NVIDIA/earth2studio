@@ -29,6 +29,7 @@
 <link rel="preload" as="font" type="font/woff2" crossorigin href="../_static/vendor/fontawesome/6.5.1/webfonts/fa-regular-400.woff2" />
 
     <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=a746c00c" />
+    <link rel="stylesheet" type="text/css" href="../_static/togglebutton.css?v=13237357" />
     <link rel="stylesheet" type="text/css" href="../_static/sg_gallery.css?v=61a4c737" />
     <link rel="stylesheet" type="text/css" href="../_static/sg_gallery-binder.css?v=f4aeca0c" />
     <link rel="stylesheet" type="text/css" href="../_static/sg_gallery-dataframe.css?v=2082cf3c" />
@@ -44,7 +45,13 @@
     <script src="../_static/documentation_options.js?v=312c242a"></script>
     <script src="../_static/doctools.js?v=9a2dae69"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script>let toggleHintShow = 'Click to show';</script>
+    <script>let toggleHintHide = 'Click to hide';</script>
+    <script>let toggleOpenOnPrint = 'true';</script>
+    <script src="../_static/togglebutton.js?v=4a39c7ea"></script>
     <script src="../_static/design-tabs.js?v=36754332"></script>
+    <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
+    <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
     <script>DOCUMENTATION_OPTIONS.pagename = 'userguide/index';</script>
     <script>
         DOCUMENTATION_OPTIONS.theme_version = '0.15.2';
@@ -54,8 +61,8 @@
         </script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="About" href="intro/about.html" />
-    <link rel="prev" title="Install" href="../install/index.html" />
+    <link rel="next" title="Install" href="about/install.html" />
+    <link rel="prev" title="Earth2Studio" href="../index.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   </head>
@@ -180,13 +187,6 @@ document.write(`
 <nav class="navbar-nav">
   <ul class="bd-navbar-elements navbar-nav">
     
-                    <li class="nav-item">
-                      <a class="nav-link nav-internal" href="../install/index.html">
-                        Install
-                      </a>
-                    </li>
-                
-
                     <li class="nav-item current active">
                       <a class="nav-link nav-internal" href="#">
                         User Guide
@@ -312,13 +312,6 @@ document.write(`
 <nav class="navbar-nav">
   <ul class="bd-navbar-elements navbar-nav">
     
-                    <li class="nav-item">
-                      <a class="nav-link nav-internal" href="../install/index.html">
-                        Install
-                      </a>
-                    </li>
-                
-
                     <li class="nav-item current active">
                       <a class="nav-link nav-internal" href="#">
                         User Guide
@@ -392,18 +385,34 @@ document.write(`
 <nav class="bd-docs-nav bd-links"
      aria-label="Section Navigation">
   <p class="bd-links__title" role="heading" aria-level="1">Section Navigation</p>
-  <div class="bd-toc-item navbar-nav"><ul class="nav bd-sidenav">
-<li class="toctree-l1"><a class="reference internal" href="intro/about.html">About</a></li>
-<li class="toctree-l1"><a class="reference internal" href="intro/data.html">Data Movement</a></li>
-</ul>
+  <div class="bd-toc-item navbar-nav"><p aria-level="2" class="caption" role="heading"><span class="caption-text">About</span></p>
 <ul class="nav bd-sidenav">
-<li class="toctree-l1"><a class="reference internal" href="features/prognostic.html">Prognostic Models</a></li>
-<li class="toctree-l1"><a class="reference internal" href="features/diagnostic.html">Diagnostic Models</a></li>
-<li class="toctree-l1"><a class="reference internal" href="features/datasources.html">Data Sources</a></li>
-<li class="toctree-l1"><a class="reference internal" href="features/io.html">Output Handling</a></li>
-<li class="toctree-l1"><a class="reference internal" href="features/statistics.html">Statistics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="about/install.html">Install</a></li>
+
+
+<li class="toctree-l1"><a class="reference internal" href="about/intro.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="about/data.html">Data Movement</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Core Components</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="components/prognostic.html">Prognostic Models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="components/diagnostic.html">Diagnostic Models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="components/datasources.html">Data Sources</a></li>
+<li class="toctree-l1"><a class="reference internal" href="components/io.html">Output Handling</a></li>
+<li class="toctree-l1"><a class="reference internal" href="components/statistics.html">Statistics</a></li>
 
 </ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Advanced Usage</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="advanced/batch.html">Batch Functions</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Developer Guide</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="developer/overview.html">Overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="developer/style.html">Style Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="developer/documentation.html">Documentation</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Support</span></p>
 <ul class="nav bd-sidenav">
 <li class="toctree-l1"><a class="reference internal" href="support/troubleshooting.html">Troubleshooting</a></li>
 <li class="toctree-l1"><a class="reference internal" href="support/faq.html">Frequently Asked Questions</a></li>
@@ -462,8 +471,7 @@ document.write(`
                 <article class="bd-article">
                   
   <section id="user-guide">
-<h1>User Guide<a class="headerlink" href="#user-guide" title="Link to this heading">#</a></h1>
-<p>🚧 Under construction 🚧</p>
+<span id="userguide"></span><h1>User Guide<a class="headerlink" href="#user-guide" title="Link to this heading">#</a></h1>
 <p>Welcome to the Earth2Studio user guide.
 This guide provides a verbose documentation of the package and the underlying
 design.
@@ -475,35 +483,73 @@ it can be extended and customized to suit specific research or production needs.
 Whether you’re a seasoned expert or just beginning your journey in the realm of
 AI-driven weather and climate analysis, this guide aims to equip you with the knowledge
 and resources necessary to leverage the full potential of Earth2Studio.</p>
-<section id="introduction">
-<h2>Introduction<a class="headerlink" href="#introduction" title="Link to this heading">#</a></h2>
-<div class="toctree-wrapper compound">
-<ul>
-<li class="toctree-l1"><a class="reference internal" href="intro/about.html">About</a></li>
-<li class="toctree-l1"><a class="reference internal" href="intro/data.html">Data Movement</a></li>
-</ul>
+<section id="quick-start">
+<h2>Quick Start<a class="headerlink" href="#quick-start" title="Link to this heading">#</a></h2>
+<p>Install Earth2Studio:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>earth2studio
+</pre></div>
+</div>
+<p>Run a deterministic weather prediction in just a few lines of code:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">earth2studio.models.px</span> <span class="kn">import</span> <span class="n">DLWP</span>
+<span class="kn">from</span> <span class="nn">earth2studio.data</span> <span class="kn">import</span> <span class="n">GFS</span>
+<span class="kn">from</span> <span class="nn">earth2studio.io</span> <span class="kn">import</span> <span class="n">NetCDF4Backend</span>
+<span class="kn">from</span> <span class="nn">earth2studio.run</span> <span class="kn">import</span> <span class="n">deterministic</span> <span class="k">as</span> <span class="n">run</span>
+
+<span class="n">model</span> <span class="o">=</span> <span class="n">DLWP</span><span class="o">.</span><span class="n">load_model</span><span class="p">(</span><span class="n">DLWP</span><span class="o">.</span><span class="n">load_default_package</span><span class="p">())</span>
+<span class="n">ds</span> <span class="o">=</span> <span class="n">GFS</span><span class="p">()</span>
+<span class="n">io</span> <span class="o">=</span> <span class="n">NetCDF4Backend</span><span class="p">(</span><span class="s2">&quot;output.nc&quot;</span><span class="p">)</span>
+
+<span class="n">run</span><span class="p">([</span><span class="s2">&quot;2024-01-01&quot;</span><span class="p">],</span> <span class="mi">10</span><span class="p">,</span> <span class="n">model</span><span class="p">,</span> <span class="n">ds</span><span class="p">,</span> <span class="n">io</span><span class="p">)</span>
+</pre></div>
 </div>
 </section>
-<section id="features">
-<h2>Features<a class="headerlink" href="#features" title="Link to this heading">#</a></h2>
-<div class="toctree-wrapper compound">
-<ul>
-<li class="toctree-l1"><a class="reference internal" href="features/prognostic.html">Prognostic Models</a></li>
-<li class="toctree-l1"><a class="reference internal" href="features/diagnostic.html">Diagnostic Models</a></li>
-<li class="toctree-l1"><a class="reference internal" href="features/datasources.html">Data Sources</a></li>
-<li class="toctree-l1"><a class="reference internal" href="features/io.html">Output Handling</a></li>
-<li class="toctree-l1"><a class="reference internal" href="features/statistics.html">Statistics</a></li>
-<li class="toctree-l1"><a class="reference internal" href="features/statistics.html#metrics">Metrics</a></li>
+<section id="about">
+<h2>About<a class="headerlink" href="#about" title="Link to this heading">#</a></h2>
+<ul class="simple">
+<li><p><a class="reference internal" href="about/install.html"><span class="doc std std-doc">Install</span></a></p></li>
+<li><p><a class="reference internal" href="about/intro.html"><span class="doc std std-doc">Introduction</span></a></p></li>
+<li><p><a class="reference internal" href="about/data.html"><span class="doc std std-doc">Data Movement</span></a></p></li>
 </ul>
-</div>
+</section>
+<section id="core-components">
+<h2>Core Components<a class="headerlink" href="#core-components" title="Link to this heading">#</a></h2>
+<ul class="simple">
+<li><p><a class="reference internal" href="components/prognostic.html"><span class="doc std std-doc">Prognostic Models</span></a></p></li>
+<li><p><a class="reference internal" href="components/diagnostic.html"><span class="doc std std-doc">Diagnostic Models</span></a></p></li>
+<li><p><a class="reference internal" href="components/datasources.html"><span class="doc std std-doc">Datasources</span></a></p></li>
+<li><p><a class="reference internal" href="components/statistics.html"><span class="doc std std-doc">Statistics</span></a></p></li>
+<li><p><a class="reference internal" href="components/io.html"><span class="doc std std-doc">IO Backends</span></a></p></li>
+</ul>
+</section>
+<section id="advanced-usage">
+<h2>Advanced Usage<a class="headerlink" href="#advanced-usage" title="Link to this heading">#</a></h2>
+<ul class="simple">
+<li><p><a class="reference internal" href="advanced/batch.html"><span class="doc std std-doc">Batch Functions</span></a></p></li>
+</ul>
+</section>
+<section id="developer-guide">
+<h2>Developer Guide<a class="headerlink" href="#developer-guide" title="Link to this heading">#</a></h2>
+<ul class="simple">
+<li><p><a class="reference internal" href="developer/overview.html"><span class="doc std std-doc">Overview</span></a></p></li>
+<li><p><a class="reference internal" href="developer/style.html"><span class="doc std std-doc">Style</span></a></p></li>
+<li><p><a class="reference internal" href="developer/documentation.html"><span class="doc std std-doc">Documentation</span></a></p></li>
+</ul>
 </section>
 <section id="support">
 <h2>Support<a class="headerlink" href="#support" title="Link to this heading">#</a></h2>
-<div class="toctree-wrapper compound">
-<ul>
-<li class="toctree-l1"><a class="reference internal" href="support/troubleshooting.html">Troubleshooting</a></li>
-<li class="toctree-l1"><a class="reference internal" href="support/faq.html">Frequently Asked Questions</a></li>
+<ul class="simple">
+<li><p><a class="reference internal" href="support/faq.html"><span class="doc std std-doc">Frequently Asked Questions</span></a></p></li>
+<li><p><a class="reference internal" href="support/troubleshooting.html"><span class="doc std std-doc">Trouble Shooting</span></a></p></li>
 </ul>
+<div class="toctree-wrapper compound">
+</div>
+<div class="toctree-wrapper compound">
+</div>
+<div class="toctree-wrapper compound">
+</div>
+<div class="toctree-wrapper compound">
+</div>
+<div class="toctree-wrapper compound">
 </div>
 </section>
 </section>
@@ -519,20 +565,20 @@ and resources necessary to leverage the full potential of Earth2Studio.</p>
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="../install/index.html"
+       href="../index.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">Install</p>
+        <p class="prev-next-title">Earth2Studio</p>
       </div>
     </a>
     <a class="right-next"
-       href="intro/about.html"
+       href="about/install.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">About</p>
+        <p class="prev-next-title">Install</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
@@ -554,9 +600,14 @@ and resources necessary to leverage the full potential of Earth2Studio.</p>
   </div>
   <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="visible nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#introduction">Introduction</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#features">Features</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#support">Support</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#quick-start">Quick Start</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#about">About</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#core-components">Core Components</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#advanced-usage">Advanced Usage</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#developer-guide">Developer Guide</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#support">Support</a><ul class="nav section-nav flex-column">
+</ul>
+</li>
 </ul>
   </nav></div>
 
