@@ -1,4 +1,4 @@
-# About
+# Introduction
 
 Earth2Studio is a Python package built to empower researchers, scientists,
 and enthusiasts in the fields of weather and climate science with the latest artificial

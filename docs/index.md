@@ -2,16 +2,6 @@
 
 Welcome to the Earth2Studio.
 
-## Install
-
-Get Earth2Studio installed.
-
-```{toctree}
-:maxdepth: 1
-
-install/index
-```
-
 ## User Guide
 
 Information about getting Earth2Studio up and running, as well as key concepts.

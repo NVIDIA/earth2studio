@@ -79,7 +79,7 @@ model = DLWP.load_model(package)
 data = GFS()
 
 # %%
-# The perturbation method in :ref:`sphx_glr_examples_02_ensemble_workflow.py` is naive because it
+# The perturbation method in :ref:`sphx_glr_examples_03_ensemble_workflow.py` is naive because it
 # applies the same noise amplitude to every variable. We can create a custom wrapper
 # that only applies the perturbation method to a particular variable instead.
 

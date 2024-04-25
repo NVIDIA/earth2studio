@@ -1,4 +1,5 @@
 <!-- markdownlint-disable MD025 -->
+
 (install_guide)=
 
 # Install
@@ -40,6 +41,8 @@ operational due to optional dependencies.
 We encourage users that face package issues to familiarize themselves with the optional
 model installs and suggested environment set up for the most complete experience.
 :::
+
+(model_dependencies)=
 
 ## Model Dependencies
 
@@ -83,6 +86,8 @@ pip install earth2studio[sfno]
 ::::
 
 Using `pip install earth2studio[all]` will install all optional functionality dependencies.
+
+(install_environments)=
 
 # Environments
 
@@ -147,32 +152,6 @@ pip install onnx onnxruntime-gpu --extra-index-url https://aiinfra.pkgs.visualst
 pip install "makani[all] @ git+https://github.com/NVIDIA/modulus-makani.git@v0.1.0"
 
 pip install earth2studio[all]
-```
-
-# For Developers
-
-For developers, use an editable install of Earth2Studio with the `dev` option:
-
-```bash
-git clone https://github.com/NVIDIA/earth2studio.git
-
-cd earth2-inference-studio
-
-pip install -e .[dev]
-```
-
-Earth2Studio uses pre-commit which also should be installed immediately by developers:
-
-```bash
-pre-commit install
-
->>> pre-commit installed at .git/hooks/pre-commit
-```
-
-To install documentation dependencies, use:
-
-```bash
-pip install .[docs]
 ```
 
 (configuration_userguide)=
