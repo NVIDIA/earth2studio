@@ -53,6 +53,9 @@ docs:
 .PHONY: docs-full
 docs-full:
 	pip install .[docs]
+	rm -rf docs/examples
+	rm -rf docs/modules/generated
+	rm -rf docs/modules/backreferences
 	$(MAKE) -C docs clean
 	rm -rf examples/outputs
 	PLOT_GALLERY=True RUN_STALE_EXAMPLES=True $(MAKE) -C docs html

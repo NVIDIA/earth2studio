@@ -23,7 +23,7 @@ import torch
 import xarray as xr
 
 from earth2studio.io import XarrayBackend
-from earth2studio.utils.coords import extract_coords
+from earth2studio.utils.coords import split_coords
 
 
 @pytest.mark.parametrize(
@@ -158,7 +158,7 @@ def test_xarray_variable(
     )
     partial_data = torch.randn((1, 1, 180, 180), device=device)
 
-    z.write(*extract_coords(partial_data, partial_coords, "variable"))
+    z.write(*split_coords(partial_data, partial_coords, "variable"))
     assert np.allclose(z[variable[0]][0, :, :180], partial_data.cpu().numpy())
 
 

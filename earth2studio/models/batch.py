@@ -116,7 +116,7 @@ class batch_func:
         # Prep coordinate dicts
         batched_coords = OrderedDict(islice(coords.items(), 0, i))
         flatten_coords = OrderedDict(islice(coords.items(), i, None))
-        flatten_coords.update({"batch": np.empty(1)})
+        flatten_coords.update({"batch": np.empty(0)})
         flatten_coords.move_to_end("batch", last=False)
         # Flatten batch dims
         x = torch.flatten(x, start_dim=0, end_dim=len(batched_coords) - 1)
