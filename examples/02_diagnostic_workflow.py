@@ -27,7 +27,8 @@ atmospheric quantity from the predicted fields of the prognostic.
 
 In this example you will learn:
 
-- How to instantiate a built in diagnostic model
+- How to instantiate a prognostic model
+- How to instantiate a diagnostic model
 - Creating a data source and IO object
 - Running the built in diagnostic workflow
 - Post-processing results
@@ -36,9 +37,15 @@ In this example you will learn:
 # %%
 # Set Up
 # ------
-# All workflows inside Earth2Studio require constructed components to be
-# handed to them. In this example, let's take a look at the most basic:
-# :py:meth:`earth2studio.run.diagnostic`.
+# For this example, the built in diagnostic workflow :py:meth:`earth2studio.run.diagnostic`
+# will be used.
+
+# %%
+# .. literalinclude:: ../../earth2studio/run.py
+#    :language: python
+#    :start-after: # sphinx - diagnostic start
+#    :end-before: # sphinx - diagnostic end
+
 
 # %%
 # Thus, we need the following:
@@ -99,7 +106,7 @@ print(io.root.tree())
 # .. note::
 #   The built in workflow will only save the direct outputs of the diagnostic. In this
 #   example only total precipitation is accessible for plotting. If you wish to save
-#   outputs of both the prognostic and diagnostic, we recommend writting a custom
+#   outputs of both the prognostic and diagnostic, we recommend writing a custom
 #   workflow.
 
 # %%

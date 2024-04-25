@@ -135,7 +135,7 @@ class CustomDiagnostic(torch.nn.Module):
 # Set Up
 # ------
 # With the custom diagnostic model defined, the next step is to set up and run a
-# workflow. We will use the build in workflow :py:meth:`earth2studio.run.diagnostic`.
+# workflow. We will use the built in workflow :py:meth:`earth2studio.run.diagnostic`.
 
 # %%
 # Lets instantiate the components needed.

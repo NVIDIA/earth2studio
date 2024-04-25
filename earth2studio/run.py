@@ -36,6 +36,7 @@ logger.remove()
 logger.add(lambda msg: tqdm.write(msg, end=""), colorize=True)
 
 
+# sphinx - deterministic start
 def deterministic(
     time: list[str] | list[datetime] | list[np.datetime64],
     nsteps: int,
@@ -68,6 +69,7 @@ def deterministic(
     IOBackend
         Output IO object
     """
+    # sphinx - deterministic end
     logger.info("Running simple workflow!")
     # Load model onto the device
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -115,6 +117,7 @@ def deterministic(
     return io
 
 
+# sphinx - diagnostic start
 def diagnostic(
     time: list[str] | list[datetime] | list[np.datetime64],
     nsteps: int,
@@ -150,6 +153,7 @@ def diagnostic(
     IOBackend
         Output IO object
     """
+    # sphinx - diagnostic end
     logger.info("Running diagnostic workflow!")
     # Load model onto the device
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -205,6 +209,7 @@ def diagnostic(
     return io
 
 
+# sphinx - ensemble start
 def ensemble(
     time: list[str] | list[datetime] | list[np.datetime64],
     nsteps: int,
@@ -246,6 +251,7 @@ def ensemble(
     IOBackend
         Output IO object
     """
+    # sphinx - ensemble end
     logger.info("Running ensemble inference!")
 
     # Load model onto the device

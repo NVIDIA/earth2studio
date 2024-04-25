@@ -43,7 +43,8 @@ In this example you will learn:
 # %%
 # .. literalinclude:: ../../earth2studio/run.py
 #    :language: python
-#    :lines: 35-42
+#    :start-after: # sphinx - deterministic start
+#    :end-before: # sphinx - deterministic end
 
 # %%
 # Thus, we need the following:

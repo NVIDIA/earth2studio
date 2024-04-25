@@ -42,6 +42,12 @@ In this example you will learn:
 # :py:meth:`earth2studio.run.ensemble`.
 
 # %%
+# .. literalinclude:: ../../earth2studio/run.py
+#    :language: python
+#    :start-after: # sphinx - ensemble start
+#    :end-before: # sphinx - ensemble end
+
+# %%
 # We need the following:
 #
 # - Prognostic Model: Use the built in FourCastNet model :py:class:`earth2studio.models.px.FCN`.
