@@ -62,6 +62,7 @@ extensions = [
     "sphinx_favicon",
     "myst_parser",
     "sphinx_design",
+    "sphinx_togglebutton",
     "sphinx_gallery.gen_gallery",
 ]
 

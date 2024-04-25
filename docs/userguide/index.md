@@ -1,6 +1,6 @@
-# User Guide
+(userguide)=
 
-🚧 Under construction 🚧
+# User Guide
 
 Welcome to the Earth2Studio user guide.
 This guide provides a verbose documentation of the package and the underlying
@@ -15,32 +15,101 @@ Whether you're a seasoned expert or just beginning your journey in the realm of
 AI-driven weather and climate analysis, this guide aims to equip you with the knowledge
 and resources necessary to leverage the full potential of Earth2Studio.
 
-## Introduction
+## Quick Start
 
-```{toctree}
-:maxdepth: 1
+Install Earth2Studio:
 
-intro/about
-intro/data
-
+```bash
+pip install earth2studio
 ```
 
-## Features
+Run a deterministic weather prediction in just a few lines of code:
 
-```{toctree}
-:maxdepth: 1
+```python
+from earth2studio.models.px import DLWP
+from earth2studio.data import GFS
+from earth2studio.io import NetCDF4Backend
+from earth2studio.run import deterministic as run
 
-features/prognostic
-features/diagnostic
-features/datasources
-features/io
-features/statistics
+model = DLWP.load_model(DLWP.load_default_package())
+ds = GFS()
+io = NetCDF4Backend("output.nc")
+
+run(["2024-01-01"], 10, model, ds, io)
 ```
+
+## About
+
+- [Install](about/install)
+- [Introduction](about/intro)
+- [Data Movement](about/data)
+
+## Core Components
+
+- [Prognostic Models](components/prognostic)
+- [Diagnostic Models](components/diagnostic)
+- [Datasources](components/datasources)
+- [Statistics](components/statistics)
+- [IO Backends](components/io)
+
+## Advanced Usage
+
+## Developer Guide
+
+- [Overview](developer/overview)
+- [Style](developer/style)
+- [Documentation](developer/documentation)
 
 ## Support
 
+- [Frequently Asked Questions](support/faq)
+- [Trouble Shooting](support/troubleshooting)
+
 ```{toctree}
+:caption: About
 :maxdepth: 1
+:hidden:
+
+about/install
+about/intro
+about/data
+
+```
+
+```{toctree}
+:caption: Core Components
+:maxdepth: 1
+:hidden:
+
+components/prognostic
+components/diagnostic
+components/datasources
+components/io
+components/statistics
+```
+
+```{toctree}
+:caption: Additional Features
+:maxdepth: 1
+:hidden:
+
+
+```
+
+```{toctree}
+:caption: Developer Guide
+:maxdepth: 1
+:hidden:
+
+developer/overview
+developer/style
+developer/documentation
+```
+
+```{toctree}
+:caption: Support
+:maxdepth: 1
+:hidden:
 support/troubleshooting
 support/faq
 ```
