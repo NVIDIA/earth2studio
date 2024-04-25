@@ -92,7 +92,7 @@ class PrecipitationAFNO(torch.nn.Module, AutoModelMixin):
             "batch": np.empty(0),
             "variable": np.array(VARIABLES),
             "lat": np.linspace(90, -90, 720, endpoint=False),
-            "lon": np.linspace(90, -90, 1440, endpoint=False),
+            "lon": np.linspace(0, 360, 1440, endpoint=False),
         }
     )
 
@@ -101,7 +101,7 @@ class PrecipitationAFNO(torch.nn.Module, AutoModelMixin):
             "batch": np.empty(0),
             "variable": np.array(["tp"]),
             "lat": np.linspace(90, -90, 720, endpoint=False),
-            "lon": np.linspace(90, -90, 1440, endpoint=False),
+            "lon": np.linspace(0, 360, 1440, endpoint=False),
         }
     )
 

@@ -16,13 +16,13 @@
 
 # %%
 """
-Running Simple Inference
-========================
+Running Deterministic Inference
+===============================
 
-Simple deterministic inference workflow.
+Basic deterministic inference workflow.
 
 This example will demonstrate how to run a simple inference workflow to generate a
-simple determinstic forecast using one of the built in models of Earth-2 Inference
+basic determinstic forecast using one of the built in models of Earth-2 Inference
 Studio.
 
 In this example you will learn:

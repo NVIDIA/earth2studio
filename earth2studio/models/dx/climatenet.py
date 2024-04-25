@@ -84,7 +84,7 @@ class ClimateNet(torch.nn.Module, AutoModelMixin):
             "batch": np.empty(0),
             "variable": np.array(VARIABLES),
             "lat": np.linspace(90, -90, 721, endpoint=True),
-            "lon": np.linspace(90, -90, 1440, endpoint=False),
+            "lon": np.linspace(0, 360, 1440, endpoint=False),
         }
     )
 
@@ -93,7 +93,7 @@ class ClimateNet(torch.nn.Module, AutoModelMixin):
             "batch": np.empty(0),
             "variable": np.array(OUT_VARIABLES),
             "lat": np.linspace(90, -90, 721, endpoint=True),
-            "lon": np.linspace(90, -90, 1440, endpoint=False),
+            "lon": np.linspace(0, 360, 1440, endpoint=False),
         }
     )
 

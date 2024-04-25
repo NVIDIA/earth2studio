@@ -47,6 +47,8 @@ coverage:
 .PHONY: docs
 docs:
 	pip install .[docs]
+	rm -rf docs/examples
+	rm -rf docs/modules/generated
 	$(MAKE) -C docs clean
 	$(MAKE) -C docs html
 
