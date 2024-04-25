@@ -5,6 +5,21 @@ detailing how to write code for this project. A consistent style and process mak
 the package much easier to understand for users and ensure compliance requirements are
 met.
 
+🚧 Under construction 🚧
+
+## Code Formatting
+
+Earth2Studio uses [black](https://github.com/psf/black) as the code formatter.
+All committed code is expected to be compliant with the version of black specified in
+the pyproject.toml.
+Pre-commit will format your code for you.
+
+Additional Code formatting principles:
+
+- Files are always lower-case reflecting, use shortened name of component they hold
+- Class names are capitalized using camel-case
+- Function names are lower case using snake-case
+
 ## Licensing Information
 
 All source code files *must* start with this paragraph:
