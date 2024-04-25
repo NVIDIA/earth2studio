@@ -17,4 +17,5 @@ IO Backends for saving your inference results for further post processing.
 
     io.KVBackend
     io.NetCDF4Backend
+    io.XarrayBackend
     io.ZarrBackend

@@ -565,6 +565,47 @@ required to.</p>
 <p>Earth2Studio has a dimension naming standard for its built in feature set.
 We encourage users to follow similar naming schemes for compatability between Earth-2
 Inference Studio when possible and the packages we interface with.</p>
+<table class="table">
+<colgroup>
+<col style="width: 18.8%" />
+<col style="width: 50.0%" />
+<col style="width: 31.2%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Key</p></th>
+<th class="head"><p>Description</p></th>
+<th class="head"><p>Type</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">batch</span></code></p></td>
+<td><p>Dimension representing the batch dimension of the data. Used to denote a “free”
+dimension, consult batching docs for more details.</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">np.empty(0)</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">time</span></code></p></td>
+<td><p>Time dimension, represented via numpy arrays of datetime objects.</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">np.ndarray[np.datetime64[ns]]</span></code> (<code class="docutils literal notranslate"><span class="pre">TimeArray</span></code>)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lead_time</span></code></p></td>
+<td><p>Lead time is used to denote a dimension that indexes over forecast steps.</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">np.ndarray[np.timedelta64[ns]]</span></code> (<code class="docutils literal notranslate"><span class="pre">LeadTimeArray</span></code>)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">variable</span></code></p></td>
+<td><p>Dimension representing physical variable (atmospheric, surface, etc). Earth-2
+Inference Studio has its own naming convention. See lexicon docs more more details.</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">np.ndarray[str]</span></code> (<code class="docutils literal notranslate"><span class="pre">VariableArray</span></code>)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lat</span></code></p></td>
+<td><p>Lattitude coordinate array</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">np.ndarray[float]</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lat</span></code></p></td>
+<td><p>Longitude coordinate array</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">np.ndarray[float]</span></code></p></td>
+</tr>
+</tbody>
+</table>
 </section>
 <section id="coordinate-utilities">
 <h3>Coordinate Utilities<a class="headerlink" href="#coordinate-utilities" title="Link to this heading">#</a></h3>

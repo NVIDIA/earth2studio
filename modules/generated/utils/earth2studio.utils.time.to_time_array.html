@@ -426,6 +426,7 @@ document.write(`
 <li class="toctree-l1 has-children"><a class="reference internal" href="../../io.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.io</span></code>: IO Backends</a><input class="toctree-checkbox" id="toctree-checkbox-3" name="toctree-checkbox-3" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-3"><i class="fa-solid fa-chevron-down"></i></label><ul>
 <li class="toctree-l2"><a class="reference internal" href="../io/earth2studio.io.KVBackend.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.io</span></code>.KVBackend</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../io/earth2studio.io.NetCDF4Backend.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.io</span></code>.NetCDF4Backend</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../io/earth2studio.io.XarrayBackend.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.io</span></code>.XarrayBackend</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../io/earth2studio.io.ZarrBackend.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.io</span></code>.ZarrBackend</a></li>
 </ul>
 </li>
@@ -450,13 +451,14 @@ document.write(`
 <li class="toctree-l2"><a class="reference internal" href="earth2studio.utils.coords.handshake_coords.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.utils.coords</span></code>.handshake_coords</a></li>
 <li class="toctree-l2"><a class="reference internal" href="earth2studio.utils.coords.handshake_size.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.utils.coords</span></code>.handshake_size</a></li>
 <li class="toctree-l2"><a class="reference internal" href="earth2studio.utils.coords.map_coords.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.utils.coords</span></code>.map_coords</a></li>
-<li class="toctree-l2"><a class="reference internal" href="earth2studio.utils.coords.extract_coords.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.utils.coords</span></code>.extract_coords</a></li>
+<li class="toctree-l2"><a class="reference internal" href="earth2studio.utils.coords.split_coords.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.utils.coords</span></code>.split_coords</a></li>
 <li class="toctree-l2"><a class="reference internal" href="earth2studio.utils.time.timearray_to_datetime.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.utils.time</span></code>.timearray_to_datetime</a></li>
 <li class="toctree-l2 current active"><a class="current reference internal" href="#"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.utils.time</span></code>.to_time_array</a></li>
 </ul>
 </li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../../workflows.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.run</span></code>: Workflows</a><input class="toctree-checkbox" id="toctree-checkbox-7" name="toctree-checkbox-7" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-7"><i class="fa-solid fa-chevron-down"></i></label><ul>
 <li class="toctree-l2"><a class="reference internal" href="../workflows/earth2studio.run.deterministic.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.run</span></code>.deterministic</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../workflows/earth2studio.run.diagnostic.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.run</span></code>.diagnostic</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../workflows/earth2studio.run.ensemble.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.run</span></code>.ensemble</a></li>
 </ul>
 </li>
@@ -544,15 +546,12 @@ document.write(`
 
 <section id="examples-using-earth2studio-utils-time-to-time-array">
 <span id="sphx-glr-backref-earth2studio-utils-time-to-time-array"></span><h2>Examples using <code class="docutils literal notranslate"><span class="pre">earth2studio.utils.time.to_time_array</span></code><a class="headerlink" href="#examples-using-earth2studio-utils-time-to-time-array" title="Link to this heading">#</a></h2>
-<div class="sphx-glr-thumbnails"><div class="sphx-glr-thumbcontainer" tooltip="Generative downscaling over Taiwan using CorrDiff diffusion model."><img alt="" src="../../../_images/sphx_glr_03_corrdiff_inference_thumb.png" />
-<p><a class="reference internal" href="../../../examples/03_corrdiff_inference.html#sphx-glr-examples-03-corrdiff-inference-py"><span class="std std-ref">Generative Downscaling</span></a></p>
+<div class="sphx-glr-thumbnails"><div class="sphx-glr-thumbcontainer" tooltip="Generative downscaling over Taiwan using CorrDiff diffusion model."><img alt="" src="../../../_images/sphx_glr_04_corrdiff_inference_thumb.png" />
+<p><a class="reference internal" href="../../../examples/04_corrdiff_inference.html#sphx-glr-examples-04-corrdiff-inference-py"><span class="std std-ref">Generative Downscaling</span></a></p>
   <div class="sphx-glr-thumbnail-title">Generative Downscaling</div>
-</div><div class="sphx-glr-thumbcontainer" tooltip="This example will demonstrate how to run a simple inference workflow to generate a forecast and..."><img alt="" src="../../../_images/sphx_glr_06_seasonal_statistics_thumb.png" />
-<p><a class="reference internal" href="../../../examples/06_seasonal_statistics.html#sphx-glr-examples-06-seasonal-statistics-py"><span class="std std-ref">Statistical Inference</span></a></p>
+</div><div class="sphx-glr-thumbcontainer" tooltip="This example will demonstrate how to run a simple inference workflow to generate a forecast and..."><img alt="" src="../../../_images/sphx_glr_07_seasonal_statistics_thumb.png" />
+<p><a class="reference internal" href="../../../examples/07_seasonal_statistics.html#sphx-glr-examples-07-seasonal-statistics-py"><span class="std std-ref">Statistical Inference</span></a></p>
   <div class="sphx-glr-thumbnail-title">Statistical Inference</div>
-</div><div class="sphx-glr-thumbcontainer" tooltip="Implementing a custom diagnostic model"><img alt="" src="../../../_images/sphx_glr_02_custom_diagnostic_thumb.png" />
-<p><a class="reference internal" href="../../../examples/extend/02_custom_diagnostic.html#sphx-glr-examples-extend-02-custom-diagnostic-py"><span class="std std-ref">Extending Diagnostic Models</span></a></p>
-  <div class="sphx-glr-thumbnail-title">Extending Diagnostic Models</div>
 </div></div><div class="clearer"></div></section>
 </section>
 

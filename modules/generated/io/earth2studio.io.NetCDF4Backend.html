@@ -54,7 +54,7 @@
         </script>
     <link rel="index" title="Index" href="../../../genindex.html" />
     <link rel="search" title="Search" href="../../../search.html" />
-    <link rel="next" title="earth2studio.io.ZarrBackend" href="earth2studio.io.ZarrBackend.html" />
+    <link rel="next" title="earth2studio.io.XarrayBackend" href="earth2studio.io.XarrayBackend.html" />
     <link rel="prev" title="earth2studio.io.KVBackend" href="earth2studio.io.KVBackend.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
@@ -426,6 +426,7 @@ document.write(`
 <li class="toctree-l1 current active has-children"><a class="reference internal" href="../../io.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.io</span></code>: IO Backends</a><input checked="" class="toctree-checkbox" id="toctree-checkbox-3" name="toctree-checkbox-3" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-3"><i class="fa-solid fa-chevron-down"></i></label><ul class="current">
 <li class="toctree-l2"><a class="reference internal" href="earth2studio.io.KVBackend.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.io</span></code>.KVBackend</a></li>
 <li class="toctree-l2 current active"><a class="current reference internal" href="#"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.io</span></code>.NetCDF4Backend</a></li>
+<li class="toctree-l2"><a class="reference internal" href="earth2studio.io.XarrayBackend.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.io</span></code>.XarrayBackend</a></li>
 <li class="toctree-l2"><a class="reference internal" href="earth2studio.io.ZarrBackend.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.io</span></code>.ZarrBackend</a></li>
 </ul>
 </li>
@@ -450,13 +451,14 @@ document.write(`
 <li class="toctree-l2"><a class="reference internal" href="../utils/earth2studio.utils.coords.handshake_coords.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.utils.coords</span></code>.handshake_coords</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../utils/earth2studio.utils.coords.handshake_size.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.utils.coords</span></code>.handshake_size</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../utils/earth2studio.utils.coords.map_coords.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.utils.coords</span></code>.map_coords</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../utils/earth2studio.utils.coords.extract_coords.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.utils.coords</span></code>.extract_coords</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../utils/earth2studio.utils.coords.split_coords.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.utils.coords</span></code>.split_coords</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../utils/earth2studio.utils.time.timearray_to_datetime.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.utils.time</span></code>.timearray_to_datetime</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../utils/earth2studio.utils.time.to_time_array.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.utils.time</span></code>.to_time_array</a></li>
 </ul>
 </li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../../workflows.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.run</span></code>: Workflows</a><input class="toctree-checkbox" id="toctree-checkbox-7" name="toctree-checkbox-7" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-7"><i class="fa-solid fa-chevron-down"></i></label><ul>
 <li class="toctree-l2"><a class="reference internal" href="../workflows/earth2studio.run.deterministic.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.run</span></code>.deterministic</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../workflows/earth2studio.run.diagnostic.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.run</span></code>.diagnostic</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../workflows/earth2studio.run.ensemble.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.run</span></code>.ensemble</a></li>
 </ul>
 </li>
@@ -582,8 +584,8 @@ that each tensor share <cite>coords</cite>.</p></li>
 
 <section id="examples-using-earth2studio-io-netcdf4backend">
 <span id="sphx-glr-backref-earth2studio-io-netcdf4backend"></span><h2>Examples using <code class="docutils literal notranslate"><span class="pre">earth2studio.io.NetCDF4Backend</span></code><a class="headerlink" href="#examples-using-earth2studio-io-netcdf4backend" title="Link to this heading">#</a></h2>
-<div class="sphx-glr-thumbnails"><div class="sphx-glr-thumbcontainer" tooltip="This example will demonstrate how to run a simple inference workflow to generate a forecast and..."><img alt="" src="../../../_images/sphx_glr_06_seasonal_statistics_thumb.png" />
-<p><a class="reference internal" href="../../../examples/06_seasonal_statistics.html#sphx-glr-examples-06-seasonal-statistics-py"><span class="std std-ref">Statistical Inference</span></a></p>
+<div class="sphx-glr-thumbnails"><div class="sphx-glr-thumbcontainer" tooltip="This example will demonstrate how to run a simple inference workflow to generate a forecast and..."><img alt="" src="../../../_images/sphx_glr_07_seasonal_statistics_thumb.png" />
+<p><a class="reference internal" href="../../../examples/07_seasonal_statistics.html#sphx-glr-examples-07-seasonal-statistics-py"><span class="std std-ref">Statistical Inference</span></a></p>
   <div class="sphx-glr-thumbnail-title">Statistical Inference</div>
 </div></div><div class="clearer"></div></section>
 </section>
@@ -608,11 +610,11 @@ that each tensor share <cite>coords</cite>.</p></li>
       </div>
     </a>
     <a class="right-next"
-       href="earth2studio.io.ZarrBackend.html"
+       href="earth2studio.io.XarrayBackend.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.io</span></code>.ZarrBackend</p>
+        <p class="prev-next-title"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.io</span></code>.XarrayBackend</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>

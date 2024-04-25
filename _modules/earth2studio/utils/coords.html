@@ -721,23 +721,23 @@ document.write(`
 
 
 
-<div class="viewcode-block" id="extract_coords">
-<a class="viewcode-back" href="../../../modules/generated/utils/earth2studio.utils.coords.extract_coords.html#earth2studio.utils.coords.extract_coords">[docs]</a>
-<span class="k">def</span> <span class="nf">extract_coords</span><span class="p">(</span>
+<div class="viewcode-block" id="split_coords">
+<a class="viewcode-back" href="../../../modules/generated/utils/earth2studio.utils.coords.split_coords.html#earth2studio.utils.coords.split_coords">[docs]</a>
+<span class="k">def</span> <span class="nf">split_coords</span><span class="p">(</span>
     <span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">coords</span><span class="p">:</span> <span class="n">CoordSystem</span><span class="p">,</span> <span class="n">dim</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;variable&quot;</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">],</span> <span class="n">CoordSystem</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    A utility function to extract a dimension from a (x,coords) pair and convert it into a list of tensors, a CoordSystem, and</span>
-<span class="sd">    the dimension that extract from coords.</span>
+<span class="sd">    A utility function to split a dimension from a (x,coords) pair and convert it into</span>
+<span class="sd">    a list of tensors, a CoordSystem, and the dimension that extract from coords.</span>
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
 <span class="sd">    x : torch.Tensor</span>
 <span class="sd">        Input tensor</span>
 <span class="sd">    coords : CoordSystem</span>
-<span class="sd">        Coordinates referring to the dimensions of x.</span>
+<span class="sd">        Coordinates referring to the dimensions of x</span>
 <span class="sd">    dim : str</span>
-<span class="sd">        Name of the dimension in coords to extract by.</span>
+<span class="sd">        Name of the dimension in coords to split along</span>
 
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>

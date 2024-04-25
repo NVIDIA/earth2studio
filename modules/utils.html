@@ -426,6 +426,7 @@ document.write(`
 <li class="toctree-l1 has-children"><a class="reference internal" href="io.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.io</span></code>: IO Backends</a><input class="toctree-checkbox" id="toctree-checkbox-3" name="toctree-checkbox-3" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-3"><i class="fa-solid fa-chevron-down"></i></label><ul>
 <li class="toctree-l2"><a class="reference internal" href="generated/io/earth2studio.io.KVBackend.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.io</span></code>.KVBackend</a></li>
 <li class="toctree-l2"><a class="reference internal" href="generated/io/earth2studio.io.NetCDF4Backend.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.io</span></code>.NetCDF4Backend</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generated/io/earth2studio.io.XarrayBackend.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.io</span></code>.XarrayBackend</a></li>
 <li class="toctree-l2"><a class="reference internal" href="generated/io/earth2studio.io.ZarrBackend.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.io</span></code>.ZarrBackend</a></li>
 </ul>
 </li>
@@ -450,13 +451,14 @@ document.write(`
 <li class="toctree-l2"><a class="reference internal" href="generated/utils/earth2studio.utils.coords.handshake_coords.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.utils.coords</span></code>.handshake_coords</a></li>
 <li class="toctree-l2"><a class="reference internal" href="generated/utils/earth2studio.utils.coords.handshake_size.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.utils.coords</span></code>.handshake_size</a></li>
 <li class="toctree-l2"><a class="reference internal" href="generated/utils/earth2studio.utils.coords.map_coords.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.utils.coords</span></code>.map_coords</a></li>
-<li class="toctree-l2"><a class="reference internal" href="generated/utils/earth2studio.utils.coords.extract_coords.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.utils.coords</span></code>.extract_coords</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generated/utils/earth2studio.utils.coords.split_coords.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.utils.coords</span></code>.split_coords</a></li>
 <li class="toctree-l2"><a class="reference internal" href="generated/utils/earth2studio.utils.time.timearray_to_datetime.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.utils.time</span></code>.timearray_to_datetime</a></li>
 <li class="toctree-l2"><a class="reference internal" href="generated/utils/earth2studio.utils.time.to_time_array.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.utils.time</span></code>.to_time_array</a></li>
 </ul>
 </li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="workflows.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.run</span></code>: Workflows</a><input class="toctree-checkbox" id="toctree-checkbox-7" name="toctree-checkbox-7" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-7"><i class="fa-solid fa-chevron-down"></i></label><ul>
 <li class="toctree-l2"><a class="reference internal" href="generated/workflows/earth2studio.run.deterministic.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.run</span></code>.deterministic</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generated/workflows/earth2studio.run.diagnostic.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.run</span></code>.diagnostic</a></li>
 <li class="toctree-l2"><a class="reference internal" href="generated/workflows/earth2studio.run.ensemble.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.run</span></code>.ensemble</a></li>
 </ul>
 </li>
@@ -536,8 +538,8 @@ document.write(`
 <tr class="row-even"><td><p><a class="reference internal" href="generated/utils/earth2studio.utils.coords.map_coords.html#earth2studio.utils.coords.map_coords" title="earth2studio.utils.coords.map_coords"><code class="xref py py-obj docutils literal notranslate"><span class="pre">utils.coords.map_coords</span></code></a>(x, input_coords, ...)</p></td>
 <td><p>A basic interpolation util to map between coordinate systems with common dimensions.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="generated/utils/earth2studio.utils.coords.extract_coords.html#earth2studio.utils.coords.extract_coords" title="earth2studio.utils.coords.extract_coords"><code class="xref py py-obj docutils literal notranslate"><span class="pre">utils.coords.extract_coords</span></code></a>(x, coords[, dim])</p></td>
-<td><p>A utility function to extract a dimension from a (x,coords) pair and convert it into a list of tensors, a CoordSystem, and the dimension that extract from coords.</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/utils/earth2studio.utils.coords.split_coords.html#earth2studio.utils.coords.split_coords" title="earth2studio.utils.coords.split_coords"><code class="xref py py-obj docutils literal notranslate"><span class="pre">utils.coords.split_coords</span></code></a>(x, coords[, dim])</p></td>
+<td><p>A utility function to split a dimension from a (x,coords) pair and convert it into a list of tensors, a CoordSystem, and the dimension that extract from coords.</p></td>
 </tr>
 </tbody>
 </table>

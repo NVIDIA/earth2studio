@@ -55,7 +55,7 @@
     <link rel="index" title="Index" href="../../../genindex.html" />
     <link rel="search" title="Search" href="../../../search.html" />
     <link rel="next" title="Examples" href="../../../examples/index.html" />
-    <link rel="prev" title="earth2studio.run.deterministic" href="earth2studio.run.deterministic.html" />
+    <link rel="prev" title="earth2studio.run.diagnostic" href="earth2studio.run.diagnostic.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   </head>
@@ -426,6 +426,7 @@ document.write(`
 <li class="toctree-l1 has-children"><a class="reference internal" href="../../io.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.io</span></code>: IO Backends</a><input class="toctree-checkbox" id="toctree-checkbox-3" name="toctree-checkbox-3" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-3"><i class="fa-solid fa-chevron-down"></i></label><ul>
 <li class="toctree-l2"><a class="reference internal" href="../io/earth2studio.io.KVBackend.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.io</span></code>.KVBackend</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../io/earth2studio.io.NetCDF4Backend.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.io</span></code>.NetCDF4Backend</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../io/earth2studio.io.XarrayBackend.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.io</span></code>.XarrayBackend</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../io/earth2studio.io.ZarrBackend.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.io</span></code>.ZarrBackend</a></li>
 </ul>
 </li>
@@ -450,13 +451,14 @@ document.write(`
 <li class="toctree-l2"><a class="reference internal" href="../utils/earth2studio.utils.coords.handshake_coords.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.utils.coords</span></code>.handshake_coords</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../utils/earth2studio.utils.coords.handshake_size.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.utils.coords</span></code>.handshake_size</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../utils/earth2studio.utils.coords.map_coords.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.utils.coords</span></code>.map_coords</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../utils/earth2studio.utils.coords.extract_coords.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.utils.coords</span></code>.extract_coords</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../utils/earth2studio.utils.coords.split_coords.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.utils.coords</span></code>.split_coords</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../utils/earth2studio.utils.time.timearray_to_datetime.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.utils.time</span></code>.timearray_to_datetime</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../utils/earth2studio.utils.time.to_time_array.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.utils.time</span></code>.to_time_array</a></li>
 </ul>
 </li>
 <li class="toctree-l1 current active has-children"><a class="reference internal" href="../../workflows.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.run</span></code>: Workflows</a><input checked="" class="toctree-checkbox" id="toctree-checkbox-7" name="toctree-checkbox-7" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-7"><i class="fa-solid fa-chevron-down"></i></label><ul class="current">
 <li class="toctree-l2"><a class="reference internal" href="earth2studio.run.deterministic.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.run</span></code>.deterministic</a></li>
+<li class="toctree-l2"><a class="reference internal" href="earth2studio.run.diagnostic.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.run</span></code>.diagnostic</a></li>
 <li class="toctree-l2 current active"><a class="current reference internal" href="#"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.run</span></code>.ensemble</a></li>
 </ul>
 </li>
@@ -525,7 +527,7 @@ document.write(`
 <dl class="py function">
 <dt class="sig sig-object py" id="earth2studio.run.ensemble">
 <span class="sig-prename descclassname"><span class="pre">earth2studio.run.</span></span><span class="sig-name descname"><span class="pre">ensemble</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">time</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nsteps</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nensemble</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">prognostic</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">io</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">perturbation_method</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">batch_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output_coords</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">{}</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">device</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/earth2studio/run.html#ensemble"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.run.ensemble" title="Link to this definition">#</a></dt>
-<dd><p>Ensemble workflow</p>
+<dd><p>Built in ensemble workflow.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
@@ -553,14 +555,14 @@ by default None.</p></li>
 
 <section id="examples-using-earth2studio-run-ensemble">
 <span id="sphx-glr-backref-earth2studio-run-ensemble"></span><h2>Examples using <code class="docutils literal notranslate"><span class="pre">earth2studio.run.ensemble</span></code><a class="headerlink" href="#examples-using-earth2studio-run-ensemble" title="Link to this heading">#</a></h2>
-<div class="sphx-glr-thumbnails"><div class="sphx-glr-thumbcontainer" tooltip="Simple ensemble inference workflow."><img alt="" src="../../../_images/sphx_glr_02_ensemble_workflow_thumb.png" />
-<p><a class="reference internal" href="../../../examples/02_ensemble_workflow.html#sphx-glr-examples-02-ensemble-workflow-py"><span class="std std-ref">Running Ensemble Inference</span></a></p>
+<div class="sphx-glr-thumbnails"><div class="sphx-glr-thumbcontainer" tooltip="Simple ensemble inference workflow."><img alt="" src="../../../_images/sphx_glr_03_ensemble_workflow_thumb.png" />
+<p><a class="reference internal" href="../../../examples/03_ensemble_workflow.html#sphx-glr-examples-03-ensemble-workflow-py"><span class="std std-ref">Running Ensemble Inference</span></a></p>
   <div class="sphx-glr-thumbnail-title">Running Ensemble Inference</div>
-</div><div class="sphx-glr-thumbcontainer" tooltip="Intermediate ensemble inference using a custom perturbation method."><img alt="" src="../../../_images/sphx_glr_04_ensemble_workflow_extend_thumb.png" />
-<p><a class="reference internal" href="../../../examples/04_ensemble_workflow_extend.html#sphx-glr-examples-04-ensemble-workflow-extend-py"><span class="std std-ref">Single Variable Perturbation Method</span></a></p>
+</div><div class="sphx-glr-thumbcontainer" tooltip="Intermediate ensemble inference using a custom perturbation method."><img alt="" src="../../../_images/sphx_glr_05_ensemble_workflow_extend_thumb.png" />
+<p><a class="reference internal" href="../../../examples/05_ensemble_workflow_extend.html#sphx-glr-examples-05-ensemble-workflow-extend-py"><span class="std std-ref">Single Variable Perturbation Method</span></a></p>
   <div class="sphx-glr-thumbnail-title">Single Variable Perturbation Method</div>
-</div><div class="sphx-glr-thumbcontainer" tooltip="Adding model noise by using custom hooks."><img alt="" src="../../../_images/sphx_glr_05_model_perturbation_hook_thumb.png" />
-<p><a class="reference internal" href="../../../examples/05_model_perturbation_hook.html#sphx-glr-examples-05-model-perturbation-hook-py"><span class="std std-ref">Model Hook Injection: Perturbation</span></a></p>
+</div><div class="sphx-glr-thumbcontainer" tooltip="Adding model noise by using custom hooks."><img alt="" src="../../../_images/sphx_glr_06_model_perturbation_hook_thumb.png" />
+<p><a class="reference internal" href="../../../examples/06_model_perturbation_hook.html#sphx-glr-examples-06-model-perturbation-hook-py"><span class="std std-ref">Model Hook Injection: Perturbation</span></a></p>
   <div class="sphx-glr-thumbnail-title">Model Hook Injection: Perturbation</div>
 </div></div><div class="clearer"></div></section>
 </section>
@@ -576,12 +578,12 @@ by default None.</p></li>
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="earth2studio.run.deterministic.html"
+       href="earth2studio.run.diagnostic.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.run</span></code>.deterministic</p>
+        <p class="prev-next-title"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.run</span></code>.diagnostic</p>
       </div>
     </a>
     <a class="right-next"

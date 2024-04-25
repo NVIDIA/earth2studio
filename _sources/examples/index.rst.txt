@@ -14,18 +14,35 @@ and commonly used workflows.
 
 .. raw:: html
 
-    <div class="sphx-glr-thumbcontainer" tooltip="Simple deterministic inference workflow.">
+    <div class="sphx-glr-thumbcontainer" tooltip="Basic deterministic inference workflow.">
 
 .. only:: html
 
-  .. image:: /examples/images/thumb/sphx_glr_01_simple_workflow_thumb.png
+  .. image:: /examples/images/thumb/sphx_glr_01_deterministic_workflow_thumb.png
     :alt:
 
-  :ref:`sphx_glr_examples_01_simple_workflow.py`
+  :ref:`sphx_glr_examples_01_deterministic_workflow.py`
 
 .. raw:: html
 
-      <div class="sphx-glr-thumbnail-title">Running Simple Inference</div>
+      <div class="sphx-glr-thumbnail-title">Running Deterministic Inference</div>
+    </div>
+
+
+.. raw:: html
+
+    <div class="sphx-glr-thumbcontainer" tooltip="Basic prognostic + diagnostic inference workflow.">
+
+.. only:: html
+
+  .. image:: /examples/images/thumb/sphx_glr_02_diagnostic_workflow_thumb.png
+    :alt:
+
+  :ref:`sphx_glr_examples_02_diagnostic_workflow.py`
+
+.. raw:: html
+
+      <div class="sphx-glr-thumbnail-title">Running Diagnostic Inference</div>
     </div>
 
 
@@ -35,10 +52,10 @@ and commonly used workflows.
 
 .. only:: html
 
-  .. image:: /examples/images/thumb/sphx_glr_02_ensemble_workflow_thumb.png
+  .. image:: /examples/images/thumb/sphx_glr_03_ensemble_workflow_thumb.png
     :alt:
 
-  :ref:`sphx_glr_examples_02_ensemble_workflow.py`
+  :ref:`sphx_glr_examples_03_ensemble_workflow.py`
 
 .. raw:: html
 
@@ -52,10 +69,10 @@ and commonly used workflows.
 
 .. only:: html
 
-  .. image:: /examples/images/thumb/sphx_glr_03_corrdiff_inference_thumb.png
+  .. image:: /examples/images/thumb/sphx_glr_04_corrdiff_inference_thumb.png
     :alt:
 
-  :ref:`sphx_glr_examples_03_corrdiff_inference.py`
+  :ref:`sphx_glr_examples_04_corrdiff_inference.py`
 
 .. raw:: html
 
@@ -69,10 +86,10 @@ and commonly used workflows.
 
 .. only:: html
 
-  .. image:: /examples/images/thumb/sphx_glr_04_ensemble_workflow_extend_thumb.png
+  .. image:: /examples/images/thumb/sphx_glr_05_ensemble_workflow_extend_thumb.png
     :alt:
 
-  :ref:`sphx_glr_examples_04_ensemble_workflow_extend.py`
+  :ref:`sphx_glr_examples_05_ensemble_workflow_extend.py`
 
 .. raw:: html
 
@@ -86,10 +103,10 @@ and commonly used workflows.
 
 .. only:: html
 
-  .. image:: /examples/images/thumb/sphx_glr_05_model_perturbation_hook_thumb.png
+  .. image:: /examples/images/thumb/sphx_glr_06_model_perturbation_hook_thumb.png
     :alt:
 
-  :ref:`sphx_glr_examples_05_model_perturbation_hook.py`
+  :ref:`sphx_glr_examples_06_model_perturbation_hook.py`
 
 .. raw:: html
 
@@ -103,10 +120,10 @@ and commonly used workflows.
 
 .. only:: html
 
-  .. image:: /examples/images/thumb/sphx_glr_06_seasonal_statistics_thumb.png
+  .. image:: /examples/images/thumb/sphx_glr_07_seasonal_statistics_thumb.png
     :alt:
 
-  :ref:`sphx_glr_examples_06_seasonal_statistics.py`
+  :ref:`sphx_glr_examples_07_seasonal_statistics.py`
 
 .. raw:: html
 
@@ -122,12 +139,13 @@ and commonly used workflows.
 .. toctree::
    :hidden:
 
-   /examples/01_simple_workflow
-   /examples/02_ensemble_workflow
-   /examples/03_corrdiff_inference
-   /examples/04_ensemble_workflow_extend
-   /examples/05_model_perturbation_hook
-   /examples/06_seasonal_statistics
+   /examples/01_deterministic_workflow
+   /examples/02_diagnostic_workflow
+   /examples/03_ensemble_workflow
+   /examples/04_corrdiff_inference
+   /examples/05_ensemble_workflow_extend
+   /examples/06_model_perturbation_hook
+   /examples/07_seasonal_statistics
 
 
 Extending Earth2Studio

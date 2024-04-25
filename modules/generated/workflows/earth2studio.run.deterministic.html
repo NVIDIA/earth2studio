@@ -54,7 +54,7 @@
         </script>
     <link rel="index" title="Index" href="../../../genindex.html" />
     <link rel="search" title="Search" href="../../../search.html" />
-    <link rel="next" title="earth2studio.run.ensemble" href="earth2studio.run.ensemble.html" />
+    <link rel="next" title="earth2studio.run.diagnostic" href="earth2studio.run.diagnostic.html" />
     <link rel="prev" title="earth2studio.run: Workflows" href="../../workflows.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
@@ -426,6 +426,7 @@ document.write(`
 <li class="toctree-l1 has-children"><a class="reference internal" href="../../io.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.io</span></code>: IO Backends</a><input class="toctree-checkbox" id="toctree-checkbox-3" name="toctree-checkbox-3" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-3"><i class="fa-solid fa-chevron-down"></i></label><ul>
 <li class="toctree-l2"><a class="reference internal" href="../io/earth2studio.io.KVBackend.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.io</span></code>.KVBackend</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../io/earth2studio.io.NetCDF4Backend.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.io</span></code>.NetCDF4Backend</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../io/earth2studio.io.XarrayBackend.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.io</span></code>.XarrayBackend</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../io/earth2studio.io.ZarrBackend.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.io</span></code>.ZarrBackend</a></li>
 </ul>
 </li>
@@ -450,13 +451,14 @@ document.write(`
 <li class="toctree-l2"><a class="reference internal" href="../utils/earth2studio.utils.coords.handshake_coords.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.utils.coords</span></code>.handshake_coords</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../utils/earth2studio.utils.coords.handshake_size.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.utils.coords</span></code>.handshake_size</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../utils/earth2studio.utils.coords.map_coords.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.utils.coords</span></code>.map_coords</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../utils/earth2studio.utils.coords.extract_coords.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.utils.coords</span></code>.extract_coords</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../utils/earth2studio.utils.coords.split_coords.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.utils.coords</span></code>.split_coords</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../utils/earth2studio.utils.time.timearray_to_datetime.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.utils.time</span></code>.timearray_to_datetime</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../utils/earth2studio.utils.time.to_time_array.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.utils.time</span></code>.to_time_array</a></li>
 </ul>
 </li>
 <li class="toctree-l1 current active has-children"><a class="reference internal" href="../../workflows.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.run</span></code>: Workflows</a><input checked="" class="toctree-checkbox" id="toctree-checkbox-7" name="toctree-checkbox-7" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-7"><i class="fa-solid fa-chevron-down"></i></label><ul class="current">
 <li class="toctree-l2 current active"><a class="current reference internal" href="#"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.run</span></code>.deterministic</a></li>
+<li class="toctree-l2"><a class="reference internal" href="earth2studio.run.diagnostic.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.run</span></code>.diagnostic</a></li>
 <li class="toctree-l2"><a class="reference internal" href="earth2studio.run.ensemble.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.run</span></code>.ensemble</a></li>
 </ul>
 </li>
@@ -525,13 +527,15 @@ document.write(`
 <dl class="py function">
 <dt class="sig sig-object py" id="earth2studio.run.deterministic">
 <span class="sig-prename descclassname"><span class="pre">earth2studio.run.</span></span><span class="sig-name descname"><span class="pre">deterministic</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">time</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nsteps</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">prognostic</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">io</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">device</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/earth2studio/run.html#deterministic"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.run.deterministic" title="Link to this definition">#</a></dt>
-<dd><p>Simple built in deterministic workflow</p>
+<dd><p>Built in deterministic workflow.
+This workflow creates a determinstic inference pipeline to produce a forecast
+prediction using a prognostic model.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>time</strong> (<em>list</em><em>[</em><em>str</em><em>] </em><em>| </em><em>list</em><em>[</em><em>datetime</em><em>] </em><em>| </em><em>list</em><em>[</em><em>np.datetime64</em><em>]</em>) – List of string, datetimes or np.datetime64</p></li>
 <li><p><strong>nsteps</strong> (<em>int</em>) – Number of forecast steps</p></li>
-<li><p><strong>prognostic</strong> (<em>PrognosticModel</em>) – Prognostic models</p></li>
+<li><p><strong>prognostic</strong> (<em>PrognosticModel</em>) – Prognostic model</p></li>
 <li><p><strong>data</strong> (<em>DataSource</em>) – Data source</p></li>
 <li><p><strong>io</strong> (<em>IOBackend</em>) – IO object</p></li>
 <li><p><strong>device</strong> (<em>Optional</em><em>[</em><em>torch.device</em><em>]</em><em>, </em><em>optional</em>) – Device to run inference on, by default None</p></li>
@@ -548,9 +552,9 @@ document.write(`
 
 <section id="examples-using-earth2studio-run-deterministic">
 <span id="sphx-glr-backref-earth2studio-run-deterministic"></span><h2>Examples using <code class="docutils literal notranslate"><span class="pre">earth2studio.run.deterministic</span></code><a class="headerlink" href="#examples-using-earth2studio-run-deterministic" title="Link to this heading">#</a></h2>
-<div class="sphx-glr-thumbnails"><div class="sphx-glr-thumbcontainer" tooltip="Simple deterministic inference workflow."><img alt="" src="../../../_images/sphx_glr_01_simple_workflow_thumb.png" />
-<p><a class="reference internal" href="../../../examples/01_simple_workflow.html#sphx-glr-examples-01-simple-workflow-py"><span class="std std-ref">Running Simple Inference</span></a></p>
-  <div class="sphx-glr-thumbnail-title">Running Simple Inference</div>
+<div class="sphx-glr-thumbnails"><div class="sphx-glr-thumbcontainer" tooltip="Basic deterministic inference workflow."><img alt="" src="../../../_images/sphx_glr_01_deterministic_workflow_thumb.png" />
+<p><a class="reference internal" href="../../../examples/01_deterministic_workflow.html#sphx-glr-examples-01-deterministic-workflow-py"><span class="std std-ref">Running Deterministic Inference</span></a></p>
+  <div class="sphx-glr-thumbnail-title">Running Deterministic Inference</div>
 </div><div class="sphx-glr-thumbcontainer" tooltip="Implementing a custom prognostic model"><img alt="" src="../../../_images/sphx_glr_01_custom_prognostic_thumb.png" />
 <p><a class="reference internal" href="../../../examples/extend/01_custom_prognostic.html#sphx-glr-examples-extend-01-custom-prognostic-py"><span class="std std-ref">Extending Prognostic Models</span></a></p>
   <div class="sphx-glr-thumbnail-title">Extending Prognostic Models</div>
@@ -580,11 +584,11 @@ document.write(`
       </div>
     </a>
     <a class="right-next"
-       href="earth2studio.run.ensemble.html"
+       href="earth2studio.run.diagnostic.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.run</span></code>.ensemble</p>
+        <p class="prev-next-title"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.run</span></code>.diagnostic</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
