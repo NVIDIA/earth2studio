@@ -9,26 +9,21 @@ for more details.
 
 ## Pull Requests
 
-Developer workflow for code contributions is as follows:
+The brief developer workflow for code contributions is as follows:
 
 1. Developers must first [fork](https://help.github.com/en/articles/fork-a-repo)
-the [upstream](https://github.com/NVIDIA/Earth2Studio) Earth2Studio repository.
+the Earth2Studio repository.
 
-2. Git clone the forked repository and push changes to the personal fork.
+2. Push code, tests and updated documentation to a branch on the fork. Ensure pre-commit
+checks have passed.
 
 3. Once the code changes are staged on the fork and ready for review, a
-[Pull Request](https://help.github.com/en/articles/about-pull-requests) (PR)
-can be [requested](https://help.github.com/en/articles/creating-a-pull-request)
-to merge the changes from a branch of the fork into a selected branch of upstream.
+[Pull Request](https://help.github.com/en/articles/about-pull-requests) using the
+template.
 
-    - Exercise caution when selecting the source and target branches for the PR.
-    - Ensure that you update the [`CHANGELOG.md`](CHANGELOG.md) to reflect your contributions.
-    - Creation of a PR creation kicks off CI and a code review process.
-    - Atleast one Earth2Studio engineer will be assigned for the review.
+4. Ensure code passes the CI pipeline.
 
-4. The PR will be accepted and the corresponding issue closed after adequate review and
-testing has been completed. Note that every PR should correspond to an open issue and
-should be linked on Github.
+5. Address reviewer feedback and merge.
 
 ## Issues
 
