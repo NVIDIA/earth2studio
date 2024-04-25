@@ -54,6 +54,8 @@ run(["2024-01-01"], 10, model, ds, io)
 
 ## Advanced Usage
 
+- [Batch Functions](advanced/batch)
+
 ## Developer Guide
 
 - [Overview](developer/overview)
@@ -89,10 +91,11 @@ components/statistics
 ```
 
 ```{toctree}
-:caption: Additional Features
+:caption: Advanced Usage
 :maxdepth: 1
 :hidden:
 
+advanced/batch
 
 ```
 
