@@ -10,7 +10,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Built in diagnostic workflow
+- Basic diagnostic example
+
 ### Changed
+
+- Changed utility function `extract_coords` to `split_coords`
 
 ### Deprecated
 
@@ -19,6 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Enable version switch in documentation site
+- Longitude coordinates of precip and climatenet diagnostic models
 
 ### Security
 
