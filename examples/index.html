@@ -46,9 +46,15 @@
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/design-tabs.js?v=36754332"></script>
     <script>DOCUMENTATION_OPTIONS.pagename = 'examples/index';</script>
+    <script>
+        DOCUMENTATION_OPTIONS.theme_version = '0.15.2';
+        DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'https://raw.githubusercontent.com/NVIDIA/earth2studio/gh-pages/_static/switcher.json';
+        DOCUMENTATION_OPTIONS.theme_switcher_version_match = 'main';
+        DOCUMENTATION_OPTIONS.show_version_warning_banner = false;
+        </script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="Running Simple Inference" href="01_simple_workflow.html" />
+    <link rel="next" title="Running Deterministic Inference" href="01_deterministic_workflow.html" />
     <link rel="prev" title="earth2studio.run.ensemble" href="../modules/generated/workflows/earth2studio.run.ensemble.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
@@ -115,7 +121,7 @@
   </label>
   
   
-  <div class=" navbar-header-items__start">
+  <div class="col-lg-3 navbar-header-items__start">
     
       <div class="navbar-item">
 
@@ -140,9 +146,33 @@
   
 </a></div>
     
+      <div class="navbar-item">
+<script>
+document.write(`
+  <div class="version-switcher__container dropdown">
+    <button id="pst-version-switcher-button-2"
+      type="button"
+      class="version-switcher__button btn btn-sm navbar-btn dropdown-toggle"
+      data-bs-toggle="dropdown"
+      aria-haspopup="listbox"
+      aria-controls="pst-version-switcher-list-2"
+      aria-label="Version switcher list"
+    >
+      Choose version  <!-- this text may get changed later by javascript -->
+      <span class="caret"></span>
+    </button>
+    <div id="pst-version-switcher-list-2"
+      class="version-switcher__menu dropdown-menu list-group-flush py-0"
+      role="listbox" aria-labelledby="pst-version-switcher-button-2">
+      <!-- dropdown will be populated by javascript on page load -->
+    </div>
+  </div>
+`);
+</script></div>
+    
   </div>
   
-  <div class=" navbar-header-items">
+  <div class="col-lg-9 navbar-header-items">
     
     <div class="me-auto navbar-header-items__center">
       
@@ -363,12 +393,13 @@ document.write(`
      aria-label="Section Navigation">
   <p class="bd-links__title" role="heading" aria-level="1">Section Navigation</p>
   <div class="bd-toc-item navbar-nav"><ul class="nav bd-sidenav">
-<li class="toctree-l1"><a class="reference internal" href="01_simple_workflow.html">Running Simple Inference</a></li>
-<li class="toctree-l1"><a class="reference internal" href="02_ensemble_workflow.html">Running Ensemble Inference</a></li>
-<li class="toctree-l1"><a class="reference internal" href="03_corrdiff_inference.html">Generative Downscaling</a></li>
-<li class="toctree-l1"><a class="reference internal" href="04_ensemble_workflow_extend.html">Single Variable Perturbation Method</a></li>
-<li class="toctree-l1"><a class="reference internal" href="05_model_perturbation_hook.html">Model Hook Injection: Perturbation</a></li>
-<li class="toctree-l1"><a class="reference internal" href="06_seasonal_statistics.html">Statistical Inference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="01_deterministic_workflow.html">Running Deterministic Inference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="02_diagnostic_workflow.html">Running Diagnostic Inference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="03_ensemble_workflow.html">Running Ensemble Inference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="04_corrdiff_inference.html">Generative Downscaling</a></li>
+<li class="toctree-l1"><a class="reference internal" href="05_ensemble_workflow_extend.html">Single Variable Perturbation Method</a></li>
+<li class="toctree-l1"><a class="reference internal" href="06_model_perturbation_hook.html">Model Hook Injection: Perturbation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="07_seasonal_statistics.html">Statistical Inference</a></li>
 </ul>
 <ul class="nav bd-sidenav">
 <li class="toctree-l1 has-children"><a class="reference internal" href="extend/index.html">Extending Earth2Studio</a><input class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-1"><i class="fa-solid fa-chevron-down"></i></label><ul>
@@ -435,23 +466,26 @@ document.write(`
 <h1>Examples<a class="headerlink" href="#examples" title="Link to this heading">#</a></h1>
 <p>This is a collection of examples in Earth2Studio that demonstrate various functionality
 and commonly used workflows.</p>
-<div class="sphx-glr-thumbnails"><div class="sphx-glr-thumbcontainer" tooltip="Simple deterministic inference workflow."><img alt="" src="../_images/sphx_glr_01_simple_workflow_thumb.png" />
-<p><a class="reference internal" href="01_simple_workflow.html#sphx-glr-examples-01-simple-workflow-py"><span class="std std-ref">Running Simple Inference</span></a></p>
-  <div class="sphx-glr-thumbnail-title">Running Simple Inference</div>
-</div><div class="sphx-glr-thumbcontainer" tooltip="Simple ensemble inference workflow."><img alt="" src="../_images/sphx_glr_02_ensemble_workflow_thumb.png" />
-<p><a class="reference internal" href="02_ensemble_workflow.html#sphx-glr-examples-02-ensemble-workflow-py"><span class="std std-ref">Running Ensemble Inference</span></a></p>
+<div class="sphx-glr-thumbnails"><div class="sphx-glr-thumbcontainer" tooltip="Basic deterministic inference workflow."><img alt="" src="../_images/sphx_glr_01_deterministic_workflow_thumb.png" />
+<p><a class="reference internal" href="01_deterministic_workflow.html#sphx-glr-examples-01-deterministic-workflow-py"><span class="std std-ref">Running Deterministic Inference</span></a></p>
+  <div class="sphx-glr-thumbnail-title">Running Deterministic Inference</div>
+</div><div class="sphx-glr-thumbcontainer" tooltip="Basic prognostic + diagnostic inference workflow."><img alt="" src="../_images/sphx_glr_02_diagnostic_workflow_thumb.png" />
+<p><a class="reference internal" href="02_diagnostic_workflow.html#sphx-glr-examples-02-diagnostic-workflow-py"><span class="std std-ref">Running Diagnostic Inference</span></a></p>
+  <div class="sphx-glr-thumbnail-title">Running Diagnostic Inference</div>
+</div><div class="sphx-glr-thumbcontainer" tooltip="Simple ensemble inference workflow."><img alt="" src="../_images/sphx_glr_03_ensemble_workflow_thumb.png" />
+<p><a class="reference internal" href="03_ensemble_workflow.html#sphx-glr-examples-03-ensemble-workflow-py"><span class="std std-ref">Running Ensemble Inference</span></a></p>
   <div class="sphx-glr-thumbnail-title">Running Ensemble Inference</div>
-</div><div class="sphx-glr-thumbcontainer" tooltip="Generative downscaling over Taiwan using CorrDiff diffusion model."><img alt="" src="../_images/sphx_glr_03_corrdiff_inference_thumb.png" />
-<p><a class="reference internal" href="03_corrdiff_inference.html#sphx-glr-examples-03-corrdiff-inference-py"><span class="std std-ref">Generative Downscaling</span></a></p>
+</div><div class="sphx-glr-thumbcontainer" tooltip="Generative downscaling over Taiwan using CorrDiff diffusion model."><img alt="" src="../_images/sphx_glr_04_corrdiff_inference_thumb.png" />
+<p><a class="reference internal" href="04_corrdiff_inference.html#sphx-glr-examples-04-corrdiff-inference-py"><span class="std std-ref">Generative Downscaling</span></a></p>
   <div class="sphx-glr-thumbnail-title">Generative Downscaling</div>
-</div><div class="sphx-glr-thumbcontainer" tooltip="Intermediate ensemble inference using a custom perturbation method."><img alt="" src="../_images/sphx_glr_04_ensemble_workflow_extend_thumb.png" />
-<p><a class="reference internal" href="04_ensemble_workflow_extend.html#sphx-glr-examples-04-ensemble-workflow-extend-py"><span class="std std-ref">Single Variable Perturbation Method</span></a></p>
+</div><div class="sphx-glr-thumbcontainer" tooltip="Intermediate ensemble inference using a custom perturbation method."><img alt="" src="../_images/sphx_glr_05_ensemble_workflow_extend_thumb.png" />
+<p><a class="reference internal" href="05_ensemble_workflow_extend.html#sphx-glr-examples-05-ensemble-workflow-extend-py"><span class="std std-ref">Single Variable Perturbation Method</span></a></p>
   <div class="sphx-glr-thumbnail-title">Single Variable Perturbation Method</div>
-</div><div class="sphx-glr-thumbcontainer" tooltip="Adding model noise by using custom hooks."><img alt="" src="../_images/sphx_glr_05_model_perturbation_hook_thumb.png" />
-<p><a class="reference internal" href="05_model_perturbation_hook.html#sphx-glr-examples-05-model-perturbation-hook-py"><span class="std std-ref">Model Hook Injection: Perturbation</span></a></p>
+</div><div class="sphx-glr-thumbcontainer" tooltip="Adding model noise by using custom hooks."><img alt="" src="../_images/sphx_glr_06_model_perturbation_hook_thumb.png" />
+<p><a class="reference internal" href="06_model_perturbation_hook.html#sphx-glr-examples-06-model-perturbation-hook-py"><span class="std std-ref">Model Hook Injection: Perturbation</span></a></p>
   <div class="sphx-glr-thumbnail-title">Model Hook Injection: Perturbation</div>
-</div><div class="sphx-glr-thumbcontainer" tooltip="This example will demonstrate how to run a simple inference workflow to generate a forecast and..."><img alt="" src="../_images/sphx_glr_06_seasonal_statistics_thumb.png" />
-<p><a class="reference internal" href="06_seasonal_statistics.html#sphx-glr-examples-06-seasonal-statistics-py"><span class="std std-ref">Statistical Inference</span></a></p>
+</div><div class="sphx-glr-thumbcontainer" tooltip="This example will demonstrate how to run a simple inference workflow to generate a forecast and..."><img alt="" src="../_images/sphx_glr_07_seasonal_statistics_thumb.png" />
+<p><a class="reference internal" href="07_seasonal_statistics.html#sphx-glr-examples-07-seasonal-statistics-py"><span class="std std-ref">Statistical Inference</span></a></p>
   <div class="sphx-glr-thumbnail-title">Statistical Inference</div>
 </div></div><div class="toctree-wrapper compound">
 </div>
@@ -502,11 +536,11 @@ components.</p>
       </div>
     </a>
     <a class="right-next"
-       href="01_simple_workflow.html"
+       href="01_deterministic_workflow.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">Running Simple Inference</p>
+        <p class="prev-next-title">Running Deterministic Inference</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>

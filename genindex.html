@@ -45,6 +45,12 @@
     <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="_static/design-tabs.js?v=36754332"></script>
     <script>DOCUMENTATION_OPTIONS.pagename = 'genindex';</script>
+    <script>
+        DOCUMENTATION_OPTIONS.theme_version = '0.15.2';
+        DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'https://raw.githubusercontent.com/NVIDIA/earth2studio/gh-pages/_static/switcher.json';
+        DOCUMENTATION_OPTIONS.theme_switcher_version_match = 'main';
+        DOCUMENTATION_OPTIONS.show_version_warning_banner = false;
+        </script>
     <link rel="index" title="Index" href="#" />
     <link rel="search" title="Search" href="search.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
@@ -112,7 +118,7 @@
   </label>
   
   
-  <div class=" navbar-header-items__start">
+  <div class="col-lg-3 navbar-header-items__start">
     
       <div class="navbar-item">
 
@@ -137,9 +143,33 @@
   
 </a></div>
     
+      <div class="navbar-item">
+<script>
+document.write(`
+  <div class="version-switcher__container dropdown">
+    <button id="pst-version-switcher-button-2"
+      type="button"
+      class="version-switcher__button btn btn-sm navbar-btn dropdown-toggle"
+      data-bs-toggle="dropdown"
+      aria-haspopup="listbox"
+      aria-controls="pst-version-switcher-list-2"
+      aria-label="Version switcher list"
+    >
+      Choose version  <!-- this text may get changed later by javascript -->
+      <span class="caret"></span>
+    </button>
+    <div id="pst-version-switcher-list-2"
+      class="version-switcher__menu dropdown-menu list-group-flush py-0"
+      role="listbox" aria-labelledby="pst-version-switcher-button-2">
+      <!-- dropdown will be populated by javascript on page load -->
+    </div>
+  </div>
+`);
+</script></div>
+    
   </div>
   
-  <div class=" navbar-header-items">
+  <div class="col-lg-9 navbar-header-items">
     
     <div class="me-auto navbar-header-items__center">
       
@@ -400,6 +430,7 @@ document.write(`
  | <a href="#U"><strong>U</strong></a>
  | <a href="#V"><strong>V</strong></a>
  | <a href="#W"><strong>W</strong></a>
+ | <a href="#X"><strong>X</strong></a>
  | <a href="#Z"><strong>Z</strong></a>
  
 </div>
@@ -474,6 +505,8 @@ document.write(`
 
       <ul>
         <li><a href="modules/generated/io/earth2studio.io.NetCDF4Backend.html#earth2studio.io.NetCDF4Backend.add_array">(earth2studio.io.NetCDF4Backend method)</a>
+</li>
+        <li><a href="modules/generated/io/earth2studio.io.XarrayBackend.html#earth2studio.io.XarrayBackend.add_array">(earth2studio.io.XarrayBackend method)</a>
 </li>
         <li><a href="modules/generated/io/earth2studio.io.ZarrBackend.html#earth2studio.io.ZarrBackend.add_array">(earth2studio.io.ZarrBackend method)</a>
 </li>
@@ -552,6 +585,8 @@ document.write(`
   <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="modules/generated/workflows/earth2studio.run.deterministic.html#earth2studio.run.deterministic">deterministic() (in module earth2studio.run)</a>
 </li>
+      <li><a href="modules/generated/workflows/earth2studio.run.diagnostic.html#earth2studio.run.diagnostic">diagnostic() (in module earth2studio.run)</a>
+</li>
       <li><a href="modules/generated/models/px/earth2studio.models.px.DLWP.html#earth2studio.models.px.DLWP">DLWP (class in earth2studio.models.px)</a>
 </li>
   </ul></td>
@@ -612,8 +647,6 @@ document.write(`
 </li>
       </ul></li>
       <li><a href="modules/generated/workflows/earth2studio.run.ensemble.html#earth2studio.run.ensemble">ensemble() (in module earth2studio.run)</a>
-</li>
-      <li><a href="modules/generated/utils/earth2studio.utils.coords.extract_coords.html#earth2studio.utils.coords.extract_coords">extract_coords() (in module earth2studio.utils.coords)</a>
 </li>
   </ul></td>
 </tr></table>
@@ -812,6 +845,8 @@ document.write(`
   <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="modules/generated/perturbation/earth2studio.perturbation.SphericalGaussian.html#earth2studio.perturbation.SphericalGaussian">SphericalGaussian (class in earth2studio.perturbation)</a>
 </li>
+      <li><a href="modules/generated/utils/earth2studio.utils.coords.split_coords.html#earth2studio.utils.coords.split_coords">split_coords() (in module earth2studio.utils.coords)</a>
+</li>
   </ul></td>
 </tr></table>
 
@@ -853,9 +888,19 @@ document.write(`
       <ul>
         <li><a href="modules/generated/io/earth2studio.io.NetCDF4Backend.html#earth2studio.io.NetCDF4Backend.write">(earth2studio.io.NetCDF4Backend method)</a>
 </li>
+        <li><a href="modules/generated/io/earth2studio.io.XarrayBackend.html#earth2studio.io.XarrayBackend.write">(earth2studio.io.XarrayBackend method)</a>
+</li>
         <li><a href="modules/generated/io/earth2studio.io.ZarrBackend.html#earth2studio.io.ZarrBackend.write">(earth2studio.io.ZarrBackend method)</a>
 </li>
       </ul></li>
+  </ul></td>
+</tr></table>
+
+<h2 id="X">X</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="modules/generated/io/earth2studio.io.XarrayBackend.html#earth2studio.io.XarrayBackend">XarrayBackend (class in earth2studio.io)</a>
+</li>
   </ul></td>
 </tr></table>
 
