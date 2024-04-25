@@ -89,19 +89,19 @@ class PrecipitationAFNO(torch.nn.Module, AutoModelMixin):
 
     input_coords = OrderedDict(
         {
-            "batch": np.empty(1),
+            "batch": np.empty(0),
             "variable": np.array(VARIABLES),
             "lat": np.linspace(90, -90, 720, endpoint=False),
-            "lon": np.linspace(90, -90, 1440, endpoint=False),
+            "lon": np.linspace(0, 360, 1440, endpoint=False),
         }
     )
 
     output_coords = OrderedDict(
         {
-            "batch": np.empty(1),
+            "batch": np.empty(0),
             "variable": np.array(["tp"]),
             "lat": np.linspace(90, -90, 720, endpoint=False),
-            "lon": np.linspace(90, -90, 1440, endpoint=False),
+            "lon": np.linspace(0, 360, 1440, endpoint=False),
         }
     )
 

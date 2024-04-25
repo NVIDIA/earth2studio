@@ -68,32 +68,32 @@ We encourage users to follow similar naming schemes for compatability between Ea
 Inference Studio when possible and the packages we interface with.
 
 ```{list-table}
-    :widths: 15 40 25
-    :header-rows: 1
+:widths: 15 40 25
+:header-rows: 1
 
-   * - Key
-     - Description
-     - Type
-   * - `batch`
-     - Dimension representing the batch dimension of the data. Used to denote a "free"
-     dimension, consult batching docs for more details.
-     - `np.empty(1)`
-   * - `time`
-     - Time dimension, represented via numpy arrays of datetime objects.
-     - `np.ndarray[np.datetime64[ns]]` (`TimeArray`)
-   * - `lead_time`
-     - Lead time is used to denote a dimension that indexes over forecast steps.
-     - `np.ndarray[np.timedelta64[ns]]` (`LeadTimeArray`)
-   * - `variable`
-     - Dimension representing physical variable (atmospheric, surface, etc). Earth-2
-     Inference Studio has its own naming convention. See lexicon docs more more details.
-     - `np.ndarray[str]` (`VariableArray`)
-   * - `lat`
-     - Lattitude coordinate array
-     - `np.ndarray[float]`
-   * - `lat`
-     - Longitude coordinate array
-     - `np.ndarray[float]`
+* - Key
+  - Description
+  - Type
+* - `batch`
+  - Dimension representing the batch dimension of the data. Used to denote a "free"
+  dimension, consult batching docs for more details.
+  - `np.empty(0)`
+* - `time`
+  - Time dimension, represented via numpy arrays of datetime objects.
+  - `np.ndarray[np.datetime64[ns]]` (`TimeArray`)
+* - `lead_time`
+  - Lead time is used to denote a dimension that indexes over forecast steps.
+  - `np.ndarray[np.timedelta64[ns]]` (`LeadTimeArray`)
+* - `variable`
+  - Dimension representing physical variable (atmospheric, surface, etc). Earth-2
+  Inference Studio has its own naming convention. See lexicon docs more more details.
+  - `np.ndarray[str]` (`VariableArray`)
+* - `lat`
+  - Lattitude coordinate array
+  - `np.ndarray[float]`
+* - `lat`
+  - Longitude coordinate array
+  - `np.ndarray[float]`
 ```
 
 ### Coordinate Utilities

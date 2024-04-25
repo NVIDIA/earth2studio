@@ -67,7 +67,7 @@ from loguru import logger
 from earth2studio.data import DataSource, prep_data_array
 from earth2studio.io import IOBackend
 from earth2studio.models.dx import CorrDiffTaiwan
-from earth2studio.utils.coords import extract_coords, map_coords
+from earth2studio.utils.coords import map_coords, split_coords
 from earth2studio.utils.time import to_time_array
 
 
@@ -140,7 +140,7 @@ def run(
 
     logger.info("Inference starting!")
     x, coords = corrdiff(x, coords)
-    io.write(*extract_coords(x, coords))
+    io.write(*split_coords(x, coords))
 
     logger.success("Inference complete")
     return io

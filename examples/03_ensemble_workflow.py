@@ -44,7 +44,8 @@ In this example you will learn:
 # %%
 # .. literalinclude:: ../../earth2studio/run.py
 #    :language: python
-#    :lines: 116-156
+#    :start-after: # sphinx - ensemble start
+#    :end-before: # sphinx - ensemble end
 
 # %%
 # We need the following:
