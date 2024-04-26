@@ -1,24 +1,53 @@
 # Style Guide
 
-The Earth2Studio style guide is set of conventions (sometimes arbitrary) we have adopted
-detailing how to write code for this project. A consistent style and process makes
-the package much easier to understand for users and ensure compliance requirements are
-met.
-
-🚧 Under construction 🚧
+The Earth2Studio style guide is set of conventions we have adopted detailing how to
+write code for this project. A consistent style and process makes the package much
+easier to understand for users and ensure compliance requirements are met.
 
 ## Code Formatting
 
 Earth2Studio uses [black](https://github.com/psf/black) as the code formatter.
 All committed code is expected to be compliant with the version of black specified in
-the pyproject.toml.
-Pre-commit will format your code for you.
+the [pyproject.toml](https://github.com/NVIDIA/earth2studio/blob/main/pyproject.toml).
+Pre-commit will format your code for you or one can run `make format` to run black on
+all files.
 
 Additional Code formatting principles:
 
 - Files are always lower-case reflecting, use shortened name of component they hold
 - Class names are capitalized using camel-case
 - Function names are lower case using snake-case
+
+## Linting
+
+Linting is performed by [ruff](https://github.com/astral-sh/ruff) which includes many
+processes to ensure code between files is as consistent as possible.
+Ruff is configured in the projects [pyproject.toml](https://github.com/NVIDIA/earth2studio/blob/main/pyproject.toml).
+Pre-commit will run linting for you or one can run `make lint` to run ruff on all files.
+
+## Type Hints
+
+Earth2Studio is a [MyPy](https://mypy-lang.org/) compliant package, meaning type hints
+are required for all functions.
+MyPy is configured in the packages [pyproject.toml](https://github.com/NVIDIA/earth2studio/blob/main/pyproject.toml).
+On top of requiring type hints, the following guidelines should be used:
+
+- To help keep APIs a concise, several of the common types used through out
+    the package are defined in `earth2studio/utils/type.py` which should be
+    used when applicable.
+
+```{literalinclude} ../../../earth2studio/utils/type.py
+:lines: 17-
+:language: python
+```
+
+- Earth2Studio is Python 3.10+, thus type hinting using generic objects should be used
+    instead of the `typing` package. See [PEP 585](https://peps.python.org/pep-0585/)
+    for details.
+
+- Earth2Studio is Python 3.10+, thus the `|` operator should be used instead of `Union`
+    and `Optional` type operators. See [PEP 604](https://peps.python.org/pep-0604/) for
+    details.
 
 ## Licensing Information
 
