@@ -22,8 +22,8 @@ The full requirements for a standard diagnostic model are defined explicitly in 
 `earth2studio/models/dx/base.py`.
 
 ```{literalinclude} ../../../earth2studio/data/base.py
-    :lines: 25-
-    :language: python
+:lines: 25-
+:language: python
 ```
 
 :::{note}
@@ -58,8 +58,8 @@ For example, in the deterministic workflow {mod}`earth2studio.run.deterministic`
 used to get the initial state for the provided prognostic.
 
 ```{literalinclude} ../../../earth2studio/run.py
-    :lines: 70-80
-    :language: python
+:lines: 70-80
+:language: python
 ```
 
 ### {mod}`earth2studio.data.prep_data_array`

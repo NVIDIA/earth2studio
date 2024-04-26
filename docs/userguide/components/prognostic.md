@@ -21,8 +21,8 @@ The full requirements for a standard prognostic model are defined explicitly in 
 `earth2studio/models/px/base.py`.
 
 ```{literalinclude} ../../../earth2studio/models/px/base.py
-    :lines: 25-
-    :language: python
+:lines: 25-
+:language: python
 ```
 
 :::{note}
