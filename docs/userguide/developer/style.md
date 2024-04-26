@@ -28,7 +28,7 @@ Pre-commit will run linting for you or one can run `make lint` to run ruff on al
 ## Type Hints
 
 Earth2Studio is a [MyPy](https://mypy-lang.org/) compliant package, meaning type hints
-are required for all functions.
+are required for all functions (parameters and return object).
 MyPy is configured in the packages [pyproject.toml](https://github.com/NVIDIA/earth2studio/blob/main/pyproject.toml).
 On top of requiring type hints, the following guidelines should be used:
 
