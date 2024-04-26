@@ -33,8 +33,10 @@ repos:
     - id: end-of-file-fixer
     - id: check-yaml
     - id: debug-statements
-    - id: double-quote-string-fixer
     - id: name-tests-test
+      args: [--pytest-test-first]
+      files: ^test\/.*\.py$
+      exclude: ^test/_license
 
 -   repo: https://github.com/asottile/pyupgrade
     rev: v3.15.2
