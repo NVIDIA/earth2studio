@@ -49,6 +49,11 @@ On top of requiring type hints, the following guidelines should be used:
     and `Optional` type operators. See [PEP 604](https://peps.python.org/pep-0604/) for
     details.
 
+:::{note}
+The pre-commit hook [PyUpgrade](https://github.com/asottile/pyupgrade) will enforce
+Python 3.10 type styles automatically.
+:::
+
 ## Licensing Information
 
 All source code files *must* start with this paragraph:
