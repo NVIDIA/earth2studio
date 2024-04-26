@@ -15,7 +15,8 @@
 # limitations under the License.
 
 from collections import OrderedDict
-from typing import Any, Iterator
+from collections.abc import Iterator
+from typing import Any
 
 import numpy as np
 import torch

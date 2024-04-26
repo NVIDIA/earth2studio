@@ -15,7 +15,6 @@
 # limitations under the License.
 
 from collections import OrderedDict
-from typing import List, Union
 
 import numpy as np
 import pytest
@@ -30,7 +29,7 @@ from earth2studio.models.px import Persistence
     ["t2m", ["t2m", "tcwv"]],
 )
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
-def test_persistence_lat_lon(variable: Union[str, List[str]], device: str) -> None:
+def test_persistence_lat_lon(variable: str | list[str], device: str) -> None:
     time = np.array(
         [np.datetime64("1999-10-11T12:00"), np.datetime64("2001-06-04T00:00")]
     )

@@ -17,7 +17,6 @@
 from collections import OrderedDict
 from datetime import datetime
 from math import ceil
-from typing import Optional
 
 import numpy as np
 import torch
@@ -43,7 +42,7 @@ def deterministic(
     prognostic: PrognosticModel,
     data: DataSource,
     io: IOBackend,
-    device: Optional[torch.device] = None,
+    device: torch.device | None = None,
 ) -> IOBackend:
     """Built in deterministic workflow.
     This workflow creates a determinstic inference pipeline to produce a forecast
@@ -125,7 +124,7 @@ def diagnostic(
     diagnostic: DiagnosticModel,
     data: DataSource,
     io: IOBackend,
-    device: Optional[torch.device] = None,
+    device: torch.device | None = None,
 ) -> IOBackend:
     """Built in diagnostic workflow.
     This workflow creates a determinstic inference pipeline that couples a prognostic
@@ -218,9 +217,9 @@ def ensemble(
     data: DataSource,
     io: IOBackend,
     perturbation_method: PerturbationMethod,
-    batch_size: Optional[int] = None,
+    batch_size: int | None = None,
     output_coords: CoordSystem = OrderedDict({}),
-    device: Optional[torch.device] = None,
+    device: torch.device | None = None,
 ) -> IOBackend:
     """Built in ensemble workflow.
 

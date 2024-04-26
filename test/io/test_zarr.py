@@ -17,7 +17,6 @@
 import os
 import tempfile
 from collections import OrderedDict
-from typing import List
 
 import numpy as np
 import pytest
@@ -41,7 +40,7 @@ from earth2studio.utils.coords import split_coords
 )
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
 def test_zarr_field(
-    time: List[np.datetime64], variable: List[str], device: str
+    time: list[np.datetime64], variable: list[str], device: str
 ) -> None:
 
     total_coords = OrderedDict(
@@ -195,7 +194,7 @@ def test_zarr_field(
 )
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
 def test_zarr_variable(
-    time: List[np.datetime64], variable: List[str], device: str
+    time: list[np.datetime64], variable: list[str], device: str
 ) -> None:
 
     total_coords = OrderedDict(
@@ -288,7 +287,7 @@ def test_zarr_variable(
 )
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
 def test_zarr_exceptions(
-    time: List[np.datetime64], variable: List[str], device: str
+    time: list[np.datetime64], variable: list[str], device: str
 ) -> None:
 
     total_coords = OrderedDict(

@@ -34,7 +34,7 @@ dotenv.load_dotenv()
 doc_version = os.getenv("DOC_VERSION", "main")
 plot_gallery = os.getenv("PLOT_GALLERY", False)
 run_stale_examples = os.getenv("RUN_STALE_EXAMPLES", False)
-filename_pattern = os.getenv("FILENAME_PATTERN", "/[0-9]+.*\.py")
+filename_pattern = os.getenv("FILENAME_PATTERN", r"/[0-9]+.*\.py")
 logging.info(doc_version, plot_gallery, run_stale_examples)
 
 root = pathlib.Path(__file__).parent

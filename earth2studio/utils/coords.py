@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Literal, Optional
+from typing import Literal
 
 import numpy as np
 import torch
@@ -25,7 +25,7 @@ from earth2studio.utils.type import CoordSystem
 def handshake_dim(
     input_coords: CoordSystem,
     required_dim: str,
-    required_index: Optional[int] = None,
+    required_index: int | None = None,
 ) -> None:
     """Simple check to see if coordinate system has a dimension in a particular index
 

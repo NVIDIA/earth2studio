@@ -15,7 +15,8 @@
 # limitations under the License.
 
 from collections import OrderedDict
-from typing import Any, Iterator, Union
+from collections.abc import Iterator
+from typing import Any
 
 import numpy as np
 import torch
@@ -49,7 +50,7 @@ class KVBackend:
         """
         return (self.root | self.coords).__contains__(item)
 
-    def __getitem__(self, item: str) -> Union[torch.Tensor, np.ndarray]:
+    def __getitem__(self, item: str) -> torch.Tensor | np.ndarray:
         """Gets item in KV store.
 
         Parameters

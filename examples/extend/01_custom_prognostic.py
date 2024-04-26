@@ -49,7 +49,7 @@ In this example you will learn:
 
 # %%
 from collections import OrderedDict
-from typing import Generator, Iterator
+from collections.abc import Generator, Iterator
 
 import numpy as np
 import torch

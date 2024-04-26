@@ -15,7 +15,6 @@
 # limitations under the License.
 
 from collections import OrderedDict
-from typing import List
 
 import numpy as np
 import pytest
@@ -38,7 +37,7 @@ from earth2studio.utils.coords import split_coords
     [["t2m"], ["t2m", "tcwv"]],
 )
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
-def test_kv_fields(time: List[np.datetime64], variable: List[str], device: str) -> None:
+def test_kv_fields(time: list[np.datetime64], variable: list[str], device: str) -> None:
 
     total_coords = OrderedDict(
         {
@@ -121,7 +120,7 @@ def test_kv_fields(time: List[np.datetime64], variable: List[str], device: str) 
 )
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
 def test_kv_variable(
-    time: List[np.datetime64], variable: List[str], device: str
+    time: list[np.datetime64], variable: list[str], device: str
 ) -> None:
 
     total_coords = OrderedDict(
@@ -181,7 +180,7 @@ def test_kv_variable(
 )
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
 def test_kv_exceptions(
-    time: List[np.datetime64], variable: List[str], device: str
+    time: list[np.datetime64], variable: list[str], device: str
 ) -> None:
 
     total_coords = OrderedDict(

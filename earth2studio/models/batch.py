@@ -17,8 +17,9 @@ import functools
 import inspect
 import sys
 from collections import OrderedDict
+from collections.abc import Callable, Iterator
 from itertools import chain, islice
-from typing import Any, Callable, Iterator, TypeVar
+from typing import Any, TypeVar
 
 import numpy as np
 import torch
