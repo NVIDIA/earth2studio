@@ -22,7 +22,7 @@ from modulus.models.afno import AFNO
 
 class PeriodicPad2d(torch.nn.Module):
     def __init__(self, pad_width):
-        super(PeriodicPad2d, self).__init__()
+        super().__init__()
         self.pad_width = pad_width
 
     def forward(self, x):

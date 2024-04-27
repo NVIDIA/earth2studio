@@ -17,7 +17,6 @@
 import os
 import tempfile
 from collections import OrderedDict
-from typing import List
 
 import netCDF4
 import numpy as np
@@ -51,9 +50,9 @@ from earth2studio.utils.coords import split_coords
 )
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
 def test_netcdf4_fields(
-    time: List[np.datetime64],
-    lead_time: List[np.datetime64],
-    variable: List[str],
+    time: list[np.datetime64],
+    lead_time: list[np.datetime64],
+    variable: list[str],
     device: str,
 ) -> None:
 
@@ -183,7 +182,7 @@ def test_netcdf4_fields(
 )
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
 def test_netcdf4_variable(
-    time: List[np.datetime64], variable: List[str], device: str
+    time: list[np.datetime64], variable: list[str], device: str
 ) -> None:
 
     total_coords = OrderedDict(
@@ -273,7 +272,7 @@ def test_netcdf4_variable(
 )
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
 def test_netcdf4_exceptions(
-    time: List[np.datetime64], variable: List[str], device: str
+    time: list[np.datetime64], variable: list[str], device: str
 ) -> None:
 
     total_coords = OrderedDict(

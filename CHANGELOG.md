@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Built in diagnostic workflow
 - Basic diagnostic example
+- Batch dimension userguide
 
 ### Changed
 
@@ -33,6 +34,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Dependencies
 
 - Bump Modulus required version to 0.6.0
+- PyUpgrade pre-commit hook for Python 3.10
 
 ## [0.1.0] - 2024-04-22
 

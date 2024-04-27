@@ -14,15 +14,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import List
-
 import torch
 
 from earth2studio.utils.type import CoordSystem
 
 
 def _broadcast_weights(
-    weights: torch.Tensor, rd: List[str], coords: CoordSystem
+    weights: torch.Tensor, rd: list[str], coords: CoordSystem
 ) -> torch.Tensor:
     """
     Broadcast weights to appropriate dimensions. This is meant for internal use.

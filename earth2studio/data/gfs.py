@@ -251,7 +251,7 @@ class GFS:
         s3_uri = os.path.join(self.GFS_BUCKET_NAME, file_name)
         # Grab index file
         index_file = self._download_s3_index_cached(s3_uri)
-        with open(index_file, "r") as file:
+        with open(index_file) as file:
             index_lines = [line.rstrip() for line in file]
 
         index_table = {}

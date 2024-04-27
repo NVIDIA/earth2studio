@@ -20,17 +20,29 @@ repos:
       additional_dependencies: ["click==8.0.4"]
 
 -   repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v3.4.0
+    rev: v4.5.0
     hooks:
     - id: check-added-large-files
       args: [--maxkb=250]
-      exclude:
       exclude: |
             (?x)^(
                 frontend/package-lock.json |
                 .licenses/details.json
             )$
     - id: trailing-whitespace
+    - id: end-of-file-fixer
+    - id: check-yaml
+    - id: debug-statements
+    - id: name-tests-test
+      args: [--pytest-test-first]
+      files: ^test\/.*\.py$
+      exclude: ^test/_license
+
+-   repo: https://github.com/asottile/pyupgrade
+    rev: v3.15.2
+    hooks:
+    -   id: pyupgrade
+        args: [--py310-plus]
 
 -   repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.1.5

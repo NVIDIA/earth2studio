@@ -15,7 +15,7 @@
 # limitations under the License.
 
 import datetime
-from typing import OrderedDict
+from collections import OrderedDict
 
 import numpy as np
 import pytest
