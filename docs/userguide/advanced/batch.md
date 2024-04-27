@@ -147,8 +147,8 @@ the execution of the models {py:func}`BatchModel.__call__`.
 The leading dimensions were then restored back while preserving the updated domain
 coordinates from the model's output.
 
-The batch decorator will also add the batch dimension to an input that is missing *only*
-the `batch` dimension.
+The batch decorator will also unsqueeze a batch axis to an input that is missing *only*
+`batch` from the input coordinate system with no additional dimensions.
 In this instance a batch size of one is implied.
 For example, using the model in the example above:
 
