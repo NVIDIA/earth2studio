@@ -1,5 +1,3 @@
-<!-- markdownlint-disable MD001 -->
-
 (batch_function_userguide)=
 
 # Batch Dimension
@@ -16,7 +14,7 @@ Batch dimensions have the following rules:
 - Must be the leading dimensions of the coordinate system
 - Must be set to {py:obj}`np.empty(0)` in objects coordinate property
 
-#### Good Coordinate Definitions
+## Good Coordinate Definitions
 
 `batch` is the leading dimension with a value of {py:obj}`np.empty(0)`.
 
@@ -50,7 +48,7 @@ coords = OrderedDict(
     )
 ```
 
-#### Bad Coordinate Definitions
+## Bad Coordinate Definitions
 
 Batch dimension is not leading.
 
