@@ -34,7 +34,7 @@
     <link rel="stylesheet" type="text/css" href="../../_static/sg_gallery-dataframe.css?v=2082cf3c" />
     <link rel="stylesheet" type="text/css" href="../../_static/sg_gallery-rendered-html.css?v=1277b6f3" />
     <link rel="stylesheet" type="text/css" href="../../_static/design-style.1e8bd061cd6da7fc9cf755528e8ffc24.min.css?v=0a3b3ea7" />
-    <link rel="stylesheet" type="text/css" href="../../_static/css/custom.css?v=58db39a5" />
+    <link rel="stylesheet" type="text/css" href="../../_static/css/custom.css?v=94338acd" />
   
   <!-- Pre-loaded scripts that we'll load fully later -->
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=8d27b9dea8ad943066ae" />
@@ -447,7 +447,6 @@ document.write(`
 <span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">OrderedDict</span>
 <span class="kn">from</span> <span class="nn">datetime</span> <span class="kn">import</span> <span class="n">datetime</span>
 <span class="kn">from</span> <span class="nn">math</span> <span class="kn">import</span> <span class="n">ceil</span>
-<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Optional</span>
 
 <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 <span class="kn">import</span> <span class="nn">torch</span>
@@ -475,7 +474,7 @@ document.write(`
     <span class="n">prognostic</span><span class="p">:</span> <span class="n">PrognosticModel</span><span class="p">,</span>
     <span class="n">data</span><span class="p">:</span> <span class="n">DataSource</span><span class="p">,</span>
     <span class="n">io</span><span class="p">:</span> <span class="n">IOBackend</span><span class="p">,</span>
-    <span class="n">device</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">device</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">device</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">device</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">IOBackend</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Built in deterministic workflow.</span>
 <span class="sd">    This workflow creates a determinstic inference pipeline to produce a forecast</span>
@@ -493,7 +492,7 @@ document.write(`
 <span class="sd">        Data source</span>
 <span class="sd">    io : IOBackend</span>
 <span class="sd">        IO object</span>
-<span class="sd">    device : Optional[torch.device], optional</span>
+<span class="sd">    device : torch.device, optional</span>
 <span class="sd">        Device to run inference on, by default None</span>
 
 <span class="sd">    Returns</span>
@@ -560,7 +559,7 @@ document.write(`
     <span class="n">diagnostic</span><span class="p">:</span> <span class="n">DiagnosticModel</span><span class="p">,</span>
     <span class="n">data</span><span class="p">:</span> <span class="n">DataSource</span><span class="p">,</span>
     <span class="n">io</span><span class="p">:</span> <span class="n">IOBackend</span><span class="p">,</span>
-    <span class="n">device</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">device</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">device</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">device</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">IOBackend</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Built in diagnostic workflow.</span>
 <span class="sd">    This workflow creates a determinstic inference pipeline that couples a prognostic</span>
@@ -580,7 +579,7 @@ document.write(`
 <span class="sd">        Data source</span>
 <span class="sd">    io : IOBackend</span>
 <span class="sd">        IO object</span>
-<span class="sd">    device : Optional[torch.device], optional</span>
+<span class="sd">    device : torch.device, optional</span>
 <span class="sd">        Device to run inference on, by default None</span>
 
 <span class="sd">    Returns</span>
@@ -656,9 +655,9 @@ document.write(`
     <span class="n">data</span><span class="p">:</span> <span class="n">DataSource</span><span class="p">,</span>
     <span class="n">io</span><span class="p">:</span> <span class="n">IOBackend</span><span class="p">,</span>
     <span class="n">perturbation_method</span><span class="p">:</span> <span class="n">PerturbationMethod</span><span class="p">,</span>
-    <span class="n">batch_size</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">batch_size</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="n">output_coords</span><span class="p">:</span> <span class="n">CoordSystem</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">({}),</span>
-    <span class="n">device</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">device</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">device</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">device</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">IOBackend</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Built in ensemble workflow.</span>
 
@@ -678,10 +677,10 @@ document.write(`
 <span class="sd">        IO object</span>
 <span class="sd">    perturbation_method : PerturbationMethod</span>
 <span class="sd">        Method to perturb the initial condition to create an ensemble.</span>
-<span class="sd">    batch_size: Optional[int], optional</span>
+<span class="sd">    batch_size: int, optional</span>
 <span class="sd">        Number of ensemble members to run in a single batch,</span>
 <span class="sd">        by default None.</span>
-<span class="sd">    device : Optional[torch.device], optional</span>
+<span class="sd">    device : torch.device, optional</span>
 <span class="sd">        Device to run inference on, by default None</span>
 
 <span class="sd">    Returns</span>

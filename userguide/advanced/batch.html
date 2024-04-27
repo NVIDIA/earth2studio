@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
     <link href="../../_static/favicon.ico" rel="icon" type="image/x-icon">
-    <title>Batch Functions &#8212; Earth2Studio 0.2.0a0 documentation</title>
+    <title>Batch Dimension &#8212; Earth2Studio 0.2.0a0 documentation</title>
   
   
   
@@ -35,7 +35,7 @@
     <link rel="stylesheet" type="text/css" href="../../_static/sg_gallery-dataframe.css?v=2082cf3c" />
     <link rel="stylesheet" type="text/css" href="../../_static/sg_gallery-rendered-html.css?v=1277b6f3" />
     <link rel="stylesheet" type="text/css" href="../../_static/design-style.1e8bd061cd6da7fc9cf755528e8ffc24.min.css?v=0a3b3ea7" />
-    <link rel="stylesheet" type="text/css" href="../../_static/css/custom.css?v=58db39a5" />
+    <link rel="stylesheet" type="text/css" href="../../_static/css/custom.css?v=94338acd" />
   
   <!-- Pre-loaded scripts that we'll load fully later -->
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=8d27b9dea8ad943066ae" />
@@ -404,7 +404,7 @@ document.write(`
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Advanced Usage</span></p>
 <ul class="current nav bd-sidenav">
-<li class="toctree-l1 current active"><a class="current reference internal" href="#">Batch Functions</a></li>
+<li class="toctree-l1 current active"><a class="current reference internal" href="#">Batch Dimension</a></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Developer Guide</span></p>
 <ul class="nav bd-sidenav">
@@ -456,7 +456,7 @@ document.write(`
     
     <li class="breadcrumb-item"><a href="../index.html" class="nav-link">User Guide</a></li>
     
-    <li class="breadcrumb-item active" aria-current="page">Batch Functions</li>
+    <li class="breadcrumb-item active" aria-current="page">Batch Dimension</li>
   </ul>
 </nav>
 </div>
@@ -473,14 +473,191 @@ document.write(`
 <div id="searchbox"></div>
                 <article class="bd-article">
                   
-  <section id="batch-functions">
-<span id="batch-function-userguide"></span><h1>Batch Functions<a class="headerlink" href="#batch-functions" title="Link to this heading">#</a></h1>
-<p>This section of the userguide expands on how batching is handled inside Earth2Studio.
+  <section id="batch-dimension">
+<span id="batch-function-userguide"></span><h1>Batch Dimension<a class="headerlink" href="#batch-dimension" title="Link to this heading">#</a></h1>
+<p>This section of the user guide expands on how batching is handled inside Earth2Studio.
 As discussed in <a class="reference internal" href="../about/data.html#data-userguide"><span class="std std-ref">data movement</span></a> section, there is a dedicated coordinate
 axis <code class="docutils literal notranslate"><span class="pre">batch</span></code> which is commonly used in many of the model implementations.
-<code class="docutils literal notranslate"><span class="pre">batch</span></code> represents a dynamic axis that can be of any size, enabling models better
+<code class="docutils literal notranslate"><span class="pre">batch</span></code> represents a dynamic axis that can be of any size, enabling models to better
 utilize compute resources.</p>
-<p>🚧 Under construction 🚧</p>
+<p>Batch dimensions have the following rules:</p>
+<ul class="simple">
+<li><p>Must be able to support any nonzero size</p></li>
+<li><p>Must be the leading dimensions of the coordinate system</p></li>
+<li><p>Must be set to <code class="xref py py-obj docutils literal notranslate"><span class="pre">np.empty(0)</span></code> in objects coordinate property</p></li>
+</ul>
+<section id="good-coordinate-definitions">
+<h2>Good Coordinate Definitions<a class="headerlink" href="#good-coordinate-definitions" title="Link to this heading">#</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">batch</span></code> is the leading dimension with a value of <code class="xref py py-obj docutils literal notranslate"><span class="pre">np.empty(0)</span></code>.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">coords</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">(</span>
+        <span class="p">{</span>
+            <span class="s2">&quot;batch&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span>
+            <span class="s2">&quot;lead_time&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">np</span><span class="o">.</span><span class="n">timedelta64</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;h&quot;</span><span class="p">)]),</span>
+            <span class="s2">&quot;variable&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">VARIABLES</span><span class="p">),</span>
+            <span class="s2">&quot;lat&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">90</span><span class="p">,</span> <span class="o">-</span><span class="mi">90</span><span class="p">,</span> <span class="mi">720</span><span class="p">,</span> <span class="n">endpoint</span><span class="o">=</span><span class="kc">False</span><span class="p">),</span>
+            <span class="s2">&quot;lon&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">360</span><span class="p">,</span> <span class="mi">1440</span><span class="p">,</span> <span class="n">endpoint</span><span class="o">=</span><span class="kc">False</span><span class="p">),</span>
+        <span class="p">}</span>
+    <span class="p">)</span>
+</pre></div>
+</div>
+<p>Other coordinates can have a value of <code class="xref py py-obj docutils literal notranslate"><span class="pre">np.empty(0)</span></code> to denote an additional
+dynamic axis but imply a required data type.
+In this case, this model supports a batch but must have a <code class="docutils literal notranslate"><span class="pre">time</span></code> axis needs to be a
+Numpy array of type <code class="xref py py-obj docutils literal notranslate"><span class="pre">np.datetime64</span></code>. See <a class="reference internal" href="../about/data.html#coordinates-userguide"><span class="std std-ref">data movement</span></a>
+section for expected types.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">coords</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">(</span>
+        <span class="p">{</span>
+            <span class="s2">&quot;batch&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span>
+            <span class="s2">&quot;time&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span>
+            <span class="s2">&quot;variable&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">VARIABLES</span><span class="p">),</span>
+            <span class="s2">&quot;lat&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">90</span><span class="p">,</span> <span class="o">-</span><span class="mi">90</span><span class="p">,</span> <span class="mi">720</span><span class="p">,</span> <span class="n">endpoint</span><span class="o">=</span><span class="kc">False</span><span class="p">),</span>
+            <span class="s2">&quot;lon&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">360</span><span class="p">,</span> <span class="mi">1440</span><span class="p">,</span> <span class="n">endpoint</span><span class="o">=</span><span class="kc">False</span><span class="p">),</span>
+        <span class="p">}</span>
+    <span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="bad-coordinate-definitions">
+<h2>Bad Coordinate Definitions<a class="headerlink" href="#bad-coordinate-definitions" title="Link to this heading">#</a></h2>
+<p>Batch dimension is not leading.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">coords</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">(</span>
+        <span class="p">{</span>
+            <span class="s2">&quot;variable&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">VARIABLES</span><span class="p">),</span>
+            <span class="s2">&quot;batch&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span>
+            <span class="s2">&quot;lat&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">90</span><span class="p">,</span> <span class="o">-</span><span class="mi">90</span><span class="p">,</span> <span class="mi">720</span><span class="p">,</span> <span class="n">endpoint</span><span class="o">=</span><span class="kc">False</span><span class="p">),</span>
+            <span class="s2">&quot;lon&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">360</span><span class="p">,</span> <span class="mi">1440</span><span class="p">,</span> <span class="n">endpoint</span><span class="o">=</span><span class="kc">False</span><span class="p">),</span>
+        <span class="p">}</span>
+    <span class="p">)</span>
+</pre></div>
+</div>
+<p>Batch dimension is not of size 0.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">coords</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">(</span>
+        <span class="p">{</span>
+            <span class="s2">&quot;batch&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">1</span><span class="p">),</span>
+            <span class="s2">&quot;variable&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">VARIABLES</span><span class="p">),</span>
+            <span class="s2">&quot;lat&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">90</span><span class="p">,</span> <span class="o">-</span><span class="mi">90</span><span class="p">,</span> <span class="mi">720</span><span class="p">,</span> <span class="n">endpoint</span><span class="o">=</span><span class="kc">False</span><span class="p">),</span>
+            <span class="s2">&quot;lon&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">360</span><span class="p">,</span> <span class="mi">1440</span><span class="p">,</span> <span class="n">endpoint</span><span class="o">=</span><span class="kc">False</span><span class="p">),</span>
+        <span class="p">}</span>
+    <span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="batch-decorator">
+<h2>Batch Decorator<a class="headerlink" href="#batch-decorator" title="Link to this heading">#</a></h2>
+<p>While the use of <code class="docutils literal notranslate"><span class="pre">batch</span></code> dimension is useful for communicating a dimension that can
+accept variable input sizes, it’s not very convenient to manually manipulate data into a
+form that matches the batch dimension.
+To make using batch supporting models easier, Earth2Studio offers a utility
+decorator <a class="reference internal" href="../../modules/generated/models/earth2studio.models.batch.batch_func.html#earth2studio.models.batch.batch_func" title="earth2studio.models.batch.batch_func"><code class="xref py py-class docutils literal notranslate"><span class="pre">earth2studio.models.batch.batch_func</span></code></a> which automates transforming
+extra leading dimensions into a batch one.
+This utility <em>must</em> be used in an object with coordinate properties.</p>
+<p>The batch function does the following steps:</p>
+<ol class="arabic simple">
+<li><p>Squeeze leading dims into a batch dimension</p></li>
+<li><p>Update batched input coordinates with a single batch index dimension</p></li>
+<li><p>Execute the wrapped function and get outputs</p></li>
+<li><p>Replace output batch coord with the batched input coordinates</p></li>
+<li><p>Unsqueeze the leading batch coordinate into original input dimensions</p></li>
+</ol>
+<p>Consider the following example:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">OrderedDict</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">torch</span>
+
+<span class="kn">from</span> <span class="nn">earth2studio.models.batch</span> <span class="kn">import</span> <span class="n">batch_func</span>
+
+
+<span class="k">class</span> <span class="nc">BatchModel</span><span class="p">:</span>
+
+    <span class="n">input_coords</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">({</span><span class="s2">&quot;batch&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span> <span class="s2">&quot;dim1&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">2</span><span class="p">)})</span>
+    <span class="n">output_coords</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">({</span><span class="s2">&quot;batch&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span> <span class="s2">&quot;dim2&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">4</span><span class="p">)})</span>
+
+    <span class="nd">@batch_func</span><span class="p">()</span>
+    <span class="k">def</span> <span class="fm">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="nb">input</span><span class="p">,</span> <span class="n">coords</span><span class="p">):</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Model Input:&quot;</span><span class="p">,</span> <span class="nb">input</span><span class="o">.</span><span class="n">size</span><span class="p">(),</span> <span class="n">coords</span><span class="p">)</span>
+
+        <span class="n">out</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">([</span><span class="nb">input</span><span class="p">,</span> <span class="nb">input</span><span class="p">],</span> <span class="n">dim</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">out_c</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">output_coords</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">out</span><span class="p">,</span> <span class="n">out_c</span>
+
+
+<span class="n">input_coords</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">(</span>
+    <span class="p">{</span><span class="s2">&quot;batched_dim0&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">2</span><span class="p">),</span> <span class="s2">&quot;batched_dim1&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">3</span><span class="p">),</span> <span class="s2">&quot;dim1&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">2</span><span class="p">)}</span>
+<span class="p">)</span>
+<span class="nb">input</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+
+<span class="n">model</span> <span class="o">=</span> <span class="n">BatchModel</span><span class="p">()</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Input:&quot;</span><span class="p">,</span> <span class="nb">input</span><span class="o">.</span><span class="n">size</span><span class="p">(),</span> <span class="n">input_coords</span><span class="p">)</span>
+<span class="n">output</span><span class="p">,</span> <span class="n">output_coords</span> <span class="o">=</span> <span class="n">model</span><span class="p">(</span><span class="nb">input</span><span class="p">,</span> <span class="n">input_coords</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Output:&quot;</span><span class="p">,</span> <span class="n">output</span><span class="o">.</span><span class="n">size</span><span class="p">(),</span> <span class="n">output_coords</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>The input of the model print:</p>
+<!-- markdownlint-disable MD013 -->
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="go">Input: torch.Size([2, 3, 2]) OrderedDict([(&#39;batched_dim0&#39;, array([0, 1])), (&#39;bacthed_dim1&#39;, array([0, 1, 2])), (&#39;dim1&#39;, array([0, 1]))])</span>
+
+<span class="go">Model Input: torch.Size([6, 2]) OrderedDict([(&#39;batch&#39;, array([0, 1, 2, 3, 4, 5])), (&#39;dim1&#39;, array([0, 1]))])</span>
+
+<span class="go">Output: torch.Size([2, 3, 4]) OrderedDict([(&#39;batched_dim0&#39;, array([0, 1])), (&#39;bacthed_dim1&#39;, array([0, 1, 2])), (&#39;dim2&#39;, array([0, 1, 2, 3]))])</span>
+</pre></div>
+</div>
+<!-- markdownlint-enable MD013 -->
+<p>Note that the leading two dimensions were squeezed into a single batch dimension before
+the execution of the models <code class="xref py py-func docutils literal notranslate"><span class="pre">BatchModel.__call__()</span></code>.
+The leading dimensions were then restored back while preserving the updated domain
+coordinates from the model’s output.</p>
+<p>The batch decorator will also unsqueeze a batch axis to an input that is missing <em>only</em>
+<code class="docutils literal notranslate"><span class="pre">batch</span></code> from the input coordinate system with no additional dimensions.
+In this instance a batch size of one is implied.
+For example, using the model in the example above:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">input_coords</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">(</span>
+    <span class="p">{</span><span class="s2">&quot;dim1&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">2</span><span class="p">)}</span>
+<span class="p">)</span>
+<span class="nb">input</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
+
+<span class="n">model</span> <span class="o">=</span> <span class="n">BatchModel</span><span class="p">()</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Input:&quot;</span><span class="p">,</span> <span class="nb">input</span><span class="o">.</span><span class="n">size</span><span class="p">(),</span> <span class="n">input_coords</span><span class="p">)</span>
+<span class="n">output</span><span class="p">,</span> <span class="n">output_coords</span> <span class="o">=</span> <span class="n">model</span><span class="p">(</span><span class="nb">input</span><span class="p">,</span> <span class="n">input_coords</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Output:&quot;</span><span class="p">,</span> <span class="n">output</span><span class="o">.</span><span class="n">size</span><span class="p">(),</span> <span class="n">output_coords</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>will execute successfully with an output of:</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="go">Input: torch.Size([2]) OrderedDict([(&#39;dim1&#39;, array([0, 1]))])</span>
+
+<span class="go">Model Input: torch.Size([1, 2]) OrderedDict([(&#39;batch&#39;, array([0])), (&#39;dim1&#39;, array([0, 1]))])</span>
+
+<span class="go">Output: torch.Size([4]) OrderedDict([(&#39;dim2&#39;, array([0, 1, 2, 3]))])</span>
+</pre></div>
+</div>
+</section>
+<section id="batch-dimension-in-io">
+<h2>Batch Dimension in IO<a class="headerlink" href="#batch-dimension-in-io" title="Link to this heading">#</a></h2>
+<p>The IO backends require users to pre-define the output coordinate system on which the
+data will be exported.
+Typically. a good way to do this is to look at the output coordinate system of the model,
+which will typically include a <code class="docutils literal notranslate"><span class="pre">batch</span></code> dimension.
+But the model won’t actually return a batch dimension, thus it’s a common pattern to
+replace this batch dimension with whatever leading coordinate the input will have.</p>
+<p>For example, refer to the built-in workflows.
+The setup process for the IO backend is handled in a general manner by first getting the
+output coordinates of the model, removing empty dimensions such as <code class="docutils literal notranslate"><span class="pre">batch</span></code> and then
+prepending known leading dimensions like <code class="docutils literal notranslate"><span class="pre">time</span></code>.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">total_coords</span> <span class="o">=</span> <span class="n">prognostic</span><span class="o">.</span><span class="n">output_coords</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+<span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">prognostic</span><span class="o">.</span><span class="n">output_coords</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+    <span class="k">if</span> <span class="n">value</span><span class="o">.</span><span class="n">shape</span> <span class="o">==</span> <span class="p">(</span><span class="mi">0</span><span class="p">,):</span>
+        <span class="k">del</span> <span class="n">total_coords</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
+<span class="n">total_coords</span><span class="p">[</span><span class="s2">&quot;time&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">time</span>
+<span class="n">total_coords</span><span class="p">[</span><span class="s2">&quot;lead_time&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span>
+    <span class="p">[</span><span class="n">prognostic</span><span class="o">.</span><span class="n">output_coords</span><span class="p">[</span><span class="s2">&quot;lead_time&quot;</span><span class="p">]</span> <span class="o">*</span> <span class="n">i</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">nsteps</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)]</span>
+<span class="p">)</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span>
+<span class="n">total_coords</span><span class="o">.</span><span class="n">move_to_end</span><span class="p">(</span><span class="s2">&quot;lead_time&quot;</span><span class="p">,</span> <span class="n">last</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<span class="n">total_coords</span><span class="o">.</span><span class="n">move_to_end</span><span class="p">(</span><span class="s2">&quot;time&quot;</span><span class="p">,</span> <span class="n">last</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<span class="n">var_names</span> <span class="o">=</span> <span class="n">total_coords</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">&quot;variable&quot;</span><span class="p">)</span>
+<span class="n">io</span><span class="o">.</span><span class="n">add_array</span><span class="p">(</span><span class="n">total_coords</span><span class="p">,</span> <span class="n">var_names</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
 </section>
 
 
@@ -520,6 +697,21 @@ utilize compute resources.</p>
               
                 <div class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
 
+
+  <div class="sidebar-secondary-item">
+<div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> On this page
+  </div>
+  <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#good-coordinate-definitions">Good Coordinate Definitions</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#bad-coordinate-definitions">Bad Coordinate Definitions</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#batch-decorator">Batch Decorator</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#batch-dimension-in-io">Batch Dimension in IO</a></li>
+</ul>
+  </nav></div>
 
   <div class="sidebar-secondary-item">
 

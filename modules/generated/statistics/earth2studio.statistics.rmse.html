@@ -35,7 +35,7 @@
     <link rel="stylesheet" type="text/css" href="../../../_static/sg_gallery-dataframe.css?v=2082cf3c" />
     <link rel="stylesheet" type="text/css" href="../../../_static/sg_gallery-rendered-html.css?v=1277b6f3" />
     <link rel="stylesheet" type="text/css" href="../../../_static/design-style.1e8bd061cd6da7fc9cf755528e8ffc24.min.css?v=0a3b3ea7" />
-    <link rel="stylesheet" type="text/css" href="../../../_static/css/custom.css?v=58db39a5" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/css/custom.css?v=94338acd" />
   
   <!-- Pre-loaded scripts that we'll load fully later -->
   <link rel="preload" as="script" href="../../../_static/scripts/bootstrap.js?digest=8d27b9dea8ad943066ae" />
@@ -527,12 +527,12 @@ over a set of given dimensions.</p>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>reduction_dimensions</strong> (<em>List</em><em>[</em><em>str</em><em>]</em>) – A list of names corresponding to dimensions to perform the
 statistical reduction over. Example: [‘lat’, ‘lon’]</p></li>
-<li><p><strong>weights</strong> (<em>Optional</em><em>[</em><em>torch.Tensor</em><em>] </em><em>= None</em>) – A tensor containing weights to assign to the reduction dimensions.
+<li><p><strong>weights</strong> (<em>torch.Tensor = None</em>) – A tensor containing weights to assign to the reduction dimensions.
 Note that these weights must have the same number of dimensions
 as passed in reduction_dimensions.
 Example: if reduction_dimensions = [‘lat’, ‘lon’] then
 assert weights.ndim == 2.</p></li>
-<li><p><strong>batch_update</strong> (<em>Optional</em><em>[</em><em>bool</em><em>] </em><em>= False</em>) – Whether to applying batch updates to the rmse with each invocation of __call__.
+<li><p><strong>batch_update</strong> (<em>bool = False</em>) – Whether to applying batch updates to the rmse with each invocation of __call__.
 This is particularly useful when data is recieved in a stream of batches. Each
 invocation of __call__ will return the running rmse. It particular, it will apply
 the square root operation after calculating the running mean squared error.</p></li>

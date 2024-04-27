@@ -35,7 +35,7 @@
     <link rel="stylesheet" type="text/css" href="../../../_static/sg_gallery-dataframe.css?v=2082cf3c" />
     <link rel="stylesheet" type="text/css" href="../../../_static/sg_gallery-rendered-html.css?v=1277b6f3" />
     <link rel="stylesheet" type="text/css" href="../../../_static/design-style.1e8bd061cd6da7fc9cf755528e8ffc24.min.css?v=0a3b3ea7" />
-    <link rel="stylesheet" type="text/css" href="../../../_static/css/custom.css?v=58db39a5" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/css/custom.css?v=94338acd" />
   
   <!-- Pre-loaded scripts that we'll load fully later -->
   <link rel="preload" as="script" href="../../../_static/scripts/bootstrap.js?digest=8d27b9dea8ad943066ae" />
@@ -520,7 +520,7 @@ document.write(`
 <dl class="py class">
 <dt class="sig sig-object py" id="earth2studio.models.batch.batch_func">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">earth2studio.models.batch.</span></span><span class="sig-name descname"><span class="pre">batch_func</span></span><a class="reference internal" href="../../../_modules/earth2studio/models/batch.html#batch_func"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.batch.batch_func" title="Link to this definition">#</a></dt>
-<dd><p>Batch utility mixin which can be added to prognostic and diagnostic models
+<dd><p>Batch utility decorator which can be added to prognostic and diagnostic models
 to help enable support for automatic batching of data. This class contains a
 decorator function which should be added to calls where this functionality is
 desired.</p>
@@ -532,8 +532,8 @@ coordinate system of the first dimensions. I.e. first key entry needs to be “b
 <p class="rubric">Example</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">class</span> <span class="nc">Model</span><span class="p">():</span>
 
-    <span class="n">input_coords</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">([(</span><span class="s2">&quot;batch&quot;</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">1</span><span class="p">)),</span> <span class="o">...</span><span class="p">])</span>
-    <span class="n">output_coords</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">([(</span><span class="s2">&quot;batch&quot;</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">1</span><span class="p">)),</span> <span class="o">...</span><span class="p">])</span>
+    <span class="n">input_coords</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">([(</span><span class="s2">&quot;batch&quot;</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">0</span><span class="p">)),</span> <span class="o">...</span><span class="p">])</span>
+    <span class="n">output_coords</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">([(</span><span class="s2">&quot;batch&quot;</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">0</span><span class="p">)),</span> <span class="o">...</span><span class="p">])</span>
 
     <span class="nd">@batch_func</span><span class="p">()</span>
     <span class="k">def</span> <span class="fm">__call__</span><span class="p">(</span>

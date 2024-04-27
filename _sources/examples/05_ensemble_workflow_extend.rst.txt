@@ -58,11 +58,9 @@ We need the following:
 - Datasource: Pull data from the GFS data api :py:class:`earth2studio.data.GFS`.
 - IO Backend: Save the outputs into a Zarr store :py:class:`earth2studio.io.ZarrBackend`.
 
-.. GENERATED FROM PYTHON SOURCE LINES 58-81
+.. GENERATED FROM PYTHON SOURCE LINES 58-79
 
 .. code-block:: Python
-
-    from typing import List, Union
 
     from dotenv import load_dotenv
 
@@ -86,20 +84,20 @@ We need the following:
     data = GFS()
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 82-85
+.. GENERATED FROM PYTHON SOURCE LINES 80-83
 
 The perturbation method in :ref:`sphx_glr_examples_03_ensemble_workflow.py` is naive because it
 applies the same noise amplitude to every variable. We can create a custom wrapper
 that only applies the perturbation method to a particular variable instead.
 
-.. GENERATED FROM PYTHON SOURCE LINES 87-117
+.. GENERATED FROM PYTHON SOURCE LINES 85-115
 
 .. code-block:: Python
 
     class ApplyToVariable:
         """Apply a perturbation to only a particular variable."""
 
-        def __init__(self, pm: PerturbationMethod, variable: Union[str, List[str]]):
+        def __init__(self, pm: PerturbationMethod, variable: str | list[str]):
             self.pm = pm
             if isinstance(variable, str):
                 variable = [variable]
@@ -127,7 +125,7 @@ that only applies the perturbation method to a particular variable instead.
     io = ZarrBackend(file_name="outputs/04_ensemble_avsg.zarr", chunks=chunks)
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 118-127
+.. GENERATED FROM PYTHON SOURCE LINES 116-125
 
 Execute the Workflow
 --------------------
@@ -139,7 +137,7 @@ saving to file. Check the API docs for more information.
 For the forecast we will predict for 10 steps (for FCN, this is 60 hours) with 8 ensemble
 members which will be ran in 2 batches with batch size 4.
 
-.. GENERATED FROM PYTHON SOURCE LINES 129-144
+.. GENERATED FROM PYTHON SOURCE LINES 127-142
 
 .. code-block:: Python
 
@@ -159,7 +157,7 @@ members which will be ran in 2 batches with batch size 4.
     )
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 145-150
+.. GENERATED FROM PYTHON SOURCE LINES 143-148
 
 Post Processing
 ---------------
@@ -167,7 +165,7 @@ The last step is to post process our results.
 
 Notice that the Zarr IO function has additional APIs to interact with the stored data.
 
-.. GENERATED FROM PYTHON SOURCE LINES 152-208
+.. GENERATED FROM PYTHON SOURCE LINES 150-206
 
 .. code-block:: Python
 

@@ -54,7 +54,7 @@ different devices. If your model is PyTorch, then this will be easy.
 .. code-block:: Python
 
     from collections import OrderedDict
-    from typing import Generator, Iterator
+    from collections.abc import Generator, Iterator
 
     import numpy as np
     import torch
@@ -199,12 +199,19 @@ demand, so this infinite loop won't cause the program to get stuck.
 
 .. GENERATED FROM PYTHON SOURCE LINES 192-196
 
+.. warning::
+    It is the responsibility of the model check if the input tensor and coordinate
+    system are indeed valid. The :py:func:`earth2studio.utils.coords.handshake_coords`
+    and :py:func:`earth2studio.utils.coords.handshake_dim` can help make this easier.
+
+.. GENERATED FROM PYTHON SOURCE LINES 198-202
+
 Set Up
 ------
 With the custom prognostic defined, it's now easily usable in a standard workflow. In
 this example, we will use the build in workflow :py:meth:`earth2studio.run.deterministic`.
 
-.. GENERATED FROM PYTHON SOURCE LINES 198-203
+.. GENERATED FROM PYTHON SOURCE LINES 204-209
 
 Let's instantiate the components needed.
 
@@ -212,7 +219,7 @@ Let's instantiate the components needed.
 - Datasource: Pull data from the GFS data api :py:class:`earth2studio.data.GFS`.
 - IO Backend: Save the outputs into a Zarr store :py:class:`earth2studio.io.ZarrBackend`.
 
-.. GENERATED FROM PYTHON SOURCE LINES 205-224
+.. GENERATED FROM PYTHON SOURCE LINES 211-230
 
 .. code-block:: Python
 
@@ -236,14 +243,14 @@ Let's instantiate the components needed.
     io = ZarrBackend()
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 225-229
+.. GENERATED FROM PYTHON SOURCE LINES 231-235
 
 Execute the Workflow
 --------------------
 Because the prognostic meets the needs of the interface, the workflow will execute
 just like any other model.
 
-.. GENERATED FROM PYTHON SOURCE LINES 231-238
+.. GENERATED FROM PYTHON SOURCE LINES 237-244
 
 .. code-block:: Python
 
@@ -255,14 +262,14 @@ just like any other model.
     print(io.root.tree())
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 239-243
+.. GENERATED FROM PYTHON SOURCE LINES 245-249
 
 Post Processing
 ---------------
 To confirm that our prognostic model is working as expected, we should see the fields
 become progressively more noisy as time progresses.
 
-.. GENERATED FROM PYTHON SOURCE LINES 245-274
+.. GENERATED FROM PYTHON SOURCE LINES 251-280
 
 .. code-block:: Python
 

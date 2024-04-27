@@ -7,6 +7,7 @@ This is a collection of examples in Earth2Studio that demonstrate various functi
 and commonly used workflows.
 
 
+
 .. raw:: html
 
     <div class="sphx-glr-thumbnails">
@@ -153,6 +154,7 @@ Extending Earth2Studio
 
 Examples focused on demonstrating how to extend Earth2Studio with user-defined
 components.
+
 
 
 .. raw:: html

@@ -11,6 +11,7 @@ Examples focused on demonstrating how to extend Earth2Studio with user-defined
 components.
 
 
+
 .. raw:: html
 
     <div class="sphx-glr-thumbnails">

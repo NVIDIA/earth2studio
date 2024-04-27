@@ -34,7 +34,7 @@
     <link rel="stylesheet" type="text/css" href="../../../_static/sg_gallery-dataframe.css?v=2082cf3c" />
     <link rel="stylesheet" type="text/css" href="../../../_static/sg_gallery-rendered-html.css?v=1277b6f3" />
     <link rel="stylesheet" type="text/css" href="../../../_static/design-style.1e8bd061cd6da7fc9cf755528e8ffc24.min.css?v=0a3b3ea7" />
-    <link rel="stylesheet" type="text/css" href="../../../_static/css/custom.css?v=58db39a5" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/css/custom.css?v=94338acd" />
   
   <!-- Pre-loaded scripts that we'll load fully later -->
   <link rel="preload" as="script" href="../../../_static/scripts/bootstrap.js?digest=8d27b9dea8ad943066ae" />
@@ -447,8 +447,9 @@ document.write(`
 <span class="kn">import</span> <span class="nn">inspect</span>
 <span class="kn">import</span> <span class="nn">sys</span>
 <span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">OrderedDict</span>
+<span class="kn">from</span> <span class="nn">collections.abc</span> <span class="kn">import</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Iterator</span>
 <span class="kn">from</span> <span class="nn">itertools</span> <span class="kn">import</span> <span class="n">chain</span><span class="p">,</span> <span class="n">islice</span>
-<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Iterator</span><span class="p">,</span> <span class="n">TypeVar</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">TypeVar</span>
 
 <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 <span class="kn">import</span> <span class="nn">torch</span>
@@ -462,7 +463,7 @@ document.write(`
 <div class="viewcode-block" id="batch_func">
 <a class="viewcode-back" href="../../../modules/generated/models/earth2studio.models.batch.batch_func.html#earth2studio.models.batch.batch_func">[docs]</a>
 <span class="k">class</span> <span class="nc">batch_func</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Batch utility mixin which can be added to prognostic and diagnostic models</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Batch utility decorator which can be added to prognostic and diagnostic models</span>
 <span class="sd">    to help enable support for automatic batching of data. This class contains a</span>
 <span class="sd">    decorator function which should be added to calls where this functionality is</span>
 <span class="sd">    desired.</span>
@@ -479,8 +480,8 @@ document.write(`
 
 <span class="sd">        class Model():</span>
 
-<span class="sd">            input_coords = OrderedDict([(&quot;batch&quot;, np.empty(1)), ...])</span>
-<span class="sd">            output_coords = OrderedDict([(&quot;batch&quot;, np.empty(1)), ...])</span>
+<span class="sd">            input_coords = OrderedDict([(&quot;batch&quot;, np.empty(0)), ...])</span>
+<span class="sd">            output_coords = OrderedDict([(&quot;batch&quot;, np.empty(0)), ...])</span>
 
 <span class="sd">            @batch_func()</span>
 <span class="sd">            def __call__(</span>

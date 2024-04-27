@@ -23,8 +23,8 @@ The full requirements for a standard IO backend are defined explicitly in the
 `earth2studio/io/base.py`.
 
 ```{literalinclude} ../../../earth2studio/io/base.py
-    :lines: 24-
-    :language: python
+:lines: 24-
+:language: python
 ```
 
 :::{note}

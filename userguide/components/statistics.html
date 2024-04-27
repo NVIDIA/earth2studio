@@ -35,7 +35,7 @@
     <link rel="stylesheet" type="text/css" href="../../_static/sg_gallery-dataframe.css?v=2082cf3c" />
     <link rel="stylesheet" type="text/css" href="../../_static/sg_gallery-rendered-html.css?v=1277b6f3" />
     <link rel="stylesheet" type="text/css" href="../../_static/design-style.1e8bd061cd6da7fc9cf755528e8ffc24.min.css?v=0a3b3ea7" />
-    <link rel="stylesheet" type="text/css" href="../../_static/css/custom.css?v=58db39a5" />
+    <link rel="stylesheet" type="text/css" href="../../_static/css/custom.css?v=94338acd" />
   
   <!-- Pre-loaded scripts that we'll load fully later -->
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=8d27b9dea8ad943066ae" />
@@ -61,7 +61,7 @@
         </script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
-    <link rel="next" title="Batch Functions" href="../advanced/batch.html" />
+    <link rel="next" title="Batch Dimension" href="../advanced/batch.html" />
     <link rel="prev" title="Output Handling" href="io.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
@@ -404,7 +404,7 @@ document.write(`
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Advanced Usage</span></p>
 <ul class="nav bd-sidenav">
-<li class="toctree-l1"><a class="reference internal" href="../advanced/batch.html">Batch Functions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../advanced/batch.html">Batch Dimension</a></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Developer Guide</span></p>
 <ul class="nav bd-sidenav">
@@ -483,30 +483,7 @@ makes statistics less flexible than diagnostic models but have fewer API require
 <h2>Statistics Interface<a class="headerlink" href="#statistics-interface" title="Link to this heading">#</a></h2>
 <p>Statistics API only specify a <code class="xref py py-func docutils literal notranslate"><span class="pre">__call__()</span></code> method that matches similar methods
 across the package.</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1"># SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION &amp; AFFILIATES.</span>
-<span class="c1"># SPDX-FileCopyrightText: All rights reserved.</span>
-<span class="c1"># SPDX-License-Identifier: Apache-2.0</span>
-<span class="c1">#</span>
-<span class="c1"># Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);</span>
-<span class="c1"># you may not use this file except in compliance with the License.</span>
-<span class="c1"># You may obtain a copy of the License at</span>
-<span class="c1">#</span>
-<span class="c1"># http://www.apache.org/licenses/LICENSE-2.0</span>
-<span class="c1">#</span>
-<span class="c1"># Unless required by applicable law or agreed to in writing, software</span>
-<span class="c1"># distributed under the License is distributed on an &quot;AS IS&quot; BASIS,</span>
-<span class="c1"># WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.</span>
-<span class="c1"># See the License for the specific language governing permissions and</span>
-<span class="c1"># limitations under the License.</span>
-
-<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Protocol</span><span class="p">,</span> <span class="n">runtime_checkable</span>
-
-<span class="kn">import</span> <span class="nn">torch</span>
-
-<span class="kn">from</span> <span class="nn">earth2studio.utils.type</span> <span class="kn">import</span> <span class="n">CoordSystem</span>
-
-
-<span class="nd">@runtime_checkable</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nd">@runtime_checkable</span>
 <span class="k">class</span> <span class="nc">Statistic</span><span class="p">(</span><span class="n">Protocol</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Statistic interface.&quot;&quot;&quot;</span>
 
@@ -526,35 +503,6 @@ across the package.</p>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">pass</span>
 
-
-<span class="nd">@runtime_checkable</span>
-<span class="k">class</span> <span class="nc">Metric</span><span class="p">(</span><span class="n">Protocol</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Metrics interface.&quot;&quot;&quot;</span>
-
-    <span class="k">def</span> <span class="fm">__call__</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span>
-        <span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
-        <span class="n">x_coords</span><span class="p">:</span> <span class="n">CoordSystem</span><span class="p">,</span>
-        <span class="n">y</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
-        <span class="n">y_coords</span><span class="p">:</span> <span class="n">CoordSystem</span><span class="p">,</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">CoordSystem</span><span class="p">]:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Apply metric to data `x` and `y`, checking that their coordinates</span>
-<span class="sd">        are broadcastable. While reducing over `reduction_dims`.</span>
-
-<span class="sd">        Parameters</span>
-<span class="sd">        ----------</span>
-<span class="sd">        x : torch.Tensor</span>
-<span class="sd">            Input tensor #1 intended to apply metric to.</span>
-<span class="sd">        x_coords : CoordSystem</span>
-<span class="sd">            Ordered dict representing coordinate system that describes the `x` tensor.</span>
-<span class="sd">            &#39;reduction_dims&#39; must be in coords.</span>
-<span class="sd">        y : torch.Tensor</span>
-<span class="sd">            Input tensor #2 intended to apply statistic to.</span>
-<span class="sd">        y_coords : CoordSystem</span>
-<span class="sd">            Ordered dict representing coordinate system that describes the `y` tensor.</span>
-<span class="sd">            &#39;reduction_dims&#39; must be in coords.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">pass</span>
 </pre></div>
 </div>
 <p>The base API hints at, and inspection of the <code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics.moments</span></code>
@@ -686,7 +634,7 @@ applicable and, if possible, weight and batching support possible.</p>
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">Batch Functions</p>
+        <p class="prev-next-title">Batch Dimension</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
