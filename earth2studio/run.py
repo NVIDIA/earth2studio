@@ -60,7 +60,7 @@ def deterministic(
         Data source
     io : IOBackend
         IO object
-    device : Optional[torch.device], optional
+    device : torch.device, optional
         Device to run inference on, by default None
 
     Returns
@@ -144,7 +144,7 @@ def diagnostic(
         Data source
     io : IOBackend
         IO object
-    device : Optional[torch.device], optional
+    device : torch.device, optional
         Device to run inference on, by default None
 
     Returns
@@ -239,10 +239,10 @@ def ensemble(
         IO object
     perturbation_method : PerturbationMethod
         Method to perturb the initial condition to create an ensemble.
-    batch_size: Optional[int], optional
+    batch_size: int, optional
         Number of ensemble members to run in a single batch,
         by default None.
-    device : Optional[torch.device], optional
+    device : torch.device, optional
         Device to run inference on, by default None
 
     Returns

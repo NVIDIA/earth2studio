@@ -34,7 +34,7 @@ class Package:
     ----------
     root : str
         Root directory for file system
-    cache_dir : Optional[str], optional
+    cache_dir : str, optional
         Cache directory, if remote path files will be downloaded here. If none is
         provided then the path set in LOCAL_CACHE enviroment variable will be used.
         If that is empty the path "~/.cache/earth2studio" is used, by default None
@@ -122,7 +122,7 @@ class AutoModelMixin:
 
         Parameters
         ----------
-        pretrained_model_name_or_path : Optional[str], optional
+        pretrained_model_name_or_path : str, optional
             Path to model package (file system). If none is provided, the built in
             package will be used if provide, by default None. Valid inputs include:
             - A path to a directory containing model weights saved e.g.,

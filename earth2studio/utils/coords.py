@@ -35,7 +35,7 @@ def handshake_dim(
         Input coordinate system to validate
     required_dim : str
         Required dimension (name of coordinate)
-    required_index : optional[int], optional
+    required_index : int, optional
         Required index of dimension if needed, by default None
 
     Raises
