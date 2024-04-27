@@ -22,7 +22,7 @@ include:
   - project: 'modulus/modulus-ci'
     ref: earth-2
     file: '.gitlab-ci/earth2/studio/wheel.gitlab-ci.yml'
-    
+
   - project: 'modulus/modulus-ci'
     ref: earth-2
     file: '.gitlab-ci/earth2/studio/docs.gitlab-ci.yml'

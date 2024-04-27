@@ -16,7 +16,8 @@
 
 import copy
 from collections import OrderedDict
-from typing import Callable, Literal
+from collections.abc import Callable
+from typing import Literal
 
 import numpy as np
 import torch

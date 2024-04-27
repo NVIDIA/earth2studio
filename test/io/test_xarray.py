@@ -15,7 +15,6 @@
 # limitations under the License.
 
 from collections import OrderedDict
-from typing import List
 
 import numpy as np
 import pytest
@@ -39,7 +38,7 @@ from earth2studio.utils.coords import split_coords
 )
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
 def test_xarray_fields(
-    time: List[np.datetime64], variable: List[str], device: str
+    time: list[np.datetime64], variable: list[str], device: str
 ) -> None:
 
     total_coords = OrderedDict(
@@ -119,7 +118,7 @@ def test_xarray_fields(
 )
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
 def test_xarray_variable(
-    time: List[np.datetime64], variable: List[str], device: str
+    time: list[np.datetime64], variable: list[str], device: str
 ) -> None:
 
     total_coords = OrderedDict(
@@ -175,7 +174,7 @@ def test_xarray_variable(
 )
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
 def test_xarray_exceptions(
-    time: List[np.datetime64], variable: List[str], device: str
+    time: list[np.datetime64], variable: list[str], device: str
 ) -> None:
 
     total_coords = OrderedDict(

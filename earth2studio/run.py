@@ -17,7 +17,6 @@
 from collections import OrderedDict
 from datetime import datetime
 from math import ceil
-from typing import Optional
 
 import numpy as np
 import torch
@@ -43,7 +42,7 @@ def deterministic(
     prognostic: PrognosticModel,
     data: DataSource,
     io: IOBackend,
-    device: Optional[torch.device] = None,
+    device: torch.device | None = None,
 ) -> IOBackend:
     """Built in deterministic workflow.
     This workflow creates a determinstic inference pipeline to produce a forecast
@@ -61,7 +60,7 @@ def deterministic(
         Data source
     io : IOBackend
         IO object
-    device : Optional[torch.device], optional
+    device : torch.device, optional
         Device to run inference on, by default None
 
     Returns
@@ -125,7 +124,7 @@ def diagnostic(
     diagnostic: DiagnosticModel,
     data: DataSource,
     io: IOBackend,
-    device: Optional[torch.device] = None,
+    device: torch.device | None = None,
 ) -> IOBackend:
     """Built in diagnostic workflow.
     This workflow creates a determinstic inference pipeline that couples a prognostic
@@ -145,7 +144,7 @@ def diagnostic(
         Data source
     io : IOBackend
         IO object
-    device : Optional[torch.device], optional
+    device : torch.device, optional
         Device to run inference on, by default None
 
     Returns
@@ -218,9 +217,9 @@ def ensemble(
     data: DataSource,
     io: IOBackend,
     perturbation_method: PerturbationMethod,
-    batch_size: Optional[int] = None,
+    batch_size: int | None = None,
     output_coords: CoordSystem = OrderedDict({}),
-    device: Optional[torch.device] = None,
+    device: torch.device | None = None,
 ) -> IOBackend:
     """Built in ensemble workflow.
 
@@ -240,10 +239,10 @@ def ensemble(
         IO object
     perturbation_method : PerturbationMethod
         Method to perturb the initial condition to create an ensemble.
-    batch_size: Optional[int], optional
+    batch_size: int, optional
         Number of ensemble members to run in a single batch,
         by default None.
-    device : Optional[torch.device], optional
+    device : torch.device, optional
         Device to run inference on, by default None
 
     Returns

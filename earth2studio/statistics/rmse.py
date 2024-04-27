@@ -31,13 +31,13 @@ class rmse:
     reduction_dimensions: List[str]
         A list of names corresponding to dimensions to perform the
         statistical reduction over. Example: ['lat', 'lon']
-    weights: Optional[torch.Tensor] = None
+    weights: torch.Tensor = None
         A tensor containing weights to assign to the reduction dimensions.
         Note that these weights must have the same number of dimensions
         as passed in reduction_dimensions.
         Example: if reduction_dimensions = ['lat', 'lon'] then
         assert weights.ndim == 2.
-    batch_update: Optional[bool] = False
+    batch_update: bool = False
         Whether to applying batch updates to the rmse with each invocation of __call__.
         This is particularly useful when data is recieved in a stream of batches. Each
         invocation of __call__ will return the running rmse. It particular, it will apply

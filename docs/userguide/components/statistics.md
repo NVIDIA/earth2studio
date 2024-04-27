@@ -13,8 +13,8 @@ Statistics API only specify a {func}`__call__` method that matches similar metho
 across the package.
 
 ```{literalinclude} ../../../earth2studio/statistics/base.py
-    :lines: 24-43
-    :language: python
+:lines: 24-43
+:language: python
 ```
 
 The base API hints at, and inspection of the {mod}`earth2studio.statistics.moments`

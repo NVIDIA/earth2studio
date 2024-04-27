@@ -14,8 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Optional
-
 import numpy as np
 import torch
 
@@ -46,21 +44,21 @@ class Perturbation:
     ----------
     method : PerturbationMethod
         Perturbation method
-    variables : Optional[list[str]], optional
+    variables : list[str], optional
         List of variable id's to apply petrubation on. If None, perturbation will be
         applied to all variables, by default None
-    center : Optional[np.ndarray], optional
+    center : np.ndarray, optional
         Variable center / mean array. If None, no center will be used, by default None
-    scale : Optional[np.ndarray], optional
+    scale : np.ndarray, optional
         Variable scale / std array. If None, no scale will be used,, by default None
     """
 
     def __init__(
         self,
         method: PerturbationMethod,
-        variables: Optional[list[str]] = None,
-        center: Optional[np.ndarray] = None,
-        scale: Optional[np.ndarray] = None,
+        variables: list[str] | None = None,
+        center: np.ndarray | None = None,
+        scale: np.ndarray | None = None,
     ):
         self.method = method
         self.variables = variables

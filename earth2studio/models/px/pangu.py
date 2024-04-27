@@ -26,7 +26,8 @@
 
 import os
 from collections import OrderedDict
-from typing import Generator, Iterator, TypeVar
+from collections.abc import Generator, Iterator
+from typing import TypeVar
 
 import numpy as np
 

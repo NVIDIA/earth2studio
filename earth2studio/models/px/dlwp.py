@@ -15,8 +15,8 @@
 # limitations under the License.
 
 from collections import OrderedDict
+from collections.abc import Generator, Iterator
 from datetime import timedelta
-from typing import Generator, Iterator
 
 import modulus
 import numpy as np

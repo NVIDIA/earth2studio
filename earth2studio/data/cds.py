@@ -19,10 +19,10 @@ import multiprocessing as mp
 import os
 import pathlib
 import shutil
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
 from time import sleep
-from typing import Callable
 
 import cdsapi
 import numpy as np

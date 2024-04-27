@@ -16,7 +16,7 @@
 
 import datetime
 from collections import OrderedDict
-from typing import Iterator
+from collections.abc import Iterator
 
 import numpy as np
 import pytest
@@ -35,14 +35,14 @@ def PhooModel():
             [
                 ("batch", np.empty(1)),
                 ("variable", np.array(["a", "b"])),
-                ("x", np.ones((1))),
+                ("x", np.ones(1)),
             ]
         )
         output_coords = OrderedDict(
             [
                 ("batch", np.empty(1)),
                 ("variable", np.array(["a"])),
-                ("lead_time", np.ones((1))),
+                ("lead_time", np.ones(1)),
             ]
         )
 
@@ -80,7 +80,7 @@ def PhooModel():
 def test_batch_call(PhooModel, bc, device):
     time = datetime.datetime(year=1958, month=1, day=31)
     variable = ["a", "b"]
-    dc = {"lead_time": np.ones((1))}
+    dc = {"lead_time": np.ones(1)}
     # Initialize Data Source
     r = Random(dc)
 
@@ -113,7 +113,7 @@ def test_batch_call(PhooModel, bc, device):
 def test_batch_iter(PhooModel, bc, device):
     time = datetime.datetime(year=1958, month=1, day=31)
     variable = ["a", "b"]
-    dc = {"lead_time": np.zeros((1))}
+    dc = {"lead_time": np.zeros(1)}
     # Initialize Data Source
     r = Random(dc)
 

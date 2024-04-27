@@ -54,7 +54,7 @@ run(["2024-01-01"], 10, model, ds, io)
 
 ## Advanced Usage
 
-- [Batch Functions](advanced/batch)
+- [Batch Dimension](advanced/batch)
 
 ## Developer Guide
 
