@@ -189,6 +189,12 @@ class CustomPrognostic(torch.nn.Module):
 # demand, so this infinite loop won't cause the program to get stuck.
 
 # %%
+# .. warning::
+#     It is the responsibility of the model check if the input tensor and coordinate
+#     system are indeed valid. The :py:func:`earth2studio.utils.coords.handshake_coords`
+#     and :py:func:`earth2studio.utils.coords.handshake_dim` can help make this easier.
+
+# %%
 # Set Up
 # ------
 # With the custom prognostic defined, it's now easily usable in a standard workflow. In
