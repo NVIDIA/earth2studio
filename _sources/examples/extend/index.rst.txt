@@ -16,6 +16,7 @@ components.
 
     <div class="sphx-glr-thumbnails">
 
+.. thumbnail-parent-div-open
 
 .. raw:: html
 
@@ -67,6 +68,8 @@ components.
       <div class="sphx-glr-thumbnail-title">Extending Data Sources</div>
     </div>
 
+
+.. thumbnail-parent-div-close
 
 .. raw:: html
 
