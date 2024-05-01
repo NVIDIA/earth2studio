@@ -550,17 +550,16 @@ This utility fetches data for an array of times and lead times for the specified
 variables.
 For example, in the deterministic workflow <a class="reference internal" href="../../modules/generated/workflows/earth2studio.run.deterministic.html#earth2studio.run.deterministic" title="earth2studio.run.deterministic"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.run.deterministic</span></code></a>, it is
 used to get the initial state for the provided prognostic.</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span>    <span class="s2">&quot;&quot;&quot;</span>
-<span class="s2">    # sphinx - deterministic end</span>
-<span class="s2">    logger.info(&quot;Running simple workflow!&quot;)</span>
-<span class="s2">    # Load model onto the device</span>
-<span class="s2">    device = torch.device(&quot;cuda&quot; if torch.cuda.is_available() else &quot;cpu&quot;)</span>
-<span class="s2">    logger.info(f&quot;Inference device: </span><span class="si">{device}</span><span class="s2">&quot;)</span>
-<span class="s2">    prognostic = prognostic.to(device)</span>
-<span class="s2">    # Fetch data from data source and load onto device</span>
-<span class="s2">    time = to_time_array(time)</span>
-<span class="s2">    x, coords = fetch_data(</span>
-<span class="s2">        source=data,</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span>    <span class="c1"># Fetch data from data source and load onto device</span>
+    <span class="n">time</span> <span class="o">=</span> <span class="n">to_time_array</span><span class="p">(</span><span class="n">time</span><span class="p">)</span>
+    <span class="n">x</span><span class="p">,</span> <span class="n">coords</span> <span class="o">=</span> <span class="n">fetch_data</span><span class="p">(</span>
+        <span class="n">source</span><span class="o">=</span><span class="n">data</span><span class="p">,</span>
+        <span class="n">time</span><span class="o">=</span><span class="n">time</span><span class="p">,</span>
+        <span class="n">lead_time</span><span class="o">=</span><span class="n">prognostic</span><span class="o">.</span><span class="n">input_coords</span><span class="p">[</span><span class="s2">&quot;lead_time&quot;</span><span class="p">],</span>
+        <span class="n">variable</span><span class="o">=</span><span class="n">prognostic</span><span class="o">.</span><span class="n">input_coords</span><span class="p">[</span><span class="s2">&quot;variable&quot;</span><span class="p">],</span>
+        <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">logger</span><span class="o">.</span><span class="n">success</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Fetched data from </span><span class="si">{</span><span class="n">data</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 </pre></div>
 </div>
 </section>
