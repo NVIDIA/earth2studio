@@ -55,6 +55,20 @@ class PhooDiagnostic(torch.nn.Module):
         return out, out_coords
 
 
+class TestPersistence(Persistence):
+    def __init__(self, *args, target_device="cpu"):
+        super().__init__(*args)
+        self.target_device = torch.device(target_device)
+
+    def _forward(
+        self,
+        x: torch.Tensor,
+        coords: CoordSystem,
+    ) -> tuple[torch.Tensor, CoordSystem]:
+        assert x.device == self.target_device
+        return super()._forward(x, coords)
+
+
 @pytest.mark.parametrize(
     "coords",
     [
@@ -72,7 +86,7 @@ class PhooDiagnostic(torch.nn.Module):
 def test_run_diagnostic(coords, variable, nsteps, time, device):
 
     data = Random(domain_coords=coords)
-    model = Persistence(variable, coords)
+    model = TestPersistence(variable, coords, target_device=device)
     diagnostic = Identity()
 
     io = ZarrBackend()

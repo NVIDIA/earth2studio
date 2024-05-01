@@ -71,9 +71,14 @@ def deterministic(
     # sphinx - deterministic end
     logger.info("Running simple workflow!")
     # Load model onto the device
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = (
+        device
+        if device is not None
+        else torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    )
     logger.info(f"Inference device: {device}")
     prognostic = prognostic.to(device)
+    # sphinx - fetch data start
     # Fetch data from data source and load onto device
     time = to_time_array(time)
     x, coords = fetch_data(
@@ -84,6 +89,7 @@ def deterministic(
         device=device,
     )
     logger.success(f"Fetched data from {data.__class__.__name__}")
+    # sphinx - fetch data end
 
     # Set up IO backend
     total_coords = prognostic.output_coords.copy()
@@ -155,7 +161,11 @@ def diagnostic(
     # sphinx - diagnostic end
     logger.info("Running diagnostic workflow!")
     # Load model onto the device
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = (
+        device
+        if device is not None
+        else torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    )
     logger.info(f"Inference device: {device}")
     prognostic = prognostic.to(device)
     diagnostic = diagnostic.to(device)
