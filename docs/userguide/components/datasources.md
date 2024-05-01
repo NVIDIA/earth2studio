@@ -58,8 +58,9 @@ For example, in the deterministic workflow {mod}`earth2studio.run.deterministic`
 used to get the initial state for the provided prognostic.
 
 ```{literalinclude} ../../../earth2studio/run.py
-:lines: 70-80
 :language: python
+:start-after: sphinx - fetch data start
+:end-before: sphinx - fetch data end
 ```
 
 ### {mod}`earth2studio.data.prep_data_array`

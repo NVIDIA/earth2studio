@@ -18,11 +18,27 @@ from collections import OrderedDict
 
 import numpy as np
 import pytest
+import torch
 
 import earth2studio.run as run
 from earth2studio.data import Random
 from earth2studio.io import ZarrBackend
 from earth2studio.models.px import Persistence
+from earth2studio.utils.type import CoordSystem
+
+
+class TestPersistence(Persistence):
+    def __init__(self, *args, target_device="cpu"):
+        super().__init__(*args)
+        self.target_device = torch.device(target_device)
+
+    def _forward(
+        self,
+        x: torch.Tensor,
+        coords: CoordSystem,
+    ) -> tuple[torch.Tensor, CoordSystem]:
+        assert x.device == self.target_device
+        return super()._forward(x, coords)
 
 
 @pytest.mark.parametrize(
@@ -42,7 +58,7 @@ from earth2studio.models.px import Persistence
 def test_run_deterministic(coords, variable, nsteps, time, device):
 
     data = Random(domain_coords=coords)
-    model = Persistence(variable, coords)
+    model = TestPersistence(variable, coords, target_device=device)
 
     io = ZarrBackend()
 
