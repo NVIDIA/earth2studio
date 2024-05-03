@@ -49,10 +49,15 @@ In this example you will learn:
 #
 # .. code-block:: bash
 #
+#   # OpenMPI
 #   mpirun -np 2 python 08_distributed_manager.py
+#   # Torch run
 #   torchrun --standalone --nnodes=1 --nproc-per-node=2 08_distributed_manager.py
 #
-# to run inference on two devices.
+# .. warning::
+#
+#   When running in parallel, make sure the .env file in the repository examples
+#   folder is *not* present. The .env file is intended for the documentation build only.
 
 # %%
 import numpy as np
