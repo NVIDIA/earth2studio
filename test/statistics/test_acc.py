@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import copy
 from collections import OrderedDict
 from datetime import datetime
 
@@ -24,6 +25,8 @@ import xarray as xr
 
 from earth2studio.statistics import acc, lat_weight
 from earth2studio.utils.type import TimeArray, VariableArray
+
+lat_weights = lat_weight(torch.as_tensor(np.linspace(-90.0, 90.0, 361)))
 
 
 class PhooClimatology:
@@ -80,10 +83,9 @@ def test_climate_acc_correctness(
     mean = xr.DataArray(
         data=mean, dims=["time", "variable", "lat", "lon"], coords=x_coords
     )
-    print(x.shape, y.shape, mean.shape)
     climatology = PhooClimatology(mean)
-    ACC = acc(climatology, ["lat", "lon"], weights=weights)
-    acc_ = ACC(x, x_coords, y, y_coords)
+    ACC = acc(["lat", "lon"], climatology=climatology, weights=weights)
+    acc_, _ = ACC(x, x_coords, y, y_coords)
 
     assert torch.allclose(
         acc_,
@@ -91,3 +93,156 @@ def test_climate_acc_correctness(
         rtol=rtol,
         atol=atol,
     )
+
+
+@pytest.mark.parametrize(
+    "reduction_weights",
+    [
+        (["ensemble"], None),
+        (["lat", "lon"], lat_weights.unsqueeze(1).repeat(1, 720)),
+        (["lat"], lat_weights),
+        (["ensemble", "lat"], lat_weights.repeat(10, 1)),
+    ],
+)
+@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+def test_acc(reduction_weights: tuple[list[str], np.ndarray], device: str) -> None:
+
+    x = torch.randn((10, 1, 2, 361, 720), device=device)
+
+    x_coords = OrderedDict(
+        {
+            "ensemble": np.arange(10),
+            "time": np.array([np.datetime64("1993-04-05T00:00")]),
+            "variable": ["t2m", "tcwv"],
+            "lat": np.linspace(-90.0, 90.0, 361),
+            "lon": np.linspace(0.0, 360.0, 720, endpoint=False),
+        }
+    )
+
+    y_coords = copy.deepcopy(x_coords)
+    y = torch.randn((10, 1, 2, 361, 720), device=device)
+
+    # Create fake Climatology DataSource
+    mean = torch.randn_like(y)
+    mean = xr.DataArray(data=mean.cpu().numpy(), dims=list(x_coords), coords=x_coords)
+    climatology = PhooClimatology(mean)
+
+    reduction_dimensions, weights = reduction_weights
+    if weights is not None:
+        weights = weights.to(device)
+
+    ACC = acc(reduction_dimensions, climatology=climatology, weights=weights)
+
+    z, c = ACC(x, x_coords, y, y_coords)
+    assert not any([ri in c for ri in reduction_dimensions])
+    assert list(z.shape) == [len(val) for val in c.values()]
+
+    # Test with no provided climatology
+    ACC = acc(reduction_dimensions, weights=weights)
+
+    z, c = ACC(x, x_coords, y, y_coords)
+    assert not any([ri in c for ri in reduction_dimensions])
+    assert list(z.shape) == [len(val) for val in c.values()]
+
+
+@pytest.mark.parametrize(
+    "reduction_weights",
+    [
+        (["ensemble"], None),
+        (["lat", "lon"], lat_weights.unsqueeze(1).repeat(1, 720)),
+        (["lat"], lat_weights),
+        (["ensemble", "lat"], lat_weights.repeat(10, 1)),
+    ],
+)
+@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+def test_acc_leadtime(
+    reduction_weights: tuple[list[str], np.ndarray], device: str
+) -> None:
+
+    x = torch.randn((10, 1, 1, 2, 361, 720), device=device)
+
+    x_coords = OrderedDict(
+        {
+            "ensemble": np.arange(10),
+            "time": np.array([np.datetime64("1993-04-05T00:00")]),
+            "lead_time": np.array([np.timedelta64(6, "h")]),
+            "variable": ["t2m", "tcwv"],
+            "lat": np.linspace(-90.0, 90.0, 361),
+            "lon": np.linspace(0.0, 360.0, 720, endpoint=False),
+        }
+    )
+
+    y_coords = copy.deepcopy(x_coords)
+    y = torch.randn((10, 1, 1, 2, 361, 720), device=device)
+
+    # Create fake Climatology DataSource
+    mean = torch.randn((10, 2, 2, 361, 720), device=device)
+    mean_coords = copy.deepcopy(x_coords)
+    mean_coords.pop("lead_time")
+    mean_coords["time"] = np.array(
+        [np.datetime64("1993-04-05T00:00"), np.datetime64("1993-04-05T06:00:00")]
+    )
+    mean = xr.DataArray(
+        data=mean.cpu().numpy(), dims=list(mean_coords), coords=mean_coords
+    )
+    climatology = PhooClimatology(mean)
+
+    reduction_dimensions, weights = reduction_weights
+    if weights is not None:
+        weights = weights.to(device)
+
+    ACC = acc(reduction_dimensions, climatology=climatology, weights=weights)
+
+    z, c = ACC(x, x_coords, y, y_coords)
+    assert not any([ri in c for ri in reduction_dimensions])
+    assert list(z.shape) == [len(val) for val in c.values()]
+
+    # Test with no provided climatology
+    ACC = acc(reduction_dimensions, weights=weights)
+
+    z, c = ACC(x, x_coords, y, y_coords)
+    assert not any([ri in c for ri in reduction_dimensions])
+    assert list(z.shape) == [len(val) for val in c.values()]
+
+
+@pytest.mark.parametrize(
+    "reduction_weights",
+    [
+        (["ensemble"], None),
+        (["lat", "lon"], lat_weights.unsqueeze(1).repeat(1, 720)),
+        (["lat"], lat_weights),
+        (["ensemble", "lat"], lat_weights.repeat(10, 1)),
+    ],
+)
+@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+def test_acc_failures(
+    reduction_weights: tuple[list[str], np.ndarray], device: str
+) -> None:
+
+    coords = OrderedDict(
+        {
+            "ensemble": np.arange(10),
+            "time": np.array([np.datetime64("1993-04-05T00:00")]),
+            "lead_time": np.array([np.timedelta64(6, "h")]),
+            "variable": ["t2m", "tcwv"],
+            "lat": np.linspace(-90.0, 90.0, 361),
+            "lon": np.linspace(0.0, 360.0, 720, endpoint=False),
+        }
+    )
+
+    # Create fake Climatology DataSource
+    mean = torch.randn((10, 1, 1, 2, 361, 720), device=device)
+    mean = xr.DataArray(data=mean.cpu().numpy(), dims=list(coords), coords=coords)
+    climatology = PhooClimatology(mean)
+
+    reduction_dimensions, weights = reduction_weights
+
+    # Test with wrong # dimension of weights
+    if weights is not None:
+        weights = weights.to(device)
+        with pytest.raises(ValueError):
+            acc(
+                reduction_dimensions,
+                climatology=climatology,
+                weights=weights.unsqueeze(0),
+            )

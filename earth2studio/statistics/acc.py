@@ -47,8 +47,8 @@ class acc:
 
     def __init__(
         self,
-        climatology: DataSource,
         reduction_dimensions: list[str],
+        climatology: DataSource = None,
         weights: torch.Tensor = None,
     ):
 
@@ -109,17 +109,20 @@ class acc:
         weights_sum = torch.sum(weights)
 
         # Get climatology information
-        if "lead_time" in output_coords:
-            clim, _ = fetch_data(
-                self.climatology,
-                output_coords["time"],
-                output_coords["variable"],
-                lead_time=output_coords["lead_time"],
-                device=x.device,
-            )
+        if self.climatology is not None:
+            if "lead_time" in output_coords:
+                clim, _ = fetch_data(
+                    self.climatology,
+                    output_coords["time"],
+                    output_coords["variable"],
+                    lead_time=output_coords["lead_time"],
+                    device=x.device,
+                )
+            else:
+                da = self.climatology(output_coords["time"], output_coords["variable"])
+                clim = torch.as_tensor(da.values, device=x.device, dtype=x.dtype)
         else:
-            da = self.climatology(output_coords["time"], output_coords["variable"])
-            clim = torch.as_tensor(da.values, device=x.device, dtype=x.dtype)
+            clim = torch.zeros_like(x)
 
         x_hat = x - clim
         x_bar = torch.sum(weights * x, dim=dims, keepdim=True) / weights_sum
@@ -133,4 +136,4 @@ class acc:
         p2 = torch.sum(weights * x_diff * x_diff, dim=dims)
         p3 = torch.sum(weights * y_diff * y_diff, dim=dims)
 
-        return p1 / torch.sqrt(p2 * p3)
+        return p1 / torch.sqrt(p2 * p3), output_coords
