@@ -21,9 +21,9 @@ Distributed Manager Inference
 
 Setting up distributed manager for parallel inference
 
-Many inference workflows are embarssingly parallel and can be easily sharded across
+Many inference workflows are embarrassingly parallel and can be easily sharded across
 multiple devices.
-This example deomstrates how one can use the Modulus distributed manager to distribute
+This example demonstrates how one can use the Modulus distributed manager to distribute
 inference across mutliple GPUs.
 The `distributed manager <https://github.com/NVIDIA/modulus/blob/main/modulus/distributed/manager.py>`_
 is a utility that provides a useful set of properties that pertain to a parallel
@@ -31,23 +31,26 @@ environment.
 
 In this example you will learn:
 
-- How to use the distributed manager to access parallel enviroment properties
+- How to use the distributed manager to access parallel environment properties
 - Parallelize deterministic inference across multiple initial date-times
 - Limitations of parallel inference in Earth2Studio
-- Post-processing stratagies of parallel job outputs
+- Post-processing strategies of parallel job outputs
 """
 
 # %%
 # Set Up
 # ------
 # Set up the distributed manager by initializing it. Out of the box, the distributed
-# manager supports MPI, SLURM and PyTorch parallel enviroments which provide information
+# manager supports MPI, SLURM and PyTorch parallel environments which provide information
 # regarding the parallel enviroment but environment variables.
 #
-# For example this script could be ran using:
+# For example, this script could be ran using:
+#
 # .. code-block:: bash
 #
-#   mpirun -np 4 python 08_distributed_manager
+#   mpirun -np 2 python 08_distributed_manager
+#
+# to run inference on two devices.
 
 # %%
 import numpy as np
@@ -69,9 +72,9 @@ logger.info(
 )
 # %%
 # Next the needed components get initialized.
-# Rigourous parallel support is not part of Earth2Studio's design goals, there are some
-# spots where potential race conditions can occur.
-# Thus some additional care should be taken to ensure safe parallel inference.
+# Rigorous parallel support is not part of Earth2Studio's design goals, there are some
+# spots where potential race conditions can occur. Thus some additional care should be
+# taken to ensure safe parallel inference.
 
 # %%
 from earth2studio.data import ARCO
@@ -101,9 +104,9 @@ if dist.rank != 0:
 data = ARCO()
 
 # %%
-# The remote date store will place cached data into seperate caches for process. This
-# makes the download of initial state data safe during parallel inference but also means
-# that multiple jobs will download the same date-time if needed.
+# The remote date store will place cached data into separate caches for each process.
+# This makes the download of initial state data safe during parallel inference but also
+# means that multiple jobs will download the same date-time if needed.
 
 # %%
 from typing import Any
@@ -143,23 +146,21 @@ class CustomIO(ZarrBackend):
 
 
 chunks = {"time": 1}
-io = CustomIO(
-    file_name=f"outputs/08_distributed_manager_{dist.rank}.zarr", chunks=chunks
-)
+io = CustomIO(file_name=f"outputs/08_output_{dist.rank}.zarr", chunks=chunks)
 
 # %%
 # Earth2Studio does not provide distributed IO support. The recommendation is to always
 # output data for each process, then aggregate the data during post processing.
 #
-# In this example, only the total columne water vapor and surface temperature are of
+# In this example, only the total column water vapor and surface temperature are of
 # interest. We can easily filter out just the surface winds while using the built-in
 # workflow using a simple extension of the :py:class:`earth2studio.io.ZarrBackend`.
 #
 # Execute the Workflow
 # --------------------
-# Next we can run the workflow. In this example lets consider running inference for the
-# 2000 at the beginning of each month. Shard the initial date-times across the each
-# process. The distributed manager will provide the device ID for the process.
+# Next we can run the workflow. This example will run inference for a random date across
+# several years. Shard the initial date-times across the each process. The distributed
+# manager will provide the device ID for the process.
 
 # %%
 import earth2studio.run as run
@@ -183,9 +184,10 @@ torch.distributed.barrier()
 # opening multiple files as a single dataset, :py:func:`xarray.open_mfdataset`. This
 # allows outputs from all processes to get treated as a single data array.
 #
-# ..warning::
-#   In this script we using process 0 to post process so the example is in one file.
-#   It is best practice to perform post processing in a seperate job / script entirely
+# .. warning::
+#
+#   In this script process 0 is used to post process so the example is in one file.
+#   It is best practice to perform post processing in a separate job / script entirely
 #   to better utilize compute resources.
 
 if dist.rank == 0:
@@ -194,7 +196,7 @@ if dist.rank == 0:
 
     from earth2studio.utils.time import timearray_to_datetime
 
-    paths = [f"outputs/08_distributed_manager_{i}.zarr" for i in range(dist.world_size)]
+    paths = [f"outputs/08_output_{i}.zarr" for i in range(dist.world_size)]
     ds = xr.open_mfdataset(paths, combine="nested", concat_dim="time", engine="zarr")
     print(ds)
 
