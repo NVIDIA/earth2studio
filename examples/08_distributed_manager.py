@@ -143,7 +143,7 @@ time_shard = np.array_split(times, dist.world_size)[dist.rank]
 nsteps = 20
 output_coords = {"variable": np.array(["tcwv"])}
 io = run.deterministic(
-    time_shard, nsteps, model, data, io, output_coords, device=dist.device
+    time_shard, nsteps, model, data, io, output_coords=output_coords, device=dist.device
 )
 
 print(io.root.tree())
