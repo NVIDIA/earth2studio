@@ -49,7 +49,8 @@ In this example you will learn:
 #
 # .. code-block:: bash
 #
-#   mpirun -np 2 python 08_distributed_manager
+#   mpirun -np 2 python 08_distributed_manager.py
+#   torchrun --standalone --nnodes=1 --nproc-per-node=2 08_distributed_manager.py
 #
 # to run inference on two devices.
 
@@ -111,52 +112,12 @@ data = ARCO()
 # means that multiple jobs will download the same date-time if needed.
 
 # %%
-from typing import Any
-
-from earth2studio.utils.type import CoordSystem
-
-
-# Create the IO handler, just save two variables
-class CustomIO(ZarrBackend):
-    """Custom IO class"""
-
-    variables = ["tcwv", "t2m"]
-
-    def add_array(
-        self,
-        coords: CoordSystem,
-        array_name: str | list[str],
-        data: torch.Tensor | list[torch.Tensor] = None,
-        **kwargs: Any,
-    ) -> None:
-        """add array override"""
-        super().add_array(coords, self.variables, data, **kwargs)
-
-    def write(
-        self,
-        x: torch.Tensor | list[torch.Tensor],
-        coords: CoordSystem,
-        array_name: str | list[str],
-    ) -> None:
-        """write"""
-        if isinstance(array_name, str):
-            array_name = [array_name]
-            x = [x]
-        for i, name in enumerate(array_name):
-            if name in self.variables:
-                super().write(x[i], coords, name)
-
-
 chunks = {"time": 1}
-io = CustomIO(file_name=f"outputs/08_output_{dist.rank}.zarr", chunks=chunks)
+io = ZarrBackend(file_name=f"outputs/08_output_{dist.rank}.zarr", chunks=chunks)
 
 # %%
 # Earth2Studio does not provide distributed IO support. The recommendation is to always
 # output data for each process, then aggregate the data during post processing.
-#
-# In this example, only the total column water vapor and surface temperature are of
-# interest. We can easily filter out just the surface winds while using the built-in
-# workflow using a simple extension of the :py:class:`earth2studio.io.ZarrBackend`.
 #
 # Execute the Workflow
 # --------------------
@@ -174,7 +135,10 @@ assert (  # noqa: S101
 time_shard = np.array_split(times, dist.world_size)[dist.rank]
 
 nsteps = 20
-io = run.deterministic(time_shard, nsteps, model, data, io, device=dist.device)
+output_coords = {"variable": np.array(["tcwv"])}
+io = run.deterministic(
+    time_shard, nsteps, model, data, io, output_coords, device=dist.device
+)
 
 print(io.root.tree())
 torch.distributed.barrier()

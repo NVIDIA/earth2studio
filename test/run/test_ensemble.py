@@ -86,3 +86,59 @@ def test_run_ensemble(
 
         assert not np.any(np.isnan(io[var][:]))
         assert not np.any(io[var][:] == 0.0)
+
+
+@pytest.mark.parametrize(
+    "output_coords",
+    [
+        OrderedDict({"variable": np.array(["u10m"])}),
+        OrderedDict(
+            {"variable": np.array(["v10m", "t2m"]), "lat": np.array([0, 1, 2, 3])}
+        ),
+        OrderedDict(
+            {
+                "variable": np.array(["nvidia"]),
+                "lon": np.array([0, 1, 2, 3]),
+                "lat": np.array([4, 5, 6]),
+            }
+        ),
+    ],
+)
+@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+def test_ensemble_output_coords(output_coords, device):
+
+    output_coords = output_coords.copy()
+    coords = OrderedDict([("lat", np.arange(10)), ("lon", np.arange(20))])
+    variable = ["u10m", "v10m", "u100", "t2m", "nvidia"]
+    nsteps = 2
+    nensemble = 1
+    batch_size = 1
+    time = ["1993-04-05T12:00:00"]
+
+    data = Random(domain_coords=coords)
+    model = TestPersistence(variable, coords, target_device=device)
+    perturbation_method = Zero()
+    io = ZarrBackend()
+
+    io = run.ensemble(
+        time,
+        nsteps,
+        nensemble,
+        model,
+        data,
+        io,
+        perturbation_method,
+        batch_size,
+        output_coords,
+        device=device,
+    )
+
+    for name in variable:
+        if name not in output_coords["variable"]:
+            assert name not in list(io.root.array_keys())
+        else:
+            assert name in list(io.root.array_keys())
+
+    del output_coords["variable"]
+    for key, value in output_coords.items():
+        assert np.array_equal(io[key], value)
