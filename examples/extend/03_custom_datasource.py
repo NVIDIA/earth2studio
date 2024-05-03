@@ -247,7 +247,7 @@ plt.savefig("outputs/custom_datasource_gfs_versus_custom.jpg")
 # Let's instantiate the components needed.
 #
 # - Prognostic Model: Use the built in FourCastNet Model :py:class:`earth2studio.models.px.FCN`.
-# - Datasource: Pull data from the GFS data api :py:class:`earth2studio.data.GFS`.
+# - Datasource: Custom data source above
 # - IO Backend: Save the outputs into a Zarr store :py:class:`earth2studio.io.ZarrBackend`.
 
 # %%
