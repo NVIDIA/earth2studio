@@ -34,7 +34,6 @@ In this example you will learn:
 - How to use the distributed manager to access parallel environment properties
 - Parallelize deterministic inference across multiple initial date-times
 - Limitations of parallel inference in Earth2Studio
-- Custom IO for sub-selection of variables
 - Post-processing strategies of parallel job outputs
 """
 
@@ -128,8 +127,9 @@ io = ZarrBackend(file_name=f"outputs/08_output_{dist.rank}.zarr", chunks=chunks)
 # Execute the Workflow
 # --------------------
 # Next we can run the workflow. This example will run inference for a random date across
-# several years. Shard the initial date-times across the each process. The distributed
-# manager will provide the device ID for the process.
+# several years and just save total column water vapor. Shard the initial date-times
+# across the each process. The distributed manager will provide the device ID for the
+# process.
 
 # %%
 import earth2studio.run as run
