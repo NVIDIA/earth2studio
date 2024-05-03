@@ -34,6 +34,7 @@ In this example you will learn:
 - How to use the distributed manager to access parallel environment properties
 - Parallelize deterministic inference across multiple initial date-times
 - Limitations of parallel inference in Earth2Studio
+- Custom IO for sub-selection of variables
 - Post-processing strategies of parallel job outputs
 """
 
