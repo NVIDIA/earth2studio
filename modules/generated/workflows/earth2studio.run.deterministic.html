@@ -519,7 +519,7 @@ document.write(`
 <h1><a class="reference internal" href="../../workflows.html#module-earth2studio.run" title="earth2studio.run"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.run</span></code></a>.deterministic<a class="headerlink" href="#earth2studio-run-deterministic" title="Link to this heading">#</a></h1>
 <dl class="py function">
 <dt class="sig sig-object py" id="earth2studio.run.deterministic">
-<span class="sig-prename descclassname"><span class="pre">earth2studio.run.</span></span><span class="sig-name descname"><span class="pre">deterministic</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">time</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nsteps</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">prognostic</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">io</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">device</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/earth2studio/run.html#deterministic"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.run.deterministic" title="Link to this definition">#</a></dt>
+<span class="sig-prename descclassname"><span class="pre">earth2studio.run.</span></span><span class="sig-name descname"><span class="pre">deterministic</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">time</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nsteps</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">prognostic</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">io</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output_coords</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">{}</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">device</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/earth2studio/run.html#deterministic"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.run.deterministic" title="Link to this definition">#</a></dt>
 <dd><p>Built in deterministic workflow.
 This workflow creates a determinstic inference pipeline to produce a forecast
 prediction using a prognostic model.</p>
@@ -531,6 +531,7 @@ prediction using a prognostic model.</p>
 <li><p><strong>prognostic</strong> (<em>PrognosticModel</em>) – Prognostic model</p></li>
 <li><p><strong>data</strong> (<em>DataSource</em>) – Data source</p></li>
 <li><p><strong>io</strong> (<em>IOBackend</em>) – IO object</p></li>
+<li><p><strong>output_coords</strong> (<em>CoordSystem</em><em>, </em><em>optional</em>) – IO output coordinate system override, by default OrderedDict({})</p></li>
 <li><p><strong>device</strong> (<em>torch.device</em><em>, </em><em>optional</em>) – Device to run inference on, by default None</p></li>
 </ul>
 </dd>
@@ -548,6 +549,9 @@ prediction using a prognostic model.</p>
 <div class="sphx-glr-thumbnails"><div class="sphx-glr-thumbcontainer" tooltip="Basic deterministic inference workflow."><img alt="" src="../../../_images/sphx_glr_01_deterministic_workflow_thumb.png" />
 <p><a class="reference internal" href="../../../examples/01_deterministic_workflow.html#sphx-glr-examples-01-deterministic-workflow-py"><span class="std std-ref">Running Deterministic Inference</span></a></p>
   <div class="sphx-glr-thumbnail-title">Running Deterministic Inference</div>
+</div><div class="sphx-glr-thumbcontainer" tooltip="Setting up distributed manager for parallel inference"><img alt="" src="../../../_images/sphx_glr_08_distributed_manager_thumb.png" />
+<p><a class="reference internal" href="../../../examples/08_distributed_manager.html#sphx-glr-examples-08-distributed-manager-py"><span class="std std-ref">Distributed Manager Inference</span></a></p>
+  <div class="sphx-glr-thumbnail-title">Distributed Manager Inference</div>
 </div><div class="sphx-glr-thumbcontainer" tooltip="Implementing a custom prognostic model"><img alt="" src="../../../_images/sphx_glr_01_custom_prognostic_thumb.png" />
 <p><a class="reference internal" href="../../../examples/extend/01_custom_prognostic.html#sphx-glr-examples-extend-01-custom-prognostic-py"><span class="std std-ref">Extending Prognostic Models</span></a></p>
   <div class="sphx-glr-thumbnail-title">Extending Prognostic Models</div>
