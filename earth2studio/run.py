@@ -42,6 +42,7 @@ def deterministic(
     prognostic: PrognosticModel,
     data: DataSource,
     io: IOBackend,
+    output_coords: CoordSystem = OrderedDict({}),
     device: torch.device | None = None,
 ) -> IOBackend:
     """Built in deterministic workflow.
@@ -60,6 +61,8 @@ def deterministic(
         Data source
     io : IOBackend
         IO object
+    output_coords: CoordSystem, optional
+        IO output coordinate system override, by default OrderedDict({})
     device : torch.device, optional
         Device to run inference on, by default None
 
@@ -102,6 +105,9 @@ def deterministic(
     ).flatten()
     total_coords.move_to_end("lead_time", last=False)
     total_coords.move_to_end("time", last=False)
+
+    for key, value in total_coords.items():
+        total_coords[key] = output_coords.get(key, value)
     var_names = total_coords.pop("variable")
     io.add_array(total_coords, var_names)
 
@@ -113,6 +119,8 @@ def deterministic(
     logger.info("Inference starting!")
     with tqdm(total=nsteps + 1, desc="Running inference") as pbar:
         for step, (x, coords) in enumerate(model):
+            # Subselect domain/variables as indicated in output_coords
+            x, coords = map_coords(x, coords, output_coords)
             io.write(*split_coords(x, coords))
             pbar.update(1)
             if step == nsteps:
@@ -130,6 +138,7 @@ def diagnostic(
     diagnostic: DiagnosticModel,
     data: DataSource,
     io: IOBackend,
+    output_coords: CoordSystem = OrderedDict({}),
     device: torch.device | None = None,
 ) -> IOBackend:
     """Built in diagnostic workflow.
@@ -150,6 +159,8 @@ def diagnostic(
         Data source
     io : IOBackend
         IO object
+    output_coords: CoordSystem, optional
+        IO output coordinate system override, by default OrderedDict({})
     device : torch.device, optional
         Device to run inference on, by default None
 
@@ -193,6 +204,9 @@ def diagnostic(
     ).flatten()
     total_coords.move_to_end("lead_time", last=False)
     total_coords.move_to_end("time", last=False)
+
+    for key, value in total_coords.items():
+        total_coords[key] = output_coords.get(key, value)
     var_names = total_coords.pop("variable")
     io.add_array(total_coords, var_names)
 
@@ -208,7 +222,8 @@ def diagnostic(
             # Run diagnostic
             x, coords = map_coords(x, coords, diagnostic.input_coords)
             x, coords = diagnostic(x, coords)
-
+            # Subselect domain/variables as indicated in output_coords
+            x, coords = map_coords(x, coords, output_coords)
             io.write(*split_coords(x, coords))
             pbar.update(1)
             if step == nsteps:
@@ -252,6 +267,8 @@ def ensemble(
     batch_size: int, optional
         Number of ensemble members to run in a single batch,
         by default None.
+    output_coords: CoordSystem, optional
+        IO output coordinate system override, by default OrderedDict({})
     device : torch.device, optional
         Device to run inference on, by default None
 

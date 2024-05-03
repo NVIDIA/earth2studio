@@ -187,7 +187,7 @@ class SFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         if load_model_package is None:
             raise ImportError(
                 "Modulus Makani required for SFNO. See model install notes for details.\n"
-                + "https://nvidia.github.io/earth2studio/install/index.html#model-dependencies"
+                + "https://nvidia.github.io/earth2studio/userguide/about/install.html#model-dependencies"
             )
         model = load_model_package(package)
         model.eval()
