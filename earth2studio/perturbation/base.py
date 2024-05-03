@@ -22,7 +22,7 @@ from earth2studio.utils.type import CoordSystem
 
 
 @runtime_checkable
-class PerturbationMethod(Protocol):
+class Perturbation(Protocol):
     """Perturbation interface."""
 
     @torch.inference_mode()
@@ -31,7 +31,7 @@ class PerturbationMethod(Protocol):
         x: torch.Tensor,
         coords: CoordSystem,
     ) -> tuple[torch.Tensor, CoordSystem]:
-        """Apply perturbation method
+        """Apply perturbation method to input tensor
 
         Parameters
         ----------

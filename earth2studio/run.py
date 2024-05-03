@@ -27,7 +27,7 @@ from earth2studio.data import DataSource, fetch_data
 from earth2studio.io import IOBackend
 from earth2studio.models.dx import DiagnosticModel
 from earth2studio.models.px import PrognosticModel
-from earth2studio.perturbation import PerturbationMethod
+from earth2studio.perturbation import Perturbation
 from earth2studio.utils.coords import CoordSystem, map_coords, split_coords
 from earth2studio.utils.time import to_time_array
 
@@ -241,7 +241,7 @@ def ensemble(
     prognostic: PrognosticModel,
     data: DataSource,
     io: IOBackend,
-    perturbation_method: PerturbationMethod,
+    perturbation: Perturbation,
     batch_size: int | None = None,
     output_coords: CoordSystem = OrderedDict({}),
     device: torch.device | None = None,
@@ -262,7 +262,7 @@ def ensemble(
         Data source
     io : IOBackend
         IO object
-    perturbation_method : PerturbationMethod
+    perturbation_method : Perturbation
         Method to perturb the initial condition to create an ensemble.
     batch_size: int, optional
         Number of ensemble members to run in a single batch,
@@ -344,8 +344,7 @@ def ensemble(
         x, coords = map_coords(x, coords, prognostic.input_coords)
 
         # Perturb ensemble
-        dx, coords = perturbation_method(x, coords)
-        x += dx
+        x, coords = perturbation(x, coords)
 
         # Create prognostic iterator
         model = prognostic.create_iterator(x, coords)

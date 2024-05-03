@@ -65,7 +65,7 @@ import torch
 from earth2studio.data import GFS
 from earth2studio.io import ZarrBackend
 from earth2studio.models.px import DLWP
-from earth2studio.perturbation import PerturbationMethod, SphericalGaussian
+from earth2studio.perturbation import Perturbation, SphericalGaussian
 from earth2studio.run import ensemble
 from earth2studio.utils.type import CoordSystem
 
@@ -85,7 +85,7 @@ data = GFS()
 class ApplyToVariable:
     """Apply a perturbation to only a particular variable."""
 
-    def __init__(self, pm: PerturbationMethod, variable: str | list[str]):
+    def __init__(self, pm: Perturbation, variable: str | list[str]):
         self.pm = pm
         if isinstance(variable, str):
             variable = [variable]
@@ -97,6 +97,7 @@ class ApplyToVariable:
         x: torch.Tensor,
         coords: CoordSystem,
     ) -> tuple[torch.Tensor, CoordSystem]:
+
         # Construct perturbation
         dx, coords = self.pm(x, coords)
         # Find variable in data
