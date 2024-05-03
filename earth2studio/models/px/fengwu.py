@@ -216,7 +216,7 @@ class FengWu(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         if ort is None:
             raise ImportError(
                 "onnxruntime (onnxruntime-gpu) is required for FengWu. See model install notes for details.\n"
-                + "https://nvidia.github.io/earth2studio/install/index.html#model-dependencies"
+                + "https://nvidia.github.io/earth2studio/userguide/about/install.html#model-dependencies"
             )
         options = ort.SessionOptions()
         options.enable_cpu_mem_arena = False

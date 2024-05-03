@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Built in diagnostic workflow
 - Basic diagnostic example
 - Batch dimension userguide
+- Parallel inference example
 
 ### Changed
 
