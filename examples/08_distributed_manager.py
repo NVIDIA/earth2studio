@@ -96,7 +96,7 @@ if dist.rank != 0:
 # will be downloaded into the machines cache. If each inference process has access to
 # the same cache location, then only one should download the checkpoint triggered by
 # :py:func:`load_model`.
-
+#
 # Here :py:class:`earth2studio.models.px.DLWP` checkpoint files are first downloaded by
 # process 0 and then loaded by other processes.
 
