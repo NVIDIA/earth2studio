@@ -101,6 +101,7 @@ if dist.rank != 0:
 # process 0 and then loaded by other processes.
 
 # %%
+
 # Create the data source
 data = ARCO()
 
@@ -115,7 +116,7 @@ from typing import Any
 from earth2studio.utils.type import CoordSystem
 
 
-# Create the IO handler, filter out just the surface wind speeds
+# Create the IO handler, just save two variables
 class CustomIO(ZarrBackend):
     """Custom IO class"""
 
