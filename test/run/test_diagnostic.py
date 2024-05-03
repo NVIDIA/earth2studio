@@ -55,6 +55,7 @@ class PhooDiagnostic(torch.nn.Module):
         return out, out_coords
 
 
+# This class is used to verify the workflow moved the model onto the right device
 class TestPersistence(Persistence):
     def __init__(self, *args, target_device="cpu"):
         super().__init__(*args)
