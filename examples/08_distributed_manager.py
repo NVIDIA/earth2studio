@@ -122,7 +122,8 @@ io = ZarrBackend(file_name=f"outputs/08_output_{dist.rank}.zarr", chunks=chunks)
 
 # %%
 # Earth2Studio does not provide distributed IO support. The recommendation is to always
-# output data for each process, then aggregate the data during post processing.
+# output data for each process to a separate file, then aggregate the data during post
+# processing.
 #
 # Execute the Workflow
 # --------------------
