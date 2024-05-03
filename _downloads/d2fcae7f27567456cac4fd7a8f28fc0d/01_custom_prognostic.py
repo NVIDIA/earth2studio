@@ -49,7 +49,7 @@ In this example you will learn:
 
 # %%
 from collections import OrderedDict
-from typing import Generator, Iterator
+from collections.abc import Generator, Iterator
 
 import numpy as np
 import torch
@@ -187,6 +187,12 @@ class CustomPrognostic(torch.nn.Module):
 # Since this model is auto regressive, it can theoretically index in time forever. Thus,
 # we make the generator an infinite loop. Keep in mind that generators execute on
 # demand, so this infinite loop won't cause the program to get stuck.
+
+# %%
+# .. warning::
+#     It is the responsibility of the model check if the input tensor and coordinate
+#     system are indeed valid. The :py:func:`earth2studio.utils.coords.handshake_coords`
+#     and :py:func:`earth2studio.utils.coords.handshake_dim` can help make this easier.
 
 # %%
 # Set Up

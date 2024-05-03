@@ -38,10 +38,10 @@ In this example you will learn:
 # For this example, we will consider extending an existing remote data source with
 # another atmospheric field we can calculate.
 #
-# The ARCO data source provides the ERA5 dataset in a cloud optimized format, however
-# it only provides specific humidity. This is a problem for models that may use relative
-# humidity as an input. Based on ECMWF documentation we can calculate the relative
-# humidity based on temperature and geo-potential.
+# The :py:class:`earth2studio.data.ARCO` data source provides the ERA5 dataset in a cloud
+# optimized format, however it only provides specific humidity. This is a problem for
+# models that may use relative humidity as an input. Based on ECMWF documentation we can
+# calculate the relative humidity based on temperature and geo-potential.
 
 # %%
 from datetime import datetime
@@ -247,7 +247,7 @@ plt.savefig("outputs/custom_datasource_gfs_versus_custom.jpg")
 # Let's instantiate the components needed.
 #
 # - Prognostic Model: Use the built in FourCastNet Model :py:class:`earth2studio.models.px.FCN`.
-# - Datasource: Pull data from the GFS data api :py:class:`earth2studio.data.GFS`.
+# - Datasource: Custom data source above
 # - IO Backend: Save the outputs into a Zarr store :py:class:`earth2studio.io.ZarrBackend`.
 
 # %%
