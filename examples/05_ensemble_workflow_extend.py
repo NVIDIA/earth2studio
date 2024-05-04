@@ -67,6 +67,7 @@ from earth2studio.io import ZarrBackend
 from earth2studio.models.px import DLWP
 from earth2studio.perturbation import Perturbation, SphericalGaussian
 from earth2studio.run import ensemble
+from earth2studio.utils.coords import map_coords
 from earth2studio.utils.type import CoordSystem
 
 # Load the default model package which downloads the check point from NGC
@@ -97,13 +98,13 @@ class ApplyToVariable:
         x: torch.Tensor,
         coords: CoordSystem,
     ) -> tuple[torch.Tensor, CoordSystem]:
-
-        # Construct perturbation
-        dx, coords = self.pm(x, coords)
-        # Find variable in data
+        # Apply perturbation on variable
+        x0, coords0 = map_coords(x, coords, {"variable": np.array(self.variable)})
+        x0, _ = self.pm(x0, coords0)
+        # Add perturbed slice back into original tensor
         ind = np.in1d(coords["variable"], self.variable)
-        dx[..., ~ind, :, :] = 0.0
-        return dx, coords
+        x[..., ~ind, :, :] = x0
+        return x, coords
 
 
 # Generate a new noise amplitude that specifically targets 't2m' with a 1 K noise amplitude
@@ -111,7 +112,7 @@ avsg = ApplyToVariable(SphericalGaussian(noise_amplitude=1.0), "t2m")
 
 # Create the IO handler, store in memory
 chunks = {"ensemble": 1, "time": 1}
-io = ZarrBackend(file_name="outputs/04_ensemble_avsg.zarr", chunks=chunks)
+io = ZarrBackend(file_name="outputs/05_ensemble_avsg.zarr", chunks=chunks)
 
 # %%
 # Execute the Workflow
