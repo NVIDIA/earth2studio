@@ -17,8 +17,9 @@ import functools
 import inspect
 import sys
 from collections import OrderedDict
+from collections.abc import Callable, Iterator
 from itertools import chain, islice
-from typing import Any, Callable, Iterator, TypeVar
+from typing import Any, TypeVar
 
 import numpy as np
 import torch
@@ -30,7 +31,7 @@ F = TypeVar("F", bound=FuncType)
 
 
 class batch_func:
-    """Batch utility mixin which can be added to prognostic and diagnostic models
+    """Batch utility decorator which can be added to prognostic and diagnostic models
     to help enable support for automatic batching of data. This class contains a
     decorator function which should be added to calls where this functionality is
     desired.
@@ -47,8 +48,8 @@ class batch_func:
 
         class Model():
 
-            input_coords = OrderedDict([("batch", np.empty(1)), ...])
-            output_coords = OrderedDict([("batch", np.empty(1)), ...])
+            input_coords = OrderedDict([("batch", np.empty(0)), ...])
+            output_coords = OrderedDict([("batch", np.empty(0)), ...])
 
             @batch_func()
             def __call__(
@@ -116,7 +117,7 @@ class batch_func:
         # Prep coordinate dicts
         batched_coords = OrderedDict(islice(coords.items(), 0, i))
         flatten_coords = OrderedDict(islice(coords.items(), i, None))
-        flatten_coords.update({"batch": np.empty(1)})
+        flatten_coords.update({"batch": np.empty(0)})
         flatten_coords.move_to_end("batch", last=False)
         # Flatten batch dims
         x = torch.flatten(x, start_dim=0, end_dim=len(batched_coords) - 1)

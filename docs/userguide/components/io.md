@@ -23,8 +23,8 @@ The full requirements for a standard IO backend are defined explicitly in the
 `earth2studio/io/base.py`.
 
 ```{literalinclude} ../../../earth2studio/io/base.py
-    :lines: 24-
-    :language: python
+:lines: 24-
+:language: python
 ```
 
 :::{note}
@@ -121,8 +121,8 @@ io.write(x, coords, array_name)
 ```
 
 If, as above, the user is extracting a dimension of the tensor to use as array names
-then they can make use of {mod}`earth2studio.utils.coords.extract_coords`:
+then they can make use of {mod}`earth2studio.utils.coords.split_coords`:
 
 ```python
-io.write(*extract_coords(x, coords, dim = "variable"))
+io.write(*split_coords(x, coords, dim = "variable"))
 ```

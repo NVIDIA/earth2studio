@@ -34,7 +34,7 @@ dotenv.load_dotenv()
 doc_version = os.getenv("DOC_VERSION", "main")
 plot_gallery = os.getenv("PLOT_GALLERY", False)
 run_stale_examples = os.getenv("RUN_STALE_EXAMPLES", False)
-filename_pattern = os.getenv("FILENAME_PATTERN", "/[0-9]+.*\.py")
+filename_pattern = os.getenv("FILENAME_PATTERN", r"/[0-9]+.*\.py")
 logging.info(doc_version, plot_gallery, run_stale_examples)
 
 root = pathlib.Path(__file__).parent
@@ -62,6 +62,7 @@ extensions = [
     "sphinx_favicon",
     "myst_parser",
     "sphinx_design",
+    "sphinx_togglebutton",
     "sphinx_gallery.gen_gallery",
 ]
 
@@ -86,13 +87,15 @@ html_theme_options = {
         "image_light": "_static/NVIDIA-Logo-V-ForScreen-ForLightBG.png",
         "image_dark": "_static/NVIDIA-Logo-V-ForScreen-ForDarkBG.png",
     },
-    "navbar_start": ["navbar-logo"],
-    "navbar_align": "left",
-    # "navbar_start": ["navbar-logo", "version-switcher"],
-    # "switcher": {
-    #     "json_url": "https://gitlab-master.nvidia.com/modulus/earth-2/earth2studio/-/raw/5dae5dbe2795b790d6b84f28b730be2821dd0e71/_static/switcher.json",
-    #     "version_match": doc_version,  # Set DOC_VERSION env variable to change
-    # },
+    "navbar_align": "content",
+    "navbar_start": [
+        "navbar-logo",
+        "version-switcher",
+    ],
+    "switcher": {
+        "json_url": "https://raw.githubusercontent.com/NVIDIA/earth2studio/gh-pages/_static/switcher.json",
+        "version_match": doc_version,  # Set DOC_VERSION env variable to change
+    },
     "external_links": [
         {
             "name": "Changelog",

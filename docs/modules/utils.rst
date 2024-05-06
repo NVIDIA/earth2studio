@@ -23,7 +23,7 @@ A collection of utilities to manipulate and check coordinate systems dictionarie
    utils.coords.handshake_coords
    utils.coords.handshake_size
    utils.coords.map_coords
-   utils.coords.extract_coords
+   utils.coords.split_coords
 
 :mod:`earth2studio.utils`: Time
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

@@ -15,7 +15,7 @@
 # limitations under the License.
 
 from collections import OrderedDict
-from typing import Generator, Iterator, List, Union
+from collections.abc import Generator, Iterator
 
 import numpy as np
 import torch
@@ -41,7 +41,7 @@ class Persistence(torch.nn.Module, PrognosticMixin):
 
     def __init__(
         self,
-        variable: Union[str, List[str]],
+        variable: str | list[str],
         domain_coords: CoordSystem,
         history: int = 1,  # TODO
         dt: np.timedelta64 = np.timedelta64(6, "h"),
@@ -53,7 +53,7 @@ class Persistence(torch.nn.Module, PrognosticMixin):
 
         self._input_coords = OrderedDict(
             {
-                "batch": np.empty(1),
+                "batch": np.empty(0),
                 "lead_time": np.array([np.timedelta64(0, "h")]),
                 "variable": np.array(variable),
             }
@@ -61,7 +61,7 @@ class Persistence(torch.nn.Module, PrognosticMixin):
 
         self._output_coords = OrderedDict(
             {
-                "batch": np.empty(1),
+                "batch": np.empty(0),
                 "lead_time": np.array([np.timedelta64(6, "h")]),
                 "variable": np.array(variable),
             }

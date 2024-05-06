@@ -14,8 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from collections import OrderedDict
 from collections.abc import Iterable
-from typing import OrderedDict
 
 import numpy as np
 import pytest

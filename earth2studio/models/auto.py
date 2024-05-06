@@ -16,7 +16,7 @@
 
 import hashlib
 import os
-from typing import Any, Optional, Union
+from typing import Any
 
 from huggingface_hub import HfFileSystem
 from modulus.utils.filesystem import _download_cached
@@ -34,13 +34,13 @@ class Package:
     ----------
     root : str
         Root directory for file system
-    cache_dir : Optional[str], optional
+    cache_dir : str, optional
         Cache directory, if remote path files will be downloaded here. If none is
         provided then the path set in LOCAL_CACHE enviroment variable will be used.
         If that is empty the path "~/.cache/earth2studio" is used, by default None
     """
 
-    def __init__(self, root: str, cache_dir: Optional[str] = None):
+    def __init__(self, root: str, cache_dir: str | None = None):
         self.root = root
         self.cache_dir = cache_dir
         if not self.cache_dir:
@@ -113,7 +113,7 @@ class AutoModelMixin:
     def load_model(
         cls,
         package: Package,
-    ) -> Union[Any]:  # TODO: Fix types here
+    ) -> Any:  # TODO: Fix types here
         """Instantiates and loads default model object from provided model package
 
         Parameters
@@ -124,14 +124,12 @@ class AutoModelMixin:
         raise NotImplementedError("Load model function not implemented")
 
     @classmethod
-    def from_pretrained(
-        cls, pretrained_model_name_or_path: Optional[str] = None
-    ) -> Any:
+    def from_pretrained(cls, pretrained_model_name_or_path: str | None = None) -> Any:
         """Loads and instantiates a pre-trained Earth2Studio model
 
         Parameters
         ----------
-        pretrained_model_name_or_path : Optional[str], optional
+        pretrained_model_name_or_path : str, optional
             Path to model package (file system). If none is provided, the built in
             package will be used if provide, by default None. Valid inputs include:
             - A path to a directory containing model weights saved e.g.,

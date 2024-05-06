@@ -15,7 +15,7 @@
 # limitations under the License.
 
 from collections import OrderedDict
-from typing import Generator, Iterator
+from collections.abc import Generator, Iterator
 
 import numpy as np
 import torch
@@ -186,7 +186,8 @@ class SFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         """Load prognostic from package"""
         if load_model_package is None:
             raise ImportError(
-                "Modulus Makani required for FCNv2. Install the [sfno] optional dependencies"
+                "Modulus Makani required for SFNO. See model install notes for details.\n"
+                + "https://nvidia.github.io/earth2studio/userguide/about/install.html#model-dependencies"
             )
         model = load_model_package(package)
         model.eval()

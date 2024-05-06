@@ -55,8 +55,6 @@ In this example you will learn:
 # - IO Backend: Save the outputs into a Zarr store :py:class:`earth2studio.io.ZarrBackend`.
 
 # %%
-from typing import List, Union
-
 from dotenv import load_dotenv
 
 load_dotenv()  # TODO: make common example prep function
@@ -79,7 +77,7 @@ model = DLWP.load_model(package)
 data = GFS()
 
 # %%
-# The perturbation method in :ref:`sphx_glr_examples_02_ensemble_workflow.py` is naive because it
+# The perturbation method in :ref:`sphx_glr_examples_03_ensemble_workflow.py` is naive because it
 # applies the same noise amplitude to every variable. We can create a custom wrapper
 # that only applies the perturbation method to a particular variable instead.
 
@@ -87,7 +85,7 @@ data = GFS()
 class ApplyToVariable:
     """Apply a perturbation to only a particular variable."""
 
-    def __init__(self, pm: PerturbationMethod, variable: Union[str, List[str]]):
+    def __init__(self, pm: PerturbationMethod, variable: str | list[str]):
         self.pm = pm
         if isinstance(variable, str):
             variable = [variable]

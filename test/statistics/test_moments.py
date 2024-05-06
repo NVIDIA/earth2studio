@@ -15,7 +15,6 @@
 # limitations under the License.
 
 from collections import OrderedDict
-from typing import List, Tuple
 
 import numpy as np
 import pytest
@@ -36,7 +35,7 @@ lat_weights = lat_weight(torch.as_tensor(np.linspace(-90.0, 90.0, 361)))
     ],
 )
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
-def test_mean(reduction_weights: Tuple[List[str], np.ndarray], device: str) -> None:
+def test_mean(reduction_weights: tuple[list[str], np.ndarray], device: str) -> None:
 
     coords = OrderedDict(
         {
@@ -114,7 +113,7 @@ def test_batch_mean(device) -> None:
     ],
 )
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
-def test_var(reduction_weights: Tuple[List[str], np.ndarray], device: str) -> None:
+def test_var(reduction_weights: tuple[list[str], np.ndarray], device: str) -> None:
 
     coords = OrderedDict(
         {
@@ -149,7 +148,7 @@ def test_var(reduction_weights: Tuple[List[str], np.ndarray], device: str) -> No
     ],
 )
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
-def test_std(reduction_weights: Tuple[List[str], np.ndarray], device: str) -> None:
+def test_std(reduction_weights: tuple[list[str], np.ndarray], device: str) -> None:
 
     coords = OrderedDict(
         {

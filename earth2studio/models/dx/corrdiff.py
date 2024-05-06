@@ -16,7 +16,8 @@
 
 import copy
 from collections import OrderedDict
-from typing import Callable, Literal
+from collections.abc import Callable
+from typing import Literal
 
 import numpy as np
 import torch
@@ -137,7 +138,7 @@ class CorrDiffTaiwan(torch.nn.Module, AutoModelMixin):
     def input_coords(self) -> CoordSystem:
         return OrderedDict(
             {
-                "batch": np.empty(1),
+                "batch": np.empty(0),
                 "variable": np.array(VARIABLES),
                 "lat": np.linspace(19.25, 28, 36, endpoint=True),
                 "lon": np.linspace(116, 126, 40, endpoint=False),
@@ -148,7 +149,7 @@ class CorrDiffTaiwan(torch.nn.Module, AutoModelMixin):
     def output_coords(self) -> CoordSystem:
         return OrderedDict(
             {
-                "batch": np.empty(1),
+                "batch": np.empty(0),
                 "sample": np.arange(self.number_of_samples),
                 "variable": np.array(OUT_VARIABLES),
                 "ilat": np.arange(448),

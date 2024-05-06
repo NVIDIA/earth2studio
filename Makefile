@@ -10,11 +10,11 @@ setup-ci:
 
 .PHONY: format
 format:
-	pre-commit run black -a
+	pre-commit run black -a --show-diff-on-failure
 
 .PHONY: black
 black:
-	pre-commit run black -a
+	pre-commit run black -a --show-diff-on-failure
 
 .PHONY: interrogate
 interrogate:
@@ -22,8 +22,12 @@ interrogate:
 
 .PHONY: lint
 lint:
-	echo "TODO: add interrogate"
 	pre-commit run check-added-large-files -a
+	pre-commit run trailing-whitespace -a
+	pre-commit run end-of-file-fixer -a
+	pre-commit run debug-statements -a
+	pre-commit run name-tests-test -a
+	pre-commit run pyupgrade -a --show-diff-on-failure
 	pre-commit run ruff -a
 	pre-commit run mypy -a
 
@@ -53,6 +57,9 @@ docs:
 .PHONY: docs-full
 docs-full:
 	pip install .[docs]
+	rm -rf docs/examples
+	rm -rf docs/modules/generated
+	rm -rf docs/modules/backreferences
 	$(MAKE) -C docs clean
 	rm -rf examples/outputs
 	PLOT_GALLERY=True RUN_STALE_EXAMPLES=True $(MAKE) -C docs html

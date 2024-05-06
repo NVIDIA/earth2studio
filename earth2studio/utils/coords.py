@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Literal, Optional
+from typing import Literal
 
 import numpy as np
 import torch
@@ -25,7 +25,7 @@ from earth2studio.utils.type import CoordSystem
 def handshake_dim(
     input_coords: CoordSystem,
     required_dim: str,
-    required_index: Optional[int] = None,
+    required_index: int | None = None,
 ) -> None:
     """Simple check to see if coordinate system has a dimension in a particular index
 
@@ -35,7 +35,7 @@ def handshake_dim(
         Input coordinate system to validate
     required_dim : str
         Required dimension (name of coordinate)
-    required_index : optional[int], optional
+    required_index : int, optional
         Required index of dimension if needed, by default None
 
     Raises
@@ -272,21 +272,21 @@ def map_coords(
     return x, mapped_coords
 
 
-def extract_coords(
+def split_coords(
     x: torch.Tensor, coords: CoordSystem, dim: str = "variable"
 ) -> tuple[list[torch.Tensor], CoordSystem, np.ndarray]:
     """
-    A utility function to extract a dimension from a (x,coords) pair and convert it into a list of tensors, a CoordSystem, and
-    the dimension that extract from coords.
+    A utility function to split a dimension from a (x,coords) pair and convert it into
+    a list of tensors, a CoordSystem, and the dimension that extract from coords.
 
     Parameters
     ----------
     x : torch.Tensor
         Input tensor
     coords : CoordSystem
-        Coordinates referring to the dimensions of x.
+        Coordinates referring to the dimensions of x
     dim : str
-        Name of the dimension in coords to extract by.
+        Name of the dimension in coords to split along
 
     Returns
     -------

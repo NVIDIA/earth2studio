@@ -16,7 +16,8 @@
 
 import os
 from collections import OrderedDict
-from typing import Generator, Iterator, TypeVar
+from collections.abc import Generator, Iterator
+from typing import TypeVar
 
 import numpy as np
 
@@ -154,7 +155,7 @@ class FengWu(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     input_coords = OrderedDict(
         {
-            "batch": np.empty(1),
+            "batch": np.empty(0),
             "lead_time": np.array([np.timedelta64(-6, "h"), np.timedelta64(0, "h")]),
             "variable": np.array(VARIABLES),
             "lat": np.linspace(90, -90, 721, endpoint=True),
@@ -164,7 +165,7 @@ class FengWu(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     output_coords = OrderedDict(
         {
-            "batch": np.empty(1),
+            "batch": np.empty(0),
             "lead_time": np.array([np.timedelta64(6, "h")]),
             "variable": np.array(VARIABLES),
             "lat": np.linspace(90, -90, 721, endpoint=True),
@@ -214,8 +215,8 @@ class FengWu(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         """
         if ort is None:
             raise ImportError(
-                "onnxruntime (onnxruntime-gpu) is required for FengWu. "
-                + "Install the [fengwu] optional dependencies"
+                "onnxruntime (onnxruntime-gpu) is required for FengWu. See model install notes for details.\n"
+                + "https://nvidia.github.io/earth2studio/userguide/about/install.html#model-dependencies"
             )
         options = ort.SessionOptions()
         options.enable_cpu_mem_arena = False

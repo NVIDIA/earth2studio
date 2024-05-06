@@ -49,7 +49,7 @@ In this example you will learn:
 
 # %%
 from collections import OrderedDict
-from typing import Generator, Iterator
+from collections.abc import Generator, Iterator
 
 import numpy as np
 import torch
@@ -68,7 +68,7 @@ class CustomPrognostic(torch.nn.Module):
 
     input_coords = OrderedDict(
         {
-            "batch": np.empty(1),
+            "batch": np.empty(0),
             "lead_time": np.array([np.timedelta64(0, "h")]),
             "variable": np.array(["u10m", "v10m"]),
             "lat": np.linspace(90, -90, 721),
@@ -78,7 +78,7 @@ class CustomPrognostic(torch.nn.Module):
 
     output_coords = OrderedDict(
         {
-            "batch": np.empty(1),
+            "batch": np.empty(0),
             "lead_time": np.array([np.timedelta64(1, "h")]),
             "variable": np.array(["u10m", "v10m"]),
             "lat": np.linspace(90, -90, 721),
@@ -189,15 +189,16 @@ class CustomPrognostic(torch.nn.Module):
 # demand, so this infinite loop won't cause the program to get stuck.
 
 # %%
+# .. warning::
+#     It is the responsibility of the model check if the input tensor and coordinate
+#     system are indeed valid. The :py:func:`earth2studio.utils.coords.handshake_coords`
+#     and :py:func:`earth2studio.utils.coords.handshake_dim` can help make this easier.
+
+# %%
 # Set Up
 # ------
 # With the custom prognostic defined, it's now easily usable in a standard workflow. In
 # this example, we will use the build in workflow :py:meth:`earth2studio.run.deterministic`.
-
-# %%
-# .. literalinclude:: ../../earth2studio/run.py
-#    :language: python
-#    :lines: 35-42
 
 # %%
 # Let's instantiate the components needed.

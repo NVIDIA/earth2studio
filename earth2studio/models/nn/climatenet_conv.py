@@ -52,7 +52,7 @@ class Wrap(torch.nn.Module):
     """Climate net wrapper for padding."""
 
     def __init__(self, padding):
-        super(Wrap, self).__init__()
+        super().__init__()
         self.p = padding
 
     def forward(self, x):
@@ -264,7 +264,7 @@ class FGlo(nn.Module):
     surrounding context."""
 
     def __init__(self, channel, reduction=16):
-        super(FGlo, self).__init__()
+        super().__init__()
         self.avg_pool = nn.AdaptiveAvgPool2d(1)
         self.fc = nn.Sequential(
             nn.Linear(channel, channel // reduction),

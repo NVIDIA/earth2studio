@@ -16,7 +16,6 @@
 
 import copy
 from collections import OrderedDict
-from typing import List, Tuple
 
 import numpy as np
 import pytest
@@ -37,7 +36,7 @@ lat_weights = lat_weight(torch.as_tensor(np.linspace(-90.0, 90.0, 361)))
     ],
 )
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
-def test_rmse(reduction_weights: Tuple[List[str], np.ndarray], device: str) -> None:
+def test_rmse(reduction_weights: tuple[list[str], np.ndarray], device: str) -> None:
 
     x = torch.randn((10, 1, 2, 361, 720), device=device)
 

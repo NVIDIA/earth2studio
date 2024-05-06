@@ -10,13 +10,13 @@ obvious." - *Fred Brooks*
 :::
 
 Earth2Studio aims to keep data simple and interpretable between components.
-Given that this package interacts with geo-physial data, the common data-structure
+Given that this package interacts with geo-physical data, the common data-structure
 inside workflows is the pairing of:
 
 1. A PyTorch tensor (`torch.Tensor`) on the inference device holding the array data of
 interest.
 2. An OrderedDict of numpy arrays (`CoordSystem`) that
-represents the geophyiscal coordinate system the tensor represents.
+represents the geo-phyiscal coordinate system the tensor represents.
 
 For example, perturbation methods operate by using a data tensor and coordinate system
 to generate a noise tensor:
@@ -68,32 +68,32 @@ We encourage users to follow similar naming schemes for compatability between Ea
 Inference Studio when possible and the packages we interface with.
 
 ```{list-table}
-    :widths: 15 40 25
-    :header-rows: 1
+:widths: 15 40 25
+:header-rows: 1
 
-   * - Key
-     - Description
-     - Type
-   * - `batch`
-     - Dimension representing the batch dimension of the data. Used to denote a "free"
-     dimension, consult batching docs for more details.
-     - `np.empty(1)`
-   * - `time`
-     - Time dimension, represented via numpy arrays of datetime objects.
-     - `np.ndarray[np.datetime64[ns]]` (`TimeArray`)
-   * - `lead_time`
-     - Lead time is used to denote a dimension that indexes over forecast steps.
-     - `np.ndarray[np.timedelta64[ns]]` (`LeadTimeArray`)
-   * - `variable`
-     - Dimension representing physical variable (atmospheric, surface, etc). Earth-2
-     Inference Studio has its own naming convention. See lexicon docs more more details.
-     - `np.ndarray[str]` (`VariableArray`)
-   * - `lat`
-     - Lattitude coordinate array
-     - `np.ndarray[float]`
-   * - `lat`
-     - Longitude coordinate array
-     - `np.ndarray[float]`
+* - Key
+  - Description
+  - Type
+* - `batch`
+  - Dimension representing the batch dimension of the data. Used to denote a "free"
+  dimension, consult batching docs for more details.
+  - `np.empty(0)`
+* - `time`
+  - Time dimension, represented via numpy arrays of datetime objects.
+  - `np.ndarray[np.datetime64[ns]]` (`TimeArray`)
+* - `lead_time`
+  - Lead time is used to denote a dimension that indexes over forecast steps.
+  - `np.ndarray[np.timedelta64[ns]]` (`LeadTimeArray`)
+* - `variable`
+  - Dimension representing physical variable (atmospheric, surface, etc). Earth-2
+  Inference Studio has its own naming convention. See lexicon docs more more details.
+  - `np.ndarray[str]` (`VariableArray`)
+* - `lat`
+  - Lattitude coordinate array
+  - `np.ndarray[float]`
+* - `lat`
+  - Longitude coordinate array
+  - `np.ndarray[float]`
 ```
 
 ### Coordinate Utilities
@@ -116,7 +116,7 @@ it into the tensor, coord data struction on the device.
 From there, the data is kept on the GPU until the very last moment when writes are
 needed to in-memory or to file.
 
-```{figure} https://gitlab-master.nvidia.com/ngeneva/earth-2-studio-assets/-/raw/main/e2studio-data.png
+```{figure} https://huggingface.co/datasets/NickGeneva/Earth2StudioAssets/raw/main/0.2.0/e2studio-data.png
 :alt: earth2studio-data
 :width: 600px
 :align: center

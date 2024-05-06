@@ -14,8 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Optional, Union
-
 import numpy as np
 import torch
 from torch_harmonics import InverseRealSHT
@@ -50,7 +48,7 @@ class SphericalGaussian:
         noise_amplitude: float = 0.05,
         alpha: float = 2.0,
         tau: float = 3.0,
-        sigma: Union[float, None] = None,
+        sigma: float | None = None,
     ):
         self.noise_amplitude = noise_amplitude
         self.alpha = alpha
@@ -166,7 +164,7 @@ class GaussianRandomFieldS2(torch.nn.Module):
         nlat: int,
         alpha: float = 2.0,
         tau: float = 3.0,
-        sigma: Union[float, None] = None,
+        sigma: float | None = None,
         radius: float = 1.0,
         grid: str = "equiangular",
         dtype: torch.dtype = torch.float32,
@@ -210,7 +208,7 @@ class GaussianRandomFieldS2(torch.nn.Module):
         self.register_buffer("mean", mean)
         self.register_buffer("var", var)
 
-    def forward(self, N: int, xi: Optional[torch.Tensor] = None) -> torch.Tensor:
+    def forward(self, N: int, xi: torch.Tensor | None = None) -> torch.Tensor:
         """Sample random functions from a spherical GRF.
 
         Parameters

@@ -6,7 +6,7 @@
 
 Computation times
 =================
-**01:33.782** total execution time for 8 files **from all galleries**:
+**03:57.234** total execution time for 10 files **from all galleries**:
 
 .. container::
 
@@ -32,27 +32,33 @@ Computation times
    * - Example
      - Time
      - Mem (MB)
-   * - :ref:`sphx_glr_examples_extend_03_custom_datasource.py` (``../examples/extend/03_custom_datasource.py``)
-     - 01:33.782
+   * - :ref:`sphx_glr_examples_03_ensemble_workflow.py` (``../examples/03_ensemble_workflow.py``)
+     - 03:57.234
      - 0.0
-   * - :ref:`sphx_glr_examples_01_simple_workflow.py` (``../examples/01_simple_workflow.py``)
+   * - :ref:`sphx_glr_examples_01_deterministic_workflow.py` (``../examples/01_deterministic_workflow.py``)
      - 00:00.000
      - 0.0
-   * - :ref:`sphx_glr_examples_02_ensemble_workflow.py` (``../examples/02_ensemble_workflow.py``)
+   * - :ref:`sphx_glr_examples_02_diagnostic_workflow.py` (``../examples/02_diagnostic_workflow.py``)
      - 00:00.000
      - 0.0
-   * - :ref:`sphx_glr_examples_03_corrdiff_inference.py` (``../examples/03_corrdiff_inference.py``)
+   * - :ref:`sphx_glr_examples_04_corrdiff_inference.py` (``../examples/04_corrdiff_inference.py``)
      - 00:00.000
      - 0.0
-   * - :ref:`sphx_glr_examples_04_ensemble_workflow_extend.py` (``../examples/04_ensemble_workflow_extend.py``)
+   * - :ref:`sphx_glr_examples_05_ensemble_workflow_extend.py` (``../examples/05_ensemble_workflow_extend.py``)
      - 00:00.000
      - 0.0
-   * - :ref:`sphx_glr_examples_05_model_perturbation_hook.py` (``../examples/05_model_perturbation_hook.py``)
+   * - :ref:`sphx_glr_examples_06_model_perturbation_hook.py` (``../examples/06_model_perturbation_hook.py``)
+     - 00:00.000
+     - 0.0
+   * - :ref:`sphx_glr_examples_07_seasonal_statistics.py` (``../examples/07_seasonal_statistics.py``)
      - 00:00.000
      - 0.0
    * - :ref:`sphx_glr_examples_extend_01_custom_prognostic.py` (``../examples/extend/01_custom_prognostic.py``)
      - 00:00.000
      - 0.0
    * - :ref:`sphx_glr_examples_extend_02_custom_diagnostic.py` (``../examples/extend/02_custom_diagnostic.py``)
+     - 00:00.000
+     - 0.0
+   * - :ref:`sphx_glr_examples_extend_03_custom_datasource.py` (``../examples/extend/03_custom_datasource.py``)
      - 00:00.000
      - 0.0

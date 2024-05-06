@@ -62,7 +62,7 @@ def main():
     working_path = Path(__file__).parent.resolve() / Path(config["dir"])
     exts = config["include-ext"]
 
-    with open(python_header_path, "r", encoding="utf-8") as original:
+    with open(python_header_path, encoding="utf-8") as original:
         pyheader = original.read().split("\n")
         pyheader_lines = len(pyheader)
 
@@ -81,7 +81,7 @@ def main():
     gpl_files = []
 
     for filename in filenames:
-        with open(str(filename), "r", encoding="utf-8") as original:
+        with open(str(filename), encoding="utf-8") as original:
             data = original.readlines()
 
         data = get_top_comments(data)

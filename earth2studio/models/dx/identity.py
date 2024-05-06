@@ -42,7 +42,7 @@ class Identity(torch.nn.Module):
         CoordSystem
             Coordinate system dictionary
         """
-        return OrderedDict({"batch": np.empty(1)})
+        return OrderedDict({"batch": np.empty(0)})
 
     @property
     def output_coords(self) -> CoordSystem:
@@ -54,7 +54,7 @@ class Identity(torch.nn.Module):
         CoordSystem
             Coordinate system dictionary
         """
-        return OrderedDict({"batch": np.empty(1)})
+        return OrderedDict({"batch": np.empty(0)})
 
     @torch.inference_mode()
     @batch_func()
