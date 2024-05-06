@@ -197,8 +197,8 @@ plt.savefig(f"outputs/05_{forecast}_{step}_ensemble.jpg")
 
 # %%
 # Due to the intrinsic coupling between all fields, we should expect all variables to
-# have some uncertainity for later lead times. Here the total column water vapor is
-# plotted at a lead time of 24 hours, note the variance in the members depsite just
+# have some uncertainty for later lead times. Here the total column water vapor is
+# plotted at a lead time of 24 hours, note the variance in the members despite just
 # perturbing the temperature field.
 
 # %%
