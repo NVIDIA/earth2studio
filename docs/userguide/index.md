@@ -87,6 +87,7 @@ about/data
 components/prognostic
 components/diagnostic
 components/datasources
+components/perturbation
 components/io
 components/statistics
 ```

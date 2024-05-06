@@ -31,6 +31,10 @@ or interact with these two data structures.
 The combonation of both the data tensor and respective coordinate system provides
 complete information one needs to interpret any stage of a workflow.
 
+:::{note}
+Data is **always** moved between components using unnormalized physical units.
+:::
+
 (coordinates_userguide)=
 
 ## Coordinate Systems
@@ -95,6 +99,12 @@ Inference Studio when possible and the packages we interface with.
   - Longitude coordinate array
   - `np.ndarray[float]`
 ```
+
+:::{note}
+`np.empty(0)` is used to denote variable axis in the coordinate system. Namely a
+dimension in the tensor that can be of any size, greater than 0. Typically this is the
+`batch` dimension.
+:::
 
 ### Coordinate Utilities
 
