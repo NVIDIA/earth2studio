@@ -15,6 +15,7 @@
 # limitations under the License.
 
 from .base import DataSource  # noqa
+from .weatherbench import WeatherBenchClimatology
 from .arco import ARCO  # noq
 from .cds import CDS  # noq
 from .gfs import GFS  # noq
