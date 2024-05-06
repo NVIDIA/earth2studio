@@ -16,7 +16,8 @@
 
 import os
 from collections import OrderedDict
-from typing import Generator, Iterator, TypeVar
+from collections.abc import Generator, Iterator
+from typing import TypeVar
 
 import numpy as np
 import pandas as pd
@@ -221,8 +222,8 @@ class FuXi(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         """
         if ort is None:
             raise ImportError(
-                "onnxruntime (onnxruntime-gpu) is required for FuXi. "
-                + "Install the [fuxi] optional dependencies"
+                "onnxruntime (onnxruntime-gpu) is required for FuXi. See model install notes for details.\n"
+                + "https://nvidia.github.io/earth2studio/userguide/about/install.html#model-dependencies"
             )
 
         options = ort.SessionOptions()
