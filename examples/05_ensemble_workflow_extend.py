@@ -103,7 +103,7 @@ class ApplyToVariable:
         x0, _ = self.pm(x0, coords0)
         # Add perturbed slice back into original tensor
         ind = np.in1d(coords["variable"], self.variable)
-        x[..., ~ind, :, :] = x0
+        x[..., ind, :, :] = x0
         return x, coords
 
 
@@ -144,64 +144,80 @@ io = ensemble(
 # %%
 # Post Processing
 # ---------------
-# The last step is to post process our results.
+# The last step is to post process our results. Lets plot both the perturbed t2m field
+# and also the unperturbed tcwv field. First to confirm the perturbation method works as
+# expect, the initial state is plotted.
 #
 # Notice that the Zarr IO function has additional APIs to interact with the stored data.
 
 # %%
-import cartopy.crs as ccrs
 import matplotlib.pyplot as plt
 
 forecast = "2024-01-01"
 
 
 def plot_(axi, data, title, cmap):
-    """Convenience function for plotting pcolormesh."""
-    # Plot the field using pcolormesh
-    im = axi.pcolormesh(
-        io["lon"][:],
-        io["lat"][:],
-        data,
-        transform=ccrs.PlateCarree(),
-        cmap=cmap,
-    )
-    plt.colorbar(im, ax=axi, shrink=0.6, pad=0.04)
-    # Set title
+    """Simple plot util function"""
+    im = axi.imshow(data, cmap=cmap)
+    plt.colorbar(im, ax=axi, shrink=0.5, pad=0.04)
     axi.set_title(title)
-    # Add coastlines and gridlines
-    axi.coastlines()
-    axi.gridlines()
 
 
-for variable, cmap in zip(["t2m", "tcwv"], ["coolwarm", "Blues"]):
-    step = 4  # lead time = 24 hrs
+step = 0  # lead time = 24 hrs
+plt.close("all")
 
-    plt.close("all")
-    # Create a Robinson projection
-    projection = ccrs.Robinson()
+# Create a figure and axes with the specified projection
+fig, ax = plt.subplots(nrows=2, ncols=2, figsize=(10, 6))
+plot_(
+    ax[0, 0],
+    np.mean(io["t2m"][:, 0, step], axis=0),
+    f"{forecast} - t2m - Lead time: {6*step}hrs - Mean",
+    "coolwarm",
+)
+plot_(
+    ax[0, 1],
+    np.std(io["t2m"][:, 0, step], axis=0),
+    f"{forecast} - t2m - Lead time: {6*step}hrs - Std",
+    "coolwarm",
+)
+plot_(
+    ax[1, 0],
+    np.mean(io["tcwv"][:, 0, step], axis=0),
+    f"{forecast} - tcwv - Lead time: {6*step}hrs - Mean",
+    "Blues",
+)
+plot_(
+    ax[1, 1],
+    np.std(io["tcwv"][:, 0, step], axis=0),
+    f"{forecast} - tcwv - Lead time: {6*step}hrs - Std",
+    "Blues",
+)
 
-    # Create a figure and axes with the specified projection
-    fig, (ax1, ax2, ax3) = plt.subplots(
-        nrows=1, ncols=3, subplot_kw={"projection": projection}, figsize=(16, 3)
-    )
+plt.savefig(f"outputs/05_{forecast}_{step}_ensemble.jpg")
 
-    plot_(
-        ax1,
-        io[variable][0, 0, step],
-        f"{forecast} - Lead time: {6*step}hrs - Member: {0}",
-        cmap,
-    )
-    plot_(
-        ax2,
-        io[variable][1, 0, step],
-        f"{forecast} - Lead time: {6*step}hrs - Member: {1}",
-        cmap,
-    )
-    plot_(
-        ax3,
-        np.std(io[variable][:, 0, step], axis=0),
-        f"{forecast} - Lead time: {6*step}hrs - Std",
-        cmap,
-    )
+# %%
+# Due to the intrinsic coupling between all fields, we should expect all variables to
+# have some uncertainity for later lead times. Here the total column water vapor is
+# plotted at a lead time of 24 hours, note the variance in the members depsite just
+# perturbing the temperature field.
 
-    plt.savefig(f"outputs/04_{forecast}_{variable}_{step}_ensemble.jpg")
+# %%
+step = 4  # lead time = 24 hrs
+plt.close("all")
+
+# Create a figure and axes with the specified projection
+fig, ax = plt.subplots(nrows=1, ncols=2, figsize=(10, 3))
+plot_(
+    ax[0],
+    np.mean(io["tcwv"][:, 0, step], axis=0),
+    f"{forecast} - tcwv - Lead time: {6*step}hrs - Mean",
+    "Blues",
+)
+plot_(
+    ax[1],
+    np.std(io["tcwv"][:, 0, step], axis=0),
+    f"{forecast} - tcwv - Lead time: {6*step}hrs - Std",
+    "Blues",
+)
+
+plt.savefig(f"outputs/05_{forecast}_{step}_ensemble.jpg")

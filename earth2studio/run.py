@@ -362,5 +362,5 @@ def ensemble(
 
         batch_id += 1
 
-    logger.success("Ensemble Inference complete")
+    logger.success("Inference complete")
     return io
