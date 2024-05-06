@@ -224,6 +224,7 @@ class FuXi(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 "onnxruntime (onnxruntime-gpu) is required for FuXi. "
                 + "Install the [fuxi] optional dependencies"
             )
+
         options = ort.SessionOptions()
         options.enable_cpu_mem_arena = False
         options.enable_mem_pattern = False
@@ -243,6 +244,7 @@ class FuXi(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                     "CUDAExecutionProvider",
                     {
                         "device_id": device_index,
+                        "arena_extend_strategy": "kSameAsRequested",
                     },
                 ),
                 "CPUExecutionProvider",
@@ -277,27 +279,27 @@ class FuXi(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         # Short model
         onnx_short = package.get("short.onnx")
-        package.get("short")
+        package.get("short", same_names=True)
         # Medium model
         onnx_medium = package.get("medium.onnx")
-        package.get("medium")
+        package.get("medium", same_names=True)
         # Long model
         onnx_long = package.get("long.onnx")
-        package.get("long")
+        package.get("long", same_names=True)
 
         return cls(onnx_short, onnx_medium, onnx_long)
 
-    def _time_encoding_instant(time_array: TimeArray) -> np.array:
+    def _time_encoding(self, time_array: TimeArray) -> torch.Tensor:
         """FuXi Generating time embedding
 
         Parameters
         ----------
         time_array : TimeArray
-            Time numpy array of inputs of size [t]
+            Time numpy array, from input coordinate system, of size [t]
 
         Returns
         -------
-        np.array
+        torch.Tensor
             Time embedding array of size [t, 12]
         """
         time_deltas = np.array(
@@ -314,7 +316,7 @@ class FuXi(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             -1, 12
         )
 
-        return embedding
+        return torch.FloatTensor(embedding).to(self.device)
 
     @torch.inference_mode()
     def _forward(
@@ -355,29 +357,32 @@ class FuXi(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             )
             return out
 
-        # input
+        # FuXi ONNX Input
         # name: input
         # tensor: float32[1,2,70,721,1440]
         # temb
         # name: temb
         # tensor: float32[1,12]
 
-        # name: output
+        # FuXi ONNX Ouput
+        # name: output (for short model its 15379)
         # tensor: float32[1,ScatterNDoutput_dim_1,70,721,1440]
 
         # Flatten batch and time dim
-        time_array = np.tile(coords["time"], x.shape[0])
+        time_array = self._time_encoding(np.tile(coords["time"], x.shape[0]))
         x = x.view(-1, *x.shape[2:])
 
         # Not sure if FuXi supports batching atm
-        output = torch.empty_like(x[:, :1])
+        output = torch.empty_like(x)
         for b in range(x.shape[0]):
             bind_input("input", x[b : b + 1])
-            bind_input("temb", self._time_encoding(time_array[b : b + 1]))
+            bind_input("temb", time_array[b : b + 1])
 
-            output[b] = bind_output("output", like=x[:, :1])
+            output_bind = ort_session.get_outputs()[0].name
+            out = bind_output(output_bind, like=output[b : b + 1])
 
             ort_session.run_with_iobinding(binding)
+            output[b : b + 1] = out
 
         # Reshape to batch and time dimension
         output = output.view(-1, coords["time"].shape[0], *output.shape[1:])
@@ -408,7 +413,9 @@ class FuXi(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             if key != "batch" and key != "time":
                 handshake_coords(coords, self.input_coords, key)
 
-        return self._forward(x, coords, self.ort)
+        output, out_coords = self._forward(x, coords, self.ort)
+        output = output[:, :, 1:]
+        return output, out_coords
 
     @batch_func()
     def _default_generator(
@@ -446,13 +453,14 @@ class FuXi(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             # Rear hook
             out, out_coords = self.rear_hook(out, out_coords)
 
-            # Update inputs for next time-step
-            x = torch.cat([x[:, 1:], out], dim=1)
+            # Use output as next input
+            x = out
             coords["lead_time"] = np.array(
                 [coords["lead_time"][-1], out_coords["lead_time"][-1]]
             )
 
-            yield out, out_coords.copy()
+            output = out[:, :, 1:]
+            yield output, out_coords.copy()
 
     def create_iterator(
         self, x: torch.Tensor, coords: CoordSystem

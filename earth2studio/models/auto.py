@@ -52,7 +52,7 @@ class Package:
         # Create cache dir if it doesn't exist
         os.makedirs(self.cache_dir, exist_ok=True)
 
-    def get(self, path: str, recursive: bool = False) -> str:
+    def get(self, path: str, recursive: bool = False, same_names: bool = False) -> str:
         """Get a local path to the item at ``path``
 
         Parameters
@@ -62,6 +62,9 @@ class Package:
         recursive : bool, optional
             recursively fetch all assets under local directory. Only relevant for remote
             packages, by default False
+        same_names : bool, optional
+            If true, file names will not be hashed to avoid potential conflicts. By
+            default False
 
         Returns
         -------
@@ -72,8 +75,12 @@ class Package:
         # with the cache checks) not a string? Not sure if will work with ONNX
         path = self._fullpath(path)
         if path.startswith("hf://"):
-            sha = hashlib.sha256(path.encode())
-            filename = sha.hexdigest()
+            # TODO: Temp fix, needs better support
+            if same_names:
+                filename = os.path.basename(path)
+            else:
+                sha = hashlib.sha256(path.encode())
+                filename = sha.hexdigest()
             cache_path = os.path.join(str(self.cache_dir), filename)
             fs = HfFileSystem(target_options={"default_block_size": 2**20})
             if not os.path.isfile(cache_path):
