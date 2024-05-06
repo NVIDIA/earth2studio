@@ -14,12 +14,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Basic diagnostic example
 - Batch dimension userguide
 - Parallel inference example
+- Perturbation method section in userguide
 
 ### Changed
 
 - Changed utility function `extract_coords` to `split_coords`
 - Batched coordinate arrays now use `np.empty(0)` instead of `np.empty(1)`
 - Improving user guide layout and developer documentation
+- Updated perturbation methods API `PerturbationMethod` -> `Perturbation`.
+  These now generate noise and apply it to the input tensor.
+- Removed original `Perturbation` class
 
 ### Deprecated
 
