@@ -33,7 +33,7 @@ class ZarrBackend:
     file_name : str, optional
         Optional name to provide to the zarr store, if provided then this function
         will create a directory store with this file name. If not, will create a memory store.
-    chunks : dict[str, int]
+    chunks : dict[str, int], optional
         An ordered dict of chunks to use with the data passed through data/coords.
     """
 
