@@ -17,7 +17,7 @@
 import pytest
 import torch
 
-from earth2studio.lexicon import WBLexicon
+from earth2studio.lexicon import WB2Lexicon
 
 
 @pytest.mark.parametrize(
@@ -27,7 +27,7 @@ from earth2studio.lexicon import WBLexicon
 def test_run_deterministic(variable, device):
     input = torch.randn(len(variable), 8).to(device)
     for v in variable:
-        label, modifier = WBLexicon[v]
+        label, modifier = WB2Lexicon[v]
         output = modifier(input)
         assert isinstance(label, str)
         assert input.shape == output.shape
@@ -40,4 +40,4 @@ def test_run_deterministic(variable, device):
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
 def test_run_failure(variable, device):
     with pytest.raises(KeyError):
-        label, modifier = WBLexicon["t3m"]
+        label, modifier = WB2Lexicon["t3m"]

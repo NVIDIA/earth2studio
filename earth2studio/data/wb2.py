@@ -18,6 +18,7 @@ import os
 import pathlib
 import shutil
 from datetime import datetime
+from typing import Literal
 
 import fsspec
 import gcsfs
@@ -29,16 +30,26 @@ from modulus.distributed.manager import DistributedManager
 from tqdm import tqdm
 
 from earth2studio.data.utils import prep_data_inputs
-from earth2studio.lexicon import WBLexicon
+from earth2studio.lexicon import WB2Lexicon
 from earth2studio.utils.type import TimeArray, VariableArray
 
 LOCAL_CACHE = os.path.join(os.path.expanduser("~"), ".cache", "earth2studio")
 
+ClimatologyZarrStore = Literal[
+    "1990-2017_6h_1440x721.zarr",
+    "1990-2017_6h_512x256_equiangular_conservative.zarr",
+    "1990-2017_6h_240x121_equiangular_with_poles_conservative.zarr",
+    "1990-2017_6h_64x32_equiangular_conservative.zarr",
+    "1990-2019_6h_1440x721.zarr",
+    "1990-2019_6h_512x256_equiangular_conservative.zarr",
+    "1990-2019_6h_240x121_equiangular_with_poles_conservative.zarr",
+    "1990-2019_6h_64x32_equiangular_conservative.zarr",
+]
 
-class WeatherBenchClimatology:
+
+class WB2Climatology:
     """
     Climatology provided by WeatherBench2,
-    https://weatherbench2.readthedocs.io/en/latest/data-guide.html#ground-truth-datasets
 
     |    A climatology is used for e.g. computing anomaly metrics such as the ACC.
     |    For WeatherBench 2, the climatology was computed using a running window for
@@ -47,7 +58,7 @@ class WeatherBenchClimatology:
 
     Parameters
     ----------
-    file : str, optional
+    ClimatologyZarrStore : Literal, optional
         File within gs://weatherbench2/datasets/era5-hourly-climatology/ to select,
         by default 1990-2019_6h_1440x721.zarr
         As of 05/03/2024 this is the following list of available files:
@@ -73,12 +84,13 @@ class WeatherBenchClimatology:
     ----
     Additional information on the data repository can be referenced here:
 
-    - https://weatherbench2.readthedocs.io/en/latest/data-guide.html#ground-truth-datasets
+    - https://weatherbench2.readthedocs.io/en/latest/data-guide.html#era5-climatology
+    - https://arxiv.org/abs/2308.15560
     """
 
     def __init__(
         self,
-        file: str = "1990-2017_6h_1440x721.zarr",
+        climatology_zarr_store: ClimatologyZarrStore = "1990-2017_6h_1440x721.zarr",
         cache: bool = True,
         verbose: bool = True,
     ):
@@ -88,7 +100,8 @@ class WeatherBenchClimatology:
 
         if self._cache:
             gcstore = fsspec.get_mapper(
-                "gs://weatherbench2/datasets/era5-hourly-climatology/" + file,
+                "gs://weatherbench2/datasets/era5-hourly-climatology/"
+                + climatology_zarr_store,
                 target_protocol="gs",
                 cache_storage=self.cache,
                 target_options={"anon": True, "default_block_size": 2**20},
@@ -96,7 +109,8 @@ class WeatherBenchClimatology:
         else:
             gcs = gcsfs.GCSFileSystem(cache_timeout=-1)
             gcstore = gcsfs.GCSMap(
-                "gs://weatherbench2/datasets/era5-hourly-climatology/" + file,
+                "gs://weatherbench2/datasets/era5-hourly-climatology/"
+                + climatology_zarr_store,
                 gcs=gcs,
             )
         self.zarr_group = zarr.open(gcstore, mode="r")
@@ -188,32 +202,32 @@ class WeatherBenchClimatology:
             )
 
             try:
-                arco_name, modifier = WBLexicon[variable]  # type: ignore
+                wb2_name, modifier = WB2Lexicon[variable]  # type: ignore
             except KeyError as e:
                 logger.error(
                     f"variable id {variable} not found in WeatherBench lexicon"
                 )
                 raise e
 
-            arco_variable, level = arco_name.split("::")
+            wb2_variable, level = wb2_name.split("::")
 
             if len(level) > 0:
-                arco_variable, level = arco_name.split("::")
+                wb2_variable, level = wb2_name.split("::")
                 level_index = np.where(level_coords == int(level))[0][0]
                 wbda[0, i] = modifier(
-                    self.zarr_group[arco_variable][hour, day_of_year, level_index]
+                    self.zarr_group[wb2_variable][hour, day_of_year, level_index]
                 )
 
             else:
-                arco_variable = arco_name.split("::")[0]
-                wbda[0, i] = modifier(self.zarr_group[arco_variable][hour, day_of_year])
+                wb2_variable = wb2_name.split("::")[0]
+                wbda[0, i] = modifier(self.zarr_group[wb2_variable][hour, day_of_year])
 
         return wbda
 
     @property
     def cache(self) -> str:
         """Get the appropriate cache location."""
-        cache_location = os.path.join(LOCAL_CACHE, "arco")
+        cache_location = os.path.join(LOCAL_CACHE, "wb2")
         if not self._cache:
             cache_location = os.path.join(
                 cache_location, f"tmp_{DistributedManager().rank}"
@@ -222,7 +236,7 @@ class WeatherBenchClimatology:
 
     @classmethod
     def _get_time_index(cls, time: datetime) -> tuple[int, int]:
-        """Small little index converter to go from datetime to integer index for hour
+        """Little index converter to go from datetime to integer index for hour
         and day of year.
 
         Parameters

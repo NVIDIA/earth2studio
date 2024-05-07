@@ -22,7 +22,7 @@ import numpy as np
 import pytest
 import xarray
 
-from earth2studio.data import WeatherBenchClimatology
+from earth2studio.data import WB2Climatology
 from earth2studio.utils.time import timearray_to_datetime
 
 
@@ -43,7 +43,7 @@ from earth2studio.utils.time import timearray_to_datetime
 @pytest.mark.parametrize("variable", ["tcwv", ["u500", "u200"]])
 def test_wb_fetch(time, variable):
 
-    ds = WeatherBenchClimatology(cache=False)
+    ds = WB2Climatology(cache=False)
     data = ds(time, variable)
     shape = data.shape
 
@@ -76,7 +76,7 @@ def test_wb_fetch(time, variable):
 )
 def test_wb_zarr(time, variable, arco_variable, arco_level):
 
-    ds = WeatherBenchClimatology(cache=False)
+    ds = WB2Climatology(cache=False)
     data = ds(time, variable)
 
     era5 = xarray.open_zarr(
@@ -110,7 +110,7 @@ def test_wb_zarr(time, variable, arco_variable, arco_level):
 @pytest.mark.parametrize("cache", [True, False])
 def test_wb_cache(time, variable, cache):
 
-    ds = WeatherBenchClimatology(cache=cache)
+    ds = WB2Climatology(cache=cache)
     data = ds(time, variable)
     shape = data.shape
 

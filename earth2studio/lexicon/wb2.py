@@ -21,13 +21,13 @@ import numpy as np
 from .base import LexiconType
 
 
-class WBLexicon(metaclass=LexiconType):
+class WB2Lexicon(metaclass=LexiconType):
     """WeatherBench Lexicon
     WeatherBench specified <Variable ID>::<Pressure Level>
 
     Note
     ----
-    Variable named based on ERA5 names, see CDS docs for resources.
+    Variable named based on ERA5 names, see WB2 docs for resources.
     """
 
     VOCAB = {
@@ -110,15 +110,28 @@ class WBLexicon(metaclass=LexiconType):
         "q850": "specific_humidity::850",
         "q925": "specific_humidity::925",
         "q1000": "specific_humidity::1000",
+        "r50": "relative_humidity::50",
+        "r100": "relative_humidity::100",
+        "r150": "relative_humidity::150",
+        "r200": "relative_humidity::200",
+        "r250": "relative_humidity::250",
+        "r300": "relative_humidity::300",
+        "r400": "relative_humidity::400",
+        "r500": "relative_humidity::500",
+        "r600": "relative_humidity::600",
+        "r700": "relative_humidity::700",
+        "r850": "relative_humidity::850",
+        "r925": "relative_humidity::925",
+        "r1000": "relative_humidity::1000",
     }
 
     @classmethod
     def get_item(cls, val: str) -> tuple[str, Callable]:
         """Return name in WeatherBench vocabulary."""
-        arco_key = cls.VOCAB[val]
+        wb2_key = cls.VOCAB[val]
 
         def mod(x: np.array) -> np.array:
             """Modify name (if necessary)."""
             return x
 
-        return arco_key, mod
+        return wb2_key, mod
