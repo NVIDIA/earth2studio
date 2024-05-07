@@ -18,6 +18,7 @@ import tempfile
 from collections import OrderedDict
 from datetime import datetime
 from pathlib import Path
+from typing import Literal
 
 import numpy as np
 import torch
@@ -128,14 +129,16 @@ def prep_data_inputs(
     return time, variable
 
 
-def datasource_to_netcdf(
+def datasource_to_file(
     file_name: str,
     source: DataSource,
     time: list[str] | list[datetime] | TimeArray,
     variable: VariableArray,
     lead_time: LeadTimeArray = np.array([np.timedelta64(0, "h")]),
+    backend: Literal["netcdf", "zarr"] = "netcdf",
+    chunks: dict[str, int] = {"variable": 1},
 ) -> None:
-    """Utility function that can be used for building a NetCDF file of data needed
+    """Utility function that can be used for building a local data store needed
     for an inference request. This file can then be used with the
     :py:class:`earth2studio.data.DataArrayFile` data source to load data from file.
     This is useful when multiple runs of the same input data is needed.
@@ -153,6 +156,10 @@ def datasource_to_netcdf(
     lead_time : LeadTimeArray, optional
         Lead times to fetch for each provided time, by default
         np.array(np.timedelta64(0, "h"))
+    backend : Literal["netcdf", "zarr"], optional
+        Storage backend to save output file as, by default "netcdf"
+    chunks : dict[str, int], optional
+        Chunk sizes along each dimension, by default {"variable": 1}
     """
     if isinstance(time, datetime):
         time = [time]
@@ -172,4 +179,12 @@ def datasource_to_netcdf(
     # Fetch
     da = source(time, variable)
     da = da.assign_coords(time=time)
-    da.to_netcdf(file_name)
+    da = da.chunks(chunks=chunks)
+
+    match backend:
+        case "netcdf":
+            da.to_netcdf(file_name)
+        case "zarr":
+            da.to_zarr(file_name)
+        case _:
+            raise ValueError(f"Unsupported backend {backend}")
