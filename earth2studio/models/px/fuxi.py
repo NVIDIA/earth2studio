@@ -160,8 +160,8 @@ class FuXi(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     input_coords = OrderedDict(
         {
-            "batch": np.empty(1),
-            "time": np.empty(1),
+            "batch": np.empty(0),
+            "time": np.empty(0),
             "lead_time": np.array([np.timedelta64(-6, "h"), np.timedelta64(0, "h")]),
             "variable": np.array(VARIABLES),
             "lat": np.linspace(90, -90, 721, endpoint=True),
@@ -171,8 +171,8 @@ class FuXi(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     output_coords = OrderedDict(
         {
-            "batch": np.empty(1),
-            "time": np.empty(1),
+            "batch": np.empty(0),
+            "time": np.empty(0),
             "lead_time": np.array([np.timedelta64(6, "h")]),
             "variable": np.array(VARIABLES),
             "lat": np.linspace(90, -90, 721, endpoint=True),
@@ -231,6 +231,7 @@ class FuXi(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         options.enable_mem_pattern = False
         options.enable_mem_reuse = False
         options.intra_op_num_threads = 1
+        options.log_severity_level = 3
 
         # That will trigger a FileNotFoundError
         os.stat(onnx_file)
@@ -328,9 +329,8 @@ class FuXi(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     ) -> tuple[torch.Tensor, CoordSystem]:
         output_coords = self.output_coords.copy()
         output_coords["batch"] = coords["batch"]
-        output_coords["lead_time"] = (
-            coords["lead_time"][1:] + output_coords["lead_time"]
-        )
+        output_coords["time"] = coords["time"]
+        output_coords["lead_time"] = coords["lead_time"] + output_coords["lead_time"]
 
         # Ref https://onnxruntime.ai/docs/api/python/api_summary.html
         binding = ort_session.io_binding()
@@ -416,6 +416,7 @@ class FuXi(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         output, out_coords = self._forward(x, coords, self.ort)
         output = output[:, :, 1:]
+        out_coords["lead_time"] = out_coords["lead_time"][1:]
         return output, out_coords
 
     @batch_func()
@@ -456,11 +457,10 @@ class FuXi(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
             # Use output as next input
             x = out
-            coords["lead_time"] = np.array(
-                [coords["lead_time"][-1], out_coords["lead_time"][-1]]
-            )
+            coords = out_coords.copy()
 
             output = out[:, :, 1:]
+            out_coords["lead_time"] = out_coords["lead_time"][1:]
             yield output, out_coords.copy()
 
     def create_iterator(
