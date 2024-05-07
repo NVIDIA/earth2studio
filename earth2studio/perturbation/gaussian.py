@@ -51,4 +51,4 @@ class Gaussian:
         tuple[torch.Tensor, CoordSystem]:
             Ouput tensor and respective coordinate system dictionary
         """
-        return self.noise_amplitude * torch.randn_like(x), coords
+        return x + self.noise_amplitude * torch.randn_like(x), coords

@@ -49,7 +49,8 @@ def test_zero(x, device):
     coords = OrderedDict([(f"{i}", np.arange(x.shape[i])) for i in range(x.ndim)])
 
     prtb = Zero()
-    dx, coords = prtb(x, coords)
+    xout, coords = prtb(x, coords)
+    dx = xout - x
 
     assert dx.shape == x.shape
     assert torch.sum(dx) == 0
