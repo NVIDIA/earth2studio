@@ -40,5 +40,6 @@ Functions
    :toctree: generated/data/
    :template: function.rst
 
+   data.datasource_to_netcdf
    data.fetch_data
    data.prep_data_array
