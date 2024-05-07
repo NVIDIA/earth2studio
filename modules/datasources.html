@@ -412,6 +412,7 @@ document.write(`
 <li class="toctree-l2"><a class="reference internal" href="generated/data/earth2studio.data.Random.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.Random</a></li>
 <li class="toctree-l2"><a class="reference internal" href="generated/data/earth2studio.data.DataArrayFile.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.DataArrayFile</a></li>
 <li class="toctree-l2"><a class="reference internal" href="generated/data/earth2studio.data.DataSetFile.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.DataSetFile</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generated/data/earth2studio.data.datasource_to_file.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.datasource_to_file</a></li>
 <li class="toctree-l2"><a class="reference internal" href="generated/data/earth2studio.data.fetch_data.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.fetch_data</a></li>
 <li class="toctree-l2"><a class="reference internal" href="generated/data/earth2studio.data.prep_data_array.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.prep_data_array</a></li>
 </ul>
@@ -555,10 +556,13 @@ it may impose on their use case.</p>
 <h2>Functions<a class="headerlink" href="#functions" title="Link to this heading">#</a></h2>
 <table class="autosummary longtable table autosummary">
 <tbody>
-<tr class="row-odd"><td><p><a class="reference internal" href="generated/data/earth2studio.data.fetch_data.html#earth2studio.data.fetch_data" title="earth2studio.data.fetch_data"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data.fetch_data</span></code></a>(source, time, variable[, ...])</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/data/earth2studio.data.datasource_to_file.html#earth2studio.data.datasource_to_file" title="earth2studio.data.datasource_to_file"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data.datasource_to_file</span></code></a>(file_name, source, ...)</p></td>
+<td><p>Utility function that can be used for building a local data store needed for an inference request.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/data/earth2studio.data.fetch_data.html#earth2studio.data.fetch_data" title="earth2studio.data.fetch_data"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data.fetch_data</span></code></a>(source, time, variable[, ...])</p></td>
 <td><p>Utility function to fetch data for models and load data on the target device.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="generated/data/earth2studio.data.prep_data_array.html#earth2studio.data.prep_data_array" title="earth2studio.data.prep_data_array"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data.prep_data_array</span></code></a>(da[, device])</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/data/earth2studio.data.prep_data_array.html#earth2studio.data.prep_data_array" title="earth2studio.data.prep_data_array"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data.prep_data_array</span></code></a>(da[, device])</p></td>
 <td><p>Prepares a data array from a data source for inference workflows by converting the data array to a torch tensor and the coordinate system to an OrderedDict.</p></td>
 </tr>
 </tbody>

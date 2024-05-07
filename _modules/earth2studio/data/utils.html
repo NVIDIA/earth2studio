@@ -444,15 +444,18 @@ document.write(`
 <span class="c1"># See the License for the specific language governing permissions and</span>
 <span class="c1"># limitations under the License.</span>
 
+<span class="kn">import</span> <span class="nn">tempfile</span>
 <span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">OrderedDict</span>
 <span class="kn">from</span> <span class="nn">datetime</span> <span class="kn">import</span> <span class="n">datetime</span>
+<span class="kn">from</span> <span class="nn">pathlib</span> <span class="kn">import</span> <span class="n">Path</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Literal</span>
 
 <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 <span class="kn">import</span> <span class="nn">torch</span>
 <span class="kn">import</span> <span class="nn">xarray</span> <span class="k">as</span> <span class="nn">xr</span>
 
 <span class="kn">from</span> <span class="nn">earth2studio.data.base</span> <span class="kn">import</span> <span class="n">DataSource</span>
-<span class="kn">from</span> <span class="nn">earth2studio.utils.time</span> <span class="kn">import</span> <span class="n">timearray_to_datetime</span>
+<span class="kn">from</span> <span class="nn">earth2studio.utils.time</span> <span class="kn">import</span> <span class="n">timearray_to_datetime</span><span class="p">,</span> <span class="n">to_time_array</span>
 <span class="kn">from</span> <span class="nn">earth2studio.utils.type</span> <span class="kn">import</span> <span class="n">CoordSystem</span><span class="p">,</span> <span class="n">LeadTimeArray</span><span class="p">,</span> <span class="n">TimeArray</span><span class="p">,</span> <span class="n">VariableArray</span>
 
 
@@ -560,6 +563,70 @@ document.write(`
         <span class="n">time</span> <span class="o">=</span> <span class="n">timearray_to_datetime</span><span class="p">(</span><span class="n">time</span><span class="p">)</span>
 
     <span class="k">return</span> <span class="n">time</span><span class="p">,</span> <span class="n">variable</span>
+
+
+<div class="viewcode-block" id="datasource_to_file">
+<a class="viewcode-back" href="../../../modules/generated/data/earth2studio.data.datasource_to_file.html#earth2studio.data.datasource_to_file">[docs]</a>
+<span class="k">def</span> <span class="nf">datasource_to_file</span><span class="p">(</span>
+    <span class="n">file_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">source</span><span class="p">:</span> <span class="n">DataSource</span><span class="p">,</span>
+    <span class="n">time</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="n">datetime</span><span class="p">]</span> <span class="o">|</span> <span class="n">TimeArray</span><span class="p">,</span>
+    <span class="n">variable</span><span class="p">:</span> <span class="n">VariableArray</span><span class="p">,</span>
+    <span class="n">lead_time</span><span class="p">:</span> <span class="n">LeadTimeArray</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">np</span><span class="o">.</span><span class="n">timedelta64</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;h&quot;</span><span class="p">)]),</span>
+    <span class="n">backend</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;netcdf&quot;</span><span class="p">,</span> <span class="s2">&quot;zarr&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;netcdf&quot;</span><span class="p">,</span>
+    <span class="n">chunks</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;variable&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">},</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Utility function that can be used for building a local data store needed</span>
+<span class="sd">    for an inference request. This file can then be used with the</span>
+<span class="sd">    :py:class:`earth2studio.data.DataArrayFile` data source to load data from file.</span>
+<span class="sd">    This is useful when multiple runs of the same input data is needed.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    file_name : str</span>
+<span class="sd">        File name of output NetCDF</span>
+<span class="sd">    source : DataSource</span>
+<span class="sd">        The original data source to fetch from</span>
+<span class="sd">    time : list[str] | list[datetime] | list[np.datetime64]</span>
+<span class="sd">        List of time strings, datetimes or np.datetime64 (UTC)</span>
+<span class="sd">    variable : VariableArray</span>
+<span class="sd">        Strings or list of strings that refer to variables to return</span>
+<span class="sd">    lead_time : LeadTimeArray, optional</span>
+<span class="sd">        Lead times to fetch for each provided time, by default</span>
+<span class="sd">        np.array(np.timedelta64(0, &quot;h&quot;))</span>
+<span class="sd">    backend : Literal[&quot;netcdf&quot;, &quot;zarr&quot;], optional</span>
+<span class="sd">        Storage backend to save output file as, by default &quot;netcdf&quot;</span>
+<span class="sd">    chunks : dict[str, int], optional</span>
+<span class="sd">        Chunk sizes along each dimension, by default {&quot;variable&quot;: 1}</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">time</span><span class="p">,</span> <span class="n">datetime</span><span class="p">):</span>
+        <span class="n">time</span> <span class="o">=</span> <span class="p">[</span><span class="n">time</span><span class="p">]</span>
+
+    <span class="n">time</span> <span class="o">=</span> <span class="n">to_time_array</span><span class="p">(</span><span class="n">time</span><span class="p">)</span>
+
+    <span class="c1"># Spot check the write location is okay before pull</span>
+    <span class="n">testfile</span> <span class="o">=</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">TemporaryFile</span><span class="p">(</span><span class="nb">dir</span><span class="o">=</span><span class="n">Path</span><span class="p">(</span><span class="n">file_name</span><span class="p">)</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">resolve</span><span class="p">())</span>
+    <span class="n">testfile</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+
+    <span class="c1"># Compile all times</span>
+    <span class="k">for</span> <span class="n">lead</span> <span class="ow">in</span> <span class="n">lead_time</span><span class="p">:</span>
+        <span class="n">adjust_times</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">t</span> <span class="o">+</span> <span class="n">lead</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">time</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="s2">&quot;datetime64[ns]&quot;</span><span class="p">)</span>
+        <span class="n">time</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">([</span><span class="n">time</span><span class="p">,</span> <span class="n">adjust_times</span><span class="p">],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+    <span class="n">time</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">time</span><span class="p">)</span>
+
+    <span class="c1"># Fetch</span>
+    <span class="n">da</span> <span class="o">=</span> <span class="n">source</span><span class="p">(</span><span class="n">time</span><span class="p">,</span> <span class="n">variable</span><span class="p">)</span>
+    <span class="n">da</span> <span class="o">=</span> <span class="n">da</span><span class="o">.</span><span class="n">assign_coords</span><span class="p">(</span><span class="n">time</span><span class="o">=</span><span class="n">time</span><span class="p">)</span>
+    <span class="n">da</span> <span class="o">=</span> <span class="n">da</span><span class="o">.</span><span class="n">chunk</span><span class="p">(</span><span class="n">chunks</span><span class="o">=</span><span class="n">chunks</span><span class="p">)</span>
+
+    <span class="k">match</span> <span class="n">backend</span><span class="p">:</span>
+        <span class="k">case</span> <span class="s2">&quot;netcdf&quot;</span><span class="p">:</span>
+            <span class="n">da</span><span class="o">.</span><span class="n">to_netcdf</span><span class="p">(</span><span class="n">file_name</span><span class="p">)</span>
+        <span class="k">case</span> <span class="s2">&quot;zarr&quot;</span><span class="p">:</span>
+            <span class="n">da</span><span class="o">.</span><span class="n">to_zarr</span><span class="p">(</span><span class="n">file_name</span><span class="p">)</span>
+        <span class="k">case</span><span class="w"> </span><span class="k">_</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unsupported backend </span><span class="si">{</span><span class="n">backend</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span></div>
+
 </pre></div>
 
                 </article>

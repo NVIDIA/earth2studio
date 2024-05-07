@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
     <link href="../../../_static/favicon.ico" rel="icon" type="image/x-icon">
-    <title>earth2studio.models.auto.Package &#8212; Earth2Studio 0.2.0a0 documentation</title>
+    <title>earth2studio.data.datasource_to_file &#8212; Earth2Studio 0.2.0a0 documentation</title>
   
   
   
@@ -52,7 +52,7 @@
     <script src="../../../_static/design-tabs.js?v=36754332"></script>
     <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
     <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
-    <script>DOCUMENTATION_OPTIONS.pagename = 'modules/generated/models/earth2studio.models.auto.Package';</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'modules/generated/data/earth2studio.data.datasource_to_file';</script>
     <script>
         DOCUMENTATION_OPTIONS.theme_version = '0.15.2';
         DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'https://raw.githubusercontent.com/NVIDIA/earth2studio/gh-pages/_static/switcher.json';
@@ -61,8 +61,8 @@
         </script>
     <link rel="index" title="Index" href="../../../genindex.html" />
     <link rel="search" title="Search" href="../../../search.html" />
-    <link rel="next" title="earth2studio.models.batch.batch_func" href="earth2studio.models.batch.batch_func.html" />
-    <link rel="prev" title="earth2studio.models.dx.Identity" href="dx/earth2studio.models.dx.Identity.html" />
+    <link rel="next" title="earth2studio.data.fetch_data" href="earth2studio.data.fetch_data.html" />
+    <link rel="prev" title="earth2studio.data.DataSetFile" href="earth2studio.data.DataSetFile.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   </head>
@@ -386,35 +386,35 @@ document.write(`
      aria-label="Section Navigation">
   <p class="bd-links__title" role="heading" aria-level="1">Section Navigation</p>
   <div class="bd-toc-item navbar-nav"><ul class="current nav bd-sidenav">
-<li class="toctree-l1 current active has-children"><a class="reference internal" href="../../models.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models</span></code>: Models</a><input checked="" class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-1"><i class="fa-solid fa-chevron-down"></i></label><ul class="current">
-<li class="toctree-l2"><a class="reference internal" href="px/earth2studio.models.px.DLWP.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.DLWP</a></li>
-<li class="toctree-l2"><a class="reference internal" href="px/earth2studio.models.px.FCN.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.FCN</a></li>
-<li class="toctree-l2"><a class="reference internal" href="px/earth2studio.models.px.FengWu.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.FengWu</a></li>
-<li class="toctree-l2"><a class="reference internal" href="px/earth2studio.models.px.Pangu24.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.Pangu24</a></li>
-<li class="toctree-l2"><a class="reference internal" href="px/earth2studio.models.px.Pangu6.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.Pangu6</a></li>
-<li class="toctree-l2"><a class="reference internal" href="px/earth2studio.models.px.Pangu3.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.Pangu3</a></li>
-<li class="toctree-l2"><a class="reference internal" href="px/earth2studio.models.px.Persistence.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.Persistence</a></li>
-<li class="toctree-l2"><a class="reference internal" href="px/earth2studio.models.px.SFNO.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.SFNO</a></li>
-<li class="toctree-l2"><a class="reference internal" href="dx/earth2studio.models.dx.CorrDiffTaiwan.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.dx</span></code>.CorrDiffTaiwan</a></li>
-<li class="toctree-l2"><a class="reference internal" href="dx/earth2studio.models.dx.ClimateNet.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.dx</span></code>.ClimateNet</a></li>
-<li class="toctree-l2"><a class="reference internal" href="dx/earth2studio.models.dx.PrecipitationAFNO.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.dx</span></code>.PrecipitationAFNO</a></li>
-<li class="toctree-l2"><a class="reference internal" href="dx/earth2studio.models.dx.Identity.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.dx</span></code>.Identity</a></li>
-<li class="toctree-l2 current active"><a class="current reference internal" href="#"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.auto</span></code>.Package</a></li>
-<li class="toctree-l2"><a class="reference internal" href="earth2studio.models.batch.batch_func.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.batch</span></code>.batch_func</a></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../models.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models</span></code>: Models</a><input class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-1"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l2"><a class="reference internal" href="../models/px/earth2studio.models.px.DLWP.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.DLWP</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../models/px/earth2studio.models.px.FCN.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.FCN</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../models/px/earth2studio.models.px.FengWu.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.FengWu</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../models/px/earth2studio.models.px.Pangu24.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.Pangu24</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../models/px/earth2studio.models.px.Pangu6.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.Pangu6</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../models/px/earth2studio.models.px.Pangu3.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.Pangu3</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../models/px/earth2studio.models.px.Persistence.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.Persistence</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../models/px/earth2studio.models.px.SFNO.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.SFNO</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../models/dx/earth2studio.models.dx.CorrDiffTaiwan.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.dx</span></code>.CorrDiffTaiwan</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../models/dx/earth2studio.models.dx.ClimateNet.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.dx</span></code>.ClimateNet</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../models/dx/earth2studio.models.dx.PrecipitationAFNO.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.dx</span></code>.PrecipitationAFNO</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../models/dx/earth2studio.models.dx.Identity.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.dx</span></code>.Identity</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../models/earth2studio.models.auto.Package.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.auto</span></code>.Package</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../models/earth2studio.models.batch.batch_func.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.batch</span></code>.batch_func</a></li>
 </ul>
 </li>
-<li class="toctree-l1 has-children"><a class="reference internal" href="../../datasources.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>: Data Sources</a><input class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-2"><i class="fa-solid fa-chevron-down"></i></label><ul>
-<li class="toctree-l2"><a class="reference internal" href="../data/earth2studio.data.ARCO.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.ARCO</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../data/earth2studio.data.CDS.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.CDS</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../data/earth2studio.data.GFS.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.GFS</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../data/earth2studio.data.HRRR.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.HRRR</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../data/earth2studio.data.IFS.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.IFS</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../data/earth2studio.data.Random.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.Random</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../data/earth2studio.data.DataArrayFile.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.DataArrayFile</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../data/earth2studio.data.DataSetFile.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.DataSetFile</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../data/earth2studio.data.datasource_to_file.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.datasource_to_file</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../data/earth2studio.data.fetch_data.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.fetch_data</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../data/earth2studio.data.prep_data_array.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.prep_data_array</a></li>
+<li class="toctree-l1 current active has-children"><a class="reference internal" href="../../datasources.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>: Data Sources</a><input checked="" class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-2"><i class="fa-solid fa-chevron-down"></i></label><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="earth2studio.data.ARCO.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.ARCO</a></li>
+<li class="toctree-l2"><a class="reference internal" href="earth2studio.data.CDS.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.CDS</a></li>
+<li class="toctree-l2"><a class="reference internal" href="earth2studio.data.GFS.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.GFS</a></li>
+<li class="toctree-l2"><a class="reference internal" href="earth2studio.data.HRRR.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.HRRR</a></li>
+<li class="toctree-l2"><a class="reference internal" href="earth2studio.data.IFS.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.IFS</a></li>
+<li class="toctree-l2"><a class="reference internal" href="earth2studio.data.Random.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.Random</a></li>
+<li class="toctree-l2"><a class="reference internal" href="earth2studio.data.DataArrayFile.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.DataArrayFile</a></li>
+<li class="toctree-l2"><a class="reference internal" href="earth2studio.data.DataSetFile.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.DataSetFile</a></li>
+<li class="toctree-l2 current active"><a class="current reference internal" href="#"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.datasource_to_file</a></li>
+<li class="toctree-l2"><a class="reference internal" href="earth2studio.data.fetch_data.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.fetch_data</a></li>
+<li class="toctree-l2"><a class="reference internal" href="earth2studio.data.prep_data_array.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.prep_data_array</a></li>
 </ul>
 </li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../../io.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.io</span></code>: IO Backends</a><input class="toctree-checkbox" id="toctree-checkbox-3" name="toctree-checkbox-3" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-3"><i class="fa-solid fa-chevron-down"></i></label><ul>
@@ -497,7 +497,7 @@ document.write(`
     <li class="breadcrumb-item"><a href="../../index.html" class="nav-link">API Reference</a></li>
     
     
-    <li class="breadcrumb-item"><a href="../../models.html" class="nav-link"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models</span></code>: Models</a></li>
+    <li class="breadcrumb-item"><a href="../../datasources.html" class="nav-link"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>: Data Sources</a></li>
     
     <li class="breadcrumb-item active" aria-current="page"><code...</li>
   </ul>
@@ -516,25 +516,30 @@ document.write(`
 <div id="searchbox"></div>
                 <article class="bd-article">
                   
-  <section id="earth2studio-models-auto-package">
-<h1><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.auto</span></code>.Package<a class="headerlink" href="#earth2studio-models-auto-package" title="Link to this heading">#</a></h1>
-<dl class="py class">
-<dt class="sig sig-object py" id="earth2studio.models.auto.Package">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">earth2studio.models.auto.</span></span><span class="sig-name descname"><span class="pre">Package</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">root</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cache_dir</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/earth2studio/models/auto.html#Package"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.auto.Package" title="Link to this definition">#</a></dt>
-<dd><p>A generic file system abstraction</p>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>This is a slight variation of the Modulus Package… figured upstream was too much
-of a pain right now.</p>
-</div>
+  <section id="earth2studio-data-datasource-to-file">
+<h1><a class="reference internal" href="../../datasources.html#module-earth2studio.data" title="earth2studio.data"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code></a>.datasource_to_file<a class="headerlink" href="#earth2studio-data-datasource-to-file" title="Link to this heading">#</a></h1>
+<dl class="py function">
+<dt class="sig sig-object py" id="earth2studio.data.datasource_to_file">
+<span class="sig-prename descclassname"><span class="pre">earth2studio.data.</span></span><span class="sig-name descname"><span class="pre">datasource_to_file</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">file_name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">source</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">time</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">variable</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">lead_time</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">array([0],</span> <span class="pre">dtype='timedelta64[h]')</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">backend</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'netcdf'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">chunks</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">{'variable':</span> <span class="pre">1}</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/earth2studio/data/utils.html#datasource_to_file"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.data.datasource_to_file" title="Link to this definition">#</a></dt>
+<dd><p>Utility function that can be used for building a local data store needed
+for an inference request. This file can then be used with the
+<a class="reference internal" href="earth2studio.data.DataArrayFile.html#earth2studio.data.DataArrayFile" title="earth2studio.data.DataArrayFile"><code class="xref py py-class docutils literal notranslate"><span class="pre">earth2studio.data.DataArrayFile</span></code></a> data source to load data from file.
+This is useful when multiple runs of the same input data is needed.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>root</strong> (<em>str</em>) – Root directory for file system</p></li>
-<li><p><strong>cache_dir</strong> (<em>str</em><em>, </em><em>optional</em>) – Cache directory, if remote path files will be downloaded here. If none is
-provided then the path set in LOCAL_CACHE enviroment variable will be used.
-If that is empty the path “~/.cache/earth2studio” is used, by default None</p></li>
+<li><p><strong>file_name</strong> (<em>str</em>) – File name of output NetCDF</p></li>
+<li><p><strong>source</strong> (<em>DataSource</em>) – The original data source to fetch from</p></li>
+<li><p><strong>time</strong> (<em>list</em><em>[</em><em>str</em><em>] </em><em>| </em><em>list</em><em>[</em><em>datetime</em><em>] </em><em>| </em><em>list</em><em>[</em><em>np.datetime64</em><em>]</em>) – List of time strings, datetimes or np.datetime64 (UTC)</p></li>
+<li><p><strong>variable</strong> (<em>VariableArray</em>) – Strings or list of strings that refer to variables to return</p></li>
+<li><p><strong>lead_time</strong> (<em>LeadTimeArray</em><em>, </em><em>optional</em>) – Lead times to fetch for each provided time, by default
+np.array(np.timedelta64(0, “h”))</p></li>
+<li><p><strong>backend</strong> (<em>Literal</em><em>[</em><em>&quot;netcdf&quot;</em><em>, </em><em>&quot;zarr&quot;</em><em>]</em><em>, </em><em>optional</em>) – Storage backend to save output file as, by default “netcdf”</p></li>
+<li><p><strong>chunks</strong> (<em>dict</em><em>[</em><em>str</em><em>, </em><em>int</em><em>]</em><em>, </em><em>optional</em>) – Chunk sizes along each dimension, by default {“variable”: 1}</p></li>
 </ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>None</p>
 </dd>
 </dl>
 </dd></dl>
@@ -552,20 +557,20 @@ If that is empty the path “~/.cache/earth2studio” is used, by default None</
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="dx/earth2studio.models.dx.Identity.html"
+       href="earth2studio.data.DataSetFile.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.dx</span></code>.Identity</p>
+        <p class="prev-next-title"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.DataSetFile</p>
       </div>
     </a>
     <a class="right-next"
-       href="earth2studio.models.batch.batch_func.html"
+       href="earth2studio.data.fetch_data.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.batch</span></code>.batch_func</p>
+        <p class="prev-next-title"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.fetch_data</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
@@ -587,14 +592,14 @@ If that is empty the path “~/.cache/earth2studio” is used, by default None</
   </div>
   <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="visible nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.models.auto.Package"><code class="docutils literal notranslate"><span class="pre">Package</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.data.datasource_to_file"><code class="docutils literal notranslate"><span class="pre">datasource_to_file()</span></code></a></li>
 </ul>
   </nav></div>
 
   <div class="sidebar-secondary-item">
 
   <div class="tocsection sourcelink">
-    <a href="../../../_sources/modules/generated/models/earth2studio.models.auto.Package.rst.txt">
+    <a href="../../../_sources/modules/generated/data/earth2studio.data.datasource_to_file.rst.txt">
       <i class="fa-solid fa-file-lines"></i> Show Source
     </a>
   </div>
