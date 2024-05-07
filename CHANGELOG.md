@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Basic diagnostic example
 - Batch dimension userguide
 - Parallel inference example
+- Added `datasource_to_netcdf` utility function
 
 ### Changed
 
