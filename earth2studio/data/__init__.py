@@ -24,4 +24,4 @@ from .ifs import IFS  # noq
 from .rand import Random  # noqa
 from .rx import LandSeaMask, SurfaceGeoPotential, CosineSolarZenith  # noqa
 from .xr import DataArrayFile, DataSetFile  # noqa
-from .utils import fetch_data, prep_data_array
+from .utils import datasource_to_file, fetch_data, prep_data_array
