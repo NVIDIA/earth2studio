@@ -26,7 +26,7 @@ import xarray as xr
 from earth2studio.data import (
     DataArrayFile,
     Random,
-    datasource_to_netcdf,
+    datasource_to_file,
     fetch_data,
     prep_data_array,
 )
@@ -124,7 +124,11 @@ def test_fetch_data(time, lead_time, device):
         np.array([np.timedelta64(-6, "h"), np.timedelta64(0, "h")]),
     ],
 )
-def test_datasource_to_netcdf(time, lead_time, tmp_path):
+@pytest.mark.parametrize(
+    "backend",
+    ["netcdf", "zarr"],
+)
+def test_datasource_to_netcdf(time, lead_time, backend, tmp_path):
 
     lead_time = np.array([np.timedelta64(0, "h")])
     variable = np.array(["a", "b", "c"])
@@ -132,8 +136,13 @@ def test_datasource_to_netcdf(time, lead_time, tmp_path):
     ds = Random(domain)
 
     file_name = str(tmp_path) + "/temp.nc"
-    datasource_to_netcdf(
-        file_name, ds, time=time, variable=variable, lead_time=lead_time
+    datasource_to_file(
+        file_name,
+        ds,
+        time=time,
+        variable=variable,
+        lead_time=lead_time,
+        backend=backend,
     )
 
     # To check attempt to get input data from saved file
