@@ -202,7 +202,7 @@ class WB2Climatology:
             )
 
             try:
-                wb2_name, modifier = WB2Lexicon[variable]  # type: ignore
+                wb2_name, modifier = WB2Lexicon[variable]
             except KeyError as e:
                 logger.error(
                     f"variable id {variable} not found in WeatherBench lexicon"
