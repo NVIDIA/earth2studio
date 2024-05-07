@@ -127,7 +127,7 @@ def test_fetch_data(time, lead_time, device):
     "backend",
     ["netcdf", "zarr"],
 )
-def test_datasource_to_netcdf(time, lead_time, backend, tmp_path):
+def test_datasource_to_file(time, lead_time, backend, tmp_path):
 
     variable = np.array(["a", "b", "c"])
     domain = OrderedDict({"lat": np.random.randn(720), "lon": np.random.randn(1440)})
