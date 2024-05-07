@@ -106,7 +106,7 @@ class SphericalGaussian:
         else:
             noise = sample_noise
 
-        return self.noise_amplitude * noise, coords
+        return x + self.noise_amplitude * noise, coords
 
 
 class GaussianRandomFieldS2(torch.nn.Module):
