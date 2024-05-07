@@ -16,6 +16,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Parallel inference example
 - Perturbation method section in userguide
 - WeatherBench Climatology data source
+- Added the ability to reload zarr and netcdf backends
+- Added the ability to read from an IOBackend
 
 ### Changed
 
@@ -25,6 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Updated perturbation methods API `PerturbationMethod` -> `Perturbation`.
   These now generate noise and apply it to the input tensor.
 - Removed original `Perturbation` class
+- NetCDF reads are now mode='r+' instead of 'w'.
 
 ### Deprecated
 
