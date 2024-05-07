@@ -196,3 +196,30 @@ class KVBackend:
             },
             **xr_kwargs,
         )
+
+    def read(
+        self, coords: CoordSystem, array_name: str, device: torch.device = "cpu"
+    ) -> tuple[torch.Tensor, CoordSystem]:
+        """
+        Read data from the current KV store using the passed array_name.
+
+        Parameters
+        ----------
+        coords : OrderedDict
+            Coordinates of the data to be read.
+        array_name : str | list[str]
+            Name(s) of the array(s) to read from.
+        device : torch.device
+            device to place the read data from, by default 'cpu'
+        """
+
+        x = self.root[array_name][
+            np.ix_(
+                *[
+                    np.where(np.in1d(self.coords[dim], value))[0]
+                    for dim, value in coords.items()
+                ]
+            )
+        ]
+
+        return x.to(device), coords

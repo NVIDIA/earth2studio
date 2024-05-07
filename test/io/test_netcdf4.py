@@ -124,6 +124,10 @@ def test_netcdf4_fields(
     partial_data = torch.randn((1, 1, 1, 180, 180), device=device)
     nc.write(partial_data, partial_coords, array_name)
     assert np.allclose(nc[array_name][0, 0, 0, :, :180], partial_data.to("cpu").numpy())
+
+    xx, _ = nc.read(partial_coords, array_name, device=device)
+    assert torch.allclose(partial_data, xx)
+
     nc.close()
 
     # Test Directory Store
@@ -164,6 +168,10 @@ def test_netcdf4_fields(
             nc[array_name][0, 0, 0, :, :180], partial_data.to("cpu").numpy()
         )
         nc.close()
+
+        nc = NetCDF4Backend(file_name)
+        for coord in nc.coords:
+            assert np.all(total_coords[coord] == nc.coords[coord])
 
 
 @pytest.mark.parametrize(
