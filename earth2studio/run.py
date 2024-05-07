@@ -27,7 +27,7 @@ from earth2studio.data import DataSource, fetch_data
 from earth2studio.io import IOBackend
 from earth2studio.models.dx import DiagnosticModel
 from earth2studio.models.px import PrognosticModel
-from earth2studio.perturbation import PerturbationMethod
+from earth2studio.perturbation import Perturbation
 from earth2studio.utils.coords import CoordSystem, map_coords, split_coords
 from earth2studio.utils.time import to_time_array
 
@@ -42,6 +42,7 @@ def deterministic(
     prognostic: PrognosticModel,
     data: DataSource,
     io: IOBackend,
+    output_coords: CoordSystem = OrderedDict({}),
     device: torch.device | None = None,
 ) -> IOBackend:
     """Built in deterministic workflow.
@@ -60,6 +61,8 @@ def deterministic(
         Data source
     io : IOBackend
         IO object
+    output_coords: CoordSystem, optional
+        IO output coordinate system override, by default OrderedDict({})
     device : torch.device, optional
         Device to run inference on, by default None
 
@@ -71,9 +74,14 @@ def deterministic(
     # sphinx - deterministic end
     logger.info("Running simple workflow!")
     # Load model onto the device
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = (
+        device
+        if device is not None
+        else torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    )
     logger.info(f"Inference device: {device}")
     prognostic = prognostic.to(device)
+    # sphinx - fetch data start
     # Fetch data from data source and load onto device
     time = to_time_array(time)
     x, coords = fetch_data(
@@ -84,6 +92,7 @@ def deterministic(
         device=device,
     )
     logger.success(f"Fetched data from {data.__class__.__name__}")
+    # sphinx - fetch data end
 
     # Set up IO backend
     total_coords = prognostic.output_coords.copy()
@@ -96,6 +105,9 @@ def deterministic(
     ).flatten()
     total_coords.move_to_end("lead_time", last=False)
     total_coords.move_to_end("time", last=False)
+
+    for key, value in total_coords.items():
+        total_coords[key] = output_coords.get(key, value)
     var_names = total_coords.pop("variable")
     io.add_array(total_coords, var_names)
 
@@ -107,6 +119,8 @@ def deterministic(
     logger.info("Inference starting!")
     with tqdm(total=nsteps + 1, desc="Running inference") as pbar:
         for step, (x, coords) in enumerate(model):
+            # Subselect domain/variables as indicated in output_coords
+            x, coords = map_coords(x, coords, output_coords)
             io.write(*split_coords(x, coords))
             pbar.update(1)
             if step == nsteps:
@@ -124,6 +138,7 @@ def diagnostic(
     diagnostic: DiagnosticModel,
     data: DataSource,
     io: IOBackend,
+    output_coords: CoordSystem = OrderedDict({}),
     device: torch.device | None = None,
 ) -> IOBackend:
     """Built in diagnostic workflow.
@@ -144,6 +159,8 @@ def diagnostic(
         Data source
     io : IOBackend
         IO object
+    output_coords: CoordSystem, optional
+        IO output coordinate system override, by default OrderedDict({})
     device : torch.device, optional
         Device to run inference on, by default None
 
@@ -155,7 +172,11 @@ def diagnostic(
     # sphinx - diagnostic end
     logger.info("Running diagnostic workflow!")
     # Load model onto the device
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = (
+        device
+        if device is not None
+        else torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    )
     logger.info(f"Inference device: {device}")
     prognostic = prognostic.to(device)
     diagnostic = diagnostic.to(device)
@@ -183,6 +204,9 @@ def diagnostic(
     ).flatten()
     total_coords.move_to_end("lead_time", last=False)
     total_coords.move_to_end("time", last=False)
+
+    for key, value in total_coords.items():
+        total_coords[key] = output_coords.get(key, value)
     var_names = total_coords.pop("variable")
     io.add_array(total_coords, var_names)
 
@@ -198,7 +222,8 @@ def diagnostic(
             # Run diagnostic
             x, coords = map_coords(x, coords, diagnostic.input_coords)
             x, coords = diagnostic(x, coords)
-
+            # Subselect domain/variables as indicated in output_coords
+            x, coords = map_coords(x, coords, output_coords)
             io.write(*split_coords(x, coords))
             pbar.update(1)
             if step == nsteps:
@@ -216,7 +241,7 @@ def ensemble(
     prognostic: PrognosticModel,
     data: DataSource,
     io: IOBackend,
-    perturbation_method: PerturbationMethod,
+    perturbation: Perturbation,
     batch_size: int | None = None,
     output_coords: CoordSystem = OrderedDict({}),
     device: torch.device | None = None,
@@ -237,11 +262,13 @@ def ensemble(
         Data source
     io : IOBackend
         IO object
-    perturbation_method : PerturbationMethod
+    perturbation_method : Perturbation
         Method to perturb the initial condition to create an ensemble.
     batch_size: int, optional
         Number of ensemble members to run in a single batch,
         by default None.
+    output_coords: CoordSystem, optional
+        IO output coordinate system override, by default OrderedDict({})
     device : torch.device, optional
         Device to run inference on, by default None
 
@@ -317,8 +344,7 @@ def ensemble(
         x, coords = map_coords(x, coords, prognostic.input_coords)
 
         # Perturb ensemble
-        dx, coords = perturbation_method(x, coords)
-        x += dx
+        x, coords = perturbation(x, coords)
 
         # Create prognostic iterator
         model = prognostic.create_iterator(x, coords)
@@ -336,5 +362,5 @@ def ensemble(
 
         batch_id += 1
 
-    logger.success("Ensemble Inference complete")
+    logger.success("Inference complete")
     return io

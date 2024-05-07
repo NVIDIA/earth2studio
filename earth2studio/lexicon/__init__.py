@@ -19,3 +19,4 @@ from .cds import CDSLexicon
 from .gfs import GFSLexicon
 from .hrrr import HRRRLexicon
 from .ifs import IFSLexicon
+from .wb2 import WB2Lexicon

@@ -45,4 +45,4 @@ class Zero:
         tuple[torch.Tensor, CoordSystem]:
             Ouput tensor and respective coordinate system dictionary
         """
-        return torch.zeros_like(x), coords
+        return x, coords

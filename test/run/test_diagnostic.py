@@ -55,6 +55,21 @@ class PhooDiagnostic(torch.nn.Module):
         return out, out_coords
 
 
+# This class is used to verify the workflow moved the model onto the right device
+class TestPersistence(Persistence):
+    def __init__(self, *args, target_device="cpu"):
+        super().__init__(*args)
+        self.target_device = torch.device(target_device)
+
+    def _forward(
+        self,
+        x: torch.Tensor,
+        coords: CoordSystem,
+    ) -> tuple[torch.Tensor, CoordSystem]:
+        assert x.device == self.target_device
+        return super()._forward(x, coords)
+
+
 @pytest.mark.parametrize(
     "coords",
     [
@@ -72,7 +87,7 @@ class PhooDiagnostic(torch.nn.Module):
 def test_run_diagnostic(coords, variable, nsteps, time, device):
 
     data = Random(domain_coords=coords)
-    model = Persistence(variable, coords)
+    model = TestPersistence(variable, coords, target_device=device)
     diagnostic = Identity()
 
     io = ZarrBackend()
@@ -124,3 +139,47 @@ def test_run_diagnostic_mapping(coords, in_variable, out_variable, device):
         assert io[var].shape[1] == nsteps + 1
         for i, (key, value) in enumerate(coords.items()):
             assert io[var].shape[i + 2] == value.shape[0]
+
+
+@pytest.mark.parametrize(
+    "output_coords",
+    [
+        OrderedDict({"variable": np.array(["u10m"])}),
+        OrderedDict(
+            {"variable": np.array(["v10m", "t2m"]), "lat": np.array([0, 1, 2, 3])}
+        ),
+        OrderedDict(
+            {
+                "variable": np.array(["nvidia"]),
+                "lon": np.array([0, 1, 2, 3]),
+                "lat": np.array([4, 5, 6]),
+            }
+        ),
+    ],
+)
+@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+def test_diagnostic_output_coords(output_coords, device):
+    output_coords = output_coords.copy()
+    coords = OrderedDict([("lat", np.arange(10)), ("lon", np.arange(20))])
+    variable = ["u10m", "v10m", "u100", "t2m", "nvidia"]
+    nsteps = 2
+    time = ["1993-04-05T12:00:00"]
+
+    data = Random(domain_coords=coords)
+    model = TestPersistence(variable, coords, target_device=device)
+    diagnostic = Identity()
+    io = ZarrBackend()
+
+    io = run.diagnostic(
+        time, nsteps, model, diagnostic, data, io, output_coords, device=device
+    )
+
+    for name in variable:
+        if name not in output_coords["variable"]:
+            assert name not in list(io.root.array_keys())
+        else:
+            assert name in list(io.root.array_keys())
+
+    del output_coords["variable"]
+    for key, value in output_coords.items():
+        assert np.array_equal(io[key], value)

@@ -63,7 +63,7 @@ class Brown:
 
         noise = self._generate_noise_correlated(tuple(shape), device=x.device)
 
-        return self.noise_amplitude * noise, coords
+        return x + self.noise_amplitude * noise, coords
 
     def _generate_noise_correlated(
         self, shape: tuple[int, ...], device: torch.device
