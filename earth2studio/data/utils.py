@@ -179,7 +179,7 @@ def datasource_to_file(
     # Fetch
     da = source(time, variable)
     da = da.assign_coords(time=time)
-    da = da.chunks(chunks=chunks)
+    da = da.chunk(chunks=chunks)
 
     match backend:
         case "netcdf":

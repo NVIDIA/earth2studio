@@ -15,7 +15,6 @@
 # limitations under the License.
 
 import datetime
-import os
 from collections import OrderedDict
 
 import numpy as np
@@ -130,12 +129,14 @@ def test_fetch_data(time, lead_time, device):
 )
 def test_datasource_to_netcdf(time, lead_time, backend, tmp_path):
 
-    lead_time = np.array([np.timedelta64(0, "h")])
     variable = np.array(["a", "b", "c"])
     domain = OrderedDict({"lat": np.random.randn(720), "lon": np.random.randn(1440)})
     ds = Random(domain)
 
-    file_name = str(tmp_path) + "/temp.nc"
+    if backend == "netcdf":
+        file_name = str(tmp_path) + "/temp.nc"
+    else:
+        file_name = str(tmp_path) + "/temp.zarr"
     datasource_to_file(
         file_name,
         ds,
@@ -155,5 +156,3 @@ def test_datasource_to_netcdf(time, lead_time, backend, tmp_path):
     assert np.all(coords["lat"] == domain["lat"])
     assert np.all(coords["lon"] == domain["lon"])
     assert not torch.isnan(x).any()
-
-    os.remove(file_name)
