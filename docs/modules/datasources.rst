@@ -31,6 +31,7 @@ Used for fetching initial conditions for inference and validation data for scori
    data.Random
    data.DataArrayFile
    data.DataSetFile
+   data.WB2Climatology
 
 Functions
 ~~~~~~~~~
