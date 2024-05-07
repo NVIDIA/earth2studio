@@ -14,15 +14,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import tempfile
 from collections import OrderedDict
 from datetime import datetime
+from pathlib import Path
+from typing import Literal
 
 import numpy as np
 import torch
 import xarray as xr
 
 from earth2studio.data.base import DataSource
-from earth2studio.utils.time import timearray_to_datetime
+from earth2studio.utils.time import timearray_to_datetime, to_time_array
 from earth2studio.utils.type import CoordSystem, LeadTimeArray, TimeArray, VariableArray
 
 
@@ -124,3 +127,64 @@ def prep_data_inputs(
         time = timearray_to_datetime(time)
 
     return time, variable
+
+
+def datasource_to_file(
+    file_name: str,
+    source: DataSource,
+    time: list[str] | list[datetime] | TimeArray,
+    variable: VariableArray,
+    lead_time: LeadTimeArray = np.array([np.timedelta64(0, "h")]),
+    backend: Literal["netcdf", "zarr"] = "netcdf",
+    chunks: dict[str, int] = {"variable": 1},
+) -> None:
+    """Utility function that can be used for building a local data store needed
+    for an inference request. This file can then be used with the
+    :py:class:`earth2studio.data.DataArrayFile` data source to load data from file.
+    This is useful when multiple runs of the same input data is needed.
+
+    Parameters
+    ----------
+    file_name : str
+        File name of output NetCDF
+    source : DataSource
+        The original data source to fetch from
+    time : list[str] | list[datetime] | list[np.datetime64]
+        List of time strings, datetimes or np.datetime64 (UTC)
+    variable : VariableArray
+        Strings or list of strings that refer to variables to return
+    lead_time : LeadTimeArray, optional
+        Lead times to fetch for each provided time, by default
+        np.array(np.timedelta64(0, "h"))
+    backend : Literal["netcdf", "zarr"], optional
+        Storage backend to save output file as, by default "netcdf"
+    chunks : dict[str, int], optional
+        Chunk sizes along each dimension, by default {"variable": 1}
+    """
+    if isinstance(time, datetime):
+        time = [time]
+
+    time = to_time_array(time)
+
+    # Spot check the write location is okay before pull
+    testfile = tempfile.TemporaryFile(dir=Path(file_name).parent.resolve())
+    testfile.close()
+
+    # Compile all times
+    for lead in lead_time:
+        adjust_times = np.array([t + lead for t in time], dtype="datetime64[ns]")
+        time = np.concatenate([time, adjust_times], axis=0)
+    time = np.unique(time)
+
+    # Fetch
+    da = source(time, variable)
+    da = da.assign_coords(time=time)
+    da = da.chunk(chunks=chunks)
+
+    match backend:
+        case "netcdf":
+            da.to_netcdf(file_name)
+        case "zarr":
+            da.to_zarr(file_name)
+        case _:
+            raise ValueError(f"Unsupported backend {backend}")
