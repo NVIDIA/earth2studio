@@ -106,6 +106,7 @@ def test_dlwp_call(time, dlwp_phoo_cs_transform, device):
         [len(time), 1, len(p.output_coords["variable"]), 721, 1440]
     )
     assert (out_coords["variable"] == p.output_coords["variable"]).all()
+    assert (out_coords["time"] == time).all()
     assert torch.allclose(
         out, p.to_equirectangular(p.to_cubedsphere(x[:, 1:] + 6))
     )  # Need to cs transform here to get right values
@@ -174,6 +175,7 @@ def test_dlwp_iter(ensemble, dlwp_phoo_cs_transform, device):
         assert len(out.shape) == 6
         assert out.shape[0] == ensemble
         assert (out_coords["variable"] == p.output_coords["variable"]).all()
+        assert (out_coords["time"] == time).all()
         assert out_coords["lead_time"][0] == np.timedelta64(6 * (i + 1), "h")
         assert torch.allclose(
             out, p.to_equirectangular(p.to_cubedsphere(x[:, :, 1:] + 6 * (i + 1)))
@@ -264,6 +266,7 @@ def test_dlwp_package(device, model_cache_context):
 
     assert out.shape == torch.Size([len(time), 1, 7, 721, 1440])
     assert (out_coords["variable"] == p.output_coords["variable"]).all()
+    assert (out_coords["time"] == time).all()
     handshake_dim(out_coords, "lon", 4)
     handshake_dim(out_coords, "lat", 3)
     handshake_dim(out_coords, "variable", 2)
