@@ -16,6 +16,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Parallel inference example
 - Perturbation method section in userguide
 - WeatherBench Climatology data source
+- Added `datasource_to_file` utility function
+- Add lagged ensemble perturbation method
 
 ### Changed
 
