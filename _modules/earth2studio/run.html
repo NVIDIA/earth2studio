@@ -457,7 +457,7 @@ document.write(`
 <span class="kn">from</span> <span class="nn">earth2studio.io</span> <span class="kn">import</span> <span class="n">IOBackend</span>
 <span class="kn">from</span> <span class="nn">earth2studio.models.dx</span> <span class="kn">import</span> <span class="n">DiagnosticModel</span>
 <span class="kn">from</span> <span class="nn">earth2studio.models.px</span> <span class="kn">import</span> <span class="n">PrognosticModel</span>
-<span class="kn">from</span> <span class="nn">earth2studio.perturbation</span> <span class="kn">import</span> <span class="n">PerturbationMethod</span>
+<span class="kn">from</span> <span class="nn">earth2studio.perturbation</span> <span class="kn">import</span> <span class="n">Perturbation</span>
 <span class="kn">from</span> <span class="nn">earth2studio.utils.coords</span> <span class="kn">import</span> <span class="n">CoordSystem</span><span class="p">,</span> <span class="n">map_coords</span><span class="p">,</span> <span class="n">split_coords</span>
 <span class="kn">from</span> <span class="nn">earth2studio.utils.time</span> <span class="kn">import</span> <span class="n">to_time_array</span>
 
@@ -679,7 +679,7 @@ document.write(`
     <span class="n">prognostic</span><span class="p">:</span> <span class="n">PrognosticModel</span><span class="p">,</span>
     <span class="n">data</span><span class="p">:</span> <span class="n">DataSource</span><span class="p">,</span>
     <span class="n">io</span><span class="p">:</span> <span class="n">IOBackend</span><span class="p">,</span>
-    <span class="n">perturbation_method</span><span class="p">:</span> <span class="n">PerturbationMethod</span><span class="p">,</span>
+    <span class="n">perturbation</span><span class="p">:</span> <span class="n">Perturbation</span><span class="p">,</span>
     <span class="n">batch_size</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="n">output_coords</span><span class="p">:</span> <span class="n">CoordSystem</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">({}),</span>
     <span class="n">device</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">device</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -700,7 +700,7 @@ document.write(`
 <span class="sd">        Data source</span>
 <span class="sd">    io : IOBackend</span>
 <span class="sd">        IO object</span>
-<span class="sd">    perturbation_method : PerturbationMethod</span>
+<span class="sd">    perturbation_method : Perturbation</span>
 <span class="sd">        Method to perturb the initial condition to create an ensemble.</span>
 <span class="sd">    batch_size: int, optional</span>
 <span class="sd">        Number of ensemble members to run in a single batch,</span>
@@ -782,8 +782,7 @@ document.write(`
         <span class="n">x</span><span class="p">,</span> <span class="n">coords</span> <span class="o">=</span> <span class="n">map_coords</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="p">,</span> <span class="n">prognostic</span><span class="o">.</span><span class="n">input_coords</span><span class="p">)</span>
 
         <span class="c1"># Perturb ensemble</span>
-        <span class="n">dx</span><span class="p">,</span> <span class="n">coords</span> <span class="o">=</span> <span class="n">perturbation_method</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="p">)</span>
-        <span class="n">x</span> <span class="o">+=</span> <span class="n">dx</span>
+        <span class="n">x</span><span class="p">,</span> <span class="n">coords</span> <span class="o">=</span> <span class="n">perturbation</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="p">)</span>
 
         <span class="c1"># Create prognostic iterator</span>
         <span class="n">model</span> <span class="o">=</span> <span class="n">prognostic</span><span class="o">.</span><span class="n">create_iterator</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="p">)</span>
@@ -801,7 +800,7 @@ document.write(`
 
         <span class="n">batch_id</span> <span class="o">+=</span> <span class="mi">1</span>
 
-    <span class="n">logger</span><span class="o">.</span><span class="n">success</span><span class="p">(</span><span class="s2">&quot;Ensemble Inference complete&quot;</span><span class="p">)</span>
+    <span class="n">logger</span><span class="o">.</span><span class="n">success</span><span class="p">(</span><span class="s2">&quot;Inference complete&quot;</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">io</span></div>
 
 </pre></div>

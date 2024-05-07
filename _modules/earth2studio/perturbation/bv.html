@@ -449,7 +449,7 @@ document.write(`
 
 <span class="kn">import</span> <span class="nn">torch</span>
 
-<span class="kn">from</span> <span class="nn">earth2studio.perturbation.base</span> <span class="kn">import</span> <span class="n">PerturbationMethod</span>
+<span class="kn">from</span> <span class="nn">earth2studio.perturbation.base</span> <span class="kn">import</span> <span class="n">Perturbation</span>
 <span class="kn">from</span> <span class="nn">earth2studio.perturbation.brown</span> <span class="kn">import</span> <span class="n">Brown</span>
 <span class="kn">from</span> <span class="nn">earth2studio.utils.type</span> <span class="kn">import</span> <span class="n">CoordSystem</span>
 
@@ -471,7 +471,7 @@ document.write(`
 <span class="sd">        Number of integration steps to use in forward call, by default 20</span>
 <span class="sd">    ensemble_perturb : bool, optional</span>
 <span class="sd">        Perturb the ensemble in an interacting fashion, by default False</span>
-<span class="sd">    seeding_perturbation_method : PerturbationMethod, optional</span>
+<span class="sd">    seeding_perturbation_method : Perturbation, optional</span>
 <span class="sd">        Method to seed the Bred Vector perturbation, by default Brown Noise</span>
 
 <span class="sd">    Note</span>
@@ -491,7 +491,7 @@ document.write(`
         <span class="n">noise_amplitude</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.05</span><span class="p">,</span>
         <span class="n">integration_steps</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">20</span><span class="p">,</span>
         <span class="n">ensemble_perturb</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
-        <span class="n">seeding_perturbation_method</span><span class="p">:</span> <span class="n">PerturbationMethod</span> <span class="o">=</span> <span class="n">Brown</span><span class="p">(),</span>
+        <span class="n">seeding_perturbation_method</span><span class="p">:</span> <span class="n">Perturbation</span> <span class="o">=</span> <span class="n">Brown</span><span class="p">(),</span>
     <span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">model</span> <span class="o">=</span> <span class="n">model</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">noise_amplitude</span> <span class="o">=</span> <span class="n">noise_amplitude</span>
@@ -524,6 +524,7 @@ document.write(`
 <span class="sd">            Ouput tensor and respective coordinate system dictionary</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">dx</span><span class="p">,</span> <span class="n">coords</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">seeding_perturbation_method</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="p">)</span>
+        <span class="n">dx</span> <span class="o">-=</span> <span class="n">x</span>
 
         <span class="n">xd</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">clone</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
         <span class="n">xd</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">(</span><span class="n">xd</span><span class="p">,</span> <span class="n">coords</span><span class="p">)</span>
@@ -539,7 +540,7 @@ document.write(`
 
         <span class="n">gamma</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="o">/</span> <span class="n">torch</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">x</span> <span class="o">+</span> <span class="n">dx</span><span class="p">)</span>
 
-        <span class="k">return</span> <span class="n">dx</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">noise_amplitude</span> <span class="o">*</span> <span class="n">gamma</span><span class="p">,</span> <span class="n">coords</span></div>
+        <span class="k">return</span> <span class="n">x</span> <span class="o">+</span> <span class="n">dx</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">noise_amplitude</span> <span class="o">*</span> <span class="n">gamma</span><span class="p">,</span> <span class="n">coords</span></div>
 </div>
 
 </pre></div>

@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
     <link href="../../_static/favicon.ico" rel="icon" type="image/x-icon">
-    <title>Documentation &#8212; Earth2Studio 0.2.0a0 documentation</title>
+    <title>Perturbations &#8212; Earth2Studio 0.2.0a0 documentation</title>
   
   
   
@@ -52,7 +52,7 @@
     <script src="../../_static/design-tabs.js?v=36754332"></script>
     <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
     <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
-    <script>DOCUMENTATION_OPTIONS.pagename = 'userguide/developer/documentation';</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'userguide/components/perturbation';</script>
     <script>
         DOCUMENTATION_OPTIONS.theme_version = '0.15.2';
         DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'https://raw.githubusercontent.com/NVIDIA/earth2studio/gh-pages/_static/switcher.json';
@@ -61,8 +61,8 @@
         </script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
-    <link rel="next" title="Troubleshooting" href="../support/troubleshooting.html" />
-    <link rel="prev" title="Style Guide" href="style.html" />
+    <link rel="next" title="Output Handling" href="io.html" />
+    <link rel="prev" title="Data Sources" href="datasources.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   </head>
@@ -394,13 +394,13 @@ document.write(`
 <li class="toctree-l1"><a class="reference internal" href="../about/data.html">Data Movement</a></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Core Components</span></p>
-<ul class="nav bd-sidenav">
-<li class="toctree-l1"><a class="reference internal" href="../components/prognostic.html">Prognostic Models</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../components/diagnostic.html">Diagnostic Models</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../components/datasources.html">Data Sources</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../components/perturbation.html">Perturbations</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../components/io.html">Output Handling</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../components/statistics.html">Statistics</a></li>
+<ul class="current nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="prognostic.html">Prognostic Models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="diagnostic.html">Diagnostic Models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="datasources.html">Data Sources</a></li>
+<li class="toctree-l1 current active"><a class="current reference internal" href="#">Perturbations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="io.html">Output Handling</a></li>
+<li class="toctree-l1"><a class="reference internal" href="statistics.html">Statistics</a></li>
 
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Advanced Usage</span></p>
@@ -408,10 +408,10 @@ document.write(`
 <li class="toctree-l1"><a class="reference internal" href="../advanced/batch.html">Batch Dimension</a></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Developer Guide</span></p>
-<ul class="current nav bd-sidenav">
-<li class="toctree-l1"><a class="reference internal" href="overview.html">Overview</a></li>
-<li class="toctree-l1"><a class="reference internal" href="style.html">Style Guide</a></li>
-<li class="toctree-l1 current active"><a class="current reference internal" href="#">Documentation</a></li>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../developer/overview.html">Overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../developer/style.html">Style Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../developer/documentation.html">Documentation</a></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Support</span></p>
 <ul class="nav bd-sidenav">
@@ -457,7 +457,7 @@ document.write(`
     
     <li class="breadcrumb-item"><a href="../index.html" class="nav-link">User Guide</a></li>
     
-    <li class="breadcrumb-item active" aria-current="page">Documentation</li>
+    <li class="breadcrumb-item active" aria-current="page">Perturbations</li>
   </ul>
 </nav>
 </div>
@@ -474,38 +474,86 @@ document.write(`
 <div id="searchbox"></div>
                 <article class="bd-article">
                   
-  <section id="documentation">
-<h1>Documentation<a class="headerlink" href="#documentation" title="Link to this heading">#</a></h1>
-<p>Earth2Studio uses Sphinx to build documentation that is hosted on Github pages.
-We have the following philosophies for the three main sections of documentation:</p>
-<ol class="arabic simple">
-<li><p>API documentation is a requirement. <a class="reference external" href="https://github.com/econchick/interrogate">Interogate</a>
-is used enforce that all public methods are documented.</p></li>
-<li><p>Examples are generated using <a class="reference external" href="https://sphinx-gallery.github.io/stable/index.html">sphinx-gallery</a>
-and are used as end-to-end tests for the package.</p></li>
-<li><p>User guide is written using <a class="reference external" href="https://myst-parser.readthedocs.io/en/latest/index.html">MyST</a>
-and aims to document concepts that cannot be fully communicated in examples.</p></li>
-</ol>
-<section id="building-documentation">
-<h2>Building Documentation<a class="headerlink" href="#building-documentation" title="Link to this heading">#</a></h2>
-<p>To build the core documentation without executing examples use:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>make<span class="w"> </span>docs
-</pre></div>
-</div>
-<p>For full docs, where all examples are ran use:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>make<span class="w"> </span>docs-full
-</pre></div>
-</div>
-<p>Sometimes when developing an example you want to see what the end result looks like.
-For development, its recommend to use the following process:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Run this once</span>
-make<span class="w"> </span>docs
+  <section id="perturbations">
+<span id="perturbation-userguide"></span><h1>Perturbations<a class="headerlink" href="#perturbations" title="Link to this heading">#</a></h1>
+<p>Perturbations are an integral part of ensembling workflows and a variety are built into
+Earth2Studio. These can range from standard noise perturbations to more complex methods
+such as Bred Vector.</p>
+<p>The list of perturbation methods that are already built into Earth2studio can be found
+in the API documentation <a class="reference internal" href="../../modules/perturbation.html#earth2studio-perturbation"><span class="std std-ref">earth2studio.perturbation: Perturbations</span></a>.</p>
+<section id="perturbation-interface">
+<h2>Perturbation Interface<a class="headerlink" href="#perturbation-interface" title="Link to this heading">#</a></h2>
+<p>The full requirements for a perturbation method are defined explicitly in the
+<code class="docutils literal notranslate"><span class="pre">earth2studio/perturbation/base.py</span></code>.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nd">@runtime_checkable</span>
+<span class="k">class</span> <span class="nc">Perturbation</span><span class="p">(</span><span class="n">Protocol</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Perturbation interface.&quot;&quot;&quot;</span>
 
-<span class="c1"># Run this to generate your example</span>
-make<span class="w"> </span>docs-dev<span class="w"> </span><span class="nv">FILENAME</span><span class="o">=</span>&lt;example<span class="w"> </span>filename<span class="w"> </span>.py&gt;
+    <span class="nd">@torch</span><span class="o">.</span><span class="n">inference_mode</span><span class="p">()</span>
+    <span class="k">def</span> <span class="fm">__call__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+        <span class="n">coords</span><span class="p">:</span> <span class="n">CoordSystem</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">CoordSystem</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Apply perturbation method to input tensor</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        x : torch.Tensor</span>
+<span class="sd">            Input tensor intended to apply perturbation on</span>
+<span class="sd">        coords : CoordSystem</span>
+<span class="sd">            Ordered dict representing coordinate system that describes the tensor</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        tuple[torch.Tensor, CoordSystem]:</span>
+<span class="sd">            Ouput tensor and respective coordinate system dictionary</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">pass</span>
 </pre></div>
 </div>
-<p>Build files will always be in <code class="docutils literal notranslate"><span class="pre">docs/_build/html</span></code>.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Perturbations methods modify the input tensor directly. They are not functions that just
+generate noise.</p>
+</div>
+</section>
+<section id="perturbation-usage">
+<h2>Perturbation Usage<a class="headerlink" href="#perturbation-usage" title="Link to this heading">#</a></h2>
+<p>All perturbation methods provide a <code class="xref py py-func docutils literal notranslate"><span class="pre">__call__()</span></code> function which takes in
+a data tensor with coordinate system and returns the perturbed output.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Assume perturb is an instance of a Perturbation</span>
+<span class="n">x</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">(</span><span class="o">...</span><span class="p">)</span>  <span class="c1"># Input tensor</span>
+<span class="n">coords</span> <span class="o">=</span> <span class="n">CoordSystem</span><span class="p">(</span><span class="o">...</span><span class="p">)</span>  <span class="c1"># Coordinate system</span>
+<span class="n">x</span><span class="p">,</span> <span class="n">coords</span> <span class="o">=</span> <span class="n">perturb</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="p">)</span>  <span class="c1"># Predict a single time-step</span>
+</pre></div>
+</div>
+</section>
+<section id="normalization-in-perturbations">
+<h2>Normalization in Perturbations<a class="headerlink" href="#normalization-in-perturbations" title="Link to this heading">#</a></h2>
+<p>As discussed in the <a class="reference internal" href="../about/data.html#data-userguide"><span class="std std-ref">Data Movement</span></a> section, data is always moved between
+components with physical units.
+This implies that all perturbation methods will apply noise onto unnormalized data.
+Naturally this is not ideal for many perturbation methods and its recommended users
+extend the perturbation methods to conclude the normalization (and subsequent
+denormalization).</p>
+</section>
+<section id="custom-perturbation-methods">
+<h2>Custom Perturbation Methods<a class="headerlink" href="#custom-perturbation-methods" title="Link to this heading">#</a></h2>
+<p>Integrating your own perturbation only requires inplementing the interface above.
+We recommend users have a look at the <a class="reference internal" href="../../examples/extend/index.html#extension-examples"><span class="std std-ref">Extending Earth2Studio</span></a> examples, which will
+step users through the simple process of implementing their own perturbation method.</p>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>TODO: 🚧 Under construction 🚧</p>
+</div>
+</section>
+<section id="contributing-a-perturbation-method">
+<h2>Contributing a Perturbation Method<a class="headerlink" href="#contributing-a-perturbation-method" title="Link to this heading">#</a></h2>
+<p>Want to add your perturbation to the package? Great, we will be happy to work with you.
+At the minimum we expect the model to abide by the defined interface as well as meet
+the requirements set forth in our contribution guide.</p>
+<p>Open an issue when you have an initial implementation you would like us to review.</p>
 </section>
 </section>
 
@@ -520,20 +568,20 @@ make<span class="w"> </span>docs-dev<span class="w"> </span><span class="nv">FIL
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="style.html"
+       href="datasources.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">Style Guide</p>
+        <p class="prev-next-title">Data Sources</p>
       </div>
     </a>
     <a class="right-next"
-       href="../support/troubleshooting.html"
+       href="io.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">Troubleshooting</p>
+        <p class="prev-next-title">Output Handling</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
@@ -555,14 +603,18 @@ make<span class="w"> </span>docs-dev<span class="w"> </span><span class="nv">FIL
   </div>
   <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="visible nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#building-documentation">Building Documentation</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#perturbation-interface">Perturbation Interface</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#perturbation-usage">Perturbation Usage</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#normalization-in-perturbations">Normalization in Perturbations</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#custom-perturbation-methods">Custom Perturbation Methods</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#contributing-a-perturbation-method">Contributing a Perturbation Method</a></li>
 </ul>
   </nav></div>
 
   <div class="sidebar-secondary-item">
 
   <div class="tocsection sourcelink">
-    <a href="../../_sources/userguide/developer/documentation.md.txt">
+    <a href="../../_sources/userguide/components/perturbation.md.txt">
       <i class="fa-solid fa-file-lines"></i> Show Source
     </a>
   </div>

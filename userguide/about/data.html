@@ -398,6 +398,7 @@ document.write(`
 <li class="toctree-l1"><a class="reference internal" href="../components/prognostic.html">Prognostic Models</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../components/diagnostic.html">Diagnostic Models</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../components/datasources.html">Data Sources</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../components/perturbation.html">Perturbations</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../components/io.html">Output Handling</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../components/statistics.html">Statistics</a></li>
 
@@ -492,7 +493,7 @@ represents the geo-phyiscal coordinate system the tensor represents.</p></li>
 </ol>
 <p>For example, perturbation methods operate by using a data tensor and coordinate system
 to generate a noise tensor:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">class</span> <span class="nc">PerturbationMethod</span><span class="p">(</span><span class="n">Protocol</span><span class="p">):</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">class</span> <span class="nc">Perturbation</span><span class="p">(</span><span class="n">Protocol</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Perturbation interface.&quot;&quot;&quot;</span>
 
     <span class="nd">@torch</span><span class="o">.</span><span class="n">inference_mode</span><span class="p">()</span>
@@ -501,7 +502,7 @@ to generate a noise tensor:</p>
         <span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
         <span class="n">coords</span><span class="p">:</span> <span class="n">CoordSystem</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">CoordSystem</span><span class="p">]:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Apply perturbation method</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Apply perturbation method to input tensor</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
@@ -522,6 +523,10 @@ to generate a noise tensor:</p>
 or interact with these two data structures.
 The combonation of both the data tensor and respective coordinate system provides
 complete information one needs to interpret any stage of a workflow.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Data is <strong>always</strong> moved between components using unnormalized physical units.</p>
+</div>
 <section id="coordinate-systems">
 <span id="coordinates-userguide"></span><h2>Coordinate Systems<a class="headerlink" href="#coordinate-systems" title="Link to this heading">#</a></h2>
 <p>As previously discussed, coordinate dictionaries are a critical part of Earth-2
@@ -591,6 +596,12 @@ Inference Studio has its own naming convention. See lexicon docs more more detai
 </tr>
 </tbody>
 </table>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p><code class="docutils literal notranslate"><span class="pre">np.empty(0)</span></code> is used to denote variable axis in the coordinate system. Namely a
+dimension in the tensor that can be of any size, greater than 0. Typically this is the
+<code class="docutils literal notranslate"><span class="pre">batch</span></code> dimension.</p>
+</div>
 </section>
 <section id="coordinate-utilities">
 <h3>Coordinate Utilities<a class="headerlink" href="#coordinate-utilities" title="Link to this heading">#</a></h3>
