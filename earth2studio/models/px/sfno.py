@@ -152,7 +152,7 @@ class SFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self.input_coords = OrderedDict(
             {
                 "batch": np.empty(0),
-                "time": np.empty(1),
+                "time": np.empty(0),
                 "lead_time": np.array([np.timedelta64(0, "h")]),
                 "variable": np.array(VARIABLES),
                 "lat": lat,
@@ -163,7 +163,7 @@ class SFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self.output_coords = OrderedDict(
             {
                 "batch": np.empty(0),
-                "time": np.empty(1),
+                "time": np.empty(0),
                 "lead_time": np.array([np.timedelta64(6, "h")]),
                 "variable": np.array(VARIABLES),
                 "lat": lat,
