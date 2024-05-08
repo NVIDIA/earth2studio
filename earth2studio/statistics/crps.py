@@ -29,8 +29,6 @@ class crps:
 
     where F is the emperical CDF and 1(x-y) = 1 if x > y.
 
-    This method is more memory efficient than the kernel method, and uses O(n
-    log n) compute instead of O(n^2), where n is the number of ensemble members.
 
     This statistic reduces over a single dimension, where the presumed ensemble dimension
     does not appear in the truth/observation tensor.
@@ -101,6 +99,14 @@ class crps:
                 "x and y must have broadcastable shapes but got"
                 + f"{x.shape} and {y.shape}"
             )
+        # Input coordinate checking
+        j = 0
+        for i, c in enumerate(x_coords):
+            if c == self.reduction_dimension:
+                continue
+            handshake_dim(y_coords, c, j)
+            handshake_coords(x_coords, y_coords, c)
+            j += 1
 
         coord_count = 0
         for c in x_coords:
@@ -118,15 +124,18 @@ class crps:
 def _crps_from_empirical_cdf(
     ensemble: torch.Tensor, truth: torch.Tensor, dim: int = 0
 ) -> torch.Tensor:
-    """Compute the exact CRPS using the CDF method
+    """
+
+    Warning
+    -------
+    This method is being upstreamed to https://github.com/NVIDIA/modulus in the next release.
+
+    Compute the exact CRPS using the CDF method
 
     Uses this formula
         # int [F(x) - 1(x-y)]^2 dx
 
     where F is the emperical CDF and 1(x-y) = 1 if x > y.
-
-    This method is more memory efficient than the kernel method, and uses O(n
-    log n) compute instead of O(n^2), where n is the number of ensemble members.
 
     Parameters
     ----------
