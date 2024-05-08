@@ -115,7 +115,6 @@ def test_sfno_iter(ensemble, device):
     # Get generator
     next(p_iter)  # Skip first which should return the input
     for i, (out, out_coords) in enumerate(p_iter):
-        print(list(out_coords))
         assert len(out.shape) == 6
         assert out.shape == torch.Size([ensemble, len(time), 1, 73, 721, 1440])
         assert (out_coords["variable"] == p.output_coords["variable"]).all()
