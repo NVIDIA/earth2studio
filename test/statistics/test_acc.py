@@ -246,3 +246,23 @@ def test_acc_failures(
                 climatology=climatology,
                 weights=weights.unsqueeze(0),
             )
+
+    # Test if x has "lead_time" but "y" does not
+    x = torch.randn((10, 1, 1, 2, 361, 720), device=device)
+    y = torch.randn((10, 1, 2, 361, 720), device=device)
+    y_coords = coords.copy()
+    y_coords.pop("lead_time")
+
+    ACC = acc(reduction_dimensions)
+    with pytest.raises(KeyError):
+        ACC(x, coords, y, y_coords)
+
+    # Test if variables do not match
+    x = torch.randn((10, 1, 1, 2, 361, 720), device=device)
+    y = torch.randn((10, 1, 1, 1, 361, 720), device=device)
+    y_coords = coords.copy()
+    y_coords["variable"] = np.array(["t2m"])
+
+    ACC = acc(reduction_dimensions)
+    with pytest.raises(ValueError):
+        ACC(x, coords, y, y_coords)
