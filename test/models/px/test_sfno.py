@@ -44,7 +44,7 @@ class PhooSFNOModel(torch.nn.Module):
     ],
 )
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
-def test_fcnv2_call(time, device):
+def test_sfno_call(time, device):
 
     # Spoof model
     model = PhooSFNOModel()
@@ -82,7 +82,7 @@ def test_fcnv2_call(time, device):
     [1, 2],
 )
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
-def test_fcn_iter(ensemble, device):
+def test_sfno_iter(ensemble, device):
 
     time = np.array([np.datetime64("1993-04-05T00:00")])
     # Spoof model
@@ -135,7 +135,7 @@ def test_fcn_iter(ensemble, device):
     ],
 )
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
-def test_fcn_exceptions(dc, device):
+def test_sfno_exceptions(dc, device):
     time = np.array([np.datetime64("1993-04-05T00:00")])
     # Spoof model
     model = PhooSFNOModel()
@@ -156,11 +156,11 @@ def test_fcn_exceptions(dc, device):
 
 
 @pytest.mark.ci_cache
-@pytest.mark.timeout(15)
-@pytest.mark.parametrize("device", ["cpu"])
-def test_fcn_package(device, model_cache_context):
+@pytest.mark.timeout(360)
+@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+def test_sfno_package(device, model_cache_context):
     time = np.array([np.datetime64("1993-04-05T00:00")])
-    # Test the cached model package FCN
+    # Test the cached model package SFNO
     # Test only on cuda device
     with model_cache_context():
         package = SFNO.load_default_package()
