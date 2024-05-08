@@ -6,7 +6,7 @@
 
 Computation times
 =================
-**10:23.773** total execution time for 8 files **from examples**:
+**00:00.000** total execution time for 8 files **from examples**:
 
 .. container::
 
@@ -32,27 +32,27 @@ Computation times
    * - Example
      - Time
      - Mem (MB)
-   * - :ref:`sphx_glr_examples_08_distributed_manager.py` (``08_distributed_manager.py``)
-     - 02:38.127
-     - 0.0
-   * - :ref:`sphx_glr_examples_03_ensemble_workflow.py` (``03_ensemble_workflow.py``)
-     - 02:24.731
-     - 0.0
-   * - :ref:`sphx_glr_examples_07_seasonal_statistics.py` (``07_seasonal_statistics.py``)
-     - 02:14.684
-     - 0.0
    * - :ref:`sphx_glr_examples_01_deterministic_workflow.py` (``01_deterministic_workflow.py``)
-     - 01:06.462
-     - 0.0
-   * - :ref:`sphx_glr_examples_06_model_perturbation_hook.py` (``06_model_perturbation_hook.py``)
-     - 00:45.083
+     - 00:00.000
      - 0.0
    * - :ref:`sphx_glr_examples_02_diagnostic_workflow.py` (``02_diagnostic_workflow.py``)
-     - 00:34.232
+     - 00:00.000
      - 0.0
-   * - :ref:`sphx_glr_examples_05_ensemble_workflow_extend.py` (``05_ensemble_workflow_extend.py``)
-     - 00:25.158
+   * - :ref:`sphx_glr_examples_03_ensemble_workflow.py` (``03_ensemble_workflow.py``)
+     - 00:00.000
      - 0.0
    * - :ref:`sphx_glr_examples_04_corrdiff_inference.py` (``04_corrdiff_inference.py``)
-     - 00:15.295
+     - 00:00.000
+     - 0.0
+   * - :ref:`sphx_glr_examples_05_ensemble_workflow_extend.py` (``05_ensemble_workflow_extend.py``)
+     - 00:00.000
+     - 0.0
+   * - :ref:`sphx_glr_examples_06_model_perturbation_hook.py` (``06_model_perturbation_hook.py``)
+     - 00:00.000
+     - 0.0
+   * - :ref:`sphx_glr_examples_07_seasonal_statistics.py` (``07_seasonal_statistics.py``)
+     - 00:00.000
+     - 0.0
+   * - :ref:`sphx_glr_examples_08_distributed_manager.py` (``08_distributed_manager.py``)
+     - 00:00.000
      - 0.0

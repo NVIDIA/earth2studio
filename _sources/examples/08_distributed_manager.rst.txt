@@ -82,18 +82,6 @@ For example, this script could be ran using:
         f"Inference runner {dist.rank} of {dist.world_size} with device {dist.device}"
     )
 
-
-
-
-.. rst-class:: sphx-glr-script-out
-
- .. code-block:: none
-
-    2024-05-08 01:49:09.441 | INFO     | __main__:<module>:76 - Inference runner 0 of 1 with device cuda:0
-
-
-
-
 .. GENERATED FROM PYTHON SOURCE LINES 80-84
 
 Next the needed components get initialized.
@@ -119,12 +107,6 @@ taken to ensure safe parallel inference.
         model = DLWP.load_model(package)
 
 
-
-
-
-
-
-
 .. GENERATED FROM PYTHON SOURCE LINES 100-107
 
 When loading models that are built into Earth2Studio, the model's checkpoint files
@@ -144,12 +126,6 @@ process 0 and then loaded by other processes.
     data = ARCO()
 
 
-
-
-
-
-
-
 .. GENERATED FROM PYTHON SOURCE LINES 114-117
 
 The remote date store will place cached data into separate caches for each process.
@@ -162,12 +138,6 @@ means that multiple jobs will download the same date-time if needed.
 
     chunks = {"time": 1}
     io = ZarrBackend(file_name=f"outputs/08_output_{dist.rank}.zarr", chunks=chunks)
-
-
-
-
-
-
 
 
 .. GENERATED FROM PYTHON SOURCE LINES 123-133
@@ -203,125 +173,6 @@ process.
 
     print(io.root.tree())
     torch.distributed.barrier()
-
-
-
-
-
-.. rst-class:: sphx-glr-script-out
-
- .. code-block:: none
-
-    2024-05-08 01:49:19.960 | INFO     | earth2studio.run:deterministic:75 - Running simple workflow!
-    2024-05-08 01:49:19.960 | INFO     | earth2studio.run:deterministic:82 - Inference device: cuda:0
-    Fetching ARCO for 2000-05-31 18:00:00:   0%|          | 0/7 [00:00<?, ?it/s]                                                                                2024-05-08 01:49:20.242 | DEBUG    | earth2studio.data.arco:fetch_arco_dataarray:166 - Fetching ARCO zarr array for variable: t850 at 2000-05-31T18:00:00
-    Fetching ARCO for 2000-05-31 18:00:00:   0%|          | 0/7 [00:00<?, ?it/s]    Fetching ARCO for 2000-05-31 18:00:00:  14%|█▍        | 1/7 [00:03<00:19,  3.29s/it]                                                                                        2024-05-08 01:49:23.533 | DEBUG    | earth2studio.data.arco:fetch_arco_dataarray:166 - Fetching ARCO zarr array for variable: z1000 at 2000-05-31T18:00:00
-    Fetching ARCO for 2000-05-31 18:00:00:  14%|█▍        | 1/7 [00:03<00:19,  3.29s/it]    Fetching ARCO for 2000-05-31 18:00:00:  29%|██▊       | 2/7 [00:06<00:15,  3.15s/it]                                                                                        2024-05-08 01:49:26.591 | DEBUG    | earth2studio.data.arco:fetch_arco_dataarray:166 - Fetching ARCO zarr array for variable: z700 at 2000-05-31T18:00:00
-    Fetching ARCO for 2000-05-31 18:00:00:  29%|██▊       | 2/7 [00:06<00:15,  3.15s/it]    Fetching ARCO for 2000-05-31 18:00:00:  43%|████▎     | 3/7 [00:08<00:10,  2.65s/it]                                                                                        2024-05-08 01:49:28.648 | DEBUG    | earth2studio.data.arco:fetch_arco_dataarray:166 - Fetching ARCO zarr array for variable: z500 at 2000-05-31T18:00:00
-    Fetching ARCO for 2000-05-31 18:00:00:  43%|████▎     | 3/7 [00:08<00:10,  2.65s/it]    Fetching ARCO for 2000-05-31 18:00:00:  57%|█████▋    | 4/7 [00:10<00:07,  2.36s/it]                                                                                        2024-05-08 01:49:30.565 | DEBUG    | earth2studio.data.arco:fetch_arco_dataarray:166 - Fetching ARCO zarr array for variable: z300 at 2000-05-31T18:00:00
-    Fetching ARCO for 2000-05-31 18:00:00:  57%|█████▋    | 4/7 [00:10<00:07,  2.36s/it]    Fetching ARCO for 2000-05-31 18:00:00:  71%|███████▏  | 5/7 [00:12<00:04,  2.17s/it]                                                                                        2024-05-08 01:49:32.404 | DEBUG    | earth2studio.data.arco:fetch_arco_dataarray:166 - Fetching ARCO zarr array for variable: tcwv at 2000-05-31T18:00:00
-    Fetching ARCO for 2000-05-31 18:00:00:  71%|███████▏  | 5/7 [00:12<00:04,  2.17s/it]    Fetching ARCO for 2000-05-31 18:00:00:  86%|████████▌ | 6/7 [00:13<00:01,  1.76s/it]                                                                                        2024-05-08 01:49:33.347 | DEBUG    | earth2studio.data.arco:fetch_arco_dataarray:166 - Fetching ARCO zarr array for variable: t2m at 2000-05-31T18:00:00
-    Fetching ARCO for 2000-05-31 18:00:00:  86%|████████▌ | 6/7 [00:13<00:01,  1.76s/it]    Fetching ARCO for 2000-05-31 18:00:00: 100%|██████████| 7/7 [00:13<00:00,  1.39s/it]    Fetching ARCO for 2000-05-31 18:00:00: 100%|██████████| 7/7 [00:13<00:00,  1.96s/it]
-    Fetching ARCO for 2001-05-31 18:00:00:   0%|          | 0/7 [00:00<?, ?it/s]                                                                                2024-05-08 01:49:34.058 | DEBUG    | earth2studio.data.arco:fetch_arco_dataarray:166 - Fetching ARCO zarr array for variable: t850 at 2001-05-31T18:00:00
-    Fetching ARCO for 2001-05-31 18:00:00:   0%|          | 0/7 [00:00<?, ?it/s]    Fetching ARCO for 2001-05-31 18:00:00:  14%|█▍        | 1/7 [00:02<00:16,  2.73s/it]                                                                                        2024-05-08 01:49:36.789 | DEBUG    | earth2studio.data.arco:fetch_arco_dataarray:166 - Fetching ARCO zarr array for variable: z1000 at 2001-05-31T18:00:00
-    Fetching ARCO for 2001-05-31 18:00:00:  14%|█▍        | 1/7 [00:02<00:16,  2.73s/it]    Fetching ARCO for 2001-05-31 18:00:00:  29%|██▊       | 2/7 [00:05<00:12,  2.50s/it]                                                                                        2024-05-08 01:49:39.125 | DEBUG    | earth2studio.data.arco:fetch_arco_dataarray:166 - Fetching ARCO zarr array for variable: z700 at 2001-05-31T18:00:00
-    Fetching ARCO for 2001-05-31 18:00:00:  29%|██▊       | 2/7 [00:05<00:12,  2.50s/it]    Fetching ARCO for 2001-05-31 18:00:00:  43%|████▎     | 3/7 [00:06<00:08,  2.18s/it]                                                                                        2024-05-08 01:49:40.927 | DEBUG    | earth2studio.data.arco:fetch_arco_dataarray:166 - Fetching ARCO zarr array for variable: z500 at 2001-05-31T18:00:00
-    Fetching ARCO for 2001-05-31 18:00:00:  43%|████▎     | 3/7 [00:06<00:08,  2.18s/it]    Fetching ARCO for 2001-05-31 18:00:00:  57%|█████▋    | 4/7 [00:08<00:06,  2.05s/it]                                                                                        2024-05-08 01:49:42.777 | DEBUG    | earth2studio.data.arco:fetch_arco_dataarray:166 - Fetching ARCO zarr array for variable: z300 at 2001-05-31T18:00:00
-    Fetching ARCO for 2001-05-31 18:00:00:  57%|█████▋    | 4/7 [00:08<00:06,  2.05s/it]    Fetching ARCO for 2001-05-31 18:00:00:  71%|███████▏  | 5/7 [00:10<00:03,  1.89s/it]                                                                                        2024-05-08 01:49:44.371 | DEBUG    | earth2studio.data.arco:fetch_arco_dataarray:166 - Fetching ARCO zarr array for variable: tcwv at 2001-05-31T18:00:00
-    Fetching ARCO for 2001-05-31 18:00:00:  71%|███████▏  | 5/7 [00:10<00:03,  1.89s/it]    Fetching ARCO for 2001-05-31 18:00:00:  86%|████████▌ | 6/7 [00:11<00:01,  1.58s/it]                                                                                        2024-05-08 01:49:45.366 | DEBUG    | earth2studio.data.arco:fetch_arco_dataarray:166 - Fetching ARCO zarr array for variable: t2m at 2001-05-31T18:00:00
-    Fetching ARCO for 2001-05-31 18:00:00:  86%|████████▌ | 6/7 [00:11<00:01,  1.58s/it]    Fetching ARCO for 2001-05-31 18:00:00: 100%|██████████| 7/7 [00:12<00:00,  1.37s/it]    Fetching ARCO for 2001-05-31 18:00:00: 100%|██████████| 7/7 [00:12<00:00,  1.75s/it]
-    Fetching ARCO for 2002-05-31 18:00:00:   0%|          | 0/7 [00:00<?, ?it/s]                                                                                2024-05-08 01:49:46.376 | DEBUG    | earth2studio.data.arco:fetch_arco_dataarray:166 - Fetching ARCO zarr array for variable: t850 at 2002-05-31T18:00:00
-    Fetching ARCO for 2002-05-31 18:00:00:   0%|          | 0/7 [00:00<?, ?it/s]    Fetching ARCO for 2002-05-31 18:00:00:  14%|█▍        | 1/7 [00:02<00:16,  2.76s/it]                                                                                        2024-05-08 01:49:49.132 | DEBUG    | earth2studio.data.arco:fetch_arco_dataarray:166 - Fetching ARCO zarr array for variable: z1000 at 2002-05-31T18:00:00
-    Fetching ARCO for 2002-05-31 18:00:00:  14%|█▍        | 1/7 [00:02<00:16,  2.76s/it]    Fetching ARCO for 2002-05-31 18:00:00:  29%|██▊       | 2/7 [00:04<00:10,  2.18s/it]                                                                                        2024-05-08 01:49:50.907 | DEBUG    | earth2studio.data.arco:fetch_arco_dataarray:166 - Fetching ARCO zarr array for variable: z700 at 2002-05-31T18:00:00
-    Fetching ARCO for 2002-05-31 18:00:00:  29%|██▊       | 2/7 [00:04<00:10,  2.18s/it]    Fetching ARCO for 2002-05-31 18:00:00:  43%|████▎     | 3/7 [00:05<00:06,  1.74s/it]                                                                                        2024-05-08 01:49:52.132 | DEBUG    | earth2studio.data.arco:fetch_arco_dataarray:166 - Fetching ARCO zarr array for variable: z500 at 2002-05-31T18:00:00
-    Fetching ARCO for 2002-05-31 18:00:00:  43%|████▎     | 3/7 [00:05<00:06,  1.74s/it]    Fetching ARCO for 2002-05-31 18:00:00:  57%|█████▋    | 4/7 [00:07<00:04,  1.66s/it]                                                                                        2024-05-08 01:49:53.659 | DEBUG    | earth2studio.data.arco:fetch_arco_dataarray:166 - Fetching ARCO zarr array for variable: z300 at 2002-05-31T18:00:00
-    Fetching ARCO for 2002-05-31 18:00:00:  57%|█████▋    | 4/7 [00:07<00:04,  1.66s/it]    Fetching ARCO for 2002-05-31 18:00:00:  71%|███████▏  | 5/7 [00:08<00:03,  1.67s/it]                                                                                        2024-05-08 01:49:55.341 | DEBUG    | earth2studio.data.arco:fetch_arco_dataarray:166 - Fetching ARCO zarr array for variable: tcwv at 2002-05-31T18:00:00
-    Fetching ARCO for 2002-05-31 18:00:00:  71%|███████▏  | 5/7 [00:08<00:03,  1.67s/it]    Fetching ARCO for 2002-05-31 18:00:00:  86%|████████▌ | 6/7 [00:09<00:01,  1.32s/it]                                                                                        2024-05-08 01:49:55.996 | DEBUG    | earth2studio.data.arco:fetch_arco_dataarray:166 - Fetching ARCO zarr array for variable: t2m at 2002-05-31T18:00:00
-    Fetching ARCO for 2002-05-31 18:00:00:  86%|████████▌ | 6/7 [00:09<00:01,  1.32s/it]    Fetching ARCO for 2002-05-31 18:00:00: 100%|██████████| 7/7 [00:09<00:00,  1.01s/it]    Fetching ARCO for 2002-05-31 18:00:00: 100%|██████████| 7/7 [00:09<00:00,  1.43s/it]
-    Fetching ARCO for 2003-05-31 18:00:00:   0%|          | 0/7 [00:00<?, ?it/s]                                                                                2024-05-08 01:49:56.450 | DEBUG    | earth2studio.data.arco:fetch_arco_dataarray:166 - Fetching ARCO zarr array for variable: t850 at 2003-05-31T18:00:00
-    Fetching ARCO for 2003-05-31 18:00:00:   0%|          | 0/7 [00:00<?, ?it/s]    Fetching ARCO for 2003-05-31 18:00:00:  14%|█▍        | 1/7 [00:03<00:20,  3.46s/it]                                                                                        2024-05-08 01:49:59.911 | DEBUG    | earth2studio.data.arco:fetch_arco_dataarray:166 - Fetching ARCO zarr array for variable: z1000 at 2003-05-31T18:00:00
-    Fetching ARCO for 2003-05-31 18:00:00:  14%|█▍        | 1/7 [00:03<00:20,  3.46s/it]    Fetching ARCO for 2003-05-31 18:00:00:  29%|██▊       | 2/7 [00:06<00:14,  2.95s/it]                                                                                        2024-05-08 01:50:02.502 | DEBUG    | earth2studio.data.arco:fetch_arco_dataarray:166 - Fetching ARCO zarr array for variable: z700 at 2003-05-31T18:00:00
-    Fetching ARCO for 2003-05-31 18:00:00:  29%|██▊       | 2/7 [00:06<00:14,  2.95s/it]    Fetching ARCO for 2003-05-31 18:00:00:  43%|████▎     | 3/7 [00:07<00:09,  2.34s/it]                                                                                        2024-05-08 01:50:04.121 | DEBUG    | earth2studio.data.arco:fetch_arco_dataarray:166 - Fetching ARCO zarr array for variable: z500 at 2003-05-31T18:00:00
-    Fetching ARCO for 2003-05-31 18:00:00:  43%|████▎     | 3/7 [00:07<00:09,  2.34s/it]    Fetching ARCO for 2003-05-31 18:00:00:  57%|█████▋    | 4/7 [00:09<00:06,  2.07s/it]                                                                                        2024-05-08 01:50:05.768 | DEBUG    | earth2studio.data.arco:fetch_arco_dataarray:166 - Fetching ARCO zarr array for variable: z300 at 2003-05-31T18:00:00
-    Fetching ARCO for 2003-05-31 18:00:00:  57%|█████▋    | 4/7 [00:09<00:06,  2.07s/it]    Fetching ARCO for 2003-05-31 18:00:00:  71%|███████▏  | 5/7 [00:10<00:03,  1.75s/it]                                                                                        2024-05-08 01:50:06.967 | DEBUG    | earth2studio.data.arco:fetch_arco_dataarray:166 - Fetching ARCO zarr array for variable: tcwv at 2003-05-31T18:00:00
-    Fetching ARCO for 2003-05-31 18:00:00:  71%|███████▏  | 5/7 [00:10<00:03,  1.75s/it]    Fetching ARCO for 2003-05-31 18:00:00:  86%|████████▌ | 6/7 [00:10<00:01,  1.32s/it]                                                                                        2024-05-08 01:50:07.442 | DEBUG    | earth2studio.data.arco:fetch_arco_dataarray:166 - Fetching ARCO zarr array for variable: t2m at 2003-05-31T18:00:00
-    Fetching ARCO for 2003-05-31 18:00:00:  86%|████████▌ | 6/7 [00:10<00:01,  1.32s/it]    Fetching ARCO for 2003-05-31 18:00:00: 100%|██████████| 7/7 [00:11<00:00,  1.07s/it]    Fetching ARCO for 2003-05-31 18:00:00: 100%|██████████| 7/7 [00:11<00:00,  1.65s/it]
-    Fetching ARCO for 2004-05-31 18:00:00:   0%|          | 0/7 [00:00<?, ?it/s]                                                                                2024-05-08 01:50:08.083 | DEBUG    | earth2studio.data.arco:fetch_arco_dataarray:166 - Fetching ARCO zarr array for variable: t850 at 2004-05-31T18:00:00
-    Fetching ARCO for 2004-05-31 18:00:00:   0%|          | 0/7 [00:00<?, ?it/s]    Fetching ARCO for 2004-05-31 18:00:00:  14%|█▍        | 1/7 [00:02<00:14,  2.43s/it]                                                                                        2024-05-08 01:50:10.516 | DEBUG    | earth2studio.data.arco:fetch_arco_dataarray:166 - Fetching ARCO zarr array for variable: z1000 at 2004-05-31T18:00:00
-    Fetching ARCO for 2004-05-31 18:00:00:  14%|█▍        | 1/7 [00:02<00:14,  2.43s/it]    Fetching ARCO for 2004-05-31 18:00:00:  29%|██▊       | 2/7 [00:04<00:12,  2.49s/it]                                                                                        2024-05-08 01:50:13.041 | DEBUG    | earth2studio.data.arco:fetch_arco_dataarray:166 - Fetching ARCO zarr array for variable: z700 at 2004-05-31T18:00:00
-    Fetching ARCO for 2004-05-31 18:00:00:  29%|██▊       | 2/7 [00:04<00:12,  2.49s/it]    Fetching ARCO for 2004-05-31 18:00:00:  43%|████▎     | 3/7 [00:06<00:08,  2.05s/it]                                                                                        2024-05-08 01:50:14.563 | DEBUG    | earth2studio.data.arco:fetch_arco_dataarray:166 - Fetching ARCO zarr array for variable: z500 at 2004-05-31T18:00:00
-    Fetching ARCO for 2004-05-31 18:00:00:  43%|████▎     | 3/7 [00:06<00:08,  2.05s/it]    Fetching ARCO for 2004-05-31 18:00:00:  57%|█████▋    | 4/7 [00:08<00:05,  1.94s/it]                                                                                        2024-05-08 01:50:16.340 | DEBUG    | earth2studio.data.arco:fetch_arco_dataarray:166 - Fetching ARCO zarr array for variable: z300 at 2004-05-31T18:00:00
-    Fetching ARCO for 2004-05-31 18:00:00:  57%|█████▋    | 4/7 [00:08<00:05,  1.94s/it]    Fetching ARCO for 2004-05-31 18:00:00:  71%|███████▏  | 5/7 [00:09<00:03,  1.80s/it]                                                                                        2024-05-08 01:50:17.886 | DEBUG    | earth2studio.data.arco:fetch_arco_dataarray:166 - Fetching ARCO zarr array for variable: tcwv at 2004-05-31T18:00:00
-    Fetching ARCO for 2004-05-31 18:00:00:  71%|███████▏  | 5/7 [00:09<00:03,  1.80s/it]    Fetching ARCO for 2004-05-31 18:00:00:  86%|████████▌ | 6/7 [00:10<00:01,  1.41s/it]                                                                                        2024-05-08 01:50:18.555 | DEBUG    | earth2studio.data.arco:fetch_arco_dataarray:166 - Fetching ARCO zarr array for variable: t2m at 2004-05-31T18:00:00
-    Fetching ARCO for 2004-05-31 18:00:00:  86%|████████▌ | 6/7 [00:10<00:01,  1.41s/it]    Fetching ARCO for 2004-05-31 18:00:00: 100%|██████████| 7/7 [00:11<00:00,  1.17s/it]    Fetching ARCO for 2004-05-31 18:00:00: 100%|██████████| 7/7 [00:11<00:00,  1.59s/it]
-    Fetching ARCO for 2005-05-31 18:00:00:   0%|          | 0/7 [00:00<?, ?it/s]                                                                                2024-05-08 01:50:19.278 | DEBUG    | earth2studio.data.arco:fetch_arco_dataarray:166 - Fetching ARCO zarr array for variable: t850 at 2005-05-31T18:00:00
-    Fetching ARCO for 2005-05-31 18:00:00:   0%|          | 0/7 [00:00<?, ?it/s]    Fetching ARCO for 2005-05-31 18:00:00:  14%|█▍        | 1/7 [00:02<00:16,  2.72s/it]                                                                                        2024-05-08 01:50:21.996 | DEBUG    | earth2studio.data.arco:fetch_arco_dataarray:166 - Fetching ARCO zarr array for variable: z1000 at 2005-05-31T18:00:00
-    Fetching ARCO for 2005-05-31 18:00:00:  14%|█▍        | 1/7 [00:02<00:16,  2.72s/it]    Fetching ARCO for 2005-05-31 18:00:00:  29%|██▊       | 2/7 [00:06<00:16,  3.22s/it]                                                                                        2024-05-08 01:50:25.569 | DEBUG    | earth2studio.data.arco:fetch_arco_dataarray:166 - Fetching ARCO zarr array for variable: z700 at 2005-05-31T18:00:00
-    Fetching ARCO for 2005-05-31 18:00:00:  29%|██▊       | 2/7 [00:06<00:16,  3.22s/it]    Fetching ARCO for 2005-05-31 18:00:00:  43%|████▎     | 3/7 [00:07<00:10,  2.51s/it]                                                                                        2024-05-08 01:50:27.244 | DEBUG    | earth2studio.data.arco:fetch_arco_dataarray:166 - Fetching ARCO zarr array for variable: z500 at 2005-05-31T18:00:00
-    Fetching ARCO for 2005-05-31 18:00:00:  43%|████▎     | 3/7 [00:07<00:10,  2.51s/it]    Fetching ARCO for 2005-05-31 18:00:00:  57%|█████▋    | 4/7 [00:09<00:06,  2.17s/it]                                                                                        2024-05-08 01:50:28.886 | DEBUG    | earth2studio.data.arco:fetch_arco_dataarray:166 - Fetching ARCO zarr array for variable: z300 at 2005-05-31T18:00:00
-    Fetching ARCO for 2005-05-31 18:00:00:  57%|█████▋    | 4/7 [00:09<00:06,  2.17s/it]    Fetching ARCO for 2005-05-31 18:00:00:  71%|███████▏  | 5/7 [00:11<00:03,  1.98s/it]                                                                                        2024-05-08 01:50:30.542 | DEBUG    | earth2studio.data.arco:fetch_arco_dataarray:166 - Fetching ARCO zarr array for variable: tcwv at 2005-05-31T18:00:00
-    Fetching ARCO for 2005-05-31 18:00:00:  71%|███████▏  | 5/7 [00:11<00:03,  1.98s/it]    Fetching ARCO for 2005-05-31 18:00:00:  86%|████████▌ | 6/7 [00:11<00:01,  1.54s/it]                                                                                        2024-05-08 01:50:31.218 | DEBUG    | earth2studio.data.arco:fetch_arco_dataarray:166 - Fetching ARCO zarr array for variable: t2m at 2005-05-31T18:00:00
-    Fetching ARCO for 2005-05-31 18:00:00:  86%|████████▌ | 6/7 [00:11<00:01,  1.54s/it]    Fetching ARCO for 2005-05-31 18:00:00: 100%|██████████| 7/7 [00:12<00:00,  1.23s/it]    Fetching ARCO for 2005-05-31 18:00:00: 100%|██████████| 7/7 [00:12<00:00,  1.79s/it]
-    Fetching ARCO for 2000-06-01 00:00:00:   0%|          | 0/7 [00:00<?, ?it/s]                                                                                2024-05-08 01:50:31.941 | DEBUG    | earth2studio.data.arco:fetch_arco_dataarray:166 - Fetching ARCO zarr array for variable: t850 at 2000-06-01T00:00:00
-    Fetching ARCO for 2000-06-01 00:00:00:   0%|          | 0/7 [00:00<?, ?it/s]    Fetching ARCO for 2000-06-01 00:00:00:  14%|█▍        | 1/7 [00:02<00:17,  2.99s/it]                                                                                        2024-05-08 01:50:34.933 | DEBUG    | earth2studio.data.arco:fetch_arco_dataarray:166 - Fetching ARCO zarr array for variable: z1000 at 2000-06-01T00:00:00
-    Fetching ARCO for 2000-06-01 00:00:00:  14%|█▍        | 1/7 [00:02<00:17,  2.99s/it]    Fetching ARCO for 2000-06-01 00:00:00:  29%|██▊       | 2/7 [00:05<00:14,  2.87s/it]                                                                                        2024-05-08 01:50:37.714 | DEBUG    | earth2studio.data.arco:fetch_arco_dataarray:166 - Fetching ARCO zarr array for variable: z700 at 2000-06-01T00:00:00
-    Fetching ARCO for 2000-06-01 00:00:00:  29%|██▊       | 2/7 [00:05<00:14,  2.87s/it]    Fetching ARCO for 2000-06-01 00:00:00:  43%|████▎     | 3/7 [00:07<00:09,  2.28s/it]                                                                                        2024-05-08 01:50:39.294 | DEBUG    | earth2studio.data.arco:fetch_arco_dataarray:166 - Fetching ARCO zarr array for variable: z500 at 2000-06-01T00:00:00
-    Fetching ARCO for 2000-06-01 00:00:00:  43%|████▎     | 3/7 [00:07<00:09,  2.28s/it]    Fetching ARCO for 2000-06-01 00:00:00:  57%|█████▋    | 4/7 [00:09<00:06,  2.04s/it]                                                                                        2024-05-08 01:50:40.967 | DEBUG    | earth2studio.data.arco:fetch_arco_dataarray:166 - Fetching ARCO zarr array for variable: z300 at 2000-06-01T00:00:00
-    Fetching ARCO for 2000-06-01 00:00:00:  57%|█████▋    | 4/7 [00:09<00:06,  2.04s/it]    Fetching ARCO for 2000-06-01 00:00:00:  71%|███████▏  | 5/7 [00:10<00:03,  1.89s/it]                                                                                        2024-05-08 01:50:42.596 | DEBUG    | earth2studio.data.arco:fetch_arco_dataarray:166 - Fetching ARCO zarr array for variable: tcwv at 2000-06-01T00:00:00
-    Fetching ARCO for 2000-06-01 00:00:00:  71%|███████▏  | 5/7 [00:10<00:03,  1.89s/it]    Fetching ARCO for 2000-06-01 00:00:00:  86%|████████▌ | 6/7 [00:11<00:01,  1.48s/it]                                                                                        2024-05-08 01:50:43.278 | DEBUG    | earth2studio.data.arco:fetch_arco_dataarray:166 - Fetching ARCO zarr array for variable: t2m at 2000-06-01T00:00:00
-    Fetching ARCO for 2000-06-01 00:00:00:  86%|████████▌ | 6/7 [00:11<00:01,  1.48s/it]    Fetching ARCO for 2000-06-01 00:00:00: 100%|██████████| 7/7 [00:11<00:00,  1.12s/it]    Fetching ARCO for 2000-06-01 00:00:00: 100%|██████████| 7/7 [00:11<00:00,  1.67s/it]
-    Fetching ARCO for 2001-06-01 00:00:00:   0%|          | 0/7 [00:00<?, ?it/s]                                                                                2024-05-08 01:50:43.734 | DEBUG    | earth2studio.data.arco:fetch_arco_dataarray:166 - Fetching ARCO zarr array for variable: t850 at 2001-06-01T00:00:00
-    Fetching ARCO for 2001-06-01 00:00:00:   0%|          | 0/7 [00:00<?, ?it/s]    Fetching ARCO for 2001-06-01 00:00:00:  14%|█▍        | 1/7 [00:03<00:18,  3.09s/it]                                                                                        2024-05-08 01:50:46.821 | DEBUG    | earth2studio.data.arco:fetch_arco_dataarray:166 - Fetching ARCO zarr array for variable: z1000 at 2001-06-01T00:00:00
-    Fetching ARCO for 2001-06-01 00:00:00:  14%|█▍        | 1/7 [00:03<00:18,  3.09s/it]    Fetching ARCO for 2001-06-01 00:00:00:  29%|██▊       | 2/7 [00:05<00:13,  2.75s/it]                                                                                        2024-05-08 01:50:49.344 | DEBUG    | earth2studio.data.arco:fetch_arco_dataarray:166 - Fetching ARCO zarr array for variable: z700 at 2001-06-01T00:00:00
-    Fetching ARCO for 2001-06-01 00:00:00:  29%|██▊       | 2/7 [00:05<00:13,  2.75s/it]    Fetching ARCO for 2001-06-01 00:00:00:  43%|████▎     | 3/7 [00:06<00:08,  2.06s/it]                                                                                        2024-05-08 01:50:50.587 | DEBUG    | earth2studio.data.arco:fetch_arco_dataarray:166 - Fetching ARCO zarr array for variable: z500 at 2001-06-01T00:00:00
-    Fetching ARCO for 2001-06-01 00:00:00:  43%|████▎     | 3/7 [00:06<00:08,  2.06s/it]    Fetching ARCO for 2001-06-01 00:00:00:  57%|█████▋    | 4/7 [00:08<00:05,  1.73s/it]                                                                                        2024-05-08 01:50:51.810 | DEBUG    | earth2studio.data.arco:fetch_arco_dataarray:166 - Fetching ARCO zarr array for variable: z300 at 2001-06-01T00:00:00
-    Fetching ARCO for 2001-06-01 00:00:00:  57%|█████▋    | 4/7 [00:08<00:05,  1.73s/it]    Fetching ARCO for 2001-06-01 00:00:00:  71%|███████▏  | 5/7 [00:09<00:03,  1.55s/it]                                                                                        2024-05-08 01:50:53.037 | DEBUG    | earth2studio.data.arco:fetch_arco_dataarray:166 - Fetching ARCO zarr array for variable: tcwv at 2001-06-01T00:00:00
-    Fetching ARCO for 2001-06-01 00:00:00:  71%|███████▏  | 5/7 [00:09<00:03,  1.55s/it]    Fetching ARCO for 2001-06-01 00:00:00:  86%|████████▌ | 6/7 [00:09<00:01,  1.25s/it]                                                                                        2024-05-08 01:50:53.707 | DEBUG    | earth2studio.data.arco:fetch_arco_dataarray:166 - Fetching ARCO zarr array for variable: t2m at 2001-06-01T00:00:00
-    Fetching ARCO for 2001-06-01 00:00:00:  86%|████████▌ | 6/7 [00:09<00:01,  1.25s/it]    Fetching ARCO for 2001-06-01 00:00:00: 100%|██████████| 7/7 [00:10<00:00,  1.05s/it]    Fetching ARCO for 2001-06-01 00:00:00: 100%|██████████| 7/7 [00:10<00:00,  1.51s/it]
-    Fetching ARCO for 2002-06-01 00:00:00:   0%|          | 0/7 [00:00<?, ?it/s]                                                                                2024-05-08 01:50:54.410 | DEBUG    | earth2studio.data.arco:fetch_arco_dataarray:166 - Fetching ARCO zarr array for variable: t850 at 2002-06-01T00:00:00
-    Fetching ARCO for 2002-06-01 00:00:00:   0%|          | 0/7 [00:00<?, ?it/s]    Fetching ARCO for 2002-06-01 00:00:00:  14%|█▍        | 1/7 [00:01<00:11,  1.88s/it]                                                                                        2024-05-08 01:50:56.294 | DEBUG    | earth2studio.data.arco:fetch_arco_dataarray:166 - Fetching ARCO zarr array for variable: z1000 at 2002-06-01T00:00:00
-    Fetching ARCO for 2002-06-01 00:00:00:  14%|█▍        | 1/7 [00:01<00:11,  1.88s/it]    Fetching ARCO for 2002-06-01 00:00:00:  29%|██▊       | 2/7 [00:04<00:11,  2.35s/it]                                                                                        2024-05-08 01:50:58.977 | DEBUG    | earth2studio.data.arco:fetch_arco_dataarray:166 - Fetching ARCO zarr array for variable: z700 at 2002-06-01T00:00:00
-    Fetching ARCO for 2002-06-01 00:00:00:  29%|██▊       | 2/7 [00:04<00:11,  2.35s/it]    Fetching ARCO for 2002-06-01 00:00:00:  43%|████▎     | 3/7 [00:06<00:07,  1.99s/it]                                                                                        2024-05-08 01:51:00.531 | DEBUG    | earth2studio.data.arco:fetch_arco_dataarray:166 - Fetching ARCO zarr array for variable: z500 at 2002-06-01T00:00:00
-    Fetching ARCO for 2002-06-01 00:00:00:  43%|████▎     | 3/7 [00:06<00:07,  1.99s/it]    Fetching ARCO for 2002-06-01 00:00:00:  57%|█████▋    | 4/7 [00:07<00:05,  1.76s/it]                                                                                        2024-05-08 01:51:01.951 | DEBUG    | earth2studio.data.arco:fetch_arco_dataarray:166 - Fetching ARCO zarr array for variable: z300 at 2002-06-01T00:00:00
-    Fetching ARCO for 2002-06-01 00:00:00:  57%|█████▋    | 4/7 [00:07<00:05,  1.76s/it]    Fetching ARCO for 2002-06-01 00:00:00:  71%|███████▏  | 5/7 [00:08<00:03,  1.59s/it]                                                                                        2024-05-08 01:51:03.227 | DEBUG    | earth2studio.data.arco:fetch_arco_dataarray:166 - Fetching ARCO zarr array for variable: tcwv at 2002-06-01T00:00:00
-    Fetching ARCO for 2002-06-01 00:00:00:  71%|███████▏  | 5/7 [00:08<00:03,  1.59s/it]    Fetching ARCO for 2002-06-01 00:00:00:  86%|████████▌ | 6/7 [00:09<00:01,  1.18s/it]                                                                                        2024-05-08 01:51:03.624 | DEBUG    | earth2studio.data.arco:fetch_arco_dataarray:166 - Fetching ARCO zarr array for variable: t2m at 2002-06-01T00:00:00
-    Fetching ARCO for 2002-06-01 00:00:00:  86%|████████▌ | 6/7 [00:09<00:01,  1.18s/it]    Fetching ARCO for 2002-06-01 00:00:00: 100%|██████████| 7/7 [00:09<00:00,  1.01it/s]    Fetching ARCO for 2002-06-01 00:00:00: 100%|██████████| 7/7 [00:09<00:00,  1.40s/it]
-    Fetching ARCO for 2003-06-01 00:00:00:   0%|          | 0/7 [00:00<?, ?it/s]                                                                                2024-05-08 01:51:04.309 | DEBUG    | earth2studio.data.arco:fetch_arco_dataarray:166 - Fetching ARCO zarr array for variable: t850 at 2003-06-01T00:00:00
-    Fetching ARCO for 2003-06-01 00:00:00:   0%|          | 0/7 [00:00<?, ?it/s]    Fetching ARCO for 2003-06-01 00:00:00:  14%|█▍        | 1/7 [00:03<00:18,  3.11s/it]                                                                                        2024-05-08 01:51:07.420 | DEBUG    | earth2studio.data.arco:fetch_arco_dataarray:166 - Fetching ARCO zarr array for variable: z1000 at 2003-06-01T00:00:00
-    Fetching ARCO for 2003-06-01 00:00:00:  14%|█▍        | 1/7 [00:03<00:18,  3.11s/it]    Fetching ARCO for 2003-06-01 00:00:00:  29%|██▊       | 2/7 [00:05<00:12,  2.42s/it]                                                                                        2024-05-08 01:51:09.348 | DEBUG    | earth2studio.data.arco:fetch_arco_dataarray:166 - Fetching ARCO zarr array for variable: z700 at 2003-06-01T00:00:00
-    Fetching ARCO for 2003-06-01 00:00:00:  29%|██▊       | 2/7 [00:05<00:12,  2.42s/it]    Fetching ARCO for 2003-06-01 00:00:00:  43%|████▎     | 3/7 [00:06<00:07,  1.87s/it]                                                                                        2024-05-08 01:51:10.577 | DEBUG    | earth2studio.data.arco:fetch_arco_dataarray:166 - Fetching ARCO zarr array for variable: z500 at 2003-06-01T00:00:00
-    Fetching ARCO for 2003-06-01 00:00:00:  43%|████▎     | 3/7 [00:06<00:07,  1.87s/it]    Fetching ARCO for 2003-06-01 00:00:00:  57%|█████▋    | 4/7 [00:07<00:04,  1.62s/it]                                                                                        2024-05-08 01:51:11.808 | DEBUG    | earth2studio.data.arco:fetch_arco_dataarray:166 - Fetching ARCO zarr array for variable: z300 at 2003-06-01T00:00:00
-    Fetching ARCO for 2003-06-01 00:00:00:  57%|█████▋    | 4/7 [00:07<00:04,  1.62s/it]    Fetching ARCO for 2003-06-01 00:00:00:  71%|███████▏  | 5/7 [00:08<00:02,  1.46s/it]                                                                                        2024-05-08 01:51:12.983 | DEBUG    | earth2studio.data.arco:fetch_arco_dataarray:166 - Fetching ARCO zarr array for variable: tcwv at 2003-06-01T00:00:00
-    Fetching ARCO for 2003-06-01 00:00:00:  71%|███████▏  | 5/7 [00:08<00:02,  1.46s/it]    Fetching ARCO for 2003-06-01 00:00:00:  86%|████████▌ | 6/7 [00:09<00:01,  1.11s/it]                                                                                        2024-05-08 01:51:13.428 | DEBUG    | earth2studio.data.arco:fetch_arco_dataarray:166 - Fetching ARCO zarr array for variable: t2m at 2003-06-01T00:00:00
-    Fetching ARCO for 2003-06-01 00:00:00:  86%|████████▌ | 6/7 [00:09<00:01,  1.11s/it]    Fetching ARCO for 2003-06-01 00:00:00: 100%|██████████| 7/7 [00:09<00:00,  1.06it/s]    Fetching ARCO for 2003-06-01 00:00:00: 100%|██████████| 7/7 [00:09<00:00,  1.39s/it]
-    Fetching ARCO for 2004-06-01 00:00:00:   0%|          | 0/7 [00:00<?, ?it/s]                                                                                2024-05-08 01:51:14.091 | DEBUG    | earth2studio.data.arco:fetch_arco_dataarray:166 - Fetching ARCO zarr array for variable: t850 at 2004-06-01T00:00:00
-    Fetching ARCO for 2004-06-01 00:00:00:   0%|          | 0/7 [00:00<?, ?it/s]    Fetching ARCO for 2004-06-01 00:00:00:  14%|█▍        | 1/7 [00:02<00:14,  2.43s/it]                                                                                        2024-05-08 01:51:16.519 | DEBUG    | earth2studio.data.arco:fetch_arco_dataarray:166 - Fetching ARCO zarr array for variable: z1000 at 2004-06-01T00:00:00
-    Fetching ARCO for 2004-06-01 00:00:00:  14%|█▍        | 1/7 [00:02<00:14,  2.43s/it]    Fetching ARCO for 2004-06-01 00:00:00:  29%|██▊       | 2/7 [00:05<00:13,  2.60s/it]                                                                                        2024-05-08 01:51:19.248 | DEBUG    | earth2studio.data.arco:fetch_arco_dataarray:166 - Fetching ARCO zarr array for variable: z700 at 2004-06-01T00:00:00
-    Fetching ARCO for 2004-06-01 00:00:00:  29%|██▊       | 2/7 [00:05<00:13,  2.60s/it]    Fetching ARCO for 2004-06-01 00:00:00:  43%|████▎     | 3/7 [00:06<00:08,  2.01s/it]                                                                                        2024-05-08 01:51:20.540 | DEBUG    | earth2studio.data.arco:fetch_arco_dataarray:166 - Fetching ARCO zarr array for variable: z500 at 2004-06-01T00:00:00
-    Fetching ARCO for 2004-06-01 00:00:00:  43%|████▎     | 3/7 [00:06<00:08,  2.01s/it]    Fetching ARCO for 2004-06-01 00:00:00:  57%|█████▋    | 4/7 [00:08<00:05,  1.83s/it]                                                                                        2024-05-08 01:51:22.102 | DEBUG    | earth2studio.data.arco:fetch_arco_dataarray:166 - Fetching ARCO zarr array for variable: z300 at 2004-06-01T00:00:00
-    Fetching ARCO for 2004-06-01 00:00:00:  57%|█████▋    | 4/7 [00:08<00:05,  1.83s/it]    Fetching ARCO for 2004-06-01 00:00:00:  71%|███████▏  | 5/7 [00:09<00:03,  1.67s/it]                                                                                        2024-05-08 01:51:23.499 | DEBUG    | earth2studio.data.arco:fetch_arco_dataarray:166 - Fetching ARCO zarr array for variable: tcwv at 2004-06-01T00:00:00
-    Fetching ARCO for 2004-06-01 00:00:00:  71%|███████▏  | 5/7 [00:09<00:03,  1.67s/it]    Fetching ARCO for 2004-06-01 00:00:00:  86%|████████▌ | 6/7 [00:10<00:01,  1.32s/it]                                                                                        2024-05-08 01:51:24.137 | DEBUG    | earth2studio.data.arco:fetch_arco_dataarray:166 - Fetching ARCO zarr array for variable: t2m at 2004-06-01T00:00:00
-    Fetching ARCO for 2004-06-01 00:00:00:  86%|████████▌ | 6/7 [00:10<00:01,  1.32s/it]    Fetching ARCO for 2004-06-01 00:00:00: 100%|██████████| 7/7 [00:10<00:00,  1.09s/it]    Fetching ARCO for 2004-06-01 00:00:00: 100%|██████████| 7/7 [00:10<00:00,  1.52s/it]
-    Fetching ARCO for 2005-06-01 00:00:00:   0%|          | 0/7 [00:00<?, ?it/s]                                                                                2024-05-08 01:51:24.842 | DEBUG    | earth2studio.data.arco:fetch_arco_dataarray:166 - Fetching ARCO zarr array for variable: t850 at 2005-06-01T00:00:00
-    Fetching ARCO for 2005-06-01 00:00:00:   0%|          | 0/7 [00:00<?, ?it/s]    Fetching ARCO for 2005-06-01 00:00:00:  14%|█▍        | 1/7 [00:02<00:12,  2.09s/it]                                                                                        2024-05-08 01:51:26.928 | DEBUG    | earth2studio.data.arco:fetch_arco_dataarray:166 - Fetching ARCO zarr array for variable: z1000 at 2005-06-01T00:00:00
-    Fetching ARCO for 2005-06-01 00:00:00:  14%|█▍        | 1/7 [00:02<00:12,  2.09s/it]    Fetching ARCO for 2005-06-01 00:00:00:  29%|██▊       | 2/7 [00:04<00:11,  2.30s/it]                                                                                        2024-05-08 01:51:29.384 | DEBUG    | earth2studio.data.arco:fetch_arco_dataarray:166 - Fetching ARCO zarr array for variable: z700 at 2005-06-01T00:00:00
-    Fetching ARCO for 2005-06-01 00:00:00:  29%|██▊       | 2/7 [00:04<00:11,  2.30s/it]    Fetching ARCO for 2005-06-01 00:00:00:  43%|████▎     | 3/7 [00:06<00:08,  2.01s/it]                                                                                        2024-05-08 01:51:31.040 | DEBUG    | earth2studio.data.arco:fetch_arco_dataarray:166 - Fetching ARCO zarr array for variable: z500 at 2005-06-01T00:00:00
-    Fetching ARCO for 2005-06-01 00:00:00:  43%|████▎     | 3/7 [00:06<00:08,  2.01s/it]    Fetching ARCO for 2005-06-01 00:00:00:  57%|█████▋    | 4/7 [00:07<00:05,  1.67s/it]                                                                                        2024-05-08 01:51:32.191 | DEBUG    | earth2studio.data.arco:fetch_arco_dataarray:166 - Fetching ARCO zarr array for variable: z300 at 2005-06-01T00:00:00
-    Fetching ARCO for 2005-06-01 00:00:00:  57%|█████▋    | 4/7 [00:07<00:05,  1.67s/it]    Fetching ARCO for 2005-06-01 00:00:00:  71%|███████▏  | 5/7 [00:08<00:02,  1.47s/it]                                                                                        2024-05-08 01:51:33.302 | DEBUG    | earth2studio.data.arco:fetch_arco_dataarray:166 - Fetching ARCO zarr array for variable: tcwv at 2005-06-01T00:00:00
-    Fetching ARCO for 2005-06-01 00:00:00:  71%|███████▏  | 5/7 [00:08<00:02,  1.47s/it]    Fetching ARCO for 2005-06-01 00:00:00:  86%|████████▌ | 6/7 [00:09<00:01,  1.21s/it]                                                                                        2024-05-08 01:51:34.018 | DEBUG    | earth2studio.data.arco:fetch_arco_dataarray:166 - Fetching ARCO zarr array for variable: t2m at 2005-06-01T00:00:00
-    Fetching ARCO for 2005-06-01 00:00:00:  86%|████████▌ | 6/7 [00:09<00:01,  1.21s/it]    Fetching ARCO for 2005-06-01 00:00:00: 100%|██████████| 7/7 [00:09<00:00,  1.01s/it]    Fetching ARCO for 2005-06-01 00:00:00: 100%|██████████| 7/7 [00:09<00:00,  1.39s/it]
-    2024-05-08 01:51:34.857 | SUCCESS  | earth2studio.run:deterministic:94 - Fetched data from ARCO
-    2024-05-08 01:51:34.877 | INFO     | earth2studio.run:deterministic:119 - Inference starting!
-    Running inference:   0%|          | 0/21 [00:00<?, ?it/s]    Running inference:   5%|▍         | 1/21 [00:00<00:05,  3.95it/s]    Running inference:  10%|▉         | 2/21 [00:00<00:06,  2.99it/s]    Running inference:  14%|█▍        | 3/21 [00:01<00:06,  2.78it/s]    Running inference:  19%|█▉        | 4/21 [00:01<00:06,  2.58it/s]    Running inference:  24%|██▍       | 5/21 [00:01<00:06,  2.46it/s]    Running inference:  29%|██▊       | 6/21 [00:02<00:06,  2.36it/s]    Running inference:  33%|███▎      | 7/21 [00:02<00:05,  2.35it/s]    Running inference:  38%|███▊      | 8/21 [00:03<00:05,  2.24it/s]    Running inference:  43%|████▎     | 9/21 [00:03<00:05,  2.20it/s]    Running inference:  48%|████▊     | 10/21 [00:04<00:05,  2.09it/s]    Running inference:  52%|█████▏    | 11/21 [00:04<00:04,  2.05it/s]    Running inference:  57%|█████▋    | 12/21 [00:05<00:04,  1.99it/s]    Running inference:  62%|██████▏   | 13/21 [00:05<00:04,  2.00it/s]    Running inference:  67%|██████▋   | 14/21 [00:06<00:03,  1.93it/s]    Running inference:  71%|███████▏  | 15/21 [00:06<00:03,  1.89it/s]    Running inference:  76%|███████▌  | 16/21 [00:07<00:02,  1.84it/s]    Running inference:  81%|████████  | 17/21 [00:08<00:02,  1.74it/s]    Running inference:  86%|████████▌ | 18/21 [00:08<00:01,  1.63it/s]    Running inference:  90%|█████████ | 19/21 [00:09<00:01,  1.56it/s]    Running inference:  95%|█████████▌| 20/21 [00:10<00:00,  1.50it/s]    Running inference: 100%|██████████| 21/21 [00:11<00:00,  1.45it/s]    Running inference: 100%|██████████| 21/21 [00:11<00:00,  1.90it/s]
-    2024-05-08 01:51:45.920 | SUCCESS  | earth2studio.run:deterministic:129 - Inference complete
-    /
-     ├── lat (721,) float64
-     ├── lead_time (21,) timedelta64[h]
-     ├── lon (1440,) float64
-     ├── tcwv (6, 21, 721, 1440) float32
-     └── time (6,) datetime64[ns]
-
-
 
 
 .. GENERATED FROM PYTHON SOURCE LINES 153-164
@@ -369,36 +220,6 @@ allows outputs from all processes to get treated as a single data array.
             f'TCWV Forecast Lead Time - {ds.coords["lead_time"].values[-1].astype("timedelta64[D]").astype(int)} days'
         )
         plt.savefig("outputs/08_tcwv_distributed_manager.jpg")
-
-
-
-.. image-sg:: /examples/images/sphx_glr_08_distributed_manager_001.png
-   :alt: TCWV Forecast Lead Time - 5 days, 06/01/2000, 06/01/2001, 06/01/2002, 06/01/2003, 06/01/2004, 06/01/2005
-   :srcset: /examples/images/sphx_glr_08_distributed_manager_001.png, /examples/images/sphx_glr_08_distributed_manager_001_2_00x.png 2.00x
-   :class: sphx-glr-single-img
-
-
-.. rst-class:: sphx-glr-script-out
-
- .. code-block:: none
-
-    <xarray.Dataset>
-    Dimensions:    (lat: 721, lead_time: 21, lon: 1440, time: 6)
-    Coordinates:
-      * lat        (lat) float64 90.0 89.75 89.5 89.25 ... -89.25 -89.5 -89.75 -90.0
-      * lead_time  (lead_time) timedelta64[h] 0 days 00:00:00 ... 5 days 00:00:00
-      * lon        (lon) float64 0.0 0.25 0.5 0.75 1.0 ... 359.0 359.2 359.5 359.8
-      * time       (time) datetime64[ns] 2000-06-01 2001-06-01 ... 2005-06-01
-    Data variables:
-        tcwv       (time, lead_time, lat, lon) float32 dask.array<chunksize=(1, 21, 721, 1440), meta=np.ndarray>
-
-
-
-
-
-.. rst-class:: sphx-glr-timing
-
-   **Total running time of the script:** (2 minutes 38.127 seconds)
 
 
 .. _sphx_glr_download_examples_08_distributed_manager.py:
