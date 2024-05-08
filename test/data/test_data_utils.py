@@ -22,7 +22,13 @@ import pytest
 import torch
 import xarray as xr
 
-from earth2studio.data import Random, fetch_data, prep_data_array
+from earth2studio.data import (
+    DataArrayFile,
+    Random,
+    datasource_to_file,
+    fetch_data,
+    prep_data_array,
+)
 
 
 @pytest.fixture
@@ -95,4 +101,58 @@ def test_fetch_data(time, lead_time, device):
     assert np.all(coords["time"] == time)
     assert np.all(coords["lead_time"] == lead_time)
     assert np.all(coords["variable"] == variable)
+    assert not torch.isnan(x).any()
+
+
+@pytest.mark.parametrize(
+    "time",
+    [
+        np.array([np.datetime64("1993-04-05T00:00")]),
+        np.array(
+            [
+                np.datetime64("1999-10-11T12:00"),
+                np.datetime64("2001-06-04T00:00"),
+            ]
+        ),
+    ],
+)
+@pytest.mark.parametrize(
+    "lead_time",
+    [
+        np.array([np.timedelta64(0, "h")]),
+        np.array([np.timedelta64(-6, "h"), np.timedelta64(0, "h")]),
+    ],
+)
+@pytest.mark.parametrize(
+    "backend",
+    ["netcdf", "zarr"],
+)
+def test_datasource_to_file(time, lead_time, backend, tmp_path):
+
+    variable = np.array(["a", "b", "c"])
+    domain = OrderedDict({"lat": np.random.randn(720), "lon": np.random.randn(1440)})
+    ds = Random(domain)
+
+    if backend == "netcdf":
+        file_name = str(tmp_path) + "/temp.nc"
+    else:
+        file_name = str(tmp_path) + "/temp.zarr"
+    datasource_to_file(
+        file_name,
+        ds,
+        time=time,
+        variable=variable,
+        lead_time=lead_time,
+        backend=backend,
+    )
+
+    # To check attempt to get input data from saved file
+    ds = DataArrayFile(file_name)
+    x, coords = fetch_data(ds, time, variable, lead_time)
+
+    assert np.all(coords["time"] == time)
+    assert np.all(coords["lead_time"] == lead_time)
+    assert np.all(coords["variable"] == variable)
+    assert np.all(coords["lat"] == domain["lat"])
+    assert np.all(coords["lon"] == domain["lon"])
     assert not torch.isnan(x).any()

@@ -19,7 +19,7 @@ from collections.abc import Callable
 
 import torch
 
-from earth2studio.perturbation.base import PerturbationMethod
+from earth2studio.perturbation.base import Perturbation
 from earth2studio.perturbation.brown import Brown
 from earth2studio.utils.type import CoordSystem
 
@@ -39,7 +39,7 @@ class BredVector:
         Number of integration steps to use in forward call, by default 20
     ensemble_perturb : bool, optional
         Perturb the ensemble in an interacting fashion, by default False
-    seeding_perturbation_method : PerturbationMethod, optional
+    seeding_perturbation_method : Perturbation, optional
         Method to seed the Bred Vector perturbation, by default Brown Noise
 
     Note
@@ -59,7 +59,7 @@ class BredVector:
         noise_amplitude: float = 0.05,
         integration_steps: int = 20,
         ensemble_perturb: bool = False,
-        seeding_perturbation_method: PerturbationMethod = Brown(),
+        seeding_perturbation_method: Perturbation = Brown(),
     ):
         self.model = model
         self.noise_amplitude = noise_amplitude
@@ -90,6 +90,7 @@ class BredVector:
             Ouput tensor and respective coordinate system dictionary
         """
         dx, coords = self.seeding_perturbation_method(x, coords)
+        dx -= x
 
         xd = torch.clone(x)
         xd, _ = self.model(xd, coords)
@@ -105,4 +106,4 @@ class BredVector:
 
         gamma = torch.norm(x) / torch.norm(x + dx)
 
-        return dx * self.noise_amplitude * gamma, coords
+        return x + dx * self.noise_amplitude * gamma, coords

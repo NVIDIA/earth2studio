@@ -14,9 +14,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from .base import PerturbationMethod
+from .base import Perturbation
 from .brown import Brown  # noqa
 from .bv import BredVector  # noqa
 from .gaussian import Gaussian  # noqa
+from .lagged import LaggedEnsemble  # noqa
 from .spherical import SphericalGaussian  # noqa
 from .zero import Zero  # noqa

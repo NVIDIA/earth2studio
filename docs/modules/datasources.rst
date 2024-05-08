@@ -31,6 +31,7 @@ Used for fetching initial conditions for inference and validation data for scori
    data.Random
    data.DataArrayFile
    data.DataSetFile
+   data.WB2Climatology
 
 Functions
 ~~~~~~~~~
@@ -40,5 +41,6 @@ Functions
    :toctree: generated/data/
    :template: function.rst
 
+   data.datasource_to_file
    data.fetch_data
    data.prep_data_array
