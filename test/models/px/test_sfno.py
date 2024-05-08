@@ -162,9 +162,9 @@ def test_fcn_package(device, model_cache_context):
     time = np.array([np.datetime64("1993-04-05T00:00")])
     # Test the cached model package FCN
     # Test only on cuda device
-    # with model_cache_context():
-    package = SFNO.load_default_package()
-    p = SFNO.load_model(package).to(device)
+    with model_cache_context():
+        package = SFNO.load_default_package()
+        p = SFNO.load_model(package).to(device)
 
     # Create "domain coords"
     dc = {k: p.input_coords[k] for k in ["lat", "lon"]}
