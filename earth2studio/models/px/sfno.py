@@ -26,6 +26,7 @@ except ImportError:
     load_model_package = None
 
 from earth2studio.models.auto import AutoModelMixin, Package
+from earth2studio.models.batch import batch_func
 from earth2studio.models.px.base import PrognosticModel
 from earth2studio.models.px.utils import PrognosticMixin
 from earth2studio.utils import handshake_coords, handshake_dim
@@ -150,7 +151,8 @@ class SFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         lon = np.linspace(0, 360, 1440, endpoint=False)
         self.input_coords = OrderedDict(
             {
-                "time": np.empty(1),
+                "batch": np.empty(0),
+                "time": np.empty(0),
                 "lead_time": np.array([np.timedelta64(0, "h")]),
                 "variable": np.array(VARIABLES),
                 "lat": lat,
@@ -160,7 +162,8 @@ class SFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         self.output_coords = OrderedDict(
             {
-                "time": np.empty(1),
+                "batch": np.empty(0),
+                "time": np.empty(0),
                 "lead_time": np.array([np.timedelta64(6, "h")]),
                 "variable": np.array(VARIABLES),
                 "lat": lat,
@@ -213,18 +216,21 @@ class SFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         coords: CoordSystem,
     ) -> tuple[torch.Tensor, CoordSystem]:
         output_coords = self.output_coords.copy()
+        output_coords["batch"] = coords["batch"]
         output_coords["time"] = coords["time"]
         output_coords["lead_time"] = output_coords["lead_time"] + coords["lead_time"]
 
-        x = x.squeeze(1)
+        x = x.squeeze(2)
         x = (x - self.center) / self.scale
-        for (i, t) in enumerate(coords["time"]):
-            t = timearray_to_datetime(t + coords["lead_time"])
-            x[i : i + 1] = self.model(x[i : i + 1], t)
+        for j, _ in enumerate(coords["batch"]):
+            for (i, t) in enumerate(coords["time"]):
+                t = timearray_to_datetime(t + coords["lead_time"])
+                x[j, i : i + 1] = self.model(x[j, i : i + 1], t)
         x = self.scale * x + self.center
-        x = x.unsqueeze(1)
+        x = x.unsqueeze(2)
         return x, output_coords
 
+    @batch_func()
     def __call__(
         self,
         x: torch.Tensor,
@@ -245,7 +251,7 @@ class SFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         coords : CoordSystem
         """
         for i, (key, value) in enumerate(self.input_coords.items()):
-            if key != "time":
+            if key not in ["batch", "time"]:
                 handshake_dim(coords, key, i)
                 handshake_coords(coords, self.input_coords, key)
 
@@ -253,13 +259,14 @@ class SFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         return x, coords
 
+    @batch_func()
     def _default_generator(
         self, x: torch.Tensor, coords: CoordSystem
     ) -> Generator[tuple[torch.Tensor, CoordSystem], None, None]:
         coords = coords.copy()
 
         for i, (key, value) in enumerate(self.input_coords.items()):
-            if key != "time":
+            if key not in ["batch", "time"]:
                 handshake_dim(coords, key, i)
                 handshake_coords(coords, self.input_coords, key)
 
