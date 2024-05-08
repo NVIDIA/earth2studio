@@ -35,7 +35,7 @@ class crps:
 
     Parameters
     ----------
-    reduction_dimensions: str
+    reduction_dimension: str
         A name corresponding to a dimension to perform the
         statistical reduction over. Example: 'ensemble'
     """
@@ -100,14 +100,6 @@ class crps:
                 + f"{x.shape} and {y.shape}"
             )
         # Input coordinate checking
-        j = 0
-        for i, c in enumerate(x_coords):
-            if c == self.reduction_dimension:
-                continue
-            handshake_dim(y_coords, c, j)
-            handshake_coords(x_coords, y_coords, c)
-            j += 1
-
         coord_count = 0
         for c in x_coords:
             if c != self.reduction_dimension:
