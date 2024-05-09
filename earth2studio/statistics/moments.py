@@ -96,7 +96,6 @@ class mean:
 
         # If not applying batch updating then return regular mean.
         if not self.batch_update:
-            print(weights.shape, x.shape)
             return torch.sum(weights * x, dim=dims) / weights_sum, output_coords
 
         # If batch updating then calculate updated mean
