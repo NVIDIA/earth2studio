@@ -104,6 +104,9 @@ def test_xarray_fields(
     z.write(partial_data, partial_coords, array_name)
     assert np.allclose(z[array_name][0, 0, :, :180], partial_data.cpu().numpy())
 
+    xx, _ = z.read(partial_coords, array_name, device=device)
+    assert torch.allclose(partial_data, xx)
+
 
 @pytest.mark.parametrize(
     "time",

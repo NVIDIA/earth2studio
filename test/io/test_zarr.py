@@ -146,6 +146,9 @@ def test_zarr_field(
     z.write(partial_data, partial_coords, array_name)
     assert np.allclose(z[array_name][0, 0, :, :180], partial_data.to("cpu").numpy())
 
+    xx, _ = z.read(partial_coords, array_name, device=device)
+    assert torch.allclose(partial_data, xx)
+
     # Test Directory Store
     with tempfile.TemporaryDirectory() as td:
         file_name = os.path.join(td, "temp_zarr.zarr")

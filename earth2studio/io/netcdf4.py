@@ -19,7 +19,7 @@ from collections.abc import Iterator
 
 import numpy as np
 import torch
-from cftime import date2num
+from cftime import date2num, num2date
 from netCDF4 import Dataset, Variable
 
 from earth2studio.utils.time import timearray_to_datetime
@@ -51,13 +51,29 @@ class NetCDF4Backend:
         # Set persist to false if diskless is false
         self.root = Dataset(
             file_name,
-            "w",
+            "r+",
             format="NETCDF4",
             diskless=diskless,
             persist=persist if diskless else False,
         )
 
         self.coords: CoordSystem = OrderedDict({})
+        for dim in self.root.dimensions:
+            if dim == "time":
+                nums = self.root[dim]
+                dates = num2date(
+                    nums, units=self.root[dim].units, calendar=self.root[dim].calendar
+                )
+                self.coords[dim] = np.array(
+                    [np.datetime64(d.isoformat()) for d in dates]
+                )
+            elif dim == "lead_time":
+                nums = self.root[dim][:]
+                self.coords[dim] = np.array(
+                    [np.timedelta64(n, self.root[dim].units) for n in nums]
+                )
+            else:
+                self.coords[dim] = self.root[dim][:]
 
     def __contains__(self, item: str) -> bool:
         """Checks if item in netCDF4 variables.
@@ -230,6 +246,33 @@ class NetCDF4Backend:
                         ]
                     )
                 ] = xi.to("cpu", non_blocking=True).numpy()
+
+    def read(
+        self, coords: CoordSystem, array_name: str, device: torch.device = "cpu"
+    ) -> tuple[torch.Tensor, CoordSystem]:
+        """
+        Read data from the current netcdf store using the passed array_name.
+
+        Parameters
+        ----------
+        coords : OrderedDict
+            Coordinates of the data to be read.
+        array_name : str | list[str]
+            Name(s) of the array(s) to read from.
+        device : torch.device
+            device to place the read data from, by default 'cpu'
+        """
+
+        x = self.root[array_name][
+            tuple(
+                [
+                    np.where(np.in1d(self.coords[dim], value))[0]
+                    for dim, value in coords.items()
+                ]
+            )
+        ]
+
+        return torch.as_tensor(x, device=device), coords
 
     def close(
         self,
