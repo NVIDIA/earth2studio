@@ -89,7 +89,6 @@ class mean:
         output_coords = CoordSystem(
             {key: coords[key] for key in coords if key not in self.reduction_dimensions}
         )
-
         weights = _broadcast_weights(
             self.weights, self.reduction_dimensions, coords
         ).to(x.device)
@@ -97,6 +96,7 @@ class mean:
 
         # If not applying batch updating then return regular mean.
         if not self.batch_update:
+            print(weights.shape, x.shape)
             return torch.sum(weights * x, dim=dims) / weights_sum, output_coords
 
         # If batch updating then calculate updated mean
