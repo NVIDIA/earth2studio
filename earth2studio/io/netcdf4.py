@@ -59,15 +59,11 @@ class NetCDF4Backend:
 
         self.coords: CoordSystem = OrderedDict({})
         for dim in self.root.dimensions:
-            print(dim)
             if dim == "time":
-                print(dim)
                 nums = self.root[dim]
-                print(nums)
                 dates = num2date(
                     nums, units=self.root[dim].units, calendar=self.root[dim].calendar
                 )
-                print(dates)
                 self.coords[dim] = np.array(
                     [np.datetime64(d.isoformat()) for d in dates]
                 )
