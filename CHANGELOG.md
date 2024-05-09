@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - WeatherBench Climatology data source
 - Added `datasource_to_file` utility function
 - Add lagged ensemble perturbation method
+- Add spread/skill ratio
 
 ### Changed
 
