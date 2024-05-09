@@ -102,6 +102,9 @@ def test_kv_fields(time: list[np.datetime64], variable: list[str], device: str) 
     z.write(partial_data, partial_coords, array_name)
     assert torch.allclose(z[array_name][0, 0, :, :180], partial_data)
 
+    xx, _ = z.read(partial_coords, array_name, device=device)
+    assert torch.allclose(partial_data, xx)
+
     # test to xarray
     ds = z.to_xarray()
     assert isinstance(ds, xr.Dataset)
