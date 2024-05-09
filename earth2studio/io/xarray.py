@@ -170,3 +170,34 @@ class XarrayBackend:
                         ]
                     )
                 ] = xi.to("cpu", non_blocking=True).numpy()
+
+    def read(
+        self,
+        coords: CoordSystem,
+        array_name: str,
+        device: torch.device = "cpu",
+        dtype: torch.dtype = torch.float32,
+    ) -> tuple[torch.Tensor, CoordSystem]:
+        """
+        Read data from the current xarray dataset using the passed array_name.
+
+        Parameters
+        ----------
+        coords : OrderedDict
+            Coordinates of the data to be read.
+        array_name : str | list[str]
+            Name(s) of the array(s) to read from.
+        device : torch.device
+            device to place the read data from, by default 'cpu'
+        """
+
+        x = self.root[array_name].values[
+            np.ix_(
+                *[
+                    np.where(np.in1d(self.coords[dim], value))[0]
+                    for dim, value in coords.items()
+                ]
+            )
+        ]
+
+        return torch.as_tensor(x, dtype=dtype, device=device), coords

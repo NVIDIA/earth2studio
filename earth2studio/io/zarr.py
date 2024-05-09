@@ -47,9 +47,23 @@ class ZarrBackend:
             self.store = zarr.storage.MemoryStore()
         else:
             self.store = zarr.storage.DirectoryStore(file_name)
+
         self.root = zarr.group(self.store)
+
+        # Read data from file, if available
         self.coords: CoordSystem = OrderedDict({})
         self.chunks = chunks.copy()
+        for array in self.root:
+            dims = self.root[array].attrs["_ARRAY_DIMENSIONS"]
+            for dim in dims:
+                if dim not in self.coords:
+                    self.coords[dim] = self.root[dim]
+
+        for array in self.root:
+            if array not in self.coords:
+                dims = self.root[array].attrs["_ARRAY_DIMENSIONS"]
+                for c, d in zip(self.root[array].chunks, dims):
+                    self.chunks[d] = c
 
     def __contains__(self, item: str) -> bool:
         """Checks if item in Zarr Group.
@@ -199,3 +213,30 @@ class ZarrBackend:
                         ]
                     )
                 ] = xi.to("cpu", non_blocking=False).numpy()
+
+    def read(
+        self, coords: CoordSystem, array_name: str, device: torch.device = "cpu"
+    ) -> tuple[torch.Tensor, CoordSystem]:
+        """
+        Read data from the current zarr group using the passed array_name.
+
+        Parameters
+        ----------
+        coords : OrderedDict
+            Coordinates of the data to be read.
+        array_name : str | list[str]
+            Name(s) of the array(s) to read from.
+        device : torch.device
+            device to place the read data from, by default 'cpu'
+        """
+
+        x = self.root[array_name][
+            np.ix_(
+                *[
+                    np.where(np.in1d(self.coords[dim], value))[0]
+                    for dim, value in coords.items()
+                ]
+            )
+        ]
+
+        return torch.as_tensor(x, device=device), coords

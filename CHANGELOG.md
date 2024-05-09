@@ -19,6 +19,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added `datasource_to_file` utility function
 - Add lagged ensemble perturbation method
 - Add ACC and CRPS metrics
+- Added the ability to reload zarr and netcdf backends
+- Added the ability to read from an IOBackend
 
 ### Changed
 
@@ -29,6 +31,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   These now generate noise and apply it to the input tensor.
 - Removed original `Perturbation` class
 - Updated SFNO coordinates to include optional batch dimension.
+- NetCDF reads are now mode='r+' instead of 'w'.
 
 ### Deprecated
 
