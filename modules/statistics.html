@@ -61,7 +61,7 @@
         </script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="earth2studio.statistics.mean" href="generated/statistics/earth2studio.statistics.mean.html" />
+    <link rel="next" title="earth2studio.statistics.acc" href="generated/statistics/earth2studio.statistics.acc.html" />
     <link rel="prev" title="earth2studio.perturbation.Zero" href="generated/perturbation/earth2studio.perturbation.Zero.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
@@ -435,9 +435,13 @@ document.write(`
 </ul>
 </li>
 <li class="toctree-l1 current active has-children"><a class="current reference internal" href="#"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>: Statistics</a><input checked="" class="toctree-checkbox" id="toctree-checkbox-5" name="toctree-checkbox-5" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-5"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l2"><a class="reference internal" href="generated/statistics/earth2studio.statistics.acc.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>.acc</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generated/statistics/earth2studio.statistics.crps.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>.crps</a></li>
 <li class="toctree-l2"><a class="reference internal" href="generated/statistics/earth2studio.statistics.mean.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>.mean</a></li>
-<li class="toctree-l2"><a class="reference internal" href="generated/statistics/earth2studio.statistics.variance.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>.variance</a></li>
 <li class="toctree-l2"><a class="reference internal" href="generated/statistics/earth2studio.statistics.rmse.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>.rmse</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generated/statistics/earth2studio.statistics.spread_skill_ratio.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>.spread_skill_ratio</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generated/statistics/earth2studio.statistics.std.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>.std</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generated/statistics/earth2studio.statistics.variance.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>.variance</a></li>
 <li class="toctree-l2"><a class="reference internal" href="generated/statistics/earth2studio.statistics.weights.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>.weights</a></li>
 <li class="toctree-l2"><a class="reference internal" href="generated/statistics/earth2studio.statistics.utils.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>.utils</a></li>
 </ul>
@@ -520,14 +524,26 @@ document.write(`
 <p>Various statistic and metric calculations for analysing inference data.</p>
 <table class="autosummary longtable table autosummary">
 <tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/statistics/earth2studio.statistics.acc.html#earth2studio.statistics.acc" title="earth2studio.statistics.acc"><code class="xref py py-obj docutils literal notranslate"><span class="pre">statistics.acc</span></code></a></p></td>
+<td><p>Statistic for calculating the anomaly correlation coefficient of two tensors over a set of given dimensions, with respect to some optional climatology.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/statistics/earth2studio.statistics.crps.html#earth2studio.statistics.crps" title="earth2studio.statistics.crps"><code class="xref py py-obj docutils literal notranslate"><span class="pre">statistics.crps</span></code></a></p></td>
+<td><p>Compute the Continuous Ranked Probably Score (CRPS).</p></td>
+</tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="generated/statistics/earth2studio.statistics.mean.html#earth2studio.statistics.mean" title="earth2studio.statistics.mean"><code class="xref py py-obj docutils literal notranslate"><span class="pre">statistics.mean</span></code></a></p></td>
 <td><p>Statistic for calculating the sample mean over a set of given dimensions.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="generated/statistics/earth2studio.statistics.variance.html#earth2studio.statistics.variance" title="earth2studio.statistics.variance"><code class="xref py py-obj docutils literal notranslate"><span class="pre">statistics.variance</span></code></a></p></td>
-<td><p>Statistic for calculating the sample variance over a set of given dimensions.</p></td>
-</tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="generated/statistics/earth2studio.statistics.rmse.html#earth2studio.statistics.rmse" title="earth2studio.statistics.rmse"><code class="xref py py-obj docutils literal notranslate"><span class="pre">statistics.rmse</span></code></a></p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/statistics/earth2studio.statistics.rmse.html#earth2studio.statistics.rmse" title="earth2studio.statistics.rmse"><code class="xref py py-obj docutils literal notranslate"><span class="pre">statistics.rmse</span></code></a></p></td>
 <td><p>Statistic for calculating the root mean squared error of two tensors over a set of given dimensions.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/statistics/earth2studio.statistics.spread_skill_ratio.html#earth2studio.statistics.spread_skill_ratio" title="earth2studio.statistics.spread_skill_ratio"><code class="xref py py-obj docutils literal notranslate"><span class="pre">statistics.spread_skill_ratio</span></code></a></p></td>
+<td><p>Metric for calculating the spread/skill ratio of an ensemble forecast.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/statistics/earth2studio.statistics.std.html#earth2studio.statistics.std" title="earth2studio.statistics.std"><code class="xref py py-obj docutils literal notranslate"><span class="pre">statistics.std</span></code></a></p></td>
+<td><p>Statistic for calculating the sample standard deviation over a set of given dimensions.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/statistics/earth2studio.statistics.variance.html#earth2studio.statistics.variance" title="earth2studio.statistics.variance"><code class="xref py py-obj docutils literal notranslate"><span class="pre">statistics.variance</span></code></a></p></td>
+<td><p>Statistic for calculating the sample variance over a set of given dimensions.</p></td>
 </tr>
 </tbody>
 </table>
@@ -566,11 +582,11 @@ document.write(`
       </div>
     </a>
     <a class="right-next"
-       href="generated/statistics/earth2studio.statistics.mean.html"
+       href="generated/statistics/earth2studio.statistics.acc.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>.mean</p>
+        <p class="prev-next-title"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>.acc</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>

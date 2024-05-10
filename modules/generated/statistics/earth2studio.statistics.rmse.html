@@ -61,8 +61,8 @@
         </script>
     <link rel="index" title="Index" href="../../../genindex.html" />
     <link rel="search" title="Search" href="../../../search.html" />
-    <link rel="next" title="earth2studio.statistics.weights" href="earth2studio.statistics.weights.html" />
-    <link rel="prev" title="earth2studio.statistics.variance" href="earth2studio.statistics.variance.html" />
+    <link rel="next" title="earth2studio.statistics.spread_skill_ratio" href="earth2studio.statistics.spread_skill_ratio.html" />
+    <link rel="prev" title="earth2studio.statistics.mean" href="earth2studio.statistics.mean.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   </head>
@@ -435,9 +435,13 @@ document.write(`
 </ul>
 </li>
 <li class="toctree-l1 current active has-children"><a class="reference internal" href="../../statistics.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>: Statistics</a><input checked="" class="toctree-checkbox" id="toctree-checkbox-5" name="toctree-checkbox-5" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-5"><i class="fa-solid fa-chevron-down"></i></label><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="earth2studio.statistics.acc.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>.acc</a></li>
+<li class="toctree-l2"><a class="reference internal" href="earth2studio.statistics.crps.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>.crps</a></li>
 <li class="toctree-l2"><a class="reference internal" href="earth2studio.statistics.mean.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>.mean</a></li>
-<li class="toctree-l2"><a class="reference internal" href="earth2studio.statistics.variance.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>.variance</a></li>
 <li class="toctree-l2 current active"><a class="current reference internal" href="#"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>.rmse</a></li>
+<li class="toctree-l2"><a class="reference internal" href="earth2studio.statistics.spread_skill_ratio.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>.spread_skill_ratio</a></li>
+<li class="toctree-l2"><a class="reference internal" href="earth2studio.statistics.std.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>.std</a></li>
+<li class="toctree-l2"><a class="reference internal" href="earth2studio.statistics.variance.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>.variance</a></li>
 <li class="toctree-l2"><a class="reference internal" href="earth2studio.statistics.weights.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>.weights</a></li>
 <li class="toctree-l2"><a class="reference internal" href="earth2studio.statistics.utils.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>.utils</a></li>
 </ul>
@@ -537,7 +541,7 @@ Example: if reduction_dimensions = [‘lat’, ‘lon’] then
 assert weights.ndim == 2.</p></li>
 <li><p><strong>batch_update</strong> (<em>bool = False</em>) – Whether to applying batch updates to the rmse with each invocation of __call__.
 This is particularly useful when data is recieved in a stream of batches. Each
-invocation of __call__ will return the running rmse. It particular, it will apply
+invocation of __call__ will return the running rmse. In particular, it will apply
 the square root operation after calculating the running mean squared error.</p></li>
 </ul>
 </dd>
@@ -584,20 +588,20 @@ returns the running sample RMSE over all seen batches.</p>
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="earth2studio.statistics.variance.html"
+       href="earth2studio.statistics.mean.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>.variance</p>
+        <p class="prev-next-title"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>.mean</p>
       </div>
     </a>
     <a class="right-next"
-       href="earth2studio.statistics.weights.html"
+       href="earth2studio.statistics.spread_skill_ratio.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>.weights</p>
+        <p class="prev-next-title"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>.spread_skill_ratio</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>

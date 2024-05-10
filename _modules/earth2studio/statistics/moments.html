@@ -523,7 +523,6 @@ document.write(`
         <span class="n">output_coords</span> <span class="o">=</span> <span class="n">CoordSystem</span><span class="p">(</span>
             <span class="p">{</span><span class="n">key</span><span class="p">:</span> <span class="n">coords</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">coords</span> <span class="k">if</span> <span class="n">key</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">reduction_dimensions</span><span class="p">}</span>
         <span class="p">)</span>
-
         <span class="n">weights</span> <span class="o">=</span> <span class="n">_broadcast_weights</span><span class="p">(</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">weights</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">reduction_dimensions</span><span class="p">,</span> <span class="n">coords</span>
         <span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
@@ -659,6 +658,8 @@ document.write(`
 
 
 
+<div class="viewcode-block" id="std">
+<a class="viewcode-back" href="../../../modules/generated/statistics/earth2studio.statistics.std.html#earth2studio.statistics.std">[docs]</a>
 <span class="k">class</span> <span class="nc">std</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Statistic for calculating the sample standard deviation over a set of given dimensions.</span>
@@ -697,6 +698,8 @@ document.write(`
     <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
         <span class="k">return</span> <span class="s2">&quot;_&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">reduction_dimensions</span> <span class="o">+</span> <span class="p">[</span><span class="s2">&quot;std&quot;</span><span class="p">])</span>
 
+<div class="viewcode-block" id="std.__call__">
+<a class="viewcode-back" href="../../../modules/generated/statistics/earth2studio.statistics.std.html#earth2studio.statistics.std.__call__">[docs]</a>
     <span class="k">def</span> <span class="fm">__call__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">coords</span><span class="p">:</span> <span class="n">CoordSystem</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">CoordSystem</span><span class="p">]:</span>
@@ -714,7 +717,9 @@ document.write(`
 <span class="sd">            Coordinates referring to the input data, x.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">var</span><span class="p">,</span> <span class="n">output_coords</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">var</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">var</span><span class="p">),</span> <span class="n">output_coords</span>
+        <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">var</span><span class="p">),</span> <span class="n">output_coords</span></div>
+</div>
+
 </pre></div>
 
                 </article>

@@ -14,9 +14,13 @@ Various statistic and metric calculations for analysing inference data.
     :toctree: generated/statistics/
     :template: statistics.rst
 
+    statistics.acc
+    statistics.crps
     statistics.mean
-    statistics.variance
     statistics.rmse
+    statistics.spread_skill_ratio
+    statistics.std
+    statistics.variance
 
 
 :mod:`earth2studio.statistics`: Utilities

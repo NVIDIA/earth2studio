@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>earth2studio.statistics.rmse &#8212; Earth2Studio 0.2.0a0 documentation</title>
+    <title>earth2studio.statistics.acc &#8212; Earth2Studio 0.2.0a0 documentation</title>
   
   
   
@@ -51,7 +51,7 @@
     <script src="../../../_static/design-tabs.js?v=36754332"></script>
     <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
     <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
-    <script>DOCUMENTATION_OPTIONS.pagename = '_modules/earth2studio/statistics/rmse';</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = '_modules/earth2studio/statistics/acc';</script>
     <script>
         DOCUMENTATION_OPTIONS.theme_version = '0.15.2';
         DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'https://raw.githubusercontent.com/NVIDIA/earth2studio/gh-pages/_static/switcher.json';
@@ -427,7 +427,7 @@ document.write(`
 <div id="searchbox"></div>
                 <article class="bd-article">
                   
-  <h1>Source code for earth2studio.statistics.rmse</h1><div class="highlight"><pre>
+  <h1>Source code for earth2studio.statistics.acc</h1><div class="highlight"><pre>
 <span></span><span class="c1"># SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION &amp; AFFILIATES.</span>
 <span class="c1"># SPDX-FileCopyrightText: All rights reserved.</span>
 <span class="c1"># SPDX-License-Identifier: Apache-2.0</span>
@@ -446,56 +446,58 @@ document.write(`
 
 <span class="kn">import</span> <span class="nn">torch</span>
 
+<span class="kn">from</span> <span class="nn">earth2studio.data</span> <span class="kn">import</span> <span class="n">DataSource</span>
+<span class="kn">from</span> <span class="nn">earth2studio.data.utils</span> <span class="kn">import</span> <span class="n">fetch_data</span>
+<span class="kn">from</span> <span class="nn">earth2studio.statistics.utils</span> <span class="kn">import</span> <span class="n">_broadcast_weights</span>
+<span class="kn">from</span> <span class="nn">earth2studio.utils.coords</span> <span class="kn">import</span> <span class="n">handshake_coords</span><span class="p">,</span> <span class="n">handshake_dim</span>
 <span class="kn">from</span> <span class="nn">earth2studio.utils.type</span> <span class="kn">import</span> <span class="n">CoordSystem</span>
 
-<span class="kn">from</span> <span class="nn">.moments</span> <span class="kn">import</span> <span class="n">mean</span><span class="p">,</span> <span class="n">variance</span>
 
-
-<div class="viewcode-block" id="rmse">
-<a class="viewcode-back" href="../../../modules/generated/statistics/earth2studio.statistics.rmse.html#earth2studio.statistics.rmse">[docs]</a>
-<span class="k">class</span> <span class="nc">rmse</span><span class="p">:</span>
+<div class="viewcode-block" id="acc">
+<a class="viewcode-back" href="../../../modules/generated/statistics/earth2studio.statistics.acc.html#earth2studio.statistics.acc">[docs]</a>
+<span class="k">class</span> <span class="nc">acc</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Statistic for calculating the root mean squared error of two tensors</span>
-<span class="sd">    over a set of given dimensions.</span>
+<span class="sd">    Statistic for calculating the anomaly correlation coefficient of two tensors</span>
+<span class="sd">    over a set of given dimensions, with respect to some optional climatology.</span>
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
 <span class="sd">    reduction_dimensions: List[str]</span>
 <span class="sd">        A list of names corresponding to dimensions to perform the</span>
 <span class="sd">        statistical reduction over. Example: [&#39;lat&#39;, &#39;lon&#39;]</span>
+<span class="sd">    climatology: DataSource</span>
+<span class="sd">        Optional (by default None) climatology to remove from tensors to create</span>
+<span class="sd">        anomalies before computing the correlation coefficient.</span>
 <span class="sd">    weights: torch.Tensor = None</span>
 <span class="sd">        A tensor containing weights to assign to the reduction dimensions.</span>
 <span class="sd">        Note that these weights must have the same number of dimensions</span>
 <span class="sd">        as passed in reduction_dimensions.</span>
 <span class="sd">        Example: if reduction_dimensions = [&#39;lat&#39;, &#39;lon&#39;] then</span>
 <span class="sd">        assert weights.ndim == 2.</span>
-<span class="sd">    batch_update: bool = False</span>
-<span class="sd">        Whether to applying batch updates to the rmse with each invocation of __call__.</span>
-<span class="sd">        This is particularly useful when data is recieved in a stream of batches. Each</span>
-<span class="sd">        invocation of __call__ will return the running rmse. In particular, it will apply</span>
-<span class="sd">        the square root operation after calculating the running mean squared error.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">reduction_dimensions</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
-        <span class="n">weights</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-        <span class="n">batch_update</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">climatology</span><span class="p">:</span> <span class="n">DataSource</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">weights</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">):</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">mean</span> <span class="o">=</span> <span class="n">mean</span><span class="p">(</span>
-            <span class="n">reduction_dimensions</span><span class="p">,</span> <span class="n">weights</span><span class="o">=</span><span class="n">weights</span><span class="p">,</span> <span class="n">batch_update</span><span class="o">=</span><span class="n">batch_update</span>
-        <span class="p">)</span>
+        <span class="k">if</span> <span class="n">weights</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">weights</span><span class="o">.</span><span class="n">ndim</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">reduction_dimensions</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="s2">&quot;Error! Weights must be the same dimension as reduction_dimensions&quot;</span>
+                <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">reduction_dimensions</span> <span class="o">=</span> <span class="n">reduction_dimensions</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">weights</span> <span class="o">=</span> <span class="n">weights</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">reduction_dimensions</span> <span class="o">=</span> <span class="n">reduction_dimensions</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">batch_update</span> <span class="o">=</span> <span class="n">batch_update</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">climatology</span> <span class="o">=</span> <span class="n">climatology</span>
 
     <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-        <span class="k">return</span> <span class="s2">&quot;_&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">reduction_dimensions</span> <span class="o">+</span> <span class="p">[</span><span class="s2">&quot;rmse&quot;</span><span class="p">])</span>
+        <span class="k">return</span> <span class="s2">&quot;acc&quot;</span>
 
-<div class="viewcode-block" id="rmse.__call__">
-<a class="viewcode-back" href="../../../modules/generated/statistics/earth2studio.statistics.rmse.html#earth2studio.statistics.rmse.__call__">[docs]</a>
+<div class="viewcode-block" id="acc.__call__">
+<a class="viewcode-back" href="../../../modules/generated/statistics/earth2studio.statistics.acc.html#earth2studio.statistics.acc.__call__">[docs]</a>
     <span class="k">def</span> <span class="fm">__call__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
@@ -505,10 +507,7 @@ document.write(`
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">CoordSystem</span><span class="p">]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Apply metric to data `x` and `y`, checking that their coordinates</span>
-<span class="sd">        are broadcastable. While reducing over `reduction_dims`.</span>
-
-<span class="sd">        If batch_update was passed True upon metric initialization then this method</span>
-<span class="sd">        returns the running sample RMSE over all seen batches.</span>
+<span class="sd">        are broadcastable.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
@@ -517,140 +516,77 @@ document.write(`
 <span class="sd">        x_coords : CoordSystem</span>
 <span class="sd">            Ordered dict representing coordinate system that describes the `x` tensor.</span>
 <span class="sd">            &#39;reduction_dims&#39; must be in coords.</span>
+<span class="sd">            &quot;time&quot; and &quot;variable&quot; must be in x_coords.</span>
 <span class="sd">        y : torch.Tensor</span>
-<span class="sd">            Input tensor #2 intended to apply statistic to.</span>
+<span class="sd">            Input tensor #2 intended to be used as validation data.</span>
 <span class="sd">        y_coords : CoordSystem</span>
 <span class="sd">            Ordered dict representing coordinate system that describes the `y` tensor.</span>
 <span class="sd">            &#39;reduction_dims&#39; must be in coords.</span>
+<span class="sd">            &quot;time&quot; and &quot;variable&quot; must be in y_coords.</span>
+<span class="sd">            If &quot;lead_time&quot; is in x_coords, then &quot;lead_time&quot; must also be in y_coords. The</span>
+<span class="sd">            intention, in this case, is that users will use `fetch_data` to make it easier</span>
+<span class="sd">            to match validation times.</span>
 
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
 <span class="sd">        tuple[torch.Tensor, CoordSystem]</span>
-<span class="sd">            Returns root mean squared error tensor with appropriate reduced coordinates.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">mse</span><span class="p">,</span> <span class="n">output_coords</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mean</span><span class="p">((</span><span class="n">x</span> <span class="o">-</span> <span class="n">y</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span><span class="p">,</span> <span class="n">x_coords</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">mse</span><span class="p">),</span> <span class="n">output_coords</span></div>
-</div>
+<span class="sd">            Returns anomaly correlation coefficient tensor with appropriate reduced coordinates.</span>
 
-
-
-<div class="viewcode-block" id="spread_skill_ratio">
-<a class="viewcode-back" href="../../../modules/generated/statistics/earth2studio.statistics.spread_skill_ratio.html#earth2studio.statistics.spread_skill_ratio">[docs]</a>
-<span class="k">class</span> <span class="nc">spread_skill_ratio</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">     Metric for calculating the spread/skill ratio of an ensemble forecast.</span>
-
-<span class="sd">     Specifically, the spread is defined as the standard deviation of the ensemble</span>
-<span class="sd">     forecast. The skill is defined as the rmse of the ensemble mean prediction. The</span>
-<span class="sd">     ratio of these two quantities is defined as the spread/skill ratio.</span>
-
-
-<span class="sd">     Parameters</span>
-<span class="sd">     ----------</span>
-<span class="sd">     ensemble_dimension: str</span>
-<span class="sd">         The dimension over which the spread and skill are calculated over.</span>
-<span class="sd">         This should usually be &quot;ensemble&quot;.</span>
-<span class="sd">     reduction_dimensions: list[str]</span>
-<span class="sd">         Dimensions to reduce (mean) the spread/skill ratio over. This is commonly done</span>
-<span class="sd">         over time but can also be the globe or some region.</span>
-<span class="sd">         Example [&#39;time&#39;, &#39;lat&#39;, &#39;lon&#39;]</span>
-<span class="sd">     ensemble_weights: torch.Tensor = None</span>
-<span class="sd">         A one-dimensional tensor containing weights to assign to the</span>
-<span class="sd">         ensemble_dimension.</span>
-<span class="sd">     reduction_weights: torch.Tensor = None</span>
-<span class="sd">         A tensor containing weights to assign to the reduction dimensions.</span>
-<span class="sd">         Note that these weights must have the same number of dimensions</span>
-<span class="sd">         as passed in reduction_dimensions.</span>
-<span class="sd">         Example: if reduction_dimensions = [&#39;lat&#39;, &#39;lon&#39;] then</span>
-<span class="sd">         assert weights.ndim == 2.</span>
-<span class="sd">         If reduction_dimensions is None, then this argument is ignored.</span>
-<span class="sd">    ensemble_batch_update: bool = False</span>
-<span class="sd">         Whether to applying batch updates to the ensemble mean and variance components of</span>
-<span class="sd">         the spread and skill with each invocation of __call__.</span>
-<span class="sd">         This is particularly useful when ensemble data is recieved in a stream of batches.</span>
-<span class="sd">         Each invocation of __call__ will return the running spread/skill ratio.</span>
-<span class="sd">     batch_update: bool = False</span>
-<span class="sd">         Whether to applying batch updates to the reduction rmse and averaging components</span>
-<span class="sd">         of the spread/skill with each invocation of __call__.</span>
-<span class="sd">         This is particularly useful when time data is recieved in a stream of batches.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span>
-        <span class="n">ensemble_dimension</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-        <span class="n">reduction_dimensions</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
-        <span class="n">ensemble_weights</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-        <span class="n">reduction_weights</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-        <span class="n">ensemble_batch_update</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
-        <span class="n">reduction_batch_update</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
-    <span class="p">):</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">ensemble_dimension</span> <span class="o">=</span> <span class="p">[</span><span class="n">ensemble_dimension</span><span class="p">]</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">reduction_dimensions</span> <span class="o">=</span> <span class="n">reduction_dimensions</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">ensemble_mean</span> <span class="o">=</span> <span class="n">mean</span><span class="p">(</span>
-            <span class="n">reduction_dimensions</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">ensemble_dimension</span><span class="p">,</span>
-            <span class="n">weights</span><span class="o">=</span><span class="n">ensemble_weights</span><span class="p">,</span>
-            <span class="n">batch_update</span><span class="o">=</span><span class="n">ensemble_batch_update</span><span class="p">,</span>
-        <span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">ensemble_var</span> <span class="o">=</span> <span class="n">variance</span><span class="p">(</span>
-            <span class="n">reduction_dimensions</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">ensemble_dimension</span><span class="p">,</span>
-            <span class="n">weights</span><span class="o">=</span><span class="n">ensemble_weights</span><span class="p">,</span>
-            <span class="n">batch_update</span><span class="o">=</span><span class="n">ensemble_batch_update</span><span class="p">,</span>
-        <span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">reduced_rmse</span> <span class="o">=</span> <span class="n">rmse</span><span class="p">(</span>
-            <span class="n">reduction_dimensions</span><span class="o">=</span><span class="n">reduction_dimensions</span><span class="p">,</span>
-            <span class="n">weights</span><span class="o">=</span><span class="n">reduction_weights</span><span class="p">,</span>
-            <span class="n">batch_update</span><span class="o">=</span><span class="n">reduction_batch_update</span><span class="p">,</span>
-        <span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">reduced_mean</span> <span class="o">=</span> <span class="n">mean</span><span class="p">(</span>
-            <span class="n">reduction_dimensions</span><span class="o">=</span><span class="n">reduction_dimensions</span><span class="p">,</span>
-            <span class="n">weights</span><span class="o">=</span><span class="n">reduction_weights</span><span class="p">,</span>
-            <span class="n">batch_update</span><span class="o">=</span><span class="n">reduction_batch_update</span><span class="p">,</span>
-        <span class="p">)</span>
-
-    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-        <span class="k">return</span> <span class="s2">&quot;_&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">ensemble_dimension</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">reduction_dimensions</span> <span class="o">+</span> <span class="p">[</span><span class="s2">&quot;spread_skill&quot;</span><span class="p">]</span>
-        <span class="p">)</span>
-
-<div class="viewcode-block" id="spread_skill_ratio.__call__">
-<a class="viewcode-back" href="../../../modules/generated/statistics/earth2studio.statistics.spread_skill_ratio.html#earth2studio.statistics.spread_skill_ratio.__call__">[docs]</a>
-    <span class="k">def</span> <span class="fm">__call__</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span>
-        <span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
-        <span class="n">x_coords</span><span class="p">:</span> <span class="n">CoordSystem</span><span class="p">,</span>
-        <span class="n">y</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
-        <span class="n">y_coords</span><span class="p">:</span> <span class="n">CoordSystem</span><span class="p">,</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">CoordSystem</span><span class="p">]:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Apply metric to data `x` and `y`, checking that their coordinates</span>
-<span class="sd">        are broadcastable. While reducing over `reduction_dims`.</span>
-
-<span class="sd">        If batch_update was passed True upon metric initialization then this method</span>
-<span class="sd">        returns the running sample RMSE over all seen batches.</span>
-
-<span class="sd">        Parameters</span>
-<span class="sd">        ----------</span>
-<span class="sd">        x : torch.Tensor</span>
-<span class="sd">            Input tensor #1 intended to apply metric to.</span>
-<span class="sd">        x_coords : CoordSystem</span>
-<span class="sd">            Ordered dict representing coordinate system that describes the `x` tensor.</span>
-<span class="sd">            &#39;reduction_dims&#39; must be in coords.</span>
-<span class="sd">        y : torch.Tensor</span>
-<span class="sd">            Input tensor #2 intended to apply statistic to.</span>
-<span class="sd">        y_coords : CoordSystem</span>
-<span class="sd">            Ordered dict representing coordinate system that describes the `y` tensor.</span>
-<span class="sd">            &#39;reduction_dims&#39; must be in coords.</span>
-
-<span class="sd">        Returns</span>
-<span class="sd">        -------</span>
-<span class="sd">        tuple[torch.Tensor, CoordSystem]</span>
-<span class="sd">            Returns root mean squared error tensor with appropriate reduced coordinates.</span>
+<span class="sd">        Note</span>
+<span class="sd">        ----</span>
+<span class="sd">        Reference: https://www.atmos.albany.edu/daes/atmclasses/atm401/spring_2016/ppts_pdfs/ECMWF_ACC_definition.pdf</span>
 <span class="sd">        &quot;&quot;&quot;</span>
 
-        <span class="n">em</span><span class="p">,</span> <span class="n">output_coords</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ensemble_mean</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">x_coords</span><span class="p">)</span>
-        <span class="n">skill</span><span class="p">,</span> <span class="n">output_coords</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">reduced_rmse</span><span class="p">(</span><span class="n">em</span><span class="p">,</span> <span class="n">output_coords</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">y_coords</span><span class="p">)</span>
-        <span class="n">spread</span><span class="p">,</span> <span class="n">output_coords</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">reduced_mean</span><span class="p">(</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">ensemble_var</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">x_coords</span><span class="p">))</span>
-        <span class="k">return</span> <span class="n">skill</span> <span class="o">/</span> <span class="n">torch</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">spread</span><span class="p">),</span> <span class="n">output_coords</span></div>
+        <span class="c1"># Input coordinate checking</span>
+        <span class="n">handshake_dim</span><span class="p">(</span><span class="n">x_coords</span><span class="p">,</span> <span class="s2">&quot;time&quot;</span><span class="p">)</span>
+        <span class="n">handshake_dim</span><span class="p">(</span><span class="n">x_coords</span><span class="p">,</span> <span class="s2">&quot;variable&quot;</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">c</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">x_coords</span><span class="p">):</span>
+            <span class="n">handshake_dim</span><span class="p">(</span><span class="n">y_coords</span><span class="p">,</span> <span class="n">c</span><span class="p">,</span> <span class="n">i</span><span class="p">)</span>
+            <span class="n">handshake_coords</span><span class="p">(</span><span class="n">x_coords</span><span class="p">,</span> <span class="n">y_coords</span><span class="p">,</span> <span class="n">c</span><span class="p">)</span>
+
+        <span class="n">dims</span> <span class="o">=</span> <span class="p">[</span><span class="nb">list</span><span class="p">(</span><span class="n">x_coords</span><span class="p">)</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">rd</span><span class="p">)</span> <span class="k">for</span> <span class="n">rd</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">reduction_dimensions</span><span class="p">]</span>
+        <span class="n">output_coords</span> <span class="o">=</span> <span class="n">CoordSystem</span><span class="p">(</span>
+            <span class="p">{</span>
+                <span class="n">key</span><span class="p">:</span> <span class="n">x_coords</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
+                <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">x_coords</span>
+                <span class="k">if</span> <span class="n">key</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">reduction_dimensions</span>
+            <span class="p">}</span>
+        <span class="p">)</span>
+
+        <span class="n">weights</span> <span class="o">=</span> <span class="n">_broadcast_weights</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">weights</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">reduction_dimensions</span><span class="p">,</span> <span class="n">x_coords</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+        <span class="n">weights_sum</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">weights</span><span class="p">)</span>
+
+        <span class="c1"># Get climatology information</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">climatology</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="s2">&quot;lead_time&quot;</span> <span class="ow">in</span> <span class="n">output_coords</span><span class="p">:</span>
+                <span class="n">clim</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">fetch_data</span><span class="p">(</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">climatology</span><span class="p">,</span>
+                    <span class="n">output_coords</span><span class="p">[</span><span class="s2">&quot;time&quot;</span><span class="p">],</span>
+                    <span class="n">output_coords</span><span class="p">[</span><span class="s2">&quot;variable&quot;</span><span class="p">],</span>
+                    <span class="n">lead_time</span><span class="o">=</span><span class="n">output_coords</span><span class="p">[</span><span class="s2">&quot;lead_time&quot;</span><span class="p">],</span>
+                    <span class="n">device</span><span class="o">=</span><span class="n">x</span><span class="o">.</span><span class="n">device</span><span class="p">,</span>
+                <span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">da</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">climatology</span><span class="p">(</span><span class="n">output_coords</span><span class="p">[</span><span class="s2">&quot;time&quot;</span><span class="p">],</span> <span class="n">output_coords</span><span class="p">[</span><span class="s2">&quot;variable&quot;</span><span class="p">])</span>
+                <span class="n">clim</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">as_tensor</span><span class="p">(</span><span class="n">da</span><span class="o">.</span><span class="n">values</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">x</span><span class="o">.</span><span class="n">device</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">x</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">clim</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+
+        <span class="n">x_hat</span> <span class="o">=</span> <span class="n">x</span> <span class="o">-</span> <span class="n">clim</span>
+        <span class="n">x_bar</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">weights</span> <span class="o">*</span> <span class="n">x</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="n">dims</span><span class="p">,</span> <span class="n">keepdim</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span> <span class="o">/</span> <span class="n">weights_sum</span>
+        <span class="n">x_diff</span> <span class="o">=</span> <span class="n">x_hat</span> <span class="o">-</span> <span class="n">x_bar</span>
+
+        <span class="n">y_hat</span> <span class="o">=</span> <span class="n">y</span> <span class="o">-</span> <span class="n">clim</span>
+        <span class="n">y_bar</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">weights</span> <span class="o">*</span> <span class="n">y</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="n">dims</span><span class="p">,</span> <span class="n">keepdim</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span> <span class="o">/</span> <span class="n">weights_sum</span>
+        <span class="n">y_diff</span> <span class="o">=</span> <span class="n">y_hat</span> <span class="o">-</span> <span class="n">y_bar</span>
+
+        <span class="n">p1</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">weights</span> <span class="o">*</span> <span class="n">x_diff</span> <span class="o">*</span> <span class="n">y_diff</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="n">dims</span><span class="p">)</span>
+        <span class="n">p2</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">weights</span> <span class="o">*</span> <span class="n">x_diff</span> <span class="o">*</span> <span class="n">x_diff</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="n">dims</span><span class="p">)</span>
+        <span class="n">p3</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">weights</span> <span class="o">*</span> <span class="n">y_diff</span> <span class="o">*</span> <span class="n">y_diff</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="n">dims</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">p1</span> <span class="o">/</span> <span class="n">torch</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">p2</span> <span class="o">*</span> <span class="n">p3</span><span class="p">),</span> <span class="n">output_coords</span></div>
 </div>
 
 </pre></div>
