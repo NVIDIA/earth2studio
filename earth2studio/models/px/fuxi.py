@@ -370,7 +370,9 @@ class FuXi(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         # tensor: float32[1,ScatterNDoutput_dim_1,70,721,1440]
 
         # Flatten batch and time dim
-        time_array = self._time_encoding(np.tile(coords["time"], x.shape[0]))
+        time_array = self._time_encoding(
+            np.tile(coords["time"] + coords["lead_time"][-1], x.shape[0])
+        )
         x = x.view(-1, *x.shape[2:])
 
         # Not sure if FuXi supports batching atm
