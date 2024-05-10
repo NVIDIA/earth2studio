@@ -22,6 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added the ability to reload zarr and netcdf backends
 - Added the ability to read from an IOBackend
 - Add spread/skill ratio
+- Added FuXi weather model
 
 ### Changed
 
