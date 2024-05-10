@@ -71,6 +71,7 @@ def test_weighted_mean(device: str) -> None:
     reduction_dimensions, weights = ["lat"], lat_weights
     mean = moments.mean(reduction_dimensions, weights=weights)
 
+    assert str(mean) == "lat_mean"
     y, c = mean(x, coords)
 
     # Compute numpy weighted average
@@ -187,6 +188,8 @@ def test_weighted_var(device: str) -> None:
 
     y, c = var(x, coords)
 
+    assert str(var) == "lat_variance"
+
     # Compute numpy weighted average
     y_np = np.cov(x.cpu().numpy(), aweights=lat_weights.cpu().numpy())
 
@@ -209,6 +212,10 @@ def test_batch_var_std(device) -> None:
 
     std = moments.std(["ensemble"], batch_update=True)
     var = moments.variance(["ensemble"], batch_update=True)
+
+    assert str(std) == "ensemble_std"
+    assert str(var) == "ensemble_variance"
+
     for inds in range(0, 100, 10):
         x = big_x[inds : inds + 10]
         coords = big_coords.copy()
@@ -221,3 +228,36 @@ def test_batch_var_std(device) -> None:
         y, c = var(x, coords)
         assert torch.allclose(y, torch.var(big_x[: inds + 10], dim=0))
         assert c == reduced_coords
+
+
+@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+def test_moments_failures(device) -> None:
+    # Test weights not the same shape as reduction dimensions
+    reduction_dimensions = ["lat", "lon"]
+    weights = torch.as_tensor([10], device=device)
+
+    with pytest.raises(ValueError):
+        moments.mean(reduction_dimensions, weights=weights)
+
+    with pytest.raises(ValueError):
+        moments.variance(reduction_dimensions, weights=weights)
+
+    with pytest.raises(ValueError):
+        moments.std(reduction_dimensions, weights=weights)
+
+    x = torch.randn((10,), device=device)
+    coords = OrderedDict({"lat": np.arange(10)})
+    with pytest.raises(ValueError):
+        m = moments.mean(reduction_dimensions)
+
+        m(x, coords)
+
+    with pytest.raises(ValueError):
+        var = moments.variance(reduction_dimensions)
+
+        var(x, coords)
+
+    with pytest.raises(ValueError):
+        std = moments.std(reduction_dimensions)
+
+        std(x, coords)

@@ -89,7 +89,6 @@ class mean:
         output_coords = CoordSystem(
             {key: coords[key] for key in coords if key not in self.reduction_dimensions}
         )
-
         weights = _broadcast_weights(
             self.weights, self.reduction_dimensions, coords
         ).to(x.device)

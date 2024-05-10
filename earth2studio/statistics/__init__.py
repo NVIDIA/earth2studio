@@ -18,5 +18,5 @@ from .acc import acc
 from .base import Metric, Statistic
 from .crps import crps
 from .moments import mean, std, variance  # noqa
-from .rmse import rmse  # noqa
+from .rmse import rmse, spread_skill_ratio  # noqa
 from .weights import lat_weight  # noqa
