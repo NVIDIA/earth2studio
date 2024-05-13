@@ -275,9 +275,6 @@ class FuXi(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         package: Package,
     ) -> PrognosticModel:
         """Load prognostic from package"""
-        # Ghetto at the moment because NGC files are zipped. This will download zip and
-        # unpack them then give the cached folder location from which we can then
-        # access the needed files.
 
         # Short model
         onnx_short = package.get("short.onnx")
@@ -361,7 +358,6 @@ class FuXi(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         # FuXi ONNX Input
         # name: input
         # tensor: float32[1,2,70,721,1440]
-        # temb
         # name: temb
         # tensor: float32[1,12]
 
