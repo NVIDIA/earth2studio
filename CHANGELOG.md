@@ -42,6 +42,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Enable version switch in documentation site
 - Longitude coordinates of precip and climatenet diagnostic models
+- Fixed pressure levels of IFS datasource to include all available
 
 ### Security
 

@@ -115,11 +115,12 @@ def test_spread_skill(
     reduction_weights: tuple[list[str], np.ndarray], device: str
 ) -> None:
 
-    x = 3.0 + 2.0 * torch.randn((100, 2, 2, 361, 720), device=device)
+    n_ensemble = 200
+    x = 3.0 + 2.0 * torch.randn((n_ensemble, 2, 2, 361, 720), device=device)
 
     x_coords = OrderedDict(
         {
-            "ensemble": np.arange(100),
+            "ensemble": np.arange(n_ensemble),
             "time": np.array(
                 [np.datetime64("1993-04-05T00:00"), np.datetime64("1993-04-06T00:00")]
             ),
