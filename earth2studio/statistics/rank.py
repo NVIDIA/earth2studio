@@ -142,8 +142,8 @@ class rank_histogram:
         # Create output tensor and coords
         out = torch.stack((0.5 * (_bin_edges[:-1] + _bin_edges[1:]), _rank_histogram))
         out_coords = y_coords.copy()
-        for dim in self._reduction_dimensions:  # type: ignore
-            out_coords.pop(dim)
+        for rd in self._reduction_dimensions:
+            out_coords.pop(rd)
 
         out_coords = (
             OrderedDict(
