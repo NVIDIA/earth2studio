@@ -54,7 +54,7 @@ class mean:
                 raise ValueError(
                     "Error! Weights must be the same dimension as reduction_dimensions"
                 )
-        self.reduction_dimensions = reduction_dimensions
+        self._reduction_dimensions = reduction_dimensions
         self.weights = weights
 
         self.batch_update = batch_update
@@ -62,7 +62,11 @@ class mean:
             self.n = 0
 
     def __str__(self) -> str:
-        return "_".join(self.reduction_dimensions + ["mean"])
+        return "_".join(self._reduction_dimensions + ["mean"])
+
+    @property
+    def reduction_dimensions(self) -> list[str]:
+        return self._reduction_dimensions
 
     def __call__(
         self, x: torch.Tensor, coords: CoordSystem
@@ -80,17 +84,21 @@ class mean:
         coords: CoordSystem
             Coordinates referring to the input data, x.
         """
-        if not all([rd in coords for rd in self.reduction_dimensions]):
+        if not all([rd in coords for rd in self._reduction_dimensions]):
             raise ValueError(
                 "Initialized reduction dimensions do not appear in passed coords."
             )
 
-        dims = [list(coords).index(rd) for rd in self.reduction_dimensions]
+        dims = [list(coords).index(rd) for rd in self._reduction_dimensions]
         output_coords = CoordSystem(
-            {key: coords[key] for key in coords if key not in self.reduction_dimensions}
+            {
+                key: coords[key]
+                for key in coords
+                if key not in self._reduction_dimensions
+            }
         )
         weights = _broadcast_weights(
-            self.weights, self.reduction_dimensions, coords
+            self.weights, self._reduction_dimensions, coords
         ).to(x.device)
         weights_sum = torch.sum(weights)
 
@@ -143,7 +151,7 @@ class variance:
                 raise ValueError(
                     "Error! Weights must be the same dimension as reduction_dimensions"
                 )
-        self.reduction_dimensions = reduction_dimensions
+        self._reduction_dimensions = reduction_dimensions
         self.weights = weights
 
         self.batch_update = batch_update
@@ -151,7 +159,11 @@ class variance:
             self.n = 0
 
     def __str__(self) -> str:
-        return "_".join(self.reduction_dimensions + ["variance"])
+        return "_".join(self._reduction_dimensions + ["variance"])
+
+    @property
+    def reduction_dimensions(self) -> list[str]:
+        return self._reduction_dimensions
 
     def __call__(
         self, x: torch.Tensor, coords: CoordSystem
@@ -169,18 +181,22 @@ class variance:
         coords: CoordSystem
             Coordinates referring to the input data, x.
         """
-        if not all([rd in coords for rd in self.reduction_dimensions]):
+        if not all([rd in coords for rd in self._reduction_dimensions]):
             raise ValueError(
                 "Initialized reduction dimensions do not appear in passed coords."
             )
 
-        dims = [list(coords).index(rd) for rd in self.reduction_dimensions]
+        dims = [list(coords).index(rd) for rd in self._reduction_dimensions]
         output_coords = CoordSystem(
-            {key: coords[key] for key in coords if key not in self.reduction_dimensions}
+            {
+                key: coords[key]
+                for key in coords
+                if key not in self._reduction_dimensions
+            }
         )
 
         weights = _broadcast_weights(
-            self.weights, self.reduction_dimensions, coords
+            self.weights, self._reduction_dimensions, coords
         ).to(x.device)
         weights_sum = torch.sum(weights)
 
@@ -248,11 +264,15 @@ class std:
         self.var = variance(
             reduction_dimensions, weights=weights, batch_update=batch_update
         )
-        self.reduction_dimensions = reduction_dimensions
+        self._reduction_dimensions = reduction_dimensions
         self.weights = weights
 
     def __str__(self) -> str:
-        return "_".join(self.reduction_dimensions + ["std"])
+        return "_".join(self._reduction_dimensions + ["std"])
+
+    @property
+    def reduction_dimensions(self) -> list[str]:
+        return self._reduction_dimensions
 
     def __call__(
         self, x: torch.Tensor, coords: CoordSystem

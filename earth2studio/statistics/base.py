@@ -25,6 +25,10 @@ from earth2studio.utils.type import CoordSystem
 class Statistic(Protocol):
     """Statistic interface."""
 
+    @property
+    def reduction_dimensions(self) -> list[str]:
+        pass
+
     def __call__(
         self, x: torch.Tensor, coords: CoordSystem
     ) -> tuple[torch.Tensor, CoordSystem]:
@@ -45,6 +49,10 @@ class Statistic(Protocol):
 @runtime_checkable
 class Metric(Protocol):
     """Metrics interface."""
+
+    @property
+    def reduction_dimensions(self) -> list[str]:
+        pass
 
     def __call__(
         self,

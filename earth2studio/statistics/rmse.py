@@ -55,12 +55,16 @@ class rmse:
             reduction_dimensions, weights=weights, batch_update=batch_update
         )
         self.weights = weights
-        self.reduction_dimensions = reduction_dimensions
+        self._reduction_dimensions = reduction_dimensions
 
         self.batch_update = batch_update
 
     def __str__(self) -> str:
-        return "_".join(self.reduction_dimensions + ["rmse"])
+        return "_".join(self._reduction_dimensions + ["rmse"])
+
+    @property
+    def reduction_dimensions(self) -> list[str]:
+        return self._reduction_dimensions
 
     def __call__(
         self,
@@ -147,7 +151,7 @@ class spread_skill_ratio:
         reduction_batch_update: bool = False,
     ):
         self.ensemble_dimension = [ensemble_dimension]
-        self.reduction_dimensions = reduction_dimensions
+        self._reduction_dimensions = reduction_dimensions
         self.ensemble_mean = mean(
             reduction_dimensions=self.ensemble_dimension,
             weights=ensemble_weights,
@@ -171,8 +175,12 @@ class spread_skill_ratio:
 
     def __str__(self) -> str:
         return "_".join(
-            self.ensemble_dimension + self.reduction_dimensions + ["spread_skill"]
+            self.ensemble_dimension + self._reduction_dimensions + ["spread_skill"]
         )
+
+    @property
+    def reduction_dimensions(self) -> list[str]:
+        return self.ensemble_dimension + self._reduction_dimensions
 
     def __call__(
         self,
