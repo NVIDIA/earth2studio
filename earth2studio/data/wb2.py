@@ -87,7 +87,7 @@ class WB2ERA5:
                 "gs://weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr",
                 gcs=gcs,
             )
-        self.zarr_group = zarr.open(gcstore, mode="r", consolidated=True)
+        self.zarr_group = zarr.open(gcstore, mode="r")
 
     def __call__(
         self,
@@ -156,7 +156,7 @@ class WB2ERA5:
             coords={
                 "time": [time],
                 "variable": variables,
-                "lat": self.WB2_ERA5_LON,
+                "lat": self.WB2_ERA5_LAT,
                 "lon": self.WB2_ERA5_LON,
             },
         )
