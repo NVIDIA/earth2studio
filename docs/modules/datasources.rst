@@ -28,10 +28,11 @@ Used for fetching initial conditions for inference and validation data for scori
    data.GFS
    data.HRRR
    data.IFS
+   data.WB2ERA5
+   data.WB2Climatology
    data.Random
    data.DataArrayFile
    data.DataSetFile
-   data.WB2Climatology
 
 Functions
 ~~~~~~~~~
