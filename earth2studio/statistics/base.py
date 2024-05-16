@@ -70,12 +70,14 @@ class Metric(Protocol):
         Parameters
         ----------
         x : torch.Tensor
-            Input tensor #1 intended to apply metric to.
+            Input tensor #1 intended to apply metric to. `x` is typically understood
+            to be the forecast or prediction tensor.
         x_coords : CoordSystem
             Ordered dict representing coordinate system that describes the `x` tensor.
             `reduction_dimensions` must be in coords.
         y : torch.Tensor
-            Input tensor #2 intended to apply statistic to.
+            Input tensor #2 intended to apply statistic to. `y` is typically the observation
+            or validation tensor.
         y_coords : CoordSystem
             Ordered dict representing coordinate system that describes the `y` tensor.
             `reduction_dimensions` must be in coords.

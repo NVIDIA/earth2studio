@@ -83,12 +83,14 @@ class rmse:
         Parameters
         ----------
         x : torch.Tensor
-            Input tensor #1 intended to apply metric to.
+            Input tensor, typically the forecast or prediction tensor, but RMSE is
+            symmetric with respect to `x` and `y`.
         x_coords : CoordSystem
             Ordered dict representing coordinate system that describes the `x` tensor.
             `reduction_dimensions` must be in coords.
         y : torch.Tensor
-            Input tensor #2 intended to apply statistic to.
+            Input tensor #2 intended to be used as validation data, but ACC is symmetric
+            with respect to `x` and `y`.
         y_coords : CoordSystem
             Ordered dict representing coordinate system that describes the `y` tensor.
             `reduction_dimensions` must be in coords.
@@ -199,12 +201,13 @@ class spread_skill_ratio:
         Parameters
         ----------
         x : torch.Tensor
-            Input tensor #1 intended to apply metric to.
+            The ensemble forecast input tensor. This is the tensor over which the
+            ensemble mean and spread are calculated with respect to.
         x_coords : CoordSystem
             Ordered dict representing coordinate system that describes the `x` tensor.
             `reduction_dimensions` must be in coords.
         y : torch.Tensor
-            Input tensor #2 intended to apply statistic to.
+            The observation input tensor.
         y_coords : CoordSystem
             Ordered dict representing coordinate system that describes the `y` tensor.
             `reduction_dimensions` must be in coords.

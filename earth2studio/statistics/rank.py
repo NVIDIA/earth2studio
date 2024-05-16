@@ -81,12 +81,13 @@ class rank_histogram:
         Parameters
         ----------
         x : torch.Tensor
-            Input tensor #1 intended to apply metric to.
+            Input tensor of ensemble data. The rank of observation input tensor `y`
+            is determined with respect to the ensemble dimension of `x`.
         x_coords : CoordSystem
             Ordered dict representing coordinate system that describes the `x` tensor.
             `reduction_dimensions` must be in coords.
         y : torch.Tensor
-            Input tensor #2 intended to apply statistic to.
+            The observation input tensor.
         y_coords : CoordSystem
             Ordered dict representing coordinate system that describes the `y` tensor.
             `reduction_dimensions` must be in coords.

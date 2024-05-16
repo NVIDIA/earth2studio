@@ -92,12 +92,13 @@ class crps:
         Parameters
         ----------
         x : torch.Tensor
-            Input tensor #1 intended to apply metric to.
+            Input tensor of ensemble forecast or prediction data. This is the tensor
+            over which the CRPS/CDF is calculated with respect to.
         x_coords : CoordSystem
             Ordered dict representing coordinate system that describes the `x` tensor.
             `reduction_dimensions` must be in coords.
         y : torch.Tensor
-            Input tensor #2 intended to apply statistic to.
+            Observation or validation tensor.
         y_coords : CoordSystem
             Ordered dict representing coordinate system that describes the `y` tensor.
             `reduction_dimensions` must be in coords.
