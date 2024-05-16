@@ -111,3 +111,42 @@ def test_rank_histogram_failures(device: str) -> None:
 
         x_coords.pop("ensemble")
         z, c = RH(x, x_coords, y, y_coords)
+
+
+@pytest.mark.parametrize("reduction_dimension", [20, 50, 80])
+@pytest.mark.parametrize("number_of_bins", [3, 5, 8])
+@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+def test_rank_histogram_accuracy(
+    reduction_dimension: int, number_of_bins: int, device: str
+) -> None:
+
+    x = (
+        1.0
+        + torch.randn((1000, reduction_dimension, reduction_dimension), device=device)
+        ** 2
+    )
+
+    x_coords = OrderedDict(
+        {
+            "ensemble": np.arange(1000),
+            "lat": np.arange(reduction_dimension),
+            "lon": np.arange(reduction_dimension),
+        }
+    )
+
+    y_coords = copy.deepcopy(x_coords)
+    y_coords.pop("ensemble")
+    y_shape = [len(y_coords[c]) for c in y_coords]
+    y = 1.0 + torch.randn(y_shape, device=device) ** 2
+
+    reduction_dimensions = ["lat", "lon"]
+    RH = rank_histogram("ensemble", reduction_dimensions, number_of_bins=number_of_bins)
+
+    z, _ = RH(x, x_coords, y, y_coords)
+
+    # This should be result in a near uniform distribution but is prone to statistical error
+    assert torch.allclose(
+        z[1, :],
+        torch.ones_like(z[1, :]),
+        rtol=2.0 * number_of_bins / reduction_dimension,
+    )
