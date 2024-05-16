@@ -61,10 +61,10 @@ class WB2ERA5:
     - https://weatherbench2.readthedocs.io/en/latest/data-guide.html#era5
     - https://arxiv.org/abs/2308.15560
     """
-    
+
     WB2_ERA5_LAT = np.linspace(90, -90, 721)
     WB2_ERA5_LON = np.linspace(0, 359.75, 1440)
-    
+
     def __init__(
         self,
         cache: bool = True,
@@ -148,8 +148,10 @@ class WB2ERA5:
         xr.DataArray
             WeatherBench2 data array for given date time
         """
-        arcoda = xr.DataArray(
-            data=np.empty((1, len(variables), len(self.WB2_ERA5_LAT), len(self.WB2_ERA5_LON))),
+        wb2da = xr.DataArray(
+            data=np.empty(
+                (1, len(variables), len(self.WB2_ERA5_LAT), len(self.WB2_ERA5_LON))
+            ),
             dims=["time", "variable", "lat", "lon"],
             coords={
                 "time": [time],
@@ -167,7 +169,9 @@ class WB2ERA5:
         # TODO: Add MP here
         for i, variable in enumerate(
             tqdm(
-                variables, desc=f"Fetching WB2 ERA5 for {time}", disable=(not self._verbose)
+                variables,
+                desc=f"Fetching WB2 ERA5 for {time}",
+                disable=(not self._verbose),
             )
         ):
             logger.debug(
@@ -179,23 +183,23 @@ class WB2ERA5:
                 logger.error(f"variable id {variable} not found in WB2 lexicon")
                 raise e
 
-            wb2_name, level = arco_name.split("::")
+            wb2_name, level = wb2_name.split("::")
 
             shape = self.zarr_group[wb2_name].shape
             # Static variables
             if len(shape) == 2:
-                arcoda[0, i] = modifier(self.zarr_group[arco_variable][:])
+                wb2da[0, i] = modifier(self.zarr_group[wb2_name][:])
             # Surface variable
             elif len(shape) == 3:
-                arcoda[0, i] = modifier(self.zarr_group[arco_variable][time_index])
+                wb2da[0, i] = modifier(self.zarr_group[wb2_name][time_index])
             # Atmospheric variable
             else:
                 level_index = np.where(level_coords == int(level))[0][0]
-                arcoda[0, i] = modifier(
-                    self.zarr_group[arco_variable][time_index, level_index]
+                wb2da[0, i] = modifier(
+                    self.zarr_group[wb2_name][time_index, level_index]
                 )
 
-        return arcoda
+        return wb2da
 
     @property
     def cache(self) -> str:
@@ -233,7 +237,7 @@ class WB2ERA5:
                 )
 
     @classmethod
-    def _get_time_index(cls, time: datetime) -> tuple[int, int]:
+    def _get_time_index(cls, time: datetime) -> int:
         """Little index converter to go from datetime to integer index for hour
         and day of year.
 
@@ -252,7 +256,7 @@ class WB2ERA5:
         start_date = datetime(year=1959, month=1, day=1)
         duration = time - start_date
         return int(divmod(duration.total_seconds(), 21600)[0])
-    
+
     @classmethod
     def available(cls, time: datetime | np.datetime64) -> bool:
         """Checks if given date time is avaliable in the WeatherBench2 data source
@@ -288,6 +292,7 @@ class WB2ERA5:
         time_index = cls._get_time_index(time)
         max_index = zarr_group["time"][-1]
         return time_index >= 0 and time_index <= max_index
+
 
 ClimatologyZarrStore = Literal[
     "1990-2017_6h_1440x721.zarr",
@@ -382,7 +387,7 @@ class WB2Climatology:
             Timestamps to return data for (UTC).
         variable : str | list[str] | VariableArray
             String, list of strings or array of strings that refer to variables to
-            return. Must be in the ARCO lexicon.
+            return. Must be in the WeatherBench2 lexicon.
 
         Returns
         -------
