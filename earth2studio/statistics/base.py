@@ -27,13 +27,16 @@ class Statistic(Protocol):
 
     @property
     def reduction_dimensions(self) -> list[str]:
+        """Gives the input dimensions of which the statistic performs a reduction
+        over. The is used to determine, a priori, the output dimensions of a statistic.
+        """
         pass
 
     def __call__(
         self, x: torch.Tensor, coords: CoordSystem
     ) -> tuple[torch.Tensor, CoordSystem]:
         """Apply statistic to data `x`, with coordinates `coords` and reduce
-        over dimensions `reduction_dims`.
+        over dimensions `reduction_dimensions`.
 
         Parameters
         ----------
@@ -41,7 +44,7 @@ class Statistic(Protocol):
             Input tensor intended to apply statistic to.
         coords : CoordSystem
             Ordered dict representing coordinate system that describes the tensor.
-            'reduction_dims' must be in coords.
+            `reduction_dimensions` must be in coords.
         """
         pass
 
@@ -62,7 +65,7 @@ class Metric(Protocol):
         y_coords: CoordSystem,
     ) -> tuple[torch.Tensor, CoordSystem]:
         """Apply metric to data `x` and `y`, checking that their coordinates
-        are broadcastable. While reducing over `reduction_dims`.
+        are broadcastable. While reducing over `reduction_dimensions`.
 
         Parameters
         ----------
@@ -70,11 +73,11 @@ class Metric(Protocol):
             Input tensor #1 intended to apply metric to.
         x_coords : CoordSystem
             Ordered dict representing coordinate system that describes the `x` tensor.
-            'reduction_dims' must be in coords.
+            `reduction_dimensions` must be in coords.
         y : torch.Tensor
             Input tensor #2 intended to apply statistic to.
         y_coords : CoordSystem
             Ordered dict representing coordinate system that describes the `y` tensor.
-            'reduction_dims' must be in coords.
+            `reduction_dimensions` must be in coords.
         """
         pass

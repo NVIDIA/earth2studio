@@ -86,12 +86,12 @@ class rmse:
             Input tensor #1 intended to apply metric to.
         x_coords : CoordSystem
             Ordered dict representing coordinate system that describes the `x` tensor.
-            'reduction_dims' must be in coords.
+            `reduction_dimensions` must be in coords.
         y : torch.Tensor
             Input tensor #2 intended to apply statistic to.
         y_coords : CoordSystem
             Ordered dict representing coordinate system that describes the `y` tensor.
-            'reduction_dims' must be in coords.
+            `reduction_dimensions` must be in coords.
 
         Returns
         -------
@@ -202,12 +202,12 @@ class spread_skill_ratio:
             Input tensor #1 intended to apply metric to.
         x_coords : CoordSystem
             Ordered dict representing coordinate system that describes the `x` tensor.
-            'reduction_dims' must be in coords.
+            `reduction_dimensions` must be in coords.
         y : torch.Tensor
             Input tensor #2 intended to apply statistic to.
         y_coords : CoordSystem
             Ordered dict representing coordinate system that describes the `y` tensor.
-            'reduction_dims' must be in coords.
+            `reduction_dimensions` must be in coords.
 
         Returns
         -------

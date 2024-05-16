@@ -76,7 +76,7 @@ class rank_histogram:
     ) -> tuple[torch.Tensor, CoordSystem]:
         """
         Apply metric to data `x` and `y`, checking that their coordinates
-        are broadcastable. While reducing over `reduction_dims`.
+        are broadcastable. While reducing over `reduction_dimensions`.
 
         Parameters
         ----------
@@ -84,12 +84,12 @@ class rank_histogram:
             Input tensor #1 intended to apply metric to.
         x_coords : CoordSystem
             Ordered dict representing coordinate system that describes the `x` tensor.
-            'reduction_dims' must be in coords.
+            `reduction_dimensions` must be in coords.
         y : torch.Tensor
             Input tensor #2 intended to apply statistic to.
         y_coords : CoordSystem
             Ordered dict representing coordinate system that describes the `y` tensor.
-            'reduction_dims' must be in coords.
+            `reduction_dimensions` must be in coords.
 
         Returns
         -------

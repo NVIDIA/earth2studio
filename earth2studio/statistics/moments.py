@@ -86,7 +86,7 @@ class mean:
         """
         if not all([rd in coords for rd in self._reduction_dimensions]):
             raise ValueError(
-                "Initialized reduction dimensions do not appear in passed coords."
+                "Initialized reduction_dimensions do not appear in passed coords."
             )
 
         dims = [list(coords).index(rd) for rd in self._reduction_dimensions]
@@ -183,7 +183,7 @@ class variance:
         """
         if not all([rd in coords for rd in self._reduction_dimensions]):
             raise ValueError(
-                "Initialized reduction dimensions do not appear in passed coords."
+                "Initialized reduction_dimensions do not appear in passed coords."
             )
 
         dims = [list(coords).index(rd) for rd in self._reduction_dimensions]

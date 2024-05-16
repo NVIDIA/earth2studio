@@ -85,13 +85,13 @@ class acc:
             Input tensor #1 intended to apply metric to.
         x_coords : CoordSystem
             Ordered dict representing coordinate system that describes the `x` tensor.
-            'reduction_dims' must be in coords.
+            `reduction_dimensions` must be in coords.
             "time" and "variable" must be in x_coords.
         y : torch.Tensor
             Input tensor #2 intended to be used as validation data.
         y_coords : CoordSystem
             Ordered dict representing coordinate system that describes the `y` tensor.
-            'reduction_dims' must be in coords.
+            `reduction_dimensions` must be in coords.
             "time" and "variable" must be in y_coords.
             If "lead_time" is in x_coords, then "lead_time" must also be in y_coords. The
             intention, in this case, is that users will use `fetch_data` to make it easier
