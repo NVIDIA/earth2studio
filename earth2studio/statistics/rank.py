@@ -149,7 +149,7 @@ class rank_histogram:
         out_coords = (
             OrderedDict(
                 {
-                    "data": np.array(["bin_centers", "bin_counts"]),
+                    "histogram_data": np.array(["bin_centers", "bin_counts"]),
                     "bin": np.arange(self.number_of_bins),
                 }
             )
