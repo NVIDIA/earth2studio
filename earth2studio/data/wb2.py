@@ -328,7 +328,7 @@ class WB2ERA5_121x240(_WB2Base):
 
 class WB2ERA5_32x64(_WB2Base):
     """
-    ERA5 reanalysis data with several derived variables down sampled to a 1.5 degree
+    ERA5 reanalysis data with several derived variables down sampled to a 5.625 degree
     lat-lon grid from 1959 to 2023 (incl) to 6 hour intervals on 13 pressure levels.
     Provided by the WeatherBench2 data repository.
 
