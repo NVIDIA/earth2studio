@@ -36,47 +36,24 @@ from earth2studio.utils.type import TimeArray, VariableArray
 LOCAL_CACHE = os.path.join(os.path.expanduser("~"), ".cache", "earth2studio")
 
 
-class WB2ERA5:
-    """
-    ERA5 reanalysis data provided by WeatherBench2 downloaded from from the Copernicus
-    Climate Data Store from 1959 to 2023 (incl) to 6 hour intervals on 13 pressure
-    levels. This data is stored in Zarr format.
+class _WB2Base:
+    """Base class for weather bench 2 ERA5 datasets"""
 
-    Parameters
-    ----------
-    cache : bool, optional
-        Cache data source on local memory, by default True
-    verbose : bool, optional
-        Print download progress, by default True
-
-    Warning
-    -------
-    This is a remote data source and can potentially download a large amount of data
-    to your local machine for large requests.
-
-    Note
-    ----
-    Additional information on the data repository can be referenced here:
-
-    - https://weatherbench2.readthedocs.io/en/latest/data-guide.html#era5
-    - https://arxiv.org/abs/2308.15560
-    """
-
-    WB2_ERA5_LAT = np.linspace(90, -90, 721)
-    WB2_ERA5_LON = np.linspace(0, 359.75, 1440)
+    WB2_ERA5_LAT = np.empty()
+    WB2_ERA5_LON = np.empty()
 
     def __init__(
         self,
+        wb2_zarr_store: str,
         cache: bool = True,
         verbose: bool = True,
     ):
-
         self._cache = cache
         self._verbose = verbose
 
         if self._cache:
             gcstore = fsspec.get_mapper(
-                "gs://weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr",
+                f"gs://weatherbench2/datasets/era5/{wb2_zarr_store}",
                 target_protocol="gs",
                 cache_storage=self.cache,
                 target_options={"anon": True, "default_block_size": 2**20},
@@ -84,7 +61,7 @@ class WB2ERA5:
         else:
             gcs = gcsfs.GCSFileSystem(cache_timeout=-1)
             gcstore = gcsfs.GCSMap(
-                "gs://weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr",
+                f"gs://weatherbench2/datasets/era5/{wb2_zarr_store}",
                 gcs=gcs,
             )
         self.zarr_group = zarr.open(gcstore, mode="r")
@@ -150,7 +127,12 @@ class WB2ERA5:
         """
         wb2da = xr.DataArray(
             data=np.empty(
-                (1, len(variables), len(self.WB2_ERA5_LAT), len(self.WB2_ERA5_LON))
+                (
+                    1,
+                    len(variables),
+                    self.WB2_ERA5_LAT.shape[0],
+                    self.WB2_ERA5_LON.shape[0],
+                )
             ),
             dims=["time", "variable", "lat", "lon"],
             coords={
@@ -188,16 +170,20 @@ class WB2ERA5:
             shape = self.zarr_group[wb2_name].shape
             # Static variables
             if len(shape) == 2:
-                wb2da[0, i] = modifier(self.zarr_group[wb2_name][:])
+                data = self.zarr_group[wb2_name][:]
             # Surface variable
             elif len(shape) == 3:
-                wb2da[0, i] = modifier(self.zarr_group[wb2_name][time_index])
+                data = self.zarr_group[wb2_name][time_index]
             # Atmospheric variable
             else:
                 level_index = np.where(level_coords == int(level))[0][0]
-                wb2da[0, i] = modifier(
-                    self.zarr_group[wb2_name][time_index, level_index]
-                )
+                data = self.zarr_group[wb2_name][time_index, level_index]
+
+            # Some WB2 data Zarr stores are saved [lon, lat] with lat flipped
+            # Namely its the lower resolutions ones with this issue
+            if data.shape[0] > data.shape[1]:
+                data = np.flip(data, axis=-1).T
+            wb2da[0, i] = modifier(data)
 
         return wb2da
 
@@ -257,41 +243,126 @@ class WB2ERA5:
         duration = time - start_date
         return int(divmod(duration.total_seconds(), 21600)[0])
 
-    @classmethod
-    def available(cls, time: datetime | np.datetime64) -> bool:
-        """Checks if given date time is avaliable in the WeatherBench2 data source
 
-        Parameters
-        ----------
-        time : datetime | np.datetime64
-            Date time to access
+class WB2ERA5(_WB2Base):
+    """
+    ERA5 reanalysis data with several derived variables on a 0.25 degree lat-lon grid
+    from 1959 to 2023 (incl) to 6 hour intervals on 13 pressure levels. Provided by the
+    WeatherBench2 data repository.
 
-        Returns
-        -------
-        bool
-            If date time is avaiable
-        """
-        if isinstance(time, np.datetime64):  # np.datetime64 -> datetime
-            _unix = np.datetime64(0, "s")
-            _ds = np.timedelta64(1, "s")
-            time = datetime.utcfromtimestamp((time - _unix) / _ds)
+    Parameters
+    ----------
+    cache : bool, optional
+        Cache data source on local memory, by default True
+    verbose : bool, optional
+        Print download progress, by default True
 
-        # Offline checks
-        try:
-            cls._validate_time([time])
-        except ValueError:
-            return False
+    Warning
+    -------
+    This is a remote data source and can potentially download a large amount of data
+    to your local machine for large requests.
 
-        gcs = gcsfs.GCSFileSystem(cache_timeout=-1)
-        gcstore = gcsfs.GCSMap(
-            "gs://weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr",
-            gcs=gcs,
+    Note
+    ----
+    Additional information on the data repository can be referenced here:
+
+    - https://weatherbench2.readthedocs.io/en/latest/data-guide.html#era5
+    - https://arxiv.org/abs/2308.15560
+    """
+
+    WB2_ERA5_LAT = np.linspace(90, -90, 721)
+    WB2_ERA5_LON = np.linspace(0, 359.75, 1440)
+
+    def __init__(
+        self,
+        cache: bool = True,
+        verbose: bool = True,
+    ):
+        super().__init__(
+            "1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr",
+            cache,
+            verbose,
         )
-        zarr_group = zarr.open(gcstore, mode="r")
-        # Load time coordinate system from Zarr store and check
-        time_index = cls._get_time_index(time)
-        max_index = zarr_group["time"][-1]
-        return time_index >= 0 and time_index <= max_index
+
+
+class WB2ERA5_121x240(_WB2Base):
+    """
+    ERA5 reanalysis data with several derived variables down sampled to a 1.5 degree
+    lat-lon grid from 1959 to 2023 (incl) to 6 hour intervals on 13 pressure levels.
+    Provided by the WeatherBench2 data repository.
+
+    Parameters
+    ----------
+    cache : bool, optional
+        Cache data source on local memory, by default True
+    verbose : bool, optional
+        Print download progress, by default True
+
+    Warning
+    -------
+    This is a remote data source and can potentially download a large amount of data
+    to your local machine for large requests.
+
+    Note
+    ----
+    Additional information on the data repository can be referenced here:
+
+    - https://weatherbench2.readthedocs.io/en/latest/data-guide.html#era5
+    - https://arxiv.org/abs/2308.15560
+    """
+
+    WB2_ERA5_LAT = np.linspace(90, -90, 121)
+    WB2_ERA5_LON = np.linspace(0, 359.5, 240)
+
+    def __init__(
+        self,
+        cache: bool = True,
+        verbose: bool = True,
+    ):
+        super().__init__(
+            "1959-2023_01_10-6h-240x121_equiangular_with_poles_conservative.zarr",
+            cache,
+            verbose,
+        )
+
+
+class WB2ERA5_32x64(_WB2Base):
+    """
+    ERA5 reanalysis data with several derived variables down sampled to a 1.5 degree
+    lat-lon grid from 1959 to 2023 (incl) to 6 hour intervals on 13 pressure levels.
+    Provided by the WeatherBench2 data repository.
+
+    Parameters
+    ----------
+    cache : bool, optional
+        Cache data source on local memory, by default True
+    verbose : bool, optional
+        Print download progress, by default True
+
+    Warning
+    -------
+    This is a remote data source and can potentially download a large amount of data
+    to your local machine for large requests.
+
+    Note
+    ----
+    Additional information on the data repository can be referenced here:
+
+    - https://weatherbench2.readthedocs.io/en/latest/data-guide.html#era5
+    - https://arxiv.org/abs/2308.15560
+    """
+
+    WB2_ERA5_LAT = np.linspace(-87.1875, 87.1875, 32)
+    WB2_ERA5_LON = np.linspace(0, 360, 64, endpoint=False)
+
+    def __init__(
+        self,
+        cache: bool = True,
+        verbose: bool = True,
+    ):
+        super().__init__(
+            "1959-2023_01_10-6h-64x32_equiangular_conservative.zarr", cache, verbose
+        )
 
 
 ClimatologyZarrStore = Literal[

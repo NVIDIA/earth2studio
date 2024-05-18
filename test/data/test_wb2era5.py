@@ -20,9 +20,8 @@ import shutil
 
 import numpy as np
 import pytest
-import xarray
 
-from earth2studio.data import WB2ERA5
+from earth2studio.data import ARCO, WB2ERA5, WB2ERA5_32x64, WB2ERA5_121x240
 
 
 @pytest.mark.slow
@@ -40,9 +39,10 @@ from earth2studio.data import WB2ERA5
     ],
 )
 @pytest.mark.parametrize("variable", ["tcwv", ["u500", "u200"]])
-def test_wb2era5_fetch(time, variable):
+@pytest.mark.parametrize("Datasource", [WB2ERA5, WB2ERA5_121x240, WB2ERA5_32x64])
+def test_wb2era5_fetch(time, variable, Datasource):
 
-    ds = WB2ERA5(cache=False)
+    ds = Datasource(cache=False)
     data = ds(time, variable)
     shape = data.shape
 
@@ -54,11 +54,10 @@ def test_wb2era5_fetch(time, variable):
 
     assert shape[0] == len(time)
     assert shape[1] == len(variable)
-    assert shape[2] == 721
-    assert shape[3] == 1440
+    assert shape[2] == Datasource.WB2_ERA5_LAT.shape[0]
+    assert shape[3] == Datasource.WB2_ERA5_LON.shape[0]
     assert np.array_equal(data.coords["variable"].values, np.array(variable))
     assert not np.isnan(data.values).any()
-    assert WB2ERA5.available(time[0])
 
 
 @pytest.mark.slow
@@ -68,30 +67,22 @@ def test_wb2era5_fetch(time, variable):
     "time",
     [
         np.array([np.datetime64("1993-04-05T00:00")]),
+        np.array([np.datetime64("2001-02-27T18:00")]),
     ],
 )
 @pytest.mark.parametrize(
-    "variable, wb2_variable, wb2_level",
-    [("t2m", "2m_temperature", None), ("u200", "u_component_of_wind", 200)],
+    "variable",
+    ["t2m", "u200"],
 )
-def test_wb2era5_zarr(time, variable, wb2_variable, wb2_level):
+def test_wb2era5_verify(time, variable):
 
     ds = WB2ERA5(cache=False)
     data = ds(time, variable)
 
-    # From https://cloud.google.com/storage/docs/public-datasets/era5
-    era5 = xarray.open_zarr(
-        "gs://weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr",
-        chunks={"time": 1},
-        consolidated=True,
-    )
+    ds = ARCO(cache=False)
+    data_arco = ds(time, variable)
 
-    if wb2_level:
-        xr_data = era5[wb2_variable].sel(time=time, level=wb2_level)
-    else:
-        xr_data = era5[wb2_variable].sel(time=time)
-
-    assert np.allclose(data.values, xr_data.values)
+    assert np.allclose(data.values, data_arco.values)
 
 
 @pytest.mark.slow
@@ -103,16 +94,17 @@ def test_wb2era5_zarr(time, variable, wb2_variable, wb2_level):
 )
 @pytest.mark.parametrize("variable", [["z500", "q200"]])
 @pytest.mark.parametrize("cache", [True, False])
-def test_wb2era5_cache(time, variable, cache):
+@pytest.mark.parametrize("Datasource", [WB2ERA5, WB2ERA5_121x240, WB2ERA5_32x64])
+def test_wb2era5_cache(time, variable, cache, Datasource):
 
-    ds = WB2ERA5(cache=cache)
+    ds = Datasource(cache=cache)
     data = ds(time, variable)
     shape = data.shape
 
     assert shape[0] == 1
     assert shape[1] == 2
-    assert shape[2] == 721
-    assert shape[3] == 1440
+    assert shape[2] == Datasource.WB2_ERA5_LAT.shape[0]
+    assert shape[3] == Datasource.WB2_ERA5_LON.shape[0]
     assert not np.isnan(data.values).any()
     # Cache should be present
     assert pathlib.Path(ds.cache).is_dir() == cache
@@ -123,8 +115,8 @@ def test_wb2era5_cache(time, variable, cache):
 
     assert shape[0] == 1
     assert shape[1] == 1
-    assert shape[2] == 721
-    assert shape[3] == 1440
+    assert shape[2] == Datasource.WB2_ERA5_LAT.shape[0]
+    assert shape[3] == Datasource.WB2_ERA5_LON.shape[0]
     assert not np.isnan(data.values).any()
 
     try:
@@ -145,8 +137,8 @@ def test_wb2era5_cache(time, variable, cache):
     ],
 )
 @pytest.mark.parametrize("variable", ["mpl"])
-def test_wb2era5_available(time, variable):
-    assert not WB2ERA5.available(time)
+@pytest.mark.parametrize("Datasource", [WB2ERA5, WB2ERA5_121x240, WB2ERA5_32x64])
+def test_wb2era5_available(time, variable, Datasource):
     with pytest.raises(ValueError):
-        ds = WB2ERA5()
+        ds = Datasource(cache=False)
         ds(time, variable)

@@ -22,6 +22,6 @@ from .hrrr import HRRR  # noq
 from .ifs import IFS  # noq
 from .rand import Random  # noqa
 from .rx import LandSeaMask, SurfaceGeoPotential, CosineSolarZenith  # noqa
-from .wb2 import WB2Climatology, WB2ERA5  # noq
+from .wb2 import WB2Climatology, WB2ERA5, WB2ERA5_121x240, WB2ERA5_32x64  # noq
 from .xr import DataArrayFile, DataSetFile  # noqa
 from .utils import datasource_to_file, fetch_data, prep_data_array
