@@ -39,8 +39,8 @@ LOCAL_CACHE = os.path.join(os.path.expanduser("~"), ".cache", "earth2studio")
 class _WB2Base:
     """Base class for weather bench 2 ERA5 datasets"""
 
-    WB2_ERA5_LAT = np.empty()
-    WB2_ERA5_LON = np.empty()
+    WB2_ERA5_LAT = np.empty(0)
+    WB2_ERA5_LON = np.empty(0)
 
     def __init__(
         self,
