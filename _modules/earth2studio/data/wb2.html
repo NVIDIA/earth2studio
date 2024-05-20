@@ -465,6 +465,345 @@ document.write(`
 
 <span class="n">LOCAL_CACHE</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">expanduser</span><span class="p">(</span><span class="s2">&quot;~&quot;</span><span class="p">),</span> <span class="s2">&quot;.cache&quot;</span><span class="p">,</span> <span class="s2">&quot;earth2studio&quot;</span><span class="p">)</span>
 
+
+<span class="k">class</span> <span class="nc">_WB2Base</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Base class for weather bench 2 ERA5 datasets&quot;&quot;&quot;</span>
+
+    <span class="n">WB2_ERA5_LAT</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+    <span class="n">WB2_ERA5_LON</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">wb2_zarr_store</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">cache</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="n">verbose</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span> <span class="o">=</span> <span class="n">cache</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_verbose</span> <span class="o">=</span> <span class="n">verbose</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span><span class="p">:</span>
+            <span class="n">gcstore</span> <span class="o">=</span> <span class="n">fsspec</span><span class="o">.</span><span class="n">get_mapper</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;gs://weatherbench2/datasets/era5/</span><span class="si">{</span><span class="n">wb2_zarr_store</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
+                <span class="n">target_protocol</span><span class="o">=</span><span class="s2">&quot;gs&quot;</span><span class="p">,</span>
+                <span class="n">cache_storage</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">cache</span><span class="p">,</span>
+                <span class="n">target_options</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;anon&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span> <span class="s2">&quot;default_block_size&quot;</span><span class="p">:</span> <span class="mi">2</span><span class="o">**</span><span class="mi">20</span><span class="p">},</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">gcs</span> <span class="o">=</span> <span class="n">gcsfs</span><span class="o">.</span><span class="n">GCSFileSystem</span><span class="p">(</span><span class="n">cache_timeout</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
+            <span class="n">gcstore</span> <span class="o">=</span> <span class="n">gcsfs</span><span class="o">.</span><span class="n">GCSMap</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;gs://weatherbench2/datasets/era5/</span><span class="si">{</span><span class="n">wb2_zarr_store</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
+                <span class="n">gcs</span><span class="o">=</span><span class="n">gcs</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">zarr_group</span> <span class="o">=</span> <span class="n">zarr</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="n">gcstore</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;r&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__call__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">time</span><span class="p">:</span> <span class="n">datetime</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="n">datetime</span><span class="p">]</span> <span class="o">|</span> <span class="n">TimeArray</span><span class="p">,</span>
+        <span class="n">variable</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="n">VariableArray</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Function to get data.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        time : datetime | list[datetime] | TimeArray</span>
+<span class="sd">            Timestamps to return data for (UTC).</span>
+<span class="sd">        variable : str | list[str] | VariableArray</span>
+<span class="sd">            String, list of strings or array of strings that refer to variables to</span>
+<span class="sd">            return. Must be in the WB2Lexicon lexicon.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        xr.DataArray</span>
+<span class="sd">            ERA5 weather data array from WB2Lexicon</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">time</span><span class="p">,</span> <span class="n">variable</span> <span class="o">=</span> <span class="n">prep_data_inputs</span><span class="p">(</span><span class="n">time</span><span class="p">,</span> <span class="n">variable</span><span class="p">)</span>
+        <span class="c1"># Create cache dir if doesnt exist</span>
+        <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cache</span><span class="p">)</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+        <span class="c1"># Make sure input time is valid</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_validate_time</span><span class="p">(</span><span class="n">time</span><span class="p">)</span>
+
+        <span class="c1"># Fetch index file for requested time</span>
+        <span class="n">data_arrays</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">t0</span> <span class="ow">in</span> <span class="n">time</span><span class="p">:</span>
+            <span class="n">data_array</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fetch_wb2_dataarray</span><span class="p">(</span><span class="n">t0</span><span class="p">,</span> <span class="n">variable</span><span class="p">)</span>
+            <span class="n">data_arrays</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">data_array</span><span class="p">)</span>
+
+        <span class="c1"># Delete cache if needed</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span><span class="p">:</span>
+            <span class="n">shutil</span><span class="o">.</span><span class="n">rmtree</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cache</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">xr</span><span class="o">.</span><span class="n">concat</span><span class="p">(</span><span class="n">data_arrays</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="s2">&quot;time&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">fetch_wb2_dataarray</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">time</span><span class="p">:</span> <span class="n">datetime</span><span class="p">,</span>
+        <span class="n">variables</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Retrives WeatherBench2 data array for given date time by downloading a lat</span>
+<span class="sd">        lon array from the Zarr store</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        time : datetime</span>
+<span class="sd">            Date time to fetch</span>
+<span class="sd">        variables : list[str]</span>
+<span class="sd">            list of atmosphric variables to fetch. Must be supported in WeatherBench2 lexicon</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        xr.DataArray</span>
+<span class="sd">            WeatherBench2 data array for given date time</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">wb2da</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">(</span>
+            <span class="n">data</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span>
+                <span class="p">(</span>
+                    <span class="mi">1</span><span class="p">,</span>
+                    <span class="nb">len</span><span class="p">(</span><span class="n">variables</span><span class="p">),</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">WB2_ERA5_LAT</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">WB2_ERA5_LON</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
+                <span class="p">)</span>
+            <span class="p">),</span>
+            <span class="n">dims</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;time&quot;</span><span class="p">,</span> <span class="s2">&quot;variable&quot;</span><span class="p">,</span> <span class="s2">&quot;lat&quot;</span><span class="p">,</span> <span class="s2">&quot;lon&quot;</span><span class="p">],</span>
+            <span class="n">coords</span><span class="o">=</span><span class="p">{</span>
+                <span class="s2">&quot;time&quot;</span><span class="p">:</span> <span class="p">[</span><span class="n">time</span><span class="p">],</span>
+                <span class="s2">&quot;variable&quot;</span><span class="p">:</span> <span class="n">variables</span><span class="p">,</span>
+                <span class="s2">&quot;lat&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">WB2_ERA5_LAT</span><span class="p">,</span>
+                <span class="s2">&quot;lon&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">WB2_ERA5_LON</span><span class="p">,</span>
+            <span class="p">},</span>
+        <span class="p">)</span>
+
+        <span class="c1"># Load levels coordinate system from Zarr store and check</span>
+        <span class="n">level_coords</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">zarr_group</span><span class="p">[</span><span class="s2">&quot;level&quot;</span><span class="p">][:]</span>
+        <span class="c1"># Get time index (vanilla zarr doesnt support date indices)</span>
+        <span class="n">time_index</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_time_index</span><span class="p">(</span><span class="n">time</span><span class="p">)</span>
+
+        <span class="c1"># TODO: Add MP here</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">variable</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span>
+            <span class="n">tqdm</span><span class="p">(</span>
+                <span class="n">variables</span><span class="p">,</span>
+                <span class="n">desc</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;Fetching WB2 ERA5 for </span><span class="si">{</span><span class="n">time</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
+                <span class="n">disable</span><span class="o">=</span><span class="p">(</span><span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_verbose</span><span class="p">),</span>
+            <span class="p">)</span>
+        <span class="p">):</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Fetching WB2 ERA5 zarr array for variable: </span><span class="si">{</span><span class="n">variable</span><span class="si">}</span><span class="s2"> at </span><span class="si">{</span><span class="n">time</span><span class="o">.</span><span class="n">isoformat</span><span class="p">()</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="p">)</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">wb2_name</span><span class="p">,</span> <span class="n">modifier</span> <span class="o">=</span> <span class="n">WB2Lexicon</span><span class="p">[</span><span class="n">variable</span><span class="p">]</span>
+            <span class="k">except</span> <span class="ne">KeyError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;variable id </span><span class="si">{</span><span class="n">variable</span><span class="si">}</span><span class="s2"> not found in WB2 lexicon&quot;</span><span class="p">)</span>
+                <span class="k">raise</span> <span class="n">e</span>
+
+            <span class="n">wb2_name</span><span class="p">,</span> <span class="n">level</span> <span class="o">=</span> <span class="n">wb2_name</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;::&quot;</span><span class="p">)</span>
+
+            <span class="n">shape</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">zarr_group</span><span class="p">[</span><span class="n">wb2_name</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span>
+            <span class="c1"># Static variables</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">shape</span><span class="p">)</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+                <span class="n">data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">zarr_group</span><span class="p">[</span><span class="n">wb2_name</span><span class="p">][:]</span>
+            <span class="c1"># Surface variable</span>
+            <span class="k">elif</span> <span class="nb">len</span><span class="p">(</span><span class="n">shape</span><span class="p">)</span> <span class="o">==</span> <span class="mi">3</span><span class="p">:</span>
+                <span class="n">data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">zarr_group</span><span class="p">[</span><span class="n">wb2_name</span><span class="p">][</span><span class="n">time_index</span><span class="p">]</span>
+            <span class="c1"># Atmospheric variable</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">level_index</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">level_coords</span> <span class="o">==</span> <span class="nb">int</span><span class="p">(</span><span class="n">level</span><span class="p">))[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+                <span class="n">data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">zarr_group</span><span class="p">[</span><span class="n">wb2_name</span><span class="p">][</span><span class="n">time_index</span><span class="p">,</span> <span class="n">level_index</span><span class="p">]</span>
+
+            <span class="c1"># Some WB2 data Zarr stores are saved [lon, lat] with lat flipped</span>
+            <span class="c1"># Namely its the lower resolutions ones with this issue</span>
+            <span class="k">if</span> <span class="n">data</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">data</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]:</span>
+                <span class="n">data</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">flip</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">T</span>
+            <span class="n">wb2da</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">modifier</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">wb2da</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">cache</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the appropriate cache location.&quot;&quot;&quot;</span>
+        <span class="n">cache_location</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">LOCAL_CACHE</span><span class="p">,</span> <span class="s2">&quot;wb2era5&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span><span class="p">:</span>
+            <span class="n">cache_location</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
+                <span class="n">cache_location</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;tmp_</span><span class="si">{</span><span class="n">DistributedManager</span><span class="p">()</span><span class="o">.</span><span class="n">rank</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="p">)</span>
+        <span class="k">return</span> <span class="n">cache_location</span>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">_validate_time</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">times</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">datetime</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Verify if date time is valid for Weatherbench 2 ERA5</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        times : list[datetime]</span>
+<span class="sd">            list of date times to fetch data</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">for</span> <span class="n">time</span> <span class="ow">in</span> <span class="n">times</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="n">time</span> <span class="o">-</span> <span class="n">datetime</span><span class="p">(</span><span class="mi">1900</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span><span class="o">.</span><span class="n">total_seconds</span><span class="p">()</span> <span class="o">%</span> <span class="mi">21600</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;Requested date time </span><span class="si">{</span><span class="n">time</span><span class="si">}</span><span class="s2"> needs to be 6 hour interval for Weatherbench2 ERA5&quot;</span>
+                <span class="p">)</span>
+
+            <span class="k">if</span> <span class="n">time</span> <span class="o">&lt;</span> <span class="n">datetime</span><span class="p">(</span><span class="n">year</span><span class="o">=</span><span class="mi">1959</span><span class="p">,</span> <span class="n">month</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">day</span><span class="o">=</span><span class="mi">1</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;Requested date time </span><span class="si">{</span><span class="n">time</span><span class="si">}</span><span class="s2"> needs to be after January 1st, 1959 for Weatherbench2 ERA5&quot;</span>
+                <span class="p">)</span>
+
+            <span class="k">if</span> <span class="n">time</span> <span class="o">&gt;</span> <span class="n">datetime</span><span class="p">(</span><span class="n">year</span><span class="o">=</span><span class="mi">2023</span><span class="p">,</span> <span class="n">month</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">day</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">hour</span><span class="o">=</span><span class="mi">18</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;Requested date time </span><span class="si">{</span><span class="n">time</span><span class="si">}</span><span class="s2"> needs to be before January 11th, 2023  for Weatherbench2 ERA5&quot;</span>
+                <span class="p">)</span>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">_get_time_index</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">time</span><span class="p">:</span> <span class="n">datetime</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Little index converter to go from datetime to integer index for hour</span>
+<span class="sd">        and day of year.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        time : datetime</span>
+<span class="sd">            Input date time</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        int</span>
+<span class="sd">            hour coordinate index of data</span>
+<span class="sd">        int</span>
+<span class="sd">            day_of_year coordinate index of data</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">start_date</span> <span class="o">=</span> <span class="n">datetime</span><span class="p">(</span><span class="n">year</span><span class="o">=</span><span class="mi">1959</span><span class="p">,</span> <span class="n">month</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">day</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">duration</span> <span class="o">=</span> <span class="n">time</span> <span class="o">-</span> <span class="n">start_date</span>
+        <span class="k">return</span> <span class="nb">int</span><span class="p">(</span><span class="nb">divmod</span><span class="p">(</span><span class="n">duration</span><span class="o">.</span><span class="n">total_seconds</span><span class="p">(),</span> <span class="mi">21600</span><span class="p">)[</span><span class="mi">0</span><span class="p">])</span>
+
+
+<div class="viewcode-block" id="WB2ERA5">
+<a class="viewcode-back" href="../../../modules/generated/data/earth2studio.data.WB2ERA5.html#earth2studio.data.WB2ERA5">[docs]</a>
+<span class="k">class</span> <span class="nc">WB2ERA5</span><span class="p">(</span><span class="n">_WB2Base</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    ERA5 reanalysis data with several derived variables on a 0.25 degree lat-lon grid</span>
+<span class="sd">    from 1959 to 2023 (incl) to 6 hour intervals on 13 pressure levels. Provided by the</span>
+<span class="sd">    WeatherBench2 data repository.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    cache : bool, optional</span>
+<span class="sd">        Cache data source on local memory, by default True</span>
+<span class="sd">    verbose : bool, optional</span>
+<span class="sd">        Print download progress, by default True</span>
+
+<span class="sd">    Warning</span>
+<span class="sd">    -------</span>
+<span class="sd">    This is a remote data source and can potentially download a large amount of data</span>
+<span class="sd">    to your local machine for large requests.</span>
+
+<span class="sd">    Note</span>
+<span class="sd">    ----</span>
+<span class="sd">    Additional information on the data repository can be referenced here:</span>
+
+<span class="sd">    - https://weatherbench2.readthedocs.io/en/latest/data-guide.html#era5</span>
+<span class="sd">    - https://arxiv.org/abs/2308.15560</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">WB2_ERA5_LAT</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">90</span><span class="p">,</span> <span class="o">-</span><span class="mi">90</span><span class="p">,</span> <span class="mi">721</span><span class="p">)</span>
+    <span class="n">WB2_ERA5_LON</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mf">359.75</span><span class="p">,</span> <span class="mi">1440</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">cache</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="n">verbose</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
+            <span class="s2">&quot;1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr&quot;</span><span class="p">,</span>
+            <span class="n">cache</span><span class="p">,</span>
+            <span class="n">verbose</span><span class="p">,</span>
+        <span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="WB2ERA5_121x240">
+<a class="viewcode-back" href="../../../modules/generated/data/earth2studio.data.WB2ERA5_121x240.html#earth2studio.data.WB2ERA5_121x240">[docs]</a>
+<span class="k">class</span> <span class="nc">WB2ERA5_121x240</span><span class="p">(</span><span class="n">_WB2Base</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    ERA5 reanalysis data with several derived variables down sampled to a 1.5 degree</span>
+<span class="sd">    lat-lon grid from 1959 to 2023 (incl) to 6 hour intervals on 13 pressure levels.</span>
+<span class="sd">    Provided by the WeatherBench2 data repository.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    cache : bool, optional</span>
+<span class="sd">        Cache data source on local memory, by default True</span>
+<span class="sd">    verbose : bool, optional</span>
+<span class="sd">        Print download progress, by default True</span>
+
+<span class="sd">    Warning</span>
+<span class="sd">    -------</span>
+<span class="sd">    This is a remote data source and can potentially download a large amount of data</span>
+<span class="sd">    to your local machine for large requests.</span>
+
+<span class="sd">    Note</span>
+<span class="sd">    ----</span>
+<span class="sd">    Additional information on the data repository can be referenced here:</span>
+
+<span class="sd">    - https://weatherbench2.readthedocs.io/en/latest/data-guide.html#era5</span>
+<span class="sd">    - https://arxiv.org/abs/2308.15560</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">WB2_ERA5_LAT</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">90</span><span class="p">,</span> <span class="o">-</span><span class="mi">90</span><span class="p">,</span> <span class="mi">121</span><span class="p">)</span>
+    <span class="n">WB2_ERA5_LON</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mf">359.5</span><span class="p">,</span> <span class="mi">240</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">cache</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="n">verbose</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
+            <span class="s2">&quot;1959-2023_01_10-6h-240x121_equiangular_with_poles_conservative.zarr&quot;</span><span class="p">,</span>
+            <span class="n">cache</span><span class="p">,</span>
+            <span class="n">verbose</span><span class="p">,</span>
+        <span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="WB2ERA5_32x64">
+<a class="viewcode-back" href="../../../modules/generated/data/earth2studio.data.WB2ERA5_32x64.html#earth2studio.data.WB2ERA5_32x64">[docs]</a>
+<span class="k">class</span> <span class="nc">WB2ERA5_32x64</span><span class="p">(</span><span class="n">_WB2Base</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    ERA5 reanalysis data with several derived variables down sampled to a 5.625 degree</span>
+<span class="sd">    lat-lon grid from 1959 to 2023 (incl) to 6 hour intervals on 13 pressure levels.</span>
+<span class="sd">    Provided by the WeatherBench2 data repository.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    cache : bool, optional</span>
+<span class="sd">        Cache data source on local memory, by default True</span>
+<span class="sd">    verbose : bool, optional</span>
+<span class="sd">        Print download progress, by default True</span>
+
+<span class="sd">    Warning</span>
+<span class="sd">    -------</span>
+<span class="sd">    This is a remote data source and can potentially download a large amount of data</span>
+<span class="sd">    to your local machine for large requests.</span>
+
+<span class="sd">    Note</span>
+<span class="sd">    ----</span>
+<span class="sd">    Additional information on the data repository can be referenced here:</span>
+
+<span class="sd">    - https://weatherbench2.readthedocs.io/en/latest/data-guide.html#era5</span>
+<span class="sd">    - https://arxiv.org/abs/2308.15560</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">WB2_ERA5_LAT</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="o">-</span><span class="mf">87.1875</span><span class="p">,</span> <span class="mf">87.1875</span><span class="p">,</span> <span class="mi">32</span><span class="p">)</span>
+    <span class="n">WB2_ERA5_LON</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">360</span><span class="p">,</span> <span class="mi">64</span><span class="p">,</span> <span class="n">endpoint</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">cache</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="n">verbose</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
+            <span class="s2">&quot;1959-2023_01_10-6h-64x32_equiangular_conservative.zarr&quot;</span><span class="p">,</span> <span class="n">cache</span><span class="p">,</span> <span class="n">verbose</span>
+        <span class="p">)</span></div>
+
+
+
 <span class="n">ClimatologyZarrStore</span> <span class="o">=</span> <span class="n">Literal</span><span class="p">[</span>
     <span class="s2">&quot;1990-2017_6h_1440x721.zarr&quot;</span><span class="p">,</span>
     <span class="s2">&quot;1990-2017_6h_512x256_equiangular_conservative.zarr&quot;</span><span class="p">,</span>
@@ -490,18 +829,19 @@ document.write(`
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
-<span class="sd">    ClimatologyZarrStore : Literal, optional</span>
-<span class="sd">        File within gs://weatherbench2/datasets/era5-hourly-climatology/ to select,</span>
-<span class="sd">        by default 1990-2019_6h_1440x721.zarr</span>
+<span class="sd">    climatology_zarr_store : ClimatologyZarrStore, optional</span>
+<span class="sd">        Stpres within `gs://weatherbench2/datasets/era5-hourly-climatology/` to select</span>
 <span class="sd">        As of 05/03/2024 this is the following list of available files:</span>
-<span class="sd">            1990-2017_6h_1440x721.zarr</span>
-<span class="sd">            1990-2017_6h_512x256_equiangular_conservative.zarr</span>
-<span class="sd">            1990-2017_6h_240x121_equiangular_with_poles_conservative.zarr</span>
-<span class="sd">            1990-2017_6h_64x32_equiangular_conservative.zarr</span>
-<span class="sd">            1990-2019_6h_1440x721.zarr</span>
-<span class="sd">            1990-2019_6h_512x256_equiangular_conservative.zarr</span>
-<span class="sd">            1990-2019_6h_240x121_equiangular_with_poles_conservative.zarr</span>
-<span class="sd">            1990-2019_6h_64x32_equiangular_conservative.zarr</span>
+<span class="sd">            - 1990-2017_6h_1440x721.zarr</span>
+<span class="sd">            - 1990-2017_6h_512x256_equiangular_conservative.zarr</span>
+<span class="sd">            - 1990-2017_6h_240x121_equiangular_with_poles_conservative.zarr</span>
+<span class="sd">            - 1990-2017_6h_64x32_equiangular_conservative.zarr</span>
+<span class="sd">            - 1990-2019_6h_1440x721.zarr</span>
+<span class="sd">            - 1990-2019_6h_512x256_equiangular_conservative.zarr</span>
+<span class="sd">            - 1990-2019_6h_240x121_equiangular_with_poles_conservative.zarr</span>
+<span class="sd">            - 1990-2019_6h_64x32_equiangular_conservative.zarr</span>
+
+<span class="sd">        by default `1990-2019_6h_1440x721.zarr`</span>
 <span class="sd">    cache : bool, optional</span>
 <span class="sd">        Cache data source on local memory, by default True</span>
 <span class="sd">    verbose : bool, optional</span>
@@ -562,7 +902,7 @@ document.write(`
 <span class="sd">            Timestamps to return data for (UTC).</span>
 <span class="sd">        variable : str | list[str] | VariableArray</span>
 <span class="sd">            String, list of strings or array of strings that refer to variables to</span>
-<span class="sd">            return. Must be in the ARCO lexicon.</span>
+<span class="sd">            return. Must be in the WeatherBench2 lexicon.</span>
 
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>

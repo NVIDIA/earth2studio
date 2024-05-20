@@ -61,8 +61,8 @@
         </script>
     <link rel="index" title="Index" href="../../../genindex.html" />
     <link rel="search" title="Search" href="../../../search.html" />
-    <link rel="next" title="earth2studio.data.datasource_to_file" href="earth2studio.data.datasource_to_file.html" />
-    <link rel="prev" title="earth2studio.data.DataSetFile" href="earth2studio.data.DataSetFile.html" />
+    <link rel="next" title="earth2studio.data.DataArrayFile" href="earth2studio.data.DataArrayFile.html" />
+    <link rel="prev" title="earth2studio.data.WB2ERA5_32x64" href="earth2studio.data.WB2ERA5_32x64.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   </head>
@@ -410,9 +410,12 @@ document.write(`
 <li class="toctree-l2"><a class="reference internal" href="earth2studio.data.HRRR.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.HRRR</a></li>
 <li class="toctree-l2"><a class="reference internal" href="earth2studio.data.IFS.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.IFS</a></li>
 <li class="toctree-l2"><a class="reference internal" href="earth2studio.data.Random.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.Random</a></li>
+<li class="toctree-l2"><a class="reference internal" href="earth2studio.data.WB2ERA5.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.WB2ERA5</a></li>
+<li class="toctree-l2"><a class="reference internal" href="earth2studio.data.WB2ERA5_121x240.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.WB2ERA5_121x240</a></li>
+<li class="toctree-l2"><a class="reference internal" href="earth2studio.data.WB2ERA5_32x64.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.WB2ERA5_32x64</a></li>
+<li class="toctree-l2 current active"><a class="current reference internal" href="#"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.WB2Climatology</a></li>
 <li class="toctree-l2"><a class="reference internal" href="earth2studio.data.DataArrayFile.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.DataArrayFile</a></li>
 <li class="toctree-l2"><a class="reference internal" href="earth2studio.data.DataSetFile.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.DataSetFile</a></li>
-<li class="toctree-l2 current active"><a class="current reference internal" href="#"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.WB2Climatology</a></li>
 <li class="toctree-l2"><a class="reference internal" href="earth2studio.data.datasource_to_file.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.datasource_to_file</a></li>
 <li class="toctree-l2"><a class="reference internal" href="earth2studio.data.fetch_data.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.fetch_data</a></li>
 <li class="toctree-l2"><a class="reference internal" href="earth2studio.data.prep_data_array.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.prep_data_array</a></li>
@@ -538,23 +541,24 @@ document.write(`
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>ClimatologyZarrStore</strong> (<em>Literal</em><em>, </em><em>optional</em>) – <p>File within gs://weatherbench2/datasets/era5-hourly-climatology/ to select,
-by default 1990-2019_6h_1440x721.zarr
+<li><p><strong>climatology_zarr_store</strong> (<em>ClimatologyZarrStore</em><em>, </em><em>optional</em>) – <p>Stpres within <cite>gs://weatherbench2/datasets/era5-hourly-climatology/</cite> to select
 As of 05/03/2024 this is the following list of available files:</p>
 <blockquote>
-<div><p>1990-2017_6h_1440x721.zarr
-1990-2017_6h_512x256_equiangular_conservative.zarr
-1990-2017_6h_240x121_equiangular_with_poles_conservative.zarr
-1990-2017_6h_64x32_equiangular_conservative.zarr
-1990-2019_6h_1440x721.zarr
-1990-2019_6h_512x256_equiangular_conservative.zarr
-1990-2019_6h_240x121_equiangular_with_poles_conservative.zarr
-1990-2019_6h_64x32_equiangular_conservative.zarr</p>
+<div><ul>
+<li><p>1990-2017_6h_1440x721.zarr</p></li>
+<li><p>1990-2017_6h_512x256_equiangular_conservative.zarr</p></li>
+<li><p>1990-2017_6h_240x121_equiangular_with_poles_conservative.zarr</p></li>
+<li><p>1990-2017_6h_64x32_equiangular_conservative.zarr</p></li>
+<li><p>1990-2019_6h_1440x721.zarr</p></li>
+<li><p>1990-2019_6h_512x256_equiangular_conservative.zarr</p></li>
+<li><p>1990-2019_6h_240x121_equiangular_with_poles_conservative.zarr</p></li>
+<li><p>1990-2019_6h_64x32_equiangular_conservative.zarr</p></li>
+</ul>
 </div></blockquote>
+<p>by default <cite>1990-2019_6h_1440x721.zarr</cite></p>
 </p></li>
 <li><p><strong>cache</strong> (<em>bool</em><em>, </em><em>optional</em>) – Cache data source on local memory, by default True</p></li>
 <li><p><strong>verbose</strong> (<em>bool</em><em>, </em><em>optional</em>) – Print download progress, by default True</p></li>
-<li><p><strong>climatology_zarr_store</strong> (<em>Literal</em><em>[</em><em>'1990-2017_6h_1440x721.zarr'</em><em>, </em><em>'1990-2017_6h_512x256_equiangular_conservative.zarr'</em><em>, </em><em>'1990-2017_6h_240x121_equiangular_with_poles_conservative.zarr'</em><em>, </em><em>'1990-2017_6h_64x32_equiangular_conservative.zarr'</em><em>, </em><em>'1990-2019_6h_1440x721.zarr'</em><em>, </em><em>'1990-2019_6h_512x256_equiangular_conservative.zarr'</em><em>, </em><em>'1990-2019_6h_240x121_equiangular_with_poles_conservative.zarr'</em><em>, </em><em>'1990-2019_6h_64x32_equiangular_conservative.zarr'</em><em>]</em>)</p></li>
 </ul>
 </dd>
 </dl>
@@ -580,7 +584,7 @@ to your local machine for large requests.</p>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>time</strong> (<em>datetime</em><em> | </em><em>list</em><em>[</em><em>datetime</em><em>] </em><em>| </em><em>TimeArray</em>) – Timestamps to return data for (UTC).</p></li>
 <li><p><strong>variable</strong> (<em>str</em><em> | </em><em>list</em><em>[</em><em>str</em><em>] </em><em>| </em><em>VariableArray</em>) – String, list of strings or array of strings that refer to variables to
-return. Must be in the ARCO lexicon.</p></li>
+return. Must be in the WeatherBench2 lexicon.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
@@ -607,20 +611,20 @@ return. Must be in the ARCO lexicon.</p></li>
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="earth2studio.data.DataSetFile.html"
+       href="earth2studio.data.WB2ERA5_32x64.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.DataSetFile</p>
+        <p class="prev-next-title"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.WB2ERA5_32x64</p>
       </div>
     </a>
     <a class="right-next"
-       href="earth2studio.data.datasource_to_file.html"
+       href="earth2studio.data.DataArrayFile.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.datasource_to_file</p>
+        <p class="prev-next-title"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.DataArrayFile</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
