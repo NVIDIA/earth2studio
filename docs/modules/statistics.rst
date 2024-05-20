@@ -17,6 +17,7 @@ Various statistic and metric calculations for analysing inference data.
     statistics.acc
     statistics.crps
     statistics.mean
+    statistics.rank_histogram
     statistics.rmse
     statistics.spread_skill_ratio
     statistics.std
