@@ -15,7 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Batch dimension userguide
 - Parallel inference example
 - Perturbation method section in userguide
-- WeatherBench Climatology data source
+- WeatherBench Climatology and ERA5 data source
 - Added `datasource_to_file` utility function
 - Add lagged ensemble perturbation method
 - Add ACC and CRPS metrics
