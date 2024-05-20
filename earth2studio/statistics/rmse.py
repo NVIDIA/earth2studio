@@ -55,12 +55,16 @@ class rmse:
             reduction_dimensions, weights=weights, batch_update=batch_update
         )
         self.weights = weights
-        self.reduction_dimensions = reduction_dimensions
+        self._reduction_dimensions = reduction_dimensions
 
         self.batch_update = batch_update
 
     def __str__(self) -> str:
-        return "_".join(self.reduction_dimensions + ["rmse"])
+        return "_".join(self._reduction_dimensions + ["rmse"])
+
+    @property
+    def reduction_dimensions(self) -> list[str]:
+        return self._reduction_dimensions
 
     def __call__(
         self,
@@ -79,15 +83,17 @@ class rmse:
         Parameters
         ----------
         x : torch.Tensor
-            Input tensor #1 intended to apply metric to.
+            Input tensor, typically the forecast or prediction tensor, but RMSE is
+            symmetric with respect to `x` and `y`.
         x_coords : CoordSystem
             Ordered dict representing coordinate system that describes the `x` tensor.
-            'reduction_dims' must be in coords.
+            `reduction_dimensions` must be in coords.
         y : torch.Tensor
-            Input tensor #2 intended to apply statistic to.
+            Input tensor #2 intended to be used as validation data, but ACC is symmetric
+            with respect to `x` and `y`.
         y_coords : CoordSystem
             Ordered dict representing coordinate system that describes the `y` tensor.
-            'reduction_dims' must be in coords.
+            `reduction_dimensions` must be in coords.
 
         Returns
         -------
@@ -147,7 +153,7 @@ class spread_skill_ratio:
         reduction_batch_update: bool = False,
     ):
         self.ensemble_dimension = [ensemble_dimension]
-        self.reduction_dimensions = reduction_dimensions
+        self._reduction_dimensions = reduction_dimensions
         self.ensemble_mean = mean(
             reduction_dimensions=self.ensemble_dimension,
             weights=ensemble_weights,
@@ -171,8 +177,12 @@ class spread_skill_ratio:
 
     def __str__(self) -> str:
         return "_".join(
-            self.ensemble_dimension + self.reduction_dimensions + ["spread_skill"]
+            self.ensemble_dimension + self._reduction_dimensions + ["spread_skill"]
         )
+
+    @property
+    def reduction_dimensions(self) -> list[str]:
+        return self.ensemble_dimension + self._reduction_dimensions
 
     def __call__(
         self,
@@ -191,15 +201,16 @@ class spread_skill_ratio:
         Parameters
         ----------
         x : torch.Tensor
-            Input tensor #1 intended to apply metric to.
+            The ensemble forecast input tensor. This is the tensor over which the
+            ensemble mean and spread are calculated with respect to.
         x_coords : CoordSystem
             Ordered dict representing coordinate system that describes the `x` tensor.
-            'reduction_dims' must be in coords.
+            `reduction_dimensions` must be in coords.
         y : torch.Tensor
-            Input tensor #2 intended to apply statistic to.
+            The observation input tensor.
         y_coords : CoordSystem
             Ordered dict representing coordinate system that describes the `y` tensor.
-            'reduction_dims' must be in coords.
+            `reduction_dimensions` must be in coords.
 
         Returns
         -------
