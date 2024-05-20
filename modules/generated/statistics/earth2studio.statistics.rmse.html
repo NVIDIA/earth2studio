@@ -62,7 +62,7 @@
     <link rel="index" title="Index" href="../../../genindex.html" />
     <link rel="search" title="Search" href="../../../search.html" />
     <link rel="next" title="earth2studio.statistics.spread_skill_ratio" href="earth2studio.statistics.spread_skill_ratio.html" />
-    <link rel="prev" title="earth2studio.statistics.mean" href="earth2studio.statistics.mean.html" />
+    <link rel="prev" title="earth2studio.statistics.rank_histogram" href="earth2studio.statistics.rank_histogram.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   </head>
@@ -438,6 +438,7 @@ document.write(`
 <li class="toctree-l2"><a class="reference internal" href="earth2studio.statistics.acc.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>.acc</a></li>
 <li class="toctree-l2"><a class="reference internal" href="earth2studio.statistics.crps.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>.crps</a></li>
 <li class="toctree-l2"><a class="reference internal" href="earth2studio.statistics.mean.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>.mean</a></li>
+<li class="toctree-l2"><a class="reference internal" href="earth2studio.statistics.rank_histogram.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>.rank_histogram</a></li>
 <li class="toctree-l2 current active"><a class="current reference internal" href="#"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>.rmse</a></li>
 <li class="toctree-l2"><a class="reference internal" href="earth2studio.statistics.spread_skill_ratio.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>.spread_skill_ratio</a></li>
 <li class="toctree-l2"><a class="reference internal" href="earth2studio.statistics.std.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>.std</a></li>
@@ -556,12 +557,14 @@ returns the running sample RMSE over all seen batches.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>x</strong> (<em>torch.Tensor</em>) – Input tensor #1 intended to apply metric to.</p></li>
+<li><p><strong>x</strong> (<em>torch.Tensor</em>) – Input tensor, typically the forecast or prediction tensor, but RMSE is
+symmetric with respect to <cite>x</cite> and <cite>y</cite>.</p></li>
 <li><p><strong>x_coords</strong> (<em>CoordSystem</em>) – Ordered dict representing coordinate system that describes the <cite>x</cite> tensor.
-‘reduction_dims’ must be in coords.</p></li>
-<li><p><strong>y</strong> (<em>torch.Tensor</em>) – Input tensor #2 intended to apply statistic to.</p></li>
+<cite>reduction_dimensions</cite> must be in coords.</p></li>
+<li><p><strong>y</strong> (<em>torch.Tensor</em>) – Input tensor #2 intended to be used as validation data, but ACC is symmetric
+with respect to <cite>x</cite> and <cite>y</cite>.</p></li>
 <li><p><strong>y_coords</strong> (<em>CoordSystem</em>) – Ordered dict representing coordinate system that describes the <cite>y</cite> tensor.
-‘reduction_dims’ must be in coords.</p></li>
+<cite>reduction_dimensions</cite> must be in coords.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
@@ -588,12 +591,12 @@ returns the running sample RMSE over all seen batches.</p>
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="earth2studio.statistics.mean.html"
+       href="earth2studio.statistics.rank_histogram.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>.mean</p>
+        <p class="prev-next-title"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>.rank_histogram</p>
       </div>
     </a>
     <a class="right-next"

@@ -438,6 +438,7 @@ document.write(`
 <li class="toctree-l2"><a class="reference internal" href="earth2studio.statistics.acc.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>.acc</a></li>
 <li class="toctree-l2 current active"><a class="current reference internal" href="#"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>.crps</a></li>
 <li class="toctree-l2"><a class="reference internal" href="earth2studio.statistics.mean.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>.mean</a></li>
+<li class="toctree-l2"><a class="reference internal" href="earth2studio.statistics.rank_histogram.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>.rank_histogram</a></li>
 <li class="toctree-l2"><a class="reference internal" href="earth2studio.statistics.rmse.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>.rmse</a></li>
 <li class="toctree-l2"><a class="reference internal" href="earth2studio.statistics.spread_skill_ratio.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>.spread_skill_ratio</a></li>
 <li class="toctree-l2"><a class="reference internal" href="earth2studio.statistics.std.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>.std</a></li>
@@ -526,7 +527,7 @@ document.write(`
 <h1><a class="reference internal" href="../../statistics.html#module-earth2studio.statistics" title="earth2studio.statistics"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code></a>.crps<a class="headerlink" href="#earth2studio-statistics-crps" title="Link to this heading">#</a></h1>
 <dl class="py class">
 <dt class="sig sig-object py" id="earth2studio.statistics.crps">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">earth2studio.statistics.</span></span><span class="sig-name descname"><span class="pre">crps</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">reduction_dimension</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/earth2studio/statistics/crps.html#crps"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.statistics.crps" title="Link to this definition">#</a></dt>
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">earth2studio.statistics.</span></span><span class="sig-name descname"><span class="pre">crps</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ensemble_dimension</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reduction_dimensions</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">weights</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/earth2studio/statistics/crps.html#crps"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.statistics.crps" title="Link to this definition">#</a></dt>
 <dd><p>Compute the Continuous Ranked Probably Score (CRPS).</p>
 <dl class="simple">
 <dt>Uses this formula</dt><dd><p># int [F(x) - 1(x-y)]^2 dx</p>
@@ -537,8 +538,18 @@ document.write(`
 does not appear in the truth/observation tensor.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>reduction_dimension</strong> (<em>str</em>) – A name corresponding to a dimension to perform the
-statistical reduction over. Example: ‘ensemble’</p>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>ensemble_dimension</strong> (<em>str</em>) – A name corresponding to a dimension to perform the
+ensemble reduction over. Example: ‘ensemble’</p></li>
+<li><p><strong>reduction_dimensions</strong> (<em>list</em><em>[</em><em>str</em><em>]</em>) – A list of dimensions over which to average the crps over.
+optional, by default none. If none, no additional reduction is done.</p></li>
+<li><p><strong>weights</strong> (<em>torch.Tensor</em><em>, </em><em>optional</em>) – A tensor containing weights to assign to the reduction dimensions.
+Note that these weights must have the same number of dimensions
+as passed in reduction_dimensions.
+Example: if reduction_dimensions = [‘lat’, ‘lon’] then
+assert weights.ndim == 2.
+By default None.</p></li>
+</ul>
 </dd>
 </dl>
 <dl class="py method">
@@ -546,21 +557,20 @@ statistical reduction over. Example: ‘ensemble’</p>
 <span class="sig-name descname"><span class="pre">__call__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x_coords</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y_coords</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/earth2studio/statistics/crps.html#crps.__call__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.statistics.crps.__call__" title="Link to this definition">#</a></dt>
 <dd><p>Apply metric to data <cite>x</cite> and <cite>y</cite>, checking that their coordinates
 are broadcastable. While reducing over <cite>reduction_dims</cite>.</p>
-<p>If batch_update was passed True upon metric initialization then this method
-returns the running sample RMSE over all seen batches.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>x</strong> (<em>torch.Tensor</em>) – Input tensor #1 intended to apply metric to.</p></li>
+<li><p><strong>x</strong> (<em>torch.Tensor</em>) – Input tensor of ensemble forecast or prediction data. This is the tensor
+over which the CRPS/CDF is calculated with respect to.</p></li>
 <li><p><strong>x_coords</strong> (<em>CoordSystem</em>) – Ordered dict representing coordinate system that describes the <cite>x</cite> tensor.
-‘reduction_dims’ must be in coords.</p></li>
-<li><p><strong>y</strong> (<em>torch.Tensor</em>) – Input tensor #2 intended to apply statistic to.</p></li>
+<cite>reduction_dimensions</cite> must be in coords.</p></li>
+<li><p><strong>y</strong> (<em>torch.Tensor</em>) – Observation or validation tensor.</p></li>
 <li><p><strong>y_coords</strong> (<em>CoordSystem</em>) – Ordered dict representing coordinate system that describes the <cite>y</cite> tensor.
-‘reduction_dims’ must be in coords.</p></li>
+<cite>reduction_dimensions</cite> must be in coords.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p>Returns root mean squared error tensor with appropriate reduced coordinates.</p>
+<dd class="field-even"><p>Returns CRPS tensor with appropriate reduced coordinates.</p>
 </dd>
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>tuple[torch.Tensor, CoordSystem]</p>

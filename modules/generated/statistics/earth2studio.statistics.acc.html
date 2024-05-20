@@ -438,6 +438,7 @@ document.write(`
 <li class="toctree-l2 current active"><a class="current reference internal" href="#"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>.acc</a></li>
 <li class="toctree-l2"><a class="reference internal" href="earth2studio.statistics.crps.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>.crps</a></li>
 <li class="toctree-l2"><a class="reference internal" href="earth2studio.statistics.mean.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>.mean</a></li>
+<li class="toctree-l2"><a class="reference internal" href="earth2studio.statistics.rank_histogram.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>.rank_histogram</a></li>
 <li class="toctree-l2"><a class="reference internal" href="earth2studio.statistics.rmse.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>.rmse</a></li>
 <li class="toctree-l2"><a class="reference internal" href="earth2studio.statistics.spread_skill_ratio.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>.spread_skill_ratio</a></li>
 <li class="toctree-l2"><a class="reference internal" href="earth2studio.statistics.std.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>.std</a></li>
@@ -552,13 +553,15 @@ are broadcastable.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>x</strong> (<em>torch.Tensor</em>) – Input tensor #1 intended to apply metric to.</p></li>
+<li><p><strong>x</strong> (<em>torch.Tensor</em>) – Input tensor, typically the forecast or prediction tensor, but ACC is
+symmetric with respect to <cite>x</cite> and <cite>y</cite>.</p></li>
 <li><p><strong>x_coords</strong> (<em>CoordSystem</em>) – Ordered dict representing coordinate system that describes the <cite>x</cite> tensor.
-‘reduction_dims’ must be in coords.
+<cite>reduction_dimensions</cite> must be in coords.
 “time” and “variable” must be in x_coords.</p></li>
-<li><p><strong>y</strong> (<em>torch.Tensor</em>) – Input tensor #2 intended to be used as validation data.</p></li>
+<li><p><strong>y</strong> (<em>torch.Tensor</em>) – Input tensor #2 intended to be used as validation data, but ACC is symmetric
+with respect to <cite>x</cite> and <cite>y</cite>.</p></li>
 <li><p><strong>y_coords</strong> (<em>CoordSystem</em>) – Ordered dict representing coordinate system that describes the <cite>y</cite> tensor.
-‘reduction_dims’ must be in coords.
+<cite>reduction_dimensions</cite> must be in coords.
 “time” and “variable” must be in y_coords.
 If “lead_time” is in x_coords, then “lead_time” must also be in y_coords. The
 intention, in this case, is that users will use <cite>fetch_data</cite> to make it easier

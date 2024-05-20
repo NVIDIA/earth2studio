@@ -486,7 +486,7 @@ document.write(`
                 <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
                     <span class="s2">&quot;Error! Weights must be the same dimension as reduction_dimensions&quot;</span>
                 <span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">reduction_dimensions</span> <span class="o">=</span> <span class="n">reduction_dimensions</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_reduction_dimensions</span> <span class="o">=</span> <span class="n">reduction_dimensions</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">weights</span> <span class="o">=</span> <span class="n">weights</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">batch_update</span> <span class="o">=</span> <span class="n">batch_update</span>
@@ -494,7 +494,11 @@ document.write(`
             <span class="bp">self</span><span class="o">.</span><span class="n">n</span> <span class="o">=</span> <span class="mi">0</span>
 
     <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-        <span class="k">return</span> <span class="s2">&quot;_&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">reduction_dimensions</span> <span class="o">+</span> <span class="p">[</span><span class="s2">&quot;mean&quot;</span><span class="p">])</span>
+        <span class="k">return</span> <span class="s2">&quot;_&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_reduction_dimensions</span> <span class="o">+</span> <span class="p">[</span><span class="s2">&quot;mean&quot;</span><span class="p">])</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">reduction_dimensions</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_reduction_dimensions</span>
 
 <div class="viewcode-block" id="mean.__call__">
 <a class="viewcode-back" href="../../../modules/generated/statistics/earth2studio.statistics.mean.html#earth2studio.statistics.mean.__call__">[docs]</a>
@@ -514,17 +518,21 @@ document.write(`
 <span class="sd">        coords: CoordSystem</span>
 <span class="sd">            Coordinates referring to the input data, x.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="nb">all</span><span class="p">([</span><span class="n">rd</span> <span class="ow">in</span> <span class="n">coords</span> <span class="k">for</span> <span class="n">rd</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">reduction_dimensions</span><span class="p">]):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">all</span><span class="p">([</span><span class="n">rd</span> <span class="ow">in</span> <span class="n">coords</span> <span class="k">for</span> <span class="n">rd</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_reduction_dimensions</span><span class="p">]):</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                <span class="s2">&quot;Initialized reduction dimensions do not appear in passed coords.&quot;</span>
+                <span class="s2">&quot;Initialized reduction_dimensions do not appear in passed coords.&quot;</span>
             <span class="p">)</span>
 
-        <span class="n">dims</span> <span class="o">=</span> <span class="p">[</span><span class="nb">list</span><span class="p">(</span><span class="n">coords</span><span class="p">)</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">rd</span><span class="p">)</span> <span class="k">for</span> <span class="n">rd</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">reduction_dimensions</span><span class="p">]</span>
+        <span class="n">dims</span> <span class="o">=</span> <span class="p">[</span><span class="nb">list</span><span class="p">(</span><span class="n">coords</span><span class="p">)</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">rd</span><span class="p">)</span> <span class="k">for</span> <span class="n">rd</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_reduction_dimensions</span><span class="p">]</span>
         <span class="n">output_coords</span> <span class="o">=</span> <span class="n">CoordSystem</span><span class="p">(</span>
-            <span class="p">{</span><span class="n">key</span><span class="p">:</span> <span class="n">coords</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">coords</span> <span class="k">if</span> <span class="n">key</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">reduction_dimensions</span><span class="p">}</span>
+            <span class="p">{</span>
+                <span class="n">key</span><span class="p">:</span> <span class="n">coords</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
+                <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">coords</span>
+                <span class="k">if</span> <span class="n">key</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_reduction_dimensions</span>
+            <span class="p">}</span>
         <span class="p">)</span>
         <span class="n">weights</span> <span class="o">=</span> <span class="n">_broadcast_weights</span><span class="p">(</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">weights</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">reduction_dimensions</span><span class="p">,</span> <span class="n">coords</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">weights</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_reduction_dimensions</span><span class="p">,</span> <span class="n">coords</span>
         <span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
         <span class="n">weights_sum</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">weights</span><span class="p">)</span>
 
@@ -581,7 +589,7 @@ document.write(`
                 <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
                     <span class="s2">&quot;Error! Weights must be the same dimension as reduction_dimensions&quot;</span>
                 <span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">reduction_dimensions</span> <span class="o">=</span> <span class="n">reduction_dimensions</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_reduction_dimensions</span> <span class="o">=</span> <span class="n">reduction_dimensions</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">weights</span> <span class="o">=</span> <span class="n">weights</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">batch_update</span> <span class="o">=</span> <span class="n">batch_update</span>
@@ -589,7 +597,11 @@ document.write(`
             <span class="bp">self</span><span class="o">.</span><span class="n">n</span> <span class="o">=</span> <span class="mi">0</span>
 
     <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-        <span class="k">return</span> <span class="s2">&quot;_&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">reduction_dimensions</span> <span class="o">+</span> <span class="p">[</span><span class="s2">&quot;variance&quot;</span><span class="p">])</span>
+        <span class="k">return</span> <span class="s2">&quot;_&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_reduction_dimensions</span> <span class="o">+</span> <span class="p">[</span><span class="s2">&quot;variance&quot;</span><span class="p">])</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">reduction_dimensions</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_reduction_dimensions</span>
 
 <div class="viewcode-block" id="variance.__call__">
 <a class="viewcode-back" href="../../../modules/generated/statistics/earth2studio.statistics.variance.html#earth2studio.statistics.variance.__call__">[docs]</a>
@@ -609,18 +621,22 @@ document.write(`
 <span class="sd">        coords: CoordSystem</span>
 <span class="sd">            Coordinates referring to the input data, x.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="nb">all</span><span class="p">([</span><span class="n">rd</span> <span class="ow">in</span> <span class="n">coords</span> <span class="k">for</span> <span class="n">rd</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">reduction_dimensions</span><span class="p">]):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">all</span><span class="p">([</span><span class="n">rd</span> <span class="ow">in</span> <span class="n">coords</span> <span class="k">for</span> <span class="n">rd</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_reduction_dimensions</span><span class="p">]):</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                <span class="s2">&quot;Initialized reduction dimensions do not appear in passed coords.&quot;</span>
+                <span class="s2">&quot;Initialized reduction_dimensions do not appear in passed coords.&quot;</span>
             <span class="p">)</span>
 
-        <span class="n">dims</span> <span class="o">=</span> <span class="p">[</span><span class="nb">list</span><span class="p">(</span><span class="n">coords</span><span class="p">)</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">rd</span><span class="p">)</span> <span class="k">for</span> <span class="n">rd</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">reduction_dimensions</span><span class="p">]</span>
+        <span class="n">dims</span> <span class="o">=</span> <span class="p">[</span><span class="nb">list</span><span class="p">(</span><span class="n">coords</span><span class="p">)</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">rd</span><span class="p">)</span> <span class="k">for</span> <span class="n">rd</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_reduction_dimensions</span><span class="p">]</span>
         <span class="n">output_coords</span> <span class="o">=</span> <span class="n">CoordSystem</span><span class="p">(</span>
-            <span class="p">{</span><span class="n">key</span><span class="p">:</span> <span class="n">coords</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">coords</span> <span class="k">if</span> <span class="n">key</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">reduction_dimensions</span><span class="p">}</span>
+            <span class="p">{</span>
+                <span class="n">key</span><span class="p">:</span> <span class="n">coords</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
+                <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">coords</span>
+                <span class="k">if</span> <span class="n">key</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_reduction_dimensions</span>
+            <span class="p">}</span>
         <span class="p">)</span>
 
         <span class="n">weights</span> <span class="o">=</span> <span class="n">_broadcast_weights</span><span class="p">(</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">weights</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">reduction_dimensions</span><span class="p">,</span> <span class="n">coords</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">weights</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_reduction_dimensions</span><span class="p">,</span> <span class="n">coords</span>
         <span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
         <span class="n">weights_sum</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">weights</span><span class="p">)</span>
 
@@ -692,11 +708,15 @@ document.write(`
         <span class="bp">self</span><span class="o">.</span><span class="n">var</span> <span class="o">=</span> <span class="n">variance</span><span class="p">(</span>
             <span class="n">reduction_dimensions</span><span class="p">,</span> <span class="n">weights</span><span class="o">=</span><span class="n">weights</span><span class="p">,</span> <span class="n">batch_update</span><span class="o">=</span><span class="n">batch_update</span>
         <span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">reduction_dimensions</span> <span class="o">=</span> <span class="n">reduction_dimensions</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_reduction_dimensions</span> <span class="o">=</span> <span class="n">reduction_dimensions</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">weights</span> <span class="o">=</span> <span class="n">weights</span>
 
     <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-        <span class="k">return</span> <span class="s2">&quot;_&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">reduction_dimensions</span> <span class="o">+</span> <span class="p">[</span><span class="s2">&quot;std&quot;</span><span class="p">])</span>
+        <span class="k">return</span> <span class="s2">&quot;_&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_reduction_dimensions</span> <span class="o">+</span> <span class="p">[</span><span class="s2">&quot;std&quot;</span><span class="p">])</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">reduction_dimensions</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_reduction_dimensions</span>
 
 <div class="viewcode-block" id="std.__call__">
 <a class="viewcode-back" href="../../../modules/generated/statistics/earth2studio.statistics.std.html#earth2studio.statistics.std.__call__">[docs]</a>
