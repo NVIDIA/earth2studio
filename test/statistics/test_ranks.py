@@ -21,10 +21,7 @@ import numpy as np
 import pytest
 import torch
 
-from earth2studio.statistics import crps, lat_weight
-from earth2studio.statistics.crps import _crps_from_empirical_cdf
-
-lat_weights = lat_weight(torch.as_tensor(np.linspace(-90.0, 90.0, 361)))
+from earth2studio.statistics import rank_histogram
 
 
 @pytest.mark.parametrize(
@@ -34,21 +31,8 @@ lat_weights = lat_weight(torch.as_tensor(np.linspace(-90.0, 90.0, 361)))
         "time",
     ],
 )
-@pytest.mark.parametrize(
-    "reduction_weights",
-    [
-        (None, None),
-        (["lat", "lon"], lat_weights.unsqueeze(1).repeat(1, 720)),
-        (["lat", "lon"], None),
-        (["lat"], lat_weights),
-    ],
-)
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
-def test_crps(
-    ensemble_dimension: str,
-    reduction_weights: tuple[list[str], np.ndarray],
-    device: str,
-) -> None:
+def test_rank_histogram(ensemble_dimension: str, device: str) -> None:
 
     x = torch.randn((10, 1, 2, 361, 720), device=device)
 
@@ -67,23 +51,17 @@ def test_crps(
     y_shape = [len(y_coords[c]) for c in y_coords]
     y = torch.randn(y_shape, device=device)
 
-    reduction_dimensions, weights = reduction_weights
-    if weights is not None:
-        weights = weights.to(device)
-    CRPS = crps(
-        ensemble_dimension, reduction_dimensions=reduction_dimensions, weights=weights
-    )
+    reduction_dimensions = ["lat", "lon"]
+    RH = rank_histogram(ensemble_dimension, reduction_dimensions)
 
-    z, c = CRPS(x, x_coords, y, y_coords)
-    assert ensemble_dimension not in c
-    if reduction_dimensions is not None:
-        print(list(c), reduction_dimensions)
-        assert all([rd not in c for rd in reduction_dimensions])
+    z, c = RH(x, x_coords, y, y_coords)
+    for di in [ensemble_dimension] + reduction_dimensions:
+        assert di not in c
     assert list(z.shape) == [len(val) for val in c.values()]
 
 
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
-def test_crps_failures(device: str) -> None:
+def test_rank_histogram_failures(device: str) -> None:
     reduction_dimension = "ensemble"
     x = torch.randn((10, 1, 2, 361, 720), device=device)
 
@@ -99,16 +77,16 @@ def test_crps_failures(device: str) -> None:
 
     # Raise error for training to pass a list
     with pytest.raises(ValueError):
-        crps(["ensemble", "time"])
+        rank_histogram(["ensemble", "time"], ["lat"])
 
-    CRPS = crps(reduction_dimension)
+    RH = rank_histogram(reduction_dimension, ["lat", "lon"])
 
     # Test reduction_dimension in y error
     with pytest.raises(ValueError):
         y_coords = copy.deepcopy(x_coords)
         y_shape = [len(y_coords[c]) for c in y_coords]
         y = torch.randn(y_shape, device=device)
-        z, c = CRPS(x, x_coords, y, y_coords)
+        z, c = RH(x, x_coords, y, y_coords)
 
     # Test x and y don't have broadcastable shapes
     with pytest.raises(ValueError):
@@ -119,7 +97,7 @@ def test_crps_failures(device: str) -> None:
 
         y_shape = [len(y_coords[c]) for c in y_coords]
         y = torch.randn(y_shape, device=device)
-        z, c = CRPS(x, x_coords, y, y_coords)
+        z, c = RH(x, x_coords, y, y_coords)
 
     # Test reduction_dimension not in x_coords
     with pytest.raises(ValueError):
@@ -132,34 +110,43 @@ def test_crps_failures(device: str) -> None:
         y = torch.randn(y_shape, device=device)
 
         x_coords.pop("ensemble")
-        z, c = CRPS(x, x_coords, y, y_coords)
+        z, c = RH(x, x_coords, y, y_coords)
 
 
+@pytest.mark.parametrize("reduction_dimension", [20, 50, 80])
+@pytest.mark.parametrize("number_of_bins", [3, 5, 8])
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
-def test_crps_accuracy(device: str, rtol: float = 1e-2, atol: float = 1e-2) -> None:
-    # Uses eq (5) from Gneiting et al. https://doi.org/10.1175/MWR2904.1
-    # crps(N(0, 1), 0.0) = 2 / sqrt(2*pi) - 1/sqrt(pi) ~= 0.23...
-    x = 3.0 + torch.randn((10_000, 1), device=device, dtype=torch.float32)
-    y = 3.0 + torch.zeros((1,), device=device, dtype=torch.float32)
+def test_rank_histogram_accuracy(
+    reduction_dimension: int, number_of_bins: int, device: str
+) -> None:
 
-    # Test pure crps
-    c = _crps_from_empirical_cdf(x, y, dim=0)
-    true_crps = (np.sqrt(2) - 1.0) / np.sqrt(np.pi)
-    assert torch.allclose(
-        c,
-        true_crps * torch.ones([1], dtype=torch.float32, device=device),
-        rtol=rtol,
-        atol=atol,
+    x = (
+        1.0
+        + torch.randn((1000, reduction_dimension, reduction_dimension), device=device)
+        ** 2
     )
 
-    x = 3.0 + torch.randn((1, 10_000), device=device, dtype=torch.float32)
+    x_coords = OrderedDict(
+        {
+            "ensemble": np.arange(1000),
+            "lat": np.arange(reduction_dimension),
+            "lon": np.arange(reduction_dimension),
+        }
+    )
 
-    # Test pure crps
-    c = _crps_from_empirical_cdf(x, y, dim=1)
-    true_crps = (np.sqrt(2) - 1.0) / np.sqrt(np.pi)
+    y_coords = copy.deepcopy(x_coords)
+    y_coords.pop("ensemble")
+    y_shape = [len(y_coords[c]) for c in y_coords]
+    y = 1.0 + torch.randn(y_shape, device=device) ** 2
+
+    reduction_dimensions = ["lat", "lon"]
+    RH = rank_histogram("ensemble", reduction_dimensions, number_of_bins=number_of_bins)
+
+    z, _ = RH(x, x_coords, y, y_coords)
+
+    # This should be result in a near uniform distribution but is prone to statistical error
     assert torch.allclose(
-        c,
-        true_crps * torch.ones([1], dtype=torch.float32, device=device),
-        rtol=rtol,
-        atol=atol,
+        z[1, :],
+        reduction_dimension**2 / number_of_bins * torch.ones_like(z[1, :]),
+        rtol=2.0 * number_of_bins / reduction_dimension,
     )
