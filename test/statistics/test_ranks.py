@@ -147,6 +147,6 @@ def test_rank_histogram_accuracy(
     # This should be result in a near uniform distribution but is prone to statistical error
     assert torch.allclose(
         z[1, :],
-        torch.ones_like(z[1, :]),
+        reduction_dimension**2 / number_of_bins * torch.ones_like(z[1, :]),
         rtol=2.0 * number_of_bins / reduction_dimension,
     )
