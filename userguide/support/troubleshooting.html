@@ -476,8 +476,26 @@ document.write(`
                   
   <section id="troubleshooting">
 <h1>Troubleshooting<a class="headerlink" href="#troubleshooting" title="Link to this heading">#</a></h1>
-<p>🚧 Under construction 🚧</p>
-<p>Having some problems? Open an issue.</p>
+<section id="onnx-runtime-error-when-binding-input">
+<h2>ONNX Runtime  Error when binding input<a class="headerlink" href="#onnx-runtime-error-when-binding-input" title="Link to this heading">#</a></h2>
+<p>When running an ONNX based model, such as FengWu or Pangu, one may see a runtime error
+where the model fails to bind input data when using a GPU. The error message may look
+like.</p>
+<blockquote>
+<div><p>RuntimeError: Error when binding input: There’s no data transfer registered for
+copying tensors from Device:[DeviceType:1 MemoryType:0 DeviceId:0]</p>
+</div></blockquote>
+<p>or</p>
+<blockquote>
+<div><p>onnxruntime::Provider&amp; onnxruntime::ProviderLibrary::Get() [ONNXRuntimeError] : 1 :
+FAIL : Failed to load library libonnxruntime_providers_cuda.so with error:
+libcublasLt.so.11: cannot open shared object file: No such file or directory.</p>
+</div></blockquote>
+<p>This is an error from ONNX runtime not being installed correctly.
+If you are using CUDA 12 make sure you manually pip install following the instructions
+on the ONNX <a class="reference external" href="https://onnxruntime.ai/docs/install/#python-installs">documentation</a>.</p>
+<p>Still having some problems? Open an issue.</p>
+</section>
 </section>
 
 
@@ -517,6 +535,18 @@ document.write(`
               
                 <div class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
 
+
+  <div class="sidebar-secondary-item">
+<div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> On this page
+  </div>
+  <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#onnx-runtime-error-when-binding-input">ONNX Runtime  Error when binding input</a></li>
+</ul>
+  </nav></div>
 
   <div class="sidebar-secondary-item">
 
