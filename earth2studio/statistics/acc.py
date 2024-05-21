@@ -56,13 +56,17 @@ class acc:
                 raise ValueError(
                     "Error! Weights must be the same dimension as reduction_dimensions"
                 )
-        self.reduction_dimensions = reduction_dimensions
+        self._reduction_dimensions = reduction_dimensions
         self.weights = weights
 
         self.climatology = climatology
 
     def __str__(self) -> str:
-        return "acc"
+        return "_".join(self._reduction_dimensions + ["acc"])
+
+    @property
+    def reduction_dimensions(self) -> list[str]:
+        return self._reduction_dimensions
 
     def __call__(
         self,
@@ -78,16 +82,18 @@ class acc:
         Parameters
         ----------
         x : torch.Tensor
-            Input tensor #1 intended to apply metric to.
+            Input tensor, typically the forecast or prediction tensor, but ACC is
+            symmetric with respect to `x` and `y`.
         x_coords : CoordSystem
             Ordered dict representing coordinate system that describes the `x` tensor.
-            'reduction_dims' must be in coords.
+            `reduction_dimensions` must be in coords.
             "time" and "variable" must be in x_coords.
         y : torch.Tensor
-            Input tensor #2 intended to be used as validation data.
+            Input tensor #2 intended to be used as validation data, but ACC is symmetric
+            with respect to `x` and `y`.
         y_coords : CoordSystem
             Ordered dict representing coordinate system that describes the `y` tensor.
-            'reduction_dims' must be in coords.
+            `reduction_dimensions` must be in coords.
             "time" and "variable" must be in y_coords.
             If "lead_time" is in x_coords, then "lead_time" must also be in y_coords. The
             intention, in this case, is that users will use `fetch_data` to make it easier
@@ -110,17 +116,17 @@ class acc:
             handshake_dim(y_coords, c, i)
             handshake_coords(x_coords, y_coords, c)
 
-        dims = [list(x_coords).index(rd) for rd in self.reduction_dimensions]
+        dims = [list(x_coords).index(rd) for rd in self._reduction_dimensions]
         output_coords = CoordSystem(
             {
                 key: x_coords[key]
                 for key in x_coords
-                if key not in self.reduction_dimensions
+                if key not in self._reduction_dimensions
             }
         )
 
         weights = _broadcast_weights(
-            self.weights, self.reduction_dimensions, x_coords
+            self.weights, self._reduction_dimensions, x_coords
         ).to(x.device)
         weights_sum = torch.sum(weights)
 
@@ -141,11 +147,11 @@ class acc:
             clim = torch.zeros_like(x)
 
         x_hat = x - clim
-        x_bar = torch.sum(weights * x, dim=dims, keepdim=True) / weights_sum
+        x_bar = torch.sum(weights * x_hat, dim=dims, keepdim=True) / weights_sum
         x_diff = x_hat - x_bar
 
         y_hat = y - clim
-        y_bar = torch.sum(weights * y, dim=dims, keepdim=True) / weights_sum
+        y_bar = torch.sum(weights * y_hat, dim=dims, keepdim=True) / weights_sum
         y_diff = y_hat - y_bar
 
         p1 = torch.sum(weights * x_diff * y_diff, dim=dims)

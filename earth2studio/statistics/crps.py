@@ -16,6 +16,7 @@
 
 import torch
 
+from earth2studio.statistics.moments import mean
 from earth2studio.utils.coords import handshake_coords, handshake_dim
 from earth2studio.utils.type import CoordSystem
 
@@ -35,21 +36,47 @@ class crps:
 
     Parameters
     ----------
-    reduction_dimension: str
+    ensemble_dimension: str
         A name corresponding to a dimension to perform the
-        statistical reduction over. Example: 'ensemble'
+        ensemble reduction over. Example: 'ensemble'
+    reduction_dimensions: list[str]
+        A list of dimensions over which to average the crps over.
+        optional, by default none. If none, no additional reduction is done.
+    weights: torch.Tensor, optional
+        A tensor containing weights to assign to the reduction dimensions.
+        Note that these weights must have the same number of dimensions
+        as passed in reduction_dimensions.
+        Example: if reduction_dimensions = ['lat', 'lon'] then
+        assert weights.ndim == 2.
+        By default None.
     """
 
-    def __init__(self, reduction_dimension: str):
-        if not isinstance(reduction_dimension, str):
+    def __init__(
+        self,
+        ensemble_dimension: str,
+        reduction_dimensions: list[str] | None = None,
+        weights: torch.Tensor = None,
+    ):
+        if not isinstance(ensemble_dimension, str):
             raise ValueError(
                 "Error! CRPS currently assumes reduction over a single dimension."
             )
 
-        self.reduction_dimension = reduction_dimension
+        self.ensemble_dimension = ensemble_dimension
+        self._reduction_dimensions = reduction_dimensions
+        if reduction_dimensions is not None:
+            self.mean = mean(reduction_dimensions, weights=weights, batch_update=False)
 
     def __str__(self) -> str:
-        return "crps"
+        return "_".join(self.reduction_dimensions + ["crps"])
+
+    @property
+    def reduction_dimensions(self) -> list[str]:
+        return (
+            [self.ensemble_dimension]
+            if self._reduction_dimensions is None
+            else [self.ensemble_dimension] + self._reduction_dimensions
+        )
 
     def __call__(
         self,
@@ -62,37 +89,35 @@ class crps:
         Apply metric to data `x` and `y`, checking that their coordinates
         are broadcastable. While reducing over `reduction_dims`.
 
-        If batch_update was passed True upon metric initialization then this method
-        returns the running sample RMSE over all seen batches.
-
         Parameters
         ----------
         x : torch.Tensor
-            Input tensor #1 intended to apply metric to.
+            Input tensor of ensemble forecast or prediction data. This is the tensor
+            over which the CRPS/CDF is calculated with respect to.
         x_coords : CoordSystem
             Ordered dict representing coordinate system that describes the `x` tensor.
-            'reduction_dims' must be in coords.
+            `reduction_dimensions` must be in coords.
         y : torch.Tensor
-            Input tensor #2 intended to apply statistic to.
+            Observation or validation tensor.
         y_coords : CoordSystem
             Ordered dict representing coordinate system that describes the `y` tensor.
-            'reduction_dims' must be in coords.
+            `reduction_dimensions` must be in coords.
 
         Returns
         -------
         tuple[torch.Tensor, CoordSystem]
-            Returns root mean squared error tensor with appropriate reduced coordinates.
+            Returns CRPS tensor with appropriate reduced coordinates.
         """
-        if self.reduction_dimension not in x_coords:
+        if not all([rd in x_coords for rd in self.reduction_dimensions]):
             raise ValueError(
                 "Initialized reduction dimension does not appear in passed coords"
             )
 
         # Do some coordinate checking
-        # Assume reduction_dim is in x_coords but not y_coords
-        if self.reduction_dimension in y_coords:
+        # Assume ensemble_dim is in x_coords but not y_coords
+        if self.ensemble_dimension in y_coords:
             raise ValueError(
-                f"{self.reduction_dimension} should not be in y_coords but is."
+                f"{self.ensemble_dimension} should not be in y_coords but is."
             )
         if x.ndim != y.ndim + 1:
             raise ValueError(
@@ -102,15 +127,19 @@ class crps:
         # Input coordinate checking
         coord_count = 0
         for c in x_coords:
-            if c != self.reduction_dimension:
+            if c != self.ensemble_dimension:
                 handshake_dim(y_coords, c, coord_count)
                 handshake_coords(y_coords, x_coords, c)
                 coord_count += 1
 
-        dim = list(x_coords).index(self.reduction_dimension)
+        dim = list(x_coords).index(self.ensemble_dimension)
 
-        _crps = _crps_from_empirical_cdf(x, y, dim=dim)
-        return _crps, y_coords.copy()
+        out = _crps_from_empirical_cdf(x, y, dim=dim)
+        out_coords = y_coords.copy()
+
+        if self._reduction_dimensions is not None:
+            out, out_coords = self.mean(out, out_coords)
+        return out, out_coords
 
 
 def _crps_from_empirical_cdf(

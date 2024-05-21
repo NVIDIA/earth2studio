@@ -33,8 +33,6 @@ class WB2Lexicon(metaclass=LexiconType):
     VOCAB = {
         "u10m": "10m_u_component_of_wind::",
         "v10m": "10m_v_component_of_wind::",
-        "u100m": "100m_u_component_of_wind::",
-        "v100m": "100m_v_component_of_wind::",
         "t2m": "2m_temperature::",
         "sp": "surface_pressure::",
         "msl": "mean_sea_level_pressure::",

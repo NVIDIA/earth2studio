@@ -165,7 +165,8 @@ class HRRR:
 
         return xr.concat([data_arrays[var] for var in variable], dim="variable")
 
-    def _validate_time(self, times: list[datetime]) -> None:
+    @classmethod
+    def _validate_time(cls, times: list[datetime]) -> None:
         """Verify if date time is valid for HRRR
 
         Parameters
@@ -211,6 +212,17 @@ class HRRR:
         bool
             If date time is avaiable
         """
+        if isinstance(time, np.datetime64):  # np.datetime64 -> datetime
+            _unix = np.datetime64(0, "s")
+            _ds = np.timedelta64(1, "s")
+            time = datetime.utcfromtimestamp((time - _unix) / _ds)
+
+        # Offline checks
+        try:
+            cls._validate_time([time])
+        except ValueError:
+            return False
+
         # Import here to prevent prints
         from herbie import FastHerbie
 
