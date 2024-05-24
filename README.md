@@ -48,8 +48,8 @@ run(["2024-01-01"], 10, model, ds, io)
 
 ## Features
 
-Earth2Studio provides access to multiple pretrained AI weather models and inference
-tools with an easy to use and extendable Python interface.
+Earth2Studio provides access to pre-trained AI weather models and inference
+features through an easy to use and extendable Python interface.
 This package focuses on supplying users the tools to build their own
 workflows, pipelines, APIs, packages, etc. via modular components including:
 
