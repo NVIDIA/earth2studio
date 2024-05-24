@@ -20,10 +20,8 @@ import shutil
 
 import numpy as np
 import pytest
-import xarray
 
-from earth2studio.data import WB2Climatology
-from earth2studio.utils.time import timearray_to_datetime
+from earth2studio.data import ARCO, WB2ERA5, WB2ERA5_32x64, WB2ERA5_121x240
 
 
 @pytest.mark.slow
@@ -41,9 +39,10 @@ from earth2studio.utils.time import timearray_to_datetime
     ],
 )
 @pytest.mark.parametrize("variable", ["tcwv", ["u500", "u200"]])
-def test_wb_fetch(time, variable):
+@pytest.mark.parametrize("Datasource", [WB2ERA5, WB2ERA5_121x240, WB2ERA5_32x64])
+def test_wb2era5_fetch(time, variable, Datasource):
 
-    ds = WB2Climatology(cache=False)
+    ds = Datasource(cache=False)
     data = ds(time, variable)
     shape = data.shape
 
@@ -55,8 +54,8 @@ def test_wb_fetch(time, variable):
 
     assert shape[0] == len(time)
     assert shape[1] == len(variable)
-    assert shape[2] == 721
-    assert shape[3] == 1440
+    assert shape[2] == Datasource.WB2_ERA5_LAT.shape[0]
+    assert shape[3] == Datasource.WB2_ERA5_LON.shape[0]
     assert np.array_equal(data.coords["variable"].values, np.array(variable))
     assert not np.isnan(data.values).any()
 
@@ -68,35 +67,22 @@ def test_wb_fetch(time, variable):
     "time",
     [
         np.array([np.datetime64("1993-04-05T00:00")]),
+        np.array([np.datetime64("2001-02-27T18:00")]),
     ],
 )
 @pytest.mark.parametrize(
-    "variable, arco_variable, arco_level",
-    [("t2m", "2m_temperature", None), ("u200", "u_component_of_wind", 200)],
+    "variable",
+    ["t2m", "u200"],
 )
-def test_wb_zarr(time, variable, arco_variable, arco_level):
+def test_wb2era5_verify(time, variable):
 
-    ds = WB2Climatology(cache=False)
+    ds = WB2ERA5(cache=False)
     data = ds(time, variable)
 
-    era5 = xarray.open_zarr(
-        "gs://weatherbench2/datasets/era5-hourly-climatology/1990-2017_6h_1440x721.zarr",
-        consolidated=True,
-    )
+    ds = ARCO(cache=False)
+    data_arco = ds(time, variable)
 
-    hour, day_of_year = ds._get_time_index(timearray_to_datetime(time)[0])
-    # day_of_year is 0-based but convert to 1-based for xarray selection.
-    day_of_year += 1
-    if arco_level:
-        xr_data = era5[arco_variable].sel(
-            hour=hour, dayofyear=day_of_year, level=arco_level
-        )
-    else:
-        xr_data = era5[arco_variable].sel(hour=hour, dayofyear=day_of_year)
-
-    assert np.allclose(data.values, xr_data.values), np.max(
-        np.abs(data.values - xr_data.values)
-    )
+    assert np.allclose(data.values, data_arco.values)
 
 
 @pytest.mark.slow
@@ -108,16 +94,17 @@ def test_wb_zarr(time, variable, arco_variable, arco_level):
 )
 @pytest.mark.parametrize("variable", [["z500", "q200"]])
 @pytest.mark.parametrize("cache", [True, False])
-def test_wb_cache(time, variable, cache):
+@pytest.mark.parametrize("Datasource", [WB2ERA5, WB2ERA5_121x240, WB2ERA5_32x64])
+def test_wb2era5_cache(time, variable, cache, Datasource):
 
-    ds = WB2Climatology(cache=cache)
+    ds = Datasource(cache=cache)
     data = ds(time, variable)
     shape = data.shape
 
     assert shape[0] == 1
     assert shape[1] == 2
-    assert shape[2] == 721
-    assert shape[3] == 1440
+    assert shape[2] == Datasource.WB2_ERA5_LAT.shape[0]
+    assert shape[3] == Datasource.WB2_ERA5_LON.shape[0]
     assert not np.isnan(data.values).any()
     # Cache should be present
     assert pathlib.Path(ds.cache).is_dir() == cache
@@ -128,11 +115,30 @@ def test_wb_cache(time, variable, cache):
 
     assert shape[0] == 1
     assert shape[1] == 1
-    assert shape[2] == 721
-    assert shape[3] == 1440
+    assert shape[2] == Datasource.WB2_ERA5_LAT.shape[0]
+    assert shape[3] == Datasource.WB2_ERA5_LON.shape[0]
     assert not np.isnan(data.values).any()
 
     try:
         shutil.rmtree(ds.cache)
     except FileNotFoundError:
         pass
+
+
+@pytest.mark.xfail
+@pytest.mark.timeout(15)
+@pytest.mark.parametrize(
+    "time",
+    [
+        datetime.datetime(year=1939, month=2, day=25),
+        datetime.datetime(year=1, month=1, day=1, hour=13, minute=1),
+        datetime.datetime(year=2024, month=1, day=1),
+        datetime.datetime.now(),
+    ],
+)
+@pytest.mark.parametrize("variable", ["mpl"])
+@pytest.mark.parametrize("Datasource", [WB2ERA5, WB2ERA5_121x240, WB2ERA5_32x64])
+def test_wb2era5_available(time, variable, Datasource):
+    with pytest.raises(ValueError):
+        ds = Datasource(cache=False)
+        ds(time, variable)
