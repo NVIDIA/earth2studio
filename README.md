@@ -1,7 +1,7 @@
-<!-- markdownlint-disable MD033 MD041 MD053 -->
+<!-- markdownlint-disable MD002 MD033 MD041 MD053 -->
 <div align="center">
 
-# Earth2Studio
+![Earth2Studio Banner](https://huggingface.co/datasets/NickGeneva/Earth2StudioAssets/raw/main/0.2.0/earth2studio_banner.png)
 
 [![python version][e2studio_python_img]][e2studio_python_url]
 [![license][e2studio_license_img]][e2studio_license_url]
@@ -18,6 +18,8 @@ Our mission is to enable everyone to build, research and explore AI driven meteo
 
 [Install][e2studio_install_url] | [User-Guide][e2studio_userguide_url] |
 [Examples][e2studio_examples_url] | [API][e2studio_api_url]
+
+![Earth2Studio Banner](https://huggingface.co/datasets/NickGeneva/Earth2StudioAssets/raw/main/0.2.0/earth2studio_feature_banner.png)
 
 </div>
 
@@ -46,7 +48,9 @@ run(["2024-01-01"], 10, model, ds, io)
 
 ## Features
 
-Earth2Studio focuses on providing users the tools to build their own
+Earth2Studio provides access to multiple pretrained AI weather models and inference
+tools with an easy to use and extendable Python interface.
+This package focuses on supplying users the tools to build their own
 workflows, pipelines, APIs, packages, etc. via modular components including:
 
 - Collection of pre-trained weather/climate prediction models
@@ -55,7 +59,7 @@ workflows, pipelines, APIs, packages, etc. via modular components including:
 - IO utilities for exporting predicted data to user friendly formats
 - Suite of perturbation methods for building ensemble predictions
 - Sample workflows and examples for common tasks / use cases
-- Seamless integration into other Nvidia packages including [Modulus][modulus_repo_url].
+- Seamless integration into other Nvidia packages including [Modulus][modulus_repo_url]
 
 For a more complete list of feature set, be sure to view the [documentation][e2studio_docs_url].
 Don't see what you need?
