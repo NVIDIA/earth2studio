@@ -103,6 +103,7 @@ def test_pangu_call(time, PanguModel, delta_t, onnx_test_package, device):
         [len(time), 1, len(p.output_coords["variable"]), 721, 1440]
     )
     assert (out_coords["variable"] == p.output_coords["variable"]).all()
+    assert (out_coords["time"] == time).all()
     assert torch.allclose(
         out, (x + delta_t)
     )  # Phoo model should add by delta t each call
@@ -234,6 +235,7 @@ def test_pangu_package(PanguModel, delta_t, device, model_cache_context):
 
     assert out.shape == torch.Size([len(time), 1, 69, 721, 1440])
     assert (out_coords["variable"] == p.output_coords["variable"]).all()
+    assert (out_coords["time"] == time).all()
     handshake_dim(out_coords, "lon", 4)
     handshake_dim(out_coords, "lat", 3)
     handshake_dim(out_coords, "variable", 2)

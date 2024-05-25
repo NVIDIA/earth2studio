@@ -187,6 +187,7 @@ def test_fcn_package(device, model_cache_context):
 
     assert out.shape == torch.Size([len(time), 1, 26, 720, 1440])
     assert (out_coords["variable"] == p.output_coords["variable"]).all()
+    assert (out_coords["time"] == time).all()
     handshake_dim(out_coords, "lon", 4)
     handshake_dim(out_coords, "lat", 3)
     handshake_dim(out_coords, "variable", 2)

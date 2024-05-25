@@ -70,6 +70,7 @@ def test_sfno_call(time, device):
 
     assert out.shape == torch.Size([len(time), 1, 73, 721, 1440])
     assert (out_coords["variable"] == p.output_coords["variable"]).all()
+    assert (out_coords["time"] == time).all()
     handshake_dim(out_coords, "lon", 4)
     handshake_dim(out_coords, "lat", 3)
     handshake_dim(out_coords, "variable", 2)
