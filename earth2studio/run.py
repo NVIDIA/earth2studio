@@ -87,8 +87,8 @@ def deterministic(
     x, coords = fetch_data(
         source=data,
         time=time,
-        lead_time=prognostic.input_coords["lead_time"],
         variable=prognostic.input_coords["variable"],
+        lead_time=prognostic.input_coords["lead_time"],
         device=device,
     )
     logger.success(f"Fetched data from {data.__class__.__name__}")
@@ -185,8 +185,8 @@ def diagnostic(
     x, coords = fetch_data(
         source=data,
         time=time,
-        lead_time=prognostic.input_coords["lead_time"],
         variable=prognostic.input_coords["variable"],
+        lead_time=prognostic.input_coords["lead_time"],
         device=device,
     )
     logger.success(f"Fetched data from {data.__class__.__name__}")
@@ -294,8 +294,8 @@ def ensemble(
     x0, coords0 = fetch_data(
         source=data,
         time=time,
-        lead_time=prognostic.input_coords["lead_time"],
         variable=prognostic.input_coords["variable"],
+        lead_time=prognostic.input_coords["lead_time"],
         device="cpu",
     )
     logger.success(f"Fetched data from {data.__class__.__name__}")
