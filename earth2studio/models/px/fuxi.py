@@ -437,13 +437,14 @@ class FuXi(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         while True:
             # Cascade models for longer roll outs
             # Presently short model stays in memory, could look at changing this
-            step += 1
+            # Runs on 16 Gb V100, so seems okay
             if step == 20:
                 logger.warning(f"Time-step {step}, loading medium range model")
                 ort_session = self.create_ort_session(self.ort_medium_path, self.device)
             elif step == 40:
                 logger.warning(f"Time-step {step}, loading long range model")
                 ort_session = self.create_ort_session(self.ort_long_path, self.device)
+            step += 1
 
             # Front hook
             x, coords = self.front_hook(x, coords)
