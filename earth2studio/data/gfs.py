@@ -176,6 +176,7 @@ class GFS:
             )
         ):
             # Convert from Earth2Studio variable ID to GFS id and modifier
+            # sphinx - lexicon start
             try:
                 gfs_name, modifier = GFSLexicon[variable]
             except KeyError:
@@ -203,6 +204,7 @@ class GFS:
                 grib_file, engine="cfgrib", backend_kwargs={"indexpath": ""}
             )
             gfsda[0, i] = modifier(da.values)
+            # sphinx - lexicon end
 
         return gfsda
 
