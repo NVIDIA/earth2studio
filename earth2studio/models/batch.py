@@ -266,6 +266,7 @@ class batch_coords:
         ValueError
             If model's input_coords do not contain the batch dimension
         """
+
         if (
             next(iter(model.input_coords)) != "batch"
             and next(iter(model.output_coords())) != "batch"
@@ -298,7 +299,7 @@ class batch_coords:
         self,
         out_coords: CoordSystem,
         batched_coords: CoordSystem,
-    ) -> tuple[CoordSystem]:
+    ) -> CoordSystem:
         """Decompresses the batch dimension of a tensor
 
         Parameters
@@ -325,10 +326,13 @@ class batch_coords:
         # TODO: Better typing for model object
         @functools.wraps(func)
         def _wrapper(
-            model: Any, coords: CoordSystem
-        ) -> tuple[torch.Tensor, CoordSystem]:
+            model: Any, input_coords: CoordSystem | None = None
+        ) -> CoordSystem:
 
-            flatten_coords, batched_coords = self._compress_batch(model, coords)
+            if input_coords is None:
+                return func(model, input_coords)
+
+            flatten_coords, batched_coords = self._compress_batch(model, input_coords)
 
             # Model forward
             out_coords = func(model, flatten_coords)
