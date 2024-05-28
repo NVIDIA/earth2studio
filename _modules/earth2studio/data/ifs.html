@@ -450,14 +450,12 @@ document.write(`
 <span class="kn">import</span> <span class="nn">shutil</span>
 <span class="kn">from</span> <span class="nn">datetime</span> <span class="kn">import</span> <span class="n">datetime</span>
 
-<span class="kn">import</span> <span class="nn">boto3</span>
-<span class="kn">import</span> <span class="nn">botocore</span>
 <span class="kn">import</span> <span class="nn">ecmwf.opendata</span>
 <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 <span class="kn">import</span> <span class="nn">xarray</span> <span class="k">as</span> <span class="nn">xr</span>
-<span class="kn">from</span> <span class="nn">botocore</span> <span class="kn">import</span> <span class="n">UNSIGNED</span>
 <span class="kn">from</span> <span class="nn">loguru</span> <span class="kn">import</span> <span class="n">logger</span>
 <span class="kn">from</span> <span class="nn">modulus.distributed.manager</span> <span class="kn">import</span> <span class="n">DistributedManager</span>
+<span class="kn">from</span> <span class="nn">s3fs.core</span> <span class="kn">import</span> <span class="n">S3FileSystem</span>
 <span class="kn">from</span> <span class="nn">tqdm</span> <span class="kn">import</span> <span class="n">tqdm</span>
 
 <span class="kn">from</span> <span class="nn">earth2studio.data.utils</span> <span class="kn">import</span> <span class="n">prep_data_inputs</span>
@@ -706,20 +704,13 @@ document.write(`
         <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
             <span class="k">return</span> <span class="kc">False</span>
 
-        <span class="n">s3</span> <span class="o">=</span> <span class="n">boto3</span><span class="o">.</span><span class="n">client</span><span class="p">(</span>
-            <span class="s2">&quot;s3&quot;</span><span class="p">,</span> <span class="n">config</span><span class="o">=</span><span class="n">botocore</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">Config</span><span class="p">(</span><span class="n">signature_version</span><span class="o">=</span><span class="n">UNSIGNED</span><span class="p">)</span>
-        <span class="p">)</span>
-        <span class="c1"># Object store directory for given time</span>
-        <span class="n">file_name</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">time</span><span class="o">.</span><span class="n">year</span><span class="si">}{</span><span class="n">time</span><span class="o">.</span><span class="n">month</span><span class="si">:</span><span class="s2">0&gt;2</span><span class="si">}{</span><span class="n">time</span><span class="o">.</span><span class="n">day</span><span class="si">:</span><span class="s2">0&gt;2</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">time</span><span class="o">.</span><span class="n">hour</span><span class="si">:</span><span class="s2">0&gt;2</span><span class="si">}</span><span class="s2">z/&quot;</span>
-        <span class="k">try</span><span class="p">:</span>
-            <span class="n">resp</span> <span class="o">=</span> <span class="n">s3</span><span class="o">.</span><span class="n">list_objects_v2</span><span class="p">(</span>
-                <span class="n">Bucket</span><span class="o">=</span><span class="bp">cls</span><span class="o">.</span><span class="n">IFS_BUCKET_NAME</span><span class="p">,</span> <span class="n">Prefix</span><span class="o">=</span><span class="n">file_name</span><span class="p">,</span> <span class="n">Delimiter</span><span class="o">=</span><span class="s2">&quot;/&quot;</span><span class="p">,</span> <span class="n">MaxKeys</span><span class="o">=</span><span class="mi">1</span>
-            <span class="p">)</span>
-        <span class="k">except</span> <span class="n">botocore</span><span class="o">.</span><span class="n">exceptions</span><span class="o">.</span><span class="n">ClientError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-            <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;Failed to access from IFS S3 bucket&quot;</span><span class="p">)</span>
-            <span class="k">raise</span> <span class="n">e</span>
+        <span class="n">fs</span> <span class="o">=</span> <span class="n">S3FileSystem</span><span class="p">(</span><span class="n">anon</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
-        <span class="k">return</span> <span class="s2">&quot;KeyCount&quot;</span> <span class="ow">in</span> <span class="n">resp</span> <span class="ow">and</span> <span class="n">resp</span><span class="p">[</span><span class="s2">&quot;KeyCount&quot;</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">0</span></div>
+        <span class="n">file_name</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">time</span><span class="o">.</span><span class="n">year</span><span class="si">}{</span><span class="n">time</span><span class="o">.</span><span class="n">month</span><span class="si">:</span><span class="s2">0&gt;2</span><span class="si">}{</span><span class="n">time</span><span class="o">.</span><span class="n">day</span><span class="si">:</span><span class="s2">0&gt;2</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">time</span><span class="o">.</span><span class="n">hour</span><span class="si">:</span><span class="s2">0&gt;2</span><span class="si">}</span><span class="s2">z/&quot;</span>
+        <span class="n">s3_uri</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;s3://</span><span class="si">{</span><span class="bp">cls</span><span class="o">.</span><span class="n">IFS_BUCKET_NAME</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">file_name</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="n">exists</span> <span class="o">=</span> <span class="n">fs</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">s3_uri</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">exists</span></div>
 </div>
 
 </pre></div>
