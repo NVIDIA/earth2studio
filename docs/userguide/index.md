@@ -56,6 +56,7 @@ run(["2024-01-01"], 10, model, ds, io)
 ## Advanced Usage
 
 - [Batch Dimension](advanced/batch)
+- [AutoModels](advanced/auto)
 - [Lexicon](advanced/lexicon)
 
 ## Developer Guide
@@ -99,6 +100,7 @@ components/statistics
 :hidden:
 
 advanced/batch
+advanced/auto
 advanced/lexicon
 ```
 

@@ -21,7 +21,7 @@ To make the doc-strings between different parts of the code as consistent as pos
 the following styles are used:
 
 - [NumPy style](https://sphinxcontrib-napoleon.readthedocs.io/en/latest/example_numpy.html)
-doc-strings are used in all Python files
+doc-strings are used in all Python files.
 
 - Class doc-strings are placed under the class definition not the `__init__` function.
 
@@ -94,7 +94,7 @@ feature/workflow/concept/use case to users.
 If you are interested in contributing an example, please reach out to us in a Github
 issue to discuss further.
 The example scripts used to populate the documentation are placed in the
-[examples](../../../examples) folder of the repo.
+[examples](https://github.com/NVIDIA/earth2studio/tree/main/examples) folder of the repo.
 The python scripts and Jupyter notebooks present on the documentation webpage are auto
 generated using [sphinx-gallery](https://sphinx-gallery.github.io/stable/index.html).
 
