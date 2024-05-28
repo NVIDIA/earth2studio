@@ -12,7 +12,7 @@ readme = "README.md"
 requires-python = ">=3.10"
 license = {text = "Apache 2.0"}
 dependencies = [
-    "boto3>=1.34.50",
+    "boto3",
     "cdsapi >= 0.6.1",
     "cfgrib >= 0.9.10.3",
     "cftime",
