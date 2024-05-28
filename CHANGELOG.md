@@ -26,6 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added rank histogram
 - Added reduction_dimensions as required property in statistics
   and metrics API.
+- Added Lexicon and Automodel userguide
 
 ### Changed
 
