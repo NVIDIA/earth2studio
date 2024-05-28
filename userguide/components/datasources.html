@@ -406,6 +406,8 @@ document.write(`
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Advanced Usage</span></p>
 <ul class="nav bd-sidenav">
 <li class="toctree-l1"><a class="reference internal" href="../advanced/batch.html">Batch Dimension</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../advanced/auto.html">AutoModels</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../advanced/lexicon.html">Lexicon</a></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Developer Guide</span></p>
 <ul class="nav bd-sidenav">
@@ -536,7 +538,7 @@ into a in memory Xarray data array.
 A user needs to provide both the time(s) and variables for the data source to fetch.
 Variables can differ between data-sources and models.
 The package lexicon is used as the source of truth and translator for data sources
-discussed in more detail in the <span class="xref std std-ref">lexicon_userguide</span> section.</p>
+discussed in more detail in the <a class="reference internal" href="../advanced/lexicon.html#lexicon-userguide"><span class="std std-ref">Lexicon</span></a> section.</p>
 <p>This data array can then be used on the CPU for post process, saving to file, etc.
 However, to use this as an initial state for inference with a model this Xarray data
 array will need to get moved to the GPU and follow the standard data movement pattern

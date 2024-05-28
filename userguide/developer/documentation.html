@@ -406,6 +406,8 @@ document.write(`
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Advanced Usage</span></p>
 <ul class="nav bd-sidenav">
 <li class="toctree-l1"><a class="reference internal" href="../advanced/batch.html">Batch Dimension</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../advanced/auto.html">AutoModels</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../advanced/lexicon.html">Lexicon</a></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Developer Guide</span></p>
 <ul class="current nav bd-sidenav">
@@ -486,6 +488,91 @@ and are used as end-to-end tests for the package.</p></li>
 <li><p>User guide is written using <a class="reference external" href="https://myst-parser.readthedocs.io/en/latest/index.html">MyST</a>
 and aims to document concepts that cannot be fully communicated in examples.</p></li>
 </ol>
+<section id="api-documentation">
+<h2>API Documentation<a class="headerlink" href="#api-documentation" title="Link to this heading">#</a></h2>
+<p>API documentation or doc-strings are a requirement for public Earth2studio classes and
+functions.
+Consistent documentation styling improves user and developer experience.
+To make the doc-strings between different parts of the code as consistent as possible,
+the following styles are used:</p>
+<ul class="simple">
+<li><p><a class="reference external" href="https://sphinxcontrib-napoleon.readthedocs.io/en/latest/example_numpy.html">NumPy style</a>
+doc-strings are used in all Python files.</p></li>
+<li><p>Class doc-strings are placed under the class definition not the <code class="docutils literal notranslate"><span class="pre">__init__</span></code> function.</p></li>
+<li><p>Type hints are included in the doc strings for each input argument / returned object.</p></li>
+<li><p>Optional/keyword arguments are denoted by <code class="docutils literal notranslate"><span class="pre">optional</span></code> following the type hint. The
+default value is provided by adding “, by default [default value].” to the end of the
+doc string.</p></li>
+<li><p>Periods should be used at the end of all sentences.</p></li>
+</ul>
+<p>For VSCode users, the
+<a class="reference external" href="https://marketplace.visualstudio.com/items?itemName=njpwerner.autodocstring">autoDocstring extension</a>
+is highly encouraged.
+See the following doc-string samples for guidance.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">handshake_dim</span><span class="p">(</span>
+    <span class="n">input_coords</span><span class="p">:</span> <span class="n">CoordSystem</span><span class="p">,</span>
+    <span class="n">required_dim</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">required_index</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Simple check to see if coordinate system has a dimension in a particular index.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    input_coords : CoordSystem</span>
+<span class="sd">        Input coordinate system to validate.</span>
+<span class="sd">    required_dim : str</span>
+<span class="sd">        Required dimension (name of coordinate).</span>
+<span class="sd">    required_index : int, optional</span>
+<span class="sd">        Required index of dimension if needed, by default None.</span>
+
+<span class="sd">    Raises</span>
+<span class="sd">    ------</span>
+<span class="sd">    KeyError</span>
+<span class="sd">        If required dimension is not found in the input coordinate system.</span>
+<span class="sd">    ValueError</span>
+<span class="sd">        If the required index is outside the dimensionality of the input coordinate system.</span>
+<span class="sd">    ValueError</span>
+<span class="sd">        If dimension is not in the required index.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">        None</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+</pre></div>
+</div>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">class</span> <span class="nc">Random</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;A randomly generated normally distributed data. Primarily useful for testing.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    domain_coords: OrderedDict[str, np.ndarray]</span>
+<span class="sd">        Domain coordinates that the random data will assume (such as lat, lon).</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">domain_coords</span><span class="p">:</span> <span class="n">OrderedDict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">],</span>
+    <span class="p">):</span>
+        <span class="c1"># ...</span>
+</pre></div>
+</div>
+</section>
+<section id="example-documentation">
+<h2>Example Documentation<a class="headerlink" href="#example-documentation" title="Link to this heading">#</a></h2>
+<p>Examples in Earth2Studio are created with the intent to teach / demonstrate a specific
+feature/workflow/concept/use case to users.
+If you are interested in contributing an example, please reach out to us in a Github
+issue to discuss further.
+The example scripts used to populate the documentation are placed in the
+<a class="reference external" href="https://github.com/NVIDIA/earth2studio/tree/main/examples">examples</a> folder of the repo.
+The python scripts and Jupyter notebooks present on the documentation webpage are auto
+generated using <a class="reference external" href="https://sphinx-gallery.github.io/stable/index.html">sphinx-gallery</a>.</p>
+<p>Examples should be short and concise, designed to be ran in a short wall-clock time of
+under 10 minutes on a typical data-center level GPU.
+The script must be runnable on a single 32Gb A100 GPU using minimal extra dependencies.
+Additional requirements may be required for running the example inside the CD pipeline,
+which will be addressed on a case-by-case basis.</p>
+</section>
 <section id="building-documentation">
 <h2>Building Documentation<a class="headerlink" href="#building-documentation" title="Link to this heading">#</a></h2>
 <p>To build the core documentation without executing examples use:</p>
@@ -555,6 +642,8 @@ make<span class="w"> </span>docs-dev<span class="w"> </span><span class="nv">FIL
   </div>
   <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#api-documentation">API Documentation</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#example-documentation">Example Documentation</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#building-documentation">Building Documentation</a></li>
 </ul>
   </nav></div>

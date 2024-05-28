@@ -406,6 +406,8 @@ document.write(`
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Advanced Usage</span></p>
 <ul class="nav bd-sidenav">
 <li class="toctree-l1"><a class="reference internal" href="../advanced/batch.html">Batch Dimension</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../advanced/auto.html">AutoModels</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../advanced/lexicon.html">Lexicon</a></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Developer Guide</span></p>
 <ul class="nav bd-sidenav">
@@ -597,6 +599,19 @@ additional details.</p></li>
 </section>
 <section id="prognostic-usage">
 <h2>Prognostic Usage<a class="headerlink" href="#prognostic-usage" title="Link to this heading">#</a></h2>
+<section id="loading-a-pre-trained-prognostic">
+<h3>Loading a Pre-trained Prognostic<a class="headerlink" href="#loading-a-pre-trained-prognostic" title="Link to this heading">#</a></h3>
+<p>The following two commands can be used to download and load a pre-trained built
+prognostic model.
+More information on how the automatic download of checkpoints can be found in the
+<a class="reference internal" href="../advanced/auto.html#automodel-userguide"><span class="std std-ref">AutoModels</span></a> section.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">earth2studio.models.px</span> <span class="kn">import</span> <span class="n">PrognosticModel</span>
+
+<span class="n">model_package</span> <span class="o">=</span> <span class="n">PrognosticModel</span><span class="o">.</span><span class="n">load_default_package</span><span class="p">()</span>
+<span class="n">model</span> <span class="o">=</span> <span class="n">PrognosticModel</span><span class="o">.</span><span class="n">load_model</span><span class="p">(</span><span class="n">model_package</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
 <section id="single-step-prediction">
 <h3>Single Step Prediction<a class="headerlink" href="#single-step-prediction" title="Link to this heading">#</a></h3>
 <p>A prognostic model can be called for single time-step using the call function.</p>
@@ -687,6 +702,7 @@ to provide the weights of the model in a downloadable location that can be fetch
     <ul class="visible nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#prognostic-interface">Prognostic Interface</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#prognostic-usage">Prognostic Usage</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#loading-a-pre-trained-prognostic">Loading a Pre-trained Prognostic</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#single-step-prediction">Single Step Prediction</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#time-series-prediction">Time-series Prediction</a></li>
 </ul>

@@ -40,7 +40,7 @@ inputs. Otherwise, the API and requirements are similar to the statistics requir
 ## Metrics Interface
 
 ```{literalinclude} ../../../earth2studio/statistics/base.py
-    :lines: 45-
+    :lines: 52-
     :language: python
 ```
 

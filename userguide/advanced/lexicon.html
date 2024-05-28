@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
     <link href="../../_static/favicon.ico" rel="icon" type="image/x-icon">
-    <title>Data Movement &#8212; Earth2Studio 0.2.0a0 documentation</title>
+    <title>Lexicon &#8212; Earth2Studio 0.2.0a0 documentation</title>
   
   
   
@@ -52,7 +52,7 @@
     <script src="../../_static/design-tabs.js?v=f930bc37"></script>
     <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
     <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
-    <script>DOCUMENTATION_OPTIONS.pagename = 'userguide/about/data';</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'userguide/advanced/lexicon';</script>
     <script>
         DOCUMENTATION_OPTIONS.theme_version = '0.15.2';
         DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'https://raw.githubusercontent.com/NVIDIA/earth2studio/gh-pages/_static/switcher.json';
@@ -61,8 +61,8 @@
         </script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
-    <link rel="next" title="Prognostic Models" href="../components/prognostic.html" />
-    <link rel="prev" title="Introduction" href="intro.html" />
+    <link rel="next" title="Overview" href="../developer/overview.html" />
+    <link rel="prev" title="AutoModels" href="auto.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   </head>
@@ -386,12 +386,12 @@ document.write(`
      aria-label="Section Navigation">
   <p class="bd-links__title" role="heading" aria-level="1">Section Navigation</p>
   <div class="bd-toc-item navbar-nav"><p aria-level="2" class="caption" role="heading"><span class="caption-text">About</span></p>
-<ul class="current nav bd-sidenav">
-<li class="toctree-l1"><a class="reference internal" href="install.html">Install</a></li>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../about/install.html">Install</a></li>
 
 
-<li class="toctree-l1"><a class="reference internal" href="intro.html">Introduction</a></li>
-<li class="toctree-l1 current active"><a class="current reference internal" href="#">Data Movement</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../about/intro.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../about/data.html">Data Movement</a></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Core Components</span></p>
 <ul class="nav bd-sidenav">
@@ -404,10 +404,10 @@ document.write(`
 
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Advanced Usage</span></p>
-<ul class="nav bd-sidenav">
-<li class="toctree-l1"><a class="reference internal" href="../advanced/batch.html">Batch Dimension</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../advanced/auto.html">AutoModels</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../advanced/lexicon.html">Lexicon</a></li>
+<ul class="current nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="batch.html">Batch Dimension</a></li>
+<li class="toctree-l1"><a class="reference internal" href="auto.html">AutoModels</a></li>
+<li class="toctree-l1 current active"><a class="current reference internal" href="#">Lexicon</a></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Developer Guide</span></p>
 <ul class="nav bd-sidenav">
@@ -459,7 +459,7 @@ document.write(`
     
     <li class="breadcrumb-item"><a href="../index.html" class="nav-link">User Guide</a></li>
     
-    <li class="breadcrumb-item active" aria-current="page">Data Movement</li>
+    <li class="breadcrumb-item active" aria-current="page">Lexicon</li>
   </ul>
 </nav>
 </div>
@@ -476,171 +476,134 @@ document.write(`
 <div id="searchbox"></div>
                 <article class="bd-article">
                   
-  <section id="data-movement">
-<span id="data-userguide"></span><h1>Data Movement<a class="headerlink" href="#data-movement" title="Link to this heading">#</a></h1>
+  <section id="lexicon">
+<span id="lexicon-userguide"></span><h1>Lexicon<a class="headerlink" href="#lexicon" title="Link to this heading">#</a></h1>
+<p>As discussed in detail in the <a class="reference internal" href="../about/data.html#data-userguide"><span class="std std-ref">Data Movement</span></a> section, Earth2Studio tracks the
+geo-physical representation of tensor data inside workflows.
+This includes the name of the variable / parameter / property the data represents, which
+is tacked explicitly via Earth2Studios lexicon.
+Similar to ECMWF’s <a class="reference external" href="https://codes.ecmwf.int/grib/param-db/">parameter database</a>,
+Earth2Studio’s lexicon aims to provide an opinioned and explicit list of short variables
+names that is used across the package found in <code class="xref py py-obj docutils literal notranslate"><span class="pre">earth2studio.lexicon.base.E2STUDIO_VOCAB</span></code>.
+Many of these names are based on ECMWF’s parameter database but not all.</p>
+<p>Below are a few examples:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">t2m</span></code>: Temperature in Kelvin at 2 meters</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">u10m</span></code>: Zonal winds at 10 meters</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">v10m</span></code>: Zonal winds at 10 meters</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">u200</span></code>: Zonal winds at 200 hPa</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">z250</span></code>: Geo-potential at 250 hPa</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">z500</span></code>: Geo-potential at 500 hPa</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">tcwv</span></code>: Total column water vapor</p></li>
+</ul>
 <div class="tip admonition">
-<p class="admonition-title">Keeping Data Transparent</p>
-<p>“Show me your code and conceal your data structures, and I shall continue to be
-mystified. Show me your data structures, and I won’t usually need your code; it’ll be
-obvious.” - <em>Fred Brooks</em></p>
+<p class="admonition-title">Altitude / Pressure Levels</p>
+<p>Note that 3D atmospheric variables are sliced to their individual pressure levels.
+This is better suited when working with various AI models that may use different
+pressure levels.
+Levels based on altitude contain an “m” at the end to distinguish height in meters.</p>
 </div>
-<p>Earth2Studio aims to keep data simple and interpretable between components.
-Given that this package interacts with geo-physical data, the common data-structure
-inside workflows is the pairing of:</p>
-<ol class="arabic simple">
-<li><p>A PyTorch tensor (<code class="docutils literal notranslate"><span class="pre">torch.Tensor</span></code>) on the inference device holding the array data of
-interest.</p></li>
-<li><p>An OrderedDict of numpy arrays (<code class="docutils literal notranslate"><span class="pre">CoordSystem</span></code>) that
-represents the geo-phyiscal coordinate system the tensor represents.</p></li>
-</ol>
-<p>For example, perturbation methods operate by using a data tensor and coordinate system
-to generate a noise tensor:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">class</span> <span class="nc">Perturbation</span><span class="p">(</span><span class="n">Protocol</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Perturbation interface.&quot;&quot;&quot;</span>
+<section id="datasource-lexicon">
+<h2>Datasource Lexicon<a class="headerlink" href="#datasource-lexicon" title="Link to this heading">#</a></h2>
+<p>A common challenge when working with different sources of weather/climate data is that
+variables used may be named / denoted in different ways.
+The Lexicon is also used to track the translation between Earth2Studios naming scheme
+and the scheme needed to parse the remote data source.
+Each remote data store has its own lexicon, which is a dictionary that has the
+Earth2Studio variable name as the keys and a string used to parse the remote data store.
+Typically, this value is a string that corresponds to the variable name inside the remote
+data store.</p>
+<p>The following snippet is part of the lexicon for the GFS dataset.
+Note that the class has a <code class="docutils literal notranslate"><span class="pre">metaclass=LexiconType</span></code> which is present in
+<code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.lexicon.base.py</span></code> used for type checking.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">class</span> <span class="nc">GFSLexicon</span><span class="p">(</span><span class="n">metaclass</span><span class="o">=</span><span class="n">LexiconType</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Global Forecast System Lexicon</span>
+<span class="sd">    GFS specified &lt;Parameter ID&gt;::&lt;Level/ Layer&gt;</span>
 
-    <span class="nd">@torch</span><span class="o">.</span><span class="n">inference_mode</span><span class="p">()</span>
-    <span class="k">def</span> <span class="fm">__call__</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span>
-        <span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
-        <span class="n">coords</span><span class="p">:</span> <span class="n">CoordSystem</span><span class="p">,</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">CoordSystem</span><span class="p">]:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Apply perturbation method to input tensor</span>
+<span class="sd">    Note</span>
+<span class="sd">    ----</span>
+<span class="sd">    Additional resources:</span>
+<span class="sd">    https://www.nco.ncep.noaa.gov/pmb/products/gfs/gfs.t00z.pgrb2.0p25.f000.shtml</span>
+<span class="sd">    &quot;&quot;&quot;</span>
 
-<span class="sd">        Parameters</span>
-<span class="sd">        ----------</span>
-<span class="sd">        x : torch.Tensor</span>
-<span class="sd">            Input tensor intended to apply perturbation on</span>
-<span class="sd">        coords : CoordSystem</span>
-<span class="sd">            Ordered dict representing coordinate system that describes the tensor</span>
-
-<span class="sd">        Returns</span>
-<span class="sd">        -------</span>
-<span class="sd">        tuple[torch.Tensor, CoordSystem]:</span>
-<span class="sd">            Ouput tensor and respective coordinate system dictionary</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">pass</span>
+    <span class="n">VOCAB</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">&quot;u10m&quot;</span><span class="p">:</span> <span class="s2">&quot;UGRD::10 m above ground&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;v10m&quot;</span><span class="p">:</span> <span class="s2">&quot;VGRD::10 m above ground&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;u100m&quot;</span><span class="p">:</span> <span class="s2">&quot;UGRD::100 m above ground&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;v100m&quot;</span><span class="p">:</span> <span class="s2">&quot;VGRD::100 m above ground&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;t2m&quot;</span><span class="p">:</span> <span class="s2">&quot;TMP::2 m above ground&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;sp&quot;</span><span class="p">:</span> <span class="s2">&quot;PRES::surface&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;msl&quot;</span><span class="p">:</span> <span class="s2">&quot;PRMSL::mean sea level&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;tcwv&quot;</span><span class="p">:</span> <span class="s2">&quot;PWAT::entire atmosphere (considered as a single layer)&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;u50&quot;</span><span class="p">:</span> <span class="s2">&quot;UGRD::50 mb&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;u100&quot;</span><span class="p">:</span> <span class="s2">&quot;UGRD::100 mb&quot;</span><span class="p">,</span>
 </pre></div>
 </div>
-<p>In later sections, users will find that most components have APIs that either generate
-or interact with these two data structures.
-The combonation of both the data tensor and respective coordinate system provides
-complete information one needs to interpret any stage of a workflow.</p>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>Data is <strong>always</strong> moved between components using unnormalized physical units.</p>
-</div>
-<section id="coordinate-systems">
-<span id="coordinates-userguide"></span><h2>Coordinate Systems<a class="headerlink" href="#coordinate-systems" title="Link to this heading">#</a></h2>
-<p>As previously discussed, coordinate dictionaries are a critical part of Earth-2
-Inference Studio’s data movement.
-We wanted the coordinate object to be a fairly primative data object that allows users
-to interact with the data outside the project and keep things transparent in workflows.
-Inside the package these are typed as <code class="docutils literal notranslate"><span class="pre">CoordSystem</span></code> which is defined as the following:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">CoordSystem</span> <span class="o">=</span> <span class="n">NewType</span><span class="p">(</span><span class="s2">&quot;CoordSystem&quot;</span><span class="p">,</span> <span class="n">OrderedDict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">])</span>
-</pre></div>
-</div>
-<p>The dictionary is ordered since the keys correspond the the dimensions of the associated
-data tensor.
-Let’s consider a simple example of a 2D lat-lon grid:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">x</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">181</span><span class="p">,</span> <span class="mi">360</span><span class="p">)</span>
+<p>How the value of each variable is left up the the data source.
+The present pattern is to split by the string based on the separator <code class="docutils literal notranslate"><span class="pre">::</span></code>, and then used
+to access the required data.
+For example, the variable <code class="docutils literal notranslate"><span class="pre">u100</span></code>, zonal winds at 100 hPa, the value <code class="docutils literal notranslate"><span class="pre">UGRD::100</span> <span class="pre">mb</span></code> is
+split into <code class="docutils literal notranslate"><span class="pre">UGRD</span></code> and <code class="docutils literal notranslate"><span class="pre">100</span> <span class="pre">mb</span></code> which are then used with the remote Grib index file to
+fetch the correct data.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span>            <span class="k">try</span><span class="p">:</span>
+                <span class="n">gfs_name</span><span class="p">,</span> <span class="n">modifier</span> <span class="o">=</span> <span class="n">GFSLexicon</span><span class="p">[</span><span class="n">variable</span><span class="p">]</span>
+            <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;variable id </span><span class="si">{</span><span class="n">variable</span><span class="si">}</span><span class="s2"> not found in GFS lexicon, good luck&quot;</span>
+                <span class="p">)</span>
+                <span class="n">gfs_name</span> <span class="o">=</span> <span class="n">variable</span>
 
-<span class="n">coords</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">({</span>
-    <span class="s2">&quot;lat&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="o">-</span><span class="mi">90</span><span class="p">,</span> <span class="mi">90</span><span class="p">,</span> <span class="mi">181</span><span class="p">),</span>
-    <span class="s2">&quot;lon&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">360</span><span class="p">,</span> <span class="mi">360</span><span class="p">,</span> <span class="n">endpoint</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
-<span class="p">})</span>
+                <span class="k">def</span> <span class="nf">modifier</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">:</span>
+<span class="w">                    </span><span class="sd">&quot;&quot;&quot;Modify data (if necessary).&quot;&quot;&quot;</span>
+                    <span class="k">return</span> <span class="n">x</span>
+
+            <span class="k">if</span> <span class="n">gfs_name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">index_file</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">KeyError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Could not find variable </span><span class="si">{</span><span class="n">gfs_name</span><span class="si">}</span><span class="s2"> in index file&quot;</span><span class="p">)</span>
+
+            <span class="n">byte_offset</span> <span class="o">=</span> <span class="n">index_file</span><span class="p">[</span><span class="n">gfs_name</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">byte_length</span> <span class="o">=</span> <span class="n">index_file</span><span class="p">[</span><span class="n">gfs_name</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span>
+            <span class="c1"># Download the grib file to cache</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Fetching GFS grib file for variable: </span><span class="si">{</span><span class="n">variable</span><span class="si">}</span><span class="s2"> at </span><span class="si">{</span><span class="n">time</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">grib_file</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_download_s3_grib_cached</span><span class="p">(</span>
+                <span class="n">grib_file_name</span><span class="p">,</span> <span class="n">byte_offset</span><span class="o">=</span><span class="n">byte_offset</span><span class="p">,</span> <span class="n">byte_length</span><span class="o">=</span><span class="n">byte_length</span>
+            <span class="p">)</span>
+            <span class="c1"># Open into xarray data-array</span>
+            <span class="n">da</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">open_dataarray</span><span class="p">(</span>
+                <span class="n">grib_file</span><span class="p">,</span> <span class="n">engine</span><span class="o">=</span><span class="s2">&quot;cfgrib&quot;</span><span class="p">,</span> <span class="n">backend_kwargs</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;indexpath&quot;</span><span class="p">:</span> <span class="s2">&quot;&quot;</span><span class="p">}</span>
+            <span class="p">)</span>
+            <span class="n">gfsda</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">modifier</span><span class="p">(</span><span class="n">da</span><span class="o">.</span><span class="n">values</span><span class="p">)</span>
 </pre></div>
 </div>
-<p>Much of Earth2Studio typically operates on a lat-lon grid but it’s not
-required to.</p>
-<section id="standard-coordinate-names">
-<h3>Standard Coordinate Names<a class="headerlink" href="#standard-coordinate-names" title="Link to this heading">#</a></h3>
-<p>Earth2Studio has a dimension naming standard for its built in feature set.
-We encourage users to follow similar naming schemes for compatability between Earth-2
-Inference Studio when possible and the packages we interface with.</p>
-<table class="table">
-<colgroup>
-<col style="width: 18.8%" />
-<col style="width: 50.0%" />
-<col style="width: 31.2%" />
-</colgroup>
-<thead>
-<tr class="row-odd"><th class="head"><p>Key</p></th>
-<th class="head"><p>Description</p></th>
-<th class="head"><p>Type</p></th>
-</tr>
-</thead>
-<tbody>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">batch</span></code></p></td>
-<td><p>Dimension representing the batch dimension of the data. Used to denote a “free”
-dimension, consult batching docs for more details.</p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">np.empty(0)</span></code></p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">time</span></code></p></td>
-<td><p>Time dimension, represented via numpy arrays of datetime objects.</p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">np.ndarray[np.datetime64[ns]]</span></code> (<code class="docutils literal notranslate"><span class="pre">TimeArray</span></code>)</p></td>
-</tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lead_time</span></code></p></td>
-<td><p>Lead time is used to denote a dimension that indexes over forecast steps.</p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">np.ndarray[np.timedelta64[ns]]</span></code> (<code class="docutils literal notranslate"><span class="pre">LeadTimeArray</span></code>)</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">variable</span></code></p></td>
-<td><p>Dimension representing physical variable (atmospheric, surface, etc). Earth-2
-Inference Studio has its own naming convention. See lexicon docs more more details.</p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">np.ndarray[str]</span></code> (<code class="docutils literal notranslate"><span class="pre">VariableArray</span></code>)</p></td>
-</tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lat</span></code></p></td>
-<td><p>Lattitude coordinate array</p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">np.ndarray[float]</span></code></p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lat</span></code></p></td>
-<td><p>Longitude coordinate array</p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">np.ndarray[float]</span></code></p></td>
-</tr>
-</tbody>
-</table>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p><code class="docutils literal notranslate"><span class="pre">np.empty(0)</span></code> is used to denote variable axis in the coordinate system. Namely a
-dimension in the tensor that can be of any size, greater than 0. Typically this is the
-<code class="docutils literal notranslate"><span class="pre">batch</span></code> dimension.</p>
+<p>It is a common pattern for data source lexicons to contain a modifier function that is
+used to apply adjustments to align data more uniformly with the package.
+A good example of this is the GFS dataset which uses the modifier function to transform
+the GFS supplied the geo-potential height to geo-potential to better align with other
+sources inside Earth2Studio.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">get_item</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">val</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Callable</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get item from GFS vocabulary.&quot;&quot;&quot;</span>
+        <span class="n">gfs_key</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">VOCAB</span><span class="p">[</span><span class="n">val</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">gfs_key</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;::&quot;</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;HGT&quot;</span><span class="p">:</span>
+
+            <span class="k">def</span> <span class="nf">mod</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">:</span>
+<span class="w">                </span><span class="sd">&quot;&quot;&quot;Modify data value (if necessary).&quot;&quot;&quot;</span>
+                <span class="k">return</span> <span class="n">x</span> <span class="o">*</span> <span class="mf">9.81</span>
+
+        <span class="k">else</span><span class="p">:</span>
+
+            <span class="k">def</span> <span class="nf">mod</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">:</span>
+<span class="w">                </span><span class="sd">&quot;&quot;&quot;Modify data value (if necessary).&quot;&quot;&quot;</span>
+                <span class="k">return</span> <span class="n">x</span>
+
+        <span class="k">return</span> <span class="n">gfs_key</span><span class="p">,</span> <span class="n">mod</span>
+
+</pre></div>
 </div>
-</section>
-<section id="coordinate-utilities">
-<h3>Coordinate Utilities<a class="headerlink" href="#coordinate-utilities" title="Link to this heading">#</a></h3>
-<p>The downside of using a dictionary to store coordinates is that manipulating the data
-tensor and then updating the coordinate array is not a manual process.
-To help make this process less tedious, Earth2Studio has several utility
-functions that make interacting with coordinates easier.
-The bulk of these can be found in the <a class="reference internal" href="../../modules/utils.html#earth2studio-utils-api"><span class="std std-ref">Earth2Studio Utilities</span></a>.</p>
 <div class="admonition warning">
 <p class="admonition-title">Warning</p>
-<p>🚧 Under construction, todo: add some example here! 🚧</p>
-</div>
-</section>
-</section>
-<section id="inference-on-the-gpu">
-<h2>Inference on the GPU<a class="headerlink" href="#inference-on-the-gpu" title="Link to this heading">#</a></h2>
-<p>It is beneficial to leverage the GPU for as many processes as possible.
-Earth2Studio aims to get data from the data source and immediately convert
-it into the tensor, coord data struction on the device.
-From there, the data is kept on the GPU until the very last moment when writes are
-needed to in-memory or to file.</p>
-<figure class="align-center">
-<a class="reference internal image-reference" href="https://huggingface.co/datasets/NickGeneva/Earth2StudioAssets/raw/main/0.2.0/e2studio-data.png"><img alt="earth2studio-data" src="https://huggingface.co/datasets/NickGeneva/Earth2StudioAssets/raw/main/0.2.0/e2studio-data.png" style="width: 600px;" />
-</a>
-</figure>
-<p>In the figure above, that the data is first pulled from the data source as an Xarray
-data array which is then then converted to a tensor.
-The data remain on the device, denoted by the GPU boundary, until it needs to be written
-by the IO component.</p>
-<div class="tip admonition">
-<p class="admonition-title">Data Sources and Xarray</p>
-<p>This may raise the question: Why do datasources not output directly to tensor and
-coordinate dictionaries?
-This is an opinionated decision due to the fact that these data sources need to store
-data on the CPU regardless and can be extremely useful outside of the context of this package.
-Thus they return Xarray data arrays which are is nothing more than a fancy data array
-with a coordinate system attached to it!</p>
+<p>The lexicon does not necessarily contain every variable inside the remote data store.
+Rather it explicitly lists what is available inside Earth2Studio. See some variable
+missing you would like to add? Open an issue!</p>
 </div>
 </section>
 </section>
@@ -656,20 +619,20 @@ with a coordinate system attached to it!</p>
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="intro.html"
+       href="auto.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">Introduction</p>
+        <p class="prev-next-title">AutoModels</p>
       </div>
     </a>
     <a class="right-next"
-       href="../components/prognostic.html"
+       href="../developer/overview.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">Prognostic Models</p>
+        <p class="prev-next-title">Overview</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
@@ -691,19 +654,14 @@ with a coordinate system attached to it!</p>
   </div>
   <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="visible nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#coordinate-systems">Coordinate Systems</a><ul class="nav section-nav flex-column">
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#standard-coordinate-names">Standard Coordinate Names</a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#coordinate-utilities">Coordinate Utilities</a></li>
-</ul>
-</li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#inference-on-the-gpu">Inference on the GPU</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#datasource-lexicon">Datasource Lexicon</a></li>
 </ul>
   </nav></div>
 
   <div class="sidebar-secondary-item">
 
   <div class="tocsection sourcelink">
-    <a href="../../_sources/userguide/about/data.md.txt">
+    <a href="../../_sources/userguide/advanced/lexicon.md.txt">
       <i class="fa-solid fa-file-lines"></i> Show Source
     </a>
   </div>

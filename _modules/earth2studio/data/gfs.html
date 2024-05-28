@@ -609,6 +609,7 @@ document.write(`
             <span class="p">)</span>
         <span class="p">):</span>
             <span class="c1"># Convert from Earth2Studio variable ID to GFS id and modifier</span>
+            <span class="c1"># sphinx - lexicon start</span>
             <span class="k">try</span><span class="p">:</span>
                 <span class="n">gfs_name</span><span class="p">,</span> <span class="n">modifier</span> <span class="o">=</span> <span class="n">GFSLexicon</span><span class="p">[</span><span class="n">variable</span><span class="p">]</span>
             <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
@@ -636,6 +637,7 @@ document.write(`
                 <span class="n">grib_file</span><span class="p">,</span> <span class="n">engine</span><span class="o">=</span><span class="s2">&quot;cfgrib&quot;</span><span class="p">,</span> <span class="n">backend_kwargs</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;indexpath&quot;</span><span class="p">:</span> <span class="s2">&quot;&quot;</span><span class="p">}</span>
             <span class="p">)</span>
             <span class="n">gfsda</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">modifier</span><span class="p">(</span><span class="n">da</span><span class="o">.</span><span class="n">values</span><span class="p">)</span>
+            <span class="c1"># sphinx - lexicon end</span>
 
         <span class="k">return</span> <span class="n">gfsda</span>
 

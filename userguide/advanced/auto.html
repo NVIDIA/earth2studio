@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
     <link href="../../_static/favicon.ico" rel="icon" type="image/x-icon">
-    <title>Data Movement &#8212; Earth2Studio 0.2.0a0 documentation</title>
+    <title>AutoModels &#8212; Earth2Studio 0.2.0a0 documentation</title>
   
   
   
@@ -52,7 +52,7 @@
     <script src="../../_static/design-tabs.js?v=f930bc37"></script>
     <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
     <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
-    <script>DOCUMENTATION_OPTIONS.pagename = 'userguide/about/data';</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'userguide/advanced/auto';</script>
     <script>
         DOCUMENTATION_OPTIONS.theme_version = '0.15.2';
         DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'https://raw.githubusercontent.com/NVIDIA/earth2studio/gh-pages/_static/switcher.json';
@@ -61,8 +61,8 @@
         </script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
-    <link rel="next" title="Prognostic Models" href="../components/prognostic.html" />
-    <link rel="prev" title="Introduction" href="intro.html" />
+    <link rel="next" title="Lexicon" href="lexicon.html" />
+    <link rel="prev" title="Batch Dimension" href="batch.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   </head>
@@ -386,12 +386,12 @@ document.write(`
      aria-label="Section Navigation">
   <p class="bd-links__title" role="heading" aria-level="1">Section Navigation</p>
   <div class="bd-toc-item navbar-nav"><p aria-level="2" class="caption" role="heading"><span class="caption-text">About</span></p>
-<ul class="current nav bd-sidenav">
-<li class="toctree-l1"><a class="reference internal" href="install.html">Install</a></li>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../about/install.html">Install</a></li>
 
 
-<li class="toctree-l1"><a class="reference internal" href="intro.html">Introduction</a></li>
-<li class="toctree-l1 current active"><a class="current reference internal" href="#">Data Movement</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../about/intro.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../about/data.html">Data Movement</a></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Core Components</span></p>
 <ul class="nav bd-sidenav">
@@ -404,10 +404,10 @@ document.write(`
 
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Advanced Usage</span></p>
-<ul class="nav bd-sidenav">
-<li class="toctree-l1"><a class="reference internal" href="../advanced/batch.html">Batch Dimension</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../advanced/auto.html">AutoModels</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../advanced/lexicon.html">Lexicon</a></li>
+<ul class="current nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="batch.html">Batch Dimension</a></li>
+<li class="toctree-l1 current active"><a class="current reference internal" href="#">AutoModels</a></li>
+<li class="toctree-l1"><a class="reference internal" href="lexicon.html">Lexicon</a></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Developer Guide</span></p>
 <ul class="nav bd-sidenav">
@@ -459,7 +459,7 @@ document.write(`
     
     <li class="breadcrumb-item"><a href="../index.html" class="nav-link">User Guide</a></li>
     
-    <li class="breadcrumb-item active" aria-current="page">Data Movement</li>
+    <li class="breadcrumb-item active" aria-current="page">AutoModels</li>
   </ul>
 </nav>
 </div>
@@ -476,171 +476,136 @@ document.write(`
 <div id="searchbox"></div>
                 <article class="bd-article">
                   
-  <section id="data-movement">
-<span id="data-userguide"></span><h1>Data Movement<a class="headerlink" href="#data-movement" title="Link to this heading">#</a></h1>
-<div class="tip admonition">
-<p class="admonition-title">Keeping Data Transparent</p>
-<p>“Show me your code and conceal your data structures, and I shall continue to be
-mystified. Show me your data structures, and I won’t usually need your code; it’ll be
-obvious.” - <em>Fred Brooks</em></p>
-</div>
-<p>Earth2Studio aims to keep data simple and interpretable between components.
-Given that this package interacts with geo-physical data, the common data-structure
-inside workflows is the pairing of:</p>
-<ol class="arabic simple">
-<li><p>A PyTorch tensor (<code class="docutils literal notranslate"><span class="pre">torch.Tensor</span></code>) on the inference device holding the array data of
-interest.</p></li>
-<li><p>An OrderedDict of numpy arrays (<code class="docutils literal notranslate"><span class="pre">CoordSystem</span></code>) that
-represents the geo-phyiscal coordinate system the tensor represents.</p></li>
-</ol>
-<p>For example, perturbation methods operate by using a data tensor and coordinate system
-to generate a noise tensor:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">class</span> <span class="nc">Perturbation</span><span class="p">(</span><span class="n">Protocol</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Perturbation interface.&quot;&quot;&quot;</span>
+  <section id="automodels">
+<span id="automodel-userguide"></span><h1>AutoModels<a class="headerlink" href="#automodels" title="Link to this heading">#</a></h1>
+<p>Earth2Studio offers a selection of pre-trained model checkpoints.
+The fetching and caching of the model’s checkpoint files is the responsibility of the
+<code class="xref py py-class docutils literal notranslate"><span class="pre">earth2studio.models.auto.AutoModelMixin</span></code> and
+<a class="reference internal" href="../../modules/generated/models/earth2studio.models.auto.Package.html#earth2studio.models.auto.Package" title="earth2studio.models.auto.Package"><code class="xref py py-class docutils literal notranslate"><span class="pre">earth2studio.models.auto.Package</span></code></a> classes.
+Understanding how these classes work can help users customize where model checkpoints
+are stored as well as how to add their own pre-trained model to the package.</p>
+<p>Model weights for Earth2Studio can be stored in a variety of locations that make them
+publicly accessible to users.
+When contributing a model, reach out with an issue to discuss the storage of such files.
+Providing all checkpoint files is a <em>requirement</em> for any pre-trained model.
+The following are the suggested locations in order of preference:</p>
+<ul class="simple">
+<li><p><em>NGC Model Registry</em> - If a model is supported/developed by Nvidia Modulus team, the
+checkpoint can be uploaded on the <a class="reference external" href="https://catalog.ngc.nvidia.com/models">NGC model registry</a>.
+This is the preferred location for Nvidia supported models that have gone under a more
+rigorous internal evaluation.</p></li>
+<li><p><em>Huggingface Model Registry</em> - Huggingface offers
+<a class="reference external" href="https://huggingface.co/models">model registries</a> that any user can upload and share
+checkpoint files with.
+This is the method used for model files of several models that are not developed /
+trained by Nvidia.</p></li>
+<li><p><em>S3 Object Storage</em> - Providing model checkpoints with a S3 bucket is also another
+viable object assuming the egress cost for downloads are covered by the owner.</p></li>
+</ul>
+<section id="automodelmixin">
+<h2>AutoModelMixin<a class="headerlink" href="#automodelmixin" title="Link to this heading">#</a></h2>
+<p>The <code class="xref py py-class docutils literal notranslate"><span class="pre">earth2studio.models.auto.AutoModelMixin</span></code> class provides the interface
+that pre-trained models in Earth2Studio use.
+Any automodel in Earth2Studio needs to implement both the
+<code class="xref py py-func docutils literal notranslate"><span class="pre">load_default_package()</span></code> and <code class="xref py py-func docutils literal notranslate"><span class="pre">load_model()</span></code> functions.</p>
+<dl class="py class">
+<dt class="sig sig-object py">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">earth2studio.models.auto.</span></span><span class="sig-name descname"><span class="pre">AutoModelMixin</span></span><a class="reference internal" href="../../_modules/earth2studio/models/auto.html#AutoModelMixin"><span class="viewcode-link"><span class="pre">[source]</span></span></a></dt>
+<dd><p>Abstract class that defines the utils needed auto loading / instantiating models</p>
+<dl class="py method">
+<dt class="sig sig-object py">
+<em class="property"><span class="pre">classmethod</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">load_default_package</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/earth2studio/models/auto.html#AutoModelMixin.load_default_package"><span class="viewcode-link"><span class="pre">[source]</span></span></a></dt>
+<dd><p>Loads the default model package</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Model package, file system, object</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference internal" href="../../modules/generated/models/earth2studio.models.auto.Package.html#earth2studio.models.auto.Package" title="earth2studio.models.auto.Package">Package</a></p>
+</dd>
+</dl>
+</dd></dl>
 
-    <span class="nd">@torch</span><span class="o">.</span><span class="n">inference_mode</span><span class="p">()</span>
-    <span class="k">def</span> <span class="fm">__call__</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span>
-        <span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
-        <span class="n">coords</span><span class="p">:</span> <span class="n">CoordSystem</span><span class="p">,</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">CoordSystem</span><span class="p">]:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Apply perturbation method to input tensor</span>
+<dl class="py method">
+<dt class="sig sig-object py">
+<em class="property"><span class="pre">classmethod</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">load_model</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">package</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/earth2studio/models/auto.html#AutoModelMixin.load_model"><span class="viewcode-link"><span class="pre">[source]</span></span></a></dt>
+<dd><p>Instantiates and loads default model object from provided model package</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>package</strong> (<a class="reference internal" href="../../modules/generated/models/earth2studio.models.auto.Package.html#earth2studio.models.auto.Package" title="earth2studio.models.auto.Package"><em>Package</em></a>) – Model package, file system, to fetch assets</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><em>Any</em></p>
+</dd>
+</dl>
+</dd></dl>
 
-<span class="sd">        Parameters</span>
-<span class="sd">        ----------</span>
-<span class="sd">        x : torch.Tensor</span>
-<span class="sd">            Input tensor intended to apply perturbation on</span>
-<span class="sd">        coords : CoordSystem</span>
-<span class="sd">            Ordered dict representing coordinate system that describes the tensor</span>
+</dd></dl>
 
-<span class="sd">        Returns</span>
-<span class="sd">        -------</span>
-<span class="sd">        tuple[torch.Tensor, CoordSystem]:</span>
-<span class="sd">            Ouput tensor and respective coordinate system dictionary</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">pass</span>
+<p><code class="xref py py-func docutils literal notranslate"><span class="pre">load_default_package()</span></code> is typically simple to implement, typically a single
+line of code that creates the <a class="reference internal" href="../../modules/generated/models/earth2studio.models.auto.Package.html#earth2studio.models.auto.Package" title="earth2studio.models.auto.Package"><code class="xref py py-obj docutils literal notranslate"><span class="pre">earth2studio.models.auto.Package</span></code></a> object.
+<code class="xref py py-func docutils literal notranslate"><span class="pre">load_model()</span></code> does the heavy lifting, instantiating the model and loading the
+pre-trained weights.
+All pre-trained models in Earth2Studio implement these methods.
+For example, have a look at the FourCastNet implementations:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">load_default_package</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Package</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Load prognostic package&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">Package</span><span class="p">(</span><span class="s2">&quot;ngc://models/nvidia/modulus/modulus_fcn@v0.2&quot;</span><span class="p">)</span>
 </pre></div>
 </div>
-<p>In later sections, users will find that most components have APIs that either generate
-or interact with these two data structures.
-The combonation of both the data tensor and respective coordinate system provides
-complete information one needs to interpret any stage of a workflow.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">load_model</span><span class="p">(</span>
+        <span class="bp">cls</span><span class="p">,</span>
+        <span class="n">package</span><span class="p">:</span> <span class="n">Package</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">PrognosticModel</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Load prognostic from package&quot;&quot;&quot;</span>
+        <span class="c1"># Ghetto at the moment because NGC files are zipped. This will download zip and</span>
+        <span class="c1"># unpack them then give the cached folder location from which we can then</span>
+        <span class="c1"># access the needed files.</span>
+        <span class="n">cached_path</span> <span class="o">=</span> <span class="n">package</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;fcn.zip&quot;</span><span class="p">)</span>
+        <span class="n">model</span> <span class="o">=</span> <span class="n">AFNO</span><span class="o">.</span><span class="n">from_checkpoint</span><span class="p">(</span><span class="n">cached_path</span> <span class="o">+</span> <span class="s2">&quot;/fcn/fcn.mdlus&quot;</span><span class="p">)</span>
+        <span class="n">model</span><span class="o">.</span><span class="n">eval</span><span class="p">()</span>
+
+        <span class="n">local_center</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">cached_path</span> <span class="o">+</span> <span class="s2">&quot;/fcn/global_means.npy&quot;</span><span class="p">))</span>
+        <span class="n">local_std</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">cached_path</span> <span class="o">+</span> <span class="s2">&quot;/fcn/global_stds.npy&quot;</span><span class="p">))</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">center</span><span class="o">=</span><span class="n">local_center</span><span class="p">,</span> <span class="n">scale</span><span class="o">=</span><span class="n">local_std</span><span class="p">)</span>
+</pre></div>
+</div>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>Data is <strong>always</strong> moved between components using unnormalized physical units.</p>
+<p>The <code class="xref py py-func docutils literal notranslate"><span class="pre">load_default_package()</span></code> doesn’t perform any downloading.
+Rather, it creates a pointer to the directory the checkpoint files exist in, offering a
+primitive abstract filesystem.
+<code class="xref py py-func docutils literal notranslate"><span class="pre">load_model()</span></code> triggers the download of any files when the path is accessed using
+<code class="docutils literal notranslate"><span class="pre">package.get(&quot;local/dir/to/file&quot;)</span></code>.</p>
 </div>
-<section id="coordinate-systems">
-<span id="coordinates-userguide"></span><h2>Coordinate Systems<a class="headerlink" href="#coordinate-systems" title="Link to this heading">#</a></h2>
-<p>As previously discussed, coordinate dictionaries are a critical part of Earth-2
-Inference Studio’s data movement.
-We wanted the coordinate object to be a fairly primative data object that allows users
-to interact with the data outside the project and keep things transparent in workflows.
-Inside the package these are typed as <code class="docutils literal notranslate"><span class="pre">CoordSystem</span></code> which is defined as the following:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">CoordSystem</span> <span class="o">=</span> <span class="n">NewType</span><span class="p">(</span><span class="s2">&quot;CoordSystem&quot;</span><span class="p">,</span> <span class="n">OrderedDict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">])</span>
-</pre></div>
-</div>
-<p>The dictionary is ordered since the keys correspond the the dimensions of the associated
-data tensor.
-Let’s consider a simple example of a 2D lat-lon grid:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">x</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">181</span><span class="p">,</span> <span class="mi">360</span><span class="p">)</span>
+</section>
+<section id="package">
+<h2>Package<a class="headerlink" href="#package" title="Link to this heading">#</a></h2>
+<p>The <a class="reference internal" href="../../modules/generated/models/earth2studio.models.auto.Package.html#earth2studio.models.auto.Package" title="earth2studio.models.auto.Package"><code class="xref py py-class docutils literal notranslate"><span class="pre">earth2studio.models.auto.Package</span></code></a> class is an abstract representation of
+a remote storage location.
+This class abstracts away the download and caching of files.
+Given that a supported remote store type is used, the use of the package class is as
+follows:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">earth2studio.models.auto</span> <span class="kn">import</span> <span class="n">Package</span>
 
-<span class="n">coords</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">({</span>
-    <span class="s2">&quot;lat&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="o">-</span><span class="mi">90</span><span class="p">,</span> <span class="mi">90</span><span class="p">,</span> <span class="mi">181</span><span class="p">),</span>
-    <span class="s2">&quot;lon&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">360</span><span class="p">,</span> <span class="mi">360</span><span class="p">,</span> <span class="n">endpoint</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
-<span class="p">})</span>
+<span class="c1"># Instantiate package by pointing it to a remote folder</span>
+<span class="n">package</span> <span class="o">=</span> <span class="n">Package</span><span class="p">(</span><span class="s2">&quot;ngc://models/nvidia/modulus/modulus_fcn@v0.2&quot;</span><span class="p">)</span>
+
+<span class="c1"># Fetch a file from the remote store using the get method</span>
+<span class="n">cached_path_to_file</span> <span class="o">=</span> <span class="n">package</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;fcn.zip&quot;</span><span class="p">)</span>
 </pre></div>
 </div>
-<p>Much of Earth2Studio typically operates on a lat-lon grid but it’s not
-required to.</p>
-<section id="standard-coordinate-names">
-<h3>Standard Coordinate Names<a class="headerlink" href="#standard-coordinate-names" title="Link to this heading">#</a></h3>
-<p>Earth2Studio has a dimension naming standard for its built in feature set.
-We encourage users to follow similar naming schemes for compatability between Earth-2
-Inference Studio when possible and the packages we interface with.</p>
-<table class="table">
-<colgroup>
-<col style="width: 18.8%" />
-<col style="width: 50.0%" />
-<col style="width: 31.2%" />
-</colgroup>
-<thead>
-<tr class="row-odd"><th class="head"><p>Key</p></th>
-<th class="head"><p>Description</p></th>
-<th class="head"><p>Type</p></th>
-</tr>
-</thead>
-<tbody>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">batch</span></code></p></td>
-<td><p>Dimension representing the batch dimension of the data. Used to denote a “free”
-dimension, consult batching docs for more details.</p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">np.empty(0)</span></code></p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">time</span></code></p></td>
-<td><p>Time dimension, represented via numpy arrays of datetime objects.</p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">np.ndarray[np.datetime64[ns]]</span></code> (<code class="docutils literal notranslate"><span class="pre">TimeArray</span></code>)</p></td>
-</tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lead_time</span></code></p></td>
-<td><p>Lead time is used to denote a dimension that indexes over forecast steps.</p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">np.ndarray[np.timedelta64[ns]]</span></code> (<code class="docutils literal notranslate"><span class="pre">LeadTimeArray</span></code>)</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">variable</span></code></p></td>
-<td><p>Dimension representing physical variable (atmospheric, surface, etc). Earth-2
-Inference Studio has its own naming convention. See lexicon docs more more details.</p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">np.ndarray[str]</span></code> (<code class="docutils literal notranslate"><span class="pre">VariableArray</span></code>)</p></td>
-</tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lat</span></code></p></td>
-<td><p>Lattitude coordinate array</p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">np.ndarray[float]</span></code></p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lat</span></code></p></td>
-<td><p>Longitude coordinate array</p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">np.ndarray[float]</span></code></p></td>
-</tr>
-</tbody>
-</table>
+<p>The cached path is a directory on the local file system which can be configured via
+environment variables.
+See <a class="reference internal" href="../about/install.html#configuration-userguide"><span class="std std-ref">Configuration</span></a> section for details.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p><code class="docutils literal notranslate"><span class="pre">np.empty(0)</span></code> is used to denote variable axis in the coordinate system. Namely a
-dimension in the tensor that can be of any size, greater than 0. Typically this is the
-<code class="docutils literal notranslate"><span class="pre">batch</span></code> dimension.</p>
-</div>
-</section>
-<section id="coordinate-utilities">
-<h3>Coordinate Utilities<a class="headerlink" href="#coordinate-utilities" title="Link to this heading">#</a></h3>
-<p>The downside of using a dictionary to store coordinates is that manipulating the data
-tensor and then updating the coordinate array is not a manual process.
-To help make this process less tedious, Earth2Studio has several utility
-functions that make interacting with coordinates easier.
-The bulk of these can be found in the <a class="reference internal" href="../../modules/utils.html#earth2studio-utils-api"><span class="std std-ref">Earth2Studio Utilities</span></a>.</p>
-<div class="admonition warning">
-<p class="admonition-title">Warning</p>
-<p>🚧 Under construction, todo: add some example here! 🚧</p>
-</div>
-</section>
-</section>
-<section id="inference-on-the-gpu">
-<h2>Inference on the GPU<a class="headerlink" href="#inference-on-the-gpu" title="Link to this heading">#</a></h2>
-<p>It is beneficial to leverage the GPU for as many processes as possible.
-Earth2Studio aims to get data from the data source and immediately convert
-it into the tensor, coord data struction on the device.
-From there, the data is kept on the GPU until the very last moment when writes are
-needed to in-memory or to file.</p>
-<figure class="align-center">
-<a class="reference internal image-reference" href="https://huggingface.co/datasets/NickGeneva/Earth2StudioAssets/raw/main/0.2.0/e2studio-data.png"><img alt="earth2studio-data" src="https://huggingface.co/datasets/NickGeneva/Earth2StudioAssets/raw/main/0.2.0/e2studio-data.png" style="width: 600px;" />
-</a>
-</figure>
-<p>In the figure above, that the data is first pulled from the data source as an Xarray
-data array which is then then converted to a tensor.
-The data remain on the device, denoted by the GPU boundary, until it needs to be written
-by the IO component.</p>
-<div class="tip admonition">
-<p class="admonition-title">Data Sources and Xarray</p>
-<p>This may raise the question: Why do datasources not output directly to tensor and
-coordinate dictionaries?
-This is an opinionated decision due to the fact that these data sources need to store
-data on the CPU regardless and can be extremely useful outside of the context of this package.
-Thus they return Xarray data arrays which are is nothing more than a fancy data array
-with a coordinate system attached to it!</p>
+<p>Earth2Studio file system borrows uses and is inspired by
+<a class="reference external" href="https://filesystem-spec.readthedocs.io/en/latest/">Fsspec</a>.
+We encourage users that are interested in this type of utility to learn more about
+Fsspec and the specification it defines.</p>
 </div>
 </section>
 </section>
@@ -656,20 +621,20 @@ with a coordinate system attached to it!</p>
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="intro.html"
+       href="batch.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">Introduction</p>
+        <p class="prev-next-title">Batch Dimension</p>
       </div>
     </a>
     <a class="right-next"
-       href="../components/prognostic.html"
+       href="lexicon.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">Prognostic Models</p>
+        <p class="prev-next-title">Lexicon</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
@@ -691,19 +656,15 @@ with a coordinate system attached to it!</p>
   </div>
   <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="visible nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#coordinate-systems">Coordinate Systems</a><ul class="nav section-nav flex-column">
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#standard-coordinate-names">Standard Coordinate Names</a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#coordinate-utilities">Coordinate Utilities</a></li>
-</ul>
-</li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#inference-on-the-gpu">Inference on the GPU</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#automodelmixin">AutoModelMixin</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#package">Package</a></li>
 </ul>
   </nav></div>
 
   <div class="sidebar-secondary-item">
 
   <div class="tocsection sourcelink">
-    <a href="../../_sources/userguide/about/data.md.txt">
+    <a href="../../_sources/userguide/advanced/auto.md.txt">
       <i class="fa-solid fa-file-lines"></i> Show Source
     </a>
   </div>

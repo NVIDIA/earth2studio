@@ -484,6 +484,8 @@ document.write(`
         <span class="c1"># Create cache dir if it doesn&#39;t exist</span>
         <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cache_dir</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
+<div class="viewcode-block" id="Package.get">
+<a class="viewcode-back" href="../../../modules/generated/models/earth2studio.models.auto.Package.html#earth2studio.models.auto.Package.get">[docs]</a>
     <span class="k">def</span> <span class="nf">get</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">recursive</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="n">same_names</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Get a local path to the item at ``path``</span>
 
@@ -521,16 +523,21 @@ document.write(`
         <span class="k">else</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">_download_cached</span><span class="p">(</span>
                 <span class="n">path</span><span class="p">,</span> <span class="n">recursive</span><span class="o">=</span><span class="n">recursive</span><span class="p">,</span> <span class="n">local_cache_path</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">cache_dir</span>
-            <span class="p">)</span>
+            <span class="p">)</span></div>
+
 
     <span class="k">def</span> <span class="nf">_fullpath</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
         <span class="k">return</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">root</span><span class="p">,</span> <span class="n">path</span><span class="p">)</span></div>
 
 
 
+<div class="viewcode-block" id="AutoModelMixin">
+<a class="viewcode-back" href="../../../userguide/advanced/auto.html#earth2studio.models.auto.AutoModelMixin">[docs]</a>
 <span class="k">class</span> <span class="nc">AutoModelMixin</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Abstract class that defines the utils needed auto loading / instantiating models&quot;&quot;&quot;</span>
 
+<div class="viewcode-block" id="AutoModelMixin.load_default_package">
+<a class="viewcode-back" href="../../../userguide/advanced/auto.html#earth2studio.models.auto.AutoModelMixin.load_default_package">[docs]</a>
     <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">load_default_package</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Package</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Loads the default model package</span>
@@ -540,8 +547,11 @@ document.write(`
 <span class="sd">        Package</span>
 <span class="sd">            Model package, file system, object</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;No default package supported&quot;</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;No default package supported&quot;</span><span class="p">)</span></div>
 
+
+<div class="viewcode-block" id="AutoModelMixin.load_model">
+<a class="viewcode-back" href="../../../userguide/advanced/auto.html#earth2studio.models.auto.AutoModelMixin.load_model">[docs]</a>
     <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">load_model</span><span class="p">(</span>
         <span class="bp">cls</span><span class="p">,</span>
@@ -554,7 +564,8 @@ document.write(`
 <span class="sd">        package: Package</span>
 <span class="sd">            Model package, file system, to fetch assets</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;Load model function not implemented&quot;</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;Load model function not implemented&quot;</span><span class="p">)</span></div>
+
 
     <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">from_pretrained</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">pretrained_model_name_or_path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
@@ -581,7 +592,8 @@ document.write(`
         <span class="k">else</span><span class="p">:</span>
             <span class="n">package</span> <span class="o">=</span> <span class="n">Package</span><span class="p">(</span><span class="n">pretrained_model_name_or_path</span><span class="p">)</span>
 
-        <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">load_model</span><span class="p">(</span><span class="n">package</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">load_model</span><span class="p">(</span><span class="n">package</span><span class="p">)</span></div>
+
 </pre></div>
 
                 </article>

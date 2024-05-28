@@ -406,6 +406,8 @@ document.write(`
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Advanced Usage</span></p>
 <ul class="nav bd-sidenav">
 <li class="toctree-l1"><a class="reference internal" href="../advanced/batch.html">Batch Dimension</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../advanced/auto.html">AutoModels</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../advanced/lexicon.html">Lexicon</a></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Developer Guide</span></p>
 <ul class="nav bd-sidenav">
@@ -527,47 +529,40 @@ which are usually defined over a single input, we define metrics to take a pair 
 inputs. Otherwise, the API and requirements are similar to the statistics requirements.</p>
 <section id="metrics-interface">
 <h2>Metrics Interface<a class="headerlink" href="#metrics-interface" title="Link to this heading">#</a></h2>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span>        <span class="n">coords</span> <span class="p">:</span> <span class="n">CoordSystem</span>
-            <span class="n">Ordered</span> <span class="nb">dict</span> <span class="n">representing</span> <span class="n">coordinate</span> <span class="n">system</span> <span class="n">that</span> <span class="n">describes</span> <span class="n">the</span> <span class="n">tensor</span><span class="o">.</span>
-            <span class="err">`</span><span class="n">reduction_dimensions</span><span class="err">`</span> <span class="n">must</span> <span class="n">be</span> <span class="ow">in</span> <span class="n">coords</span><span class="o">.</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        pass</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nd">@runtime_checkable</span>
+<span class="k">class</span> <span class="nc">Metric</span><span class="p">(</span><span class="n">Protocol</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Metrics interface.&quot;&quot;&quot;</span>
 
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">reduction_dimensions</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+        <span class="k">pass</span>
 
-<span class="sd">@runtime_checkable</span>
-<span class="sd">class Metric(Protocol):</span>
-<span class="sd">    &quot;&quot;&quot;</span><span class="n">Metrics</span> <span class="n">interface</span><span class="o">.</span><span class="s2">&quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="fm">__call__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+        <span class="n">x_coords</span><span class="p">:</span> <span class="n">CoordSystem</span><span class="p">,</span>
+        <span class="n">y</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+        <span class="n">y_coords</span><span class="p">:</span> <span class="n">CoordSystem</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">CoordSystem</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Apply metric to data `x` and `y`, checking that their coordinates</span>
+<span class="sd">        are broadcastable. While reducing over `reduction_dimensions`.</span>
 
-<span class="s2">    @property</span>
-<span class="s2">    def reduction_dimensions(self) -&gt; list[str]:</span>
-<span class="s2">        pass</span>
-
-<span class="s2">    def __call__(</span>
-<span class="s2">        self,</span>
-<span class="s2">        x: torch.Tensor,</span>
-<span class="s2">        x_coords: CoordSystem,</span>
-<span class="s2">        y: torch.Tensor,</span>
-<span class="s2">        y_coords: CoordSystem,</span>
-<span class="s2">    ) -&gt; tuple[torch.Tensor, CoordSystem]:</span>
-<span class="s2">        &quot;&quot;&quot;</span><span class="n">Apply</span> <span class="n">metric</span> <span class="n">to</span> <span class="n">data</span> <span class="err">`</span><span class="n">x</span><span class="err">`</span> <span class="ow">and</span> <span class="err">`</span><span class="n">y</span><span class="err">`</span><span class="p">,</span> <span class="n">checking</span> <span class="n">that</span> <span class="n">their</span> <span class="n">coordinates</span>
-        <span class="n">are</span> <span class="n">broadcastable</span><span class="o">.</span> <span class="n">While</span> <span class="n">reducing</span> <span class="n">over</span> <span class="err">`</span><span class="n">reduction_dimensions</span><span class="err">`</span><span class="o">.</span>
-
-        <span class="n">Parameters</span>
-        <span class="o">----------</span>
-        <span class="n">x</span> <span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span>
-            <span class="n">Input</span> <span class="n">tensor</span> <span class="c1">#1 intended to apply metric to. `x` is typically understood</span>
-            <span class="n">to</span> <span class="n">be</span> <span class="n">the</span> <span class="n">forecast</span> <span class="ow">or</span> <span class="n">prediction</span> <span class="n">tensor</span><span class="o">.</span>
-        <span class="n">x_coords</span> <span class="p">:</span> <span class="n">CoordSystem</span>
-            <span class="n">Ordered</span> <span class="nb">dict</span> <span class="n">representing</span> <span class="n">coordinate</span> <span class="n">system</span> <span class="n">that</span> <span class="n">describes</span> <span class="n">the</span> <span class="err">`</span><span class="n">x</span><span class="err">`</span> <span class="n">tensor</span><span class="o">.</span>
-            <span class="err">`</span><span class="n">reduction_dimensions</span><span class="err">`</span> <span class="n">must</span> <span class="n">be</span> <span class="ow">in</span> <span class="n">coords</span><span class="o">.</span>
-        <span class="n">y</span> <span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span>
-            <span class="n">Input</span> <span class="n">tensor</span> <span class="c1">#2 intended to apply statistic to. `y` is typically the observation</span>
-            <span class="ow">or</span> <span class="n">validation</span> <span class="n">tensor</span><span class="o">.</span>
-        <span class="n">y_coords</span> <span class="p">:</span> <span class="n">CoordSystem</span>
-            <span class="n">Ordered</span> <span class="nb">dict</span> <span class="n">representing</span> <span class="n">coordinate</span> <span class="n">system</span> <span class="n">that</span> <span class="n">describes</span> <span class="n">the</span> <span class="err">`</span><span class="n">y</span><span class="err">`</span> <span class="n">tensor</span><span class="o">.</span>
-            <span class="err">`</span><span class="n">reduction_dimensions</span><span class="err">`</span> <span class="n">must</span> <span class="n">be</span> <span class="ow">in</span> <span class="n">coords</span><span class="o">.</span>
-        <span class="s2">&quot;&quot;&quot;</span>
-<span class="s2">        pass</span>
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        x : torch.Tensor</span>
+<span class="sd">            Input tensor #1 intended to apply metric to. `x` is typically understood</span>
+<span class="sd">            to be the forecast or prediction tensor.</span>
+<span class="sd">        x_coords : CoordSystem</span>
+<span class="sd">            Ordered dict representing coordinate system that describes the `x` tensor.</span>
+<span class="sd">            `reduction_dimensions` must be in coords.</span>
+<span class="sd">        y : torch.Tensor</span>
+<span class="sd">            Input tensor #2 intended to apply statistic to. `y` is typically the observation</span>
+<span class="sd">            or validation tensor.</span>
+<span class="sd">        y_coords : CoordSystem</span>
+<span class="sd">            Ordered dict representing coordinate system that describes the `y` tensor.</span>
+<span class="sd">            `reduction_dimensions` must be in coords.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">pass</span>
 </pre></div>
 </div>
 </section>

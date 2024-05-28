@@ -406,6 +406,8 @@ document.write(`
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Advanced Usage</span></p>
 <ul class="nav bd-sidenav">
 <li class="toctree-l1"><a class="reference internal" href="../advanced/batch.html">Batch Dimension</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../advanced/auto.html">AutoModels</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../advanced/lexicon.html">Lexicon</a></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Developer Guide</span></p>
 <ul class="nav bd-sidenav">
@@ -570,6 +572,21 @@ additional details.</p></li>
 </section>
 <section id="diagnostic-usage">
 <h2>Diagnostic Usage<a class="headerlink" href="#diagnostic-usage" title="Link to this heading">#</a></h2>
+<section id="loading-a-pre-trained-diagnostic">
+<h3>Loading a Pre-trained Diagnostic<a class="headerlink" href="#loading-a-pre-trained-diagnostic" title="Link to this heading">#</a></h3>
+<p>The following two commands can be used to download and load a pre-trained built
+diangostic model.
+More information on how the automatic download of checkpoints can be found in the
+<a class="reference internal" href="../advanced/auto.html#automodel-userguide"><span class="std std-ref">AutoModels</span></a> section.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">earth2studio.models.dx</span> <span class="kn">import</span> <span class="n">DiagnosticModel</span>
+
+<span class="n">model_package</span> <span class="o">=</span> <span class="n">DiagnosticModel</span><span class="o">.</span><span class="n">load_default_package</span><span class="p">()</span>
+<span class="n">model</span> <span class="o">=</span> <span class="n">DiagnosticModel</span><span class="o">.</span><span class="n">load_model</span><span class="p">(</span><span class="n">model_package</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="prediction">
+<h3>Prediction<a class="headerlink" href="#prediction" title="Link to this heading">#</a></h3>
 <p>The work horse of diagnostic models is the <code class="xref py py-func docutils literal notranslate"><span class="pre">__call__()</span></code> function which takes in
 a data tensor with coordinate system and returns the primary output.</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Assume model is an instance of a DiagnosticModel</span>
@@ -578,6 +595,7 @@ a data tensor with coordinate system and returns the primary output.</p>
 <span class="n">x</span><span class="p">,</span> <span class="n">coords</span> <span class="o">=</span> <span class="n">model</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="p">)</span>  <span class="c1"># Predict a single time-step</span>
 </pre></div>
 </div>
+</section>
 </section>
 <section id="custom-diagnostic-models">
 <h2>Custom Diagnostic Models<a class="headerlink" href="#custom-diagnostic-models" title="Link to this heading">#</a></h2>
@@ -644,7 +662,11 @@ and we will get it triaged.</p>
   <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="visible nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#diagnostic-interface">Diagnostic Interface</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#diagnostic-usage">Diagnostic Usage</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#diagnostic-usage">Diagnostic Usage</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#loading-a-pre-trained-diagnostic">Loading a Pre-trained Diagnostic</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#prediction">Prediction</a></li>
+</ul>
+</li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#custom-diagnostic-models">Custom Diagnostic Models</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#contributing-a-diagnostic-models">Contributing a Diagnostic Models</a></li>
 </ul>
