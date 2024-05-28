@@ -9,6 +9,7 @@
 .. currentmodule:: {{ module }}
 
 .. autoclass:: {{ objname }}
+    :members:
 
 .. raw:: html
 

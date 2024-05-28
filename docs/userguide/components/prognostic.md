@@ -42,6 +42,20 @@ additional details.
 
 ## Prognostic Usage
 
+### Loading a Pre-trained Prognostic
+
+The following two commands can be used to download and load a pre-trained built
+prognostic model.
+More information on how the automatic download of checkpoints can be found in the
+{ref}`automodel_userguide` section.
+
+```python
+from earth2studio.models.px import PrognosticModel
+
+model_package = PrognosticModel.load_default_package()
+model = PrognosticModel.load_model(model_package)
+```
+
 ### Single Step Prediction
 
 A prognostic model can be called for single time-step using the call function.

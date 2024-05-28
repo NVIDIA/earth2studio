@@ -120,6 +120,7 @@ class GFSLexicon(metaclass=LexiconType):
         "q1000": "SPFH::1000 mb",
     }
 
+    # sphinx - modifier start
     @classmethod
     def get_item(cls, val: str) -> tuple[str, Callable]:
         """Get item from GFS vocabulary."""
@@ -137,3 +138,5 @@ class GFSLexicon(metaclass=LexiconType):
                 return x
 
         return gfs_key, mod
+
+    # sphinx - modifier end

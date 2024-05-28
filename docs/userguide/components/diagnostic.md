@@ -39,6 +39,22 @@ additional details.
 
 ## Diagnostic Usage
 
+### Loading a Pre-trained Diagnostic
+
+The following two commands can be used to download and load a pre-trained built
+diangostic model.
+More information on how the automatic download of checkpoints can be found in the
+{ref}`automodel_userguide` section.
+
+```python
+from earth2studio.models.dx import DiagnosticModel
+
+model_package = DiagnosticModel.load_default_package()
+model = DiagnosticModel.load_model(model_package)
+```
+
+### Prediction
+
 The work horse of diagnostic models is the {func}`__call__` function which takes in
 a data tensor with coordinate system and returns the primary output.
 
