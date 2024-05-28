@@ -58,7 +58,6 @@ class DiagnosticModel(Protocol):
         """
         pass
 
-    @property
     def output_coords(self, input_coords: CoordSystem | None = None) -> CoordSystem:
         """Ouput coordinate system of diagnostic model
 
