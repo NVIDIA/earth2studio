@@ -44,17 +44,25 @@ class Identity(torch.nn.Module):
         """
         return OrderedDict({"batch": np.empty(0)})
 
-    @property
-    def output_coords(self) -> CoordSystem:
-        """Ouput coordinate system of diagnostic model, time dimension should contain
-        time-delta objects
+    def output_coords(self, input_coords: CoordSystem | None = None) -> CoordSystem:
+        """Ouput coordinate system of diagnostic model
+
+        Parameters
+        ----------
+        input_coords : CoordSystem
+            Input coordinate system to transform into output_coords
+            by default None, will use self.input_coords.
 
         Returns
         -------
         CoordSystem
             Coordinate system dictionary
         """
-        return OrderedDict({"batch": np.empty(0)})
+
+        if input_coords is None:
+            return OrderedDict({"batch": np.empty(0)})
+
+        return input_coords.copy()
 
     @torch.inference_mode()
     @batch_func()
@@ -64,5 +72,4 @@ class Identity(torch.nn.Module):
         coords: CoordSystem,
     ) -> tuple[torch.Tensor, CoordSystem]:
         """Forward pass of diagnostic"""
-        output_coords = coords.copy()
-        return x, output_coords
+        return x, self.output_coords(coords)
