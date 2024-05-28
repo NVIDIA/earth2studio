@@ -25,7 +25,7 @@ from modulus.models import Module
 from modulus.utils.generative import StackedRandomGenerator, ablation_sampler
 
 from earth2studio.models.auto import AutoModelMixin, Package
-from earth2studio.models.batch import batch_func
+from earth2studio.models.batch import batch_coords, batch_func
 from earth2studio.models.dx.base import DiagnosticModel
 from earth2studio.utils import (
     handshake_coords,
@@ -144,6 +144,7 @@ class CorrDiffTaiwan(torch.nn.Module, AutoModelMixin):
             }
         )
 
+    @batch_coords()
     def output_coords(self, input_coords: CoordSystem | None = None) -> CoordSystem:
         """Ouput coordinate system of diagnostic model
 

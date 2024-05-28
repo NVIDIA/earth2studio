@@ -19,7 +19,7 @@ from collections import OrderedDict
 import numpy as np
 import torch
 
-from earth2studio.models.batch import batch_func
+from earth2studio.models.batch import batch_coords, batch_func
 from earth2studio.utils.type import CoordSystem
 
 
@@ -44,6 +44,7 @@ class Identity(torch.nn.Module):
         """
         return OrderedDict({"batch": np.empty(0)})
 
+    @batch_coords()
     def output_coords(self, input_coords: CoordSystem | None = None) -> CoordSystem:
         """Ouput coordinate system of diagnostic model
 

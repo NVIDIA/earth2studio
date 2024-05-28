@@ -20,7 +20,7 @@ import numpy as np
 import torch
 
 from earth2studio.models.auto import AutoModelMixin, Package
-from earth2studio.models.batch import batch_func
+from earth2studio.models.batch import batch_coords, batch_func
 from earth2studio.models.dx.base import DiagnosticModel
 from earth2studio.models.nn.climatenet_conv import CGNetModule
 from earth2studio.utils import (
@@ -97,6 +97,7 @@ class ClimateNet(torch.nn.Module, AutoModelMixin):
             }
         )
 
+    @batch_coords()
     def output_coords(self, input_coords: CoordSystem | None = None) -> CoordSystem:
         """Ouput coordinate system of diagnostic model
 
