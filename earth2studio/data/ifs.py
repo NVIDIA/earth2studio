@@ -20,14 +20,12 @@ import pathlib
 import shutil
 from datetime import datetime
 
-import boto3
-import botocore
 import ecmwf.opendata
 import numpy as np
 import xarray as xr
-from botocore import UNSIGNED
 from loguru import logger
 from modulus.distributed.manager import DistributedManager
+from s3fs.core import S3FileSystem
 from tqdm import tqdm
 
 from earth2studio.data.utils import prep_data_inputs
@@ -269,17 +267,10 @@ class IFS:
         except ValueError:
             return False
 
-        s3 = boto3.client(
-            "s3", config=botocore.config.Config(signature_version=UNSIGNED)
-        )
-        # Object store directory for given time
-        file_name = f"{time.year}{time.month:0>2}{time.day:0>2}/{time.hour:0>2}z/"
-        try:
-            resp = s3.list_objects_v2(
-                Bucket=cls.IFS_BUCKET_NAME, Prefix=file_name, Delimiter="/", MaxKeys=1
-            )
-        except botocore.exceptions.ClientError as e:
-            logger.error("Failed to access from IFS S3 bucket")
-            raise e
+        fs = S3FileSystem(anon=True)
 
-        return "KeyCount" in resp and resp["KeyCount"] > 0
+        file_name = f"{time.year}{time.month:0>2}{time.day:0>2}/{time.hour:0>2}z/"
+        s3_uri = f"s3://{cls.IFS_BUCKET_NAME}/{file_name}"
+        exists = fs.exists(s3_uri)
+
+        return exists
