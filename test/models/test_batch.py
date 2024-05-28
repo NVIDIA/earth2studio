@@ -23,7 +23,7 @@ import pytest
 import torch
 
 from earth2studio.data import Random, prep_data_array
-from earth2studio.models.batch import batch_func
+from earth2studio.models.batch import batch_coords, batch_func
 
 
 @pytest.fixture
@@ -38,18 +38,26 @@ def PhooModel():
                 ("x", np.ones(1)),
             ]
         )
-        output_coords = OrderedDict(
-            [
-                ("batch", np.empty(1)),
-                ("variable", np.array(["a"])),
-                ("lead_time", np.ones(1)),
-            ]
-        )
+
+        @batch_coords()
+        def output_coords(self, input_coords: OrderedDict | None = None) -> OrderedDict:
+            if input_coords is None:
+                return OrderedDict(
+                    [
+                        ("batch", np.empty(1)),
+                        ("variable", np.array(["a"])),
+                        ("lead_time", np.ones(1)),
+                    ]
+                )
+
+            output_coords = input_coords.copy()
+            output_coords["variable"] = np.array(["a"])
+            output_coords["lead_time"] += 1
+            return output_coords
 
         @batch_func()
         def __call__(self, x: torch.Tensor, coords: OrderedDict) -> tuple:
-            coords["variable"] = np.array(["a"])
-            return x[:, :1], coords
+            return x[:, :1], self.output_coords(coords)
 
         @batch_func()
         def _default_iterator(
@@ -58,7 +66,7 @@ def PhooModel():
             coords = coords.copy()
             x = x[:, :1]
             while True:
-                coords["lead_time"] += 1
+                coords = self.output_coords(coords)
                 yield x, coords
 
         def create_iterator(
