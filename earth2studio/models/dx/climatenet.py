@@ -166,8 +166,9 @@ class ClimateNet(torch.nn.Module, AutoModelMixin):
     ) -> tuple[torch.Tensor, CoordSystem]:
         """Forward pass of diagnostic"""
 
+        output_coords = self.output_coords(coords)
+
         x = (x - self.center) / self.scale
         out = torch.softmax(self.core_model(x), 1)
 
-        output_coords = self.output_coords(coords)
         return out, output_coords
