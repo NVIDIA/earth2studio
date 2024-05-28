@@ -9,7 +9,6 @@
 | aiobotocore              | 2.12.1      | Apache Software License                                 | https://github.com/aio-libs/aiobotocore                                    |
 | aiohttp                  | 3.9.3       | Apache Software License                                 | https://github.com/aio-libs/aiohttp                                        |
 | aiosignal                | 1.3.1       | Apache Software License                                 | https://github.com/aio-libs/aiosignal                                      |
-| boto3                    | 1.34.51     | Apache Software License                                 | https://github.com/boto/boto3                                              |
 | botocore                 | 1.34.51     | Apache Software License                                 | https://github.com/boto/botocore                                           |
 | cfgrib                   | 0.9.10.4    | Apache Software License                                 | https://github.com/ecmwf/cfgrib                                            |
 | dm-tree                  | 0.1.8       | Apache Software License                                 | https://github.com/deepmind/tree                                           |
