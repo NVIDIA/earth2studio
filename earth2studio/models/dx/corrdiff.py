@@ -14,7 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import copy
 from collections import OrderedDict
 from collections.abc import Callable
 from typing import Literal
@@ -145,9 +144,22 @@ class CorrDiffTaiwan(torch.nn.Module, AutoModelMixin):
             }
         )
 
-    @property
-    def output_coords(self) -> CoordSystem:
-        return OrderedDict(
+    def output_coords(self, input_coords: CoordSystem | None = None) -> CoordSystem:
+        """Ouput coordinate system of diagnostic model
+
+        Parameters
+        ----------
+        input_coords : CoordSystem
+            Input coordinate system to transform into output_coords
+            by default None, will use self.input_coords.
+
+        Returns
+        -------
+        CoordSystem
+            Coordinate system dictionary
+        """
+
+        output_coords = OrderedDict(
             {
                 "batch": np.empty(0),
                 "sample": np.arange(self.number_of_samples),
@@ -156,6 +168,18 @@ class CorrDiffTaiwan(torch.nn.Module, AutoModelMixin):
                 "ilon": np.arange(448),
             }
         )
+        if input_coords is None:
+            return output_coords
+
+        handshake_dim(input_coords, "lon", 3)
+        handshake_dim(input_coords, "lat", 2)
+        handshake_dim(input_coords, "variable", 1)
+        handshake_coords(input_coords, self.input_coords, "lon")
+        handshake_coords(input_coords, self.input_coords, "lat")
+        handshake_coords(input_coords, self.input_coords, "variable")
+
+        output_coords["batch"] = input_coords["batch"]
+        return output_coords
 
     @classmethod
     def load_default_package(cls) -> Package:
@@ -322,16 +346,7 @@ class CorrDiffTaiwan(torch.nn.Module, AutoModelMixin):
         coords: CoordSystem,
     ) -> tuple[torch.Tensor, CoordSystem]:
         """Forward pass of diagnostic"""
-        handshake_dim(coords, "lon", 3)
-        handshake_dim(coords, "lat", 2)
-        handshake_dim(coords, "variable", 1)
-        handshake_coords(coords, self.input_coords, "lon")
-        handshake_coords(coords, self.input_coords, "lat")
-        handshake_coords(coords, self.input_coords, "variable")
-
-        output_coords = copy.deepcopy(self.output_coords)
-
-        output_coords["batch"] = coords["batch"]
+        output_coords = self.output_coords(coords)
 
         out = torch.zeros(
             [len(v) for v in output_coords.values()],

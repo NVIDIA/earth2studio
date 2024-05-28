@@ -82,7 +82,7 @@ def test_corrdiff(x, device):
     out, out_coords = dx(x, coords)
 
     assert out.shape == torch.Size([x.shape[0], 1, 4, 448, 448])
-    assert all(out_coords["variable"] == dx.output_coords["variable"])
+    assert all(out_coords["variable"] == dx.output_coords(coords)["variable"])
     handshake_dim(out_coords, "ilon", 4)
     handshake_dim(out_coords, "ilat", 3)
     handshake_dim(out_coords, "variable", 2)
@@ -93,7 +93,7 @@ def test_corrdiff(x, device):
     out, out_coords = dx(x, coords)
 
     assert out.shape == torch.Size([x.shape[0], 2, 4, 448, 448])
-    assert all(out_coords["variable"] == dx.output_coords["variable"])
+    assert all(out_coords["variable"] == dx.output_coords(coords)["variable"])
     handshake_dim(out_coords, "ilon", 4)
     handshake_dim(out_coords, "ilat", 3)
     handshake_dim(out_coords, "variable", 2)
@@ -193,7 +193,7 @@ def test_corrdiff_package(device, model_cache_context):
     assert out.shape == torch.Size([x.shape[0], 1, 4, 448, 448])
 
     # Check variables
-    assert all(out_coords["variable"] == dx.output_coords["variable"])
+    assert all(out_coords["variable"] == dx.output_coords(coords)["variable"])
     handshake_dim(out_coords, "ilon", 4)
     handshake_dim(out_coords, "ilat", 3)
     handshake_dim(out_coords, "variable", 2)
@@ -205,7 +205,7 @@ def test_corrdiff_package(device, model_cache_context):
     assert out.shape == torch.Size([x.shape[0], 2, 4, 448, 448])
 
     # Check variables
-    assert all(out_coords["variable"] == dx.output_coords["variable"])
+    assert all(out_coords["variable"] == dx.output_coords(coords)["variable"])
     handshake_dim(out_coords, "ilon", 4)
     handshake_dim(out_coords, "ilat", 3)
     handshake_dim(out_coords, "variable", 2)
