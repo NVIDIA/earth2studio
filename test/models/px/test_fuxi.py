@@ -107,9 +107,9 @@ def test_fuxi_call(time, fuxi_test_package, device):
         time = [time]
 
     assert out.shape == torch.Size(
-        [len(time), 1, len(p.output_coords["variable"]), 721, 1440]
+        [len(time), 1, len(p.output_coords()["variable"]), 721, 1440]
     )
-    assert (out_coords["variable"] == p.output_coords["variable"]).all()
+    assert (out_coords["variable"] == p.output_coords(coords)["variable"]).all()
     assert (out_coords["time"] == time).all()
     assert torch.allclose(
         out, (x[:, 1:] + 1)
@@ -159,6 +159,7 @@ def test_fuxi_iter(ensemble, fuxi_test_package, device):
     assert torch.allclose(out, x[:, 1:])
 
     step_index = 0
+    old_coords = coords.copy()
     for i, (out, out_coords) in enumerate(p_iter):
         # Test the model cascade
         if i < 20:
@@ -170,7 +171,7 @@ def test_fuxi_iter(ensemble, fuxi_test_package, device):
 
         assert len(out.shape) == 6
         assert out.shape[0] == ensemble
-        assert (out_coords["variable"] == p.output_coords["variable"]).all()
+        assert (out_coords["variable"] == p.output_coords(old_coords)["variable"]).all()
         assert (out_coords["time"] == time).all()
         assert out_coords["lead_time"][0] == np.timedelta64(6 * (i + 1), "h")
         assert torch.allclose(
@@ -182,6 +183,8 @@ def test_fuxi_iter(ensemble, fuxi_test_package, device):
         handshake_dim(out_coords, "lead_time", 2)
         handshake_dim(out_coords, "time", 1)
         handshake_dim(out_coords, "ensemble", 0)
+
+        old_coords = out_coords.copy()
 
         if i > 41:  # Long test because of model cascade
             break
@@ -245,7 +248,7 @@ def test_fuxi_package(device, model_cache_context):
     assert out.shape == torch.Size(
         [len(time), 1, len(p.output_coords["variable"]), 721, 1440]
     )
-    assert (out_coords["variable"] == p.output_coords["variable"]).all()
+    assert (out_coords["variable"] == p.output_coords()["variable"]).all()
     assert (out_coords["time"] == time).all()
     handshake_dim(out_coords, "lon", 4)
     handshake_dim(out_coords, "lat", 3)
