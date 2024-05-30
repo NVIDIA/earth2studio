@@ -77,7 +77,7 @@ sfno = [
     "tensorly-torch" # makani
 ]
 all = [
-    "onnxruntime-gpu>=1.17.0",
+    "onnxruntime-gpu>=1.14.0",
     "jsbeautifier",
     "pynvml",
     "numba",
