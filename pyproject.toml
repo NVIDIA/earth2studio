@@ -57,26 +57,34 @@ Changelog = "https://github.com/NVIDIA/earth2studio/blob/main/CHANGELOG.md"
 
 [project.optional-dependencies]
 fengwu = [
-    "onnxruntime-gpu>=1.14.0",
+    "onnxruntime-gpu==1.17.1",
 ]
 fuxi = [
-    "onnxruntime-gpu>=1.14.0",
+    "onnxruntime-gpu==1.17.1",
 ]
 pangu = [
-    "onnxruntime-gpu>=1.14.0",
+    "onnxruntime-gpu==1.17.1",
 ]
 sfno = [
     # makani needs to be installed manually
     # "makani[all] @ git+https://github.com/NVIDIA/modulus-makani.git@v0.1.0",
     "jsbeautifier", # makani
-    "pynvml", # makani
     "numba", # makani
+    "pynvml", # makani
+    "ruamel.yaml", # makani
+    "torch-harmonics", # makani
+    "tensorly", # makani
+    "tensorly-torch" # makani
 ]
 all = [
     "onnxruntime-gpu>=1.14.0",
     "jsbeautifier",
     "pynvml",
     "numba",
+    "ruamel.yaml",
+    "torch-harmonics",
+    "tensorly",
+    "tensorly-torch"
 ]
 dev = [
     "pre-commit",
