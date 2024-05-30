@@ -40,7 +40,7 @@ except ImportError:
 import torch
 
 from earth2studio.models.auto import AutoModelMixin, Package
-from earth2studio.models.batch import batch_func
+from earth2studio.models.batch import batch_coords, batch_func
 from earth2studio.models.px.base import PrognosticModel
 from earth2studio.models.px.utils import PrognosticMixin
 from earth2studio.utils import handshake_coords, handshake_dim
@@ -165,17 +165,35 @@ class PanguBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         """
         return self._input_coords
 
-    @property
-    def output_coords(self) -> CoordSystem:
-        """Ouput coordinate system of prognostic model, time dimension should contain
-        time-delta objects representing time-step of the model
+    @batch_coords()
+    def output_coords(
+        self,
+        input_coords: CoordSystem | None = None,
+    ) -> CoordSystem:
+        """Ouput coordinate system of the prognostic model
+
+        Parameters
+        ----------
+        input_coords : CoordSystem
+            Input coordinate system to transform into output_coords
+            by default None, will use self.input_coords.
 
         Returns
         -------
         CoordSystem
             Coordinate system dictionary
         """
-        return self._output_coords
+        output_coords = self._output_coords.copy()
+
+        if input_coords is None:
+            return self._output_coords
+
+        output_coords["batch"] = input_coords["batch"]
+        output_coords["lead_time"] = (
+            output_coords["lead_time"] + input_coords["lead_time"]
+        )
+
+        return output_coords
 
     @classmethod
     def load_default_package(cls) -> Package:
@@ -269,11 +287,16 @@ class PanguBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         x: torch.Tensor,
         coords: CoordSystem,
         ort_session: InferenceSession,
-        lead_time: np.array,
+        lead_time: np.ndarray | None = None,
     ) -> tuple[torch.Tensor, CoordSystem]:
-        output_coords = self.output_coords.copy()
-        output_coords["batch"] = coords["batch"]
-        output_coords["lead_time"] = lead_time + coords["lead_time"]
+
+        if lead_time is not None:
+            previous_lead_time = self._output_coords["lead_time"]
+            self._output_coords["lead_time"] = lead_time
+            output_coords = self.output_coords(coords)
+            self._output_coords["lead_time"] = previous_lead_time
+        else:
+            output_coords = self.output_coords(coords)
 
         # Ref: https://onnxruntime.ai/docs/api/python/api_summary.html
         binding = ort_session.io_binding()
@@ -431,7 +454,7 @@ class Pangu24(PanguBase):
                 handshake_dim(coords, key, i)
                 handshake_coords(coords, self.input_coords, key)
 
-        return self._forward(x, coords, self.ort, self.output_coords["lead_time"])
+        return self._forward(x, coords, self.ort)
 
     @batch_func()
     def _default_generator(
@@ -451,9 +474,7 @@ class Pangu24(PanguBase):
             x, coords = self.front_hook(x, coords)
 
             # Forward is identity operator
-            x, coords = self._forward(
-                x, coords, self.ort, np.array([np.timedelta64(24, "h")])
-            )
+            x, coords = self._forward(x, coords, self.ort)
 
             # Rear hook
             x, coords = self.rear_hook(x, coords)
@@ -544,7 +565,7 @@ class Pangu6(PanguBase):
                 handshake_dim(coords, key, i)
                 handshake_coords(coords, self.input_coords, key)
 
-        return self._forward(x, coords, self.ort, self.output_coords["lead_time"])
+        return self._forward(x, coords, self.ort)
 
     @batch_func()
     def _default_generator(
@@ -563,20 +584,22 @@ class Pangu6(PanguBase):
         yield x, coords
 
         while True:
-            x0 = x.clone()
-            coords0 = coords.copy()
+            x24 = x.clone()
+            coords24 = coords.copy()
             # Three 6-hour steps
             for i in range(3):
                 x, coords = self.front_hook(x, coords)
                 x, coords = self._forward(
-                    x, coords, self.ort, np.array([np.timedelta64(6, "h")])
+                    x,
+                    coords,
+                    self.ort,
                 )
                 x, coords = self.rear_hook(x, coords)
                 yield x, coords.copy()
             # 24 hour step
-            x, coords = self.front_hook(x0, coords0)
+            x, coords = self.front_hook(x24, coords24)
             x, coords = self._forward(
-                x0, coords, ort24, np.array([np.timedelta64(24, "h")])
+                x, coords, ort24, np.array([np.timedelta64(24, "h")])
             )
             x, coords = self.rear_hook(x, coords)
             yield x, coords.copy()
@@ -671,7 +694,7 @@ class Pangu3(PanguBase):
                 handshake_dim(coords, key, i)
                 handshake_coords(coords, self.input_coords, key)
 
-        return self._forward(x, coords, self.ort, self.output_coords["lead_time"])
+        return self._forward(x, coords, self.ort)
 
     @batch_func()
     def _default_generator(
@@ -699,9 +722,7 @@ class Pangu3(PanguBase):
 
             # Single 3-hour step
             x, coords = self.front_hook(x, coords)
-            x, coords = self._forward(
-                x, coords, self.ort, np.array([np.timedelta64(3, "h")])
-            )
+            x, coords = self._forward(x, coords, self.ort)
             x, coords = self.rear_hook(x, coords)
             yield x, coords.copy()
 
@@ -719,9 +740,7 @@ class Pangu3(PanguBase):
 
                 # Single 3-hour step
                 x, coords = self.front_hook(x, coords)
-                x, coords = self._forward(
-                    x, coords, self.ort, np.array([np.timedelta64(3, "h")])
-                )
+                x, coords = self._forward(x, coords, self.ort)
                 x, coords = self.rear_hook(x, coords)
                 yield x, coords.copy()
 
