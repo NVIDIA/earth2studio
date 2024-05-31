@@ -101,7 +101,7 @@ class DLWP(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             (orography.unsqueeze(0).unsqueeze(0) - 3.724e03) / 8.349e03,
         )
         self.register_buffer("M", cubed_sphere_transform.T)
-        self.register_buffer("N", cubed_sphere_inverse.T)
+        self.register_buffer("N", cubed_sphere_inverse)
 
     input_coords = OrderedDict(
         {
@@ -150,7 +150,7 @@ class DLWP(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         # Multiply by 2 here because returning two timesteps
         output_coords["lead_time"] = (
-            input_coords["lead_time"] + output_coords["lead_time"]
+            input_coords["lead_time"][-1] + output_coords["lead_time"]
         )
 
         return output_coords
@@ -230,8 +230,9 @@ class DLWP(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     def to_equirectangular(self, x: torch.Tensor) -> torch.Tensor:
         """[6,64,64] cs to [721,1440] eqr"""
-        x = x.reshape(*x.shape[:-3], -1) @ self.N
-        x = x.reshape(*x.shape[:-1], 721, 1440)
+        input_shape = x.shape[:-3]
+        x = (self.N @ x.reshape(-1, 6 * 64 * 64).T).T
+        x = x.reshape(*input_shape, 721, 1440)
         return x
 
     def get_cosine_zenith_fields(
@@ -357,6 +358,7 @@ class DLWP(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
             # Forward pass
             x = self._forward(x, coords)
+            x = x.clone()
 
             # Rear hook for first predicted step
             coords = self.output_coords(coords)

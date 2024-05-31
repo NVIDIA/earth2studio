@@ -171,10 +171,11 @@ def test_dlwp_iter(ensemble, dlwp_phoo_cs_transform, device):
     out, out_coords = next(p_iter)  # Skip first which should return the input
     assert torch.allclose(out, x[:, :, 1:])
 
+    old_coords = out_coords.copy()
     for i, (out, out_coords) in enumerate(p_iter):
         assert len(out.shape) == 6
         assert out.shape[0] == ensemble
-        assert (out_coords["variable"] == p.output_coords(coords)["variable"]).all()
+        assert (out_coords["variable"] == p.output_coords(old_coords)["variable"]).all()
         assert (out_coords["time"] == time).all()
         assert out_coords["lead_time"][0] == np.timedelta64(6 * (i + 1), "h")
         assert torch.allclose(
@@ -190,6 +191,8 @@ def test_dlwp_iter(ensemble, dlwp_phoo_cs_transform, device):
 
         if i > 5:
             break
+
+        old_coords = out_coords.copy()
 
 
 @pytest.mark.parametrize(
