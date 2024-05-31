@@ -141,8 +141,20 @@ class WB2Lexicon(metaclass=LexiconType):
         """Return name in WeatherBench vocabulary."""
         wb2_key = cls.VOCAB[val]
 
-        def mod(x: np.array) -> np.array:
-            """Modify name (if necessary)."""
-            return x
+        if wb2_key.split("::")[0] == "relative_humidity":
+
+            def mod(x: np.array) -> np.array:
+                """Relative humidty in WeatherBench uses older calculation and does
+                not scale by 100 natively. Not recommended for use, see IFS method for
+                more modern calculation.
+                https://github.com/google-research/weatherbench2/blob/main/weatherbench2/derived_variables.py#L468
+                """
+                return x * 100
+
+        else:
+
+            def mod(x: np.array) -> np.array:
+                """Modify name (if necessary)."""
+                return x
 
         return wb2_key, mod
