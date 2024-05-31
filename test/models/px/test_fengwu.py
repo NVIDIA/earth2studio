@@ -198,6 +198,7 @@ def test_fengwu_exceptions(dc, fengwu_test_package, device):
 @pytest.mark.timeout(360)
 @pytest.mark.parametrize("device", ["cuda:0"])
 def test_fengwu_package(device, model_cache_context):
+    torch.cuda.empty_cache()
     time = np.array([np.datetime64("1993-04-05T00:00")])
     with model_cache_context():
         with torch.device(device):

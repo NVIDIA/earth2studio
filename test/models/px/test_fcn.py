@@ -161,6 +161,7 @@ def test_fcn_exceptions(dc, device):
 @pytest.mark.timeout(15)
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
 def test_fcn_package(device, model_cache_context):
+    torch.cuda.empty_cache()
     time = np.array([np.datetime64("1993-04-05T00:00")])
     # Test the cached model package FCN
     # Test only on cuda device

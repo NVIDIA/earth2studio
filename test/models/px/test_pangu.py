@@ -217,6 +217,7 @@ def test_pangu_exceptions(dc, PanguModel, delta_t, onnx_test_package, device):
 )
 @pytest.mark.parametrize("device", ["cuda:0"])
 def test_pangu_package(PanguModel, delta_t, device, model_cache_context):
+    torch.cuda.empty_cache()
     time = np.array([np.datetime64("1993-04-05T00:00")])
     with model_cache_context():
         with torch.device(device):
