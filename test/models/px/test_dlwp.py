@@ -240,6 +240,7 @@ def test_dlwp_exceptions(dc, dlwp_phoo_cs_transform, device):
 @pytest.mark.timeout(360)
 @pytest.mark.parametrize("device", ["cuda:0"])
 def test_dlwp_package(device, model_cache_context):
+    torch.cuda.empty_cache()
     time = np.array([np.datetime64("1993-04-05T00:00")])
     with model_cache_context():
         with torch.device(device):

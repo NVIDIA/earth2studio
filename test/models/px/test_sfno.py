@@ -155,37 +155,38 @@ def test_sfno_exceptions(dc, device):
         p(x, coords)
 
 
-# @pytest.mark.ci_cache
-# @pytest.mark.timeout(360)
-# @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
-# def test_sfno_package(device, model_cache_context):
-#     time = np.array([np.datetime64("1993-04-05T00:00")])
-#     # Test the cached model package SFNO
-#     # Test only on cuda device
-#     with model_cache_context():
-#         package = SFNO.load_default_package()
-#         p = SFNO.load_model(package).to(device)
+@pytest.mark.ci_cache
+@pytest.mark.timeout(360)
+@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+def test_sfno_package(device, model_cache_context):
+    torch.cuda.empty_cache()
+    time = np.array([np.datetime64("1993-04-05T00:00")])
+    # Test the cached model package SFNO
+    # Test only on cuda device
+    with model_cache_context():
+        package = SFNO.load_default_package()
+        p = SFNO.load_model(package).to(device)
 
-#     # Create "domain coords"
-#     dc = {k: p.input_coords[k] for k in ["lat", "lon"]}
+    # Create "domain coords"
+    dc = {k: p.input_coords[k] for k in ["lat", "lon"]}
 
-#     # Initialize Data Source
-#     r = Random(dc)
+    # Initialize Data Source
+    r = Random(dc)
 
-#     # Get Data and convert to tensor, coords
-#     lead_time = p.input_coords["lead_time"]
-#     variable = p.input_coords["variable"]
-#     x, coords = fetch_data(r, time, variable, lead_time, device=device)
+    # Get Data and convert to tensor, coords
+    lead_time = p.input_coords["lead_time"]
+    variable = p.input_coords["variable"]
+    x, coords = fetch_data(r, time, variable, lead_time, device=device)
 
-#     out, out_coords = p(x, coords)
+    out, out_coords = p(x, coords)
 
-#     if not isinstance(time, Iterable):
-#         time = [time]
+    if not isinstance(time, Iterable):
+        time = [time]
 
-#     assert out.shape == torch.Size([len(time), 1, 73, 721, 1440])
-#     assert (out_coords["variable"] == p.output_coords["variable"]).all()
-#     handshake_dim(out_coords, "lon", 4)
-#     handshake_dim(out_coords, "lat", 3)
-#     handshake_dim(out_coords, "variable", 2)
-#     handshake_dim(out_coords, "lead_time", 1)
-#     handshake_dim(out_coords, "time", 0)
+    assert out.shape == torch.Size([len(time), 1, 73, 721, 1440])
+    assert (out_coords["variable"] == p.output_coords["variable"]).all()
+    handshake_dim(out_coords, "lon", 4)
+    handshake_dim(out_coords, "lat", 3)
+    handshake_dim(out_coords, "variable", 2)
+    handshake_dim(out_coords, "lead_time", 1)
+    handshake_dim(out_coords, "time", 0)
