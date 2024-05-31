@@ -62,6 +62,17 @@ pip install earth2studio[fengwu]
 
 :::
 
+:::{tab-item} FuXi
+
+Notes: Requires [ONNX GPU Runtime](https://onnxruntime.ai/docs/install/). May need
+manual install depending on CUDA version.
+
+```bash
+pip install earth2studio[fuxi]
+```
+
+:::
+
 :::{tab-item} Pangu
 
 Notes: Requires [ONNX GPU Runtime](https://onnxruntime.ai/docs/install/). May need
