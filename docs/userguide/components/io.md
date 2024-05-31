@@ -88,20 +88,26 @@ Here is a robust example of such a use-case:
 # Copy prognostic model output coordinates
 total_coords = OrderedDict(
     {
-        k: v for k, v in prognostic.output_coords.items() if
+        k: v for k, v in prognostic.output_coords().items() if
         (k != "batch") and (v.shape != 0)
     }
 )
 total_coords["time"] = time
 total_coords["lead_time"] = np.asarray(
-    [prognostic.output_coords["lead_time"] * i for i in range(nsteps + 1)]
+    [total_coords["lead_time"] * i for i in range(nsteps + 1)]
 ).flatten()
 total_coords.move_to_end("lead_time", last=False)
 total_coords.move_to_end("time", last=False)
 io.add_array(total_coords, array_name)
 ```
 
-A common use-case is to extract a particular dimension (usually `variable`) as
+Prognostic models, diagnostic models, statistics, and metrics are required to have a
+`output_coords` method which maps from an input coordinate to a corresponding output
+coordinate. This method is meant to simulate the result of `__call__` without having
+to actually compute the forward call of the method. See the API documentation for more
+ details.
+
+Another common IO use-case is to extract a particular dimension (usually `variable`) as
 the array names.
 
 ```python

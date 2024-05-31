@@ -40,8 +40,7 @@ class PhooDiagnostic(torch.nn.Module):
     def input_coords(self) -> CoordSystem:
         return OrderedDict({"batch": np.empty(0), "variable": self.in_variable})
 
-    @property
-    def output_coords(self) -> CoordSystem:
+    def output_coords(self, input_coords: CoordSystem | None = None) -> CoordSystem:
         return OrderedDict({"batch": np.empty(0), "variable": self.out_variable})
 
     def __call__(self, x, coords):
