@@ -52,7 +52,7 @@ is commonly used in workflows.
 Each data source has its own methods for serving / calculating each variable.
 Users should be aware that the same variable across multiple data sources will
 potentially not be identical.
-Please refer to each data sources documentation for details.
+Please refer to each data source's documentation for details.
 :::
 
 ### {mod}`earth2studio.data.fetch_data`
