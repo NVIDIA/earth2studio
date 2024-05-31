@@ -20,7 +20,7 @@ from collections.abc import Generator, Iterator
 import numpy as np
 import torch
 
-from earth2studio.models.batch import batch_func
+from earth2studio.models.batch import batch_coords, batch_func
 from earth2studio.models.px.utils import PrognosticMixin
 from earth2studio.utils import handshake_coords, handshake_dim
 from earth2studio.utils.type import CoordSystem
@@ -90,17 +90,32 @@ class Persistence(torch.nn.Module, PrognosticMixin):
         """
         return self._input_coords
 
-    @property
-    def output_coords(self) -> CoordSystem:
-        """Ouput coordinate system of prognostic model, time dimension should contain
-        time-delta objects
+    @batch_coords()
+    def output_coords(self, input_coords: CoordSystem | None = None) -> CoordSystem:
+        """Ouput coordinate system of the prognostic model
+
+        Parameters
+        ----------
+        input_coords : CoordSystem
+            Input coordinate system to transform into output_coords
+            by default None, will use self.input_coords.
 
         Returns
         -------
         CoordSystem
             Coordinate system dictionary
         """
-        return self._output_coords
+
+        output_coords = self._output_coords.copy()
+
+        if input_coords is None:
+            return output_coords
+
+        output_coords["batch"] = input_coords["batch"]
+        output_coords["lead_time"] = (
+            output_coords["lead_time"] + input_coords["lead_time"]
+        )
+        return output_coords
 
     @torch.inference_mode()
     def _forward(
@@ -110,9 +125,7 @@ class Persistence(torch.nn.Module, PrognosticMixin):
     ) -> tuple[torch.Tensor, CoordSystem]:
         # Model is identity operator
         # Update coordinates
-        output_coords = self.output_coords.copy()
-        output_coords["batch"] = coords["batch"]
-        output_coords["lead_time"] = output_coords["lead_time"] + coords["lead_time"]
+        output_coords = self.output_coords(coords)
 
         return x, output_coords
 

@@ -26,7 +26,7 @@ except ImportError:
     load_model_package = None
 
 from earth2studio.models.auto import AutoModelMixin, Package
-from earth2studio.models.batch import batch_func
+from earth2studio.models.batch import batch_coords, batch_func
 from earth2studio.models.px.base import PrognosticModel
 from earth2studio.models.px.utils import PrognosticMixin
 from earth2studio.utils import handshake_coords, handshake_dim
@@ -160,7 +160,7 @@ class SFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             }
         )
 
-        self.output_coords = OrderedDict(
+        self._output_coords = OrderedDict(
             {
                 "batch": np.empty(0),
                 "time": np.empty(0),
@@ -173,6 +173,35 @@ class SFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     def __str__(self) -> str:
         return "sfno_73ch_small"
+
+    @batch_coords()
+    def output_coords(self, input_coords: CoordSystem | None = None) -> CoordSystem:
+        """Ouput coordinate system of the prognostic model
+
+        Parameters
+        ----------
+        input_coords : CoordSystem
+            Input coordinate system to transform into output_coords
+            by default None, will use self.input_coords.
+
+        Returns
+        -------
+        CoordSystem
+            Coordinate system dictionary
+        """
+
+        output_coords = self._output_coords.copy()
+
+        if input_coords is None:
+            return output_coords
+
+        output_coords["batch"] = input_coords["batch"]
+        output_coords["time"] = input_coords["time"]
+        output_coords["lead_time"] = (
+            output_coords["lead_time"] + input_coords["lead_time"]
+        )
+
+        return output_coords
 
     @classmethod
     def load_default_package(cls) -> Package:
@@ -215,10 +244,7 @@ class SFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         x: torch.Tensor,
         coords: CoordSystem,
     ) -> tuple[torch.Tensor, CoordSystem]:
-        output_coords = self.output_coords.copy()
-        output_coords["batch"] = coords["batch"]
-        output_coords["time"] = coords["time"]
-        output_coords["lead_time"] = output_coords["lead_time"] + coords["lead_time"]
+        output_coords = self.output_coords(coords)
 
         x = x.squeeze(2)
         x = (x - self.center) / self.scale
