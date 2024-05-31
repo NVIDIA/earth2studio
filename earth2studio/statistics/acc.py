@@ -68,6 +68,26 @@ class acc:
     def reduction_dimensions(self) -> list[str]:
         return self._reduction_dimensions
 
+    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
+        """Ouput coordinate system of the prognostic model
+
+        Parameters
+        ----------
+        input_coords : CoordSystem
+            Input coordinate system to transform into output_coords
+
+        Returns
+        -------
+        CoordSystem
+            Coordinate system dictionary
+        """
+        output_coords = input_coords.copy()
+        for dimension in self.reduction_dimensions:
+            handshake_dim(input_coords, dimension)
+            output_coords.pop(dimension)
+
+        return output_coords
+
     def __call__(
         self,
         x: torch.Tensor,
@@ -117,13 +137,7 @@ class acc:
             handshake_coords(x_coords, y_coords, c)
 
         dims = [list(x_coords).index(rd) for rd in self._reduction_dimensions]
-        output_coords = CoordSystem(
-            {
-                key: x_coords[key]
-                for key in x_coords
-                if key not in self._reduction_dimensions
-            }
-        )
+        output_coords = self.output_coords(x_coords)
 
         weights = _broadcast_weights(
             self.weights, self._reduction_dimensions, x_coords

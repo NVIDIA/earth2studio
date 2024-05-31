@@ -67,6 +67,36 @@ class rank_histogram:
     def reduction_dimensions(self) -> list[str]:
         return [self.ensemble_dimension] + self._reduction_dimensions
 
+    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
+        """Ouput coordinate system of the prognostic model
+
+        Parameters
+        ----------
+        input_coords : CoordSystem
+            Input coordinate system to transform into output_coords
+
+        Returns
+        -------
+        CoordSystem
+            Coordinate system dictionary
+        """
+        output_coords = input_coords.copy()
+        for dimension in self.reduction_dimensions:
+            handshake_dim(input_coords, dimension)
+            output_coords.pop(dimension)
+
+        output_coords = (
+            OrderedDict(
+                {
+                    "histogram_data": np.array(["bin_centers", "bin_counts"]),
+                    "bin": np.arange(self.number_of_bins),
+                }
+            )
+            | output_coords
+        )
+
+        return output_coords
+
     def __call__(
         self,
         x: torch.Tensor,

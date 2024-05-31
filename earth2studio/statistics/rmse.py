@@ -15,6 +15,7 @@
 # limitations under the License.
 
 import torch
+from utils.coords import handshake_dim
 
 from earth2studio.utils.type import CoordSystem
 
@@ -65,6 +66,26 @@ class rmse:
     @property
     def reduction_dimensions(self) -> list[str]:
         return self._reduction_dimensions
+
+    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
+        """Ouput coordinate system of the prognostic model
+
+        Parameters
+        ----------
+        input_coords : CoordSystem
+            Input coordinate system to transform into output_coords
+
+        Returns
+        -------
+        CoordSystem
+            Coordinate system dictionary
+        """
+        output_coords = input_coords.copy()
+        for dimension in self.reduction_dimensions:
+            handshake_dim(input_coords, dimension)
+            output_coords.pop(dimension)
+
+        return output_coords
 
     def __call__(
         self,
@@ -183,6 +204,26 @@ class spread_skill_ratio:
     @property
     def reduction_dimensions(self) -> list[str]:
         return self.ensemble_dimension + self._reduction_dimensions
+
+    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
+        """Ouput coordinate system of the prognostic model
+
+        Parameters
+        ----------
+        input_coords : CoordSystem
+            Input coordinate system to transform into output_coords
+
+        Returns
+        -------
+        CoordSystem
+            Coordinate system dictionary
+        """
+        output_coords = input_coords.copy()
+        for dimension in self.reduction_dimensions:
+            handshake_dim(input_coords, dimension)
+            output_coords.pop(dimension)
+
+        return output_coords
 
     def __call__(
         self,
