@@ -15,8 +15,8 @@
 # limitations under the License.
 
 import torch
-from utils.coords import handshake_dim
 
+from earth2studio.utils.coords import handshake_dim
 from earth2studio.utils.type import CoordSystem
 
 from .moments import mean, variance

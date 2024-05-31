@@ -22,6 +22,7 @@ import pytest
 import torch
 
 from earth2studio.statistics import lat_weight, rmse, spread_skill_ratio
+from earth2studio.utils.coords import handshake_coords, handshake_dim
 
 lat_weights = lat_weight(torch.as_tensor(np.linspace(-90.0, 90.0, 361)))
 
@@ -62,6 +63,11 @@ def test_rmse(reduction_weights: tuple[list[str], np.ndarray], device: str) -> N
     assert not any([ri in c for ri in reduction_dimensions])
     assert list(z.shape) == [len(val) for val in c.values()]
 
+    out_test_coords = RMSE.output_coords(x_coords)
+    for i, ci in enumerate(c):
+        handshake_dim(out_test_coords, ci, i)
+        handshake_coords(out_test_coords, c, ci)
+
     ## Test broadcasting
     y = torch.randn((1, 1, 2, 361, 720), device=device)
     y_coords["ensemble"] = np.arange(1)
@@ -69,6 +75,11 @@ def test_rmse(reduction_weights: tuple[list[str], np.ndarray], device: str) -> N
     z, c = RMSE(x, x_coords, y, y_coords)
     assert not any([ri in c for ri in reduction_dimensions])
     assert list(z.shape) == [len(val) for val in c.values()]
+
+    out_test_coords = RMSE.output_coords(x_coords)
+    for i, ci in enumerate(c):
+        handshake_dim(out_test_coords, ci, i)
+        handshake_coords(out_test_coords, c, ci)
 
 
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
@@ -100,6 +111,11 @@ def test_batch_mean(device) -> None:
             atol=1e-3,
         )
         assert c == y_coords
+
+        out_test_coords = RMSE.output_coords(coords)
+        for i, ci in enumerate(c):
+            handshake_dim(out_test_coords, ci, i)
+            handshake_coords(out_test_coords, c, ci)
 
 
 @pytest.mark.parametrize(
@@ -147,6 +163,11 @@ def test_spread_skill(
     assert list(z.shape) == [len(val) for val in c.values()]
     assert torch.allclose(z, torch.ones_like(z), rtol=1e-1, atol=1e-1)
 
+    out_test_coords = SSR.output_coords(x_coords)
+    for i, ci in enumerate(c):
+        handshake_dim(out_test_coords, ci, i)
+        handshake_coords(out_test_coords, c, ci)
+
 
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
 def test_ensemble_batch_spread_skill(device) -> None:
@@ -190,6 +211,11 @@ def test_ensemble_batch_spread_skill(device) -> None:
         )
 
         assert c1 == c2
+
+        out_test_coords = SSR1.output_coords(coords1)
+        for i, ci in enumerate(c1):
+            handshake_dim(out_test_coords, ci, i)
+            handshake_coords(out_test_coords, c1, ci)
 
 
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
@@ -246,3 +272,8 @@ def test_time_batch_spread_skill(device) -> None:
         )
 
         assert c1 == c2
+
+        out_test_coords = SSR1.output_coords(coords1)
+        for i, ci in enumerate(c1):
+            handshake_dim(out_test_coords, ci, i)
+            handshake_coords(out_test_coords, c1, ci)

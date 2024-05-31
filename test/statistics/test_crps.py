@@ -23,6 +23,7 @@ import torch
 
 from earth2studio.statistics import crps, lat_weight
 from earth2studio.statistics.crps import _crps_from_empirical_cdf
+from earth2studio.utils.coords import handshake_coords, handshake_dim
 
 lat_weights = lat_weight(torch.as_tensor(np.linspace(-90.0, 90.0, 361)))
 
@@ -80,6 +81,11 @@ def test_crps(
         print(list(c), reduction_dimensions)
         assert all([rd not in c for rd in reduction_dimensions])
     assert list(z.shape) == [len(val) for val in c.values()]
+
+    out_test_coords = CRPS.output_coords(x_coords)
+    for i, ci in enumerate(c):
+        handshake_dim(out_test_coords, ci, i)
+        handshake_coords(out_test_coords, c, ci)
 
 
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
