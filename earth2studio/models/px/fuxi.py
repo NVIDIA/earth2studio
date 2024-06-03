@@ -349,6 +349,10 @@ class FuXi(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             if key != "batch" and key != "time":
                 handshake_coords(coords, self.input_coords, key)
 
+        if self.ort._model_path != self.ort_short_path:
+            logger.warning("Loading short range model")
+            self.ort = create_ort_session(self.ort_short_path, self.device)
+
         output, out_coords = self._forward(x, coords, self.ort)
         output = output[:, :, 1:]
         out_coords["lead_time"] = out_coords["lead_time"][1:]
@@ -370,24 +374,24 @@ class FuXi(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         yield x[:, :, 1:], coords_out
 
         step = 0
-        ort_session = self.ort
         while True:
             # Cascade models for longer roll outs
-            # Presently short model stays in memory, could look at changing this
-            # Runs on 16 Gb V100, so seems okay
-            if step == 20:
+            if step == 0 and self.ort._model_path != self.ort_short_path:
+                logger.warning(f"Time-step {step}, loading short range model")
+                self.ort = create_ort_session(self.ort_short_path, self.device)
+            elif step == 20:
                 logger.warning(f"Time-step {step}, loading medium range model")
-                ort_session = create_ort_session(self.ort_medium_path, self.device)
+                self.ort = create_ort_session(self.ort_medium_path, self.device)
             elif step == 40:
                 logger.warning(f"Time-step {step}, loading long range model")
-                ort_session = create_ort_session(self.ort_long_path, self.device)
+                self.ort = create_ort_session(self.ort_long_path, self.device)
             step += 1
 
             # Front hook
             x, coords = self.front_hook(x, coords)
 
             # Forward is identity operator
-            out, out_coords = self._forward(x, coords, ort_session)
+            out, out_coords = self._forward(x, coords, self.ort)
 
             # Rear hook
             out, out_coords = self.rear_hook(out, out_coords)
