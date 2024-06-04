@@ -454,7 +454,6 @@ document.write(`
 <span class="c1"># nor does it submit to any jurisdiction.</span>
 
 
-<span class="kn">import</span> <span class="nn">os</span>
 <span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">OrderedDict</span>
 <span class="kn">from</span> <span class="nn">collections.abc</span> <span class="kn">import</span> <span class="n">Generator</span><span class="p">,</span> <span class="n">Iterator</span>
 <span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">TypeVar</span>
@@ -473,6 +472,7 @@ document.write(`
 <span class="kn">from</span> <span class="nn">earth2studio.models.batch</span> <span class="kn">import</span> <span class="n">batch_func</span>
 <span class="kn">from</span> <span class="nn">earth2studio.models.px.base</span> <span class="kn">import</span> <span class="n">PrognosticModel</span>
 <span class="kn">from</span> <span class="nn">earth2studio.models.px.utils</span> <span class="kn">import</span> <span class="n">PrognosticMixin</span>
+<span class="kn">from</span> <span class="nn">earth2studio.models.utils</span> <span class="kn">import</span> <span class="n">create_ort_session</span>
 <span class="kn">from</span> <span class="nn">earth2studio.utils</span> <span class="kn">import</span> <span class="n">handshake_coords</span><span class="p">,</span> <span class="n">handshake_dim</span>
 <span class="kn">from</span> <span class="nn">earth2studio.utils.type</span> <span class="kn">import</span> <span class="n">CoordSystem</span>
 
@@ -629,69 +629,9 @@ document.write(`
             <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">ort</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
                 <span class="n">model_path</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ort</span><span class="o">.</span><span class="n">_model_path</span>
                 <span class="k">del</span> <span class="bp">self</span><span class="o">.</span><span class="n">ort</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">ort</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">create_ort_session</span><span class="p">(</span><span class="n">model_path</span><span class="p">,</span> <span class="n">device</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">ort</span> <span class="o">=</span> <span class="n">create_ort_session</span><span class="p">(</span><span class="n">model_path</span><span class="p">,</span> <span class="n">device</span><span class="p">)</span>
 
         <span class="k">return</span> <span class="bp">self</span>
-
-    <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">create_ort_session</span><span class="p">(</span>
-        <span class="n">onnx_file</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-        <span class="n">device</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">device</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">device</span><span class="p">(</span><span class="s2">&quot;cpu&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">InferenceSession</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create ORT session on specified device</span>
-
-<span class="sd">        Parameters</span>
-<span class="sd">        ----------</span>
-<span class="sd">        onnx_file : str</span>
-<span class="sd">            ONNX file</span>
-<span class="sd">        device : torch.device, optional</span>
-<span class="sd">            Device for session to run on, by default &quot;cpu&quot;</span>
-
-<span class="sd">        Returns</span>
-<span class="sd">        -------</span>
-<span class="sd">        ort.InferenceSession</span>
-<span class="sd">            ORT inference session</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="n">ort</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ImportError</span><span class="p">(</span>
-                <span class="s2">&quot;onnxruntime (onnxruntime-gpu) is required for Pangu. See model install notes for details.</span><span class="se">\n</span><span class="s2">&quot;</span>
-                <span class="o">+</span> <span class="s2">&quot;https://nvidia.github.io/earth2studio/userguide/about/install.html#model-dependencies&quot;</span>
-            <span class="p">)</span>
-        <span class="n">options</span> <span class="o">=</span> <span class="n">ort</span><span class="o">.</span><span class="n">SessionOptions</span><span class="p">()</span>
-        <span class="n">options</span><span class="o">.</span><span class="n">enable_cpu_mem_arena</span> <span class="o">=</span> <span class="kc">False</span>
-        <span class="n">options</span><span class="o">.</span><span class="n">enable_mem_pattern</span> <span class="o">=</span> <span class="kc">False</span>
-        <span class="n">options</span><span class="o">.</span><span class="n">enable_mem_reuse</span> <span class="o">=</span> <span class="kc">False</span>
-        <span class="n">options</span><span class="o">.</span><span class="n">intra_op_num_threads</span> <span class="o">=</span> <span class="mi">1</span>
-
-        <span class="c1"># That will trigger a FileNotFoundError</span>
-        <span class="n">os</span><span class="o">.</span><span class="n">stat</span><span class="p">(</span><span class="n">onnx_file</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">device</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="s2">&quot;cuda&quot;</span><span class="p">:</span>
-            <span class="k">if</span> <span class="n">device</span><span class="o">.</span><span class="n">index</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-                <span class="n">device_index</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">current_device</span><span class="p">()</span>
-            <span class="k">else</span><span class="p">:</span>
-                <span class="n">device_index</span> <span class="o">=</span> <span class="n">device</span><span class="o">.</span><span class="n">index</span>
-
-            <span class="n">providers</span> <span class="o">=</span> <span class="p">[</span>
-                <span class="p">(</span>
-                    <span class="s2">&quot;CUDAExecutionProvider&quot;</span><span class="p">,</span>
-                    <span class="p">{</span>
-                        <span class="s2">&quot;device_id&quot;</span><span class="p">:</span> <span class="n">device_index</span><span class="p">,</span>
-                    <span class="p">},</span>
-                <span class="p">),</span>
-                <span class="s2">&quot;CPUExecutionProvider&quot;</span><span class="p">,</span>
-            <span class="p">]</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="n">providers</span> <span class="o">=</span> <span class="p">[</span>
-                <span class="s2">&quot;CPUExecutionProvider&quot;</span><span class="p">,</span>
-            <span class="p">]</span>
-
-        <span class="n">ort_session</span> <span class="o">=</span> <span class="n">ort</span><span class="o">.</span><span class="n">InferenceSession</span><span class="p">(</span>
-            <span class="n">onnx_file</span><span class="p">,</span>
-            <span class="n">sess_options</span><span class="o">=</span><span class="n">options</span><span class="p">,</span>
-            <span class="n">providers</span><span class="o">=</span><span class="n">providers</span><span class="p">,</span>
-        <span class="p">)</span>
-
-        <span class="k">return</span> <span class="n">ort_session</span>
 
     <span class="nd">@torch</span><span class="o">.</span><span class="n">inference_mode</span><span class="p">()</span>
     <span class="k">def</span> <span class="nf">_forward</span><span class="p">(</span>
@@ -821,9 +761,7 @@ document.write(`
     <span class="p">):</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">ort</span><span class="p">:</span> <span class="n">ort</span><span class="o">.</span><span class="n">InferenceSession</span> <span class="o">=</span> <span class="n">PanguBase</span><span class="o">.</span><span class="n">create_ort_session</span><span class="p">(</span>
-            <span class="n">ort_24hr</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">device</span>
-        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ort</span><span class="p">:</span> <span class="n">ort</span><span class="o">.</span><span class="n">InferenceSession</span> <span class="o">=</span> <span class="n">create_ort_session</span><span class="p">(</span><span class="n">ort_24hr</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_output_coords</span><span class="p">[</span><span class="s2">&quot;lead_time&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">np</span><span class="o">.</span><span class="n">timedelta64</span><span class="p">(</span><span class="mi">24</span><span class="p">,</span> <span class="s2">&quot;h&quot;</span><span class="p">)])</span>
 
 <div class="viewcode-block" id="Pangu24.load_model">
@@ -941,9 +879,7 @@ document.write(`
     <span class="p">):</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
         <span class="c1"># Only require 6 hour to load session on construction</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">ort</span><span class="p">:</span> <span class="n">ort</span><span class="o">.</span><span class="n">InferenceSession</span> <span class="o">=</span> <span class="n">PanguBase</span><span class="o">.</span><span class="n">create_ort_session</span><span class="p">(</span>
-            <span class="n">ort_6hr</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">device</span>
-        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ort</span><span class="p">:</span> <span class="n">ort</span><span class="o">.</span><span class="n">InferenceSession</span> <span class="o">=</span> <span class="n">create_ort_session</span><span class="p">(</span><span class="n">ort_6hr</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">ort24</span> <span class="o">=</span> <span class="n">ort_24hr</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_output_coords</span><span class="p">[</span><span class="s2">&quot;lead_time&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">np</span><span class="o">.</span><span class="n">timedelta64</span><span class="p">(</span><span class="mi">6</span><span class="p">,</span> <span class="s2">&quot;h&quot;</span><span class="p">)])</span>
 
@@ -1000,7 +936,7 @@ document.write(`
         <span class="n">coords</span> <span class="o">=</span> <span class="n">coords</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
 
         <span class="c1"># Load other sessions (note .to() does not impact these)</span>
-        <span class="n">ort24</span> <span class="o">=</span> <span class="n">PanguBase</span><span class="o">.</span><span class="n">create_ort_session</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ort24</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+        <span class="n">ort24</span> <span class="o">=</span> <span class="n">create_ort_session</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ort24</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
 
         <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">input_coords</span><span class="o">.</span><span class="n">items</span><span class="p">()):</span>
             <span class="k">if</span> <span class="n">key</span> <span class="o">!=</span> <span class="s2">&quot;batch&quot;</span><span class="p">:</span>
@@ -1075,9 +1011,7 @@ document.write(`
     <span class="p">):</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
         <span class="c1"># Only require 3 hour to load session on construction</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">ort</span><span class="p">:</span> <span class="n">ort</span><span class="o">.</span><span class="n">InferenceSession</span> <span class="o">=</span> <span class="n">PanguBase</span><span class="o">.</span><span class="n">create_ort_session</span><span class="p">(</span>
-            <span class="n">ort_3hr</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">device</span>
-        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ort</span><span class="p">:</span> <span class="n">ort</span><span class="o">.</span><span class="n">InferenceSession</span> <span class="o">=</span> <span class="n">create_ort_session</span><span class="p">(</span><span class="n">ort_3hr</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">ort24</span> <span class="o">=</span> <span class="n">ort_24hr</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">ort6</span> <span class="o">=</span> <span class="n">ort_6hr</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_output_coords</span><span class="p">[</span><span class="s2">&quot;lead_time&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">np</span><span class="o">.</span><span class="n">timedelta64</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="s2">&quot;h&quot;</span><span class="p">)])</span>
@@ -1136,8 +1070,8 @@ document.write(`
         <span class="n">coords</span> <span class="o">=</span> <span class="n">coords</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
 
         <span class="c1"># Load other sessions (note that .to() does not impact these)</span>
-        <span class="n">ort24</span> <span class="o">=</span> <span class="n">PanguBase</span><span class="o">.</span><span class="n">create_ort_session</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ort24</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
-        <span class="n">ort6</span> <span class="o">=</span> <span class="n">PanguBase</span><span class="o">.</span><span class="n">create_ort_session</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ort6</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+        <span class="n">ort24</span> <span class="o">=</span> <span class="n">create_ort_session</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ort24</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+        <span class="n">ort6</span> <span class="o">=</span> <span class="n">create_ort_session</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ort6</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
 
         <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">input_coords</span><span class="o">.</span><span class="n">items</span><span class="p">()):</span>
             <span class="k">if</span> <span class="n">key</span> <span class="o">!=</span> <span class="s2">&quot;batch&quot;</span><span class="p">:</span>

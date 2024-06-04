@@ -444,7 +444,6 @@ document.write(`
 <span class="c1"># See the License for the specific language governing permissions and</span>
 <span class="c1"># limitations under the License.</span>
 
-<span class="kn">import</span> <span class="nn">os</span>
 <span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">OrderedDict</span>
 <span class="kn">from</span> <span class="nn">collections.abc</span> <span class="kn">import</span> <span class="n">Generator</span><span class="p">,</span> <span class="n">Iterator</span>
 <span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">TypeVar</span>
@@ -465,6 +464,7 @@ document.write(`
 <span class="kn">from</span> <span class="nn">earth2studio.models.batch</span> <span class="kn">import</span> <span class="n">batch_func</span>
 <span class="kn">from</span> <span class="nn">earth2studio.models.px.base</span> <span class="kn">import</span> <span class="n">PrognosticModel</span>
 <span class="kn">from</span> <span class="nn">earth2studio.models.px.utils</span> <span class="kn">import</span> <span class="n">PrognosticMixin</span>
+<span class="kn">from</span> <span class="nn">earth2studio.models.utils</span> <span class="kn">import</span> <span class="n">create_ort_session</span>
 <span class="kn">from</span> <span class="nn">earth2studio.utils</span> <span class="kn">import</span> <span class="n">handshake_coords</span><span class="p">,</span> <span class="n">handshake_dim</span>
 <span class="kn">from</span> <span class="nn">earth2studio.utils.type</span> <span class="kn">import</span> <span class="n">CoordSystem</span><span class="p">,</span> <span class="n">TimeArray</span>
 
@@ -588,7 +588,7 @@ document.write(`
         <span class="bp">self</span><span class="o">.</span><span class="n">ort_medium_path</span> <span class="o">=</span> <span class="n">ort_medium</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">ort_long_path</span> <span class="o">=</span> <span class="n">ort_long</span>
         <span class="c1"># Load short model into memory</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">ort</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">create_ort_session</span><span class="p">(</span><span class="n">ort_short</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ort</span> <span class="o">=</span> <span class="n">create_ort_session</span><span class="p">(</span><span class="n">ort_short</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
 
     <span class="n">input_coords</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">(</span>
         <span class="p">{</span>
@@ -629,72 +629,9 @@ document.write(`
             <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">ort</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
                 <span class="n">model_path</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ort</span><span class="o">.</span><span class="n">_model_path</span>
                 <span class="k">del</span> <span class="bp">self</span><span class="o">.</span><span class="n">ort</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">ort</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">create_ort_session</span><span class="p">(</span><span class="n">model_path</span><span class="p">,</span> <span class="n">device</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">ort</span> <span class="o">=</span> <span class="n">create_ort_session</span><span class="p">(</span><span class="n">model_path</span><span class="p">,</span> <span class="n">device</span><span class="p">)</span>
 
         <span class="k">return</span> <span class="bp">self</span>
-
-    <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">create_ort_session</span><span class="p">(</span>
-        <span class="n">onnx_file</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-        <span class="n">device</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">device</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">device</span><span class="p">(</span><span class="s2">&quot;cpu&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">InferenceSession</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create ORT session on specified device</span>
-
-<span class="sd">        Parameters</span>
-<span class="sd">        ----------</span>
-<span class="sd">        onnx_file : str</span>
-<span class="sd">            ONNX file</span>
-<span class="sd">        device : torch.device, optional</span>
-<span class="sd">            Device for session to run on, by default &quot;cpu&quot;</span>
-
-<span class="sd">        Returns</span>
-<span class="sd">        -------</span>
-<span class="sd">        ort.InferenceSession</span>
-<span class="sd">            ORT inference session</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="n">ort</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ImportError</span><span class="p">(</span>
-                <span class="s2">&quot;onnxruntime (onnxruntime-gpu) is required for FuXi. See model install notes for details.</span><span class="se">\n</span><span class="s2">&quot;</span>
-                <span class="o">+</span> <span class="s2">&quot;https://nvidia.github.io/earth2studio/userguide/about/install.html#model-dependencies&quot;</span>
-            <span class="p">)</span>
-
-        <span class="n">options</span> <span class="o">=</span> <span class="n">ort</span><span class="o">.</span><span class="n">SessionOptions</span><span class="p">()</span>
-        <span class="n">options</span><span class="o">.</span><span class="n">enable_cpu_mem_arena</span> <span class="o">=</span> <span class="kc">False</span>
-        <span class="n">options</span><span class="o">.</span><span class="n">enable_mem_pattern</span> <span class="o">=</span> <span class="kc">False</span>
-        <span class="n">options</span><span class="o">.</span><span class="n">enable_mem_reuse</span> <span class="o">=</span> <span class="kc">False</span>
-        <span class="n">options</span><span class="o">.</span><span class="n">intra_op_num_threads</span> <span class="o">=</span> <span class="mi">1</span>
-        <span class="n">options</span><span class="o">.</span><span class="n">log_severity_level</span> <span class="o">=</span> <span class="mi">3</span>
-
-        <span class="c1"># That will trigger a FileNotFoundError</span>
-        <span class="n">os</span><span class="o">.</span><span class="n">stat</span><span class="p">(</span><span class="n">onnx_file</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">device</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="s2">&quot;cuda&quot;</span><span class="p">:</span>
-            <span class="k">if</span> <span class="n">device</span><span class="o">.</span><span class="n">index</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-                <span class="n">device_index</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">current_device</span><span class="p">()</span>
-            <span class="k">else</span><span class="p">:</span>
-                <span class="n">device_index</span> <span class="o">=</span> <span class="n">device</span><span class="o">.</span><span class="n">index</span>
-
-            <span class="n">providers</span> <span class="o">=</span> <span class="p">[</span>
-                <span class="p">(</span>
-                    <span class="s2">&quot;CUDAExecutionProvider&quot;</span><span class="p">,</span>
-                    <span class="p">{</span>
-                        <span class="s2">&quot;device_id&quot;</span><span class="p">:</span> <span class="n">device_index</span><span class="p">,</span>
-                        <span class="s2">&quot;arena_extend_strategy&quot;</span><span class="p">:</span> <span class="s2">&quot;kSameAsRequested&quot;</span><span class="p">,</span>
-                    <span class="p">},</span>
-                <span class="p">),</span>
-                <span class="s2">&quot;CPUExecutionProvider&quot;</span><span class="p">,</span>
-            <span class="p">]</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="n">providers</span> <span class="o">=</span> <span class="p">[</span>
-                <span class="s2">&quot;CPUExecutionProvider&quot;</span><span class="p">,</span>
-            <span class="p">]</span>
-
-        <span class="n">ort_session</span> <span class="o">=</span> <span class="n">ort</span><span class="o">.</span><span class="n">InferenceSession</span><span class="p">(</span>
-            <span class="n">onnx_file</span><span class="p">,</span>
-            <span class="n">sess_options</span><span class="o">=</span><span class="n">options</span><span class="p">,</span>
-            <span class="n">providers</span><span class="o">=</span><span class="n">providers</span><span class="p">,</span>
-        <span class="p">)</span>
-
-        <span class="k">return</span> <span class="n">ort_session</span>
 
 <div class="viewcode-block" id="FuXi.load_default_package">
 <a class="viewcode-back" href="../../../../modules/generated/models/px/earth2studio.models.px.FuXi.html#earth2studio.models.px.FuXi.load_default_package">[docs]</a>
@@ -852,6 +789,10 @@ document.write(`
             <span class="k">if</span> <span class="n">key</span> <span class="o">!=</span> <span class="s2">&quot;batch&quot;</span> <span class="ow">and</span> <span class="n">key</span> <span class="o">!=</span> <span class="s2">&quot;time&quot;</span><span class="p">:</span>
                 <span class="n">handshake_coords</span><span class="p">(</span><span class="n">coords</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">input_coords</span><span class="p">,</span> <span class="n">key</span><span class="p">)</span>
 
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">ort</span><span class="o">.</span><span class="n">_model_path</span> <span class="o">!=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ort_short_path</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Loading short range model&quot;</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">ort</span> <span class="o">=</span> <span class="n">create_ort_session</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ort_short_path</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+
         <span class="n">output</span><span class="p">,</span> <span class="n">out_coords</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_forward</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ort</span><span class="p">)</span>
         <span class="n">output</span> <span class="o">=</span> <span class="n">output</span><span class="p">[:,</span> <span class="p">:,</span> <span class="mi">1</span><span class="p">:]</span>
         <span class="n">out_coords</span><span class="p">[</span><span class="s2">&quot;lead_time&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">out_coords</span><span class="p">[</span><span class="s2">&quot;lead_time&quot;</span><span class="p">][</span><span class="mi">1</span><span class="p">:]</span>
@@ -874,24 +815,24 @@ document.write(`
         <span class="k">yield</span> <span class="n">x</span><span class="p">[:,</span> <span class="p">:,</span> <span class="mi">1</span><span class="p">:],</span> <span class="n">coords_out</span>
 
         <span class="n">step</span> <span class="o">=</span> <span class="mi">0</span>
-        <span class="n">ort_session</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ort</span>
         <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
             <span class="c1"># Cascade models for longer roll outs</span>
-            <span class="c1"># Presently short model stays in memory, could look at changing this</span>
-            <span class="c1"># Runs on 16 Gb V100, so seems okay</span>
-            <span class="k">if</span> <span class="n">step</span> <span class="o">==</span> <span class="mi">20</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">step</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">ort</span><span class="o">.</span><span class="n">_model_path</span> <span class="o">!=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ort_short_path</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Time-step </span><span class="si">{</span><span class="n">step</span><span class="si">}</span><span class="s2">, loading short range model&quot;</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">ort</span> <span class="o">=</span> <span class="n">create_ort_session</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ort_short_path</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="n">step</span> <span class="o">==</span> <span class="mi">20</span><span class="p">:</span>
                 <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Time-step </span><span class="si">{</span><span class="n">step</span><span class="si">}</span><span class="s2">, loading medium range model&quot;</span><span class="p">)</span>
-                <span class="n">ort_session</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">create_ort_session</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ort_medium_path</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">ort</span> <span class="o">=</span> <span class="n">create_ort_session</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ort_medium_path</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
             <span class="k">elif</span> <span class="n">step</span> <span class="o">==</span> <span class="mi">40</span><span class="p">:</span>
                 <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Time-step </span><span class="si">{</span><span class="n">step</span><span class="si">}</span><span class="s2">, loading long range model&quot;</span><span class="p">)</span>
-                <span class="n">ort_session</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">create_ort_session</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ort_long_path</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">ort</span> <span class="o">=</span> <span class="n">create_ort_session</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ort_long_path</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
             <span class="n">step</span> <span class="o">+=</span> <span class="mi">1</span>
 
             <span class="c1"># Front hook</span>
             <span class="n">x</span><span class="p">,</span> <span class="n">coords</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">front_hook</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="p">)</span>
 
             <span class="c1"># Forward is identity operator</span>
-            <span class="n">out</span><span class="p">,</span> <span class="n">out_coords</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_forward</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="p">,</span> <span class="n">ort_session</span><span class="p">)</span>
+            <span class="n">out</span><span class="p">,</span> <span class="n">out_coords</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_forward</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ort</span><span class="p">)</span>
 
             <span class="c1"># Rear hook</span>
             <span class="n">out</span><span class="p">,</span> <span class="n">out_coords</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">rear_hook</span><span class="p">(</span><span class="n">out</span><span class="p">,</span> <span class="n">out_coords</span><span class="p">)</span>

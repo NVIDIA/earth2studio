@@ -48,6 +48,13 @@ of Earth2Studio detailed in the {ref}`data_userguide` section.
 There are a few utility functions inside Earth2Studio to make this process easy which
 is commonly used in workflows.
 
+:::{warning}
+Each data source has its own methods for serving / calculating each variable.
+Users should be aware that the same variable across multiple data sources will
+potentially not be identical.
+Please refer to each data source's documentation for details.
+:::
+
 ### {mod}`earth2studio.data.fetch_data`
 
 The {func}`fetch_data` function is useful for getting a PyTorch tensor and
