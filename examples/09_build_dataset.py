@@ -21,9 +21,10 @@ Building a Dataset From Data Sources
 """
 
 import datetime
+import pandas as pd
+from apache_beam.options.pipeline_options import PipelineOptions
 
-from earth2studio.data import ARCO
-from earth2studio.models.px import FCN
+from earth2studio.data import ARCO, build_dataset
 
 # Create the data source
 data = ARCO()
@@ -42,8 +43,17 @@ data.fetch_cached_array(
 
 # Lets try to fetch a dataset with standard interface
 ds = data(datetime.datetime(2022, 1, 1), variable=["u10m", "v10m"], zarr_cache=zarr_cache)
-print(ds)
 
 # Run again to show its cached, this will print some cached message
 ds = data(datetime.datetime(2022, 1, 1), variable=["u10m", "v10m"], zarr_cache=zarr_cache)
-print(ds)
+
+# Generate dataset
+options = PipelineOptions([ 
+    '--runner=DirectRunner',   
+    '--direct_num_workers=0',
+    '--direct_running_mode=multi_processing',
+])  
+time = pd.date_range("2000-01-01", freq="6h", periods=1000)
+variable = ["u10m", "v10m"]
+dataset_name = "my_dataset.zarr"
+build_dataset(data, time, variable, dataset_name, zarr_cache=zarr_cache, apache_beam_options=options)

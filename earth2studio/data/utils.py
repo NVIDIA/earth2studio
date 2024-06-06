@@ -19,10 +19,14 @@ from collections import OrderedDict
 from datetime import datetime
 from pathlib import Path
 from typing import Literal
+from loguru import logger
+import apache_beam as beam
+from apache_beam.options.pipeline_options import PipelineOptions
 
 import numpy as np
 import torch
 import xarray as xr
+import zarr
 
 from earth2studio.data.base import DataSource
 from earth2studio.utils.time import timearray_to_datetime, to_time_array
@@ -69,6 +73,82 @@ def fetch_data(
 
     return prep_data_array(xr.concat(da, "lead_time"), device=device)
 
+def build_dataset(
+    source: DataSource,
+    time: TimeArray,
+    variable: VariableArray,
+    dataset_name: str,
+    zarr_cache: zarr.hierarchy.Group,
+    transform: None = None,
+    apache_beam_options: None = None,
+):
+    """
+    Utility function to fetch data for models and load data on the target device.
+    """
+
+    # Set default options
+    if apache_beam_options is None:
+        logger.info("No Apache Beam options provided, using default options (Single-threaded, local runner)")
+        apache_beam_options = PipelineOptions()
+
+    # Initialize the dataset
+    dataset = zarr.open(dataset_name, mode='w')
+    dataset.create_dataset("variables", shape=(len(time), len(variable), 721, 1440), dtype='f4')
+
+    # Fetch data on first time step to make sure all datasets in cache are created
+    # TODO: Probably remove this
+    for var in variable:
+        source.fetch_cached_array(time[0], var, zarr_cache)
+
+    # Create elements for Apache Beam pipeline
+    elements = [(i, t, variable) for i, t in enumerate(time)]
+
+    # Make fetch data DoFn
+    class FetchDataDoFn(beam.DoFn):
+        def __init__(self, source, zarr_cache, dataset, transform=None):
+            self.source = source
+            self.zarr_cache = zarr_cache
+            self.dataset = dataset
+            self.transform = transform
+
+        def process(self, element):
+            t_index, time, variable = element
+            for i, var in enumerate(variable):
+                data = self.source.fetch_cached_array(time, var, self.zarr_cache)
+                if self.transform is not None:
+                    data = self.transform(data)
+                self.dataset["variables"][t_index, i, :, :] = data
+            yield (time, variable)
+
+    # Make progress reporting DoFn
+    class LoggingProgressDoFn(beam.DoFn):
+        def __init__(self, report_interval, total):
+            self.report_interval = report_interval
+            self.total = total
+            self.processed = 0
+        
+        def start_bundle(self):
+            self.processed = 0
+        
+        def process(self, element):
+            self.processed += 1
+            if self.processed % self.report_interval == 0:
+                logger.info(f'Processed {self.processed} out of {self.total} elements')
+                logger.info(f'Percentage complete: {self.processed / self.total * 100}%')
+            yield element
+    
+        def finish_bundle(self):
+            logger.info(f'Finished processing bundle with {self.processed} elements')
+
+    # Run the pipeline
+    logger.info("Starting Apache Beam pipeline")
+    with beam.Pipeline(options=apache_beam_options) as p:
+        arco_chunks = (
+            p
+            | "Create elements" >> beam.Create(elements)
+            | "Fetch data" >> beam.ParDo(FetchDataDoFn(source, zarr_cache, dataset))
+            | "Progress" >> beam.ParDo(LoggingProgressDoFn(100, len(time)))
+        )
 
 def prep_data_array(
     da: xr.DataArray,
