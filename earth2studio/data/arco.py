@@ -18,6 +18,7 @@ import os
 import pathlib
 import shutil
 from datetime import datetime, timedelta
+from typing import Union
 
 import fsspec
 import gcsfs
@@ -82,10 +83,159 @@ class ARCO:
             )
         self.zarr_group = zarr.open(gcstore, mode="r")
 
+    def initialize_zarr_cache(
+        self,
+        file_path: Union[str, pathlib.Path, fsspec.spec.AbstractFileSystem],
+    ):
+        """Initialize zarr cache for ARCO data source"""
+
+        # Initialize zarr cache
+        # Open in append mode to not overwrite existing data
+        zarr_cache = zarr.open(file_path, mode="a")
+
+        # Create time coordinate system
+        if "time" not in list(zarr_cache.keys()):
+            logger.debug(
+                f"Initalizing time coordinate system for ARCO data source at {file_path}"
+            )
+            zarr_cache.create_dataset("time", data=self.zarr_group["time"]) # TODO: Maybe exand the time coordinate
+            zarr_cache["time"].attrs["_ARRAY_DIMENSIONS"] = ["time"]
+            zarr_cache["time"].attrs["calendar"] = "proleptic_gregorian"
+            zarr_cache["time"].attrs["units"] = "hours since 1900-01-01 00:00:00"
+
+        # Create longitude and latitude coordinate system
+        if "latitude" not in list(zarr_cache.keys()):
+            logger.debug(
+                f"Initalizing latitude coordinate system for ARCO data source at {file_path}"
+            )
+            zarr_cache.create_dataset("latitude", data=self.zarr_group["latitude"])
+            for key, value in self.zarr_group["latitude"].attrs.items():
+                zarr_cache["latitude"].attrs[key] = value
+        if "longitude" not in list(zarr_cache.keys()):
+            logger.debug(
+                f"Initalizing longitude coordinate system for ARCO data source at {file_path}"
+            )
+            zarr_cache.create_dataset("longitude", data=self.zarr_group["longitude"])
+            for key, value in self.zarr_group["longitude"].attrs.items():
+                zarr_cache["longitude"].attrs[key] = value
+
+        # Consulidate all variables
+        zarr.consolidate_metadata(file_path)
+
+        return zarr_cache
+
+    def fetch_array(
+        self,
+        time: datetime,
+        variable: str,
+    ) -> np.ndarray:
+        """Function to get data.
+        """
+
+        # Determine arco variable and modifier
+        try:
+            arco_name, modifier = ARCOLexicon[variable]
+        except KeyError as e:
+            logger.error(f"variable id {variable} not found in ARCO lexicon")
+            raise e
+
+        # Get level coordinate from arco naming convention
+        arco_variable, level = arco_name.split("::")
+
+        # Get time index
+        time_index = self._get_time_index(time)
+
+        # special variables
+        if variable == "tp06":
+            return modifier(self._fetch_tp06(time))
+
+        shape = self.zarr_group[arco_variable].shape
+        # Static variables
+        if len(shape) == 2:
+            return modifier(self.zarr_group[arco_variable][:])
+        # Surface variable
+        elif len(shape) == 3:
+            return modifier(self.zarr_group[arco_variable][time_index])
+        # Atmospheric variable
+        else:
+            level_index = np.where(level_coords == int(level))[0][0]
+            return modifier(
+                self.zarr_group[arco_variable][time_index, level_index]
+            )
+
+    def fetch_cached_array(
+        self,
+        time: datetime,
+        variable: str,
+        zarr_cache: zarr.hierarchy.Group,
+    ) -> np.ndarray:
+        """ Reads data from zarr cache """
+
+        # Get time index
+        time_index = self._get_time_index(time)
+
+        # Check if array is already in cache
+        if (variable not in list(zarr_cache.keys())) or not zarr_cache[self._get_download_name(variable)][time_index]:
+            array = self.fetch_array(time, variable)
+            self.cache_array(array, time, variable, zarr_cache)
+        else:
+            logger.debug(
+                f"Reading {variable} from cache at time {time.isoformat()}"
+            ) # TODO: Remove this
+            array = zarr_cache[variable][time_index]
+
+        return array
+
+    def cache_array(
+        self,
+        array: np.ndarray,
+        time: datetime,
+        variable: str,
+        zarr_cache: zarr.hierarchy.Group = None,
+    ) -> None:
+        """
+        Caches array in zarr cache
+        """
+
+        # Get time index
+        time_index = self._get_time_index(time)
+
+        # Check if variable exists in cache
+        if variable not in list(zarr_cache.keys()):
+
+            # Create dataset
+            ds = zarr_cache.create_dataset(
+                variable,
+                shape=(len(self.zarr_group["time"]), *array.shape),
+                chunks=(1, *array.shape),
+                compressor=zarr.Blosc(cname="lz4", clevel=5, shuffle=zarr.Blosc.SHUFFLE, blocksize=0),
+                dtype=array.dtype,
+            )
+            ds.attrs["_ARRAY_DIMENSIONS"] = ["time", "latitude", "longitude"]
+
+            # Create download marker
+            logger.debug(
+                f"len(self.zarr_group['time']): {len(self.zarr_group['time'])}"
+            )
+            ds = zarr_cache.create_dataset(
+                self._get_download_name(variable),
+                data=np.zeros(len(self.zarr_group["time"]), dtype=bool),
+                chunks=(1024,), # TODO: This might break things
+                dtype=bool,
+            )
+            ds.attrs["_ARRAY_DIMENSIONS"] = ["time"]
+
+        # Cache array
+        zarr_cache[variable][time_index] = array
+
+        # Mark as downloaded
+        zarr_cache[self._get_download_name(variable)][time_index] = True
+
     def __call__(
         self,
         time: datetime | list[datetime] | TimeArray,
         variable: str | list[str] | VariableArray,
+        zarr_cache: zarr.hierarchy.Group = None,
     ) -> xr.DataArray:
         """Function to get data.
 
@@ -102,7 +252,10 @@ class ARCO:
         xr.DataArray
             ERA5 weather data array from ARCO
         """
+
+        # Prepare time and variable inputs
         time, variable = prep_data_inputs(time, variable)
+
         # Create cache dir if doesnt exist
         pathlib.Path(self.cache).mkdir(parents=True, exist_ok=True)
 
@@ -112,7 +265,7 @@ class ARCO:
         # Fetch index file for requested time
         data_arrays = []
         for t0 in time:
-            data_array = self.fetch_arco_dataarray(t0, variable)
+            data_array = self.fetch_arco_dataarray(t0, variable, zarr_cache)
             data_arrays.append(data_array)
 
         # Delete cache if needed
@@ -125,6 +278,7 @@ class ARCO:
         self,
         time: datetime,
         variables: list[str],
+        zarr_cache: zarr.hierarchy.Group = None,
     ) -> xr.DataArray:
         """Retrives ARCO data array for given date time by downloading a lat lon array
         from the Zarr store
@@ -154,8 +308,6 @@ class ARCO:
 
         # Load levels coordinate system from Zarr store and check
         level_coords = self.zarr_group["level"][:]
-        # Get time index (vanilla zarr doesnt support date indices)
-        time_index = self._get_time_index(time)
 
         # TODO: Add MP here
         for i, variable in enumerate(
@@ -166,32 +318,12 @@ class ARCO:
             logger.debug(
                 f"Fetching ARCO zarr array for variable: {variable} at {time.isoformat()}"
             )
-            try:
-                arco_name, modifier = ARCOLexicon[variable]
-            except KeyError as e:
-                logger.error(f"variable id {variable} not found in ARCO lexicon")
-                raise e
 
-            arco_variable, level = arco_name.split("::")
-
-            # special variables
-            if variable == "tp06":
-                arcoda[0, i] = modifier(self._fetch_tp06(time))
-                continue
-
-            shape = self.zarr_group[arco_variable].shape
-            # Static variables
-            if len(shape) == 2:
-                arcoda[0, i] = modifier(self.zarr_group[arco_variable][:])
-            # Surface variable
-            elif len(shape) == 3:
-                arcoda[0, i] = modifier(self.zarr_group[arco_variable][time_index])
-            # Atmospheric variable
+            # Fetch variable from ARCO
+            if zarr_cache is None:
+                arcoda[0, i] = self.fetch_array(time, variable)
             else:
-                level_index = np.where(level_coords == int(level))[0][0]
-                arcoda[0, i] = modifier(
-                    self.zarr_group[arco_variable][time_index, level_index]
-                )
+                arcoda[0, i] = self.fetch_cached_array(time, variable, zarr_cache)
 
         return arcoda
 
@@ -239,9 +371,6 @@ class ARCO:
                 raise ValueError(
                     f"Requested date time {time} needs to be before November 10th, 2023 for ARCO"
                 )
-
-            # if not self.available(time):
-            #     raise ValueError(f"Requested date time {time} not available in ARCO")
 
     @classmethod
     def _get_time_index(cls, time: datetime) -> int:
@@ -298,3 +427,8 @@ class ARCO:
         time_index = cls._get_time_index(time)
         max_index = zarr_group["time"][-1]
         return time_index >= 0 and time_index <= max_index
+
+    @classmethod
+    def _get_download_name(cls, variable: str) -> str:
+        """Get the download name for a given time, this is used to cache data"""
+        return f"DOWNLOADED_{variable}"
