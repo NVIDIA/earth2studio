@@ -79,7 +79,7 @@ class crps:
         )
 
     def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
-        """Ouput coordinate system of the prognostic model
+        """Output coordinate system of the prognostic model
 
         Parameters
         ----------

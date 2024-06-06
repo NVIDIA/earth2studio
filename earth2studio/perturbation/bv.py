@@ -87,7 +87,7 @@ class BredVector:
         Returns
         -------
         tuple[torch.Tensor, CoordSystem]:
-            Ouput tensor and respective coordinate system dictionary
+            Output tensor and respective coordinate system dictionary
         """
         dx, coords = self.seeding_perturbation_method(x, coords)
         dx -= x

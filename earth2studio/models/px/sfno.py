@@ -176,7 +176,7 @@ class SFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     @batch_coords()
     def output_coords(self, input_coords: CoordSystem | None = None) -> CoordSystem:
-        """Ouput coordinate system of the prognostic model
+        """Output coordinate system of the prognostic model
 
         Parameters
         ----------
@@ -194,6 +194,15 @@ class SFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         if input_coords is None:
             return output_coords
+
+        test_coords = input_coords.copy()
+        test_coords["lead_time"] = (
+            test_coords["lead_time"] - input_coords["lead_time"][-1]
+        )
+        for i, (key, value) in enumerate(self.input_coords.items()):
+            if key not in ["batch", "time"]:
+                handshake_dim(test_coords, key, i)
+                handshake_coords(test_coords, self.input_coords, key)
 
         output_coords["batch"] = input_coords["batch"]
         output_coords["time"] = input_coords["time"]
@@ -276,14 +285,7 @@ class SFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         x : torch.Tensor
         coords : CoordSystem
         """
-        for i, (key, value) in enumerate(self.input_coords.items()):
-            if key not in ["batch", "time"]:
-                handshake_dim(coords, key, i)
-                handshake_coords(coords, self.input_coords, key)
-
-        x, coords = self._forward(x, coords)
-
-        return x, coords
+        return self._forward(x, coords)
 
     @batch_func()
     def _default_generator(
@@ -291,11 +293,7 @@ class SFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     ) -> Generator[tuple[torch.Tensor, CoordSystem], None, None]:
         coords = coords.copy()
 
-        for i, (key, value) in enumerate(self.input_coords.items()):
-            if key not in ["batch", "time"]:
-                handshake_dim(coords, key, i)
-                handshake_coords(coords, self.input_coords, key)
-
+        self.output_coords(coords)
         yield x, coords
 
         while True:

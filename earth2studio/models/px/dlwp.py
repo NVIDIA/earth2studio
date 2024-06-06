@@ -116,7 +116,7 @@ class DLWP(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     @batch_coords()
     def output_coords(self, input_coords: CoordSystem | None = None) -> CoordSystem:
-        """Ouput coordinate system of the prognostic model
+        """Output coordinate system of the prognostic model
 
         Parameters
         ----------
@@ -144,11 +144,21 @@ class DLWP(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         if input_coords is None:
             return output_coords
 
+        print(input_coords["lead_time"], self.input_coords["lead_time"])
+        test_coords = input_coords.copy()
+        test_coords["lead_time"] = (
+            test_coords["lead_time"] - input_coords["lead_time"][-1]
+        )
+        print(test_coords["lead_time"], self.input_coords["lead_time"])
+        for i, (key, value) in enumerate(self.input_coords.items()):
+            handshake_dim(test_coords, key, i)
+            if key != "batch" and key != "time":
+                handshake_coords(test_coords, self.input_coords, key)
+
         # Normal forward pass of DLWP, this method returns two time-steps
         output_coords["batch"] = input_coords["batch"]
         output_coords["time"] = input_coords["time"]
 
-        # Multiply by 2 here because returning two timesteps
         output_coords["lead_time"] = (
             input_coords["lead_time"][-1] + output_coords["lead_time"]
         )
@@ -325,16 +335,14 @@ class DLWP(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         tuple[torch.Tensor, CoordSystem]
             Output tensor and coordinate system 6 hours in the future
         """
-        for i, (key, value) in enumerate(self.input_coords.items()):
-            handshake_dim(coords, key, i)
-            if key != "batch" and key != "time":
-                handshake_coords(coords, self.input_coords, key)
+
+        output_coords = self.output_coords(coords)
 
         x = self.to_cubedsphere(x)
         x = self._forward(x, coords)
         x = self.to_equirectangular(x)
 
-        return x[:, :, :1], self.output_coords(coords)
+        return x[:, :, :1], output_coords
 
     @batch_func()
     def _default_generator(
@@ -342,10 +350,7 @@ class DLWP(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     ) -> Generator[tuple[torch.Tensor, CoordSystem], None, None]:
 
         coords = coords.copy()
-        for i, (key, value) in enumerate(self.input_coords.items()):
-            handshake_dim(coords, key, i)
-            if key != "batch" and key != "time":
-                handshake_coords(coords, self.input_coords, key)
+        self.output_coords(coords)
 
         coords_out = coords.copy()
         coords_out["lead_time"] = coords["lead_time"][1:]
@@ -358,21 +363,25 @@ class DLWP(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
             # Forward pass
             x = self._forward(x, coords)
+            coords["lead_time"] = (
+                coords["lead_time"] + 2 * self.output_coords()["lead_time"]
+            )
             x = x.clone()
 
             # Rear hook for first predicted step
-            coords = self.output_coords(coords)
-            x[:, :, :1], coords = self.rear_hook(x[:, :, :1], coords)
+            coords_out = coords.copy()
+            coords_out["lead_time"] = coords["lead_time"][0]
+            x[:, :, :1], coords_out = self.rear_hook(x[:, :, :1], coords_out)
 
             # Output first predicted step
             out = self.to_equirectangular(x[:, :, :1])
-            yield out, coords.copy()
+            yield out, coords_out
 
             # Rear hook for second predicted step
-            coords = self.output_coords(coords)
-            x[:, :, 1:], coords = self.rear_hook(x[:, :, 1:], coords)
+            coords_out["lead_time"] = coords["lead_time"][-1]
+            x[:, :, 1:], coords_out = self.rear_hook(x[:, :, 1:], coords_out)
             out = self.to_equirectangular(x[:, :, 1:])
-            yield out, coords.copy()
+            yield out, coords_out
 
     def create_iterator(
         self, x: torch.Tensor, coords: CoordSystem

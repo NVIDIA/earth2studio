@@ -68,7 +68,7 @@ class rmse:
         return self._reduction_dimensions
 
     def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
-        """Ouput coordinate system of the prognostic model
+        """Output coordinate system of the prognostic model
 
         Parameters
         ----------
@@ -206,7 +206,7 @@ class spread_skill_ratio:
         return self.ensemble_dimension + self._reduction_dimensions
 
     def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
-        """Ouput coordinate system of the prognostic model
+        """Output coordinate system of the prognostic model
 
         Parameters
         ----------

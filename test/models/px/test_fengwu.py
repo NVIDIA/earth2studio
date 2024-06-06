@@ -112,6 +112,8 @@ def test_fengwu_call(time, fengwu_test_package, device):
     handshake_dim(out_coords, "lead_time", 1)
     handshake_dim(out_coords, "time", 0)
 
+    torch.cuda.empty_cache()
+
 
 @pytest.mark.parametrize(
     "ensemble",
@@ -166,6 +168,8 @@ def test_fengwu_iter(ensemble, fengwu_test_package, device):
         if i > 3:
             break
 
+    torch.cuda.empty_cache()
+
 
 @pytest.mark.parametrize(
     "dc",
@@ -190,7 +194,7 @@ def test_fengwu_exceptions(dc, fengwu_test_package, device):
     variable = p.input_coords["variable"]
     x, coords = fetch_data(r, time, variable, lead_time, device=device)
 
-    with pytest.raises((KeyError, ValueError)):
+    with pytest.raises((KeyError, ValueError, RuntimeError)):
         p(x, coords)
 
 

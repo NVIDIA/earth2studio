@@ -170,7 +170,7 @@ class PanguBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self,
         input_coords: CoordSystem | None = None,
     ) -> CoordSystem:
-        """Ouput coordinate system of the prognostic model
+        """Output coordinate system of the prognostic model
 
         Parameters
         ----------
@@ -187,6 +187,15 @@ class PanguBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         if input_coords is None:
             return self._output_coords
+
+        test_coords = input_coords.copy()
+        test_coords["lead_time"] = (
+            test_coords["lead_time"] - input_coords["lead_time"][-1]
+        )
+        for i, (key, value) in enumerate(self.input_coords.items()):
+            if key != "batch":
+                handshake_dim(test_coords, key, i)
+                handshake_coords(test_coords, self.input_coords, key)
 
         output_coords["batch"] = input_coords["batch"]
         output_coords["lead_time"] = (
@@ -387,10 +396,6 @@ class Pangu24(PanguBase):
         tuple[torch.Tensor, CoordSystem]
             Output tensor and coordinate system 24 hours in the future
         """
-        for i, (key, value) in enumerate(self.input_coords.items()):
-            if key != "batch":
-                handshake_dim(coords, key, i)
-                handshake_coords(coords, self.input_coords, key)
 
         return self._forward(x, coords, self.ort)
 
@@ -400,10 +405,7 @@ class Pangu24(PanguBase):
     ) -> Generator[tuple[torch.Tensor, CoordSystem], None, None]:
         coords = coords.copy()
 
-        for i, (key, value) in enumerate(self.input_coords.items()):
-            if key != "batch":
-                handshake_dim(coords, key, i)
-                handshake_coords(coords, self.input_coords, key)
+        self.output_coords(coords)
 
         yield x, coords
 
@@ -496,11 +498,6 @@ class Pangu6(PanguBase):
         tuple[torch.Tensor, CoordSystem]
             Output tensor and coordinate system 6 hours in the future
         """
-        for i, (key, value) in enumerate(self.input_coords.items()):
-            if key != "batch":
-                handshake_dim(coords, key, i)
-                handshake_coords(coords, self.input_coords, key)
-
         return self._forward(x, coords, self.ort)
 
     @batch_func()
@@ -512,10 +509,7 @@ class Pangu6(PanguBase):
         # Load other sessions (note .to() does not impact these)
         ort24 = create_ort_session(self.ort24, self.device)
 
-        for i, (key, value) in enumerate(self.input_coords.items()):
-            if key != "batch":
-                handshake_dim(coords, key, i)
-                handshake_coords(coords, self.input_coords, key)
+        self.output_coords(coords)
 
         yield x, coords
 
@@ -623,11 +617,6 @@ class Pangu3(PanguBase):
         tuple[torch.Tensor, CoordSystem]
             Output tensor and coordinate system 3 hours in the future
         """
-        for i, (key, value) in enumerate(self.input_coords.items()):
-            if key != "batch":
-                handshake_dim(coords, key, i)
-                handshake_coords(coords, self.input_coords, key)
-
         return self._forward(x, coords, self.ort)
 
     @batch_func()
@@ -640,10 +629,7 @@ class Pangu3(PanguBase):
         ort24 = create_ort_session(self.ort24, self.device)
         ort6 = create_ort_session(self.ort6, self.device)
 
-        for i, (key, value) in enumerate(self.input_coords.items()):
-            if key != "batch":
-                handshake_dim(coords, key, i)
-                handshake_coords(coords, self.input_coords, key)
+        self.output_coords(coords)
 
         yield x, coords
 

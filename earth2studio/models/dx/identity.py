@@ -46,7 +46,7 @@ class Identity(torch.nn.Module):
 
     @batch_coords()
     def output_coords(self, input_coords: CoordSystem | None = None) -> CoordSystem:
-        """Ouput coordinate system of diagnostic model
+        """Output coordinate system of diagnostic model
 
         Parameters
         ----------

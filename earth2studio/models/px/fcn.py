@@ -104,7 +104,7 @@ class FCN(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     @batch_coords()
     def output_coords(self, input_coords: CoordSystem | None = None) -> CoordSystem:
-        """Ouput coordinate system of the prognostic model
+        """Output coordinate system of the prognostic model
 
         Parameters
         ----------
@@ -130,6 +130,15 @@ class FCN(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         if input_coords is None:
             return output_coords
+
+        test_coords = input_coords.copy()
+        test_coords["lead_time"] = (
+            test_coords["lead_time"] - input_coords["lead_time"][-1]
+        )
+        for i, (key, value) in enumerate(self.input_coords.items()):
+            if key != "batch":
+                handshake_dim(test_coords, key, i)
+                handshake_coords(test_coords, self.input_coords, key)
 
         output_coords = output_coords.copy()
         output_coords["batch"] = input_coords["batch"]
@@ -196,12 +205,6 @@ class FCN(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         tuple[torch.Tensor, CoordSystem]
             Output tensor and coordinate system 6 hours in the future
         """
-
-        for i, (key, value) in enumerate(self.input_coords.items()):
-            if key != "batch":
-                handshake_dim(coords, key, i)
-                handshake_coords(coords, self.input_coords, key)
-
         output_coords = self.output_coords(coords)
 
         x = self._forward(x)
@@ -214,10 +217,7 @@ class FCN(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     ) -> Generator[tuple[torch.Tensor, CoordSystem], None, None]:
         coords = coords.copy()
 
-        for i, (key, value) in enumerate(self.input_coords.items()):
-            if key != "batch":
-                handshake_dim(coords, key, i)
-                handshake_coords(coords, self.input_coords, key)
+        self.output_coords(coords)
 
         yield x, coords
 

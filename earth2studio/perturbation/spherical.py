@@ -74,7 +74,7 @@ class SphericalGaussian:
         Returns
         -------
         tuple[torch.Tensor, CoordSystem]:
-            Ouput tensor and respective coordinate system dictionary
+            Output tensor and respective coordinate system dictionary
         """
         shape = x.shape
         # Check the required dimensions are present

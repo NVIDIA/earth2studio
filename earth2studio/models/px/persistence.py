@@ -92,7 +92,7 @@ class Persistence(torch.nn.Module, PrognosticMixin):
 
     @batch_coords()
     def output_coords(self, input_coords: CoordSystem | None = None) -> CoordSystem:
-        """Ouput coordinate system of the prognostic model
+        """Output coordinate system of the prognostic model
 
         Parameters
         ----------
@@ -110,6 +110,15 @@ class Persistence(torch.nn.Module, PrognosticMixin):
 
         if input_coords is None:
             return output_coords
+
+        test_coords = input_coords.copy()
+        test_coords["lead_time"] = (
+            test_coords["lead_time"] - input_coords["lead_time"][-1]
+        )
+        for i, (key, value) in enumerate(self.input_coords.items()):
+            if key != "batch":
+                handshake_dim(test_coords, key, i)
+                handshake_coords(test_coords, self.input_coords, key)
 
         output_coords["batch"] = input_coords["batch"]
         output_coords["lead_time"] = (
@@ -149,11 +158,6 @@ class Persistence(torch.nn.Module, PrognosticMixin):
         x : torch.Tensor
         coords : CoordSystem
         """
-        for i, (key, value) in enumerate(self.input_coords.items()):
-            if key != "batch":
-                handshake_dim(coords, key, i)
-                handshake_coords(coords, self.input_coords, key)
-
         return self._forward(x, coords)
 
     @batch_func()
@@ -162,11 +166,7 @@ class Persistence(torch.nn.Module, PrognosticMixin):
     ) -> Generator[tuple[torch.Tensor, CoordSystem], None, None]:
         coords = coords.copy()
 
-        for i, (key, value) in enumerate(self.input_coords.items()):
-            if key != "batch":
-                handshake_dim(coords, key, i)
-                handshake_coords(coords, self.input_coords, key)
-
+        self.output_coords(coords)
         yield x, coords
 
         while True:

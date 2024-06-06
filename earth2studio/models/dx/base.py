@@ -43,7 +43,7 @@ class DiagnosticModel(Protocol):
         Returns
         -------
         tuple[torch.Tensor, CoordSystem]:
-            Ouput tensor and respective coordinate system dictionary
+            Output tensor and respective coordinate system dictionary
         """
         pass
 
@@ -59,7 +59,7 @@ class DiagnosticModel(Protocol):
         pass
 
     def output_coords(self, input_coords: CoordSystem | None = None) -> CoordSystem:
-        """Ouput coordinate system of diagnostic model
+        """Output coordinate system of diagnostic model
 
         Parameters
         ----------

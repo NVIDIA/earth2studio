@@ -171,7 +171,7 @@ class FuXi(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     @batch_coords()
     def output_coords(self, input_coords: CoordSystem | None = None) -> CoordSystem:
-        """Ouput coordinate system of the prognostic model
+        """Output coordinate system of the prognostic model
 
         Parameters
         ----------
@@ -197,6 +197,17 @@ class FuXi(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         if input_coords is None:
             return output_coords
+
+        print(input_coords["lead_time"], self.input_coords["lead_time"])
+        test_coords = input_coords.copy()
+        test_coords["lead_time"] = (
+            test_coords["lead_time"] - input_coords["lead_time"][-1]
+        )
+        print(test_coords["lead_time"], self.input_coords["lead_time"])
+        for i, (key, value) in enumerate(self.input_coords.items()):
+            handshake_dim(test_coords, key, i)
+            if key != "batch" and key != "time":
+                handshake_coords(test_coords, self.input_coords, key)
 
         output_coords["batch"] = input_coords["batch"]
         output_coords["time"] = input_coords["time"]
@@ -322,7 +333,7 @@ class FuXi(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         # name: temb
         # tensor: float32[1,12]
 
-        # FuXi ONNX Ouput
+        # FuXi ONNX Output
         # name: output (for short model its 15379)
         # tensor: float32[1,ScatterNDoutput_dim_1,70,721,1440]
 
@@ -368,10 +379,6 @@ class FuXi(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         tuple[torch.Tensor, CoordSystem]
             Output tensor and coordinate system 6 hours in the future
         """
-        for i, (key, value) in enumerate(self.input_coords.items()):
-            handshake_dim(coords, key, i)
-            if key != "batch" and key != "time":
-                handshake_coords(coords, self.input_coords, key)
 
         if self.ort._model_path != self.ort_short_path:
             logger.warning("Loading short range model")
@@ -388,10 +395,7 @@ class FuXi(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     ) -> Generator[tuple[torch.Tensor, CoordSystem], None, None]:
         coords = coords.copy()
 
-        for i, (key, value) in enumerate(self.input_coords.items()):
-            handshake_dim(coords, key, i)
-            if key != "batch" and key != "time":
-                handshake_coords(coords, self.input_coords, key)
+        self.output_coords(coords)
 
         coords_out = coords.copy()
         coords_out["lead_time"] = coords["lead_time"][1:]
@@ -424,7 +428,6 @@ class FuXi(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             output = out[:, :, 1:]
             yield output, out_coords.copy()
 
-            # Use output as next input
             # Use output as next input
             x = out
             coords["lead_time"] = (
