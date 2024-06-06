@@ -189,6 +189,16 @@ def test_fuxi_iter(ensemble, fuxi_test_package, device):
         if i > 41:  # Long test because of model cascade
             break
 
+    # Test forward pass reloads short model
+    out, out_coords = p(x, coords)
+    assert out.shape == torch.Size(
+        [ensemble, len(time), 1, len(p.output_coords["variable"]), 721, 1440]
+    )
+    assert (out_coords["variable"] == p.output_coords["variable"]).all()
+    assert torch.allclose(
+        out, (x[:, 1:] + 1)
+    )  # Phoo model should add by delta t each call
+
 
 @pytest.mark.parametrize(
     "dc",

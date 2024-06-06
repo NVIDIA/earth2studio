@@ -14,7 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os
 from collections import OrderedDict
 from collections.abc import Generator, Iterator
 from typing import TypeVar
@@ -33,6 +32,7 @@ from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_coords, batch_func
 from earth2studio.models.px.base import PrognosticModel
 from earth2studio.models.px.utils import PrognosticMixin
+from earth2studio.models.utils import create_ort_session
 from earth2studio.utils import handshake_coords, handshake_dim
 from earth2studio.utils.type import CoordSystem
 
@@ -148,7 +148,7 @@ class FengWu(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         super().__init__()
 
         self.device = torch.ones(1).device  # Hack to get default device
-        self.ort = self.create_ort_session(ort, self.device)
+        self.ort = create_ort_session(ort, self.device)
 
         self.register_buffer("center", center.unsqueeze(-1).unsqueeze(-1))
         self.register_buffer("scale", scale.unsqueeze(-1).unsqueeze(-1))
@@ -215,69 +215,9 @@ class FengWu(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             if self.ort is not None:
                 model_path = self.ort._model_path
                 del self.ort
-                self.ort = self.create_ort_session(model_path, device)
+                self.ort = create_ort_session(model_path, device)
 
         return self
-
-    @staticmethod
-    def create_ort_session(
-        onnx_file: str,
-        device: torch.device = torch.device("cpu", 0),
-    ) -> InferenceSession:
-        """Create ORT session on specified device
-
-        Parameters
-        ----------
-        onnx_file : str
-            ONNX file
-        device : torch.device, optional
-            Device for session to run on, by default "cpu"
-
-        Returns
-        -------
-        ort.InferenceSession
-            ORT inference session
-        """
-        if ort is None:
-            raise ImportError(
-                "onnxruntime (onnxruntime-gpu) is required for FengWu. See model install notes for details.\n"
-                + "https://nvidia.github.io/earth2studio/userguide/about/install.html#model-dependencies"
-            )
-        options = ort.SessionOptions()
-        options.enable_cpu_mem_arena = False
-        options.enable_mem_pattern = False
-        options.enable_mem_reuse = False
-        options.intra_op_num_threads = 1
-
-        # That will trigger a FileNotFoundError
-        os.stat(onnx_file)
-        if device.type == "cuda":
-            if device.index is None:
-                device_index = torch.cuda.current_device()
-            else:
-                device_index = device.index
-
-            providers = [
-                (
-                    "CUDAExecutionProvider",
-                    {
-                        "device_id": device_index,
-                    },
-                ),
-                "CPUExecutionProvider",
-            ]
-        else:
-            providers = [
-                "CPUExecutionProvider",
-            ]
-
-        ort_session = ort.InferenceSession(
-            onnx_file,
-            sess_options=options,
-            providers=providers,
-        )
-
-        return ort_session
 
     @classmethod
     def load_default_package(cls) -> Package:

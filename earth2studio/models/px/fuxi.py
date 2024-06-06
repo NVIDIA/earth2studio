@@ -14,7 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os
 from collections import OrderedDict
 from collections.abc import Generator, Iterator
 from typing import TypeVar
@@ -35,6 +34,7 @@ from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_coords, batch_func
 from earth2studio.models.px.base import PrognosticModel
 from earth2studio.models.px.utils import PrognosticMixin
+from earth2studio.models.utils import create_ort_session
 from earth2studio.utils import handshake_coords, handshake_dim
 from earth2studio.utils.type import CoordSystem, TimeArray
 
@@ -156,7 +156,7 @@ class FuXi(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self.ort_medium_path = ort_medium
         self.ort_long_path = ort_long
         # Load short model into memory
-        self.ort = self.create_ort_session(ort_short, self.device)
+        self.ort = create_ort_session(ort_short, self.device)
 
     input_coords = OrderedDict(
         {
@@ -223,72 +223,9 @@ class FuXi(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             if self.ort is not None:
                 model_path = self.ort._model_path
                 del self.ort
-                self.ort = self.create_ort_session(model_path, device)
+                self.ort = create_ort_session(model_path, device)
 
         return self
-
-    @staticmethod
-    def create_ort_session(
-        onnx_file: str,
-        device: torch.device = torch.device("cpu", 0),
-    ) -> InferenceSession:
-        """Create ORT session on specified device
-
-        Parameters
-        ----------
-        onnx_file : str
-            ONNX file
-        device : torch.device, optional
-            Device for session to run on, by default "cpu"
-
-        Returns
-        -------
-        ort.InferenceSession
-            ORT inference session
-        """
-        if ort is None:
-            raise ImportError(
-                "onnxruntime (onnxruntime-gpu) is required for FuXi. See model install notes for details.\n"
-                + "https://nvidia.github.io/earth2studio/userguide/about/install.html#model-dependencies"
-            )
-
-        options = ort.SessionOptions()
-        options.enable_cpu_mem_arena = False
-        options.enable_mem_pattern = False
-        options.enable_mem_reuse = False
-        options.intra_op_num_threads = 1
-        options.log_severity_level = 3
-
-        # That will trigger a FileNotFoundError
-        os.stat(onnx_file)
-        if device.type == "cuda":
-            if device.index is None:
-                device_index = torch.cuda.current_device()
-            else:
-                device_index = device.index
-
-            providers = [
-                (
-                    "CUDAExecutionProvider",
-                    {
-                        "device_id": device_index,
-                        "arena_extend_strategy": "kSameAsRequested",
-                    },
-                ),
-                "CPUExecutionProvider",
-            ]
-        else:
-            providers = [
-                "CPUExecutionProvider",
-            ]
-
-        ort_session = ort.InferenceSession(
-            onnx_file,
-            sess_options=options,
-            providers=providers,
-        )
-
-        return ort_session
 
     @classmethod
     def load_default_package(cls) -> Package:
@@ -436,6 +373,10 @@ class FuXi(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             if key != "batch" and key != "time":
                 handshake_coords(coords, self.input_coords, key)
 
+        if self.ort._model_path != self.ort_short_path:
+            logger.warning("Loading short range model")
+            self.ort = create_ort_session(self.ort_short_path, self.device)
+
         output, out_coords = self._forward(x, coords, self.ort)
         output = output[:, :, 1:]
 
@@ -457,24 +398,24 @@ class FuXi(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         yield x[:, :, 1:], coords_out
 
         step = 0
-        ort_session = self.ort
         while True:
             # Cascade models for longer roll outs
-            # Presently short model stays in memory, could look at changing this
-            # Runs on 16 Gb V100, so seems okay
-            if step == 20:
+            if step == 0 and self.ort._model_path != self.ort_short_path:
+                logger.warning(f"Time-step {step}, loading short range model")
+                self.ort = create_ort_session(self.ort_short_path, self.device)
+            elif step == 20:
                 logger.warning(f"Time-step {step}, loading medium range model")
-                ort_session = self.create_ort_session(self.ort_medium_path, self.device)
+                self.ort = create_ort_session(self.ort_medium_path, self.device)
             elif step == 40:
                 logger.warning(f"Time-step {step}, loading long range model")
-                ort_session = self.create_ort_session(self.ort_long_path, self.device)
+                self.ort = create_ort_session(self.ort_long_path, self.device)
             step += 1
 
             # Front hook
             x, coords = self.front_hook(x, coords)
 
-            # Forward
-            out, out_coords = self._forward(x, coords, ort_session)
+            # Forward is identity operator
+            out, out_coords = self._forward(x, coords, self.ort)
 
             # Rear hook
             out, out_coords = self.rear_hook(out, out_coords)
