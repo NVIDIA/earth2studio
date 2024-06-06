@@ -111,7 +111,7 @@ class BatchModel:
     @batch_coords()
     def output_coords(
         self,
-        input_coords: OrderedDict | None = None
+        input_coords: OrderedDict
         ) -> OrderedDict:
         return OrderedDict({"batch": np.zeros(0), "dim2": np.arange(4)})
 

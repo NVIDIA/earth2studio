@@ -91,7 +91,7 @@ class Persistence(torch.nn.Module, PrognosticMixin):
         return self._input_coords
 
     @batch_coords()
-    def output_coords(self, input_coords: CoordSystem | None = None) -> CoordSystem:
+    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
         """Output coordinate system of the prognostic model
 
         Parameters
@@ -115,7 +115,7 @@ class Persistence(torch.nn.Module, PrognosticMixin):
         test_coords["lead_time"] = (
             test_coords["lead_time"] - input_coords["lead_time"][-1]
         )
-        for i, (key, value) in enumerate(self.input_coords.items()):
+        for i, key in enumerate(self.input_coords):
             if key != "batch":
                 handshake_dim(test_coords, key, i)
                 handshake_coords(test_coords, self.input_coords, key)

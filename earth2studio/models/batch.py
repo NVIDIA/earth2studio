@@ -93,7 +93,7 @@ class batch_func:
         """
         if (
             next(iter(model.input_coords)) != "batch"
-            and next(iter(model.output_coords())) != "batch"
+            and next(iter(model.output_coords(model.input_coords))) != "batch"
         ):
             raise ValueError(
                 "Model coordinate systems not compatible with batch processing"
@@ -269,7 +269,7 @@ class batch_coords:
 
         if (
             next(iter(model.input_coords)) != "batch"
-            and next(iter(model.output_coords())) != "batch"
+            and next(iter(model.output_coords(model.input_coords))) != "batch"
         ):
             raise ValueError(
                 "Model coordinate systems not compatible with batch processing"
@@ -325,12 +325,7 @@ class batch_coords:
         """Standard batch function decorator"""
         # TODO: Better typing for model object
         @functools.wraps(func)
-        def _wrapper(
-            model: Any, input_coords: CoordSystem | None = None
-        ) -> CoordSystem:
-
-            if input_coords is None:
-                return func(model, input_coords)
+        def _wrapper(model: Any, input_coords: CoordSystem) -> CoordSystem:
 
             flatten_coords, batched_coords = self._compress_batch(model, input_coords)
 

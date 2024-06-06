@@ -118,7 +118,9 @@ def test_sfno_iter(ensemble, device):
     for i, (out, out_coords) in enumerate(p_iter):
         assert len(out.shape) == 6
         assert out.shape == torch.Size([ensemble, len(time), 1, 73, 721, 1440])
-        assert (out_coords["variable"] == p.output_coords()["variable"]).all()
+        assert (
+            out_coords["variable"] == p.output_coords(p.input_coords)["variable"]
+        ).all()
         assert (out_coords["ensemble"] == np.arange(ensemble)).all()
         assert out_coords["lead_time"][0] == np.timedelta64(6 * (i + 1), "h")
 

@@ -81,7 +81,7 @@ class PrognosticModel(Protocol):
         """
         pass
 
-    def output_coords(self, input_coords: CoordSystem | None = None) -> CoordSystem:
+    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
         """Output coordinate system of the prognostic model
 
         Parameters

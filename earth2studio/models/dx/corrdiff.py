@@ -145,7 +145,7 @@ class CorrDiffTaiwan(torch.nn.Module, AutoModelMixin):
         )
 
     @batch_coords()
-    def output_coords(self, input_coords: CoordSystem | None = None) -> CoordSystem:
+    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
         """Output coordinate system of diagnostic model
 
         Parameters
@@ -169,8 +169,6 @@ class CorrDiffTaiwan(torch.nn.Module, AutoModelMixin):
                 "ilon": np.arange(448),
             }
         )
-        if input_coords is None:
-            return output_coords
 
         handshake_dim(input_coords, "lon", 3)
         handshake_dim(input_coords, "lat", 2)

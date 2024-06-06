@@ -45,7 +45,7 @@ class Identity(torch.nn.Module):
         return OrderedDict({"batch": np.empty(0)})
 
     @batch_coords()
-    def output_coords(self, input_coords: CoordSystem | None = None) -> CoordSystem:
+    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
         """Output coordinate system of diagnostic model
 
         Parameters
@@ -59,9 +59,6 @@ class Identity(torch.nn.Module):
         CoordSystem
             Coordinate system dictionary
         """
-
-        if input_coords is None:
-            return OrderedDict({"batch": np.empty(0)})
 
         return input_coords.copy()
 

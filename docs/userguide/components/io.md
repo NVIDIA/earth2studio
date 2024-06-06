@@ -88,7 +88,7 @@ Here is a robust example of such a use-case:
 # Copy prognostic model output coordinates
 total_coords = OrderedDict(
     {
-        k: v for k, v in prognostic.output_coords().items() if
+        k: v for k, v in prognostic.output_coords(prognostic.input_coords).items() if
         (k != "batch") and (v.shape != 0)
     }
 )

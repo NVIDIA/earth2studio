@@ -115,7 +115,7 @@ class DLWP(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     )
 
     @batch_coords()
-    def output_coords(self, input_coords: CoordSystem | None = None) -> CoordSystem:
+    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
         """Output coordinate system of the prognostic model
 
         Parameters
@@ -141,18 +141,13 @@ class DLWP(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             }
         )
 
-        if input_coords is None:
-            return output_coords
-
-        print(input_coords["lead_time"], self.input_coords["lead_time"])
         test_coords = input_coords.copy()
         test_coords["lead_time"] = (
             test_coords["lead_time"] - input_coords["lead_time"][-1]
         )
-        print(test_coords["lead_time"], self.input_coords["lead_time"])
-        for i, (key, value) in enumerate(self.input_coords.items()):
+        for i, key in enumerate(self.input_coords):
             handshake_dim(test_coords, key, i)
-            if key != "batch" and key != "time":
+            if key not in ["batch", "time"]:
                 handshake_coords(test_coords, self.input_coords, key)
 
         # Normal forward pass of DLWP, this method returns two time-steps
@@ -364,7 +359,8 @@ class DLWP(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             # Forward pass
             x = self._forward(x, coords)
             coords["lead_time"] = (
-                coords["lead_time"] + 2 * self.output_coords()["lead_time"]
+                coords["lead_time"]
+                + 2 * self.output_coords(self.input_coords)["lead_time"]
             )
             x = x.clone()
 

@@ -98,7 +98,7 @@ class ClimateNet(torch.nn.Module, AutoModelMixin):
         )
 
     @batch_coords()
-    def output_coords(self, input_coords: CoordSystem | None = None) -> CoordSystem:
+    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
         """Output coordinate system of diagnostic model
 
         Parameters
@@ -112,16 +112,6 @@ class ClimateNet(torch.nn.Module, AutoModelMixin):
         CoordSystem
             Coordinate system dictionary
         """
-
-        if input_coords is None:
-            return OrderedDict(
-                {
-                    "batch": np.empty(0),
-                    "variable": np.array(OUT_VARIABLES),
-                    "lat": np.linspace(90, -90, 721, endpoint=True),
-                    "lon": np.linspace(0, 360, 1440, endpoint=False),
-                }
-            )
 
         handshake_dim(input_coords, "lon", 3)
         handshake_dim(input_coords, "lat", 2)

@@ -40,15 +40,7 @@ def PhooModel():
         )
 
         @batch_coords()
-        def output_coords(self, input_coords: OrderedDict | None = None) -> OrderedDict:
-            if input_coords is None:
-                return OrderedDict(
-                    [
-                        ("batch", np.empty(1)),
-                        ("variable", np.array(["a"])),
-                        ("lead_time", np.ones(1)),
-                    ]
-                )
+        def output_coords(self, input_coords: OrderedDict) -> OrderedDict:
 
             output_coords = input_coords.copy()
             output_coords["variable"] = np.array(["a"])
