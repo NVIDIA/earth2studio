@@ -426,7 +426,7 @@ class FuXi(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             # Use output as next input
             x = out
             coords["lead_time"] = (
-                coords["lead_time"] + self.output_coords()["lead_time"]
+                coords["lead_time"] + self.output_coords(self.input_coords)["lead_time"]
             )
 
     def create_iterator(
