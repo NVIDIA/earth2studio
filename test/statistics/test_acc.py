@@ -24,6 +24,7 @@ import torch
 import xarray as xr
 
 from earth2studio.statistics import acc, lat_weight
+from earth2studio.utils.coords import handshake_coords, handshake_dim
 from earth2studio.utils.type import TimeArray, VariableArray
 
 lat_weights = lat_weight(torch.as_tensor(np.linspace(-90.0, 90.0, 361)))
@@ -85,7 +86,7 @@ def test_climate_acc_correctness(
     )
     climatology = PhooClimatology(mean)
     ACC = acc(["lat", "lon"], climatology=climatology, weights=weights)
-    acc_, _ = ACC(x, x_coords, y, y_coords)
+    acc_, out_coords = ACC(x, x_coords, y, y_coords)
 
     assert torch.allclose(
         acc_,
@@ -93,6 +94,11 @@ def test_climate_acc_correctness(
         rtol=rtol,
         atol=atol,
     )
+
+    out_test_coords = ACC.output_coords(x_coords)
+    for i, c in enumerate(out_coords):
+        handshake_dim(out_test_coords, c, i)
+        handshake_coords(out_test_coords, out_coords, c)
 
 
 @pytest.mark.parametrize(
@@ -137,12 +143,22 @@ def test_acc(reduction_weights: tuple[list[str], np.ndarray], device: str) -> No
     assert not any([ri in c for ri in reduction_dimensions])
     assert list(z.shape) == [len(val) for val in c.values()]
 
+    out_test_coords = ACC.output_coords(x_coords)
+    for i, ci in enumerate(c):
+        handshake_dim(out_test_coords, ci, i)
+        handshake_coords(out_test_coords, c, ci)
+
     # Test with no provided climatology
     ACC = acc(reduction_dimensions, weights=weights)
 
     z, c = ACC(x, x_coords, y, y_coords)
     assert not any([ri in c for ri in reduction_dimensions])
     assert list(z.shape) == [len(val) for val in c.values()]
+
+    out_test_coords = ACC.output_coords(x_coords)
+    for i, ci in enumerate(c):
+        handshake_dim(out_test_coords, ci, i)
+        handshake_coords(out_test_coords, c, ci)
 
 
 @pytest.mark.parametrize(
@@ -197,12 +213,22 @@ def test_acc_leadtime(
     assert not any([ri in c for ri in reduction_dimensions])
     assert list(z.shape) == [len(val) for val in c.values()]
 
+    out_test_coords = ACC.output_coords(x_coords)
+    for i, ci in enumerate(c):
+        handshake_dim(out_test_coords, ci, i)
+        handshake_coords(out_test_coords, c, ci)
+
     # Test with no provided climatology
     ACC = acc(reduction_dimensions, weights=weights)
 
     z, c = ACC(x, x_coords, y, y_coords)
     assert not any([ri in c for ri in reduction_dimensions])
     assert list(z.shape) == [len(val) for val in c.values()]
+
+    out_test_coords = ACC.output_coords(x_coords)
+    for i, ci in enumerate(c):
+        handshake_dim(out_test_coords, ci, i)
+        handshake_coords(out_test_coords, c, ci)
 
 
 @pytest.mark.parametrize(

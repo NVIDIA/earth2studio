@@ -81,10 +81,14 @@ class PrognosticModel(Protocol):
         """
         pass
 
-    @property
-    def output_coords(self) -> CoordSystem:
-        """Ouput coordinate system of prognostic model, time dimension should contain
-        time-delta objects representing time-step of the model
+    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
+        """Output coordinate system of the prognostic model
+
+        Parameters
+        ----------
+        input_coords : CoordSystem
+            Input coordinate system to transform into output_coords
+            by default None, will use self.input_coords.
 
         Returns
         -------

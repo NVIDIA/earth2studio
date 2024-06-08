@@ -71,7 +71,7 @@ def test_fcn_call(time, device):
         time = [time]
 
     assert out.shape == torch.Size([len(time), 1, 26, 720, 1440])
-    assert (out_coords["variable"] == p.output_coords["variable"]).all()
+    assert (out_coords["variable"] == p.output_coords(coords)["variable"]).all()
     handshake_dim(out_coords, "lon", 4)
     handshake_dim(out_coords, "lat", 3)
     handshake_dim(out_coords, "variable", 2)
@@ -120,7 +120,7 @@ def test_fcn_iter(ensemble, device):
     for i, (out, out_coords) in enumerate(p_iter):
         assert len(out.shape) == 6
         assert out.shape == torch.Size([ensemble, len(time), 1, 26, 720, 1440])
-        assert (out_coords["variable"] == p.output_coords["variable"]).all()
+        assert (out_coords["variable"] == p.output_coords(coords)["variable"]).all()
         assert (out_coords["ensemble"] == np.arange(ensemble)).all()
         assert out_coords["lead_time"][0] == np.timedelta64(6 * (i + 1), "h")
 
@@ -187,7 +187,7 @@ def test_fcn_package(device, model_cache_context):
         time = [time]
 
     assert out.shape == torch.Size([len(time), 1, 26, 720, 1440])
-    assert (out_coords["variable"] == p.output_coords["variable"]).all()
+    assert (out_coords["variable"] == p.output_coords(coords)["variable"]).all()
     assert (out_coords["time"] == time).all()
     handshake_dim(out_coords, "lon", 4)
     handshake_dim(out_coords, "lat", 3)

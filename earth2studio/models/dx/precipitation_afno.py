@@ -20,7 +20,7 @@ import numpy as np
 import torch
 
 from earth2studio.models.auto import AutoModelMixin, Package
-from earth2studio.models.batch import batch_func
+from earth2studio.models.batch import batch_coords, batch_func
 from earth2studio.models.dx.base import DiagnosticModel
 from earth2studio.models.nn.afno_precip import PrecipNet
 from earth2studio.utils import (
@@ -96,14 +96,32 @@ class PrecipitationAFNO(torch.nn.Module, AutoModelMixin):
         }
     )
 
-    output_coords = OrderedDict(
-        {
-            "batch": np.empty(0),
-            "variable": np.array(["tp"]),
-            "lat": np.linspace(90, -90, 720, endpoint=False),
-            "lon": np.linspace(0, 360, 1440, endpoint=False),
-        }
-    )
+    @batch_coords()
+    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
+        """Output coordinate system of diagnostic model
+
+        Parameters
+        ----------
+        input_coords : CoordSystem
+            Input coordinate system to transform into output_coords
+            by default None, will use self.input_coords.
+
+        Returns
+        -------
+        CoordSystem
+            Coordinate system dictionary
+        """
+
+        handshake_dim(input_coords, "lon", 3)
+        handshake_dim(input_coords, "lat", 2)
+        handshake_dim(input_coords, "variable", 1)
+        handshake_coords(input_coords, self.input_coords, "lon")
+        handshake_coords(input_coords, self.input_coords, "lat")
+        handshake_coords(input_coords, self.input_coords, "variable")
+
+        output_coords = input_coords.copy()
+        output_coords["variable"] = np.array(["tp"])
+        return output_coords
 
     def __str__(self) -> str:
         return "precipnet"
@@ -141,12 +159,7 @@ class PrecipitationAFNO(torch.nn.Module, AutoModelMixin):
         coords: CoordSystem,
     ) -> tuple[torch.Tensor, CoordSystem]:
         """Forward pass of diagnostic"""
-        handshake_dim(coords, "lon", 3)
-        handshake_dim(coords, "lat", 2)
-        handshake_dim(coords, "variable", 1)
-        handshake_coords(coords, self.input_coords, "lon")
-        handshake_coords(coords, self.input_coords, "lat")
-        handshake_coords(coords, self.input_coords, "variable")
+        output_coords = self.output_coords(coords)
 
         x = (x - self.center) / self.scale
         out = self.core_model(x)
@@ -154,6 +167,4 @@ class PrecipitationAFNO(torch.nn.Module, AutoModelMixin):
         # https://github.com/NVlabs/FourCastNet/blob/master/utils/weighted_acc_rmse.py#L66
         out = self.eps * (torch.exp(out) - 1)
 
-        output_coords = coords.copy()
-        output_coords["variable"] = self.output_coords["variable"]
         return out, output_coords  # Softmax channels

@@ -58,7 +58,7 @@ def test_cnet(x, device):
     out, out_coords = dx(x, coords)
 
     assert out.shape == torch.Size([x.shape[0], 3, 721, 1440])
-    assert all(out_coords["variable"] == dx.output_coords["variable"])
+    assert out_coords["variable"] == dx.output_coords(coords)["variable"]
     handshake_dim(out_coords, "lon", 3)
     handshake_dim(out_coords, "lat", 2)
     handshake_dim(out_coords, "variable", 1)
@@ -135,7 +135,7 @@ def test_cnet_package(device, model_cache_context):
     assert torch.all(out <= 1)
     assert torch.all(out >= 0)
     # Check variables
-    assert all(out_coords["variable"] == dx.output_coords["variable"])
+    assert out_coords["variable"] == dx.output_coords(coords)["variable"]
     handshake_dim(out_coords, "lon", 3)
     handshake_dim(out_coords, "lat", 2)
     handshake_dim(out_coords, "variable", 1)

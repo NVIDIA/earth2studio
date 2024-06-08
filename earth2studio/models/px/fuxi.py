@@ -31,7 +31,7 @@ except ImportError:
 import torch
 
 from earth2studio.models.auto import AutoModelMixin, Package
-from earth2studio.models.batch import batch_func
+from earth2studio.models.batch import batch_coords, batch_func
 from earth2studio.models.px.base import PrognosticModel
 from earth2studio.models.px.utils import PrognosticMixin
 from earth2studio.models.utils import create_ort_session
@@ -169,16 +169,48 @@ class FuXi(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         }
     )
 
-    output_coords = OrderedDict(
-        {
-            "batch": np.empty(0),
-            "time": np.empty(0),
-            "lead_time": np.array([np.timedelta64(6, "h")]),
-            "variable": np.array(VARIABLES),
-            "lat": np.linspace(90, -90, 721, endpoint=True),
-            "lon": np.linspace(0, 360, 1440, endpoint=False),
-        }
-    )
+    @batch_coords()
+    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
+        """Output coordinate system of the prognostic model
+
+        Parameters
+        ----------
+        input_coords : CoordSystem
+            Input coordinate system to transform into output_coords
+            by default None, will use self.input_coords.
+
+        Returns
+        -------
+        CoordSystem
+            Coordinate system dictionary
+        """
+        output_coords = OrderedDict(
+            {
+                "batch": np.empty(0),
+                "time": np.empty(0),
+                "lead_time": np.array([np.timedelta64(6, "h")]),
+                "variable": np.array(VARIABLES),
+                "lat": np.linspace(90, -90, 721, endpoint=True),
+                "lon": np.linspace(0, 360, 1440, endpoint=False),
+            }
+        )
+
+        test_coords = input_coords.copy()
+        test_coords["lead_time"] = (
+            test_coords["lead_time"] - input_coords["lead_time"][-1]
+        )
+        for i, key in enumerate(self.input_coords):
+            handshake_dim(test_coords, key, i)
+            if key != "batch" and key != "time":
+                handshake_coords(test_coords, self.input_coords, key)
+
+        output_coords["batch"] = input_coords["batch"]
+        output_coords["time"] = input_coords["time"]
+        output_coords["lead_time"] = (
+            input_coords["lead_time"] + output_coords["lead_time"]
+        )
+        output_coords["lead_time"] = output_coords["lead_time"][1:]
+        return output_coords
 
     def to(self, device: str | torch.device | int) -> PrognosticModel:
         """Move model (and default ORT session) to device"""
@@ -261,10 +293,8 @@ class FuXi(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         coords: CoordSystem,
         ort_session: InferenceSession,
     ) -> tuple[torch.Tensor, CoordSystem]:
-        output_coords = self.output_coords.copy()
-        output_coords["batch"] = coords["batch"]
-        output_coords["time"] = coords["time"]
-        output_coords["lead_time"] = coords["lead_time"] + output_coords["lead_time"]
+
+        output_coords = self.output_coords(coords)
 
         # Ref https://onnxruntime.ai/docs/api/python/api_summary.html
         binding = ort_session.io_binding()
@@ -298,7 +328,7 @@ class FuXi(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         # name: temb
         # tensor: float32[1,12]
 
-        # FuXi ONNX Ouput
+        # FuXi ONNX Output
         # name: output (for short model its 15379)
         # tensor: float32[1,ScatterNDoutput_dim_1,70,721,1440]
 
@@ -344,10 +374,6 @@ class FuXi(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         tuple[torch.Tensor, CoordSystem]
             Output tensor and coordinate system 6 hours in the future
         """
-        for i, (key, value) in enumerate(self.input_coords.items()):
-            handshake_dim(coords, key, i)
-            if key != "batch" and key != "time":
-                handshake_coords(coords, self.input_coords, key)
 
         if self.ort._model_path != self.ort_short_path:
             logger.warning("Loading short range model")
@@ -355,7 +381,7 @@ class FuXi(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         output, out_coords = self._forward(x, coords, self.ort)
         output = output[:, :, 1:]
-        out_coords["lead_time"] = out_coords["lead_time"][1:]
+
         return output, out_coords
 
     @batch_func()
@@ -364,10 +390,7 @@ class FuXi(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     ) -> Generator[tuple[torch.Tensor, CoordSystem], None, None]:
         coords = coords.copy()
 
-        for i, (key, value) in enumerate(self.input_coords.items()):
-            handshake_dim(coords, key, i)
-            if key != "batch" and key != "time":
-                handshake_coords(coords, self.input_coords, key)
+        self.output_coords(coords)
 
         coords_out = coords.copy()
         coords_out["lead_time"] = coords["lead_time"][1:]
@@ -396,13 +419,15 @@ class FuXi(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             # Rear hook
             out, out_coords = self.rear_hook(out, out_coords)
 
+            # Yield current output
+            output = out[:, :, 1:]
+            yield output, out_coords.copy()
+
             # Use output as next input
             x = out
-            coords = out_coords.copy()
-
-            output = out[:, :, 1:]
-            out_coords["lead_time"] = out_coords["lead_time"][1:]
-            yield output, out_coords.copy()
+            coords["lead_time"] = (
+                coords["lead_time"] + self.output_coords(self.input_coords)["lead_time"]
+            )
 
     def create_iterator(
         self, x: torch.Tensor, coords: CoordSystem

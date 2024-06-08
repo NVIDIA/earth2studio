@@ -20,7 +20,7 @@ from collections.abc import Generator, Iterator
 import numpy as np
 import torch
 
-from earth2studio.models.batch import batch_func
+from earth2studio.models.batch import batch_coords, batch_func
 from earth2studio.models.px.utils import PrognosticMixin
 from earth2studio.utils import handshake_coords, handshake_dim
 from earth2studio.utils.type import CoordSystem
@@ -90,17 +90,41 @@ class Persistence(torch.nn.Module, PrognosticMixin):
         """
         return self._input_coords
 
-    @property
-    def output_coords(self) -> CoordSystem:
-        """Ouput coordinate system of prognostic model, time dimension should contain
-        time-delta objects
+    @batch_coords()
+    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
+        """Output coordinate system of the prognostic model
+
+        Parameters
+        ----------
+        input_coords : CoordSystem
+            Input coordinate system to transform into output_coords
+            by default None, will use self.input_coords.
 
         Returns
         -------
         CoordSystem
             Coordinate system dictionary
         """
-        return self._output_coords
+
+        output_coords = self._output_coords.copy()
+
+        if input_coords is None:
+            return output_coords
+
+        test_coords = input_coords.copy()
+        test_coords["lead_time"] = (
+            test_coords["lead_time"] - input_coords["lead_time"][-1]
+        )
+        for i, key in enumerate(self.input_coords):
+            if key != "batch":
+                handshake_dim(test_coords, key, i)
+                handshake_coords(test_coords, self.input_coords, key)
+
+        output_coords["batch"] = input_coords["batch"]
+        output_coords["lead_time"] = (
+            output_coords["lead_time"] + input_coords["lead_time"]
+        )
+        return output_coords
 
     @torch.inference_mode()
     def _forward(
@@ -110,9 +134,7 @@ class Persistence(torch.nn.Module, PrognosticMixin):
     ) -> tuple[torch.Tensor, CoordSystem]:
         # Model is identity operator
         # Update coordinates
-        output_coords = self.output_coords.copy()
-        output_coords["batch"] = coords["batch"]
-        output_coords["lead_time"] = output_coords["lead_time"] + coords["lead_time"]
+        output_coords = self.output_coords(coords)
 
         return x, output_coords
 
@@ -136,11 +158,6 @@ class Persistence(torch.nn.Module, PrognosticMixin):
         x : torch.Tensor
         coords : CoordSystem
         """
-        for i, (key, value) in enumerate(self.input_coords.items()):
-            if key != "batch":
-                handshake_dim(coords, key, i)
-                handshake_coords(coords, self.input_coords, key)
-
         return self._forward(x, coords)
 
     @batch_func()
@@ -149,11 +166,7 @@ class Persistence(torch.nn.Module, PrognosticMixin):
     ) -> Generator[tuple[torch.Tensor, CoordSystem], None, None]:
         coords = coords.copy()
 
-        for i, (key, value) in enumerate(self.input_coords.items()):
-            if key != "batch":
-                handshake_dim(coords, key, i)
-                handshake_coords(coords, self.input_coords, key)
-
+        self.output_coords(coords)
         yield x, coords
 
         while True:

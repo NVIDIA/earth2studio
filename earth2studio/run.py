@@ -95,13 +95,18 @@ def deterministic(
     # sphinx - fetch data end
 
     # Set up IO backend
-    total_coords = prognostic.output_coords.copy()
-    for key, value in prognostic.output_coords.items():  # Scrub batch dims
+    total_coords = prognostic.output_coords(prognostic.input_coords).copy()
+    for key, value in prognostic.output_coords(
+        prognostic.input_coords
+    ).items():  # Scrub batch dims
         if value.shape == (0,):
             del total_coords[key]
     total_coords["time"] = time
     total_coords["lead_time"] = np.asarray(
-        [prognostic.output_coords["lead_time"] * i for i in range(nsteps + 1)]
+        [
+            prognostic.output_coords(prognostic.input_coords)["lead_time"] * i
+            for i in range(nsteps + 1)
+        ]
     ).flatten()
     total_coords.move_to_end("lead_time", last=False)
     total_coords.move_to_end("time", last=False)
@@ -192,15 +197,20 @@ def diagnostic(
     logger.success(f"Fetched data from {data.__class__.__name__}")
 
     # Set up IO backend
-    total_coords = prognostic.output_coords.copy()
-    for key, value in prognostic.output_coords.items():  # Scrub batch dims
-        if key in diagnostic.output_coords:
-            total_coords[key] = diagnostic.output_coords[key]
+    total_coords = prognostic.output_coords(prognostic.input_coords)
+    for key, value in prognostic.output_coords(
+        prognostic.input_coords
+    ).items():  # Scrub batch dims
+        if key in diagnostic.output_coords(diagnostic.input_coords):
+            total_coords[key] = diagnostic.output_coords(diagnostic.input_coords)[key]
         if value.shape == (0,):
             del total_coords[key]
     total_coords["time"] = time
     total_coords["lead_time"] = np.asarray(
-        [prognostic.output_coords["lead_time"] * i for i in range(nsteps + 1)]
+        [
+            prognostic.output_coords(prognostic.input_coords)["lead_time"] * i
+            for i in range(nsteps + 1)
+        ]
     ).flatten()
     total_coords.move_to_end("lead_time", last=False)
     total_coords.move_to_end("time", last=False)
@@ -303,7 +313,10 @@ def ensemble(
     # Set up IO backend with information from output_coords (if applicable).
     total_coords = {"ensemble": np.arange(nensemble)} | coords0.copy()
     total_coords["lead_time"] = np.asarray(
-        [prognostic.output_coords["lead_time"] * i for i in range(nsteps + 1)]
+        [
+            prognostic.output_coords(prognostic.input_coords)["lead_time"] * i
+            for i in range(nsteps + 1)
+        ]
     ).flatten()
     for key, value in total_coords.items():
         total_coords[key] = output_coords.get(key, value)

@@ -32,6 +32,21 @@ class Statistic(Protocol):
         """
         pass
 
+    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
+        """Output coordinate system of the prognostic model
+
+        Parameters
+        ----------
+        input_coords : CoordSystem
+            Input coordinate system to transform into output_coords
+
+        Returns
+        -------
+        CoordSystem
+            Coordinate system dictionary
+        """
+        pass
+
     def __call__(
         self, x: torch.Tensor, coords: CoordSystem
     ) -> tuple[torch.Tensor, CoordSystem]:
@@ -55,6 +70,21 @@ class Metric(Protocol):
 
     @property
     def reduction_dimensions(self) -> list[str]:
+        pass
+
+    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
+        """Output coordinate system of the prognostic model
+
+        Parameters
+        ----------
+        input_coords : CoordSystem
+            Input coordinate system to transform into output_coords
+
+        Returns
+        -------
+        CoordSystem
+            Coordinate system dictionary
+        """
         pass
 
     def __call__(
