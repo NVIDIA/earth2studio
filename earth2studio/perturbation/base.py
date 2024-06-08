@@ -43,6 +43,6 @@ class Perturbation(Protocol):
         Returns
         -------
         tuple[torch.Tensor, CoordSystem]:
-            Ouput tensor and respective coordinate system dictionary
+            Output tensor and respective coordinate system dictionary
         """
         pass

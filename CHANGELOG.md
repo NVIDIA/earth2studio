@@ -27,6 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added reduction_dimensions as required property in statistics
   and metrics API.
 - Added Lexicon and Automodel userguide
+- Added an 'output_coords' method to Statistics and Metrics.
 
 ### Changed
 
@@ -38,6 +39,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Removed original `Perturbation` class
 - Updated SFNO coordinates to include optional batch dimension.
 - NetCDF reads are now mode='r+' instead of 'w'.
+- Change 'output_coords' for models from a property to a method that
+  accepts input coordinates to determine the corresponding outputs.
 
 ### Deprecated
 

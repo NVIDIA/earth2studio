@@ -20,7 +20,7 @@ import numpy as np
 import torch
 
 from earth2studio.models.auto import AutoModelMixin, Package
-from earth2studio.models.batch import batch_func
+from earth2studio.models.batch import batch_coords, batch_func
 from earth2studio.models.dx.base import DiagnosticModel
 from earth2studio.models.nn.climatenet_conv import CGNetModule
 from earth2studio.utils import (
@@ -79,23 +79,50 @@ class ClimateNet(torch.nn.Module, AutoModelMixin):
         self.register_buffer("center", center)
         self.register_buffer("scale", scale)
 
-    input_coords = OrderedDict(
-        {
-            "batch": np.empty(0),
-            "variable": np.array(VARIABLES),
-            "lat": np.linspace(90, -90, 721, endpoint=True),
-            "lon": np.linspace(0, 360, 1440, endpoint=False),
-        }
-    )
+    @property
+    def input_coords(self) -> CoordSystem:
+        """Input coordinate system of diagnostic model
 
-    output_coords = OrderedDict(
-        {
-            "batch": np.empty(0),
-            "variable": np.array(OUT_VARIABLES),
-            "lat": np.linspace(90, -90, 721, endpoint=True),
-            "lon": np.linspace(0, 360, 1440, endpoint=False),
-        }
-    )
+        Returns
+        -------
+        CoordSystem
+            Coordinate system dictionary
+        """
+        return OrderedDict(
+            {
+                "batch": np.empty(0),
+                "variable": np.array(VARIABLES),
+                "lat": np.linspace(90, -90, 721, endpoint=True),
+                "lon": np.linspace(0, 360, 1440, endpoint=False),
+            }
+        )
+
+    @batch_coords()
+    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
+        """Output coordinate system of diagnostic model
+
+        Parameters
+        ----------
+        input_coords : CoordSystem
+            Input coordinate system to transform into output_coords
+            by default None, will use self.input_coords.
+
+        Returns
+        -------
+        CoordSystem
+            Coordinate system dictionary
+        """
+
+        handshake_dim(input_coords, "lon", 3)
+        handshake_dim(input_coords, "lat", 2)
+        handshake_dim(input_coords, "variable", 1)
+        handshake_coords(input_coords, self.input_coords, "lon")
+        handshake_coords(input_coords, self.input_coords, "lat")
+        handshake_coords(input_coords, self.input_coords, "variable")
+
+        output_coords = input_coords.copy()
+        output_coords["variable"] = OUT_VARIABLES
+        return output_coords
 
     @classmethod
     def load_default_package(cls) -> Package:
@@ -129,16 +156,10 @@ class ClimateNet(torch.nn.Module, AutoModelMixin):
         coords: CoordSystem,
     ) -> tuple[torch.Tensor, CoordSystem]:
         """Forward pass of diagnostic"""
-        handshake_dim(coords, "lon", 3)
-        handshake_dim(coords, "lat", 2)
-        handshake_dim(coords, "variable", 1)
-        handshake_coords(coords, self.input_coords, "lon")
-        handshake_coords(coords, self.input_coords, "lat")
-        handshake_coords(coords, self.input_coords, "variable")
+
+        output_coords = self.output_coords(coords)
 
         x = (x - self.center) / self.scale
         out = torch.softmax(self.core_model(x), 1)
 
-        output_coords = coords.copy()
-        output_coords["variable"] = self.output_coords["variable"]
         return out, output_coords

@@ -22,7 +22,7 @@ import torch
 from modulus.models.afno import AFNO
 
 from earth2studio.models.auto import AutoModelMixin, Package
-from earth2studio.models.batch import batch_func
+from earth2studio.models.batch import batch_coords, batch_func
 from earth2studio.models.px.base import PrognosticModel
 from earth2studio.models.px.utils import PrognosticMixin
 from earth2studio.utils import handshake_coords, handshake_dim
@@ -102,15 +102,48 @@ class FCN(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         }
     )
 
-    output_coords = OrderedDict(
-        {
-            "batch": np.empty(0),
-            "lead_time": np.array([np.timedelta64(6, "h")]),
-            "variable": np.array(VARIABLES),
-            "lat": np.linspace(90, -90, 720, endpoint=False),
-            "lon": np.linspace(0, 360, 1440, endpoint=False),
-        }
-    )
+    @batch_coords()
+    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
+        """Output coordinate system of the prognostic model
+
+        Parameters
+        ----------
+        input_coords : CoordSystem
+            Input coordinate system to transform into output_coords
+            by default None, will use self.input_coords.
+
+        Returns
+        -------
+        CoordSystem
+            Coordinate system dictionary
+        """
+
+        output_coords = OrderedDict(
+            {
+                "batch": np.empty(0),
+                "lead_time": np.array([np.timedelta64(6, "h")]),
+                "variable": np.array(VARIABLES),
+                "lat": np.linspace(90, -90, 720, endpoint=False),
+                "lon": np.linspace(0, 360, 1440, endpoint=False),
+            }
+        )
+
+        test_coords = input_coords.copy()
+        test_coords["lead_time"] = (
+            test_coords["lead_time"] - input_coords["lead_time"][-1]
+        )
+        for i, key in enumerate(self.input_coords):
+            if key != "batch":
+                handshake_dim(test_coords, key, i)
+                handshake_coords(test_coords, self.input_coords, key)
+
+        output_coords = output_coords.copy()
+        output_coords["batch"] = input_coords["batch"]
+        output_coords["lead_time"] = (
+            output_coords["lead_time"] + input_coords["lead_time"]
+        )
+
+        return output_coords
 
     def __str__(
         self,
@@ -140,21 +173,14 @@ class FCN(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         return cls(model, center=local_center, scale=local_std)
 
     @torch.inference_mode()
-    def _forward(
-        self,
-        x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
-        output_coords = self.output_coords.copy()
-        output_coords["batch"] = coords["batch"]
-        output_coords["lead_time"] = output_coords["lead_time"] + coords["lead_time"]
+    def _forward(self, x: torch.Tensor) -> torch.Tensor:
 
         x = x.squeeze(1)
         x = (x - self.center) / self.scale
         x = self.model(x)
         x = self.scale * x + self.center
         x = x.unsqueeze(1)
-        return x, output_coords
+        return x
 
     @batch_func()
     def __call__(
@@ -176,14 +202,11 @@ class FCN(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         tuple[torch.Tensor, CoordSystem]
             Output tensor and coordinate system 6 hours in the future
         """
-        for i, (key, value) in enumerate(self.input_coords.items()):
-            if key != "batch":
-                handshake_dim(coords, key, i)
-                handshake_coords(coords, self.input_coords, key)
+        output_coords = self.output_coords(coords)
 
-        x, coords = self._forward(x, coords)
+        x = self._forward(x)
 
-        return x, coords
+        return x, output_coords
 
     @batch_func()
     def _default_generator(
@@ -191,10 +214,7 @@ class FCN(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     ) -> Generator[tuple[torch.Tensor, CoordSystem], None, None]:
         coords = coords.copy()
 
-        for i, (key, value) in enumerate(self.input_coords.items()):
-            if key != "batch":
-                handshake_dim(coords, key, i)
-                handshake_coords(coords, self.input_coords, key)
+        self.output_coords(coords)
 
         yield x, coords
 
@@ -203,7 +223,8 @@ class FCN(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             x, coords = self.front_hook(x, coords)
 
             # Forward is identity operator
-            x, coords = self._forward(x, coords)
+            coords = self.output_coords(coords)
+            x = self._forward(x)
 
             # Rear hook
             x, coords = self.rear_hook(x, coords)

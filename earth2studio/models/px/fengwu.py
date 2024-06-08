@@ -29,7 +29,7 @@ except ImportError:
 import torch
 
 from earth2studio.models.auto import AutoModelMixin, Package
-from earth2studio.models.batch import batch_func
+from earth2studio.models.batch import batch_coords, batch_func
 from earth2studio.models.px.base import PrognosticModel
 from earth2studio.models.px.utils import PrognosticMixin
 from earth2studio.models.utils import create_ort_session
@@ -163,15 +163,46 @@ class FengWu(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         }
     )
 
-    output_coords = OrderedDict(
-        {
-            "batch": np.empty(0),
-            "lead_time": np.array([np.timedelta64(6, "h")]),
-            "variable": np.array(VARIABLES),
-            "lat": np.linspace(90, -90, 721, endpoint=True),
-            "lon": np.linspace(0, 360, 1440, endpoint=False),
-        }
-    )
+    @batch_coords()
+    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
+        """Output coordinate system of the prognostic model
+
+        Parameters
+        ----------
+        input_coords : CoordSystem
+            Input coordinate system to transform into output_coords
+            by default None, will use self.input_coords.
+
+        Returns
+        -------
+        CoordSystem
+            Coordinate system dictionary
+        """
+        output_coords = OrderedDict(
+            {
+                "batch": np.empty(0),
+                "lead_time": np.array([np.timedelta64(6, "h")]),
+                "variable": np.array(VARIABLES),
+                "lat": np.linspace(90, -90, 721, endpoint=True),
+                "lon": np.linspace(0, 360, 1440, endpoint=False),
+            }
+        )
+
+        test_coords = input_coords.copy()
+        test_coords["lead_time"] = (
+            test_coords["lead_time"] - input_coords["lead_time"][-1]
+        )
+        for i, key in enumerate(self.input_coords):
+            if key != "batch":
+                handshake_dim(test_coords, key, i)
+                handshake_coords(test_coords, self.input_coords, key)
+
+        output_coords["batch"] = input_coords["batch"]
+        output_coords["lead_time"] = (
+            input_coords["lead_time"][1:] + output_coords["lead_time"]
+        )
+
+        return output_coords
 
     def to(self, device: str | torch.device | int) -> PrognosticModel:
         """Move model (and default ORT session) to device"""
@@ -217,14 +248,8 @@ class FengWu(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def _forward(
         self,
         x: torch.Tensor,
-        coords: CoordSystem,
         ort_session: InferenceSession,
-    ) -> tuple[torch.Tensor, CoordSystem]:
-        output_coords = self.output_coords.copy()
-        output_coords["batch"] = coords["batch"]
-        output_coords["lead_time"] = (
-            coords["lead_time"][1:] + output_coords["lead_time"]
-        )
+    ) -> torch.Tensor:
 
         # Ref https://onnxruntime.ai/docs/api/python/api_summary.html
         binding = ort_session.io_binding()
@@ -262,7 +287,7 @@ class FengWu(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         # ONNX model outputs two time-steps, take the first
         output_tensor = output[:].contiguous()
         x = self.scale * output_tensor[:, :69].unsqueeze(1) + self.center  # UnNormalize
-        return x, output_coords
+        return x
 
     @batch_func()
     def __call__(
@@ -284,12 +309,7 @@ class FengWu(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         tuple[torch.Tensor, CoordSystem]
             Output tensor and coordinate system 6 hours in the future
         """
-        for i, (key, value) in enumerate(self.input_coords.items()):
-            if key != "batch":
-                handshake_dim(coords, key, i)
-                handshake_coords(coords, self.input_coords, key)
-
-        return self._forward(x, coords, self.ort)
+        return self._forward(x, self.ort), self.output_coords(coords)
 
     @batch_func()
     def _default_generator(
@@ -297,10 +317,7 @@ class FengWu(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     ) -> Generator[tuple[torch.Tensor, CoordSystem], None, None]:
         coords = coords.copy()
 
-        for i, (key, value) in enumerate(self.input_coords.items()):
-            if key != "batch":
-                handshake_dim(coords, key, i)
-                handshake_coords(coords, self.input_coords, key)
+        self.output_coords(coords)
 
         out = x[:, 1:]
         out_coords = coords.copy()
@@ -312,7 +329,8 @@ class FengWu(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             x, coords = self.front_hook(x, coords)
 
             # Forward is identity operator
-            out, out_coords = self._forward(x, coords, self.ort)
+            out = self._forward(x, self.ort)
+            out_coords = self.output_coords(coords)
 
             # Rear hook
             out, out_coords = self.rear_hook(out, out_coords)

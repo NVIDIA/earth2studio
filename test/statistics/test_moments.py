@@ -21,6 +21,7 @@ import pytest
 import torch
 
 from earth2studio.statistics import lat_weight, moments
+from earth2studio.utils.coords import handshake_coords, handshake_dim
 
 lat_weights = lat_weight(torch.as_tensor(np.linspace(-90.0, 90.0, 361)))
 
@@ -58,6 +59,11 @@ def test_mean(reduction_weights: tuple[list[str], np.ndarray], device: str) -> N
     assert not any([ri in c for ri in reduction_dimensions])
     assert list(y.shape) == [len(val) for val in c.values()]
 
+    out_test_coords = mean.output_coords(coords)
+    for i, ci in enumerate(c):
+        handshake_dim(out_test_coords, ci, i)
+        handshake_coords(out_test_coords, c, ci)
+
 
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
 def test_weighted_mean(device: str) -> None:
@@ -78,6 +84,11 @@ def test_weighted_mean(device: str) -> None:
     y_np = np.average(x.cpu().numpy(), axis=1, weights=lat_weights.cpu().numpy())
 
     assert torch.allclose(y, torch.as_tensor(y_np, device=device))
+
+    out_test_coords = mean.output_coords(coords)
+    for i, ci in enumerate(c):
+        handshake_dim(out_test_coords, ci, i)
+        handshake_coords(out_test_coords, c, ci)
 
 
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
@@ -102,6 +113,11 @@ def test_batch_mean(device) -> None:
         y, c = mean(x, coords)
         assert torch.allclose(y, torch.mean(big_x[: inds + 10], dim=0), atol=1e-3)
         assert c == reduced_coords
+
+        out_test_coords = mean.output_coords(coords)
+        for i, ci in enumerate(c):
+            handshake_dim(out_test_coords, ci, i)
+            handshake_coords(out_test_coords, c, ci)
 
 
 @pytest.mark.parametrize(
@@ -138,6 +154,11 @@ def test_var(reduction_weights: tuple[list[str], np.ndarray], device: str) -> No
     assert list(y.shape) == [len(val) for val in c.values()]
     assert torch.all(y >= 0.0)
 
+    out_test_coords = var.output_coords(coords)
+    for i, ci in enumerate(c):
+        handshake_dim(out_test_coords, ci, i)
+        handshake_coords(out_test_coords, c, ci)
+
 
 @pytest.mark.parametrize(
     "reduction_weights",
@@ -173,6 +194,11 @@ def test_std(reduction_weights: tuple[list[str], np.ndarray], device: str) -> No
     assert list(y.shape) == [len(val) for val in c.values()]
     assert torch.all(y >= 0.0)
 
+    out_test_coords = std.output_coords(coords)
+    for i, ci in enumerate(c):
+        handshake_dim(out_test_coords, ci, i)
+        handshake_coords(out_test_coords, c, ci)
+
 
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
 def test_weighted_var(device: str) -> None:
@@ -194,6 +220,11 @@ def test_weighted_var(device: str) -> None:
     y_np = np.cov(x.cpu().numpy(), aweights=lat_weights.cpu().numpy())
 
     assert torch.allclose(y, torch.as_tensor(y_np, device=device))
+
+    out_test_coords = var.output_coords(coords)
+    for i, ci in enumerate(c):
+        handshake_dim(out_test_coords, ci, i)
+        handshake_coords(out_test_coords, c, ci)
 
 
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
@@ -228,6 +259,11 @@ def test_batch_var_std(device) -> None:
         y, c = var(x, coords)
         assert torch.allclose(y, torch.var(big_x[: inds + 10], dim=0))
         assert c == reduced_coords
+
+        out_test_coords = var.output_coords(coords)
+        for i, ci in enumerate(c):
+            handshake_dim(out_test_coords, ci, i)
+            handshake_coords(out_test_coords, c, ci)
 
 
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])

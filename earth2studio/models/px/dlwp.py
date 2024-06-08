@@ -25,7 +25,7 @@ import xarray
 from modulus.utils.zenith_angle import cos_zenith_angle
 
 from earth2studio.models.auto import AutoModelMixin, Package
-from earth2studio.models.batch import batch_func
+from earth2studio.models.batch import batch_coords, batch_func
 from earth2studio.models.px.base import PrognosticModel
 from earth2studio.models.px.utils import PrognosticMixin
 from earth2studio.utils import handshake_coords, handshake_dim
@@ -101,7 +101,7 @@ class DLWP(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             (orography.unsqueeze(0).unsqueeze(0) - 3.724e03) / 8.349e03,
         )
         self.register_buffer("M", cubed_sphere_transform.T)
-        self.register_buffer("N", cubed_sphere_inverse.T)
+        self.register_buffer("N", cubed_sphere_inverse)
 
     input_coords = OrderedDict(
         {
@@ -114,16 +114,51 @@ class DLWP(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         }
     )
 
-    output_coords = OrderedDict(
-        {
-            "batch": np.empty(0),
-            "time": np.empty(0),
-            "lead_time": np.array([np.timedelta64(6, "h")]),
-            "variable": np.array(VARIABLES),
-            "lat": np.linspace(90, -90, 721),
-            "lon": np.linspace(0, 360, 1440, endpoint=False),
-        }
-    )
+    @batch_coords()
+    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
+        """Output coordinate system of the prognostic model
+
+        Parameters
+        ----------
+        input_coords : CoordSystem
+            Input coordinate system to transform into output_coords
+            by default None, will use self.input_coords.
+
+        Returns
+        -------
+        CoordSystem
+            Coordinate system dictionary
+        """
+
+        output_coords = OrderedDict(
+            {
+                "batch": np.empty(0),
+                "time": np.empty(0),
+                "lead_time": np.array([np.timedelta64(6, "h")]),
+                "variable": np.array(VARIABLES),
+                "lat": np.linspace(90, -90, 721),
+                "lon": np.linspace(0, 360, 1440, endpoint=False),
+            }
+        )
+
+        test_coords = input_coords.copy()
+        test_coords["lead_time"] = (
+            test_coords["lead_time"] - input_coords["lead_time"][-1]
+        )
+        for i, key in enumerate(self.input_coords):
+            handshake_dim(test_coords, key, i)
+            if key not in ["batch", "time"]:
+                handshake_coords(test_coords, self.input_coords, key)
+
+        # Normal forward pass of DLWP, this method returns two time-steps
+        output_coords["batch"] = input_coords["batch"]
+        output_coords["time"] = input_coords["time"]
+
+        output_coords["lead_time"] = (
+            input_coords["lead_time"][-1] + output_coords["lead_time"]
+        )
+
+        return output_coords
 
     @classmethod
     def load_default_package(cls) -> Package:
@@ -200,8 +235,9 @@ class DLWP(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     def to_equirectangular(self, x: torch.Tensor) -> torch.Tensor:
         """[6,64,64] cs to [721,1440] eqr"""
-        x = x.reshape(*x.shape[:-3], -1) @ self.N
-        x = x.reshape(*x.shape[:-1], 721, 1440)
+        input_shape = x.shape[:-3]
+        x = (self.N @ x.reshape(-1, 6 * 64 * 64).T).T
+        x = x.reshape(*input_shape, 721, 1440)
         return x
 
     def get_cosine_zenith_fields(
@@ -262,15 +298,7 @@ class DLWP(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self,
         x: torch.Tensor,
         coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
-        # Normal forward pass of DLWP, this method returns two time-steps
-        output_coords = self.output_coords.copy()
-        output_coords["time"] = coords["time"]
-
-        # Multiply by 2 here because returning two timesteps
-        output_coords["lead_time"] = (
-            coords["lead_time"] + 2 * self.output_coords["lead_time"]
-        )
+    ) -> torch.Tensor:
 
         center = self.center.unsqueeze(-1)
         scale = self.scale.unsqueeze(-1)
@@ -280,7 +308,7 @@ class DLWP(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         x = self.model(x)
         x = self._prepare_output(x, coords)
         x = scale * x + center
-        return x, output_coords
+        return x
 
     @batch_func()
     def __call__(
@@ -302,16 +330,14 @@ class DLWP(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         tuple[torch.Tensor, CoordSystem]
             Output tensor and coordinate system 6 hours in the future
         """
-        for i, (key, value) in enumerate(self.input_coords.items()):
-            handshake_dim(coords, key, i)
-            if key != "batch" and key != "time":
-                handshake_coords(coords, self.input_coords, key)
+
+        output_coords = self.output_coords(coords)
 
         x = self.to_cubedsphere(x)
-        x, coords = self._forward(x, coords)
+        x = self._forward(x, coords)
         x = self.to_equirectangular(x)
-        coords["lead_time"] = coords["lead_time"][:1]
-        return x[:, :, :1], coords
+
+        return x[:, :, :1], output_coords
 
     @batch_func()
     def _default_generator(
@@ -319,10 +345,7 @@ class DLWP(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     ) -> Generator[tuple[torch.Tensor, CoordSystem], None, None]:
 
         coords = coords.copy()
-        for i, (key, value) in enumerate(self.input_coords.items()):
-            handshake_dim(coords, key, i)
-            if key != "batch" and key != "time":
-                handshake_coords(coords, self.input_coords, key)
+        self.output_coords(coords)
 
         coords_out = coords.copy()
         coords_out["lead_time"] = coords["lead_time"][1:]
@@ -334,19 +357,27 @@ class DLWP(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             x, coords = self.front_hook(x, coords)
 
             # Forward pass
-            x, coords = self._forward(x, coords)
+            x = self._forward(x, coords)
+            coords["lead_time"] = (
+                coords["lead_time"]
+                + 2 * self.output_coords(self.input_coords)["lead_time"]
+            )
+            x = x.clone()
 
-            # Rear hook
-            x, coords = self.rear_hook(x, coords)
-
-            # Return the two predicted steps
-            out = self.to_equirectangular(x)
+            # Rear hook for first predicted step
             coords_out = coords.copy()
-            coords_out["lead_time"] = coords["lead_time"][:1]
-            yield out[:, :, :1], coords_out
+            coords_out["lead_time"] = coords["lead_time"][0]
+            x[:, :, :1], coords_out = self.rear_hook(x[:, :, :1], coords_out)
 
-            coords_out["lead_time"] = coords["lead_time"][1:]
-            yield out[:, :, 1:], coords_out
+            # Output first predicted step
+            out = self.to_equirectangular(x[:, :, :1])
+            yield out, coords_out
+
+            # Rear hook for second predicted step
+            coords_out["lead_time"] = coords["lead_time"][-1]
+            x[:, :, 1:], coords_out = self.rear_hook(x[:, :, 1:], coords_out)
+            out = self.to_equirectangular(x[:, :, 1:])
+            yield out, coords_out
 
     def create_iterator(
         self, x: torch.Tensor, coords: CoordSystem

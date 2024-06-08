@@ -58,7 +58,7 @@ def test_afno_precip(x, device):
     out, out_coords = dx(x, coords)
 
     assert out.shape == torch.Size([x.shape[0], 1, 720, 1440])
-    assert out_coords["variable"] == dx.output_coords["variable"]
+    assert out_coords["variable"] == dx.output_coords(coords)["variable"]
     handshake_dim(out_coords, "lon", 3)
     handshake_dim(out_coords, "lat", 2)
     handshake_dim(out_coords, "variable", 1)
@@ -86,7 +86,7 @@ def test_afno_precip_package(device, model_cache_context):
 
     out, out_coords = dx(x, coords)
     assert out.shape == torch.Size([x.shape[0], 1, 720, 1440])
-    assert out_coords["variable"] == dx.output_coords["variable"]
+    assert out_coords["variable"] == dx.output_coords(coords)["variable"]
     handshake_dim(out_coords, "lon", 3)
     handshake_dim(out_coords, "lat", 2)
     handshake_dim(out_coords, "variable", 1)

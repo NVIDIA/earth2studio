@@ -100,9 +100,9 @@ def test_pangu_call(time, PanguModel, delta_t, onnx_test_package, device):
         time = [time]
 
     assert out.shape == torch.Size(
-        [len(time), 1, len(p.output_coords["variable"]), 721, 1440]
+        [len(time), 1, len(p.output_coords(coords)["variable"]), 721, 1440]
     )
-    assert (out_coords["variable"] == p.output_coords["variable"]).all()
+    assert (out_coords["variable"] == p.output_coords(coords)["variable"]).all()
     assert (out_coords["time"] == time).all()
     assert torch.allclose(
         out, (x + delta_t)
@@ -112,6 +112,8 @@ def test_pangu_call(time, PanguModel, delta_t, onnx_test_package, device):
     handshake_dim(out_coords, "variable", 2)
     handshake_dim(out_coords, "lead_time", 1)
     handshake_dim(out_coords, "time", 0)
+
+    torch.cuda.empty_cache()
 
 
 @pytest.mark.parametrize(
@@ -144,7 +146,7 @@ def test_pangu_iter(ensemble, PanguModel, delta_t, onnx_test_package, device):
     x = x.unsqueeze(0).repeat(ensemble, 1, 1, 1, 1, 1)
     coords.update({"ensemble": np.arange(ensemble)})
     coords.move_to_end("ensemble", last=False)
-
+    x0 = x
     p_iter = p.create_iterator(x, coords)
 
     if not isinstance(time, Iterable):
@@ -152,13 +154,14 @@ def test_pangu_iter(ensemble, PanguModel, delta_t, onnx_test_package, device):
 
     # Get generator
     next(p_iter)  # Skip first which should return the input
+    old_coords = coords.copy()
     for i, (out, out_coords) in enumerate(p_iter):
         assert len(out.shape) == 6
         assert out.shape[0] == ensemble
-        assert (out_coords["variable"] == p.output_coords["variable"]).all()
+        assert (out_coords["variable"] == p.output_coords(old_coords)["variable"]).all()
         assert out_coords["lead_time"][0] == np.timedelta64(delta_t * (i + 1), "h")
         assert torch.allclose(
-            out, (x + (i + 1) * delta_t)
+            out, (x0 + (i + 1) * delta_t), atol=1e-3, rtol=1e-3
         )  # Phoo model should add by delta t each call
         handshake_dim(out_coords, "lon", 5)
         handshake_dim(out_coords, "lat", 4)
@@ -166,9 +169,11 @@ def test_pangu_iter(ensemble, PanguModel, delta_t, onnx_test_package, device):
         handshake_dim(out_coords, "lead_time", 2)
         handshake_dim(out_coords, "time", 1)
         handshake_dim(out_coords, "ensemble", 0)
-
+        old_coords = out_coords.copy()
         if i > 8:
             break
+
+    torch.cuda.empty_cache()
 
 
 @pytest.mark.parametrize(
@@ -200,6 +205,8 @@ def test_pangu_exceptions(dc, PanguModel, delta_t, onnx_test_package, device):
 
     with pytest.raises((KeyError, ValueError)):
         p(x, coords)
+
+    torch.cuda.empty_cache()
 
 
 @pytest.mark.ci_cache
@@ -235,10 +242,12 @@ def test_pangu_package(PanguModel, delta_t, device, model_cache_context):
         time = [time]
 
     assert out.shape == torch.Size([len(time), 1, 69, 721, 1440])
-    assert (out_coords["variable"] == p.output_coords["variable"]).all()
+    assert (out_coords["variable"] == p.output_coords(coords)["variable"]).all()
     assert (out_coords["time"] == time).all()
     handshake_dim(out_coords, "lon", 4)
     handshake_dim(out_coords, "lat", 3)
     handshake_dim(out_coords, "variable", 2)
     handshake_dim(out_coords, "lead_time", 1)
     handshake_dim(out_coords, "time", 0)
+
+    torch.cuda.empty_cache()

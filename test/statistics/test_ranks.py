@@ -22,6 +22,7 @@ import pytest
 import torch
 
 from earth2studio.statistics import rank_histogram
+from earth2studio.utils.coords import handshake_coords, handshake_dim
 
 
 @pytest.mark.parametrize(
@@ -58,6 +59,11 @@ def test_rank_histogram(ensemble_dimension: str, device: str) -> None:
     for di in [ensemble_dimension] + reduction_dimensions:
         assert di not in c
     assert list(z.shape) == [len(val) for val in c.values()]
+
+    out_test_coords = RH.output_coords(x_coords)
+    for i, ci in enumerate(c):
+        handshake_dim(out_test_coords, ci, i)
+        handshake_coords(out_test_coords, c, ci)
 
 
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])

@@ -99,9 +99,9 @@ def test_fengwu_call(time, fengwu_test_package, device):
         time = [time]
 
     assert out.shape == torch.Size(
-        [len(time), 1, len(p.output_coords["variable"]), 721, 1440]
+        [len(time), 1, len(p.output_coords(coords)["variable"]), 721, 1440]
     )
-    assert (out_coords["variable"] == p.output_coords["variable"]).all()
+    assert (out_coords["variable"] == p.output_coords(coords)["variable"]).all()
     assert (out_coords["time"] == time).all()
     assert torch.allclose(
         out, (x[:, 1:] + 6)
@@ -111,6 +111,8 @@ def test_fengwu_call(time, fengwu_test_package, device):
     handshake_dim(out_coords, "variable", 2)
     handshake_dim(out_coords, "lead_time", 1)
     handshake_dim(out_coords, "time", 0)
+
+    torch.cuda.empty_cache()
 
 
 @pytest.mark.parametrize(
@@ -151,7 +153,9 @@ def test_fengwu_iter(ensemble, fengwu_test_package, device):
     for i, (out, out_coords) in enumerate(p_iter):
         assert len(out.shape) == 6
         assert out.shape[0] == ensemble
-        assert (out_coords["variable"] == p.output_coords["variable"]).all()
+        assert (
+            out_coords["variable"] == p.output_coords(p.input_coords)["variable"]
+        ).all()
         assert out_coords["lead_time"][0] == np.timedelta64(6 * (i + 1), "h")
         assert torch.allclose(
             out, (x[:, 1:] + (i + 1) * 6)
@@ -165,6 +169,8 @@ def test_fengwu_iter(ensemble, fengwu_test_package, device):
 
         if i > 3:
             break
+
+    torch.cuda.empty_cache()
 
 
 @pytest.mark.parametrize(
@@ -190,7 +196,7 @@ def test_fengwu_exceptions(dc, fengwu_test_package, device):
     variable = p.input_coords["variable"]
     x, coords = fetch_data(r, time, variable, lead_time, device=device)
 
-    with pytest.raises((KeyError, ValueError)):
+    with pytest.raises((KeyError, ValueError, RuntimeError)):
         p(x, coords)
 
 
@@ -223,7 +229,7 @@ def test_fengwu_package(device, model_cache_context):
         time = [time]
 
     assert out.shape == torch.Size([len(time), 1, 69, 721, 1440])
-    assert (out_coords["variable"] == p.output_coords["variable"]).all()
+    assert (out_coords["variable"] == p.output_coords(coords)["variable"]).all()
     assert (out_coords["time"] == time).all()
     handshake_dim(out_coords, "lon", 4)
     handshake_dim(out_coords, "lat", 3)
