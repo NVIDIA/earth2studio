@@ -516,7 +516,7 @@ to generate a noise tensor:</p>
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
 <span class="sd">        tuple[torch.Tensor, CoordSystem]:</span>
-<span class="sd">            Ouput tensor and respective coordinate system dictionary</span>
+<span class="sd">            Output tensor and respective coordinate system dictionary</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">pass</span>
 </pre></div>
@@ -608,7 +608,7 @@ dimension in the tensor that can be of any size, greater than 0. Typically this 
 <section id="coordinate-utilities">
 <h3>Coordinate Utilities<a class="headerlink" href="#coordinate-utilities" title="Link to this heading">#</a></h3>
 <p>The downside of using a dictionary to store coordinates is that manipulating the data
-tensor and then updating the coordinate array is not a manual process.
+tensor and then updating the coordinate array is a manual process.
 To help make this process less tedious, Earth2Studio has several utility
 functions that make interacting with coordinates easier.
 The bulk of these can be found in the <a class="reference internal" href="../../modules/utils.html#earth2studio-utils-api"><span class="std std-ref">Earth2Studio Utilities</span></a>.</p>

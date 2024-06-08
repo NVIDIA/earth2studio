@@ -525,7 +525,7 @@ document.write(`
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="p">(</span>
             <span class="nb">next</span><span class="p">(</span><span class="nb">iter</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">input_coords</span><span class="p">))</span> <span class="o">!=</span> <span class="s2">&quot;batch&quot;</span>
-            <span class="ow">and</span> <span class="nb">next</span><span class="p">(</span><span class="nb">iter</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">output_coords</span><span class="p">))</span> <span class="o">!=</span> <span class="s2">&quot;batch&quot;</span>
+            <span class="ow">and</span> <span class="nb">next</span><span class="p">(</span><span class="nb">iter</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">output_coords</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">input_coords</span><span class="p">)))</span> <span class="o">!=</span> <span class="s2">&quot;batch&quot;</span>
         <span class="p">):</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
                 <span class="s2">&quot;Model coordinate systems not compatible with batch processing&quot;</span>
@@ -659,6 +659,115 @@ document.write(`
 
         <span class="k">return</span> <span class="n">_wrapper</span></div>
 
+
+
+<span class="k">class</span> <span class="nc">batch_coords</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Batch utility decorator which can be added to prognostic and diagnostic</span>
+<span class="sd">    output_coords methods to help enable support for automatic batching of data.</span>
+<span class="sd">    This class contains a decorator function which should be added to output_coord</span>
+<span class="sd">    calls where this functionality is desired.</span>
+
+<span class="sd">    Note</span>
+<span class="sd">    ----</span>
+<span class="sd">    `input_coords` and `output_coords` must have &quot;batch&quot; as the</span>
+<span class="sd">    coordinate system of the first dimensions. I.e. first key entry needs to be &quot;batch&quot;.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">func</span><span class="p">:</span> <span class="n">F</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Callable</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_batch_wrap</span><span class="p">(</span><span class="n">func</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_compress_batch</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">model</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">coords</span><span class="p">:</span> <span class="n">CoordSystem</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">CoordSystem</span><span class="p">,</span> <span class="n">CoordSystem</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Compresses dimensions into the models batch dimension</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        model : Any</span>
+<span class="sd">            Any object, prognostic / diagnostic model that has a input_coords property</span>
+<span class="sd">        coords : CoordSystem</span>
+<span class="sd">            Input coordinate system</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        tuple[ CoordSystem, CoordSystem ]</span>
+<span class="sd">            Returns batch compressed coords and the coords of the batch</span>
+<span class="sd">            dimensions.</span>
+
+<span class="sd">        Raises</span>
+<span class="sd">        ------</span>
+<span class="sd">        ValueError</span>
+<span class="sd">            If model&#39;s input_coords do not contain the batch dimension</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="k">if</span> <span class="p">(</span>
+            <span class="nb">next</span><span class="p">(</span><span class="nb">iter</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">input_coords</span><span class="p">))</span> <span class="o">!=</span> <span class="s2">&quot;batch&quot;</span>
+            <span class="ow">and</span> <span class="nb">next</span><span class="p">(</span><span class="nb">iter</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">output_coords</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">input_coords</span><span class="p">)))</span> <span class="o">!=</span> <span class="s2">&quot;batch&quot;</span>
+        <span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;Model coordinate systems not compatible with batch processing&quot;</span>
+            <span class="p">)</span>
+
+        <span class="n">flatten_coords</span><span class="p">:</span> <span class="n">CoordSystem</span>
+        <span class="n">batched_coords</span><span class="p">:</span> <span class="n">CoordSystem</span>
+        <span class="c1"># If dims of input is one less than input coords, just prepend batch dim</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">coords</span><span class="p">)</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">input_coords</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">flatten_coords</span> <span class="o">=</span> <span class="n">coords</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+            <span class="n">flatten_coords</span><span class="o">.</span><span class="n">update</span><span class="p">({</span><span class="s2">&quot;batch&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mi">0</span><span class="p">])})</span>
+            <span class="n">flatten_coords</span><span class="o">.</span><span class="n">move_to_end</span><span class="p">(</span><span class="s2">&quot;batch&quot;</span><span class="p">,</span> <span class="n">last</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">flatten_coords</span><span class="p">,</span> <span class="n">OrderedDict</span><span class="p">({})</span>
+
+        <span class="n">i</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">coords</span><span class="p">)</span> <span class="o">-</span> <span class="nb">len</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">input_coords</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span> <span class="o">+</span> <span class="mi">1</span>
+        <span class="c1"># Prep coordinate dicts</span>
+        <span class="n">batched_coords</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">(</span><span class="n">islice</span><span class="p">(</span><span class="n">coords</span><span class="o">.</span><span class="n">items</span><span class="p">(),</span> <span class="mi">0</span><span class="p">,</span> <span class="n">i</span><span class="p">))</span>
+        <span class="n">flatten_coords</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">(</span><span class="n">islice</span><span class="p">(</span><span class="n">coords</span><span class="o">.</span><span class="n">items</span><span class="p">(),</span> <span class="n">i</span><span class="p">,</span> <span class="kc">None</span><span class="p">))</span>
+        <span class="n">flatten_coords</span><span class="o">.</span><span class="n">update</span><span class="p">({</span><span class="s2">&quot;batch&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">0</span><span class="p">)})</span>
+        <span class="n">flatten_coords</span><span class="o">.</span><span class="n">move_to_end</span><span class="p">(</span><span class="s2">&quot;batch&quot;</span><span class="p">,</span> <span class="n">last</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="c1"># Flatten batch dims</span>
+        <span class="n">flatten_coords</span><span class="p">[</span><span class="s2">&quot;batch&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="nb">next</span><span class="p">(</span><span class="nb">iter</span><span class="p">(</span><span class="n">coords</span><span class="o">.</span><span class="n">values</span><span class="p">()))))</span>
+
+        <span class="k">return</span> <span class="n">flatten_coords</span><span class="p">,</span> <span class="n">batched_coords</span>
+
+    <span class="k">def</span> <span class="nf">_decompress_batch</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">out_coords</span><span class="p">:</span> <span class="n">CoordSystem</span><span class="p">,</span>
+        <span class="n">batched_coords</span><span class="p">:</span> <span class="n">CoordSystem</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">CoordSystem</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Decompresses the batch dimension of a tensor</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        out_coords : CoordSystem</span>
+<span class="sd">            Compressed coordinates</span>
+<span class="sd">        batched_coords : CoordSystem</span>
+<span class="sd">            The coords of the batch dimensions</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        CoordSystem</span>
+<span class="sd">            Uncompressed coordinates</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="c1"># Reconstruct batch dims</span>
+        <span class="n">out_coords</span> <span class="o">=</span> <span class="n">out_coords</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="k">del</span> <span class="n">out_coords</span><span class="p">[</span><span class="s2">&quot;batch&quot;</span><span class="p">]</span>
+        <span class="n">out_coords</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">(</span><span class="n">chain</span><span class="p">(</span><span class="n">batched_coords</span><span class="o">.</span><span class="n">items</span><span class="p">(),</span> <span class="n">out_coords</span><span class="o">.</span><span class="n">items</span><span class="p">()))</span>
+        <span class="k">return</span> <span class="n">out_coords</span>
+
+    <span class="k">def</span> <span class="nf">_batch_wrap</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">func</span><span class="p">:</span> <span class="n">Callable</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Callable</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Standard batch function decorator&quot;&quot;&quot;</span>
+        <span class="c1"># TODO: Better typing for model object</span>
+        <span class="nd">@functools</span><span class="o">.</span><span class="n">wraps</span><span class="p">(</span><span class="n">func</span><span class="p">)</span>
+        <span class="k">def</span> <span class="nf">_wrapper</span><span class="p">(</span><span class="n">model</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">input_coords</span><span class="p">:</span> <span class="n">CoordSystem</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">CoordSystem</span><span class="p">:</span>
+
+            <span class="n">flatten_coords</span><span class="p">,</span> <span class="n">batched_coords</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_compress_batch</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">input_coords</span><span class="p">)</span>
+
+            <span class="c1"># Model forward</span>
+            <span class="n">out_coords</span> <span class="o">=</span> <span class="n">func</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">flatten_coords</span><span class="p">)</span>
+            <span class="n">out_coords</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_decompress_batch</span><span class="p">(</span><span class="n">out_coords</span><span class="p">,</span> <span class="n">batched_coords</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">out_coords</span>
+
+        <span class="k">return</span> <span class="n">_wrapper</span>
 </pre></div>
 
                 </article>

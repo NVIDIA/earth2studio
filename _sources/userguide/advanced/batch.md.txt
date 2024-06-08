@@ -102,20 +102,24 @@ from collections import OrderedDict
 import numpy as np
 import torch
 
-from earth2studio.models.batch import batch_func
+from earth2studio.models.batch import batch_func, batch_coords
 
 
 class BatchModel:
-
     input_coords = OrderedDict({"batch": np.zeros(0), "dim1": np.arange(2)})
-    output_coords = OrderedDict({"batch": np.zeros(0), "dim2": np.arange(4)})
+
+    @batch_coords()
+    def output_coords(
+        self,
+        input_coords: OrderedDict
+        ) -> OrderedDict:
+        return OrderedDict({"batch": np.zeros(0), "dim2": np.arange(4)})
 
     @batch_func()
     def __call__(self, input, coords):
         print("Model Input:", input.size(), coords)
-
         out = torch.cat([input, input], dim=-1)
-        out_c = self.output_coords.copy()
+        out_c = self.output_coords(coords).copy()
         return out, out_c
 
 

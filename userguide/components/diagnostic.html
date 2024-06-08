@@ -515,7 +515,7 @@ the API documentation <a class="reference internal" href="../../modules/models.h
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
 <span class="sd">        tuple[torch.Tensor, CoordSystem]:</span>
-<span class="sd">            Ouput tensor and respective coordinate system dictionary</span>
+<span class="sd">            Output tensor and respective coordinate system dictionary</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">pass</span>
 
@@ -530,9 +530,14 @@ the API documentation <a class="reference internal" href="../../modules/models.h
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">pass</span>
 
-    <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">output_coords</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">CoordSystem</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Ouput coordinate system of diagnostic model</span>
+    <span class="k">def</span> <span class="nf">output_coords</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_coords</span><span class="p">:</span> <span class="n">CoordSystem</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">CoordSystem</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Output coordinate system of diagnostic model</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        input_coords : CoordSystem</span>
+<span class="sd">            Input coordinate system to transform into output_coords</span>
+
 
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>

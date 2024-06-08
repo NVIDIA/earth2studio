@@ -568,20 +568,24 @@ This utility <em>must</em> be used in an object with coordinate properties.</p>
 <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 <span class="kn">import</span> <span class="nn">torch</span>
 
-<span class="kn">from</span> <span class="nn">earth2studio.models.batch</span> <span class="kn">import</span> <span class="n">batch_func</span>
+<span class="kn">from</span> <span class="nn">earth2studio.models.batch</span> <span class="kn">import</span> <span class="n">batch_func</span><span class="p">,</span> <span class="n">batch_coords</span>
 
 
 <span class="k">class</span> <span class="nc">BatchModel</span><span class="p">:</span>
-
     <span class="n">input_coords</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">({</span><span class="s2">&quot;batch&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span> <span class="s2">&quot;dim1&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">2</span><span class="p">)})</span>
-    <span class="n">output_coords</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">({</span><span class="s2">&quot;batch&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span> <span class="s2">&quot;dim2&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">4</span><span class="p">)})</span>
+
+    <span class="nd">@batch_coords</span><span class="p">()</span>
+    <span class="k">def</span> <span class="nf">output_coords</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">input_coords</span><span class="p">:</span> <span class="n">OrderedDict</span>
+        <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">OrderedDict</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">OrderedDict</span><span class="p">({</span><span class="s2">&quot;batch&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span> <span class="s2">&quot;dim2&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">4</span><span class="p">)})</span>
 
     <span class="nd">@batch_func</span><span class="p">()</span>
     <span class="k">def</span> <span class="fm">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="nb">input</span><span class="p">,</span> <span class="n">coords</span><span class="p">):</span>
         <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Model Input:&quot;</span><span class="p">,</span> <span class="nb">input</span><span class="o">.</span><span class="n">size</span><span class="p">(),</span> <span class="n">coords</span><span class="p">)</span>
-
         <span class="n">out</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">([</span><span class="nb">input</span><span class="p">,</span> <span class="nb">input</span><span class="p">],</span> <span class="n">dim</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
-        <span class="n">out_c</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">output_coords</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="n">out_c</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">output_coords</span><span class="p">(</span><span class="n">coords</span><span class="p">)</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
         <span class="k">return</span> <span class="n">out</span><span class="p">,</span> <span class="n">out_c</span>
 
 

@@ -624,20 +624,25 @@ Here is a robust example of such a use-case:</p>
 <span class="c1"># Copy prognostic model output coordinates</span>
 <span class="n">total_coords</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">(</span>
     <span class="p">{</span>
-        <span class="n">k</span><span class="p">:</span> <span class="n">v</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">prognostic</span><span class="o">.</span><span class="n">output_coords</span><span class="o">.</span><span class="n">items</span><span class="p">()</span> <span class="k">if</span>
+        <span class="n">k</span><span class="p">:</span> <span class="n">v</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">prognostic</span><span class="o">.</span><span class="n">output_coords</span><span class="p">(</span><span class="n">prognostic</span><span class="o">.</span><span class="n">input_coords</span><span class="p">)</span><span class="o">.</span><span class="n">items</span><span class="p">()</span> <span class="k">if</span>
         <span class="p">(</span><span class="n">k</span> <span class="o">!=</span> <span class="s2">&quot;batch&quot;</span><span class="p">)</span> <span class="ow">and</span> <span class="p">(</span><span class="n">v</span><span class="o">.</span><span class="n">shape</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">)</span>
     <span class="p">}</span>
 <span class="p">)</span>
 <span class="n">total_coords</span><span class="p">[</span><span class="s2">&quot;time&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">time</span>
 <span class="n">total_coords</span><span class="p">[</span><span class="s2">&quot;lead_time&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span>
-    <span class="p">[</span><span class="n">prognostic</span><span class="o">.</span><span class="n">output_coords</span><span class="p">[</span><span class="s2">&quot;lead_time&quot;</span><span class="p">]</span> <span class="o">*</span> <span class="n">i</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">nsteps</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)]</span>
+    <span class="p">[</span><span class="n">total_coords</span><span class="p">[</span><span class="s2">&quot;lead_time&quot;</span><span class="p">]</span> <span class="o">*</span> <span class="n">i</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">nsteps</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)]</span>
 <span class="p">)</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span>
 <span class="n">total_coords</span><span class="o">.</span><span class="n">move_to_end</span><span class="p">(</span><span class="s2">&quot;lead_time&quot;</span><span class="p">,</span> <span class="n">last</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
 <span class="n">total_coords</span><span class="o">.</span><span class="n">move_to_end</span><span class="p">(</span><span class="s2">&quot;time&quot;</span><span class="p">,</span> <span class="n">last</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
 <span class="n">io</span><span class="o">.</span><span class="n">add_array</span><span class="p">(</span><span class="n">total_coords</span><span class="p">,</span> <span class="n">array_name</span><span class="p">)</span>
 </pre></div>
 </div>
-<p>A common use-case is to extract a particular dimension (usually <code class="docutils literal notranslate"><span class="pre">variable</span></code>) as
+<p>Prognostic models, diagnostic models, statistics, and metrics are required to have a
+<code class="docutils literal notranslate"><span class="pre">output_coords</span></code> method which maps from an input coordinate to a corresponding output
+coordinate. This method is meant to simulate the result of <code class="docutils literal notranslate"><span class="pre">__call__</span></code> without having
+to actually compute the forward call of the method. See the API documentation for more
+details.</p>
+<p>Another common IO use-case is to extract a particular dimension (usually <code class="docutils literal notranslate"><span class="pre">variable</span></code>) as
 the array names.</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># A modification of the previous example:</span>
 <span class="n">var_names</span> <span class="o">=</span> <span class="n">total_coords</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">&quot;variable&quot;</span><span class="p">)</span>

@@ -469,7 +469,7 @@ document.write(`
 <span class="kn">import</span> <span class="nn">torch</span>
 
 <span class="kn">from</span> <span class="nn">earth2studio.models.auto</span> <span class="kn">import</span> <span class="n">AutoModelMixin</span><span class="p">,</span> <span class="n">Package</span>
-<span class="kn">from</span> <span class="nn">earth2studio.models.batch</span> <span class="kn">import</span> <span class="n">batch_func</span>
+<span class="kn">from</span> <span class="nn">earth2studio.models.batch</span> <span class="kn">import</span> <span class="n">batch_coords</span><span class="p">,</span> <span class="n">batch_func</span>
 <span class="kn">from</span> <span class="nn">earth2studio.models.px.base</span> <span class="kn">import</span> <span class="n">PrognosticModel</span>
 <span class="kn">from</span> <span class="nn">earth2studio.models.px.utils</span> <span class="kn">import</span> <span class="n">PrognosticMixin</span>
 <span class="kn">from</span> <span class="nn">earth2studio.models.utils</span> <span class="kn">import</span> <span class="n">create_ort_session</span>
@@ -595,17 +595,41 @@ document.write(`
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_input_coords</span>
 
-    <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">output_coords</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">CoordSystem</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Ouput coordinate system of prognostic model, time dimension should contain</span>
-<span class="sd">        time-delta objects representing time-step of the model</span>
+    <span class="nd">@batch_coords</span><span class="p">()</span>
+    <span class="k">def</span> <span class="nf">output_coords</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">input_coords</span><span class="p">:</span> <span class="n">CoordSystem</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">CoordSystem</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Output coordinate system of the prognostic model</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        input_coords : CoordSystem</span>
+<span class="sd">            Input coordinate system to transform into output_coords</span>
+<span class="sd">            by default None, will use self.input_coords.</span>
 
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
 <span class="sd">        CoordSystem</span>
 <span class="sd">            Coordinate system dictionary</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_output_coords</span>
+        <span class="n">output_coords</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_output_coords</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+
+        <span class="n">test_coords</span> <span class="o">=</span> <span class="n">input_coords</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="n">test_coords</span><span class="p">[</span><span class="s2">&quot;lead_time&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">test_coords</span><span class="p">[</span><span class="s2">&quot;lead_time&quot;</span><span class="p">]</span> <span class="o">-</span> <span class="n">input_coords</span><span class="p">[</span><span class="s2">&quot;lead_time&quot;</span><span class="p">][</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+        <span class="p">)</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">key</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">input_coords</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">key</span> <span class="o">!=</span> <span class="s2">&quot;batch&quot;</span><span class="p">:</span>
+                <span class="n">handshake_dim</span><span class="p">(</span><span class="n">test_coords</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">i</span><span class="p">)</span>
+                <span class="n">handshake_coords</span><span class="p">(</span><span class="n">test_coords</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">input_coords</span><span class="p">,</span> <span class="n">key</span><span class="p">)</span>
+
+        <span class="n">output_coords</span><span class="p">[</span><span class="s2">&quot;batch&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">input_coords</span><span class="p">[</span><span class="s2">&quot;batch&quot;</span><span class="p">]</span>
+        <span class="n">output_coords</span><span class="p">[</span><span class="s2">&quot;lead_time&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">output_coords</span><span class="p">[</span><span class="s2">&quot;lead_time&quot;</span><span class="p">]</span> <span class="o">+</span> <span class="n">input_coords</span><span class="p">[</span><span class="s2">&quot;lead_time&quot;</span><span class="p">]</span>
+        <span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">output_coords</span>
 
     <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">load_default_package</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Package</span><span class="p">:</span>
@@ -639,11 +663,16 @@ document.write(`
         <span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
         <span class="n">coords</span><span class="p">:</span> <span class="n">CoordSystem</span><span class="p">,</span>
         <span class="n">ort_session</span><span class="p">:</span> <span class="n">InferenceSession</span><span class="p">,</span>
-        <span class="n">lead_time</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">,</span>
+        <span class="n">lead_time</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">CoordSystem</span><span class="p">]:</span>
-        <span class="n">output_coords</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">output_coords</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
-        <span class="n">output_coords</span><span class="p">[</span><span class="s2">&quot;batch&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">coords</span><span class="p">[</span><span class="s2">&quot;batch&quot;</span><span class="p">]</span>
-        <span class="n">output_coords</span><span class="p">[</span><span class="s2">&quot;lead_time&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">lead_time</span> <span class="o">+</span> <span class="n">coords</span><span class="p">[</span><span class="s2">&quot;lead_time&quot;</span><span class="p">]</span>
+
+        <span class="k">if</span> <span class="n">lead_time</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">previous_lead_time</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_output_coords</span><span class="p">[</span><span class="s2">&quot;lead_time&quot;</span><span class="p">]</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_output_coords</span><span class="p">[</span><span class="s2">&quot;lead_time&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">lead_time</span>
+            <span class="n">output_coords</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">output_coords</span><span class="p">(</span><span class="n">coords</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_output_coords</span><span class="p">[</span><span class="s2">&quot;lead_time&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">previous_lead_time</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">output_coords</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">output_coords</span><span class="p">(</span><span class="n">coords</span><span class="p">)</span>
 
         <span class="c1"># Ref: https://onnxruntime.ai/docs/api/python/api_summary.html</span>
         <span class="n">binding</span> <span class="o">=</span> <span class="n">ort_session</span><span class="o">.</span><span class="n">io_binding</span><span class="p">()</span>
@@ -801,12 +830,8 @@ document.write(`
 <span class="sd">        tuple[torch.Tensor, CoordSystem]</span>
 <span class="sd">            Output tensor and coordinate system 24 hours in the future</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">input_coords</span><span class="o">.</span><span class="n">items</span><span class="p">()):</span>
-            <span class="k">if</span> <span class="n">key</span> <span class="o">!=</span> <span class="s2">&quot;batch&quot;</span><span class="p">:</span>
-                <span class="n">handshake_dim</span><span class="p">(</span><span class="n">coords</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">i</span><span class="p">)</span>
-                <span class="n">handshake_coords</span><span class="p">(</span><span class="n">coords</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">input_coords</span><span class="p">,</span> <span class="n">key</span><span class="p">)</span>
 
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_forward</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ort</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">output_coords</span><span class="p">[</span><span class="s2">&quot;lead_time&quot;</span><span class="p">])</span></div>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_forward</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ort</span><span class="p">)</span></div>
 
 
     <span class="nd">@batch_func</span><span class="p">()</span>
@@ -815,10 +840,7 @@ document.write(`
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Generator</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">CoordSystem</span><span class="p">],</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">]:</span>
         <span class="n">coords</span> <span class="o">=</span> <span class="n">coords</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
 
-        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">input_coords</span><span class="o">.</span><span class="n">items</span><span class="p">()):</span>
-            <span class="k">if</span> <span class="n">key</span> <span class="o">!=</span> <span class="s2">&quot;batch&quot;</span><span class="p">:</span>
-                <span class="n">handshake_dim</span><span class="p">(</span><span class="n">coords</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">i</span><span class="p">)</span>
-                <span class="n">handshake_coords</span><span class="p">(</span><span class="n">coords</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">input_coords</span><span class="p">,</span> <span class="n">key</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">output_coords</span><span class="p">(</span><span class="n">coords</span><span class="p">)</span>
 
         <span class="k">yield</span> <span class="n">x</span><span class="p">,</span> <span class="n">coords</span>
 
@@ -827,9 +849,7 @@ document.write(`
             <span class="n">x</span><span class="p">,</span> <span class="n">coords</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">front_hook</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="p">)</span>
 
             <span class="c1"># Forward is identity operator</span>
-            <span class="n">x</span><span class="p">,</span> <span class="n">coords</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_forward</span><span class="p">(</span>
-                <span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ort</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">np</span><span class="o">.</span><span class="n">timedelta64</span><span class="p">(</span><span class="mi">24</span><span class="p">,</span> <span class="s2">&quot;h&quot;</span><span class="p">)])</span>
-            <span class="p">)</span>
+            <span class="n">x</span><span class="p">,</span> <span class="n">coords</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_forward</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ort</span><span class="p">)</span>
 
             <span class="c1"># Rear hook</span>
             <span class="n">x</span><span class="p">,</span> <span class="n">coords</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">rear_hook</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="p">)</span>
@@ -921,12 +941,7 @@ document.write(`
 <span class="sd">        tuple[torch.Tensor, CoordSystem]</span>
 <span class="sd">            Output tensor and coordinate system 6 hours in the future</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">input_coords</span><span class="o">.</span><span class="n">items</span><span class="p">()):</span>
-            <span class="k">if</span> <span class="n">key</span> <span class="o">!=</span> <span class="s2">&quot;batch&quot;</span><span class="p">:</span>
-                <span class="n">handshake_dim</span><span class="p">(</span><span class="n">coords</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">i</span><span class="p">)</span>
-                <span class="n">handshake_coords</span><span class="p">(</span><span class="n">coords</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">input_coords</span><span class="p">,</span> <span class="n">key</span><span class="p">)</span>
-
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_forward</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ort</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">output_coords</span><span class="p">[</span><span class="s2">&quot;lead_time&quot;</span><span class="p">])</span></div>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_forward</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ort</span><span class="p">)</span></div>
 
 
     <span class="nd">@batch_func</span><span class="p">()</span>
@@ -938,28 +953,27 @@ document.write(`
         <span class="c1"># Load other sessions (note .to() does not impact these)</span>
         <span class="n">ort24</span> <span class="o">=</span> <span class="n">create_ort_session</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ort24</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
 
-        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">input_coords</span><span class="o">.</span><span class="n">items</span><span class="p">()):</span>
-            <span class="k">if</span> <span class="n">key</span> <span class="o">!=</span> <span class="s2">&quot;batch&quot;</span><span class="p">:</span>
-                <span class="n">handshake_dim</span><span class="p">(</span><span class="n">coords</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">i</span><span class="p">)</span>
-                <span class="n">handshake_coords</span><span class="p">(</span><span class="n">coords</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">input_coords</span><span class="p">,</span> <span class="n">key</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">output_coords</span><span class="p">(</span><span class="n">coords</span><span class="p">)</span>
 
         <span class="k">yield</span> <span class="n">x</span><span class="p">,</span> <span class="n">coords</span>
 
         <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
-            <span class="n">x0</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">clone</span><span class="p">()</span>
-            <span class="n">coords0</span> <span class="o">=</span> <span class="n">coords</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+            <span class="n">x24</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">clone</span><span class="p">()</span>
+            <span class="n">coords24</span> <span class="o">=</span> <span class="n">coords</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
             <span class="c1"># Three 6-hour steps</span>
             <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">3</span><span class="p">):</span>
                 <span class="n">x</span><span class="p">,</span> <span class="n">coords</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">front_hook</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="p">)</span>
                 <span class="n">x</span><span class="p">,</span> <span class="n">coords</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_forward</span><span class="p">(</span>
-                    <span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ort</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">np</span><span class="o">.</span><span class="n">timedelta64</span><span class="p">(</span><span class="mi">6</span><span class="p">,</span> <span class="s2">&quot;h&quot;</span><span class="p">)])</span>
+                    <span class="n">x</span><span class="p">,</span>
+                    <span class="n">coords</span><span class="p">,</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">ort</span><span class="p">,</span>
                 <span class="p">)</span>
                 <span class="n">x</span><span class="p">,</span> <span class="n">coords</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">rear_hook</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="p">)</span>
                 <span class="k">yield</span> <span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
             <span class="c1"># 24 hour step</span>
-            <span class="n">x</span><span class="p">,</span> <span class="n">coords</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">front_hook</span><span class="p">(</span><span class="n">x0</span><span class="p">,</span> <span class="n">coords0</span><span class="p">)</span>
+            <span class="n">x</span><span class="p">,</span> <span class="n">coords</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">front_hook</span><span class="p">(</span><span class="n">x24</span><span class="p">,</span> <span class="n">coords24</span><span class="p">)</span>
             <span class="n">x</span><span class="p">,</span> <span class="n">coords</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_forward</span><span class="p">(</span>
-                <span class="n">x0</span><span class="p">,</span> <span class="n">coords</span><span class="p">,</span> <span class="n">ort24</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">np</span><span class="o">.</span><span class="n">timedelta64</span><span class="p">(</span><span class="mi">24</span><span class="p">,</span> <span class="s2">&quot;h&quot;</span><span class="p">)])</span>
+                <span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="p">,</span> <span class="n">ort24</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">np</span><span class="o">.</span><span class="n">timedelta64</span><span class="p">(</span><span class="mi">24</span><span class="p">,</span> <span class="s2">&quot;h&quot;</span><span class="p">)])</span>
             <span class="p">)</span>
             <span class="n">x</span><span class="p">,</span> <span class="n">coords</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">rear_hook</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="p">)</span>
             <span class="k">yield</span> <span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span></div>
@@ -1055,12 +1069,7 @@ document.write(`
 <span class="sd">        tuple[torch.Tensor, CoordSystem]</span>
 <span class="sd">            Output tensor and coordinate system 3 hours in the future</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">input_coords</span><span class="o">.</span><span class="n">items</span><span class="p">()):</span>
-            <span class="k">if</span> <span class="n">key</span> <span class="o">!=</span> <span class="s2">&quot;batch&quot;</span><span class="p">:</span>
-                <span class="n">handshake_dim</span><span class="p">(</span><span class="n">coords</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">i</span><span class="p">)</span>
-                <span class="n">handshake_coords</span><span class="p">(</span><span class="n">coords</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">input_coords</span><span class="p">,</span> <span class="n">key</span><span class="p">)</span>
-
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_forward</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ort</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">output_coords</span><span class="p">[</span><span class="s2">&quot;lead_time&quot;</span><span class="p">])</span></div>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_forward</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ort</span><span class="p">)</span></div>
 
 
     <span class="nd">@batch_func</span><span class="p">()</span>
@@ -1073,10 +1082,7 @@ document.write(`
         <span class="n">ort24</span> <span class="o">=</span> <span class="n">create_ort_session</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ort24</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
         <span class="n">ort6</span> <span class="o">=</span> <span class="n">create_ort_session</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ort6</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
 
-        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">input_coords</span><span class="o">.</span><span class="n">items</span><span class="p">()):</span>
-            <span class="k">if</span> <span class="n">key</span> <span class="o">!=</span> <span class="s2">&quot;batch&quot;</span><span class="p">:</span>
-                <span class="n">handshake_dim</span><span class="p">(</span><span class="n">coords</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">i</span><span class="p">)</span>
-                <span class="n">handshake_coords</span><span class="p">(</span><span class="n">coords</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">input_coords</span><span class="p">,</span> <span class="n">key</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">output_coords</span><span class="p">(</span><span class="n">coords</span><span class="p">)</span>
 
         <span class="k">yield</span> <span class="n">x</span><span class="p">,</span> <span class="n">coords</span>
 
@@ -1089,9 +1095,7 @@ document.write(`
 
             <span class="c1"># Single 3-hour step</span>
             <span class="n">x</span><span class="p">,</span> <span class="n">coords</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">front_hook</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="p">)</span>
-            <span class="n">x</span><span class="p">,</span> <span class="n">coords</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_forward</span><span class="p">(</span>
-                <span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ort</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">np</span><span class="o">.</span><span class="n">timedelta64</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="s2">&quot;h&quot;</span><span class="p">)])</span>
-            <span class="p">)</span>
+            <span class="n">x</span><span class="p">,</span> <span class="n">coords</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_forward</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ort</span><span class="p">)</span>
             <span class="n">x</span><span class="p">,</span> <span class="n">coords</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">rear_hook</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="p">)</span>
             <span class="k">yield</span> <span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
 
@@ -1109,9 +1113,7 @@ document.write(`
 
                 <span class="c1"># Single 3-hour step</span>
                 <span class="n">x</span><span class="p">,</span> <span class="n">coords</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">front_hook</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="p">)</span>
-                <span class="n">x</span><span class="p">,</span> <span class="n">coords</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_forward</span><span class="p">(</span>
-                    <span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ort</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">np</span><span class="o">.</span><span class="n">timedelta64</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="s2">&quot;h&quot;</span><span class="p">)])</span>
-                <span class="p">)</span>
+                <span class="n">x</span><span class="p">,</span> <span class="n">coords</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_forward</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ort</span><span class="p">)</span>
                 <span class="n">x</span><span class="p">,</span> <span class="n">coords</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">rear_hook</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="p">)</span>
                 <span class="k">yield</span> <span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
 

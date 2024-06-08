@@ -497,15 +497,15 @@ across the package.</p>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">pass</span>
 
-    <span class="k">def</span> <span class="fm">__call__</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">coords</span><span class="p">:</span> <span class="n">CoordSystem</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">CoordSystem</span><span class="p">]:</span>
-        <span class="s2">&quot;&quot;&quot;Apply statistic to data `x`, with coordinates `coords` and reduce</span>
-<span class="s2">        over dimensions `reduction_dimensions`.</span>
+    <span class="k">def</span> <span class="nf">output_coords</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_coords</span><span class="p">:</span> <span class="n">CoordSystem</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">CoordSystem</span><span class="p">:</span>
+        <span class="s2">&quot;&quot;&quot;Output coordinate system of the prognostic model</span>
 
 <span class="s2">        Parameters</span>
 <span class="s2">        ----------</span>
-<span class="s2">        x : torch.Tensor</span>
+<span class="s2">        input_coords : CoordSystem</span>
+<span class="s2">            Input coordinate system to transform into output_coords</span>
+
+<span class="s2">        Returns</span>
 </pre></div>
 </div>
 <p>The base API hints at, and inspection of the <code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics.moments</span></code>
@@ -529,12 +529,42 @@ which are usually defined over a single input, we define metrics to take a pair 
 inputs. Otherwise, the API and requirements are similar to the statistics requirements.</p>
 <section id="metrics-interface">
 <h2>Metrics Interface<a class="headerlink" href="#metrics-interface" title="Link to this heading">#</a></h2>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nd">@runtime_checkable</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span>    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">CoordSystem</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Apply statistic to data `x`, with coordinates `coords` and reduce</span>
+<span class="sd">        over dimensions `reduction_dimensions`.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        x : torch.Tensor</span>
+<span class="sd">            Input tensor intended to apply statistic to.</span>
+<span class="sd">        coords : CoordSystem</span>
+<span class="sd">            Ordered dict representing coordinate system that describes the tensor.</span>
+<span class="sd">            `reduction_dimensions` must be in coords.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">pass</span>
+
+
+<span class="nd">@runtime_checkable</span>
 <span class="k">class</span> <span class="nc">Metric</span><span class="p">(</span><span class="n">Protocol</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Metrics interface.&quot;&quot;&quot;</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">reduction_dimensions</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+        <span class="k">pass</span>
+
+    <span class="k">def</span> <span class="nf">output_coords</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_coords</span><span class="p">:</span> <span class="n">CoordSystem</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">CoordSystem</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Output coordinate system of the prognostic model</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        input_coords : CoordSystem</span>
+<span class="sd">            Input coordinate system to transform into output_coords</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        CoordSystem</span>
+<span class="sd">            Coordinate system dictionary</span>
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">pass</span>
 
     <span class="k">def</span> <span class="fm">__call__</span><span class="p">(</span>

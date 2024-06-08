@@ -447,6 +447,7 @@ document.write(`
 <span class="kn">import</span> <span class="nn">torch</span>
 
 <span class="kn">from</span> <span class="nn">earth2studio.statistics.utils</span> <span class="kn">import</span> <span class="n">_broadcast_weights</span>
+<span class="kn">from</span> <span class="nn">earth2studio.utils.coords</span> <span class="kn">import</span> <span class="n">handshake_dim</span>
 <span class="kn">from</span> <span class="nn">earth2studio.utils.type</span> <span class="kn">import</span> <span class="n">CoordSystem</span>
 
 
@@ -499,6 +500,26 @@ document.write(`
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">reduction_dimensions</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_reduction_dimensions</span>
+
+    <span class="k">def</span> <span class="nf">output_coords</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_coords</span><span class="p">:</span> <span class="n">CoordSystem</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">CoordSystem</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Output coordinate system of the prognostic model</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        input_coords : CoordSystem</span>
+<span class="sd">            Input coordinate system to transform into output_coords</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        CoordSystem</span>
+<span class="sd">            Coordinate system dictionary</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">output_coords</span> <span class="o">=</span> <span class="n">input_coords</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">dimension</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">reduction_dimensions</span><span class="p">:</span>
+            <span class="n">handshake_dim</span><span class="p">(</span><span class="n">input_coords</span><span class="p">,</span> <span class="n">dimension</span><span class="p">)</span>
+            <span class="n">output_coords</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">dimension</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">output_coords</span>
 
 <div class="viewcode-block" id="mean.__call__">
 <a class="viewcode-back" href="../../../modules/generated/statistics/earth2studio.statistics.mean.html#earth2studio.statistics.mean.__call__">[docs]</a>
@@ -598,6 +619,26 @@ document.write(`
 
     <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
         <span class="k">return</span> <span class="s2">&quot;_&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_reduction_dimensions</span> <span class="o">+</span> <span class="p">[</span><span class="s2">&quot;variance&quot;</span><span class="p">])</span>
+
+    <span class="k">def</span> <span class="nf">output_coords</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_coords</span><span class="p">:</span> <span class="n">CoordSystem</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">CoordSystem</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Output coordinate system of the prognostic model</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        input_coords : CoordSystem</span>
+<span class="sd">            Input coordinate system to transform into output_coords</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        CoordSystem</span>
+<span class="sd">            Coordinate system dictionary</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">output_coords</span> <span class="o">=</span> <span class="n">input_coords</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">dimension</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">reduction_dimensions</span><span class="p">:</span>
+            <span class="n">handshake_dim</span><span class="p">(</span><span class="n">input_coords</span><span class="p">,</span> <span class="n">dimension</span><span class="p">)</span>
+            <span class="n">output_coords</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">dimension</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">output_coords</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">reduction_dimensions</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
@@ -717,6 +758,26 @@ document.write(`
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">reduction_dimensions</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_reduction_dimensions</span>
+
+    <span class="k">def</span> <span class="nf">output_coords</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_coords</span><span class="p">:</span> <span class="n">CoordSystem</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">CoordSystem</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Output coordinate system of the prognostic model</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        input_coords : CoordSystem</span>
+<span class="sd">            Input coordinate system to transform into output_coords</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        CoordSystem</span>
+<span class="sd">            Coordinate system dictionary</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">output_coords</span> <span class="o">=</span> <span class="n">input_coords</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">dimension</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">reduction_dimensions</span><span class="p">:</span>
+            <span class="n">handshake_dim</span><span class="p">(</span><span class="n">input_coords</span><span class="p">,</span> <span class="n">dimension</span><span class="p">)</span>
+            <span class="n">output_coords</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">dimension</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">output_coords</span>
 
 <div class="viewcode-block" id="std.__call__">
 <a class="viewcode-back" href="../../../modules/generated/statistics/earth2studio.statistics.std.html#earth2studio.statistics.std.__call__">[docs]</a>

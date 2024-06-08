@@ -444,7 +444,6 @@ document.write(`
 <span class="c1"># See the License for the specific language governing permissions and</span>
 <span class="c1"># limitations under the License.</span>
 
-<span class="kn">import</span> <span class="nn">copy</span>
 <span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">OrderedDict</span>
 <span class="kn">from</span> <span class="nn">collections.abc</span> <span class="kn">import</span> <span class="n">Callable</span>
 <span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Literal</span>
@@ -456,7 +455,7 @@ document.write(`
 <span class="kn">from</span> <span class="nn">modulus.utils.generative</span> <span class="kn">import</span> <span class="n">StackedRandomGenerator</span><span class="p">,</span> <span class="n">ablation_sampler</span>
 
 <span class="kn">from</span> <span class="nn">earth2studio.models.auto</span> <span class="kn">import</span> <span class="n">AutoModelMixin</span><span class="p">,</span> <span class="n">Package</span>
-<span class="kn">from</span> <span class="nn">earth2studio.models.batch</span> <span class="kn">import</span> <span class="n">batch_func</span>
+<span class="kn">from</span> <span class="nn">earth2studio.models.batch</span> <span class="kn">import</span> <span class="n">batch_coords</span><span class="p">,</span> <span class="n">batch_func</span>
 <span class="kn">from</span> <span class="nn">earth2studio.models.dx.base</span> <span class="kn">import</span> <span class="n">DiagnosticModel</span>
 <span class="kn">from</span> <span class="nn">earth2studio.utils</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">handshake_coords</span><span class="p">,</span>
@@ -577,9 +576,23 @@ document.write(`
             <span class="p">}</span>
         <span class="p">)</span>
 
-    <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">output_coords</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">CoordSystem</span><span class="p">:</span>
-        <span class="k">return</span> <span class="n">OrderedDict</span><span class="p">(</span>
+    <span class="nd">@batch_coords</span><span class="p">()</span>
+    <span class="k">def</span> <span class="nf">output_coords</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_coords</span><span class="p">:</span> <span class="n">CoordSystem</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">CoordSystem</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Output coordinate system of diagnostic model</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        input_coords : CoordSystem</span>
+<span class="sd">            Input coordinate system to transform into output_coords</span>
+<span class="sd">            by default None, will use self.input_coords.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        CoordSystem</span>
+<span class="sd">            Coordinate system dictionary</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">output_coords</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">(</span>
             <span class="p">{</span>
                 <span class="s2">&quot;batch&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span>
                 <span class="s2">&quot;sample&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">number_of_samples</span><span class="p">),</span>
@@ -588,6 +601,16 @@ document.write(`
                 <span class="s2">&quot;ilon&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">448</span><span class="p">),</span>
             <span class="p">}</span>
         <span class="p">)</span>
+
+        <span class="n">handshake_dim</span><span class="p">(</span><span class="n">input_coords</span><span class="p">,</span> <span class="s2">&quot;lon&quot;</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span>
+        <span class="n">handshake_dim</span><span class="p">(</span><span class="n">input_coords</span><span class="p">,</span> <span class="s2">&quot;lat&quot;</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+        <span class="n">handshake_dim</span><span class="p">(</span><span class="n">input_coords</span><span class="p">,</span> <span class="s2">&quot;variable&quot;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="n">handshake_coords</span><span class="p">(</span><span class="n">input_coords</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">input_coords</span><span class="p">,</span> <span class="s2">&quot;lon&quot;</span><span class="p">)</span>
+        <span class="n">handshake_coords</span><span class="p">(</span><span class="n">input_coords</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">input_coords</span><span class="p">,</span> <span class="s2">&quot;lat&quot;</span><span class="p">)</span>
+        <span class="n">handshake_coords</span><span class="p">(</span><span class="n">input_coords</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">input_coords</span><span class="p">,</span> <span class="s2">&quot;variable&quot;</span><span class="p">)</span>
+
+        <span class="n">output_coords</span><span class="p">[</span><span class="s2">&quot;batch&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">input_coords</span><span class="p">[</span><span class="s2">&quot;batch&quot;</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">output_coords</span>
 
 <div class="viewcode-block" id="CorrDiffTaiwan.load_default_package">
 <a class="viewcode-back" href="../../../../modules/generated/models/dx/earth2studio.models.dx.CorrDiffTaiwan.html#earth2studio.models.dx.CorrDiffTaiwan.load_default_package">[docs]</a>
@@ -762,16 +785,7 @@ document.write(`
         <span class="n">coords</span><span class="p">:</span> <span class="n">CoordSystem</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">CoordSystem</span><span class="p">]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Forward pass of diagnostic&quot;&quot;&quot;</span>
-        <span class="n">handshake_dim</span><span class="p">(</span><span class="n">coords</span><span class="p">,</span> <span class="s2">&quot;lon&quot;</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span>
-        <span class="n">handshake_dim</span><span class="p">(</span><span class="n">coords</span><span class="p">,</span> <span class="s2">&quot;lat&quot;</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
-        <span class="n">handshake_dim</span><span class="p">(</span><span class="n">coords</span><span class="p">,</span> <span class="s2">&quot;variable&quot;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
-        <span class="n">handshake_coords</span><span class="p">(</span><span class="n">coords</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">input_coords</span><span class="p">,</span> <span class="s2">&quot;lon&quot;</span><span class="p">)</span>
-        <span class="n">handshake_coords</span><span class="p">(</span><span class="n">coords</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">input_coords</span><span class="p">,</span> <span class="s2">&quot;lat&quot;</span><span class="p">)</span>
-        <span class="n">handshake_coords</span><span class="p">(</span><span class="n">coords</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">input_coords</span><span class="p">,</span> <span class="s2">&quot;variable&quot;</span><span class="p">)</span>
-
-        <span class="n">output_coords</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">output_coords</span><span class="p">)</span>
-
-        <span class="n">output_coords</span><span class="p">[</span><span class="s2">&quot;batch&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">coords</span><span class="p">[</span><span class="s2">&quot;batch&quot;</span><span class="p">]</span>
+        <span class="n">output_coords</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">output_coords</span><span class="p">(</span><span class="n">coords</span><span class="p">)</span>
 
         <span class="n">out</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span>
             <span class="p">[</span><span class="nb">len</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">output_coords</span><span class="o">.</span><span class="n">values</span><span class="p">()],</span>
