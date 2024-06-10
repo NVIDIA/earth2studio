@@ -28,7 +28,7 @@ except ImportError:
     InferenceSession = TypeVar("InferenceSession")  # type: ignore
 import torch
 
-from earth2studio.models.auto import AutoModelMixin, Package
+from earth2studio.models.auto import AutoModelMixin, PackageV2
 from earth2studio.models.batch import batch_coords, batch_func
 from earth2studio.models.px.base import PrognosticModel
 from earth2studio.models.px.utils import PrognosticMixin
@@ -226,22 +226,25 @@ class FengWu(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         return self
 
     @classmethod
-    def load_default_package(cls) -> Package:
+    def load_default_package(cls) -> PackageV2:  # type: ignore
         """Load prognostic package"""
-        return Package("hf://NickGeneva/earth_ai/fengwu")
+        return PackageV2(
+            "hf://NickGeneva/earth_ai/fengwu",
+            cache_options={
+                "cache_storage": PackageV2.default_cache("fengwu"),
+                "same_names": True,
+            },
+        )
 
     @classmethod
     def load_model(
         cls,
-        package: Package,
+        package: PackageV2,  # type: ignore
     ) -> PrognosticModel:
         """Load prognostic from package"""
-        # Ghetto at the moment because NGC files are zipped. This will download zip and
-        # unpack them then give the cached folder location from which we can then
-        # access the needed files.
-        onnx_file = package.get("fengwu_v1.onnx")
-        global_center = torch.Tensor(np.load(package.get("global_means.npy")))
-        global_std = torch.Tensor(np.load(package.get("global_stds.npy")))
+        onnx_file = package.resolve("fengwu_v1.onnx")
+        global_center = torch.Tensor(np.load(package.open("global_means.npy")))
+        global_std = torch.Tensor(np.load(package.open("global_stds.npy")))
         return cls(onnx_file, global_center, global_std)
 
     @torch.inference_mode()

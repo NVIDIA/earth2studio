@@ -14,14 +14,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import zipfile
 from collections import OrderedDict
 from collections.abc import Generator, Iterator
+from pathlib import Path
 
 import numpy as np
 import torch
 from modulus.models.afno import AFNO
 
-from earth2studio.models.auto import AutoModelMixin, Package
+from earth2studio.models.auto import AutoModelMixin, PackageV2
 from earth2studio.models.batch import batch_coords, batch_func
 from earth2studio.models.px.base import PrognosticModel
 from earth2studio.models.px.utils import PrognosticMixin
@@ -151,25 +153,36 @@ class FCN(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         return "fcn"
 
     @classmethod
-    def load_default_package(cls) -> Package:
+    def load_default_package(cls) -> PackageV2:  # type: ignore
         """Load prognostic package"""
-        return Package("ngc://models/nvidia/modulus/modulus_fcn@v0.2")
+        return PackageV2(
+            "ngc://models/nvidia/modulus/modulus_fcn@v0.2",
+            cache_options={
+                "cache_storage": PackageV2.default_cache("fcn"),
+                "same_names": True,
+            },
+        )
 
     @classmethod
     def load_model(
         cls,
-        package: Package,
+        package: PackageV2,  # type: ignore
     ) -> PrognosticModel:
         """Load prognostic from package"""
-        # Ghetto at the moment because NGC files are zipped. This will download zip and
-        # unpack them then give the cached folder location from which we can then
-        # access the needed files.
-        cached_path = package.get("fcn.zip")
-        model = AFNO.from_checkpoint(cached_path + "/fcn/fcn.mdlus")
+        fcn_zip = Path(package.resolve("fcn.zip"))
+        # Have to manually unzip here. Should not zip checkpoints in the future
+        with zipfile.ZipFile(fcn_zip, "r") as zip_ref:
+            zip_ref.extractall(fcn_zip.parent)
+
+        model = AFNO.from_checkpoint(str(fcn_zip.parent / Path("fcn/fcn.mdlus")))
         model.eval()
 
-        local_center = torch.Tensor(np.load(cached_path + "/fcn/global_means.npy"))
-        local_std = torch.Tensor(np.load(cached_path + "/fcn/global_stds.npy"))
+        local_center = torch.Tensor(
+            np.load(str(fcn_zip.parent / Path("fcn/global_means.npy")))
+        )
+        local_std = torch.Tensor(
+            np.load(str(fcn_zip.parent / Path("fcn/global_stds.npy")))
+        )
         return cls(model, center=local_center, scale=local_std)
 
     @torch.inference_mode()
