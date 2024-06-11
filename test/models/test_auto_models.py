@@ -89,7 +89,7 @@ def test_package(url, file, cache_folder, model_cache_context):
         url = "file://" / cache_folder
     with model_cache_context(EARTH2STUDIO_CACHE=str(cache_folder.resolve())):
         package = Package(url)
-        file_path = package.get(file)
+        file_path = package.resolve(file)
         assert Path(file_path).is_file()
 
 
