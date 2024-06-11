@@ -159,6 +159,8 @@ class Package:
         self.cache_options = cache_options.copy()
         if "cache_storage" not in self.cache_options:
             self.cache_options["cache_storage"] = self.default_cache()
+        if "expiry_time" not in self.cache_options:
+            self.cache_options["expiry_time"] = 31622400  # 1 year
 
         self.root = root
 
