@@ -41,6 +41,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - NetCDF reads are now mode='r+' instead of 'w'.
 - Change 'output_coords' for models from a property to a method that
   accepts input coordinates to determine the corresponding outputs.
+- Updated Package to use WholeFileCacheFileSystem. Extend package API to open and
+  resolve. Deprication warning added to get.
 
 ### Deprecated
 
