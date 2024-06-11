@@ -286,7 +286,7 @@ class Package:
             File path inside cache
         """
         warnings.warn(
-            "Package.get(path) depricated. Use Package.resolve(path) instead."
+            "Package.get(path) deprecated. Use Package.resolve(path) instead."
         )
         return self.resolve(file_path)
 
