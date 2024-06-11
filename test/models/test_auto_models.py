@@ -88,7 +88,7 @@ def test_package(url, file, cache_folder, model_cache_context):
     if url is None:
         url = "file://" / cache_folder
     with model_cache_context(EARTH2STUDIO_CACHE=str(cache_folder.resolve())):
-        package = Package(url)
+        package = Package(str(url))
         file_path = package.resolve(file)
         assert Path(file_path).is_file()
 
@@ -99,12 +99,12 @@ def test_auto_model_mixin():
         AutoModelMixin.load_default_package()
 
     with pytest.raises(NotImplementedError):
-        package = Package("./package")
+        package = "./package"
         AutoModelMixin.load_model(package)
 
     with pytest.raises(NotImplementedError):
         AutoModelMixin.from_pretrained()
 
     with pytest.raises(NotImplementedError):
-        package = Package("./package")
+        package = "./package"
         AutoModelMixin.from_pretrained(package)

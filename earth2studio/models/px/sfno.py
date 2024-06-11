@@ -225,6 +225,7 @@ class SFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             },
         )
         package.root = os.path.join(package.root, "sfno_73ch_small")
+        return package
 
     @classmethod
     def load_model(

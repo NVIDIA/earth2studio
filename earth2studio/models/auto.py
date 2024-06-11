@@ -24,7 +24,7 @@ import fsspec
 import s3fs
 from fsspec.callbacks import Callback, TqdmCallback
 from fsspec.compression import compr
-from fsspec.core import BaseCache
+from fsspec.core import BaseCache, split_protocol
 from fsspec.implementations.cached import LocalTempFile, WholeFileCacheFileSystem
 from fsspec.implementations.http import HTTPFileSystem
 from fsspec.spec import AbstractBufferedFile, AbstractFileSystem
@@ -158,9 +158,7 @@ class Package:
 
         self.cache_options = cache_options.copy()
         if "cache_storage" not in self.cache_options:
-            self.cache_options["cache_storage"] = os.environ.get(
-                "EARTH2STUDIO_CACHE", self.default_cache()
-            )
+            self.cache_options["cache_storage"] = self.default_cache()
 
         self.root = root
 
@@ -199,7 +197,8 @@ class Package:
                 target_options={"default_block_size": 2**20},
             )
         else:
-            fs = fsspec.filesystem(root)
+            protocol = split_protocol(root)[0]
+            fs = fsspec.filesystem(protocol)
 
         self.fs = CallbackWholeFileCacheFileSystem(fs=fs, **self.cache_options)
 
@@ -218,6 +217,7 @@ class Package:
             Local cache path
         """
         default_cache = os.path.join(os.path.expanduser("~"), ".cache", "earth2studio")
+        default_cache = os.environ.get("EARTH2STUDIO_CACHE", default_cache)
         return os.path.join(default_cache, path)
 
     @property

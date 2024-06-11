@@ -253,13 +253,13 @@ class FuXi(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         # Short model
         onnx_short = package.resolve("short.onnx")
-        package.get("short", same_names=True)
+        package.open("short")
         # Medium model
         onnx_medium = package.resolve("medium.onnx")
-        package.get("medium", same_names=True)
+        package.open("medium")
         # Long model
         onnx_long = package.resolve("long.onnx")
-        package.get("long", same_names=True)
+        package.open("long")
 
         return cls(onnx_short, onnx_medium, onnx_long)
 
