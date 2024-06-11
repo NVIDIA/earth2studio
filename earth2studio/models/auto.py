@@ -109,10 +109,6 @@ class TqdmFormat(tqdm):
     @property
     def format_dict(self) -> dict:
         d = super().format_dict
-        # total_time = d["elapsed"] * (d["total"] or 0) / max(d["n"], 1)
-        # d.update(total_time=self.format_interval(total_time) + " in total")
-        # d.update(total=round(d["total"] / 10**9), n=round(d["n"] / 10**9))
-        # d.update(n_fmt=f"{round(d['n'] / 10**9)}{d['unit']}")
         return d
 
 
