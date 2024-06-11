@@ -14,10 +14,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import hashlib
 import io
 import os
 import re
+import warnings
 from typing import Any
 
 import fsspec
@@ -31,7 +31,6 @@ from fsspec.spec import AbstractBufferedFile, AbstractFileSystem
 from fsspec.utils import infer_compression
 from huggingface_hub import HfFileSystem
 from loguru import logger
-from modulus.utils.filesystem import _download_cached
 from tqdm import tqdm
 
 # TODO: Make this package wide? Same as in run.py
@@ -121,6 +120,7 @@ class TqdmCallbackRelative(TqdmCallback):
     """Simple extention of Tqdm callback to support progress bar on recurrive gets"""
 
     def branched(self, path_1, path_2, **kwargs) -> Callback:  # type: ignore
+        """Child callback for recursive get"""
         tqdm_kwargs = self._tqdm_kwargs
         tqdm_kwargs["unit"] = "B"
         tqdm_kwargs["unit_scale"] = True
@@ -132,7 +132,7 @@ class TqdmCallbackRelative(TqdmCallback):
         return callback
 
 
-class PackageV2:
+class Package:
     """A generic file system abstraction with local caching, uses FSSpec
     WholeFileCacheFileSystem to manage files. Designed to be used for accessing remote
     resources, particularly checkpoint files for pre-trained models. Presently supports
@@ -272,78 +272,23 @@ class PackageV2:
             local_file_path = file.name
         return local_file_path
 
-
-class Package:
-    """A generic file system abstraction
-
-    Note
-    ----
-    This is a slight variation of the Modulus Package... figured upstream was too much
-    of a pain right now.
-
-    Parameters
-    ----------
-    root : str
-        Root directory for file system
-    cache_dir : str, optional
-        Cache directory, if remote path files will be downloaded here. If none is
-        provided then the path set in LOCAL_CACHE enviroment variable will be used.
-        If that is empty the path "~/.cache/earth2studio" is used, by default None
-    """
-
-    def __init__(self, root: str, cache_dir: str | None = None):
-        self.root = root
-        self.cache_dir = cache_dir
-        if not self.cache_dir:
-            # TODO: Update to earth2 studio after fix to
-            # https://github.com/NVIDIA/modulus/blob/main/modulus/utils/filesystem.py#L101
-            # Is upstreamed
-            default_cache = os.path.join(os.path.expanduser("~"), ".cache", "modulus")
-            self.cache_dir = os.environ.get("EARTH2STUDIO_CACHE", default_cache)
-        # Create cache dir if it doesn't exist
-        os.makedirs(self.cache_dir, exist_ok=True)
-
-    def get(self, path: str, recursive: bool = False, same_names: bool = False) -> str:
-        """Get a local path to the item at ``path``
+    def get(self, file_path: str) -> str:
+        """Modulus / backwards compatibility
 
         Parameters
         ----------
         path : str
             local path of file in package directory
-        recursive : bool, optional
-            recursively fetch all assets under local directory. Only relevant for remote
-            packages, by default False
-        same_names : bool, optional
-            If true, file names will not be hashed to avoid potential conflicts. By
-            default False
 
         Returns
         -------
         str
-            path to asset
+            File path inside cache
         """
-        # TODO upstream to modulus, change to returning the file object (let fspsec deal
-        # with the cache checks) not a string? Not sure if will work with ONNX
-        path = self._fullpath(path)
-        if path.startswith("hf://"):
-            # TODO: Temp fix, needs better support
-            if same_names:
-                filename = os.path.basename(path)
-            else:
-                sha = hashlib.sha256(path.encode())
-                filename = sha.hexdigest()
-            cache_path = os.path.join(str(self.cache_dir), filename)
-            fs = HfFileSystem(target_options={"default_block_size": 2**20})
-            if not os.path.isfile(cache_path):
-                fs.get(path, cache_path, recursive=recursive)
-            return cache_path
-        else:
-            return _download_cached(
-                path, recursive=recursive, local_cache_path=self.cache_dir
-            )
-
-    def _fullpath(self, path: str) -> str:
-        return os.path.join(self.root, path)
+        warnings.warn(
+            "Package.get(path) depricated. Use Package.resolve(path) instead."
+        )
+        return self.resolve(file_path)
 
 
 class AutoModelMixin:
