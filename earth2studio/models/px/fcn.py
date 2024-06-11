@@ -23,7 +23,7 @@ import numpy as np
 import torch
 from modulus.models.afno import AFNO
 
-from earth2studio.models.auto import AutoModelMixin, PackageV2
+from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_coords, batch_func
 from earth2studio.models.px.base import PrognosticModel
 from earth2studio.models.px.utils import PrognosticMixin
@@ -153,12 +153,12 @@ class FCN(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         return "fcn"
 
     @classmethod
-    def load_default_package(cls) -> PackageV2:  # type: ignore
+    def load_default_package(cls) -> Package:
         """Load prognostic package"""
-        return PackageV2(
+        return Package(
             "ngc://models/nvidia/modulus/modulus_fcn@v0.2",
             cache_options={
-                "cache_storage": PackageV2.default_cache("fcn"),
+                "cache_storage": Package.default_cache("fcn"),
                 "same_names": True,
             },
         )
@@ -166,7 +166,7 @@ class FCN(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     @classmethod
     def load_model(
         cls,
-        package: PackageV2,  # type: ignore
+        package: Package,
     ) -> PrognosticModel:
         """Load prognostic from package"""
         fcn_zip = Path(package.resolve("fcn.zip"))

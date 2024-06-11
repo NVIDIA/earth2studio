@@ -236,7 +236,13 @@ class FuXi(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     @classmethod
     def load_default_package(cls) -> Package:
         """Load prognostic package"""
-        return Package("hf://NickGeneva/earth_ai/fuxi")
+        return Package(
+            "hf://NickGeneva/earth_ai/fuxi",
+            cache_options={
+                "cache_storage": Package.default_cache("fuxi"),
+                "same_names": True,
+            },
+        )
 
     @classmethod
     def load_model(
@@ -246,13 +252,13 @@ class FuXi(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         """Load prognostic from package"""
 
         # Short model
-        onnx_short = package.get("short.onnx")
+        onnx_short = package.resolve("short.onnx")
         package.get("short", same_names=True)
         # Medium model
-        onnx_medium = package.get("medium.onnx")
+        onnx_medium = package.resolve("medium.onnx")
         package.get("medium", same_names=True)
         # Long model
-        onnx_long = package.get("long.onnx")
+        onnx_long = package.resolve("long.onnx")
         package.get("long", same_names=True)
 
         return cls(onnx_short, onnx_medium, onnx_long)

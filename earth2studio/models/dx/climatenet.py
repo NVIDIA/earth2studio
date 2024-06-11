@@ -14,7 +14,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import zipfile
 from collections import OrderedDict
+from pathlib import Path
 
 import numpy as np
 import torch
@@ -127,24 +129,33 @@ class ClimateNet(torch.nn.Module, AutoModelMixin):
     @classmethod
     def load_default_package(cls) -> Package:
         """Default pre-trained climatenet model package from Nvidia model registry"""
-        return Package("ngc://models/nvidia/modulus/modulus_diagnostics@v0.1")
+        return Package(
+            "ngc://models/nvidia/modulus/modulus_diagnostics@v0.1",
+            cache_options={
+                "cache_storage": Package.default_cache("climatenet"),
+                "same_names": True,
+            },
+        )
 
     @classmethod
     def load_model(cls, package: Package) -> DiagnosticModel:
         """Load diagnostic from package"""
-        # Ghetto at the moment because NGC files are zipped. This will download zip and
-        # unpack them then give the cached folder location from which we can then
-        # access the needed files.
-        cached_path = package.get("climatenet.zip")
+        checkpoint_zip = Path(package.resolve("climatenet.zip"))
+        # Have to manually unzip here. Should not zip checkpoints in the future
+        with zipfile.ZipFile(checkpoint_zip, "r") as zip_ref:
+            zip_ref.extractall(checkpoint_zip.parent)
+
         model = CGNetModule(channels=len(VARIABLES), classes=len(OUT_VARIABLES))
-        model.load_state_dict(torch.load(cached_path + "/climatenet/weights.tar"))
+        model.load_state_dict(
+            torch.load(str(checkpoint_zip.parent / Path("climatenet/weights.tar")))
+        )
         model.eval()
 
         input_center = torch.Tensor(
-            np.load(cached_path + "/climatenet/global_means.npy")
+            np.load(str(checkpoint_zip.parent / Path("climatenet/global_means.npy")))
         ).reshape(-1, 1, 1)
         input_scale = torch.Tensor(
-            np.load(cached_path + "/climatenet/global_stds.npy")
+            np.load(str(checkpoint_zip.parent / Path("climatenet/global_stds.npy")))
         ).reshape(-1, 1, 1)
         return cls(model, input_center, input_scale)
 

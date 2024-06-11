@@ -28,7 +28,7 @@ except ImportError:
     InferenceSession = TypeVar("InferenceSession")  # type: ignore
 import torch
 
-from earth2studio.models.auto import AutoModelMixin, PackageV2
+from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_coords, batch_func
 from earth2studio.models.px.base import PrognosticModel
 from earth2studio.models.px.utils import PrognosticMixin
@@ -226,12 +226,12 @@ class FengWu(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         return self
 
     @classmethod
-    def load_default_package(cls) -> PackageV2:  # type: ignore
+    def load_default_package(cls) -> Package:
         """Load prognostic package"""
-        return PackageV2(
+        return Package(
             "hf://NickGeneva/earth_ai/fengwu",
             cache_options={
-                "cache_storage": PackageV2.default_cache("fengwu"),
+                "cache_storage": Package.default_cache("fengwu"),
                 "same_names": True,
             },
         )
@@ -239,7 +239,7 @@ class FengWu(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     @classmethod
     def load_model(
         cls,
-        package: PackageV2,  # type: ignore
+        package: Package,
     ) -> PrognosticModel:
         """Load prognostic from package"""
         onnx_file = package.resolve("fengwu_v1.onnx")
