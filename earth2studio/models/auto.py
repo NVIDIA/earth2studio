@@ -129,7 +129,7 @@ class TqdmCallbackRelative(TqdmCallback):
 
 
 class Package:
-    """A generic file system abstraction with local caching, uses FSSpec
+    """A generic file system abstraction with local caching, uses Fsspec
     WholeFileCacheFileSystem to manage files. Designed to be used for accessing remote
     resources, particularly checkpoint files for pre-trained models. Presently supports
     public folders on NGC, huggingface repos, s3 and any other built in file system
@@ -143,7 +143,7 @@ class Package:
         The target filesystem to run under neath. If none is provided one will get
         initialized based on root url, by default None
     cache_options : dict, optional
-        Caching options provided to Fsspec. See CachingFileSystem in fsspec to see
+        Caching options provided to Fsspec. See CachingFileSystem in fsspec for
         valid options https://filesystem-spec.readthedocs.io/en/latest/api.html#fsspec.implementations.cached.CachingFileSystem,
         by default {}
     """
