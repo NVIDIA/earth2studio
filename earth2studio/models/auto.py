@@ -142,6 +142,9 @@ class Package:
     fs : AbstractFileSystem | None, optional
         The target filesystem to run under neath. If none is provided one will get
         initialized based on root url, by default None
+    cache : bool, optional
+        Toggle local caching, typically you want this to be true unless the package is
+        a local file system, by default True
     cache_options : dict, optional
         Caching options provided to Fsspec. See CachingFileSystem in fsspec for
         valid options https://filesystem-spec.readthedocs.io/en/latest/api.html#fsspec.implementations.cached.CachingFileSystem,
@@ -149,7 +152,11 @@ class Package:
     """
 
     def __init__(
-        self, root: str, fs: AbstractFileSystem | None = None, cache_options: dict = {}
+        self,
+        root: str,
+        fs: AbstractFileSystem | None = None,
+        cache: bool = True,
+        cache_options: dict = {},
     ):
 
         self.cache_options = cache_options.copy()
@@ -161,7 +168,7 @@ class Package:
         self.root = root
 
         if fs is not None:
-            pass
+            self.fs = fs
         elif root.startswith("ngc://models/"):
             # Taken from Modulus file utils
             # Strip ngc model url prefix
@@ -185,20 +192,21 @@ class Package:
                 self.root = f"https://api.ngc.nvidia.com/v2/models/{org}/{team}/{model}/versions/{version}/files/"
             else:
                 self.root = f"https://api.ngc.nvidia.com/v2/models/{org}/{model}/versions/{version}/files/"
-            fs = HTTPFileSystem(block_size=2**10)
+            self.fs = HTTPFileSystem(block_size=2**10)
         elif root.startswith("hf://"):
-            fs = HfFileSystem(target_options={"default_block_size": 2**20})
+            self.fs = HfFileSystem(target_options={"default_block_size": 2**20})
         elif root.startswith("s3://"):
-            fs = s3fs.S3FileSystem(
+            self.fs = s3fs.S3FileSystem(
                 anon=True,
                 client_kwargs={},
                 target_options={"default_block_size": 2**20},
             )
         else:
             protocol = split_protocol(root)[0]
-            fs = fsspec.filesystem(protocol)
+            self.fs = fsspec.filesystem(protocol)
 
-        self.fs = CallbackWholeFileCacheFileSystem(fs=fs, **self.cache_options)
+        if cache:
+            self.fs = CallbackWholeFileCacheFileSystem(fs=self.fs, **self.cache_options)
 
     @classmethod
     def default_cache(cls, path: str = "") -> str:
