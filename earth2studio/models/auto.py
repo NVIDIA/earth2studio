@@ -140,8 +140,8 @@ class Package:
     root : str
         Root directory for file system
     fs : AbstractFileSystem | None, optional
-        The target filesystem to run under neath. If none is provided one will get
-        initialized based on root url, by default None
+        The target filesystem to run underneath. If none is provided a fsspec filesystem
+        will get initialized based on the protocal of the root url, by default None
     cache : bool, optional
         Toggle local caching, typically you want this to be true unless the package is
         a local file system, by default True
