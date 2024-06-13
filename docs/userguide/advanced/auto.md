@@ -70,8 +70,8 @@ primitive abstract filesystem.
 ## Package
 
 The {py:class}`earth2studio.models.auto.Package` class is an abstract representation of
-a remote storage location.
-This class abstracts away the download and caching of files.
+a storage location that contains some artifacts used to load a pre-trained model.
+This class abstracts away the download and caching of files on the local machine.
 Given that a supported remote store type is used, the use of the package class is as
 follows:
 
@@ -82,7 +82,10 @@ from earth2studio.models.auto import Package
 package = Package("ngc://models/nvidia/modulus/modulus_fcn@v0.2")
 
 # Fetch a file from the remote store using the get method
-cached_path_to_file = package.get("fcn.zip")
+cached_path_to_file = package.resolve("fcn.zip")
+
+# Open a buffered reader of the file
+opened_file = package.open("fcn.zip")
 ```
 
 The cached path is a directory on the local file system which can be configured via
@@ -90,8 +93,8 @@ environment variables.
 See {ref}`configuration_userguide` section for details.
 
 :::{note}
-Earth2Studio file system borrows uses and is inspired by
-[Fsspec](https://filesystem-spec.readthedocs.io/en/latest/).
+Earth2Studio file system borrows uses [Fsspec](https://filesystem-spec.readthedocs.io/en/latest/)
+caching for files in packages.
 We encourage users that are interested in this type of utility to learn more about
-Fsspec and the specification it defines.
+Fsspec and the specification it defines for advanced usage.
 :::

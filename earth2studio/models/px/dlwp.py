@@ -14,9 +14,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import zipfile
 from collections import OrderedDict
 from collections.abc import Generator, Iterator
 from datetime import timedelta
+from pathlib import Path
 
 import modulus
 import numpy as np
@@ -163,7 +165,13 @@ class DLWP(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     @classmethod
     def load_default_package(cls) -> Package:
         """Default DLWP model package on NGC"""
-        return Package("ngc://models/nvidia/modulus/modulus_dlwp_cubesphere@v0.2")
+        return Package(
+            "ngc://models/nvidia/modulus/modulus_dlwp_cubesphere@v0.2",
+            cache_options={
+                "cache_storage": Package.default_cache("dlwp"),
+                "same_names": True,
+            },
+        )
 
     @classmethod
     def load_model(
@@ -174,26 +182,32 @@ class DLWP(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         # Ghetto at the moment because NGC files are zipped. This will download zip and
         # unpack them then give the cached folder location from which we can then
         # access the needed files.
-        cached_path = package.get("dlwp_cubesphere.zip")
+        dlwp_zip = Path(package.resolve("dlwp_cubesphere.zip"))
+        # Have to manually unzip here. Should not zip checkpoints in the future
+        with zipfile.ZipFile(dlwp_zip, "r") as zip_ref:
+            zip_ref.extractall(dlwp_zip.parent)
+
         lsm = torch.Tensor(
-            xarray.open_dataset(f"{cached_path}/dlwp/land_sea_mask_rs_cs.nc")[
-                "lsm"
-            ].values
+            xarray.open_dataset(
+                str(dlwp_zip.parent / Path("dlwp/land_sea_mask_rs_cs.nc"))
+            )["lsm"].values
         )
         topographic_height = torch.Tensor(
-            xarray.open_dataset(f"{cached_path}/dlwp/geopotential_rs_cs.nc")["z"].values
+            xarray.open_dataset(
+                str(dlwp_zip.parent / Path("dlwp/geopotential_rs_cs.nc"))
+            )["z"].values
         )
         latlon_grids = xarray.open_dataset(
-            f"{cached_path}/dlwp/latlon_grid_field_rs_cs.nc"
+            str(dlwp_zip.parent / Path("dlwp/latlon_grid_field_rs_cs.nc"))
         )
         latgrid = torch.Tensor(latlon_grids["latgrid"].values)
         longrid = torch.Tensor(latlon_grids["longrid"].values)
         # load maps
         input_map_wts = xarray.open_dataset(
-            f"{cached_path}/dlwp/map_LL721x1440_CS64.nc"
+            str(dlwp_zip.parent / Path("dlwp/map_LL721x1440_CS64.nc"))
         )
         output_map_wts = xarray.open_dataset(
-            f"{cached_path}/dlwp/map_CS64_LL721x1440.nc"
+            str(dlwp_zip.parent / Path("dlwp/map_CS64_LL721x1440.nc"))
         )
 
         i = input_map_wts.row.values - 1
@@ -210,10 +224,16 @@ class DLWP(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             np.array((i, j)), data, dtype=torch.float
         )
 
-        core_model = modulus.Module.from_checkpoint(f"{cached_path}/dlwp/dlwp.mdlus")
+        core_model = modulus.Module.from_checkpoint(
+            str(dlwp_zip.parent / Path("dlwp/dlwp.mdlus"))
+        )
 
-        center = torch.Tensor(np.load(f"{cached_path}/dlwp/global_means.npy"))
-        scale = torch.Tensor(np.load(f"{cached_path}/dlwp/global_stds.npy"))
+        center = torch.Tensor(
+            np.load(str(dlwp_zip.parent / Path("dlwp/global_means.npy")))
+        )
+        scale = torch.Tensor(
+            np.load(str(dlwp_zip.parent / Path("dlwp/global_stds.npy")))
+        )
 
         return cls(
             core_model,

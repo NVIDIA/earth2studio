@@ -14,7 +14,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import zipfile
 from collections import OrderedDict
+from pathlib import Path
 
 import numpy as np
 import torch
@@ -129,25 +131,39 @@ class PrecipitationAFNO(torch.nn.Module, AutoModelMixin):
     @classmethod
     def load_default_package(cls) -> Package:
         """Default pre-trained precipation model package from Nvidia model registry"""
-        return Package("ngc://models/nvidia/modulus/modulus_diagnostics@v0.1")
+        return Package(
+            "ngc://models/nvidia/modulus/modulus_diagnostics@v0.1",
+            cache_options={
+                "cache_storage": Package.default_cache("precip_afno"),
+                "same_names": True,
+            },
+        )
 
     @classmethod
     def load_model(cls, package: Package) -> DiagnosticModel:
         """Load diagnostic from package"""
-        # Ghetto at the moment because NGC files are zipped. This will download zip and
-        # unpack them then give the cached folder location from which we can then
-        # access the needed files.
-        cached_path = package.get("precipitation_afno.zip")
+        checkpoint_zip = Path(package.resolve("precipitation_afno.zip"))
+        # Have to manually unzip here. Should not zip checkpoints in the future
+        with zipfile.ZipFile(checkpoint_zip, "r") as zip_ref:
+            zip_ref.extractall(checkpoint_zip.parent)
+
         model = PrecipNet.from_checkpoint(
-            cached_path + "/precipitation_afno/precipitation_afno.mdlus"
+            str(
+                checkpoint_zip.parent
+                / Path("precipitation_afno/precipitation_afno.mdlus")
+            )
         )
         model.eval()
 
         input_center = torch.Tensor(
-            np.load(cached_path + "/precipitation_afno/global_means.npy")
+            np.load(
+                str(checkpoint_zip.parent / Path("precipitation_afno/global_means.npy"))
+            )
         )
         input_scale = torch.Tensor(
-            np.load(cached_path + "/precipitation_afno/global_stds.npy")
+            np.load(
+                str(checkpoint_zip.parent / Path("precipitation_afno/global_stds.npy"))
+            )
         )
         return cls(model, input_center, input_scale)
 
