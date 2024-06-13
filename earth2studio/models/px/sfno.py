@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
 from collections import OrderedDict
 from collections.abc import Generator, Iterator
 
@@ -215,9 +216,16 @@ class SFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     @classmethod
     def load_default_package(cls) -> Package:
         """Load prognostic package"""
-        return Package(
-            "ngc://models/nvidia/modulus/sfno_73ch_small@0.1.0/sfno_73ch_small"
+
+        package = Package(
+            "ngc://models/nvidia/modulus/sfno_73ch_small@0.1.0",
+            cache_options={
+                "cache_storage": Package.default_cache("sfno"),
+                "same_names": True,
+            },
         )
+        package.root = os.path.join(package.root, "sfno_73ch_small")
+        return package
 
     @classmethod
     def load_model(
@@ -234,10 +242,10 @@ class SFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         model.eval()
 
         # Load center and std normalizations
-        local_center = torch.Tensor(np.load(package.get("global_means.npy")))[
+        local_center = torch.Tensor(np.load(package.resolve("global_means.npy")))[
             :, : len(VARIABLES)
         ]
-        local_std = torch.Tensor(np.load(package.get("global_stds.npy")))[
+        local_std = torch.Tensor(np.load(package.resolve("global_stds.npy")))[
             :, : len(VARIABLES)
         ]
 

@@ -170,7 +170,7 @@ def test_corrdiff_exceptions(x, device):
 
 
 @pytest.mark.ci_cache
-@pytest.mark.timeout(15)
+@pytest.mark.timeout(30)
 @pytest.mark.parametrize("device", ["cuda:0"])
 def test_corrdiff_package(device, model_cache_context):
     # Test the cached model package CorrDiffTaiwan

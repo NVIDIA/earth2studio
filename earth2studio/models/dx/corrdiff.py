@@ -14,8 +14,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import zipfile
 from collections import OrderedDict
 from collections.abc import Callable
+from pathlib import Path
 from typing import Literal
 
 import numpy as np
@@ -183,24 +185,44 @@ class CorrDiffTaiwan(torch.nn.Module, AutoModelMixin):
     @classmethod
     def load_default_package(cls) -> Package:
         """Default pre-trained corrdiff model package from Nvidia model registry"""
-        return Package("ngc://models/nvidia/modulus/corrdiff_inference_package@1")
+        return Package(
+            "ngc://models/nvidia/modulus/corrdiff_inference_package@1",
+            cache_options={
+                "cache_storage": Package.default_cache("corrdiff_taiwan"),
+                "same_names": True,
+            },
+        )
 
     @classmethod
     def load_model(cls, package: Package) -> DiagnosticModel:
         """Load diagnostic from package"""
-        cached_path = package.get("corrdiff_inference_package.zip")
+        checkpoint_zip = Path(package.resolve("corrdiff_inference_package.zip"))
+        # Have to manually unzip here. Should not zip checkpoints in the future
+        with zipfile.ZipFile(checkpoint_zip, "r") as zip_ref:
+            zip_ref.extractall(checkpoint_zip.parent)
+
         residual = Module.from_checkpoint(
-            cached_path + "/corrdiff_inference_package/checkpoints/diffusion.mdlus"
+            str(
+                checkpoint_zip.parent
+                / Path("corrdiff_inference_package/checkpoints/diffusion.mdlus")
+            )
         ).eval()
 
         regression = Module.from_checkpoint(
-            cached_path + "/corrdiff_inference_package/checkpoints/regression.mdlus"
+            str(
+                checkpoint_zip.parent
+                / Path("corrdiff_inference_package/checkpoints/regression.mdlus")
+            )
         ).eval()
 
         # Get dataset for lat/lon grid info and centers/stds
         store = zarr.DirectoryStore(
-            cached_path
-            + "/corrdiff_inference_package/dataset/2023-01-24-cwb-4years_5times.zarr"
+            str(
+                checkpoint_zip.parent
+                / Path(
+                    "corrdiff_inference_package/dataset/2023-01-24-cwb-4years_5times.zarr"
+                )
+            )
         )
         with zarr.group(store) as root:
             # Get output lat/lon grid

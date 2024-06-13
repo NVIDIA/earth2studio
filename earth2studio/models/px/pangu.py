@@ -23,7 +23,6 @@
 # granted to it by virtue of its status as an intergovernmental organisation
 # nor does it submit to any jurisdiction.
 
-
 from collections import OrderedDict
 from collections.abc import Generator, Iterator
 from typing import TypeVar
@@ -204,7 +203,13 @@ class PanguBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     @classmethod
     def load_default_package(cls) -> Package:
         """Load prognostic package"""
-        return Package("hf://NickGeneva/earth_ai/pangu")
+        return Package(
+            "hf://NickGeneva/earth_ai/pangu",
+            cache_options={
+                "cache_storage": Package.default_cache("pangu"),
+                "same_names": True,
+            },
+        )
 
     def to(self, device: str | torch.device | int) -> PrognosticModel:
         """Move model (and default ORT session) to device"""
@@ -370,7 +375,7 @@ class Pangu24(PanguBase):
         # Ghetto at the moment because NGC files are zipped. This will download zip and
         # unpack them then give the cached folder location from which we can then
         # access the needed files.
-        onnx_file = package.get("pangu_weather_24.onnx")
+        onnx_file = package.resolve("pangu_weather_24.onnx")
         return cls(onnx_file)
 
     @batch_func()
@@ -471,8 +476,8 @@ class Pangu6(PanguBase):
         # Ghetto at the moment because NGC files are zipped. This will download zip and
         # unpack them then give the cached folder location from which we can then
         # access the needed files.
-        onnx_file_24 = package.get("pangu_weather_24.onnx")
-        onnx_file_6 = package.get("pangu_weather_6.onnx")
+        onnx_file_24 = package.resolve("pangu_weather_24.onnx")
+        onnx_file_6 = package.resolve("pangu_weather_6.onnx")
         return cls(onnx_file_24, onnx_file_6)
 
     @batch_func()
@@ -589,9 +594,9 @@ class Pangu3(PanguBase):
         # Ghetto at the moment because NGC files are zipped. This will download zip and
         # unpack them then give the cached folder location from which we can then
         # access the needed files.
-        onnx_file_24 = package.get("pangu_weather_24.onnx")
-        onnx_file_6 = package.get("pangu_weather_6.onnx")
-        onnx_file = package.get("pangu_weather_3.onnx")
+        onnx_file_24 = package.resolve("pangu_weather_24.onnx")
+        onnx_file_6 = package.resolve("pangu_weather_6.onnx")
+        onnx_file = package.resolve("pangu_weather_3.onnx")
         return cls(onnx_file_24, onnx_file_6, onnx_file)
 
     @batch_func()
