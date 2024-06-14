@@ -670,7 +670,13 @@ document.write(`
     <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">load_default_package</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Package</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Load prognostic package&quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="n">Package</span><span class="p">(</span><span class="s2">&quot;hf://NickGeneva/earth_ai/fuxi&quot;</span><span class="p">)</span></div>
+        <span class="k">return</span> <span class="n">Package</span><span class="p">(</span>
+            <span class="s2">&quot;hf://NickGeneva/earth_ai/fuxi&quot;</span><span class="p">,</span>
+            <span class="n">cache_options</span><span class="o">=</span><span class="p">{</span>
+                <span class="s2">&quot;cache_storage&quot;</span><span class="p">:</span> <span class="n">Package</span><span class="o">.</span><span class="n">default_cache</span><span class="p">(</span><span class="s2">&quot;fuxi&quot;</span><span class="p">),</span>
+                <span class="s2">&quot;same_names&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+            <span class="p">},</span>
+        <span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="FuXi.load_model">
@@ -683,14 +689,14 @@ document.write(`
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Load prognostic from package&quot;&quot;&quot;</span>
 
         <span class="c1"># Short model</span>
-        <span class="n">onnx_short</span> <span class="o">=</span> <span class="n">package</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;short.onnx&quot;</span><span class="p">)</span>
-        <span class="n">package</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;short&quot;</span><span class="p">,</span> <span class="n">same_names</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">onnx_short</span> <span class="o">=</span> <span class="n">package</span><span class="o">.</span><span class="n">resolve</span><span class="p">(</span><span class="s2">&quot;short.onnx&quot;</span><span class="p">)</span>
+        <span class="n">package</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="s2">&quot;short&quot;</span><span class="p">)</span>
         <span class="c1"># Medium model</span>
-        <span class="n">onnx_medium</span> <span class="o">=</span> <span class="n">package</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;medium.onnx&quot;</span><span class="p">)</span>
-        <span class="n">package</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;medium&quot;</span><span class="p">,</span> <span class="n">same_names</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">onnx_medium</span> <span class="o">=</span> <span class="n">package</span><span class="o">.</span><span class="n">resolve</span><span class="p">(</span><span class="s2">&quot;medium.onnx&quot;</span><span class="p">)</span>
+        <span class="n">package</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="s2">&quot;medium&quot;</span><span class="p">)</span>
         <span class="c1"># Long model</span>
-        <span class="n">onnx_long</span> <span class="o">=</span> <span class="n">package</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;long.onnx&quot;</span><span class="p">)</span>
-        <span class="n">package</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;long&quot;</span><span class="p">,</span> <span class="n">same_names</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">onnx_long</span> <span class="o">=</span> <span class="n">package</span><span class="o">.</span><span class="n">resolve</span><span class="p">(</span><span class="s2">&quot;long.onnx&quot;</span><span class="p">)</span>
+        <span class="n">package</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="s2">&quot;long&quot;</span><span class="p">)</span>
 
         <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span><span class="n">onnx_short</span><span class="p">,</span> <span class="n">onnx_medium</span><span class="p">,</span> <span class="n">onnx_long</span><span class="p">)</span></div>
 

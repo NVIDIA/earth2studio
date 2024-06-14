@@ -444,9 +444,11 @@ document.write(`
 <span class="c1"># See the License for the specific language governing permissions and</span>
 <span class="c1"># limitations under the License.</span>
 
+<span class="kn">import</span> <span class="nn">zipfile</span>
 <span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">OrderedDict</span>
 <span class="kn">from</span> <span class="nn">collections.abc</span> <span class="kn">import</span> <span class="n">Generator</span><span class="p">,</span> <span class="n">Iterator</span>
 <span class="kn">from</span> <span class="nn">datetime</span> <span class="kn">import</span> <span class="n">timedelta</span>
+<span class="kn">from</span> <span class="nn">pathlib</span> <span class="kn">import</span> <span class="n">Path</span>
 
 <span class="kn">import</span> <span class="nn">modulus</span>
 <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
@@ -597,7 +599,13 @@ document.write(`
     <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">load_default_package</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Package</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Default DLWP model package on NGC&quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="n">Package</span><span class="p">(</span><span class="s2">&quot;ngc://models/nvidia/modulus/modulus_dlwp_cubesphere@v0.2&quot;</span><span class="p">)</span></div>
+        <span class="k">return</span> <span class="n">Package</span><span class="p">(</span>
+            <span class="s2">&quot;ngc://models/nvidia/modulus/modulus_dlwp_cubesphere@v0.2&quot;</span><span class="p">,</span>
+            <span class="n">cache_options</span><span class="o">=</span><span class="p">{</span>
+                <span class="s2">&quot;cache_storage&quot;</span><span class="p">:</span> <span class="n">Package</span><span class="o">.</span><span class="n">default_cache</span><span class="p">(</span><span class="s2">&quot;dlwp&quot;</span><span class="p">),</span>
+                <span class="s2">&quot;same_names&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+            <span class="p">},</span>
+        <span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="DLWP.load_model">
@@ -611,26 +619,32 @@ document.write(`
         <span class="c1"># Ghetto at the moment because NGC files are zipped. This will download zip and</span>
         <span class="c1"># unpack them then give the cached folder location from which we can then</span>
         <span class="c1"># access the needed files.</span>
-        <span class="n">cached_path</span> <span class="o">=</span> <span class="n">package</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;dlwp_cubesphere.zip&quot;</span><span class="p">)</span>
+        <span class="n">dlwp_zip</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">package</span><span class="o">.</span><span class="n">resolve</span><span class="p">(</span><span class="s2">&quot;dlwp_cubesphere.zip&quot;</span><span class="p">))</span>
+        <span class="c1"># Have to manually unzip here. Should not zip checkpoints in the future</span>
+        <span class="k">with</span> <span class="n">zipfile</span><span class="o">.</span><span class="n">ZipFile</span><span class="p">(</span><span class="n">dlwp_zip</span><span class="p">,</span> <span class="s2">&quot;r&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">zip_ref</span><span class="p">:</span>
+            <span class="n">zip_ref</span><span class="o">.</span><span class="n">extractall</span><span class="p">(</span><span class="n">dlwp_zip</span><span class="o">.</span><span class="n">parent</span><span class="p">)</span>
+
         <span class="n">lsm</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">(</span>
-            <span class="n">xarray</span><span class="o">.</span><span class="n">open_dataset</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">cached_path</span><span class="si">}</span><span class="s2">/dlwp/land_sea_mask_rs_cs.nc&quot;</span><span class="p">)[</span>
-                <span class="s2">&quot;lsm&quot;</span>
-            <span class="p">]</span><span class="o">.</span><span class="n">values</span>
+            <span class="n">xarray</span><span class="o">.</span><span class="n">open_dataset</span><span class="p">(</span>
+                <span class="nb">str</span><span class="p">(</span><span class="n">dlwp_zip</span><span class="o">.</span><span class="n">parent</span> <span class="o">/</span> <span class="n">Path</span><span class="p">(</span><span class="s2">&quot;dlwp/land_sea_mask_rs_cs.nc&quot;</span><span class="p">))</span>
+            <span class="p">)[</span><span class="s2">&quot;lsm&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span>
         <span class="p">)</span>
         <span class="n">topographic_height</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">(</span>
-            <span class="n">xarray</span><span class="o">.</span><span class="n">open_dataset</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">cached_path</span><span class="si">}</span><span class="s2">/dlwp/geopotential_rs_cs.nc&quot;</span><span class="p">)[</span><span class="s2">&quot;z&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span>
+            <span class="n">xarray</span><span class="o">.</span><span class="n">open_dataset</span><span class="p">(</span>
+                <span class="nb">str</span><span class="p">(</span><span class="n">dlwp_zip</span><span class="o">.</span><span class="n">parent</span> <span class="o">/</span> <span class="n">Path</span><span class="p">(</span><span class="s2">&quot;dlwp/geopotential_rs_cs.nc&quot;</span><span class="p">))</span>
+            <span class="p">)[</span><span class="s2">&quot;z&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span>
         <span class="p">)</span>
         <span class="n">latlon_grids</span> <span class="o">=</span> <span class="n">xarray</span><span class="o">.</span><span class="n">open_dataset</span><span class="p">(</span>
-            <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">cached_path</span><span class="si">}</span><span class="s2">/dlwp/latlon_grid_field_rs_cs.nc&quot;</span>
+            <span class="nb">str</span><span class="p">(</span><span class="n">dlwp_zip</span><span class="o">.</span><span class="n">parent</span> <span class="o">/</span> <span class="n">Path</span><span class="p">(</span><span class="s2">&quot;dlwp/latlon_grid_field_rs_cs.nc&quot;</span><span class="p">))</span>
         <span class="p">)</span>
         <span class="n">latgrid</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">(</span><span class="n">latlon_grids</span><span class="p">[</span><span class="s2">&quot;latgrid&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span><span class="p">)</span>
         <span class="n">longrid</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">(</span><span class="n">latlon_grids</span><span class="p">[</span><span class="s2">&quot;longrid&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span><span class="p">)</span>
         <span class="c1"># load maps</span>
         <span class="n">input_map_wts</span> <span class="o">=</span> <span class="n">xarray</span><span class="o">.</span><span class="n">open_dataset</span><span class="p">(</span>
-            <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">cached_path</span><span class="si">}</span><span class="s2">/dlwp/map_LL721x1440_CS64.nc&quot;</span>
+            <span class="nb">str</span><span class="p">(</span><span class="n">dlwp_zip</span><span class="o">.</span><span class="n">parent</span> <span class="o">/</span> <span class="n">Path</span><span class="p">(</span><span class="s2">&quot;dlwp/map_LL721x1440_CS64.nc&quot;</span><span class="p">))</span>
         <span class="p">)</span>
         <span class="n">output_map_wts</span> <span class="o">=</span> <span class="n">xarray</span><span class="o">.</span><span class="n">open_dataset</span><span class="p">(</span>
-            <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">cached_path</span><span class="si">}</span><span class="s2">/dlwp/map_CS64_LL721x1440.nc&quot;</span>
+            <span class="nb">str</span><span class="p">(</span><span class="n">dlwp_zip</span><span class="o">.</span><span class="n">parent</span> <span class="o">/</span> <span class="n">Path</span><span class="p">(</span><span class="s2">&quot;dlwp/map_CS64_LL721x1440.nc&quot;</span><span class="p">))</span>
         <span class="p">)</span>
 
         <span class="n">i</span> <span class="o">=</span> <span class="n">input_map_wts</span><span class="o">.</span><span class="n">row</span><span class="o">.</span><span class="n">values</span> <span class="o">-</span> <span class="mi">1</span>
@@ -647,10 +661,16 @@ document.write(`
             <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">((</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">)),</span> <span class="n">data</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float</span>
         <span class="p">)</span>
 
-        <span class="n">core_model</span> <span class="o">=</span> <span class="n">modulus</span><span class="o">.</span><span class="n">Module</span><span class="o">.</span><span class="n">from_checkpoint</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">cached_path</span><span class="si">}</span><span class="s2">/dlwp/dlwp.mdlus&quot;</span><span class="p">)</span>
+        <span class="n">core_model</span> <span class="o">=</span> <span class="n">modulus</span><span class="o">.</span><span class="n">Module</span><span class="o">.</span><span class="n">from_checkpoint</span><span class="p">(</span>
+            <span class="nb">str</span><span class="p">(</span><span class="n">dlwp_zip</span><span class="o">.</span><span class="n">parent</span> <span class="o">/</span> <span class="n">Path</span><span class="p">(</span><span class="s2">&quot;dlwp/dlwp.mdlus&quot;</span><span class="p">))</span>
+        <span class="p">)</span>
 
-        <span class="n">center</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">cached_path</span><span class="si">}</span><span class="s2">/dlwp/global_means.npy&quot;</span><span class="p">))</span>
-        <span class="n">scale</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">cached_path</span><span class="si">}</span><span class="s2">/dlwp/global_stds.npy&quot;</span><span class="p">))</span>
+        <span class="n">center</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">(</span>
+            <span class="n">np</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">dlwp_zip</span><span class="o">.</span><span class="n">parent</span> <span class="o">/</span> <span class="n">Path</span><span class="p">(</span><span class="s2">&quot;dlwp/global_means.npy&quot;</span><span class="p">)))</span>
+        <span class="p">)</span>
+        <span class="n">scale</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">(</span>
+            <span class="n">np</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">dlwp_zip</span><span class="o">.</span><span class="n">parent</span> <span class="o">/</span> <span class="n">Path</span><span class="p">(</span><span class="s2">&quot;dlwp/global_stds.npy&quot;</span><span class="p">)))</span>
+        <span class="p">)</span>
 
         <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span>
             <span class="n">core_model</span><span class="p">,</span>

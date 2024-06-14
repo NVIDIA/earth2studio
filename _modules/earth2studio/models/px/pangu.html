@@ -453,7 +453,6 @@ document.write(`
 <span class="c1"># granted to it by virtue of its status as an intergovernmental organisation</span>
 <span class="c1"># nor does it submit to any jurisdiction.</span>
 
-
 <span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">OrderedDict</span>
 <span class="kn">from</span> <span class="nn">collections.abc</span> <span class="kn">import</span> <span class="n">Generator</span><span class="p">,</span> <span class="n">Iterator</span>
 <span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">TypeVar</span>
@@ -634,7 +633,13 @@ document.write(`
     <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">load_default_package</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Package</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Load prognostic package&quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="n">Package</span><span class="p">(</span><span class="s2">&quot;hf://NickGeneva/earth_ai/pangu&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">Package</span><span class="p">(</span>
+            <span class="s2">&quot;hf://NickGeneva/earth_ai/pangu&quot;</span><span class="p">,</span>
+            <span class="n">cache_options</span><span class="o">=</span><span class="p">{</span>
+                <span class="s2">&quot;cache_storage&quot;</span><span class="p">:</span> <span class="n">Package</span><span class="o">.</span><span class="n">default_cache</span><span class="p">(</span><span class="s2">&quot;pangu&quot;</span><span class="p">),</span>
+                <span class="s2">&quot;same_names&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+            <span class="p">},</span>
+        <span class="p">)</span>
 
     <span class="k">def</span> <span class="nf">to</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">device</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">torch</span><span class="o">.</span><span class="n">device</span> <span class="o">|</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">PrognosticModel</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Move model (and default ORT session) to device&quot;&quot;&quot;</span>
@@ -804,7 +809,7 @@ document.write(`
         <span class="c1"># Ghetto at the moment because NGC files are zipped. This will download zip and</span>
         <span class="c1"># unpack them then give the cached folder location from which we can then</span>
         <span class="c1"># access the needed files.</span>
-        <span class="n">onnx_file</span> <span class="o">=</span> <span class="n">package</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;pangu_weather_24.onnx&quot;</span><span class="p">)</span>
+        <span class="n">onnx_file</span> <span class="o">=</span> <span class="n">package</span><span class="o">.</span><span class="n">resolve</span><span class="p">(</span><span class="s2">&quot;pangu_weather_24.onnx&quot;</span><span class="p">)</span>
         <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span><span class="n">onnx_file</span><span class="p">)</span></div>
 
 
@@ -914,8 +919,8 @@ document.write(`
         <span class="c1"># Ghetto at the moment because NGC files are zipped. This will download zip and</span>
         <span class="c1"># unpack them then give the cached folder location from which we can then</span>
         <span class="c1"># access the needed files.</span>
-        <span class="n">onnx_file_24</span> <span class="o">=</span> <span class="n">package</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;pangu_weather_24.onnx&quot;</span><span class="p">)</span>
-        <span class="n">onnx_file_6</span> <span class="o">=</span> <span class="n">package</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;pangu_weather_6.onnx&quot;</span><span class="p">)</span>
+        <span class="n">onnx_file_24</span> <span class="o">=</span> <span class="n">package</span><span class="o">.</span><span class="n">resolve</span><span class="p">(</span><span class="s2">&quot;pangu_weather_24.onnx&quot;</span><span class="p">)</span>
+        <span class="n">onnx_file_6</span> <span class="o">=</span> <span class="n">package</span><span class="o">.</span><span class="n">resolve</span><span class="p">(</span><span class="s2">&quot;pangu_weather_6.onnx&quot;</span><span class="p">)</span>
         <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span><span class="n">onnx_file_24</span><span class="p">,</span> <span class="n">onnx_file_6</span><span class="p">)</span></div>
 
 
@@ -1041,9 +1046,9 @@ document.write(`
         <span class="c1"># Ghetto at the moment because NGC files are zipped. This will download zip and</span>
         <span class="c1"># unpack them then give the cached folder location from which we can then</span>
         <span class="c1"># access the needed files.</span>
-        <span class="n">onnx_file_24</span> <span class="o">=</span> <span class="n">package</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;pangu_weather_24.onnx&quot;</span><span class="p">)</span>
-        <span class="n">onnx_file_6</span> <span class="o">=</span> <span class="n">package</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;pangu_weather_6.onnx&quot;</span><span class="p">)</span>
-        <span class="n">onnx_file</span> <span class="o">=</span> <span class="n">package</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;pangu_weather_3.onnx&quot;</span><span class="p">)</span>
+        <span class="n">onnx_file_24</span> <span class="o">=</span> <span class="n">package</span><span class="o">.</span><span class="n">resolve</span><span class="p">(</span><span class="s2">&quot;pangu_weather_24.onnx&quot;</span><span class="p">)</span>
+        <span class="n">onnx_file_6</span> <span class="o">=</span> <span class="n">package</span><span class="o">.</span><span class="n">resolve</span><span class="p">(</span><span class="s2">&quot;pangu_weather_6.onnx&quot;</span><span class="p">)</span>
+        <span class="n">onnx_file</span> <span class="o">=</span> <span class="n">package</span><span class="o">.</span><span class="n">resolve</span><span class="p">(</span><span class="s2">&quot;pangu_weather_3.onnx&quot;</span><span class="p">)</span>
         <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span><span class="n">onnx_file_24</span><span class="p">,</span> <span class="n">onnx_file_6</span><span class="p">,</span> <span class="n">onnx_file</span><span class="p">)</span></div>
 
 

@@ -444,8 +444,10 @@ document.write(`
 <span class="c1"># See the License for the specific language governing permissions and</span>
 <span class="c1"># limitations under the License.</span>
 
+<span class="kn">import</span> <span class="nn">zipfile</span>
 <span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">OrderedDict</span>
 <span class="kn">from</span> <span class="nn">collections.abc</span> <span class="kn">import</span> <span class="n">Callable</span>
+<span class="kn">from</span> <span class="nn">pathlib</span> <span class="kn">import</span> <span class="n">Path</span>
 <span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Literal</span>
 
 <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
@@ -617,7 +619,13 @@ document.write(`
     <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">load_default_package</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Package</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Default pre-trained corrdiff model package from Nvidia model registry&quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="n">Package</span><span class="p">(</span><span class="s2">&quot;ngc://models/nvidia/modulus/corrdiff_inference_package@1&quot;</span><span class="p">)</span></div>
+        <span class="k">return</span> <span class="n">Package</span><span class="p">(</span>
+            <span class="s2">&quot;ngc://models/nvidia/modulus/corrdiff_inference_package@1&quot;</span><span class="p">,</span>
+            <span class="n">cache_options</span><span class="o">=</span><span class="p">{</span>
+                <span class="s2">&quot;cache_storage&quot;</span><span class="p">:</span> <span class="n">Package</span><span class="o">.</span><span class="n">default_cache</span><span class="p">(</span><span class="s2">&quot;corrdiff_taiwan&quot;</span><span class="p">),</span>
+                <span class="s2">&quot;same_names&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+            <span class="p">},</span>
+        <span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="CorrDiffTaiwan.load_model">
@@ -625,19 +633,33 @@ document.write(`
     <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">load_model</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">package</span><span class="p">:</span> <span class="n">Package</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">DiagnosticModel</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Load diagnostic from package&quot;&quot;&quot;</span>
-        <span class="n">cached_path</span> <span class="o">=</span> <span class="n">package</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;corrdiff_inference_package.zip&quot;</span><span class="p">)</span>
+        <span class="n">checkpoint_zip</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">package</span><span class="o">.</span><span class="n">resolve</span><span class="p">(</span><span class="s2">&quot;corrdiff_inference_package.zip&quot;</span><span class="p">))</span>
+        <span class="c1"># Have to manually unzip here. Should not zip checkpoints in the future</span>
+        <span class="k">with</span> <span class="n">zipfile</span><span class="o">.</span><span class="n">ZipFile</span><span class="p">(</span><span class="n">checkpoint_zip</span><span class="p">,</span> <span class="s2">&quot;r&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">zip_ref</span><span class="p">:</span>
+            <span class="n">zip_ref</span><span class="o">.</span><span class="n">extractall</span><span class="p">(</span><span class="n">checkpoint_zip</span><span class="o">.</span><span class="n">parent</span><span class="p">)</span>
+
         <span class="n">residual</span> <span class="o">=</span> <span class="n">Module</span><span class="o">.</span><span class="n">from_checkpoint</span><span class="p">(</span>
-            <span class="n">cached_path</span> <span class="o">+</span> <span class="s2">&quot;/corrdiff_inference_package/checkpoints/diffusion.mdlus&quot;</span>
+            <span class="nb">str</span><span class="p">(</span>
+                <span class="n">checkpoint_zip</span><span class="o">.</span><span class="n">parent</span>
+                <span class="o">/</span> <span class="n">Path</span><span class="p">(</span><span class="s2">&quot;corrdiff_inference_package/checkpoints/diffusion.mdlus&quot;</span><span class="p">)</span>
+            <span class="p">)</span>
         <span class="p">)</span><span class="o">.</span><span class="n">eval</span><span class="p">()</span>
 
         <span class="n">regression</span> <span class="o">=</span> <span class="n">Module</span><span class="o">.</span><span class="n">from_checkpoint</span><span class="p">(</span>
-            <span class="n">cached_path</span> <span class="o">+</span> <span class="s2">&quot;/corrdiff_inference_package/checkpoints/regression.mdlus&quot;</span>
+            <span class="nb">str</span><span class="p">(</span>
+                <span class="n">checkpoint_zip</span><span class="o">.</span><span class="n">parent</span>
+                <span class="o">/</span> <span class="n">Path</span><span class="p">(</span><span class="s2">&quot;corrdiff_inference_package/checkpoints/regression.mdlus&quot;</span><span class="p">)</span>
+            <span class="p">)</span>
         <span class="p">)</span><span class="o">.</span><span class="n">eval</span><span class="p">()</span>
 
         <span class="c1"># Get dataset for lat/lon grid info and centers/stds</span>
         <span class="n">store</span> <span class="o">=</span> <span class="n">zarr</span><span class="o">.</span><span class="n">DirectoryStore</span><span class="p">(</span>
-            <span class="n">cached_path</span>
-            <span class="o">+</span> <span class="s2">&quot;/corrdiff_inference_package/dataset/2023-01-24-cwb-4years_5times.zarr&quot;</span>
+            <span class="nb">str</span><span class="p">(</span>
+                <span class="n">checkpoint_zip</span><span class="o">.</span><span class="n">parent</span>
+                <span class="o">/</span> <span class="n">Path</span><span class="p">(</span>
+                    <span class="s2">&quot;corrdiff_inference_package/dataset/2023-01-24-cwb-4years_5times.zarr&quot;</span>
+                <span class="p">)</span>
+            <span class="p">)</span>
         <span class="p">)</span>
         <span class="k">with</span> <span class="n">zarr</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="n">store</span><span class="p">)</span> <span class="k">as</span> <span class="n">root</span><span class="p">:</span>
             <span class="c1"># Get output lat/lon grid</span>

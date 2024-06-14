@@ -662,7 +662,13 @@ document.write(`
     <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">load_default_package</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Package</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Load prognostic package&quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="n">Package</span><span class="p">(</span><span class="s2">&quot;hf://NickGeneva/earth_ai/fengwu&quot;</span><span class="p">)</span></div>
+        <span class="k">return</span> <span class="n">Package</span><span class="p">(</span>
+            <span class="s2">&quot;hf://NickGeneva/earth_ai/fengwu&quot;</span><span class="p">,</span>
+            <span class="n">cache_options</span><span class="o">=</span><span class="p">{</span>
+                <span class="s2">&quot;cache_storage&quot;</span><span class="p">:</span> <span class="n">Package</span><span class="o">.</span><span class="n">default_cache</span><span class="p">(</span><span class="s2">&quot;fengwu&quot;</span><span class="p">),</span>
+                <span class="s2">&quot;same_names&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+            <span class="p">},</span>
+        <span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="FengWu.load_model">
@@ -673,12 +679,9 @@ document.write(`
         <span class="n">package</span><span class="p">:</span> <span class="n">Package</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">PrognosticModel</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Load prognostic from package&quot;&quot;&quot;</span>
-        <span class="c1"># Ghetto at the moment because NGC files are zipped. This will download zip and</span>
-        <span class="c1"># unpack them then give the cached folder location from which we can then</span>
-        <span class="c1"># access the needed files.</span>
-        <span class="n">onnx_file</span> <span class="o">=</span> <span class="n">package</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;fengwu_v1.onnx&quot;</span><span class="p">)</span>
-        <span class="n">global_center</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">package</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;global_means.npy&quot;</span><span class="p">)))</span>
-        <span class="n">global_std</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">package</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;global_stds.npy&quot;</span><span class="p">)))</span>
+        <span class="n">onnx_file</span> <span class="o">=</span> <span class="n">package</span><span class="o">.</span><span class="n">resolve</span><span class="p">(</span><span class="s2">&quot;fengwu_v1.onnx&quot;</span><span class="p">)</span>
+        <span class="n">global_center</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">package</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="s2">&quot;global_means.npy&quot;</span><span class="p">)))</span>
+        <span class="n">global_std</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">package</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="s2">&quot;global_stds.npy&quot;</span><span class="p">)))</span>
         <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span><span class="n">onnx_file</span><span class="p">,</span> <span class="n">global_center</span><span class="p">,</span> <span class="n">global_std</span><span class="p">)</span></div>
 
 

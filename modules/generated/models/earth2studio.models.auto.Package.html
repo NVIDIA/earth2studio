@@ -531,39 +531,99 @@ document.write(`
 <h1><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.auto</span></code>.Package<a class="headerlink" href="#earth2studio-models-auto-package" title="Link to this heading">#</a></h1>
 <dl class="py class">
 <dt class="sig sig-object py" id="earth2studio.models.auto.Package">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">earth2studio.models.auto.</span></span><span class="sig-name descname"><span class="pre">Package</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">root</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cache_dir</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/earth2studio/models/auto.html#Package"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.auto.Package" title="Link to this definition">#</a></dt>
-<dd><p>A generic file system abstraction</p>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>This is a slight variation of the Modulus Package… figured upstream was too much
-of a pain right now.</p>
-</div>
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">earth2studio.models.auto.</span></span><span class="sig-name descname"><span class="pre">Package</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">root</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cache</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cache_options</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">{}</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/earth2studio/models/auto.html#Package"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.auto.Package" title="Link to this definition">#</a></dt>
+<dd><p>A generic file system abstraction with local caching, uses Fsspec
+WholeFileCacheFileSystem to manage files. Designed to be used for accessing remote
+resources, particularly checkpoint files for pre-trained models. Presently supports
+public folders on NGC, huggingface repos, s3 and any other built in file system
+Fsspec supports.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>root</strong> (<em>str</em>) – Root directory for file system</p></li>
-<li><p><strong>cache_dir</strong> (<em>str</em><em>, </em><em>optional</em>) – Cache directory, if remote path files will be downloaded here. If none is
-provided then the path set in LOCAL_CACHE enviroment variable will be used.
-If that is empty the path “~/.cache/earth2studio” is used, by default None</p></li>
+<li><p><strong>fs</strong> (<em>AbstractFileSystem</em><em> | </em><em>None</em><em>, </em><em>optional</em>) – The target filesystem to run underneath. If none is provided a fsspec filesystem
+will get initialized based on the protocal of the root url, by default None</p></li>
+<li><p><strong>cache</strong> (<em>bool</em><em>, </em><em>optional</em>) – Toggle local caching, typically you want this to be true unless the package is
+a local file system, by default True</p></li>
+<li><p><strong>cache_options</strong> (<em>dict</em><em>, </em><em>optional</em>) – Caching options provided to Fsspec. See CachingFileSystem in fsspec for
+valid options <a class="reference external" href="https://filesystem-spec.readthedocs.io/en/latest/api.html#fsspec.implementations.cached.CachingFileSystem">https://filesystem-spec.readthedocs.io/en/latest/api.html#fsspec.implementations.cached.CachingFileSystem</a>,
+by default {}</p></li>
 </ul>
 </dd>
 </dl>
+<dl class="py property">
+<dt class="sig sig-object py" id="earth2studio.models.auto.Package.cache">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">cache</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><a class="headerlink" href="#earth2studio.models.auto.Package.cache" title="Link to this definition">#</a></dt>
+<dd><p>Cache path</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="earth2studio.models.auto.Package.default_cache">
+<em class="property"><span class="pre">classmethod</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">default_cache</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">path</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">''</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/earth2studio/models/auto.html#Package.default_cache"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.auto.Package.default_cache" title="Link to this definition">#</a></dt>
+<dd><p>Default cache location for packages located in <cite>~/.cache/earth2studio</cite></p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>path</strong> (<em>str</em><em>, </em><em>optional</em>) – Sub-path in cache direction, by default “”</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Local cache path</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>str</p>
+</dd>
+</dl>
+</dd></dl>
+
 <dl class="py method">
 <dt class="sig sig-object py" id="earth2studio.models.auto.Package.get">
-<span class="sig-name descname"><span class="pre">get</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">path</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">recursive</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">same_names</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/earth2studio/models/auto.html#Package.get"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.auto.Package.get" title="Link to this definition">#</a></dt>
-<dd><p>Get a local path to the item at <code class="docutils literal notranslate"><span class="pre">path</span></code></p>
+<span class="sig-name descname"><span class="pre">get</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">file_path</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/earth2studio/models/auto.html#Package.get"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.auto.Package.get" title="Link to this definition">#</a></dt>
+<dd><p>Modulus / backwards compatibility</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>path</strong> (<em>str</em>) – local path of file in package directory</p></li>
-<li><p><strong>recursive</strong> (<em>bool</em><em>, </em><em>optional</em>) – recursively fetch all assets under local directory. Only relevant for remote
-packages, by default False</p></li>
-<li><p><strong>same_names</strong> (<em>bool</em><em>, </em><em>optional</em>) – If true, file names will not be hashed to avoid potential conflicts. By
-default False</p></li>
+<li><p><strong>file_path</strong> (<em>str</em>)</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p>path to asset</p>
+<dd class="field-even"><p>File path inside cache</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>str</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="earth2studio.models.auto.Package.open">
+<span class="sig-name descname"><span class="pre">open</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">file_path</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/earth2studio/models/auto.html#Package.open"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.auto.Package.open" title="Link to this definition">#</a></dt>
+<dd><p>Open file inside package, caching it to local cache store in the process</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>file_path</strong> (<em>str</em>) – Local file path in package directory</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Opened file, can get file path with BufferedReader.name</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>io.BufferedReader</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="earth2studio.models.auto.Package.resolve">
+<span class="sig-name descname"><span class="pre">resolve</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">file_path</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/earth2studio/models/auto.html#Package.resolve"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.auto.Package.resolve" title="Link to this definition">#</a></dt>
+<dd><p>Resolves current relative file path to absolute path inside Package cache</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>path</strong> (<em>str</em>) – local path of file in package directory</p></li>
+<li><p><strong>file_path</strong> (<em>str</em>)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>File path inside cache</p>
 </dd>
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>str</p>
@@ -622,7 +682,11 @@ default False</p></li>
   <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="visible nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.models.auto.Package"><code class="docutils literal notranslate"><span class="pre">Package</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.models.auto.Package.cache"><code class="docutils literal notranslate"><span class="pre">Package.cache</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.models.auto.Package.default_cache"><code class="docutils literal notranslate"><span class="pre">Package.default_cache()</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.models.auto.Package.get"><code class="docutils literal notranslate"><span class="pre">Package.get()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.models.auto.Package.open"><code class="docutils literal notranslate"><span class="pre">Package.open()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.models.auto.Package.resolve"><code class="docutils literal notranslate"><span class="pre">Package.resolve()</span></code></a></li>
 </ul>
 </li>
 </ul>
