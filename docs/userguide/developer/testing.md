@@ -44,7 +44,7 @@ This option enables tests that load and test full model archiectures with their 
 package which can be quite expensive.
 These tests will look for model files inside a specific folder unique to the CI pipeline
 on Nvidia systems or whatever is set in the `EARTH2STUDIO_CACHE` environment variable.
-See [configuration](#configuration_userguide) section for details on this enviroment
+See [configuration](#configuration_userguide) section for details on this environment
 variable.
 
 ```bash
