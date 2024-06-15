@@ -91,7 +91,10 @@ class batch_func:
         ValueError
             If model's input_coords do not contain the batch dimension
         """
-        if next(iter(model.input_coords)) != "batch":
+        if (
+            next(iter(model.input_coords)) != "batch"
+            and next(iter(model.output_coords(model.input_coords))) != "batch"
+        ):
             raise ValueError(
                 "Model coordinate systems not compatible with batch processing"
             )
@@ -264,12 +267,9 @@ class batch_coords:
             If model's input_coords do not contain the batch dimension
         """
 
-        if (
-            next(iter(model.input_coords)) != "batch"
-            and next(iter(model.output_coords(model.input_coords))) != "batch"
-        ):
+        if next(iter(model.input_coords)) != "batch":
             raise ValueError(
-                "Model coordinate systems not compatible with batch processing"
+                "Model input coordinate systems not compatible with batch processing"
             )
 
         flatten_coords: CoordSystem
