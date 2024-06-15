@@ -20,6 +20,7 @@ import re
 import warnings
 from typing import Any
 
+import aiohttp
 import fsspec
 import s3fs
 from fsspec.callbacks import Callback, TqdmCallback
@@ -192,8 +193,16 @@ class Package:
                 self.root = f"https://api.ngc.nvidia.com/v2/models/{org}/{team}/{model}/versions/{version}/files/"
             else:
                 self.root = f"https://api.ngc.nvidia.com/v2/models/{org}/{model}/versions/{version}/files/"
-            self.fs = HTTPFileSystem(block_size=2**10)
+            self.fs = HTTPFileSystem(
+                block_size=2**10,
+                client_kwargs={
+                    "timeout": aiohttp.ClientTimeout(total=Package.default_timeout())
+                },
+            )
         elif root.startswith("hf://"):
+            # https://github.com/huggingface/huggingface_hub/blob/v0.23.4/src/huggingface_hub/hf_file_system.py#L816
+            if "HF_HUB_DOWNLOAD_TIMEOUT" not in os.environ:
+                os.environ["HF_HUB_DOWNLOAD_TIMEOUT"] = str(Package.default_timeout())
             self.fs = HfFileSystem(target_options={"default_block_size": 2**20})
         elif root.startswith("s3://"):
             self.fs = s3fs.S3FileSystem(
@@ -201,6 +210,7 @@ class Package:
                 client_kwargs={},
                 target_options={"default_block_size": 2**20},
             )
+            self.fs.read_timeout = Package.default_timeout()
         else:
             protocol = split_protocol(root)[0]
             self.fs = fsspec.filesystem(protocol)
@@ -225,6 +235,23 @@ class Package:
         default_cache = os.path.join(os.path.expanduser("~"), ".cache", "earth2studio")
         default_cache = os.environ.get("EARTH2STUDIO_CACHE", default_cache)
         return os.path.join(default_cache, path)
+
+    @classmethod
+    def default_timeout(cls) -> int:
+        """Default remote store timeout in seconds
+
+        Returns
+        -------
+        int
+            Time out in seconds
+        """
+        default_timeout = 300
+        try:
+            timeout = os.environ.get("EARTH2STUDIO_PACKAGE_TIMEOUT", default_timeout)
+            default_timeout = int(timeout)
+        except ValueError:
+            pass
+        return default_timeout
 
     @property
     def cache(self) -> str:
