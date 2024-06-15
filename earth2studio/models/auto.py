@@ -194,7 +194,7 @@ class Package:
             else:
                 self.root = f"https://api.ngc.nvidia.com/v2/models/{org}/{model}/versions/{version}/files/"
             self.fs = HTTPFileSystem(
-                block_size=2**10,
+                block_size=Package.default_blocksize(),
                 client_kwargs={
                     "timeout": aiohttp.ClientTimeout(total=Package.default_timeout())
                 },
@@ -203,12 +203,14 @@ class Package:
             # https://github.com/huggingface/huggingface_hub/blob/v0.23.4/src/huggingface_hub/hf_file_system.py#L816
             if "HF_HUB_DOWNLOAD_TIMEOUT" not in os.environ:
                 os.environ["HF_HUB_DOWNLOAD_TIMEOUT"] = str(Package.default_timeout())
-            self.fs = HfFileSystem(target_options={"default_block_size": 2**20})
+            self.fs = HfFileSystem(
+                target_options={"default_block_size": Package.default_blocksize()}
+            )
         elif root.startswith("s3://"):
             self.fs = s3fs.S3FileSystem(
                 anon=True,
                 client_kwargs={},
-                target_options={"default_block_size": 2**20},
+                default_block_size=Package.default_blocksize(),
             )
             self.fs.read_timeout = Package.default_timeout()
         else:
@@ -252,6 +254,17 @@ class Package:
         except ValueError:
             pass
         return default_timeout
+
+    @classmethod
+    def default_blocksize(cls) -> int:
+        """Default remote store block size
+
+        Returns
+        -------
+        int
+            Download block size in bytes
+        """
+        return 2**20
 
     @property
     def cache(self) -> str:
