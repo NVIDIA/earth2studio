@@ -20,7 +20,7 @@ from pathlib import Path
 import pytest
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def model_cache_context():
     class EnvContextManager:
         def __init__(self, **kwargs):

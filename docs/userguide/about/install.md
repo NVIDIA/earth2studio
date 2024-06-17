@@ -174,3 +174,5 @@ The import ones are:
 
 - `EARTH2STUDIO_CACHE`: The location of the cache used for Earth2Studio. This is a file
 path where things like models and cached data from data sources will be stored.
+- `EARTH2STUDIO_PACKAGE_TIMEOUT`: The max number of seconds for a download operation of
+a model package file from a remote store such as NGC, Huggingface or S3.
