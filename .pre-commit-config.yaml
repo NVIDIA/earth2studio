@@ -72,5 +72,5 @@ repos:
                 test |
                 docs |
                 earth2studio/models/nn)
-        args: [--show-error-codes, --ignore-missing-imports]
+        args: [--show-error-codes]
         additional_dependencies: ['types-requests']
