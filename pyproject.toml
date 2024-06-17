@@ -87,14 +87,15 @@ all = [
     "tensorly-torch"
 ]
 dev = [
+    "black==22.10.0",
+    "coverage>=7.2.0",
+    "interrogate==1.5.0",
     "pre-commit",
     "pytest>=6.0.0",
     "pytest-timeout>=2.0.1",
     "pytest-skip-slow>=0.0.5",
     "pyyaml>=6.0",
-    "black==22.10.0",
-    "interrogate==1.5.0",
-    "coverage>=7.2.0",
+    "types-requests",
     "ruff==0.1.5",
 ]
 docs = [
