@@ -46,7 +46,7 @@ doctest:
 .PHONY: coverage
 coverage:
 	coverage combine
-	coverage report --fail-under=89
+	coverage report --fail-under=90
 
 .PHONY: docs
 docs:

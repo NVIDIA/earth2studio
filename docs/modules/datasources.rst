@@ -28,6 +28,7 @@ Used for fetching initial conditions for inference and validation data for scori
    data.GFS
    data.HRRR
    data.IFS
+   data.IMERG
    data.Random
    data.WB2ERA5
    data.WB2ERA5_121x240
