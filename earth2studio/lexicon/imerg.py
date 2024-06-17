@@ -14,15 +14,29 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from .arco import ARCO
-from .base import DataSource
-from .cds import CDS
-from .gfs import GFS
-from .hrrr import HRRR
-from .ifs import IFS
-from .imerg import IMERG
-from .rand import Random
-from .rx import CosineSolarZenith, LandSeaMask, SurfaceGeoPotential
-from .utils import datasource_to_file, fetch_data, prep_data_array
-from .wb2 import WB2ERA5, WB2Climatology, WB2ERA5_32x64, WB2ERA5_121x240
-from .xr import DataArrayFile, DataSetFile
+from collections.abc import Callable
+
+import numpy as np
+
+from .base import LexiconType
+
+
+class IMERGLexicon(metaclass=LexiconType):
+    """IMERG Lexicon"""
+
+    VOCAB = {
+        "tp": "precipitation",
+        "tpp": "probabilityLiquidPrecipitation",
+        "tpi": "precipitationQualityIndex",
+    }
+
+    @classmethod
+    def get_item(cls, val: str) -> tuple[str, Callable]:
+        """Return name in IMERG vocabulary."""
+        imerg_key = cls.VOCAB[val]
+
+        def mod(x: np.array) -> np.array:
+            """Modify name (if necessary)."""
+            return x
+
+        return imerg_key, mod
