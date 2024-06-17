@@ -42,12 +42,12 @@ LOCAL_CACHE = os.path.join(os.path.expanduser("~"), ".cache", "earth2studio")
 class IMERG:
     """The Integrated Multi-satellitE Retrievals (IMERG) for GPM. MERG is a NASA product
     that estimates the global surface precipitation rates at a high resolution of 0.1
-    degree every half-hour beginning 2000. Provides total, probability and index
+    degree every half-hour beginning in 2000. Provides total, probability and index
     precipitation fields for the past half hour.
 
     Note
     ----
-    This datasource requires users to register for NASA's Earthdata portal:
+    This data source requires users to register for NASA's Earthdata portal:
     https://urs.earthdata.nasa.gov/. Users must supply their username and password
     for AuthN when using this data source. Users should be sure "NASA GESDISC DATA
     ARCHIVE" is an approved application on their profile:
@@ -57,7 +57,7 @@ class IMERG:
     ----------
     auth : aiohttp.BasicAuth | None
         BasicAuth object with user's EarthData username and password for basic HTTP
-        authentication. If none is provide, one will be constructed using the
+        authentication. If none is provided, one will be constructed using the
         `EARTHDATA_USERNAME` and `EARTHDATA_PASSWORD` environment variables, by default
         None
     cache : bool, optional
@@ -78,10 +78,10 @@ class IMERG:
     - https://gpm1.gesdisc.eosdis.nasa.gov/data/GPM_L3/GPM_3IMERGHH.07
     """
 
-    # PYData doesnt work: https://github.com/pydap/pydap/issues/188
+    # PYDap doesnt work: https://github.com/pydap/pydap/issues/188
 
     IMERG_LAT = np.linspace(89.95, -89.95, 1800)
-    IMERG_LON = np.linspace(0, 359.9, 3600)
+    IMERG_LON = np.linspace(0.05, 359.95, 3600)
 
     def __init__(
         self,
@@ -105,7 +105,7 @@ class IMERG:
                 or "EARTHDATA_PASSWORD" not in os.environ
             ):
                 raise ValueError(
-                    "Both environment variables EARTHDATA_USERNAME and EARTHDATA_PASSWORD must be set to NASA Earthdata credentials for IMERG datasource."
+                    "Both environment variables EARTHDATA_USERNAME and EARTHDATA_PASSWORD must be set to NASA Earthdata credentials for IMERG data source."
                 )
             auth = aiohttp.BasicAuth(
                 os.environ["EARTHDATA_USERNAME"], os.environ["EARTHDATA_PASSWORD"]
@@ -158,7 +158,7 @@ class IMERG:
         time: datetime,
         variables: list[str],
     ) -> xr.DataArray:
-        """Retrives IMERG H5 file for time and moves it into a xarray data array. This
+        """Retrives IMERG H5 file for time and moves it into an xarray data array. This
         will download all variables / coords for this specific time since OpenDAP isn't
         working.
 
@@ -177,7 +177,7 @@ class IMERG:
         Raises
         ------
         KeyError
-            Un supported variable.
+            Unsupported variable
         """
         logger.debug(f"Fetching IMERG H5 file for: {time}")
         h5_file = self.fs.open(self.get_file_url(time)).name
@@ -223,8 +223,8 @@ class IMERG:
 
         Note
         ----
-        See opendap repository for more information on what files are available:
-        https://gpm1.gesdisc.eosdis.nasa.gov/opendap/GPM_L3/GPM_3IMERGHH.07/
+        See repository for more information on what files are available:
+        https://gpm1.gesdisc.eosdis.nasa.gov/data/GPM_L3/GPM_3IMERGHH.07/
 
         Parameters
         ----------

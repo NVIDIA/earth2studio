@@ -118,27 +118,3 @@ def test_imerg_available(time, variable):
     with pytest.raises((ValueError, FileNotFoundError)):
         ds = IMERG()
         ds(time, variable)
-
-
-if __name__ == "__main__":
-    from earth2studio.data import WB2ERA5
-
-    date = datetime.datetime(year=2002, month=10, day=1)
-
-    wbds = WB2ERA5(cache=False)
-    imergds = IMERG(cache=False)
-
-    wb_data = wbds(time=date, variable=["tp06"])
-    im_data = imergds(time=date, variable=["tp"])
-
-    import matplotlib.pyplot as plt
-    from matplotlib.colors import LogNorm
-
-    fig, ax = plt.subplots(1, 2)
-
-    ax[0].imshow(wb_data.values[0, 0] + 0.001, norm=LogNorm(vmin=0.0001, vmax=1))
-    ax[0].set_title("ERA5")
-    ax[1].imshow(im_data.values[0, 0] + 0.001, norm=LogNorm(vmin=0.0001, vmax=1))
-    ax[1].set_title("IMERG")
-
-    plt.savefig("test.png")
