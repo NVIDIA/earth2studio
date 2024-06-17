@@ -207,9 +207,7 @@ class IMERG:
             try:
                 imerg_name, modifier = IMERGLexicon[variable]
             except KeyError as e:
-                logger.error(
-                    f"variable id {variable} not found in IMERG lexicon, good luck"
-                )
+                logger.error(f"variable id {variable} not found in IMERG lexicon.")
                 raise KeyError(str(e))
 
             data = np.nan_to_num(raw_ds[imerg_name].isel(time=0).values.T)
