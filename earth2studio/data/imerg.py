@@ -80,26 +80,38 @@ class IMERG:
 
     # PYData doesnt work: https://github.com/pydap/pydap/issues/188
 
-    IMERG_LAT = np.linspace(-89.95, 89.95, 1800)
+    IMERG_LAT = np.linspace(89.95, -89.95, 1800)
     IMERG_LON = np.linspace(0, 359.9, 3600)
 
     def __init__(
-        self, auth: aiohttp.BasicAuth | None, cache: bool = True, verbose: bool = True
+        self,
+        auth: aiohttp.BasicAuth | None = None,
+        cache: bool = True,
+        verbose: bool = True,
     ):
         self._cache = cache
         self._verbose = verbose
 
         cache_options: dict[str, str | int] = {}
         cache_options["cache_storage"] = self.cache
-        cache_options["expiry_time"] = 31622400
+        if cache:
+            cache_options["expiry_time"] = 31622400
+        else:
+            cache_options["expiry_time"] = 30
 
         if auth is None:
+            if (
+                "EARTHDATA_USERNAME" not in os.environ
+                or "EARTHDATA_PASSWORD" not in os.environ
+            ):
+                raise ValueError(
+                    "Both environment variables EARTHDATA_USERNAME and EARTHDATA_PASSWORD must be set to NASA Earthdata credentials for IMERG datasource."
+                )
             auth = aiohttp.BasicAuth(
                 os.environ["EARTHDATA_USERNAME"], os.environ["EARTHDATA_PASSWORD"]
             )
-        self.fs = HTTPFileSystem(block_size=2**20, client_kwargs={"auth": auth})
-        if cache:
-            self.fs = WholeFileCacheFileSystem(fs=self.fs, **cache_options)
+        fs = HTTPFileSystem(block_size=2**20, client_kwargs={"auth": auth})
+        self.fs = WholeFileCacheFileSystem(fs=fs, **cache_options)
 
     def __call__(
         self,
@@ -170,9 +182,11 @@ class IMERG:
         logger.debug(f"Fetching IMERG H5 file for: {time}")
         h5_file = self.fs.open(self.get_file_url(time)).name
 
-        # Roll raw data from [-180, 180] to  [0, 360]
-        raw_ds = xr.open_dataset(h5_file, group="Grid").roll(
-            longitude=-len(self.IMERG_LON) // 2
+        # Roll raw data from [-180,180] to [0,360] and reverse lat from [-90,90] to [90,90]
+        raw_ds = (
+            xr.open_dataset(h5_file, group="Grid")
+            .roll(lon=-len(self.IMERG_LON) // 2, roll_coords=True)
+            .isel(lat=slice(None, None, -1))
         )
 
         imergda = xr.DataArray(
@@ -192,17 +206,14 @@ class IMERG:
             # Convert from Earth2Studio variable ID to IMERG id and modifier
             try:
                 imerg_name, modifier = IMERGLexicon[variable]
-            except KeyError:
-                logger.warning(
+            except KeyError as e:
+                logger.error(
                     f"variable id {variable} not found in IMERG lexicon, good luck"
                 )
-                imerg_name = variable
+                raise KeyError(str(e))
 
-                def modifier(x: np.array) -> np.array:
-                    """Modify data (if necessary)."""
-                    return x
-
-            imergda[0, i] = modifier(raw_ds[imerg_name].isel(time=0).values.T)
+            data = np.nan_to_num(raw_ds[imerg_name].isel(time=0).values.T)
+            imergda[0, i] = modifier(data)
 
         return imergda
 
@@ -300,4 +311,5 @@ class IMERG:
             return False
 
         response = requests.get(cls.get_file_url(time), timeout=5)
+        # OK to 403, but 404 means file doesnt exist
         return response.status_code < 404

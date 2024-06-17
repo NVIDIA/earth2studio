@@ -273,6 +273,8 @@ class Package:
         str
             File path inside cache
         """
+        # WARNING: THIS CAN FAIL IF FILE DOES NOT HAVE NAME ATTRIB. BUFFERED FILE TYPES
+        # ARE NOT SUPPORTED HERE. NEED TO LOOK INTO THIS MORE.
         local_file_path = ""
         with self.open(file_path) as file:
             local_file_path = file.name
