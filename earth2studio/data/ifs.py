@@ -170,7 +170,7 @@ class IFS:
             # Provided [-180, 180], roll to [0, 360]
             da = xr.open_dataarray(
                 grib_file, engine="cfgrib", backend_kwargs={"indexpath": ""}
-            ).roll(longitude=-len(self.IFS_LON) // 2)
+            ).roll(longitude=-len(self.IFS_LON) // 2, roll_coords=True)
             ifsda[0, i] = modifier(da.values)
 
         return ifsda

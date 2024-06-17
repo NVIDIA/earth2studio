@@ -28,6 +28,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and metrics API.
 - Added Lexicon and Automodel userguide
 - Added an 'output_coords' method to Statistics and Metrics.
+- Added IMERG data source
 
 ### Changed
 
