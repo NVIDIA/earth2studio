@@ -89,14 +89,14 @@ class LaggedEnsemble:
                 f"Warning! The number of lags, {len(self.lags)}, does not match "
                 f"the number of ensemble members requested, {len(coords['ensemble'])}."
             )
-
+        y = torch.clone(x)
         for i, lag in enumerate(self.lags):
-            x[i] = fetch_data(
+            y[i] = fetch_data(
                 source=self.source,
                 time=coords["time"] + lag,
                 variable=coords["variable"],
                 lead_time=coords["lead_time"],
-                device=x.device,
+                device=y.device,
             )[0]
 
-        return x, coords
+        return y, coords
