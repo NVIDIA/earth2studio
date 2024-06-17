@@ -713,6 +713,8 @@ document.write(`
 <span class="sd">        str</span>
 <span class="sd">            File path inside cache</span>
 <span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># WARNING: THIS CAN FAIL IF FILE DOES NOT HAVE NAME ATTRIB. BUFFERED FILE TYPES</span>
+        <span class="c1"># ARE NOT SUPPORTED HERE. NEED TO LOOK INTO THIS MORE.</span>
         <span class="n">local_file_path</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
         <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="n">file_path</span><span class="p">)</span> <span class="k">as</span> <span class="n">file</span><span class="p">:</span>
             <span class="n">local_file_path</span> <span class="o">=</span> <span class="n">file</span><span class="o">.</span><span class="n">name</span>

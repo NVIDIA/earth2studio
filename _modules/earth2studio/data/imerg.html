@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>earth2studio.data.ifs &#8212; Earth2Studio 0.2.0a0 documentation</title>
+    <title>earth2studio.data.imerg &#8212; Earth2Studio 0.2.0a0 documentation</title>
   
   
   
@@ -51,7 +51,7 @@
     <script src="../../../_static/design-tabs.js?v=f930bc37"></script>
     <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
     <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
-    <script>DOCUMENTATION_OPTIONS.pagename = '_modules/earth2studio/data/ifs';</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = '_modules/earth2studio/data/imerg';</script>
     <script>
         DOCUMENTATION_OPTIONS.theme_version = '0.15.2';
         DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'https://raw.githubusercontent.com/NVIDIA/earth2studio/gh-pages/_static/switcher.json';
@@ -427,7 +427,7 @@ document.write(`
 <div id="searchbox"></div>
                 <article class="bd-article">
                   
-  <h1>Source code for earth2studio.data.ifs</h1><div class="highlight"><pre>
+  <h1>Source code for earth2studio.data.imerg</h1><div class="highlight"><pre>
 <span></span><span class="c1"># SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION &amp; AFFILIATES.</span>
 <span class="c1"># SPDX-FileCopyrightText: All rights reserved.</span>
 <span class="c1"># SPDX-License-Identifier: Apache-2.0</span>
@@ -444,39 +444,54 @@ document.write(`
 <span class="c1"># See the License for the specific language governing permissions and</span>
 <span class="c1"># limitations under the License.</span>
 
-<span class="kn">import</span> <span class="nn">hashlib</span>
 <span class="kn">import</span> <span class="nn">os</span>
 <span class="kn">import</span> <span class="nn">pathlib</span>
 <span class="kn">import</span> <span class="nn">shutil</span>
-<span class="kn">from</span> <span class="nn">datetime</span> <span class="kn">import</span> <span class="n">datetime</span>
+<span class="kn">from</span> <span class="nn">datetime</span> <span class="kn">import</span> <span class="n">datetime</span><span class="p">,</span> <span class="n">timedelta</span>
 
-<span class="kn">import</span> <span class="nn">ecmwf.opendata</span>
+<span class="kn">import</span> <span class="nn">aiohttp</span>
 <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">requests</span>
 <span class="kn">import</span> <span class="nn">xarray</span> <span class="k">as</span> <span class="nn">xr</span>
+<span class="kn">from</span> <span class="nn">fsspec.implementations.cached</span> <span class="kn">import</span> <span class="n">WholeFileCacheFileSystem</span>
+<span class="kn">from</span> <span class="nn">fsspec.implementations.http</span> <span class="kn">import</span> <span class="n">HTTPFileSystem</span>
 <span class="kn">from</span> <span class="nn">loguru</span> <span class="kn">import</span> <span class="n">logger</span>
 <span class="kn">from</span> <span class="nn">modulus.distributed.manager</span> <span class="kn">import</span> <span class="n">DistributedManager</span>
-<span class="kn">from</span> <span class="nn">s3fs.core</span> <span class="kn">import</span> <span class="n">S3FileSystem</span>
 <span class="kn">from</span> <span class="nn">tqdm</span> <span class="kn">import</span> <span class="n">tqdm</span>
 
 <span class="kn">from</span> <span class="nn">earth2studio.data.utils</span> <span class="kn">import</span> <span class="n">prep_data_inputs</span>
-<span class="kn">from</span> <span class="nn">earth2studio.lexicon</span> <span class="kn">import</span> <span class="n">IFSLexicon</span>
+<span class="kn">from</span> <span class="nn">earth2studio.lexicon</span> <span class="kn">import</span> <span class="n">IMERGLexicon</span>
 <span class="kn">from</span> <span class="nn">earth2studio.utils.type</span> <span class="kn">import</span> <span class="n">TimeArray</span><span class="p">,</span> <span class="n">VariableArray</span>
 
 <span class="n">logger</span><span class="o">.</span><span class="n">remove</span><span class="p">()</span>
 <span class="n">logger</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="k">lambda</span> <span class="n">msg</span><span class="p">:</span> <span class="n">tqdm</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">msg</span><span class="p">,</span> <span class="n">end</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">),</span> <span class="n">colorize</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
 <span class="n">LOCAL_CACHE</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">expanduser</span><span class="p">(</span><span class="s2">&quot;~&quot;</span><span class="p">),</span> <span class="s2">&quot;.cache&quot;</span><span class="p">,</span> <span class="s2">&quot;earth2studio&quot;</span><span class="p">)</span>
 
 
-<div class="viewcode-block" id="IFS">
-<a class="viewcode-back" href="../../../modules/generated/data/earth2studio.data.IFS.html#earth2studio.data.IFS">[docs]</a>
-<span class="k">class</span> <span class="nc">IFS</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;The integrated forecast system (IFS) initial state data source provided on an</span>
-<span class="sd">    equirectangular grid. This data is part of ECMWF&#39;s open data project on AWS. This</span>
-<span class="sd">    data source is provided on a 0.25 degree lat lon grid at 6-hour intervals for the</span>
-<span class="sd">    most recent 4 days.</span>
+<div class="viewcode-block" id="IMERG">
+<a class="viewcode-back" href="../../../modules/generated/data/earth2studio.data.IMERG.html#earth2studio.data.IMERG">[docs]</a>
+<span class="k">class</span> <span class="nc">IMERG</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;The Integrated Multi-satellitE Retrievals (IMERG) for GPM. MERG is a NASA product</span>
+<span class="sd">    that estimates the global surface precipitation rates at a high resolution of 0.1</span>
+<span class="sd">    degree every half-hour beginning in 2000. Provides total, probability and index</span>
+<span class="sd">    precipitation fields for the past half hour.</span>
+
+<span class="sd">    Note</span>
+<span class="sd">    ----</span>
+<span class="sd">    This data source requires users to register for NASA&#39;s Earthdata portal:</span>
+<span class="sd">    https://urs.earthdata.nasa.gov/. Users must supply their username and password</span>
+<span class="sd">    for AuthN when using this data source. Users should be sure &quot;NASA GESDISC DATA</span>
+<span class="sd">    ARCHIVE&quot; is an approved application on their profile:</span>
+<span class="sd">    https://urs.earthdata.nasa.gov/profile</span>
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
+<span class="sd">    auth : aiohttp.BasicAuth | None</span>
+<span class="sd">        BasicAuth object with user&#39;s EarthData username and password for basic HTTP</span>
+<span class="sd">        authentication. If none is provided, one will be constructed using the</span>
+<span class="sd">        `EARTHDATA_USERNAME` and `EARTHDATA_PASSWORD` environment variables, by default</span>
+<span class="sd">        None</span>
 <span class="sd">    cache : bool, optional</span>
 <span class="sd">        Cache data source on local memory, by default True</span>
 <span class="sd">    verbose : bool, optional</span>
@@ -489,34 +504,55 @@ document.write(`
 
 <span class="sd">    Note</span>
 <span class="sd">    ----</span>
-<span class="sd">    This data source only fetches the initial state of control forecast of IFS and does</span>
-<span class="sd">    not fetch an predicted time steps.</span>
-
-<span class="sd">    Note</span>
-<span class="sd">    ----</span>
 <span class="sd">    Additional information on the data repository can be referenced here:</span>
 
-<span class="sd">    - https://confluence.ecmwf.int/display/DAC/ECMWF+open+data%3A+real-time+forecasts</span>
-<span class="sd">    - https://registry.opendata.aws/ecmwf-forecasts/</span>
+<span class="sd">    - https://disc.gsfc.nasa.gov/datasets/GPM_3IMERGHH_07/summary</span>
+<span class="sd">    - https://gpm1.gesdisc.eosdis.nasa.gov/data/GPM_L3/GPM_3IMERGHH.07</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="n">IFS_BUCKET_NAME</span> <span class="o">=</span> <span class="s2">&quot;ecmwf-forecasts&quot;</span>
-    <span class="n">IFS_LAT</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">90</span><span class="p">,</span> <span class="o">-</span><span class="mi">90</span><span class="p">,</span> <span class="mi">721</span><span class="p">)</span>
-    <span class="n">IFS_LON</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mf">359.75</span><span class="p">,</span> <span class="mi">1440</span><span class="p">)</span>
+    <span class="c1"># PYDap doesnt work: https://github.com/pydap/pydap/issues/188</span>
 
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cache</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span> <span class="n">verbose</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">):</span>
+    <span class="n">IMERG_LAT</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mf">89.95</span><span class="p">,</span> <span class="o">-</span><span class="mf">89.95</span><span class="p">,</span> <span class="mi">1800</span><span class="p">)</span>
+    <span class="n">IMERG_LON</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mf">0.05</span><span class="p">,</span> <span class="mf">359.95</span><span class="p">,</span> <span class="mi">3600</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">auth</span><span class="p">:</span> <span class="n">aiohttp</span><span class="o">.</span><span class="n">BasicAuth</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">cache</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="n">verbose</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span> <span class="o">=</span> <span class="n">cache</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_verbose</span> <span class="o">=</span> <span class="n">verbose</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">client</span> <span class="o">=</span> <span class="n">ecmwf</span><span class="o">.</span><span class="n">opendata</span><span class="o">.</span><span class="n">Client</span><span class="p">(</span><span class="n">source</span><span class="o">=</span><span class="s2">&quot;aws&quot;</span><span class="p">)</span>
 
-<div class="viewcode-block" id="IFS.__call__">
-<a class="viewcode-back" href="../../../modules/generated/data/earth2studio.data.IFS.html#earth2studio.data.IFS.__call__">[docs]</a>
+        <span class="n">cache_options</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span> <span class="o">|</span> <span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">cache_options</span><span class="p">[</span><span class="s2">&quot;cache_storage&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cache</span>
+        <span class="k">if</span> <span class="n">cache</span><span class="p">:</span>
+            <span class="n">cache_options</span><span class="p">[</span><span class="s2">&quot;expiry_time&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="mi">31622400</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">cache_options</span><span class="p">[</span><span class="s2">&quot;expiry_time&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="mi">30</span>
+
+        <span class="k">if</span> <span class="n">auth</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="p">(</span>
+                <span class="s2">&quot;EARTHDATA_USERNAME&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span>
+                <span class="ow">or</span> <span class="s2">&quot;EARTHDATA_PASSWORD&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span>
+            <span class="p">):</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="s2">&quot;Both environment variables EARTHDATA_USERNAME and EARTHDATA_PASSWORD must be set to NASA Earthdata credentials for IMERG data source.&quot;</span>
+                <span class="p">)</span>
+            <span class="n">auth</span> <span class="o">=</span> <span class="n">aiohttp</span><span class="o">.</span><span class="n">BasicAuth</span><span class="p">(</span>
+                <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s2">&quot;EARTHDATA_USERNAME&quot;</span><span class="p">],</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s2">&quot;EARTHDATA_PASSWORD&quot;</span><span class="p">]</span>
+            <span class="p">)</span>
+        <span class="n">fs</span> <span class="o">=</span> <span class="n">HTTPFileSystem</span><span class="p">(</span><span class="n">block_size</span><span class="o">=</span><span class="mi">2</span><span class="o">**</span><span class="mi">20</span><span class="p">,</span> <span class="n">client_kwargs</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;auth&quot;</span><span class="p">:</span> <span class="n">auth</span><span class="p">})</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">fs</span> <span class="o">=</span> <span class="n">WholeFileCacheFileSystem</span><span class="p">(</span><span class="n">fs</span><span class="o">=</span><span class="n">fs</span><span class="p">,</span> <span class="o">**</span><span class="n">cache_options</span><span class="p">)</span>
+
+<div class="viewcode-block" id="IMERG.__call__">
+<a class="viewcode-back" href="../../../modules/generated/data/earth2studio.data.IMERG.html#earth2studio.data.IMERG.__call__">[docs]</a>
     <span class="k">def</span> <span class="fm">__call__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">time</span><span class="p">:</span> <span class="n">datetime</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="n">datetime</span><span class="p">]</span> <span class="o">|</span> <span class="n">TimeArray</span><span class="p">,</span>
         <span class="n">variable</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="n">VariableArray</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Function to get data.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Retrieve IMERG data</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
@@ -524,12 +560,12 @@ document.write(`
 <span class="sd">            Timestamps to return data for (UTC).</span>
 <span class="sd">        variable : str | list[str] | VariableArray</span>
 <span class="sd">            String, list of strings or array of strings that refer to variables to</span>
-<span class="sd">            return. Must be in IFS lexicon.</span>
+<span class="sd">            return. Must be in the IMERG lexicon.</span>
 
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
 <span class="sd">        xr.DataArray</span>
-<span class="sd">            IFS weather data array</span>
+<span class="sd">            IMERG data array</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">time</span><span class="p">,</span> <span class="n">variable</span> <span class="o">=</span> <span class="n">prep_data_inputs</span><span class="p">(</span><span class="n">time</span><span class="p">,</span> <span class="n">variable</span><span class="p">)</span>
 
@@ -541,8 +577,8 @@ document.write(`
 
         <span class="c1"># Fetch index file for requested time</span>
         <span class="n">data_arrays</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="k">for</span> <span class="n">t0</span> <span class="ow">in</span> <span class="n">time</span><span class="p">:</span>
-            <span class="n">data_array</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fetch_ifs_dataarray</span><span class="p">(</span><span class="n">t0</span><span class="p">,</span> <span class="n">variable</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">t0</span> <span class="ow">in</span> <span class="n">time</span><span class="p">:</span>  <span class="c1"># TODO: Tqdm</span>
+            <span class="n">data_array</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fetch_imerg_dataarray</span><span class="p">(</span><span class="n">t0</span><span class="p">,</span> <span class="n">variable</span><span class="p">)</span>
             <span class="n">data_arrays</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">data_array</span><span class="p">)</span>
 
         <span class="c1"># Delete cache if needed</span>
@@ -552,67 +588,106 @@ document.write(`
         <span class="k">return</span> <span class="n">xr</span><span class="o">.</span><span class="n">concat</span><span class="p">(</span><span class="n">data_arrays</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="s2">&quot;time&quot;</span><span class="p">)</span></div>
 
 
-    <span class="k">def</span> <span class="nf">fetch_ifs_dataarray</span><span class="p">(</span>
+    <span class="k">def</span> <span class="nf">fetch_imerg_dataarray</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">time</span><span class="p">:</span> <span class="n">datetime</span><span class="p">,</span>
         <span class="n">variables</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Retrives IFS data array for given date time by fetching variable grib files</span>
-<span class="sd">        using the ecmwf opendata package and combining grib files into a data array.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Retrives IMERG H5 file for time and moves it into an xarray data array. This</span>
+<span class="sd">        will download all variables / coords for this specific time since OpenDAP isn&#39;t</span>
+<span class="sd">        working.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
 <span class="sd">        time : datetime</span>
 <span class="sd">            Date time to fetch</span>
 <span class="sd">        variables : list[str]</span>
-<span class="sd">            list of atmosphric variables to fetch. Must be supported in IFS lexicon</span>
+<span class="sd">            list of atmosphric variables to fetch. Must be supported in IMERG lexicon</span>
 
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
 <span class="sd">        xr.DataArray</span>
-<span class="sd">            IFS data array for given date time</span>
+<span class="sd">            IMERG data array for given date time</span>
+
+<span class="sd">        Raises</span>
+<span class="sd">        ------</span>
+<span class="sd">        KeyError</span>
+<span class="sd">            Unsupported variable</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">ifsda</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">(</span>
-            <span class="n">data</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="mi">1</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">variables</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">IFS_LAT</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">IFS_LON</span><span class="p">))),</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Fetching IMERG H5 file for: </span><span class="si">{</span><span class="n">time</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="n">h5_file</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fs</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">get_file_url</span><span class="p">(</span><span class="n">time</span><span class="p">))</span><span class="o">.</span><span class="n">name</span>
+
+        <span class="c1"># Roll raw data from [-180,180] to [0,360] and reverse lat from [-90,90] to [90,90]</span>
+        <span class="n">raw_ds</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">xr</span><span class="o">.</span><span class="n">open_dataset</span><span class="p">(</span><span class="n">h5_file</span><span class="p">,</span> <span class="n">group</span><span class="o">=</span><span class="s2">&quot;Grid&quot;</span><span class="p">)</span>
+            <span class="o">.</span><span class="n">roll</span><span class="p">(</span><span class="n">lon</span><span class="o">=-</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">IMERG_LON</span><span class="p">)</span> <span class="o">//</span> <span class="mi">2</span><span class="p">,</span> <span class="n">roll_coords</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="o">.</span><span class="n">isel</span><span class="p">(</span><span class="n">lat</span><span class="o">=</span><span class="nb">slice</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">))</span>
+        <span class="p">)</span>
+
+        <span class="n">imergda</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">(</span>
+            <span class="n">data</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span>
+                <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">variables</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">IMERG_LAT</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">IMERG_LON</span><span class="p">))</span>
+            <span class="p">),</span>
             <span class="n">dims</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;time&quot;</span><span class="p">,</span> <span class="s2">&quot;variable&quot;</span><span class="p">,</span> <span class="s2">&quot;lat&quot;</span><span class="p">,</span> <span class="s2">&quot;lon&quot;</span><span class="p">],</span>
             <span class="n">coords</span><span class="o">=</span><span class="p">{</span>
                 <span class="s2">&quot;time&quot;</span><span class="p">:</span> <span class="p">[</span><span class="n">time</span><span class="p">],</span>
                 <span class="s2">&quot;variable&quot;</span><span class="p">:</span> <span class="n">variables</span><span class="p">,</span>
-                <span class="s2">&quot;lat&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">IFS_LAT</span><span class="p">,</span>
-                <span class="s2">&quot;lon&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">IFS_LON</span><span class="p">,</span>
+                <span class="s2">&quot;lat&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">IMERG_LAT</span><span class="p">,</span>
+                <span class="s2">&quot;lon&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">IMERG_LON</span><span class="p">,</span>
             <span class="p">},</span>
         <span class="p">)</span>
 
-        <span class="c1"># TODO: Add MP here, can further optimize by combining pressure levels</span>
-        <span class="c1"># Not doing until tested.</span>
-        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">variable</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span>
-            <span class="n">tqdm</span><span class="p">(</span>
-                <span class="n">variables</span><span class="p">,</span> <span class="n">desc</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;Fetching IFS for </span><span class="si">{</span><span class="n">time</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">disable</span><span class="o">=</span><span class="p">(</span><span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_verbose</span><span class="p">)</span>
-            <span class="p">)</span>
-        <span class="p">):</span>
-            <span class="c1"># Convert from Earth2Studio variable ID to GFS id and modifier</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">variable</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">variables</span><span class="p">):</span>
+            <span class="c1"># Convert from Earth2Studio variable ID to IMERG id and modifier</span>
             <span class="k">try</span><span class="p">:</span>
-                <span class="n">ifs_name</span><span class="p">,</span> <span class="n">modifier</span> <span class="o">=</span> <span class="n">IFSLexicon</span><span class="p">[</span><span class="n">variable</span><span class="p">]</span>
+                <span class="n">imerg_name</span><span class="p">,</span> <span class="n">modifier</span> <span class="o">=</span> <span class="n">IMERGLexicon</span><span class="p">[</span><span class="n">variable</span><span class="p">]</span>
             <span class="k">except</span> <span class="ne">KeyError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-                <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Variable id </span><span class="si">{</span><span class="n">variable</span><span class="si">}</span><span class="s2"> not found in IFS lexicon&quot;</span><span class="p">)</span>
-                <span class="k">raise</span> <span class="n">e</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;variable id </span><span class="si">{</span><span class="n">variable</span><span class="si">}</span><span class="s2"> not found in IMERG lexicon.&quot;</span><span class="p">)</span>
+                <span class="k">raise</span> <span class="ne">KeyError</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">))</span>
 
-            <span class="n">variable</span><span class="p">,</span> <span class="n">levtype</span><span class="p">,</span> <span class="n">level</span> <span class="o">=</span> <span class="n">ifs_name</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;::&quot;</span><span class="p">)</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nan_to_num</span><span class="p">(</span><span class="n">raw_ds</span><span class="p">[</span><span class="n">imerg_name</span><span class="p">]</span><span class="o">.</span><span class="n">isel</span><span class="p">(</span><span class="n">time</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">values</span><span class="o">.</span><span class="n">T</span><span class="p">)</span>
+            <span class="n">imergda</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">modifier</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
 
-            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Fetching IFS grib file for variable: </span><span class="si">{</span><span class="n">variable</span><span class="si">}</span><span class="s2"> at </span><span class="si">{</span><span class="n">time</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-            <span class="n">grib_file</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_download_ifs_grib_cached</span><span class="p">(</span><span class="n">variable</span><span class="p">,</span> <span class="n">levtype</span><span class="p">,</span> <span class="n">level</span><span class="p">,</span> <span class="n">time</span><span class="p">)</span>
-            <span class="c1"># Open into xarray data-array</span>
-            <span class="c1"># Provided [-180, 180], roll to [0, 360]</span>
-            <span class="n">da</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">open_dataarray</span><span class="p">(</span>
-                <span class="n">grib_file</span><span class="p">,</span> <span class="n">engine</span><span class="o">=</span><span class="s2">&quot;cfgrib&quot;</span><span class="p">,</span> <span class="n">backend_kwargs</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;indexpath&quot;</span><span class="p">:</span> <span class="s2">&quot;&quot;</span><span class="p">}</span>
-            <span class="p">)</span><span class="o">.</span><span class="n">roll</span><span class="p">(</span><span class="n">longitude</span><span class="o">=-</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">IFS_LON</span><span class="p">)</span> <span class="o">//</span> <span class="mi">2</span><span class="p">,</span> <span class="n">roll_coords</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-            <span class="n">ifsda</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">modifier</span><span class="p">(</span><span class="n">da</span><span class="o">.</span><span class="n">values</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">imergda</span>
 
-        <span class="k">return</span> <span class="n">ifsda</span>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">get_file_url</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">time</span><span class="p">:</span> <span class="n">datetime</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Returns the IMERG H5 file for a requested date</span>
+
+<span class="sd">        Note</span>
+<span class="sd">        ----</span>
+<span class="sd">        See repository for more information on what files are available:</span>
+<span class="sd">        https://gpm1.gesdisc.eosdis.nasa.gov/data/GPM_L3/GPM_3IMERGHH.07/</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        time : datetime</span>
+<span class="sd">            Date time of data to get</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        str</span>
+<span class="sd">            Data file url</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">dataset_url</span> <span class="o">=</span> <span class="s2">&quot;https://gpm1.gesdisc.eosdis.nasa.gov/data/GPM_L3/GPM_3IMERGHH.07&quot;</span>
+
+        <span class="n">start_time</span> <span class="o">=</span> <span class="n">time</span> <span class="o">-</span> <span class="n">timedelta</span><span class="p">(</span><span class="n">minutes</span><span class="o">=</span><span class="mi">30</span><span class="p">)</span>
+        <span class="n">end_time</span> <span class="o">=</span> <span class="n">time</span> <span class="o">-</span> <span class="n">timedelta</span><span class="p">(</span><span class="n">seconds</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+
+        <span class="n">date_str</span> <span class="o">=</span> <span class="n">start_time</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="s2">&quot;%Y%m</span><span class="si">%d</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="n">start_str</span> <span class="o">=</span> <span class="n">start_time</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="s2">&quot;%H%M%S&quot;</span><span class="p">)</span>
+        <span class="n">end_str</span> <span class="o">=</span> <span class="n">end_time</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="s2">&quot;%H%M%S&quot;</span><span class="p">)</span>
+        <span class="n">min_idx</span> <span class="o">=</span> <span class="mi">60</span> <span class="o">*</span> <span class="n">start_time</span><span class="o">.</span><span class="n">hour</span> <span class="o">+</span> <span class="n">start_time</span><span class="o">.</span><span class="n">minute</span>
+
+        <span class="n">year</span> <span class="o">=</span> <span class="n">start_time</span><span class="o">.</span><span class="n">year</span>
+        <span class="n">yrday</span> <span class="o">=</span> <span class="n">start_time</span><span class="o">.</span><span class="n">timetuple</span><span class="p">()</span><span class="o">.</span><span class="n">tm_yday</span>
+
+        <span class="n">file_name</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;3B-HHR.MS.MRG.3IMERG.</span><span class="si">{</span><span class="n">date_str</span><span class="si">}</span><span class="s2">-S</span><span class="si">{</span><span class="n">start_str</span><span class="si">}</span><span class="s2">-E</span><span class="si">{</span><span class="n">end_str</span><span class="si">}</span><span class="s2">.</span><span class="si">{</span><span class="n">min_idx</span><span class="si">:</span><span class="s2">04d</span><span class="si">}</span><span class="s2">.V07B.HDF5&quot;</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">dataset_url</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">year</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">yrday</span><span class="si">:</span><span class="s2">03d</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">file_name</span><span class="si">}</span><span class="s2">&quot;</span>
 
     <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">_validate_time</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">times</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">datetime</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Verify if date time is valid for IFS</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Verify if date times are valid for IMERG based on offline knowledge</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
@@ -620,68 +695,34 @@ document.write(`
 <span class="sd">            list of date times to fetch data</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">for</span> <span class="n">time</span> <span class="ow">in</span> <span class="n">times</span><span class="p">:</span>
-            <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="n">time</span> <span class="o">-</span> <span class="n">datetime</span><span class="p">(</span><span class="mi">1900</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span><span class="o">.</span><span class="n">total_seconds</span><span class="p">()</span> <span class="o">%</span> <span class="mi">21600</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="n">time</span> <span class="o">-</span> <span class="n">datetime</span><span class="p">(</span><span class="mi">1900</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span><span class="o">.</span><span class="n">total_seconds</span><span class="p">()</span> <span class="o">%</span> <span class="mi">1800</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
                 <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                    <span class="sa">f</span><span class="s2">&quot;Requested date time </span><span class="si">{</span><span class="n">time</span><span class="si">}</span><span class="s2"> needs to be 6 hour interval for IFS&quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;Requested date time </span><span class="si">{</span><span class="n">time</span><span class="si">}</span><span class="s2"> needs to be 30 minute interval for IMERG&quot;</span>
                 <span class="p">)</span>
 
-            <span class="k">if</span> <span class="p">(</span><span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span> <span class="o">-</span> <span class="n">time</span><span class="p">)</span><span class="o">.</span><span class="n">days</span> <span class="o">&gt;</span> <span class="mi">4</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">time</span> <span class="o">&lt;</span> <span class="n">datetime</span><span class="p">(</span><span class="n">year</span><span class="o">=</span><span class="mi">2000</span><span class="p">,</span> <span class="n">month</span><span class="o">=</span><span class="mi">6</span><span class="p">,</span> <span class="n">day</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">minute</span><span class="o">=</span><span class="mi">30</span><span class="p">):</span>
                 <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                    <span class="sa">f</span><span class="s2">&quot;Requested date time </span><span class="si">{</span><span class="n">time</span><span class="si">}</span><span class="s2"> needs to be within the past 4 days for IFS&quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;Requested date time </span><span class="si">{</span><span class="n">time</span><span class="si">}</span><span class="s2"> needs to be after June 1st, 2000 for IMERG&quot;</span>
                 <span class="p">)</span>
-
-            <span class="c1"># if not self.available(time):</span>
-            <span class="c1">#     raise ValueError(f&quot;Requested date time {time} not available in IFS&quot;)</span>
-
-    <span class="k">def</span> <span class="nf">_download_ifs_grib_cached</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span>
-        <span class="n">variable</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-        <span class="n">levtype</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-        <span class="n">level</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
-        <span class="n">time</span><span class="p">:</span> <span class="n">datetime</span><span class="p">,</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">level</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
-            <span class="n">level</span> <span class="o">=</span> <span class="p">[</span><span class="n">level</span><span class="p">]</span>
-
-        <span class="n">sha</span> <span class="o">=</span> <span class="n">hashlib</span><span class="o">.</span><span class="n">sha256</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">variable</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">levtype</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="s1">&#39;_&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">level</span><span class="p">)</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">time</span><span class="si">}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">encode</span><span class="p">())</span>
-        <span class="n">filename</span> <span class="o">=</span> <span class="n">sha</span><span class="o">.</span><span class="n">hexdigest</span><span class="p">()</span>
-
-        <span class="n">cache_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cache</span><span class="p">,</span> <span class="n">filename</span><span class="p">)</span>
-
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">(</span><span class="n">cache_path</span><span class="p">)</span><span class="o">.</span><span class="n">is_file</span><span class="p">():</span>
-            <span class="n">request</span> <span class="o">=</span> <span class="p">{</span>
-                <span class="s2">&quot;date&quot;</span><span class="p">:</span> <span class="n">time</span><span class="p">,</span>
-                <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;fc&quot;</span><span class="p">,</span>
-                <span class="s2">&quot;param&quot;</span><span class="p">:</span> <span class="n">variable</span><span class="p">,</span>
-                <span class="s2">&quot;levtype&quot;</span><span class="p">:</span> <span class="n">levtype</span><span class="p">,</span>
-                <span class="s2">&quot;step&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>  <span class="c1"># Would change this for forecasts</span>
-                <span class="s2">&quot;target&quot;</span><span class="p">:</span> <span class="n">cache_path</span><span class="p">,</span>
-            <span class="p">}</span>
-            <span class="k">if</span> <span class="n">levtype</span> <span class="o">==</span> <span class="s2">&quot;pl&quot;</span><span class="p">:</span>  <span class="c1"># Pressure levels</span>
-                <span class="n">request</span><span class="p">[</span><span class="s2">&quot;levelist&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">level</span>
-            <span class="c1"># Download</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">client</span><span class="o">.</span><span class="n">retrieve</span><span class="p">(</span><span class="o">**</span><span class="n">request</span><span class="p">)</span>
-
-        <span class="k">return</span> <span class="n">cache_path</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">cache</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the appropriate cache location.&quot;&quot;&quot;</span>
-        <span class="n">cache_location</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">LOCAL_CACHE</span><span class="p">,</span> <span class="s2">&quot;ifs&quot;</span><span class="p">)</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return appropriate cache location.&quot;&quot;&quot;</span>
+        <span class="n">cache_location</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">LOCAL_CACHE</span><span class="p">,</span> <span class="s2">&quot;imerg&quot;</span><span class="p">)</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span><span class="p">:</span>
             <span class="n">cache_location</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
                 <span class="n">cache_location</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;tmp_</span><span class="si">{</span><span class="n">DistributedManager</span><span class="p">()</span><span class="o">.</span><span class="n">rank</span><span class="si">}</span><span class="s2">&quot;</span>
             <span class="p">)</span>
         <span class="k">return</span> <span class="n">cache_location</span>
 
-<div class="viewcode-block" id="IFS.available">
-<a class="viewcode-back" href="../../../modules/generated/data/earth2studio.data.IFS.html#earth2studio.data.IFS.available">[docs]</a>
+<div class="viewcode-block" id="IMERG.available">
+<a class="viewcode-back" href="../../../modules/generated/data/earth2studio.data.IMERG.html#earth2studio.data.IMERG.available">[docs]</a>
     <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">available</span><span class="p">(</span>
         <span class="bp">cls</span><span class="p">,</span>
         <span class="n">time</span><span class="p">:</span> <span class="n">datetime</span> <span class="o">|</span> <span class="n">np</span><span class="o">.</span><span class="n">datetime64</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Checks if given date time is avaliable in the IFS AWS data store</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Checks if given date time is avaliable in IMERG</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
@@ -704,13 +745,9 @@ document.write(`
         <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
             <span class="k">return</span> <span class="kc">False</span>
 
-        <span class="n">fs</span> <span class="o">=</span> <span class="n">S3FileSystem</span><span class="p">(</span><span class="n">anon</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-
-        <span class="n">file_name</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">time</span><span class="o">.</span><span class="n">year</span><span class="si">}{</span><span class="n">time</span><span class="o">.</span><span class="n">month</span><span class="si">:</span><span class="s2">0&gt;2</span><span class="si">}{</span><span class="n">time</span><span class="o">.</span><span class="n">day</span><span class="si">:</span><span class="s2">0&gt;2</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">time</span><span class="o">.</span><span class="n">hour</span><span class="si">:</span><span class="s2">0&gt;2</span><span class="si">}</span><span class="s2">z/&quot;</span>
-        <span class="n">s3_uri</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;s3://</span><span class="si">{</span><span class="bp">cls</span><span class="o">.</span><span class="n">IFS_BUCKET_NAME</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">file_name</span><span class="si">}</span><span class="s2">&quot;</span>
-        <span class="n">exists</span> <span class="o">=</span> <span class="n">fs</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">s3_uri</span><span class="p">)</span>
-
-        <span class="k">return</span> <span class="n">exists</span></div>
+        <span class="n">response</span> <span class="o">=</span> <span class="n">requests</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="bp">cls</span><span class="o">.</span><span class="n">get_file_url</span><span class="p">(</span><span class="n">time</span><span class="p">),</span> <span class="n">timeout</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span>
+        <span class="c1"># OK to 403, but 404 means file doesnt exist</span>
+        <span class="k">return</span> <span class="n">response</span><span class="o">.</span><span class="n">status_code</span> <span class="o">&lt;</span> <span class="mi">404</span></div>
 </div>
 
 </pre></div>
