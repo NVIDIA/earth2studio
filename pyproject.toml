@@ -211,4 +211,5 @@ check_untyped_defs = true
 implicit_optional = true
 warn_redundant_casts = true
 warn_unused_ignores = true
-follow_imports = 'skip' # TODO: Should eventually shut off
+ignore_missing_imports = true # Don't look at imports
+follow_imports = 'skip'
