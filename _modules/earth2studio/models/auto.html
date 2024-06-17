@@ -450,6 +450,7 @@ document.write(`
 <span class="kn">import</span> <span class="nn">warnings</span>
 <span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span>
 
+<span class="kn">import</span> <span class="nn">aiohttp</span>
 <span class="kn">import</span> <span class="nn">fsspec</span>
 <span class="kn">import</span> <span class="nn">s3fs</span>
 <span class="kn">from</span> <span class="nn">fsspec.callbacks</span> <span class="kn">import</span> <span class="n">Callback</span><span class="p">,</span> <span class="n">TqdmCallback</span>
@@ -624,15 +625,26 @@ document.write(`
                 <span class="bp">self</span><span class="o">.</span><span class="n">root</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;https://api.ngc.nvidia.com/v2/models/</span><span class="si">{</span><span class="n">org</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">team</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">model</span><span class="si">}</span><span class="s2">/versions/</span><span class="si">{</span><span class="n">version</span><span class="si">}</span><span class="s2">/files/&quot;</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">root</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;https://api.ngc.nvidia.com/v2/models/</span><span class="si">{</span><span class="n">org</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">model</span><span class="si">}</span><span class="s2">/versions/</span><span class="si">{</span><span class="n">version</span><span class="si">}</span><span class="s2">/files/&quot;</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">fs</span> <span class="o">=</span> <span class="n">HTTPFileSystem</span><span class="p">(</span><span class="n">block_size</span><span class="o">=</span><span class="mi">2</span><span class="o">**</span><span class="mi">10</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">fs</span> <span class="o">=</span> <span class="n">HTTPFileSystem</span><span class="p">(</span>
+                <span class="n">block_size</span><span class="o">=</span><span class="n">Package</span><span class="o">.</span><span class="n">default_blocksize</span><span class="p">(),</span>
+                <span class="n">client_kwargs</span><span class="o">=</span><span class="p">{</span>
+                    <span class="s2">&quot;timeout&quot;</span><span class="p">:</span> <span class="n">aiohttp</span><span class="o">.</span><span class="n">ClientTimeout</span><span class="p">(</span><span class="n">total</span><span class="o">=</span><span class="n">Package</span><span class="o">.</span><span class="n">default_timeout</span><span class="p">())</span>
+                <span class="p">},</span>
+            <span class="p">)</span>
         <span class="k">elif</span> <span class="n">root</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;hf://&quot;</span><span class="p">):</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">fs</span> <span class="o">=</span> <span class="n">HfFileSystem</span><span class="p">(</span><span class="n">target_options</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;default_block_size&quot;</span><span class="p">:</span> <span class="mi">2</span><span class="o">**</span><span class="mi">20</span><span class="p">})</span>
+            <span class="c1"># https://github.com/huggingface/huggingface_hub/blob/v0.23.4/src/huggingface_hub/hf_file_system.py#L816</span>
+            <span class="k">if</span> <span class="s2">&quot;HF_HUB_DOWNLOAD_TIMEOUT&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">:</span>
+                <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s2">&quot;HF_HUB_DOWNLOAD_TIMEOUT&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">Package</span><span class="o">.</span><span class="n">default_timeout</span><span class="p">())</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">fs</span> <span class="o">=</span> <span class="n">HfFileSystem</span><span class="p">(</span>
+                <span class="n">target_options</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;default_block_size&quot;</span><span class="p">:</span> <span class="n">Package</span><span class="o">.</span><span class="n">default_blocksize</span><span class="p">()}</span>
+            <span class="p">)</span>
         <span class="k">elif</span> <span class="n">root</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;s3://&quot;</span><span class="p">):</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">fs</span> <span class="o">=</span> <span class="n">s3fs</span><span class="o">.</span><span class="n">S3FileSystem</span><span class="p">(</span>
                 <span class="n">anon</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
                 <span class="n">client_kwargs</span><span class="o">=</span><span class="p">{},</span>
-                <span class="n">target_options</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;default_block_size&quot;</span><span class="p">:</span> <span class="mi">2</span><span class="o">**</span><span class="mi">20</span><span class="p">},</span>
+                <span class="n">default_block_size</span><span class="o">=</span><span class="n">Package</span><span class="o">.</span><span class="n">default_blocksize</span><span class="p">(),</span>
             <span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">fs</span><span class="o">.</span><span class="n">read_timeout</span> <span class="o">=</span> <span class="n">Package</span><span class="o">.</span><span class="n">default_timeout</span><span class="p">()</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="n">protocol</span> <span class="o">=</span> <span class="n">split_protocol</span><span class="p">(</span><span class="n">root</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">fs</span> <span class="o">=</span> <span class="n">fsspec</span><span class="o">.</span><span class="n">filesystem</span><span class="p">(</span><span class="n">protocol</span><span class="p">)</span>
@@ -659,6 +671,40 @@ document.write(`
         <span class="n">default_cache</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">expanduser</span><span class="p">(</span><span class="s2">&quot;~&quot;</span><span class="p">),</span> <span class="s2">&quot;.cache&quot;</span><span class="p">,</span> <span class="s2">&quot;earth2studio&quot;</span><span class="p">)</span>
         <span class="n">default_cache</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;EARTH2STUDIO_CACHE&quot;</span><span class="p">,</span> <span class="n">default_cache</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">default_cache</span><span class="p">,</span> <span class="n">path</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Package.default_timeout">
+<a class="viewcode-back" href="../../../modules/generated/models/earth2studio.models.auto.Package.html#earth2studio.models.auto.Package.default_timeout">[docs]</a>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">default_timeout</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Default remote store timeout in seconds</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        int</span>
+<span class="sd">            Time out in seconds</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">default_timeout</span> <span class="o">=</span> <span class="mi">300</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">timeout</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;EARTH2STUDIO_PACKAGE_TIMEOUT&quot;</span><span class="p">,</span> <span class="n">default_timeout</span><span class="p">)</span>
+            <span class="n">default_timeout</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">timeout</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
+            <span class="k">pass</span>
+        <span class="k">return</span> <span class="n">default_timeout</span></div>
+
+
+<div class="viewcode-block" id="Package.default_blocksize">
+<a class="viewcode-back" href="../../../modules/generated/models/earth2studio.models.auto.Package.html#earth2studio.models.auto.Package.default_blocksize">[docs]</a>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">default_blocksize</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Default remote store block size</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        int</span>
+<span class="sd">            Download block size in bytes</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="mi">2</span><span class="o">**</span><span class="mi">20</span></div>
 
 
     <span class="nd">@property</span>

@@ -61,7 +61,7 @@
         </script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
-    <link rel="next" title="Troubleshooting" href="../support/troubleshooting.html" />
+    <link rel="next" title="Testing Guide" href="testing.html" />
     <link rel="prev" title="Style Guide" href="style.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
@@ -414,6 +414,7 @@ document.write(`
 <li class="toctree-l1"><a class="reference internal" href="overview.html">Overview</a></li>
 <li class="toctree-l1"><a class="reference internal" href="style.html">Style Guide</a></li>
 <li class="toctree-l1 current active"><a class="current reference internal" href="#">Documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="testing.html">Testing Guide</a></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Support</span></p>
 <ul class="nav bd-sidenav">
@@ -592,7 +593,13 @@ make<span class="w"> </span>docs
 make<span class="w"> </span>docs-dev<span class="w"> </span><span class="nv">FILENAME</span><span class="o">=</span>&lt;example<span class="w"> </span>filename<span class="w"> </span>.py&gt;
 </pre></div>
 </div>
-<p>Build files will always be in <code class="docutils literal notranslate"><span class="pre">docs/_build/html</span></code>.</p>
+<p>Build files will always be in <code class="docutils literal notranslate"><span class="pre">docs/_build/html</span></code>.
+Since the docs are static, Python can be used to host them <a class="reference external" href="http://localhost:8000">locally</a>:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">cd</span><span class="w"> </span>docs/_build/html
+
+python<span class="w"> </span>-m<span class="w"> </span>http.server<span class="w"> </span><span class="m">8000</span>
+</pre></div>
+</div>
 </section>
 </section>
 
@@ -616,11 +623,11 @@ make<span class="w"> </span>docs-dev<span class="w"> </span><span class="nv">FIL
       </div>
     </a>
     <a class="right-next"
-       href="../support/troubleshooting.html"
+       href="testing.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">Troubleshooting</p>
+        <p class="prev-next-title">Testing Guide</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>

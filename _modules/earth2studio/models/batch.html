@@ -700,12 +700,9 @@ document.write(`
 <span class="sd">            If model&#39;s input_coords do not contain the batch dimension</span>
 <span class="sd">        &quot;&quot;&quot;</span>
 
-        <span class="k">if</span> <span class="p">(</span>
-            <span class="nb">next</span><span class="p">(</span><span class="nb">iter</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">input_coords</span><span class="p">))</span> <span class="o">!=</span> <span class="s2">&quot;batch&quot;</span>
-            <span class="ow">and</span> <span class="nb">next</span><span class="p">(</span><span class="nb">iter</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">output_coords</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">input_coords</span><span class="p">)))</span> <span class="o">!=</span> <span class="s2">&quot;batch&quot;</span>
-        <span class="p">):</span>
+        <span class="k">if</span> <span class="nb">next</span><span class="p">(</span><span class="nb">iter</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">input_coords</span><span class="p">))</span> <span class="o">!=</span> <span class="s2">&quot;batch&quot;</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                <span class="s2">&quot;Model coordinate systems not compatible with batch processing&quot;</span>
+                <span class="s2">&quot;Model input coordinate systems not compatible with batch processing&quot;</span>
             <span class="p">)</span>
 
         <span class="n">flatten_coords</span><span class="p">:</span> <span class="n">CoordSystem</span>

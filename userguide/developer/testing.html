@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
     <link href="../../_static/favicon.ico" rel="icon" type="image/x-icon">
-    <title>&lt;no title&gt; &#8212; Earth2Studio 0.2.0a0 documentation</title>
+    <title>Testing Guide &#8212; Earth2Studio 0.2.0a0 documentation</title>
   
   
   
@@ -61,6 +61,8 @@
         </script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="Troubleshooting" href="../support/troubleshooting.html" />
+    <link rel="prev" title="Documentation" href="documentation.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   </head>
@@ -185,7 +187,7 @@ document.write(`
 <nav class="navbar-nav">
   <ul class="bd-navbar-elements navbar-nav">
     
-                    <li class="nav-item">
+                    <li class="nav-item current active">
                       <a class="nav-link nav-internal" href="../index.html">
                         User Guide
                       </a>
@@ -297,9 +299,7 @@ document.write(`
       
       
       
-        
-      
-      <div class="bd-sidebar-primary bd-sidebar hide-on-wide">
+      <div class="bd-sidebar-primary bd-sidebar">
         
 
   
@@ -312,7 +312,7 @@ document.write(`
 <nav class="navbar-nav">
   <ul class="bd-navbar-elements navbar-nav">
     
-                    <li class="nav-item">
+                    <li class="nav-item current active">
                       <a class="nav-link nav-internal" href="../index.html">
                         User Guide
                       </a>
@@ -380,6 +380,51 @@ document.write(`
     
   </div>
   
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item">
+<nav class="bd-docs-nav bd-links"
+     aria-label="Section Navigation">
+  <p class="bd-links__title" role="heading" aria-level="1">Section Navigation</p>
+  <div class="bd-toc-item navbar-nav"><p aria-level="2" class="caption" role="heading"><span class="caption-text">About</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../about/install.html">Install</a></li>
+
+
+<li class="toctree-l1"><a class="reference internal" href="../about/intro.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../about/data.html">Data Movement</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Core Components</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../components/prognostic.html">Prognostic Models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../components/diagnostic.html">Diagnostic Models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../components/datasources.html">Data Sources</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../components/perturbation.html">Perturbations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../components/io.html">Output Handling</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../components/statistics.html">Statistics</a></li>
+
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Advanced Usage</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../advanced/batch.html">Batch Dimension</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../advanced/auto.html">AutoModels</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../advanced/lexicon.html">Lexicon</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Developer Guide</span></p>
+<ul class="current nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="overview.html">Overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="style.html">Style Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="documentation.html">Documentation</a></li>
+<li class="toctree-l1 current active"><a class="current reference internal" href="#">Testing Guide</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Support</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../support/troubleshooting.html">Troubleshooting</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../support/faq.html">Frequently Asked Questions</a></li>
+</ul>
+</div>
+</nav></div>
+    </div>
+  
   
   <div class="sidebar-primary-items__end sidebar-primary__section">
   </div>
@@ -412,7 +457,10 @@ document.write(`
         <i class="fa-solid fa-home"></i>
       </a>
     </li>
-    <li class="breadcrumb-item active" aria-current="page">&lt;no title&gt;</li>
+    
+    <li class="breadcrumb-item"><a href="../index.html" class="nav-link">User Guide</a></li>
+    
+    <li class="breadcrumb-item active" aria-current="page">Testing Guide</li>
   </ul>
 </nav>
 </div>
@@ -429,7 +477,114 @@ document.write(`
 <div id="searchbox"></div>
                 <article class="bd-article">
                   
-  
+  <section id="testing-guide">
+<h1>Testing Guide<a class="headerlink" href="#testing-guide" title="Link to this heading">#</a></h1>
+<p>Testing is a core part of Earth2Studio development and we have strict requirements for
+unit testing any new feature.
+Presently we expect new functionality to have over 90% coverage within reason.
+The core tool used for testing in Earth2Studio is <a class="reference external" href="https://docs.pytest.org/en/8.2.x/">PyTest</a>
+and all unit tests can be found inside the <a class="reference external" href="https://github.com/NVIDIA/earth2studio/tree/main/test">test</a>
+folder.
+Ensure that developer dependencies are install as outline in the <a class="reference internal" href="overview.html#developer-overview"><span class="std std-ref">developer overview</span></a>
+section.</p>
+<section id="pytest">
+<h2>PyTest<a class="headerlink" href="#pytest" title="Link to this heading">#</a></h2>
+<p>Earth2Studio has several configurations for testing listed below.
+Many unit tests, particularly ones for data sources, have <a class="reference external" href="https://github.com/pytest-dev/pytest-timeout">timeout limits</a>
+and are allowed to fail using the <a class="reference external" href="https://docs.pytest.org/en/6.2.x/skipping.html#xfail-mark-test-functions-as-expected-to-fail">xfail</a>
+decorator.
+It is normal for some tests to fail, particularly for machines with slower internet
+connections.
+Users should always look at the test summary to under to understand which tests produced
+an error but did not fail.</p>
+<section id="quick-unit-test-suite">
+<h3>Quick Unit Test Suite<a class="headerlink" href="#quick-unit-test-suite" title="Link to this heading">#</a></h3>
+<p>This will run the quickest test suite which skips many tests that are longer running.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pytest<span class="w">  </span>test/
+</pre></div>
+</div>
+</section>
+<section id="standard-unit-test-suite">
+<h3>Standard Unit Test Suite<a class="headerlink" href="#standard-unit-test-suite" title="Link to this heading">#</a></h3>
+<p>To run the full unit test suite, add the <code class="docutils literal notranslate"><span class="pre">--slow</span></code> flag.
+Compared to the quick test suite, this one will run much longer</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pytest<span class="w"> </span>--slow<span class="w"> </span>test/
+</pre></div>
+</div>
+</section>
+<section id="complete-unit-test-suite">
+<h3>Complete Unit Test Suite<a class="headerlink" href="#complete-unit-test-suite" title="Link to this heading">#</a></h3>
+<p>The complete unit tests ran by the CI pipeline is ran with the <code class="docutils literal notranslate"><span class="pre">--ci-cache</span></code>.
+This option enables tests that load and test full model archiectures with their model
+package which can be quite expensive.
+These tests will look for model files inside a specific folder unique to the CI pipeline
+on Nvidia systems or whatever is set in the <code class="docutils literal notranslate"><span class="pre">EARTH2STUDIO_CACHE</span></code> environment variable.
+See <a class="reference internal" href="../about/install.html#configuration-userguide"><span class="std std-ref">configuration</span></a> section for details on this environment
+variable.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="w"> </span>pytest<span class="w"> </span>--slow<span class="w"> </span>--ci-cache<span class="w"> </span>test/
+</pre></div>
+</div>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>The full model cache is rather large (order of 10Gb) which will be downloaded running
+this command.
+The CI pipeline will already have all model files downloaded on the runner machine to
+skip this step.
+Additional information on this can be found below.</p>
+</div>
+<section id="ci-model-package-cache">
+<h4>CI Model Package Cache<a class="headerlink" href="#ci-model-package-cache" title="Link to this heading">#</a></h4>
+<p>In the CI pipeline a NFS mounted folder is used as a pre-cached store of all
+pre-trained model checkpoint files (automodels) so each pipeline does not need to rerun
+the download.
+The cache folder is managed internally by the developers.
+This should reflect a local cache if a user was to fetch and load all possible models.
+The point of truth for generating this cache of model checkpoints <strong>should</strong> always be
+<code class="docutils literal notranslate"><span class="pre">test/models/test_auto_models.py</span></code>.
+This test all listed auto-models and create a <code class="docutils literal notranslate"><span class="pre">./cache</span></code> folder with the following
+command:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pytest<span class="w"> </span>--model-download<span class="w"> </span>-s<span class="w"> </span>test/models/test_auto_models.py
+
+ls<span class="w"> </span>-l<span class="w"> </span>./cache
+</pre></div>
+</div>
+</section>
+</section>
+</section>
+<section id="coverage">
+<h2>Coverage<a class="headerlink" href="#coverage" title="Link to this heading">#</a></h2>
+<p>Coverage is calculated using the <a class="reference external" href="https://coverage.readthedocs.io/en/7.5.3/">coverage.py</a>
+package configured in the <a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/pyproject.toml">pyproject.toml</a>.
+Presently the CI pipeline will fail if unit test coverage drops below 90%.
+Running coverage with pytest just requires the following:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Run tests</span>
+coverage<span class="w"> </span>pytest<span class="w"> </span>--slow<span class="w"> </span>test/
+
+<span class="c1"># Compile reports</span>
+coverage<span class="w"> </span>combine
+</pre></div>
+</div>
+<p>The CI pipeline uses the commands defined in the <a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/Makefile">Makefile</a>:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>make<span class="w"> </span>pytest
+
+make<span class="w"> </span>coverage
+</pre></div>
+</div>
+</section>
+<section id="contributing-tests">
+<h2>Contributing Tests<a class="headerlink" href="#contributing-tests" title="Link to this heading">#</a></h2>
+<p>We expect all contributors to also provide unit tests for their feature.
+Tests are always evolving based on new errors discovered and features added.
+Right now the best way to contribute unit tests for a new feature is to modify the tests
+for a feature of a similar type.
+E.g. for a new data source, copy and modify the tests for say GFS or ARCO.
+For additonal infomation about the tests, reach out with an issue and the developers can
+provide more information.</p>
+<p>If you are contributing a model, be sure to make the developers aware of this to
+properly integrate it into the CI pipeline.</p>
+</section>
+</section>
+
 
                 </article>
               
@@ -440,6 +595,24 @@ document.write(`
                 <footer class="prev-next-footer">
                   
 <div class="prev-next-area">
+    <a class="left-prev"
+       href="documentation.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">Documentation</p>
+      </div>
+    </a>
+    <a class="right-next"
+       href="../support/troubleshooting.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">Troubleshooting</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
 </div>
                 </footer>
               
@@ -457,9 +630,19 @@ document.write(`
     <i class="fa-solid fa-list"></i> On this page
   </div>
   <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
-    <ul class="simple visible nav section-nav flex-column">
+    <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#pytest">PyTest</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#quick-unit-test-suite">Quick Unit Test Suite</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#standard-unit-test-suite">Standard Unit Test Suite</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#complete-unit-test-suite">Complete Unit Test Suite</a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#ci-model-package-cache">CI Model Package Cache</a></li>
 </ul>
-
+</li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#coverage">Coverage</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#contributing-tests">Contributing Tests</a></li>
+</ul>
   </nav></div>
 
   <div class="sidebar-secondary-item">
