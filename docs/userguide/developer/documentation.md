@@ -130,3 +130,10 @@ make docs-dev FILENAME=<example filename .py>
 ```
 
 Build files will always be in `docs/_build/html`.
+Since the docs are static, Python can be used to host them [locally](http://localhost:8000):
+
+```bash
+cd docs/_build/html
+
+python -m http.server 8000
+```

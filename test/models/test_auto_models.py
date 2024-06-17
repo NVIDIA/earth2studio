@@ -82,12 +82,23 @@ def cache_folder(tmp_path_factory):
 
 @pytest.mark.parametrize(
     "url,file",
-    [(None, "test.txt"), ("hf://NickGeneva/earth_ai", "README.md")],
+    [
+        (None, "test.txt"),
+        ("hf://NickGeneva/earth_ai", "README.md"),
+        (
+            "ngc://models/nvidia/modulus/sfno_73ch_small@0.1.0",
+            "sfno_73ch_small/metadata.json",
+        ),
+        ("s3://noaa-swpc-pds", "text/3-day-geomag-forecast.txt"),
+    ],
 )
 def test_package(url, file, cache_folder, model_cache_context):
     if url is None:
         url = "file://" / cache_folder
-    with model_cache_context(EARTH2STUDIO_CACHE=str(cache_folder.resolve())):
+    with model_cache_context(
+        EARTH2STUDIO_CACHE=str(cache_folder.resolve()),
+        EARTH2STUDIO_PACKAGE_TIMEOUT="30",
+    ):
         package = Package(str(url))
         file_path = package.resolve(file)
         assert Path(file_path).is_file()

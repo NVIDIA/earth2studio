@@ -238,16 +238,23 @@ def test_dlwp_exceptions(dc, dlwp_phoo_cs_transform, device):
         p(x, coords)
 
 
+@pytest.fixture(scope="module")
+def model(model_cache_context) -> DLWP:
+    # Test only on cuda device
+    with model_cache_context():
+        package = DLWP.load_default_package()
+        p = DLWP.load_model(package)
+        return p
+
+
 @pytest.mark.ci_cache
 @pytest.mark.timeout(360)
 @pytest.mark.parametrize("device", ["cuda:0"])
-def test_dlwp_package(device, model_cache_context):
+def test_dlwp_package(device, model):
     torch.cuda.empty_cache()
     time = np.array([np.datetime64("1993-04-05T00:00")])
-    with model_cache_context():
-        with torch.device(device):
-            package = DLWP.load_default_package()
-            p = DLWP.load_model(package).to(device)
+    # Test the cached model package DLWP
+    p = model.to(device)
 
     dc = p.input_coords.copy()
     del dc["batch"]
