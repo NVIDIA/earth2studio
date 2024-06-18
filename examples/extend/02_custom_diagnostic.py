@@ -136,11 +136,14 @@ class CustomDiagnostic(torch.nn.Module):
 # ~~~~~~~~~~~~~~~~~~~~~~~~
 # Defining the input/output coordinate systems is essential for any model in
 # Earth2Studio since this is how both the package and users can learn what type of data
-# the model expects. Have a look at :ref:`coordinates_userguide` for details on
-# coordinate system. For this diagnostic model, we simply define the input coordinates
-# to be the global surface temperature specified in
-# :py:file:`earth2studio.lexicon.base.py`. The output is a custom variable
-# :py:var:`t2m_c` that represents the temperature in Celsius.
+# the model expects. This requires the definition of  :py:func:`input_coords` and
+# :py:func:`output_coords`. Have a look at :ref:`coordinates_userguide` for details on
+# coordinate system.
+#
+# For this diagnostic model, we simply define the input coordinates
+# to be the global surface temperature specified in :py:file:`earth2studio.lexicon.base.py`.
+# The output is a custom variable :py:var:`t2m_c` that represents the temperature in
+# Celsius.
 
 # %%
 # :py:func:`__call__` API

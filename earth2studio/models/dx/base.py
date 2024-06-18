@@ -47,7 +47,6 @@ class DiagnosticModel(Protocol):
         """
         pass
 
-    @property
     def input_coords(self) -> CoordSystem:
         """Input coordinate system of diagnostic model
 

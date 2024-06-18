@@ -55,7 +55,7 @@ import numpy as np
 import torch
 
 from earth2studio.models.batch import batch_coords, batch_func
-from earth2studio.utils import handshake_coords, handshake_dim
+from earth2studio.utils import handshake_coords, handshake_dim, handshake_size
 from earth2studio.utils.type import CoordSystem
 
 
@@ -100,11 +100,12 @@ class CustomPrognostic(torch.nn.Module):
         """
         # Check input coordinates are valid
         target_input_coords = self.input_coords()
+        handshake_size(input_coords, "lead_time", 1)
         for i, (key, value) in enumerate(target_input_coords.items()):
-            if key != "batch":
-                handshake_dim(input_coords, key, i)
+            handshake_dim(input_coords, key, i)
+            if key not in ["batch", "lead_time"]:
                 handshake_coords(input_coords, target_input_coords, key)
-
+        # Build output coordinates
         output_coords = OrderedDict(
             {
                 "batch": np.empty(0),
@@ -176,11 +177,12 @@ class CustomPrognostic(torch.nn.Module):
 # ~~~~~~~~~~~~~~~~~~~~~~~~
 # Defining the input/output coordinate systems is essential for any model in
 # Earth2Studio since this is how both the package and users can learn what type of data
-# the model expects. Have a look at :ref:`coordinates_userguide` for details on
+# the model expects. Ensuring this is correct will set an prognostic model up for
+# success. Have a look at :ref:`coordinates_userguide` for details on
 # coordinate system.
 #
-# This requires the definition of two functions: :py:func:`output_coords` and
-# :py:func:`input_coords`:
+# This requires the definition of two functions, :py:func:`input_coords` and
+# :py:func:`output_coords` :
 #
 # * :py:func:`input_coords` : A function that returns the expected input coordinate
 #   system of the model. A new dictionary should be returned every time.

@@ -118,7 +118,7 @@ def deterministic(
     io.add_array(total_coords, var_names)
 
     # Map lat and lon if needed
-    x, coords = map_coords(x, coords, prognostic.input_coords)
+    x, coords = map_coords(x, coords, prognostic.input_coords())
     # Create prognostic iterator
     model = prognostic.create_iterator(x, coords)
 
