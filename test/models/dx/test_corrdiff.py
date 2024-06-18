@@ -73,9 +73,9 @@ def test_corrdiff(x, device):
     coords = OrderedDict(
         {
             "batch": np.ones(x.shape[0]),
-            "variable": dx.input_coords["variable"],
-            "lat": dx.input_coords["lat"],
-            "lon": dx.input_coords["lon"],
+            "variable": dx.input_coords()["variable"],
+            "lat": dx.input_coords()["lat"],
+            "lon": dx.input_coords()["lon"],
         }
     )
 
@@ -136,9 +136,9 @@ def test_corrdiff_exceptions(x, device):
     wrong_coords = OrderedDict(
         {
             "batch": np.ones(x.shape[0]),
-            "wrong": dx.input_coords["variable"],
-            "lat": dx.input_coords["lat"],
-            "lon": dx.input_coords["lon"],
+            "wrong": dx.input_coords()["variable"],
+            "lat": dx.input_coords()["lat"],
+            "lon": dx.input_coords()["lon"],
         }
     )
 
@@ -148,9 +148,9 @@ def test_corrdiff_exceptions(x, device):
     wrong_coords = OrderedDict(
         {
             "batch": np.ones(x.shape[0]),
-            "variable": dx.input_coords["variable"],
-            "lon": dx.input_coords["lon"],
-            "lat": dx.input_coords["lat"],
+            "variable": dx.input_coords()["variable"],
+            "lon": dx.input_coords()["lon"],
+            "lat": dx.input_coords()["lat"],
         }
     )
 
@@ -160,9 +160,9 @@ def test_corrdiff_exceptions(x, device):
     wrong_coords = OrderedDict(
         {
             "batch": np.ones(x.shape[0]),
-            "variable": dx.input_coords["variable"],
+            "variable": dx.input_coords()["variable"],
             "lat": np.linspace(-90, 90, 720),
-            "lon": dx.input_coords["lon"],
+            "lon": dx.input_coords()["lon"],
         }
     )
     with pytest.raises(ValueError):
@@ -183,9 +183,9 @@ def test_corrdiff_package(device, model_cache_context):
     coords = OrderedDict(
         {
             "batch": np.ones(x.shape[0]),
-            "variable": dx.input_coords["variable"],
-            "lat": dx.input_coords["lat"],
-            "lon": dx.input_coords["lon"],
+            "variable": dx.input_coords()["variable"],
+            "lat": dx.input_coords()["lat"],
+            "lon": dx.input_coords()["lon"],
         }
     )
 

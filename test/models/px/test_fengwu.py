@@ -81,7 +81,7 @@ def test_fengwu_call(time, fengwu_test_package, device):
     # Use dummy package
     p = FengWu.load_model(fengwu_test_package).to(device)
 
-    dc = p.input_coords.copy()
+    dc = p.input_coords()
     del dc["batch"]
     del dc["lead_time"]
     del dc["variable"]
@@ -89,8 +89,8 @@ def test_fengwu_call(time, fengwu_test_package, device):
     r = Random(dc)
 
     # Get Data and convert to tensor, coords
-    lead_time = p.input_coords["lead_time"]
-    variable = p.input_coords["variable"]
+    lead_time = p.input_coords()["lead_time"]
+    variable = p.input_coords()["variable"]
     x, coords = fetch_data(r, time, variable, lead_time, device=device)
 
     out, out_coords = p(x, coords)
@@ -125,7 +125,7 @@ def test_fengwu_iter(ensemble, fengwu_test_package, device):
     # Use dummy package
     p = FengWu.load_model(fengwu_test_package).to(device)
 
-    dc = p.input_coords.copy()
+    dc = p.input_coords()
     del dc["batch"]
     del dc["lead_time"]
     del dc["variable"]
@@ -133,8 +133,8 @@ def test_fengwu_iter(ensemble, fengwu_test_package, device):
     r = Random(dc)
 
     # Get Data and convert to tensor, coords
-    lead_time = p.input_coords["lead_time"]
-    variable = p.input_coords["variable"]
+    lead_time = p.input_coords()["lead_time"]
+    variable = p.input_coords()["variable"]
     x, coords = fetch_data(r, time, variable, lead_time, device=device)
 
     # Add ensemble to front
@@ -192,8 +192,8 @@ def test_fengwu_exceptions(dc, fengwu_test_package, device):
     r = Random(dc)
 
     # Get Data and convert to tensor, coords
-    lead_time = p.input_coords["lead_time"]
-    variable = p.input_coords["variable"]
+    lead_time = p.input_coords()["lead_time"]
+    variable = p.input_coords()["variable"]
     x, coords = fetch_data(r, time, variable, lead_time, device=device)
 
     with pytest.raises((KeyError, ValueError, RuntimeError)):
@@ -211,7 +211,7 @@ def test_fengwu_package(device, model_cache_context):
             package = FengWu.load_default_package()
             p = FengWu.load_model(package).to(device)
 
-    dc = p.input_coords.copy()
+    dc = p.input_coords()
     del dc["batch"]
     del dc["lead_time"]
     del dc["variable"]
@@ -219,8 +219,8 @@ def test_fengwu_package(device, model_cache_context):
     r = Random(dc)
 
     # Get Data and convert to tensor, coords
-    lead_time = p.input_coords["lead_time"]
-    variable = p.input_coords["variable"]
+    lead_time = p.input_coords()["lead_time"]
+    variable = p.input_coords()["variable"]
     x, coords = fetch_data(r, time, variable, lead_time, device=device)
 
     out, out_coords = p(x, coords)

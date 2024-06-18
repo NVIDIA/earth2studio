@@ -112,10 +112,11 @@ class Persistence(torch.nn.Module, PrognosticMixin):
         test_coords["lead_time"] = (
             test_coords["lead_time"] - input_coords["lead_time"][-1]
         )
-        for i, key in enumerate(self.input_coords()):
+        target_input_coords = self.input_coords()
+        for i, key in enumerate(target_input_coords):
             if key != "batch":
                 handshake_dim(test_coords, key, i)
-                handshake_coords(test_coords, self.input_coords(), key)
+                handshake_coords(test_coords, target_input_coords, key)
 
         output_coords["batch"] = input_coords["batch"]
         output_coords["lead_time"] = (

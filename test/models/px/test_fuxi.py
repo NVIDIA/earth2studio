@@ -88,7 +88,7 @@ def test_fuxi_call(time, fuxi_test_package, device):
     # Use dummy package
     p = FuXi.load_model(fuxi_test_package).to(device)
 
-    dc = p.input_coords.copy()
+    dc = p.input_coords()
     del dc["batch"]
     del dc["time"]
     del dc["lead_time"]
@@ -97,8 +97,8 @@ def test_fuxi_call(time, fuxi_test_package, device):
     r = Random(dc)
 
     # Get Data and convert to tensor, coords
-    lead_time = p.input_coords["lead_time"]
-    variable = p.input_coords["variable"]
+    lead_time = p.input_coords()["lead_time"]
+    variable = p.input_coords()["variable"]
     x, coords = fetch_data(r, time, variable, lead_time, device=device)
 
     out, out_coords = p(x, coords)
@@ -131,7 +131,7 @@ def test_fuxi_iter(ensemble, fuxi_test_package, device):
     # Use dummy package
     p = FuXi.load_model(fuxi_test_package).to(device)
 
-    dc = p.input_coords.copy()
+    dc = p.input_coords()
     del dc["batch"]
     del dc["time"]
     del dc["lead_time"]
@@ -140,8 +140,8 @@ def test_fuxi_iter(ensemble, fuxi_test_package, device):
     r = Random(dc)
 
     # Get Data and convert to tensor, coords
-    lead_time = p.input_coords["lead_time"]
-    variable = p.input_coords["variable"]
+    lead_time = p.input_coords()["lead_time"]
+    variable = p.input_coords()["variable"]
     x, coords = fetch_data(r, time, variable, lead_time, device=device)
 
     # Add ensemble to front
@@ -225,8 +225,8 @@ def test_fuxi_exceptions(dc, fuxi_test_package, device):
     r = Random(dc)
 
     # Get Data and convert to tensor, coords
-    lead_time = p.input_coords["lead_time"]
-    variable = p.input_coords["variable"]
+    lead_time = p.input_coords()["lead_time"]
+    variable = p.input_coords()["variable"]
     x, coords = fetch_data(r, time, variable, lead_time, device=device)
 
     with pytest.raises((KeyError, ValueError)):
@@ -244,7 +244,7 @@ def test_fuxi_package(device, model_cache_context):
             package = FuXi.load_default_package()
             p = FuXi.load_model(package).to(device)
 
-    dc = p.input_coords.copy()
+    dc = p.input_coords()
     del dc["batch"]
     del dc["time"]
     del dc["lead_time"]
@@ -253,8 +253,8 @@ def test_fuxi_package(device, model_cache_context):
     r = Random(dc)
 
     # Get Data and convert to tensor, coords
-    lead_time = p.input_coords["lead_time"]
-    variable = p.input_coords["variable"]
+    lead_time = p.input_coords()["lead_time"]
+    variable = p.input_coords()["variable"]
     x, coords = fetch_data(r, time, variable, lead_time, device=device)
 
     out, out_coords = p(x, coords)
