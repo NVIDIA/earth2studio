@@ -154,7 +154,7 @@ def test_fengwu_iter(ensemble, fengwu_test_package, device):
         assert len(out.shape) == 6
         assert out.shape[0] == ensemble
         assert (
-            out_coords["variable"] == p.output_coords(p.input_coords)["variable"]
+            out_coords["variable"] == p.output_coords(p.input_coords())["variable"]
         ).all()
         assert out_coords["lead_time"][0] == np.timedelta64(6 * (i + 1), "h")
         assert torch.allclose(

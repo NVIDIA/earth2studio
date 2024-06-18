@@ -147,7 +147,7 @@ class CustomDataSource:
         specific_humidity : np.array
             Specific humidity field (g.kg-1)
         pressure : float
-            Pressure (P)
+            Pressure (Pa)
 
         Returns
         -------

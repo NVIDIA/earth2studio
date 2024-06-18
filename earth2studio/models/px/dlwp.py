@@ -390,7 +390,7 @@ class DLWP(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             x = self._forward(x, coords)
             coords["lead_time"] = (
                 coords["lead_time"]
-                + 2 * self.output_coords(self.input_coords)["lead_time"]
+                + 2 * self.output_coords(self.input_coords())["lead_time"]
             )
             x = x.clone()
 

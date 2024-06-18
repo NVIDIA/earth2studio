@@ -59,18 +59,23 @@ class DiagnosticModel(Protocol):
         pass
 
     def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
-        """Output coordinate system of diagnostic model
+        """Output coordinate system of the prognostic model give an input coordinate
+        system.
 
         Parameters
         ----------
         input_coords : CoordSystem
             Input coordinate system to transform into output_coords
 
-
         Returns
         -------
         CoordSystem
             Coordinate system dictionary
+
+        Raises
+        ------
+        ValueError
+            If input_coords are not valid
         """
         pass
 

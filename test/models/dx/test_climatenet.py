@@ -58,7 +58,7 @@ def test_cnet(x, device):
     out, out_coords = dx(x, coords)
 
     assert out.shape == torch.Size([x.shape[0], 3, 721, 1440])
-    assert out_coords["variable"] == dx.output_coords(coords)["variable"]
+    assert np.all(out_coords["variable"] == dx.output_coords(coords)["variable"])
     handshake_dim(out_coords, "lon", 3)
     handshake_dim(out_coords, "lat", 2)
     handshake_dim(out_coords, "variable", 1)

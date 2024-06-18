@@ -107,7 +107,7 @@ def test_fuxi_call(time, fuxi_test_package, device):
         time = [time]
 
     assert out.shape == torch.Size(
-        [len(time), 1, len(p.output_coords(p.input_coords)["variable"]), 721, 1440]
+        [len(time), 1, len(p.output_coords(p.input_coords())["variable"]), 721, 1440]
     )
     assert (out_coords["variable"] == p.output_coords(coords)["variable"]).all()
     assert (out_coords["time"] == time).all()
@@ -171,7 +171,7 @@ def test_fuxi_iter(ensemble, fuxi_test_package, device):
         assert len(out.shape) == 6
         assert out.shape[0] == ensemble
         assert (
-            out_coords["variable"] == p.output_coords(p.input_coords)["variable"]
+            out_coords["variable"] == p.output_coords(p.input_coords())["variable"]
         ).all()
         assert (out_coords["time"] == time).all()
         assert out_coords["lead_time"][0] == np.timedelta64(6 * (i + 1), "h")
@@ -195,12 +195,14 @@ def test_fuxi_iter(ensemble, fuxi_test_package, device):
             ensemble,
             len(time),
             1,
-            len(p.output_coords(p.input_coords)["variable"]),
+            len(p.output_coords(p.input_coords())["variable"]),
             721,
             1440,
         ]
     )
-    assert (out_coords["variable"] == p.output_coords(p.input_coords)["variable"]).all()
+    assert (
+        out_coords["variable"] == p.output_coords(p.input_coords())["variable"]
+    ).all()
     assert torch.allclose(
         out, (x[:, 1:] + 1)
     )  # Phoo model should add by delta t each call
