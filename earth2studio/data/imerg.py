@@ -42,8 +42,8 @@ LOCAL_CACHE = os.path.join(os.path.expanduser("~"), ".cache", "earth2studio")
 class IMERG:
     """The Integrated Multi-satellitE Retrievals (IMERG) for GPM. MERG is a NASA product
     that estimates the global surface precipitation rates at a high resolution of 0.1
-    degree every half-hour beginning in 2000. Provides total, probability and index
-    precipitation fields for the past half hour.
+    degree every half-hour beginning in 2000. Provides total (m/hr), probability and
+    index precipitation fields for the past half hour.
 
     Note
     ----
