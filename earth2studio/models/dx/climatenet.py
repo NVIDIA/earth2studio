@@ -81,7 +81,6 @@ class ClimateNet(torch.nn.Module, AutoModelMixin):
         self.register_buffer("center", center)
         self.register_buffer("scale", scale)
 
-    @property
     def input_coords(self) -> CoordSystem:
         """Input coordinate system of diagnostic model
 
@@ -123,7 +122,7 @@ class ClimateNet(torch.nn.Module, AutoModelMixin):
         handshake_coords(input_coords, self.input_coords, "variable")
 
         output_coords = input_coords.copy()
-        output_coords["variable"] = OUT_VARIABLES
+        output_coords["variable"] = np.array(OUT_VARIABLES)
         return output_coords
 
     @classmethod

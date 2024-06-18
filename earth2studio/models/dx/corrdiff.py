@@ -135,7 +135,6 @@ class CorrDiffTaiwan(torch.nn.Module, AutoModelMixin):
         self.number_of_steps = number_of_steps
         self.solver = solver
 
-    @property
     def input_coords(self) -> CoordSystem:
         return OrderedDict(
             {
@@ -282,14 +281,11 @@ class CorrDiffTaiwan(torch.nn.Module, AutoModelMixin):
     def _interpolate(self, x: torch.Tensor) -> torch.Tensor:
         """Interpolate from input lat/lon (self.lat, self.lon) onto output lat/lon
         (self.lat_grid, self.lon_grid) using bilinear interpolation."""
+        input_coords = self.input_coords()
         return self.interpolate(
             x,
-            torch.as_tensor(
-                self.input_coords["lat"], device=x.device, dtype=torch.float32
-            ),
-            torch.as_tensor(
-                self.input_coords["lon"], device=x.device, dtype=torch.float32
-            ),
+            torch.as_tensor(input_coords["lat"], device=x.device, dtype=torch.float32),
+            torch.as_tensor(input_coords["lon"], device=x.device, dtype=torch.float32),
             self.out_lat_full,
             self.out_lon_full,
         )[..., 1:-1, 1:-1]

@@ -94,15 +94,23 @@ class FCN(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self.register_buffer("center", center)
         self.register_buffer("scale", scale)
 
-    input_coords = OrderedDict(
-        {
-            "batch": np.empty(0),
-            "lead_time": np.array([np.timedelta64(0, "h")]),
-            "variable": np.array(VARIABLES),
-            "lat": np.linspace(90, -90, 720, endpoint=False),
-            "lon": np.linspace(0, 360, 1440, endpoint=False),
-        }
-    )
+    def input_coords(self) -> CoordSystem:
+        """Input coordinate system of the prognostic model
+
+        Returns
+        -------
+        CoordSystem
+            Coordinate system dictionary
+        """
+        return OrderedDict(
+            {
+                "batch": np.empty(0),
+                "lead_time": np.array([np.timedelta64(0, "h")]),
+                "variable": np.array(VARIABLES),
+                "lat": np.linspace(90, -90, 720, endpoint=False),
+                "lon": np.linspace(0, 360, 1440, endpoint=False),
+            }
+        )
 
     @batch_coords()
     def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
@@ -112,7 +120,6 @@ class FCN(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         ----------
         input_coords : CoordSystem
             Input coordinate system to transform into output_coords
-            by default None, will use self.input_coords.
 
         Returns
         -------
@@ -134,10 +141,10 @@ class FCN(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         test_coords["lead_time"] = (
             test_coords["lead_time"] - input_coords["lead_time"][-1]
         )
-        for i, key in enumerate(self.input_coords):
+        for i, key in enumerate(self.input_coords()):
             if key != "batch":
                 handshake_dim(test_coords, key, i)
-                handshake_coords(test_coords, self.input_coords, key)
+                handshake_coords(test_coords, self.input_coords(), key)
 
         output_coords = output_coords.copy()
         output_coords["batch"] = input_coords["batch"]

@@ -78,17 +78,15 @@ class Persistence(torch.nn.Module, PrognosticMixin):
     ) -> str:
         return "persistence"
 
-    @property
     def input_coords(self) -> CoordSystem:
-        """Input coordinate system of prognostic model, time dimension should contain
-        time-delta objects
+        """Input coordinate system of the prognostic model
 
         Returns
         -------
         CoordSystem
             Coordinate system dictionary
         """
-        return self._input_coords
+        return self._input_coords.copy()
 
     @batch_coords()
     def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
@@ -98,7 +96,6 @@ class Persistence(torch.nn.Module, PrognosticMixin):
         ----------
         input_coords : CoordSystem
             Input coordinate system to transform into output_coords
-            by default None, will use self.input_coords.
 
         Returns
         -------
@@ -115,10 +112,10 @@ class Persistence(torch.nn.Module, PrognosticMixin):
         test_coords["lead_time"] = (
             test_coords["lead_time"] - input_coords["lead_time"][-1]
         )
-        for i, key in enumerate(self.input_coords):
+        for i, key in enumerate(self.input_coords()):
             if key != "batch":
                 handshake_dim(test_coords, key, i)
-                handshake_coords(test_coords, self.input_coords, key)
+                handshake_coords(test_coords, self.input_coords(), key)
 
         output_coords["batch"] = input_coords["batch"]
         output_coords["lead_time"] = (

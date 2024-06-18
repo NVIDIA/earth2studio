@@ -69,7 +69,6 @@ class PrognosticModel(Protocol):
         """
         pass
 
-    @property
     def input_coords(self) -> CoordSystem:
         """Input coordinate system of prognostic model, time dimension should contain
         time-delta objects

@@ -89,14 +89,22 @@ class PrecipitationAFNO(torch.nn.Module, AutoModelMixin):
         self.register_buffer("scale", scale)
         self.eps = 1e-5
 
-    input_coords = OrderedDict(
-        {
-            "batch": np.empty(0),
-            "variable": np.array(VARIABLES),
-            "lat": np.linspace(90, -90, 720, endpoint=False),
-            "lon": np.linspace(0, 360, 1440, endpoint=False),
-        }
-    )
+    def input_coords(self) -> CoordSystem:
+        """Input coordinate system of diagnostic model
+
+        Returns
+        -------
+        CoordSystem
+            Coordinate system dictionary
+        """
+        return OrderedDict(
+            {
+                "batch": np.empty(0),
+                "variable": np.array(VARIABLES),
+                "lat": np.linspace(90, -90, 720, endpoint=False),
+                "lon": np.linspace(0, 360, 1440, endpoint=False),
+            }
+        )
 
     @batch_coords()
     def output_coords(self, input_coords: CoordSystem) -> CoordSystem:

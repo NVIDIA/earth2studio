@@ -32,7 +32,6 @@ class Identity(torch.nn.Module):
     def __str__(self) -> str:
         return "identity"
 
-    @property
     def input_coords(self) -> CoordSystem:
         """Input coordinate system of diagnostic model, time dimension should contain
         time-delta objects
