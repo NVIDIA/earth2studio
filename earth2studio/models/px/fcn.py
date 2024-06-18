@@ -94,6 +94,7 @@ class FCN(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self.register_buffer("center", center)
         self.register_buffer("scale", scale)
 
+    # sphinx - coords start
     def input_coords(self) -> CoordSystem:
         """Input coordinate system of the prognostic model
 
@@ -154,6 +155,8 @@ class FCN(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         )
 
         return output_coords
+
+    # sphinx - coords end
 
     def __str__(
         self,

@@ -118,6 +118,70 @@ The bulk of these can be found in the [Earth2Studio Utilities](earth2studio.util
 🚧 Under construction, todo: add some example here! 🚧
 :::
 
+### Model Coordinates
+
+Models are components where coordinate systems are essential both, for defining what
+data is needed and also what data is produced. Both {ref}`prognostic_model_userguide`
+and {ref}`diagnostic_model_userguide` require two functions that serve coordinate
+information:
+
+- `input_coords()` : A function that returns the expected input coordinate
+system of the model. A new dictionary should be returned every time.
+
+- `output_coords()` : A function that returns the expected output coordinate
+system of the model *given* an input coordinate system. This function should also
+validate the input coordinate dictionary.
+
+For an example, consider the FourCastNet model's implementations:
+
+```{literalinclude} ../../../earth2studio/models/px/fcn.py
+    :start-after: "# sphinx - coords start"
+    :end-before: "# sphinx - coords end"
+    :language: python
+```
+
+The `input_coords()` function provides the spec of that is required as an input to this
+model. In the case of FourCastNet, it's expecting a input tensor of shape `[...,1,26,720,1440]`
+which corresponds to `[...,lead,variables,lat,lon]`.
+
+The `output_coords()` function provides validation and transformation of coordinates
+by the model. I.e. one should be able to deduce the models output data without executing
+the forward pass of the model.
+This function requires an input coordinate system that represent the input data it
+received.
+The first step is validating the `input_coords` using the coordinate handhshake utils
+functions.
+Next the output coordinate systems are built.
+This function is a place to store the complexity of a model's forward process for
+other Earth2Studio components.
+
+We encourage users to explore the coordinate transforms of models to learn more about
+how they operate:
+
+```python
+from earth2studio.models.px import FCN
+model = FCN(None, None, None)
+input_coords = model.input_coords()
+output_coords = model.output_coords(input_coords)
+print("Input lead:", input_coords['lead_time'])
+print("Output lead:", output_coords['lead_time'])
+output_coords = model.output_coords(output_coords)
+print("Output lead 2:", output_coords['lead_time'])
+```
+
+The output of the following script will be:
+
+```console
+Input coords: [0]
+Output lead: [6]
+Output lead 2: [12]
+```
+
+:::{note}
+The batch dimension was not discussed intentially. Think about it like a free dimension.
+More information can be found in the {ref}`batch_function_userguide` section.
+:::
+
 ## Inference on the GPU
 
 It is beneficial to leverage the GPU for as many processes as possible.
