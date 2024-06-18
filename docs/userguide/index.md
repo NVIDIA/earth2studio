@@ -64,6 +64,7 @@ run(["2024-01-01"], 10, model, ds, io)
 - [Overview](developer/overview)
 - [Style](developer/style)
 - [Documentation](developer/documentation)
+- [Testing](developer/testing)
 
 ## Support
 
@@ -112,6 +113,7 @@ advanced/lexicon
 developer/overview
 developer/style
 developer/documentation
+developer/testing
 ```
 
 ```{toctree}

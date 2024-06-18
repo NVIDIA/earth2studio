@@ -157,17 +157,23 @@ def test_fcn_exceptions(dc, device):
         p(x, coords)
 
 
-@pytest.mark.ci_cache
-@pytest.mark.timeout(15)
-@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
-def test_fcn_package(device, model_cache_context):
-    torch.cuda.empty_cache()
-    time = np.array([np.datetime64("1993-04-05T00:00")])
-    # Test the cached model package FCN
+@pytest.fixture(scope="module")
+def model(model_cache_context) -> FCN:
     # Test only on cuda device
     with model_cache_context():
         package = FCN.load_default_package()
-        p = FCN.load_model(package).to(device)
+        p = FCN.load_model(package)
+        return p
+
+
+@pytest.mark.ci_cache
+@pytest.mark.timeout(15)
+@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+def test_fcn_package(model, device):
+    torch.cuda.empty_cache()
+    time = np.array([np.datetime64("1993-04-05T00:00")])
+    # Test the cached model package FCN
+    p = model.to(device)
 
     dc = p.input_coords.copy()
     del dc["batch"]

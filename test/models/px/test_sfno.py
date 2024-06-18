@@ -157,17 +157,23 @@ def test_sfno_exceptions(dc, device):
         p(x, coords)
 
 
-@pytest.mark.ci_cache
-@pytest.mark.timeout(360)
-@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
-def test_sfno_package(device, model_cache_context):
-    torch.cuda.empty_cache()
-    time = np.array([np.datetime64("1993-04-05T00:00")])
-    # Test the cached model package SFNO
+@pytest.fixture(scope="module")
+def model(model_cache_context) -> SFNO:
     # Test only on cuda device
     with model_cache_context():
         package = SFNO.load_default_package()
-        p = SFNO.load_model(package).to(device)
+        p = SFNO.load_model(package)
+        return p
+
+
+@pytest.mark.ci_cache
+@pytest.mark.timeout(360)
+@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+def test_sfno_package(device, model):
+    torch.cuda.empty_cache()
+    time = np.array([np.datetime64("1993-04-05T00:00")])
+    # Test the cached model package SFNO
+    p = model.to(device)
 
     # Create "domain coords"
     dc = {k: p.input_coords[k] for k in ["lat", "lon"]}
