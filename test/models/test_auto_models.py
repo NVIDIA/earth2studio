@@ -169,15 +169,3 @@ def test_whole_file_cache(tmp_path, same_names):
     assert (tmp_path / file2).is_file()
     assert (put_path / file2).is_file()
     assert (cache_path / file2).is_file() is same_names
-
-    # ("")
-    # import s3fs
-    # fs = s3fs.S3FileSystem(anon=True, client_kwargs={},)
-    # fs = CallbackWholeFileCacheFileSystem(fs=fs, cache_options={
-    #             "cache_storage": str(cache_path),
-    #             "same_names": True,
-    #         })
-
-    # fs.get("s3://noaa-swpc-pds/text/3-day-geomag-forecast.txt", str(tmp_path / file3))
-    # import os
-    # print(os.listdir(str(tmp_path)))
