@@ -16,9 +16,15 @@
 
 from pathlib import Path
 
+import fsspec
 import pytest
 
-from earth2studio.models.auto import AutoModelMixin, Package
+from earth2studio.models.auto import (
+    AutoModelMixin,
+    Package,
+    TqdmCallbackRelative,
+    TqdmFormat,
+)
 from earth2studio.models.dx import ClimateNet, CorrDiffTaiwan, PrecipitationAFNO
 from earth2studio.models.px import (
     DLWP,
@@ -102,6 +108,9 @@ def test_package(url, file, cache_folder, model_cache_context):
         package = Package(str(url))
         file_path = package.resolve(file)
         assert Path(file_path).is_file()
+        # Getting depricated
+        file_path2 = package.get(file)
+        assert file_path == file_path2
 
 
 def test_auto_model_mixin():
@@ -119,3 +128,56 @@ def test_auto_model_mixin():
     with pytest.raises(NotImplementedError):
         package = "./package"
         AutoModelMixin.from_pretrained(package)
+
+
+@pytest.mark.parametrize("same_names", [True, False])
+def test_whole_file_cache(tmp_path, same_names):
+
+    cache_path = tmp_path / "cache"
+    put_path = tmp_path / "put"
+    put_path.mkdir(parents=True, exist_ok=True)
+
+    file1 = "test.txt"
+    file2 = "test2.txt"
+
+    with open(tmp_path / file1, "a") as f:
+        f.write("Hello World")
+
+    fs = fsspec.filesystem("file")
+    package = Package(
+        tmp_path,
+        fs=fs,
+        cache_options={
+            "cache_storage": str(cache_path),
+            "same_names": same_names,
+            "expiry_time": 30,
+        },
+    )
+    fs = package.fs
+
+    with TqdmCallbackRelative(
+        tqdm_kwargs={"desc": "Test"},
+        tqdm_cls=TqdmFormat,
+    ) as callback:
+        fs.get(str(tmp_path / file1), str(tmp_path / file2), callback=callback)
+    fs.open(str(tmp_path / file2), mode="rb", compression="infer")
+    with fs.open(str(tmp_path / file2), mode="w") as f:
+        f.write("Hello World")
+    fs.put(str(tmp_path / file2), str(put_path / file2))
+
+    assert (tmp_path / file1).is_file()
+    assert (tmp_path / file2).is_file()
+    assert (put_path / file2).is_file()
+    assert (cache_path / file2).is_file() is same_names
+
+    # ("")
+    # import s3fs
+    # fs = s3fs.S3FileSystem(anon=True, client_kwargs={},)
+    # fs = CallbackWholeFileCacheFileSystem(fs=fs, cache_options={
+    #             "cache_storage": str(cache_path),
+    #             "same_names": True,
+    #         })
+
+    # fs.get("s3://noaa-swpc-pds/text/3-day-geomag-forecast.txt", str(tmp_path / file3))
+    # import os
+    # print(os.listdir(str(tmp_path)))
