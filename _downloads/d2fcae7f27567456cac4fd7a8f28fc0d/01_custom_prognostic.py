@@ -48,14 +48,21 @@ In this example you will learn:
 # different devices. If your model is PyTorch, then this will be easy.
 
 # %%
+import os
+
+os.makedirs("outputs", exist_ok=True)
+from dotenv import load_dotenv
+
+load_dotenv()  # TODO: make common example prep function
+
 from collections import OrderedDict
 from collections.abc import Generator, Iterator
 
 import numpy as np
 import torch
 
-from earth2studio.models.batch import batch_func
-from earth2studio.utils import handshake_coords, handshake_dim
+from earth2studio.models.batch import batch_coords, batch_func
+from earth2studio.utils import handshake_coords, handshake_dim, handshake_size
 from earth2studio.utils.type import CoordSystem
 
 
@@ -66,25 +73,60 @@ class CustomPrognostic(torch.nn.Module):
         super().__init__()
         self.amp = noise_amplitude
 
-    input_coords = OrderedDict(
-        {
-            "batch": np.empty(0),
-            "lead_time": np.array([np.timedelta64(0, "h")]),
-            "variable": np.array(["u10m", "v10m"]),
-            "lat": np.linspace(90, -90, 721),
-            "lon": np.linspace(0, 360, 1440, endpoint=False),
-        }
-    )
+    def input_coords(self) -> CoordSystem:
+        """Input coordinate system of the prognostic model
 
-    output_coords = OrderedDict(
-        {
-            "batch": np.empty(0),
-            "lead_time": np.array([np.timedelta64(1, "h")]),
-            "variable": np.array(["u10m", "v10m"]),
-            "lat": np.linspace(90, -90, 721),
-            "lon": np.linspace(0, 360, 1440, endpoint=False),
-        }
-    )
+        Returns
+        -------
+        CoordSystem
+            Coordinate system dictionary
+        """
+        return OrderedDict(
+            {
+                "batch": np.empty(0),
+                "lead_time": np.array([np.timedelta64(0, "h")]),
+                "variable": np.array(["u10m", "v10m"]),
+                "lat": np.linspace(90, -90, 721),
+                "lon": np.linspace(0, 360, 1440, endpoint=False),
+            }
+        )
+
+    @batch_coords()
+    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
+        """Output coordinate system of the prognostic model
+
+        Parameters
+        ----------
+        input_coords : CoordSystem
+            Input coordinate system to transform into output_coords
+
+        Returns
+        -------
+        CoordSystem
+            Coordinate system dictionary
+        """
+        # Check input coordinates are valid
+        target_input_coords = self.input_coords()
+        handshake_size(input_coords, "lead_time", 1)
+        for i, (key, value) in enumerate(target_input_coords.items()):
+            handshake_dim(input_coords, key, i)
+            if key not in ["batch", "lead_time"]:
+                handshake_coords(input_coords, target_input_coords, key)
+        # Build output coordinates
+        output_coords = OrderedDict(
+            {
+                "batch": np.empty(0),
+                "lead_time": np.array([np.timedelta64(1, "h")]),
+                "variable": np.array(["u10m", "v10m"]),
+                "lat": np.linspace(90, -90, 721),
+                "lon": np.linspace(0, 360, 1440, endpoint=False),
+            }
+        )
+        output_coords["batch"] = input_coords["batch"]
+        output_coords["lead_time"] = (
+            output_coords["lead_time"] + input_coords["lead_time"]
+        )
+        return output_coords
 
     @batch_func()
     def __call__(
@@ -101,13 +143,7 @@ class CustomPrognostic(torch.nn.Module):
         coords : CoordSystem
             Input coordinate system
         """
-        for i, (key, value) in enumerate(self.input_coords.items()):
-            if key != "batch":
-                handshake_dim(coords, key, i)
-                handshake_coords(coords, self.input_coords, key)
-
-        out_coords = coords.copy()
-        out_coords["lead_time"] = self.output_coords["lead_time"]
+        out_coords = self.output_coords(coords)
         out = x + self.amp * torch.rand_like(x)
 
         return out, out_coords
@@ -117,21 +153,14 @@ class CustomPrognostic(torch.nn.Module):
         self, x: torch.Tensor, coords: CoordSystem
     ) -> Generator[tuple[torch.Tensor, CoordSystem], None, None]:
         """Create prognostic generator"""
-        coords = coords.copy()
-
-        for i, (key, value) in enumerate(self.input_coords.items()):
-            if key != "batch":
-                handshake_dim(coords, key, i)
-                handshake_coords(coords, self.input_coords, key)
-
+        self.output_coords(coords)
         # First time-step should always be the initial state
         yield x, coords
 
-        out_coords = coords.copy()
         while True:
-            out_coords["lead_time"] += self.output_coords["lead_time"]
+            coords = self.output_coords(coords)
             x = x + self.amp * torch.randn_like(x)
-            yield x, out_coords
+            yield x, coords
 
     def create_iterator(
         self, x: torch.Tensor, coords: CoordSystem
@@ -155,9 +184,28 @@ class CustomPrognostic(torch.nn.Module):
 # ~~~~~~~~~~~~~~~~~~~~~~~~
 # Defining the input/output coordinate systems is essential for any model in
 # Earth2Studio since this is how both the package and users can learn what type of data
-# the model expects. Have a look at :ref:`coordinates_userguide` for details on
-# coordinate system. Here, we define the input output coords to be the surface winds
-# and give the model a time-step size of 1 hour.
+# the model expects. Ensuring this is correct will set an prognostic model up for
+# success. Have a look at :ref:`coordinates_userguide` for details on
+# coordinate system.
+#
+# This requires the definition of two functions, :py:func:`input_coords` and
+# :py:func:`output_coords` :
+#
+# * :py:func:`input_coords` : A function that returns the expected input coordinate
+#   system of the model. A new dictionary should be returned every time.
+#
+# * :py:func:`output_coords` : A function that returns the expected output coordinate
+#   system of the model *given* an input coordinate system. This function should also
+#   validate the input coordinate dictionary.
+#
+# Here, we define the input output coords to be the surface winds and give the model a
+# time-step size of 1 hour. Thus :py:func:`output_coords` updates the lead time by one
+# hour.
+#
+# .. note::
+#   Note the :py:func:`batch_coords` decorator which automates the handling of
+#   batched coordinate systems. For more details about this refer to the :ref:`batch_function_userguide`
+#   section of the user guide.
 
 # %%
 # :py:func:`__call__` API
@@ -168,7 +216,7 @@ class CustomPrognostic(torch.nn.Module):
 # and then update the output coordinate system.
 #
 # .. note::
-#   You may notice the :py:func:`batch_func` decorator, which is used to make batched
+#   Note the :py:func:`batch_func` decorator, which is used to make batched
 #   operations easier. For more details about this refer to the :ref:`batch_function_userguide`
 #   section of the user guide.
 
@@ -208,9 +256,6 @@ class CustomPrognostic(torch.nn.Module):
 # - IO Backend: Save the outputs into a Zarr store :py:class:`earth2studio.io.ZarrBackend`.
 
 # %%
-from collections import OrderedDict
-
-import numpy as np
 from dotenv import load_dotenv
 
 load_dotenv()  # TODO: make common example prep function
@@ -248,9 +293,6 @@ print(io.root.tree())
 # become progressively more noisy as time progresses.
 
 # %%
-import os
-
-os.makedirs("outputs", exist_ok=True)
 import matplotlib.pyplot as plt
 
 forecast = "2024-01-01"

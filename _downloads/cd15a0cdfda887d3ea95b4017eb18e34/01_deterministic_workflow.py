@@ -54,6 +54,9 @@ In this example you will learn:
 # - IO Backend: Let's save the outputs into a Zarr store :py:class:`earth2studio.io.ZarrBackend`.
 
 # %%
+import os
+
+os.makedirs("outputs", exist_ok=True)
 from dotenv import load_dotenv
 
 load_dotenv()  # TODO: make common example prep function
@@ -101,9 +104,6 @@ print(io.root.tree())
 # Notice that the Zarr IO function has additional APIs to interact with the stored data.
 
 # %%
-import os
-
-os.makedirs("outputs", exist_ok=True)
 import cartopy.crs as ccrs
 import matplotlib.pyplot as plt
 
@@ -124,7 +124,7 @@ im = ax.pcolormesh(
     io["lat"][:],
     io[variable][0, step],
     transform=ccrs.PlateCarree(),
-    cmap="coolwarm",
+    cmap="Spectral_r",
 )
 
 # Set title

@@ -495,7 +495,14 @@ workflow won’t predict a time-series, rather just an instantaneous prediction.
 <li><p>io: IOBackend</p></li>
 <li><p>number_of_samples: Number of samples to generate from the model</p></li>
 </ul>
-<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">OrderedDict</span>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">os</span>
+
+<span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="s2">&quot;outputs&quot;</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="kn">from</span> <span class="nn">dotenv</span> <span class="kn">import</span> <span class="n">load_dotenv</span>
+
+<span class="n">load_dotenv</span><span class="p">()</span>  <span class="c1"># TODO: make common example prep function</span>
+
+<span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">OrderedDict</span>
 <span class="kn">from</span> <span class="nn">datetime</span> <span class="kn">import</span> <span class="n">datetime</span>
 
 <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
@@ -547,22 +554,23 @@ workflow won’t predict a time-series, rather just an instantaneous prediction.
     <span class="c1"># Fetch data from data source and load onto device</span>
     <span class="n">time</span> <span class="o">=</span> <span class="n">to_time_array</span><span class="p">(</span><span class="n">time</span><span class="p">)</span>
     <span class="n">x</span><span class="p">,</span> <span class="n">coords</span> <span class="o">=</span> <span class="n">prep_data_array</span><span class="p">(</span>
-        <span class="n">data</span><span class="p">(</span><span class="n">time</span><span class="p">,</span> <span class="n">corrdiff</span><span class="o">.</span><span class="n">input_coords</span><span class="p">[</span><span class="s2">&quot;variable&quot;</span><span class="p">]),</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span>
+        <span class="n">data</span><span class="p">(</span><span class="n">time</span><span class="p">,</span> <span class="n">corrdiff</span><span class="o">.</span><span class="n">input_coords</span><span class="p">()[</span><span class="s2">&quot;variable&quot;</span><span class="p">]),</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span>
     <span class="p">)</span>
-    <span class="n">x</span><span class="p">,</span> <span class="n">coords</span> <span class="o">=</span> <span class="n">map_coords</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="p">,</span> <span class="n">corrdiff</span><span class="o">.</span><span class="n">input_coords</span><span class="p">)</span>
+    <span class="n">x</span><span class="p">,</span> <span class="n">coords</span> <span class="o">=</span> <span class="n">map_coords</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="p">,</span> <span class="n">corrdiff</span><span class="o">.</span><span class="n">input_coords</span><span class="p">())</span>
 
     <span class="n">logger</span><span class="o">.</span><span class="n">success</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Fetched data from </span><span class="si">{</span><span class="n">data</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 
     <span class="c1"># Set up IO backend</span>
+    <span class="n">output_coords</span> <span class="o">=</span> <span class="n">corrdiff</span><span class="o">.</span><span class="n">output_coords</span><span class="p">(</span><span class="n">corrdiff</span><span class="o">.</span><span class="n">input_coords</span><span class="p">())</span>
     <span class="n">total_coords</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">(</span>
         <span class="p">{</span>
             <span class="s2">&quot;time&quot;</span><span class="p">:</span> <span class="n">coords</span><span class="p">[</span><span class="s2">&quot;time&quot;</span><span class="p">],</span>
-            <span class="s2">&quot;sample&quot;</span><span class="p">:</span> <span class="n">corrdiff</span><span class="o">.</span><span class="n">output_coords</span><span class="p">[</span><span class="s2">&quot;sample&quot;</span><span class="p">],</span>
-            <span class="s2">&quot;ilat&quot;</span><span class="p">:</span> <span class="n">corrdiff</span><span class="o">.</span><span class="n">output_coords</span><span class="p">[</span><span class="s2">&quot;ilat&quot;</span><span class="p">],</span>
-            <span class="s2">&quot;ilon&quot;</span><span class="p">:</span> <span class="n">corrdiff</span><span class="o">.</span><span class="n">output_coords</span><span class="p">[</span><span class="s2">&quot;ilon&quot;</span><span class="p">],</span>
+            <span class="s2">&quot;sample&quot;</span><span class="p">:</span> <span class="n">output_coords</span><span class="p">[</span><span class="s2">&quot;sample&quot;</span><span class="p">],</span>
+            <span class="s2">&quot;ilat&quot;</span><span class="p">:</span> <span class="n">output_coords</span><span class="p">[</span><span class="s2">&quot;ilat&quot;</span><span class="p">],</span>
+            <span class="s2">&quot;ilon&quot;</span><span class="p">:</span> <span class="n">output_coords</span><span class="p">[</span><span class="s2">&quot;ilon&quot;</span><span class="p">],</span>
         <span class="p">}</span>
     <span class="p">)</span>
-    <span class="n">io</span><span class="o">.</span><span class="n">add_array</span><span class="p">(</span><span class="n">total_coords</span><span class="p">,</span> <span class="n">corrdiff</span><span class="o">.</span><span class="n">output_coords</span><span class="p">[</span><span class="s2">&quot;variable&quot;</span><span class="p">])</span>
+    <span class="n">io</span><span class="o">.</span><span class="n">add_array</span><span class="p">(</span><span class="n">total_coords</span><span class="p">,</span> <span class="n">output_coords</span><span class="p">[</span><span class="s2">&quot;variable&quot;</span><span class="p">])</span>
 
     <span class="c1"># Add lat/lon grid metadata arrays</span>
     <span class="n">io</span><span class="o">.</span><span class="n">add_array</span><span class="p">(</span>
@@ -595,12 +603,8 @@ Earth-2 studio</p>
 <li><p>Datasource: Pull data from the GFS data api <a class="reference internal" href="../modules/generated/data/earth2studio.data.GFS.html#earth2studio.data.GFS" title="earth2studio.data.GFS"><code class="xref py py-class docutils literal notranslate"><span class="pre">earth2studio.data.GFS</span></code></a>.</p></li>
 <li><p>IO Backend: Save the outputs into a Zarr store <a class="reference internal" href="../modules/generated/io/earth2studio.io.ZarrBackend.html#earth2studio.io.ZarrBackend" title="earth2studio.io.ZarrBackend"><code class="xref py py-class docutils literal notranslate"><span class="pre">earth2studio.io.ZarrBackend</span></code></a>.</p></li>
 </ul>
-<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">dotenv</span> <span class="kn">import</span> <span class="n">load_dotenv</span>
-
-<span class="kn">from</span> <span class="nn">earth2studio.data</span> <span class="kn">import</span> <span class="n">GFS</span>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">earth2studio.data</span> <span class="kn">import</span> <span class="n">GFS</span>
 <span class="kn">from</span> <span class="nn">earth2studio.io</span> <span class="kn">import</span> <span class="n">ZarrBackend</span>
-
-<span class="n">load_dotenv</span><span class="p">()</span>  <span class="c1"># TODO: make common example prep function</span>
 
 <span class="c1"># Create CorrDiff model</span>
 <span class="n">package</span> <span class="o">=</span> <span class="n">CorrDiffTaiwan</span><span class="o">.</span><span class="n">load_default_package</span><span class="p">()</span>
@@ -625,75 +629,75 @@ Typhoon Koinu.</p>
 <div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="n">io</span> <span class="o">=</span> <span class="n">run</span><span class="p">([</span><span class="s2">&quot;2023-10-04T18:00:00&quot;</span><span class="p">],</span> <span class="n">corrdiff</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">io</span><span class="p">,</span> <span class="n">number_of_samples</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
 </pre></div>
 </div>
-<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>2024-05-28 06:01:04.010 | INFO     | __main__:run:101 - Running corrdiff inference!
-2024-05-28 06:01:04.011 | INFO     | __main__:run:103 - Inference device: cuda
-2024-05-28 06:01:04.090 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:149 - Fetching GFS index file: 2023-10-04 18:00:00
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>2024-06-24 21:08:21.314 | INFO     | __main__:run:108 - Running corrdiff inference!
+2024-06-24 21:08:21.314 | INFO     | __main__:run:110 - Inference device: cuda
+2024-06-24 21:08:21.402 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:149 - Fetching GFS index file: 2023-10-04 18:00:00
 
 Fetching GFS for 2023-10-04 18:00:00:   0%|          | 0/12 [00:00&lt;?, ?it/s]
 
-2024-05-28 06:01:04.458 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:196 - Fetching GFS grib file for variable: tcwv at 2023-10-04 18:00:00
+2024-06-24 21:08:21.752 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:196 - Fetching GFS grib file for variable: tcwv at 2023-10-04 18:00:00
 
 Fetching GFS for 2023-10-04 18:00:00:   0%|          | 0/12 [00:00&lt;?, ?it/s]
-Fetching GFS for 2023-10-04 18:00:00:   8%|▊         | 1/12 [00:00&lt;00:07,  1.48it/s]
+Fetching GFS for 2023-10-04 18:00:00:   8%|▊         | 1/12 [00:08&lt;01:38,  8.94s/it]
 
-2024-05-28 06:01:05.133 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:196 - Fetching GFS grib file for variable: z500 at 2023-10-04 18:00:00
+2024-06-24 21:08:30.694 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:196 - Fetching GFS grib file for variable: z500 at 2023-10-04 18:00:00
 
-Fetching GFS for 2023-10-04 18:00:00:   8%|▊         | 1/12 [00:00&lt;00:07,  1.48it/s]
-Fetching GFS for 2023-10-04 18:00:00:  17%|█▋        | 2/12 [00:01&lt;00:04,  2.11it/s]
+Fetching GFS for 2023-10-04 18:00:00:   8%|▊         | 1/12 [00:08&lt;01:38,  8.94s/it]
+Fetching GFS for 2023-10-04 18:00:00:  17%|█▋        | 2/12 [00:15&lt;01:16,  7.65s/it]
 
-2024-05-28 06:01:05.466 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:196 - Fetching GFS grib file for variable: t500 at 2023-10-04 18:00:00
+2024-06-24 21:08:37.441 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:196 - Fetching GFS grib file for variable: t500 at 2023-10-04 18:00:00
 
-Fetching GFS for 2023-10-04 18:00:00:  17%|█▋        | 2/12 [00:01&lt;00:04,  2.11it/s]
-Fetching GFS for 2023-10-04 18:00:00:  25%|██▌       | 3/12 [00:01&lt;00:03,  2.65it/s]
+Fetching GFS for 2023-10-04 18:00:00:  17%|█▋        | 2/12 [00:15&lt;01:16,  7.65s/it]
+Fetching GFS for 2023-10-04 18:00:00:  25%|██▌       | 3/12 [00:25&lt;01:18,  8.69s/it]
 
-2024-05-28 06:01:05.730 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:196 - Fetching GFS grib file for variable: u500 at 2023-10-04 18:00:00
+2024-06-24 21:08:47.364 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:196 - Fetching GFS grib file for variable: u500 at 2023-10-04 18:00:00
 
-Fetching GFS for 2023-10-04 18:00:00:  25%|██▌       | 3/12 [00:01&lt;00:03,  2.65it/s]
-Fetching GFS for 2023-10-04 18:00:00:  33%|███▎      | 4/12 [00:01&lt;00:02,  3.03it/s]
+Fetching GFS for 2023-10-04 18:00:00:  25%|██▌       | 3/12 [00:25&lt;01:18,  8.69s/it]
+Fetching GFS for 2023-10-04 18:00:00:  33%|███▎      | 4/12 [00:34&lt;01:10,  8.86s/it]
 
-2024-05-28 06:01:05.987 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:196 - Fetching GFS grib file for variable: v500 at 2023-10-04 18:00:00
+2024-06-24 21:08:56.479 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:196 - Fetching GFS grib file for variable: v500 at 2023-10-04 18:00:00
 
-Fetching GFS for 2023-10-04 18:00:00:  33%|███▎      | 4/12 [00:01&lt;00:02,  3.03it/s]
-Fetching GFS for 2023-10-04 18:00:00:  42%|████▏     | 5/12 [00:01&lt;00:02,  3.35it/s]
+Fetching GFS for 2023-10-04 18:00:00:  33%|███▎      | 4/12 [00:34&lt;01:10,  8.86s/it]
+Fetching GFS for 2023-10-04 18:00:00:  42%|████▏     | 5/12 [01:39&lt;03:23, 29.09s/it]
 
-2024-05-28 06:01:06.231 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:196 - Fetching GFS grib file for variable: z850 at 2023-10-04 18:00:00
+2024-06-24 21:10:01.434 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:196 - Fetching GFS grib file for variable: z850 at 2023-10-04 18:00:00
 
-Fetching GFS for 2023-10-04 18:00:00:  42%|████▏     | 5/12 [00:01&lt;00:02,  3.35it/s]
-Fetching GFS for 2023-10-04 18:00:00:  50%|█████     | 6/12 [00:02&lt;00:01,  3.38it/s]
+Fetching GFS for 2023-10-04 18:00:00:  42%|████▏     | 5/12 [01:39&lt;03:23, 29.09s/it]
+Fetching GFS for 2023-10-04 18:00:00:  50%|█████     | 6/12 [02:56&lt;04:31, 45.23s/it]
 
-2024-05-28 06:01:06.520 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:196 - Fetching GFS grib file for variable: t850 at 2023-10-04 18:00:00
+2024-06-24 21:11:18.013 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:196 - Fetching GFS grib file for variable: t850 at 2023-10-04 18:00:00
 
-Fetching GFS for 2023-10-04 18:00:00:  50%|█████     | 6/12 [00:02&lt;00:01,  3.38it/s]
-Fetching GFS for 2023-10-04 18:00:00:  58%|█████▊    | 7/12 [00:02&lt;00:01,  3.51it/s]
+Fetching GFS for 2023-10-04 18:00:00:  50%|█████     | 6/12 [02:56&lt;04:31, 45.23s/it]
+Fetching GFS for 2023-10-04 18:00:00:  58%|█████▊    | 7/12 [04:32&lt;05:09, 61.93s/it]
 
-2024-05-28 06:01:06.784 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:196 - Fetching GFS grib file for variable: u850 at 2023-10-04 18:00:00
+2024-06-24 21:12:54.313 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:196 - Fetching GFS grib file for variable: u850 at 2023-10-04 18:00:00
 
-Fetching GFS for 2023-10-04 18:00:00:  58%|█████▊    | 7/12 [00:02&lt;00:01,  3.51it/s]
-Fetching GFS for 2023-10-04 18:00:00:  67%|██████▋   | 8/12 [00:02&lt;00:01,  3.48it/s]
+Fetching GFS for 2023-10-04 18:00:00:  58%|█████▊    | 7/12 [04:32&lt;05:09, 61.93s/it]
+Fetching GFS for 2023-10-04 18:00:00:  67%|██████▋   | 8/12 [04:33&lt;02:50, 42.51s/it]
 
-2024-05-28 06:01:07.074 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:196 - Fetching GFS grib file for variable: v850 at 2023-10-04 18:00:00
+2024-06-24 21:12:55.230 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:196 - Fetching GFS grib file for variable: v850 at 2023-10-04 18:00:00
 
-Fetching GFS for 2023-10-04 18:00:00:  67%|██████▋   | 8/12 [00:02&lt;00:01,  3.48it/s]
-Fetching GFS for 2023-10-04 18:00:00:  75%|███████▌  | 9/12 [00:02&lt;00:00,  3.60it/s]
+Fetching GFS for 2023-10-04 18:00:00:  67%|██████▋   | 8/12 [04:33&lt;02:50, 42.51s/it]
+Fetching GFS for 2023-10-04 18:00:00:  75%|███████▌  | 9/12 [04:33&lt;01:28, 29.34s/it]
 
-2024-05-28 06:01:07.332 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:196 - Fetching GFS grib file for variable: t2m at 2023-10-04 18:00:00
+2024-06-24 21:12:55.610 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:196 - Fetching GFS grib file for variable: t2m at 2023-10-04 18:00:00
 
-Fetching GFS for 2023-10-04 18:00:00:  75%|███████▌  | 9/12 [00:02&lt;00:00,  3.60it/s]
-Fetching GFS for 2023-10-04 18:00:00:  83%|████████▎ | 10/12 [00:03&lt;00:00,  3.57it/s]
+Fetching GFS for 2023-10-04 18:00:00:  75%|███████▌  | 9/12 [04:33&lt;01:28, 29.34s/it]
+Fetching GFS for 2023-10-04 18:00:00:  83%|████████▎ | 10/12 [04:34&lt;00:40, 20.44s/it]
 
-2024-05-28 06:01:07.617 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:196 - Fetching GFS grib file for variable: u10m at 2023-10-04 18:00:00
+2024-06-24 21:12:56.136 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:196 - Fetching GFS grib file for variable: u10m at 2023-10-04 18:00:00
 
-Fetching GFS for 2023-10-04 18:00:00:  83%|████████▎ | 10/12 [00:03&lt;00:00,  3.57it/s]
-Fetching GFS for 2023-10-04 18:00:00:  92%|█████████▏| 11/12 [00:03&lt;00:00,  3.42it/s]
+Fetching GFS for 2023-10-04 18:00:00:  83%|████████▎ | 10/12 [04:34&lt;00:40, 20.44s/it]
+Fetching GFS for 2023-10-04 18:00:00:  92%|█████████▏| 11/12 [04:34&lt;00:14, 14.28s/it]
 
-2024-05-28 06:01:07.939 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:196 - Fetching GFS grib file for variable: v10m at 2023-10-04 18:00:00
+2024-06-24 21:12:56.451 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:196 - Fetching GFS grib file for variable: v10m at 2023-10-04 18:00:00
 
-Fetching GFS for 2023-10-04 18:00:00:  92%|█████████▏| 11/12 [00:03&lt;00:00,  3.42it/s]
-Fetching GFS for 2023-10-04 18:00:00: 100%|██████████| 12/12 [00:03&lt;00:00,  3.55it/s]
-Fetching GFS for 2023-10-04 18:00:00: 100%|██████████| 12/12 [00:03&lt;00:00,  3.21it/s]
-2024-05-28 06:01:08.219 | SUCCESS  | __main__:run:116 - Fetched data from GFS
-2024-05-28 06:01:08.223 | INFO     | __main__:run:141 - Inference starting!
-2024-05-28 06:01:09.467 | SUCCESS  | __main__:run:145 - Inference complete
+Fetching GFS for 2023-10-04 18:00:00:  92%|█████████▏| 11/12 [04:34&lt;00:14, 14.28s/it]
+Fetching GFS for 2023-10-04 18:00:00: 100%|██████████| 12/12 [04:35&lt;00:00, 10.06s/it]
+Fetching GFS for 2023-10-04 18:00:00: 100%|██████████| 12/12 [04:35&lt;00:00, 22.93s/it]
+2024-06-24 21:12:56.879 | SUCCESS  | __main__:run:123 - Fetched data from GFS
+2024-06-24 21:12:56.884 | INFO     | __main__:run:149 - Inference starting!
+2024-06-24 21:12:58.118 | SUCCESS  | __main__:run:153 - Inference complete
 </pre></div>
 </div>
 </section>
@@ -750,14 +754,14 @@ fields on projections of a sphere.</p>
 <span class="n">ax2</span><span class="o">.</span><span class="n">gridlines</span><span class="p">()</span>
 <span class="n">ax2</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s2">&quot;10-meter Wind Speed&quot;</span><span class="p">)</span>
 
-<span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="s2">&quot;outputs/03_corr_diff_prediction.jpg&quot;</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="s2">&quot;outputs/04_corr_diff_prediction.jpg&quot;</span><span class="p">)</span>
 </pre></div>
 </div>
 <img src="../_images/sphx_glr_04_corrdiff_inference_001.png" srcset="../_images/sphx_glr_04_corrdiff_inference_001.png, ../_images/sphx_glr_04_corrdiff_inference_001_2_00x.png 2.00x" alt="Radar Reflectivity, 2-meter Temperature, 10-meter Wind Speed" class = "sphx-glr-single-img"/><div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>/usr/local/lib/python3.10/dist-packages/cartopy/io/__init__.py:241: DownloadWarning: Downloading: https://naturalearth.s3.amazonaws.com/10m_physical/ne_10m_coastline.zip
   warnings.warn(f&#39;Downloading: {url}&#39;, DownloadWarning)
 </pre></div>
 </div>
-<p class="sphx-glr-timing"><strong>Total running time of the script:</strong> (0 minutes 13.695 seconds)</p>
+<p class="sphx-glr-timing"><strong>Total running time of the script:</strong> (4 minutes 57.361 seconds)</p>
 <div class="sphx-glr-footer sphx-glr-footer-example docutils container" id="sphx-glr-download-examples-04-corrdiff-inference-py">
 <div class="sphx-glr-download sphx-glr-download-jupyter docutils container">
 <p><a class="reference download internal" download="" href="../_downloads/b51eda1a0f4fa88ff0d60a618e4fc3db/04_corrdiff_inference.ipynb"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">Jupyter</span> <span class="pre">notebook:</span> <span class="pre">04_corrdiff_inference.ipynb</span></code></a></p>
