@@ -582,17 +582,15 @@ document.write(`
         <span class="bp">self</span><span class="o">.</span><span class="n">device</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">device</span>  <span class="c1"># Hack to get default device</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">ort</span> <span class="o">=</span> <span class="kc">None</span>
 
-    <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">input_coords</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">CoordSystem</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Input coordinate system of prognostic model, time dimension should contain</span>
-<span class="sd">        time-delta objects</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Input coordinate system of the prognostic model</span>
 
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
 <span class="sd">        CoordSystem</span>
 <span class="sd">            Coordinate system dictionary</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_input_coords</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_input_coords</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
 
     <span class="nd">@batch_coords</span><span class="p">()</span>
     <span class="k">def</span> <span class="nf">output_coords</span><span class="p">(</span>
@@ -605,7 +603,6 @@ document.write(`
 <span class="sd">        ----------</span>
 <span class="sd">        input_coords : CoordSystem</span>
 <span class="sd">            Input coordinate system to transform into output_coords</span>
-<span class="sd">            by default None, will use self.input_coords.</span>
 
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
@@ -618,10 +615,11 @@ document.write(`
         <span class="n">test_coords</span><span class="p">[</span><span class="s2">&quot;lead_time&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
             <span class="n">test_coords</span><span class="p">[</span><span class="s2">&quot;lead_time&quot;</span><span class="p">]</span> <span class="o">-</span> <span class="n">input_coords</span><span class="p">[</span><span class="s2">&quot;lead_time&quot;</span><span class="p">][</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
         <span class="p">)</span>
-        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">key</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">input_coords</span><span class="p">):</span>
+        <span class="n">target_input_coords</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">input_coords</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">key</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">target_input_coords</span><span class="p">):</span>
             <span class="k">if</span> <span class="n">key</span> <span class="o">!=</span> <span class="s2">&quot;batch&quot;</span><span class="p">:</span>
                 <span class="n">handshake_dim</span><span class="p">(</span><span class="n">test_coords</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">i</span><span class="p">)</span>
-                <span class="n">handshake_coords</span><span class="p">(</span><span class="n">test_coords</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">input_coords</span><span class="p">,</span> <span class="n">key</span><span class="p">)</span>
+                <span class="n">handshake_coords</span><span class="p">(</span><span class="n">test_coords</span><span class="p">,</span> <span class="n">target_input_coords</span><span class="p">,</span> <span class="n">key</span><span class="p">)</span>
 
         <span class="n">output_coords</span><span class="p">[</span><span class="s2">&quot;batch&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">input_coords</span><span class="p">[</span><span class="s2">&quot;batch&quot;</span><span class="p">]</span>
         <span class="n">output_coords</span><span class="p">[</span><span class="s2">&quot;lead_time&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>

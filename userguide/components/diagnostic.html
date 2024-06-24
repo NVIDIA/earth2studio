@@ -520,7 +520,6 @@ the API documentation <a class="reference internal" href="../../modules/models.h
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">pass</span>
 
-    <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">input_coords</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">CoordSystem</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Input coordinate system of diagnostic model</span>
 
@@ -532,18 +531,23 @@ the API documentation <a class="reference internal" href="../../modules/models.h
         <span class="k">pass</span>
 
     <span class="k">def</span> <span class="nf">output_coords</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_coords</span><span class="p">:</span> <span class="n">CoordSystem</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">CoordSystem</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Output coordinate system of diagnostic model</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Output coordinate system of the prognostic model give an input coordinate</span>
+<span class="sd">        system.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
 <span class="sd">        input_coords : CoordSystem</span>
 <span class="sd">            Input coordinate system to transform into output_coords</span>
 
-
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
 <span class="sd">        CoordSystem</span>
 <span class="sd">            Coordinate system dictionary</span>
+
+<span class="sd">        Raises</span>
+<span class="sd">        ------</span>
+<span class="sd">        ValueError</span>
+<span class="sd">            If input_coords are not valid</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">pass</span>
 

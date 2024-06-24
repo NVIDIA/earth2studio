@@ -134,7 +134,7 @@ output, output_coords = model(input, input_coords)
 print("Output:", output.size(), output_coords)
 ```
 
-The input of the model print:
+The output of the following script will be:
 
 <!-- markdownlint-disable MD013 -->
 ```console

@@ -49,7 +49,7 @@ Starting with the constructor, prognostic models should typically be torch modul
 Models need to have a :py:obj:`to(device)` method that can move the model between
 different devices. If your model is PyTorch, then this will be easy.
 
-.. GENERATED FROM PYTHON SOURCE LINES 51-153
+.. GENERATED FROM PYTHON SOURCE LINES 51-175
 
 .. code-block:: Python
 
@@ -59,8 +59,8 @@ different devices. If your model is PyTorch, then this will be easy.
     import numpy as np
     import torch
 
-    from earth2studio.models.batch import batch_func
-    from earth2studio.utils import handshake_coords, handshake_dim
+    from earth2studio.models.batch import batch_coords, batch_func
+    from earth2studio.utils import handshake_coords, handshake_dim, handshake_size
     from earth2studio.utils.type import CoordSystem
 
 
@@ -71,25 +71,60 @@ different devices. If your model is PyTorch, then this will be easy.
             super().__init__()
             self.amp = noise_amplitude
 
-        input_coords = OrderedDict(
-            {
-                "batch": np.empty(0),
-                "lead_time": np.array([np.timedelta64(0, "h")]),
-                "variable": np.array(["u10m", "v10m"]),
-                "lat": np.linspace(90, -90, 721),
-                "lon": np.linspace(0, 360, 1440, endpoint=False),
-            }
-        )
+        def input_coords(self) -> CoordSystem:
+            """Input coordinate system of the prognostic model
 
-        output_coords = OrderedDict(
-            {
-                "batch": np.empty(0),
-                "lead_time": np.array([np.timedelta64(1, "h")]),
-                "variable": np.array(["u10m", "v10m"]),
-                "lat": np.linspace(90, -90, 721),
-                "lon": np.linspace(0, 360, 1440, endpoint=False),
-            }
-        )
+            Returns
+            -------
+            CoordSystem
+                Coordinate system dictionary
+            """
+            return OrderedDict(
+                {
+                    "batch": np.empty(0),
+                    "lead_time": np.array([np.timedelta64(0, "h")]),
+                    "variable": np.array(["u10m", "v10m"]),
+                    "lat": np.linspace(90, -90, 721),
+                    "lon": np.linspace(0, 360, 1440, endpoint=False),
+                }
+            )
+
+        @batch_coords()
+        def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
+            """Output coordinate system of the prognostic model
+
+            Parameters
+            ----------
+            input_coords : CoordSystem
+                Input coordinate system to transform into output_coords
+
+            Returns
+            -------
+            CoordSystem
+                Coordinate system dictionary
+            """
+            # Check input coordinates are valid
+            target_input_coords = self.input_coords()
+            handshake_size(input_coords, "lead_time", 1)
+            for i, (key, value) in enumerate(target_input_coords.items()):
+                handshake_dim(input_coords, key, i)
+                if key not in ["batch", "lead_time"]:
+                    handshake_coords(input_coords, target_input_coords, key)
+            # Build output coordinates
+            output_coords = OrderedDict(
+                {
+                    "batch": np.empty(0),
+                    "lead_time": np.array([np.timedelta64(1, "h")]),
+                    "variable": np.array(["u10m", "v10m"]),
+                    "lat": np.linspace(90, -90, 721),
+                    "lon": np.linspace(0, 360, 1440, endpoint=False),
+                }
+            )
+            output_coords["batch"] = input_coords["batch"]
+            output_coords["lead_time"] = (
+                output_coords["lead_time"] + input_coords["lead_time"]
+            )
+            return output_coords
 
         @batch_func()
         def __call__(
@@ -106,13 +141,7 @@ different devices. If your model is PyTorch, then this will be easy.
             coords : CoordSystem
                 Input coordinate system
             """
-            for i, (key, value) in enumerate(self.input_coords.items()):
-                if key != "batch":
-                    handshake_dim(coords, key, i)
-                    handshake_coords(coords, self.input_coords, key)
-
-            out_coords = coords.copy()
-            out_coords["lead_time"] = self.output_coords["lead_time"]
+            out_coords = self.output_coords(coords)
             out = x + self.amp * torch.rand_like(x)
 
             return out, out_coords
@@ -122,21 +151,14 @@ different devices. If your model is PyTorch, then this will be easy.
             self, x: torch.Tensor, coords: CoordSystem
         ) -> Generator[tuple[torch.Tensor, CoordSystem], None, None]:
             """Create prognostic generator"""
-            coords = coords.copy()
-
-            for i, (key, value) in enumerate(self.input_coords.items()):
-                if key != "batch":
-                    handshake_dim(coords, key, i)
-                    handshake_coords(coords, self.input_coords, key)
-
+            self.output_coords(coords)
             # First time-step should always be the initial state
             yield x, coords
 
-            out_coords = coords.copy()
             while True:
-                out_coords["lead_time"] += self.output_coords["lead_time"]
+                coords = self.output_coords(coords)
                 x = x + self.amp * torch.randn_like(x)
-                yield x, out_coords
+                yield x, coords
 
         def create_iterator(
             self, x: torch.Tensor, coords: CoordSystem
@@ -156,17 +178,36 @@ different devices. If your model is PyTorch, then this will be easy.
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 154-161
+.. GENERATED FROM PYTHON SOURCE LINES 176-202
 
 Input/Output Coordinates
 ~~~~~~~~~~~~~~~~~~~~~~~~
 Defining the input/output coordinate systems is essential for any model in
 Earth2Studio since this is how both the package and users can learn what type of data
-the model expects. Have a look at :ref:`coordinates_userguide` for details on
-coordinate system. Here, we define the input output coords to be the surface winds
-and give the model a time-step size of 1 hour.
+the model expects. Ensuring this is correct will set an prognostic model up for
+success. Have a look at :ref:`coordinates_userguide` for details on
+coordinate system.
 
-.. GENERATED FROM PYTHON SOURCE LINES 163-174
+This requires the definition of two functions, :py:func:`input_coords` and
+:py:func:`output_coords` :
+
+* :py:func:`input_coords` : A function that returns the expected input coordinate
+  system of the model. A new dictionary should be returned every time.
+
+* :py:func:`output_coords` : A function that returns the expected output coordinate
+  system of the model *given* an input coordinate system. This function should also
+  validate the input coordinate dictionary.
+
+Here, we define the input output coords to be the surface winds and give the model a
+time-step size of 1 hour. Thus :py:func:`output_coords` updates the lead time by one
+hour.
+
+.. note::
+  Note the :py:func:`batch_coords` decorator which automates the handling of
+  batched coordinate systems. For more details about this refer to the :ref:`batch_function_userguide`
+  section of the user guide.
+
+.. GENERATED FROM PYTHON SOURCE LINES 204-215
 
 :py:func:`__call__` API
 ~~~~~~~~~~~~~~~~~~~~~~~
@@ -176,11 +217,11 @@ what the model expects. Next, we execute the forward pass of our model (apply no
 and then update the output coordinate system.
 
 .. note::
-  You may notice the :py:func:`batch_func` decorator, which is used to make batched
+  Note the :py:func:`batch_func` decorator, which is used to make batched
   operations easier. For more details about this refer to the :ref:`batch_function_userguide`
   section of the user guide.
 
-.. GENERATED FROM PYTHON SOURCE LINES 176-190
+.. GENERATED FROM PYTHON SOURCE LINES 217-231
 
 :py:func:`create_iterator` API
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -197,21 +238,21 @@ Since this model is auto regressive, it can theoretically index in time forever.
 we make the generator an infinite loop. Keep in mind that generators execute on
 demand, so this infinite loop won't cause the program to get stuck.
 
-.. GENERATED FROM PYTHON SOURCE LINES 192-196
+.. GENERATED FROM PYTHON SOURCE LINES 233-237
 
 .. warning::
     It is the responsibility of the model check if the input tensor and coordinate
     system are indeed valid. The :py:func:`earth2studio.utils.coords.handshake_coords`
     and :py:func:`earth2studio.utils.coords.handshake_dim` can help make this easier.
 
-.. GENERATED FROM PYTHON SOURCE LINES 198-202
+.. GENERATED FROM PYTHON SOURCE LINES 239-243
 
 Set Up
 ------
 With the custom prognostic defined, it's now easily usable in a standard workflow. In
 this example, we will use the build in workflow :py:meth:`earth2studio.run.deterministic`.
 
-.. GENERATED FROM PYTHON SOURCE LINES 204-209
+.. GENERATED FROM PYTHON SOURCE LINES 245-250
 
 Let's instantiate the components needed.
 
@@ -219,13 +260,10 @@ Let's instantiate the components needed.
 - Datasource: Pull data from the GFS data api :py:class:`earth2studio.data.GFS`.
 - IO Backend: Save the outputs into a Zarr store :py:class:`earth2studio.io.ZarrBackend`.
 
-.. GENERATED FROM PYTHON SOURCE LINES 211-230
+.. GENERATED FROM PYTHON SOURCE LINES 252-268
 
 .. code-block:: Python
 
-    from collections import OrderedDict
-
-    import numpy as np
     from dotenv import load_dotenv
 
     load_dotenv()  # TODO: make common example prep function
@@ -243,14 +281,14 @@ Let's instantiate the components needed.
     io = ZarrBackend()
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 231-235
+.. GENERATED FROM PYTHON SOURCE LINES 269-273
 
 Execute the Workflow
 --------------------
 Because the prognostic meets the needs of the interface, the workflow will execute
 just like any other model.
 
-.. GENERATED FROM PYTHON SOURCE LINES 237-244
+.. GENERATED FROM PYTHON SOURCE LINES 275-282
 
 .. code-block:: Python
 
@@ -262,14 +300,14 @@ just like any other model.
     print(io.root.tree())
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 245-249
+.. GENERATED FROM PYTHON SOURCE LINES 283-287
 
 Post Processing
 ---------------
 To confirm that our prognostic model is working as expected, we should see the fields
 become progressively more noisy as time progresses.
 
-.. GENERATED FROM PYTHON SOURCE LINES 251-280
+.. GENERATED FROM PYTHON SOURCE LINES 289-318
 
 .. code-block:: Python
 

@@ -618,6 +618,120 @@ The bulk of these can be found in the <a class="reference internal" href="../../
 <p>🚧 Under construction, todo: add some example here! 🚧</p>
 </div>
 </section>
+<section id="model-coordinates">
+<h3>Model Coordinates<a class="headerlink" href="#model-coordinates" title="Link to this heading">#</a></h3>
+<p>Models are components where coordinate systems are essential both, for defining what
+data is needed and also what data is produced. Both <a class="reference internal" href="../components/prognostic.html#prognostic-model-userguide"><span class="std std-ref">Prognostic Models</span></a>
+and <a class="reference internal" href="../components/diagnostic.html#diagnostic-model-userguide"><span class="std std-ref">Diagnostic Models</span></a> require two functions that serve coordinate
+information:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">input_coords()</span></code> : A function that returns the expected input coordinate
+system of the model. A new dictionary should be returned every time.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">output_coords()</span></code> : A function that returns the expected output coordinate
+system of the model <em>given</em> an input coordinate system. This function should also
+validate the input coordinate dictionary.</p></li>
+</ul>
+<p>For an example, consider the FourCastNet model’s implementations:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span>    <span class="k">def</span> <span class="nf">input_coords</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">CoordSystem</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Input coordinate system of the prognostic model</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        CoordSystem</span>
+<span class="sd">            Coordinate system dictionary</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">OrderedDict</span><span class="p">(</span>
+            <span class="p">{</span>
+                <span class="s2">&quot;batch&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span>
+                <span class="s2">&quot;lead_time&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">np</span><span class="o">.</span><span class="n">timedelta64</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;h&quot;</span><span class="p">)]),</span>
+                <span class="s2">&quot;variable&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">VARIABLES</span><span class="p">),</span>
+                <span class="s2">&quot;lat&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">90</span><span class="p">,</span> <span class="o">-</span><span class="mi">90</span><span class="p">,</span> <span class="mi">720</span><span class="p">,</span> <span class="n">endpoint</span><span class="o">=</span><span class="kc">False</span><span class="p">),</span>
+                <span class="s2">&quot;lon&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">360</span><span class="p">,</span> <span class="mi">1440</span><span class="p">,</span> <span class="n">endpoint</span><span class="o">=</span><span class="kc">False</span><span class="p">),</span>
+            <span class="p">}</span>
+        <span class="p">)</span>
+
+    <span class="nd">@batch_coords</span><span class="p">()</span>
+    <span class="k">def</span> <span class="nf">output_coords</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_coords</span><span class="p">:</span> <span class="n">CoordSystem</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">CoordSystem</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Output coordinate system of the prognostic model</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        input_coords : CoordSystem</span>
+<span class="sd">            Input coordinate system to transform into output_coords</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        CoordSystem</span>
+<span class="sd">            Coordinate system dictionary</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">output_coords</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">(</span>
+            <span class="p">{</span>
+                <span class="s2">&quot;batch&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span>
+                <span class="s2">&quot;lead_time&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">np</span><span class="o">.</span><span class="n">timedelta64</span><span class="p">(</span><span class="mi">6</span><span class="p">,</span> <span class="s2">&quot;h&quot;</span><span class="p">)]),</span>
+                <span class="s2">&quot;variable&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">VARIABLES</span><span class="p">),</span>
+                <span class="s2">&quot;lat&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">90</span><span class="p">,</span> <span class="o">-</span><span class="mi">90</span><span class="p">,</span> <span class="mi">720</span><span class="p">,</span> <span class="n">endpoint</span><span class="o">=</span><span class="kc">False</span><span class="p">),</span>
+                <span class="s2">&quot;lon&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">360</span><span class="p">,</span> <span class="mi">1440</span><span class="p">,</span> <span class="n">endpoint</span><span class="o">=</span><span class="kc">False</span><span class="p">),</span>
+            <span class="p">}</span>
+        <span class="p">)</span>
+
+        <span class="n">test_coords</span> <span class="o">=</span> <span class="n">input_coords</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="n">test_coords</span><span class="p">[</span><span class="s2">&quot;lead_time&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">test_coords</span><span class="p">[</span><span class="s2">&quot;lead_time&quot;</span><span class="p">]</span> <span class="o">-</span> <span class="n">input_coords</span><span class="p">[</span><span class="s2">&quot;lead_time&quot;</span><span class="p">][</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+        <span class="p">)</span>
+        <span class="n">target_input_coords</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">input_coords</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">key</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">target_input_coords</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">key</span> <span class="o">!=</span> <span class="s2">&quot;batch&quot;</span><span class="p">:</span>
+                <span class="n">handshake_dim</span><span class="p">(</span><span class="n">test_coords</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">i</span><span class="p">)</span>
+                <span class="n">handshake_coords</span><span class="p">(</span><span class="n">test_coords</span><span class="p">,</span> <span class="n">target_input_coords</span><span class="p">,</span> <span class="n">key</span><span class="p">)</span>
+
+        <span class="n">output_coords</span> <span class="o">=</span> <span class="n">output_coords</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="n">output_coords</span><span class="p">[</span><span class="s2">&quot;batch&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">input_coords</span><span class="p">[</span><span class="s2">&quot;batch&quot;</span><span class="p">]</span>
+        <span class="n">output_coords</span><span class="p">[</span><span class="s2">&quot;lead_time&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">output_coords</span><span class="p">[</span><span class="s2">&quot;lead_time&quot;</span><span class="p">]</span> <span class="o">+</span> <span class="n">input_coords</span><span class="p">[</span><span class="s2">&quot;lead_time&quot;</span><span class="p">]</span>
+        <span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">output_coords</span>
+
+</pre></div>
+</div>
+<p>The <code class="docutils literal notranslate"><span class="pre">input_coords()</span></code> function provides the spec of that is required as an input to this
+model. In the case of FourCastNet, it’s expecting a input tensor of shape <code class="docutils literal notranslate"><span class="pre">[...,1,26,720,1440]</span></code>
+which corresponds to <code class="docutils literal notranslate"><span class="pre">[...,lead,variables,lat,lon]</span></code>.</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">output_coords()</span></code> function provides validation and transformation of coordinates
+by the model. I.e. one should be able to deduce the models output data without executing
+the forward pass of the model.
+This function requires an input coordinate system that represent the input data it
+received.
+The first step is validating the <code class="docutils literal notranslate"><span class="pre">input_coords</span></code> using the coordinate handhshake utils
+functions.
+Next the output coordinate systems are built.
+This function is a place to store the complexity of a model’s forward process for
+other Earth2Studio components.</p>
+<p>We encourage users to explore the coordinate transforms of models to learn more about
+how they operate:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">earth2studio.models.px</span> <span class="kn">import</span> <span class="n">FCN</span>
+<span class="n">model</span> <span class="o">=</span> <span class="n">FCN</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+<span class="n">input_coords</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">input_coords</span><span class="p">()</span>
+<span class="n">output_coords</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">output_coords</span><span class="p">(</span><span class="n">input_coords</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Input lead:&quot;</span><span class="p">,</span> <span class="n">input_coords</span><span class="p">[</span><span class="s1">&#39;lead_time&#39;</span><span class="p">])</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Output lead:&quot;</span><span class="p">,</span> <span class="n">output_coords</span><span class="p">[</span><span class="s1">&#39;lead_time&#39;</span><span class="p">])</span>
+<span class="n">output_coords</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">output_coords</span><span class="p">(</span><span class="n">output_coords</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Output lead 2:&quot;</span><span class="p">,</span> <span class="n">output_coords</span><span class="p">[</span><span class="s1">&#39;lead_time&#39;</span><span class="p">])</span>
+</pre></div>
+</div>
+<p>The output of the following script will be:</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="go">Input coords: [0]</span>
+<span class="go">Output lead: [6]</span>
+<span class="go">Output lead 2: [12]</span>
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The batch dimension was not discussed intentially. Think about it like a free dimension.
+More information can be found in the <a class="reference internal" href="../advanced/batch.html#batch-function-userguide"><span class="std std-ref">Batch Dimension</span></a> section.</p>
+</div>
+</section>
 </section>
 <section id="inference-on-the-gpu">
 <h2>Inference on the GPU<a class="headerlink" href="#inference-on-the-gpu" title="Link to this heading">#</a></h2>
@@ -695,6 +809,7 @@ with a coordinate system attached to it!</p>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#coordinate-systems">Coordinate Systems</a><ul class="nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#standard-coordinate-names">Standard Coordinate Names</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#coordinate-utilities">Coordinate Utilities</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#model-coordinates">Model Coordinates</a></li>
 </ul>
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#inference-on-the-gpu">Inference on the GPU</a></li>
