@@ -252,4 +252,4 @@ ax2.coastlines()
 ax2.gridlines()
 ax2.set_title("10-meter Wind Speed")
 
-plt.savefig("outputs/03_corr_diff_prediction.jpg")
+plt.savefig("outputs/04_corr_diff_prediction.jpg")
