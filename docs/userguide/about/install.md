@@ -50,6 +50,15 @@ Some models require additional dependencies which are not installed by default.
 Use the optional install commands to add these dependencies.
 
 ::::{tab-set}
+:::{tab-item} CorrDiff
+
+Notes: Additional dependencies for all CorrDiff models.
+
+```bash
+pip install earth2studio[corrdiff]
+```
+
+:::
 
 :::{tab-item} FengWu
 

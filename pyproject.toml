@@ -28,14 +28,14 @@ dependencies = [
     "loguru",
     "netCDF4>=1.6.4",
     "numpy",
-    "nvidia-modulus >= 0.6.0",
+    "nvidia-modulus>=0.6.0",
     "python-dotenv",
     "s3fs>=2023.5.0",
     "setuptools>=67.6.0",
     "torch>=2.0.0",
     "torch_harmonics>=0.5.0",
     "tqdm>=4.65.0",
-    "xarray>=2023.1.0",
+    "xarray[parallel]>=2023.1.0",
     "zarr>=2.14.2",
 ]
 
@@ -76,6 +76,9 @@ sfno = [
     "tensorly", # makani
     "tensorly-torch" # makani
 ]
+corrdiff = [
+    "einops>=0.7.0",
+]
 all = [
     "onnxruntime-gpu>=1.14.0",
     "jsbeautifier",
@@ -84,7 +87,8 @@ all = [
     "ruamel.yaml",
     "torch-harmonics",
     "tensorly",
-    "tensorly-torch"
+    "tensorly-torch",
+    "einops>=0.7.0",
 ]
 dev = [
     "black==22.10.0",
