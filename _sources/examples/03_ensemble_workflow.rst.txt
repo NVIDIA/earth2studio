@@ -59,10 +59,13 @@ We need the following:
 - Datasource: Pull data from the GFS data api :py:class:`earth2studio.data.GFS`.
 - IO Backend: Save the outputs into a Zarr store :py:class:`earth2studio.io.ZarrBackend`.
 
-.. GENERATED FROM PYTHON SOURCE LINES 59-85
+.. GENERATED FROM PYTHON SOURCE LINES 59-88
 
 .. code-block:: Python
 
+    import os
+
+    os.makedirs("outputs", exist_ok=True)
     from dotenv import load_dotenv
 
     load_dotenv()  # TODO: make common example prep function
@@ -90,7 +93,7 @@ We need the following:
     io = ZarrBackend(file_name="outputs/02_ensemble_sg.zarr", chunks=chunks)
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 86-95
+.. GENERATED FROM PYTHON SOURCE LINES 89-98
 
 Execute the Workflow
 --------------------
@@ -102,7 +105,7 @@ saving to file. Check the API docs for more information.
 For the forecast we will predict for 10 steps (for FCN, this is 60 hours) with 8 ensemble
 members which will be ran in 2 batches with batch size 4.
 
-.. GENERATED FROM PYTHON SOURCE LINES 97-113
+.. GENERATED FROM PYTHON SOURCE LINES 100-116
 
 .. code-block:: Python
 
@@ -123,7 +126,7 @@ members which will be ran in 2 batches with batch size 4.
     )
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 114-120
+.. GENERATED FROM PYTHON SOURCE LINES 117-123
 
 Post Processing
 ---------------
@@ -132,7 +135,7 @@ fields on projections of a sphere.
 
 Notice that the Zarr IO function has additional APIs to interact with the stored data.
 
-.. GENERATED FROM PYTHON SOURCE LINES 122-178
+.. GENERATED FROM PYTHON SOURCE LINES 125-181
 
 .. code-block:: Python
 
@@ -160,7 +163,7 @@ Notice that the Zarr IO function has additional APIs to interact with the stored
         axi.gridlines()
 
 
-    for variable, cmap in zip(["t2m", "tcwv"], ["coolwarm", "Blues"]):
+    for variable, cmap in zip(["tcwv"], ["Blues"]):
         step = 4  # lead time = 24 hrs
 
         plt.close("all")
@@ -191,7 +194,7 @@ Notice that the Zarr IO function has additional APIs to interact with the stored
             cmap,
         )
 
-        plt.savefig(f"outputs/02_{forecast}_{variable}_{step}_ensemble.jpg")
+        plt.savefig(f"outputs/03_{forecast}_{variable}_{step}_ensemble.jpg")
 
 
 .. _sphx_glr_download_examples_03_ensemble_workflow.py:

@@ -57,10 +57,13 @@ Thus, we need the following:
 - Datasource: Pull data from the GFS data api :py:class:`earth2studio.data.GFS`.
 - IO Backend: Let's save the outputs into a Zarr store :py:class:`earth2studio.io.ZarrBackend`.
 
-.. GENERATED FROM PYTHON SOURCE LINES 57-75
+.. GENERATED FROM PYTHON SOURCE LINES 57-78
 
 .. code-block:: Python
 
+    import os
+
+    os.makedirs("outputs", exist_ok=True)
     from dotenv import load_dotenv
 
     load_dotenv()  # TODO: make common example prep function
@@ -80,7 +83,7 @@ Thus, we need the following:
     io = ZarrBackend()
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 76-85
+.. GENERATED FROM PYTHON SOURCE LINES 79-88
 
 Execute the Workflow
 --------------------
@@ -92,7 +95,7 @@ saving to file. Check the API docs for more information.
 For the forecast we will predict for two days (these will get executed as a batch) for
 20 forecast steps which is 5 days.
 
-.. GENERATED FROM PYTHON SOURCE LINES 87-94
+.. GENERATED FROM PYTHON SOURCE LINES 90-97
 
 .. code-block:: Python
 
@@ -104,7 +107,7 @@ For the forecast we will predict for two days (these will get executed as a batc
     print(io.root.tree())
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 95-102
+.. GENERATED FROM PYTHON SOURCE LINES 98-105
 
 Post Processing
 ---------------
@@ -114,13 +117,10 @@ fields on projections of a sphere. Here we will just plot the temperature at 2 m
 
 Notice that the Zarr IO function has additional APIs to interact with the stored data.
 
-.. GENERATED FROM PYTHON SOURCE LINES 104-137
+.. GENERATED FROM PYTHON SOURCE LINES 107-137
 
 .. code-block:: Python
 
-    import os
-
-    os.makedirs("outputs", exist_ok=True)
     import cartopy.crs as ccrs
     import matplotlib.pyplot as plt
 
@@ -141,7 +141,7 @@ Notice that the Zarr IO function has additional APIs to interact with the stored
         io["lat"][:],
         io[variable][0, step],
         transform=ccrs.PlateCarree(),
-        cmap="coolwarm",
+        cmap="Spectral_r",
     )
 
     # Set title

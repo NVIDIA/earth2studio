@@ -533,55 +533,34 @@ document.write(`
 <dl class="py class">
 <dt class="sig sig-object py" id="earth2studio.statistics.spread_skill_ratio">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">earth2studio.statistics.</span></span><span class="sig-name descname"><span class="pre">spread_skill_ratio</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ensemble_dimension</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reduction_dimensions</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ensemble_weights</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reduction_weights</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ensemble_batch_update</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reduction_batch_update</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/earth2studio/statistics/rmse.html#spread_skill_ratio"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.statistics.spread_skill_ratio" title="Link to this definition">#</a></dt>
-<dd><blockquote>
-<div><p>Metric for calculating the spread/skill ratio of an ensemble forecast.</p>
-<p>Specifically, the spread is defined as the standard deviation of the ensemble
+<dd><p>Metric for calculating the spread/skill ratio of an ensemble forecast.</p>
+<blockquote>
+<div><p>Specifically, the spread is defined as the standard deviation of the ensemble
 forecast. The skill is defined as the rmse of the ensemble mean prediction. The
 ratio of these two quantities is defined as the spread/skill ratio.</p>
-<dl class="simple">
-<dt>ensemble_dimension: str</dt><dd><p>The dimension over which the spread and skill are calculated over.
-This should usually be “ensemble”.</p>
-</dd>
-<dt>reduction_dimensions: list[str]</dt><dd><p>Dimensions to reduce (mean) the spread/skill ratio over. This is commonly done
-over time but can also be the globe or some region.
-Example [‘time’, ‘lat’, ‘lon’]</p>
-</dd>
-<dt>ensemble_weights: torch.Tensor = None</dt><dd><p>A one-dimensional tensor containing weights to assign to the
-ensemble_dimension.</p>
-</dd>
-<dt>reduction_weights: torch.Tensor = None</dt><dd><p>A tensor containing weights to assign to the reduction dimensions.
-Note that these weights must have the same number of dimensions
-as passed in reduction_dimensions.
-Example: if reduction_dimensions = [‘lat’, ‘lon’] then
-assert weights.ndim == 2.
-If reduction_dimensions is None, then this argument is ignored.</p>
-</dd>
-</dl>
 </div></blockquote>
-<dl>
-<dt>ensemble_batch_update: bool = False</dt><dd><blockquote>
-<div><p>Whether to applying batch updates to the ensemble mean and variance components of
-the spread and skill with each invocation of __call__.
-This is particularly useful when ensemble data is recieved in a stream of batches.
-Each invocation of __call__ will return the running spread/skill ratio.</p>
-</div></blockquote>
-<dl class="simple">
-<dt>batch_update: bool = False</dt><dd><p>Whether to applying batch updates to the reduction rmse and averaging components
-of the spread/skill with each invocation of __call__.
-This is particularly useful when time data is recieved in a stream of batches.</p>
-</dd>
-</dl>
-</dd>
-</dl>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>ensemble_dimension</strong> (<em>str</em>)</p></li>
-<li><p><strong>reduction_dimensions</strong> (<em>list</em><em>[</em><em>str</em><em>]</em>)</p></li>
-<li><p><strong>ensemble_weights</strong> (<em>Tensor</em><em> | </em><em>None</em>)</p></li>
-<li><p><strong>reduction_weights</strong> (<em>Tensor</em>)</p></li>
-<li><p><strong>ensemble_batch_update</strong> (<em>bool</em>)</p></li>
-<li><p><strong>reduction_batch_update</strong> (<em>bool</em>)</p></li>
+<li><p><strong>ensemble_dimension</strong> (<em>str</em>) – The dimension over which the spread and skill are calculated over.
+This should usually be “ensemble”.</p></li>
+<li><p><strong>reduction_dimensions</strong> (<em>list</em><em>[</em><em>str</em><em>]</em>) – Dimensions to reduce (mean) the spread/skill ratio over. This is commonly done
+over time but can also be the globe or some region.
+Example: [‘time’, ‘lat’, ‘lon’]</p></li>
+<li><p><strong>ensemble_weights</strong> (<em>torch.Tensor</em><em> | </em><em>None</em><em>, </em><em>optional</em>) – A one-dimensional tensor containing weights to assign to the ensemble_dimension,
+by default None.</p></li>
+<li><p><strong>reduction_weights</strong> (<em>torch.Tensor</em><em>, </em><em>optional</em>) – A tensor containing weights to assign to the reduction dimensions.
+Note that these weights must have the same number of dimensions
+as passed in reduction_dimensions.
+Example: if reduction_dimensions = [‘lat’, ‘lon’] then
+assert weights.ndim == 2. Ignored if None, by default None.</p></li>
+<li><p><strong>ensemble_batch_update</strong> (<em>bool</em><em>, </em><em>optional</em>) – Whether to applying batch updates to the ensemble mean and variance components
+of the spread and skill with each invocation of __call__. This is particularly
+useful when ensemble data is recieved in a stream of batches. Each invocation of
+__call__ will return the running spread/skill ratio., by default False.</p></li>
+<li><p><strong>reduction_batch_update</strong> (<em>bool</em><em>, </em><em>optional</em>) – Whether to applying batch updates to the reduction rmse and averaging components
+of the spread/skill with each invocation of __call__. This is particularly
+useful when time data is recieved in a stream of batches., by default False.</p></li>
 </ul>
 </dd>
 </dl>

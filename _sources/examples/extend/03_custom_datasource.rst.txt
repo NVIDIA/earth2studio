@@ -45,9 +45,16 @@ optimized format, however it only provides specific humidity. This is a problem 
 models that may use relative humidity as an input. Based on ECMWF documentation we can
 calculate the relative humidity based on temperature and geo-potential.
 
-.. GENERATED FROM PYTHON SOURCE LINES 47-173
+.. GENERATED FROM PYTHON SOURCE LINES 47-180
 
 .. code-block:: Python
+
+    import os
+
+    os.makedirs("outputs", exist_ok=True)
+    from dotenv import load_dotenv
+
+    load_dotenv()  # TODO: make common example prep function
 
     from datetime import datetime
 
@@ -176,7 +183,7 @@ calculate the relative humidity based on temperature and geo-potential.
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 174-181
+.. GENERATED FROM PYTHON SOURCE LINES 181-188
 
 :py:func:`__call__` API
 ~~~~~~~~~~~~~~~~~~~~~~~
@@ -186,7 +193,7 @@ variables, replace them with temperature and specific humidity requests then cal
 the relative humidity from these fields. Note that the ARCO data source is handling
 the remote complexity, we are just manipulating Numpy arrays
 
-.. GENERATED FROM PYTHON SOURCE LINES 183-191
+.. GENERATED FROM PYTHON SOURCE LINES 190-198
 
 :py:func:`calc_relative_humdity`
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -197,14 +204,14 @@ for estimating the water vapor and ice present in the atmosphere.
   See reference, equation 7.98 onwards:
   https://www.ecmwf.int/en/elibrary/81370-ifs-documentation-cy48r1-part-iv-physical-processes
 
-.. GENERATED FROM PYTHON SOURCE LINES 193-197
+.. GENERATED FROM PYTHON SOURCE LINES 200-204
 
 Verification
 ------------
 Before plugging this into our workflow, let's quickly verify our data source is
 consistent with when GFS provides for relative humidity.
 
-.. GENERATED FROM PYTHON SOURCE LINES 199-207
+.. GENERATED FROM PYTHON SOURCE LINES 206-214
 
 .. code-block:: Python
 
@@ -217,13 +224,10 @@ consistent with when GFS provides for relative humidity.
     print(da_custom)
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 208-240
+.. GENERATED FROM PYTHON SOURCE LINES 215-244
 
 .. code-block:: Python
 
-    import os
-
-    os.makedirs("outputs", exist_ok=True)
     import cartopy.crs as ccrs
     import matplotlib.pyplot as plt
 
@@ -254,7 +258,7 @@ consistent with when GFS provides for relative humidity.
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 241-252
+.. GENERATED FROM PYTHON SOURCE LINES 245-256
 
 Execute Workflow
 ----------------
@@ -268,7 +272,7 @@ Let's instantiate the components needed.
 - Datasource: Custom data source above
 - IO Backend: Save the outputs into a Zarr store :py:class:`earth2studio.io.ZarrBackend`.
 
-.. GENERATED FROM PYTHON SOURCE LINES 254-276
+.. GENERATED FROM PYTHON SOURCE LINES 258-280
 
 .. code-block:: Python
 
@@ -295,14 +299,14 @@ Let's instantiate the components needed.
     print(io.root.tree())
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 277-281
+.. GENERATED FROM PYTHON SOURCE LINES 281-285
 
 Post Processing
 ---------------
 To confirm that our model is working as expected, we will plot the total column water
 vapor field for a few time-steps.
 
-.. GENERATED FROM PYTHON SOURCE LINES 283-306
+.. GENERATED FROM PYTHON SOURCE LINES 287-310
 
 .. code-block:: Python
 

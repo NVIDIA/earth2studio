@@ -564,42 +564,39 @@ document.write(`
 <div class="viewcode-block" id="spread_skill_ratio">
 <a class="viewcode-back" href="../../../modules/generated/statistics/earth2studio.statistics.spread_skill_ratio.html#earth2studio.statistics.spread_skill_ratio">[docs]</a>
 <span class="k">class</span> <span class="nc">spread_skill_ratio</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">     Metric for calculating the spread/skill ratio of an ensemble forecast.</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Metric for calculating the spread/skill ratio of an ensemble forecast.</span>
 
 <span class="sd">     Specifically, the spread is defined as the standard deviation of the ensemble</span>
 <span class="sd">     forecast. The skill is defined as the rmse of the ensemble mean prediction. The</span>
 <span class="sd">     ratio of these two quantities is defined as the spread/skill ratio.</span>
 
-
-<span class="sd">     Parameters</span>
-<span class="sd">     ----------</span>
-<span class="sd">     ensemble_dimension: str</span>
-<span class="sd">         The dimension over which the spread and skill are calculated over.</span>
-<span class="sd">         This should usually be &quot;ensemble&quot;.</span>
-<span class="sd">     reduction_dimensions: list[str]</span>
-<span class="sd">         Dimensions to reduce (mean) the spread/skill ratio over. This is commonly done</span>
-<span class="sd">         over time but can also be the globe or some region.</span>
-<span class="sd">         Example [&#39;time&#39;, &#39;lat&#39;, &#39;lon&#39;]</span>
-<span class="sd">     ensemble_weights: torch.Tensor = None</span>
-<span class="sd">         A one-dimensional tensor containing weights to assign to the</span>
-<span class="sd">         ensemble_dimension.</span>
-<span class="sd">     reduction_weights: torch.Tensor = None</span>
-<span class="sd">         A tensor containing weights to assign to the reduction dimensions.</span>
-<span class="sd">         Note that these weights must have the same number of dimensions</span>
-<span class="sd">         as passed in reduction_dimensions.</span>
-<span class="sd">         Example: if reduction_dimensions = [&#39;lat&#39;, &#39;lon&#39;] then</span>
-<span class="sd">         assert weights.ndim == 2.</span>
-<span class="sd">         If reduction_dimensions is None, then this argument is ignored.</span>
-<span class="sd">    ensemble_batch_update: bool = False</span>
-<span class="sd">         Whether to applying batch updates to the ensemble mean and variance components of</span>
-<span class="sd">         the spread and skill with each invocation of __call__.</span>
-<span class="sd">         This is particularly useful when ensemble data is recieved in a stream of batches.</span>
-<span class="sd">         Each invocation of __call__ will return the running spread/skill ratio.</span>
-<span class="sd">     batch_update: bool = False</span>
-<span class="sd">         Whether to applying batch updates to the reduction rmse and averaging components</span>
-<span class="sd">         of the spread/skill with each invocation of __call__.</span>
-<span class="sd">         This is particularly useful when time data is recieved in a stream of batches.</span>
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    ensemble_dimension : str</span>
+<span class="sd">        The dimension over which the spread and skill are calculated over.</span>
+<span class="sd">        This should usually be &quot;ensemble&quot;.</span>
+<span class="sd">    reduction_dimensions : list[str]</span>
+<span class="sd">        Dimensions to reduce (mean) the spread/skill ratio over. This is commonly done</span>
+<span class="sd">        over time but can also be the globe or some region.</span>
+<span class="sd">        Example: [&#39;time&#39;, &#39;lat&#39;, &#39;lon&#39;]</span>
+<span class="sd">    ensemble_weights : torch.Tensor | None, optional</span>
+<span class="sd">        A one-dimensional tensor containing weights to assign to the ensemble_dimension,</span>
+<span class="sd">        by default None.</span>
+<span class="sd">    reduction_weights : torch.Tensor, optional</span>
+<span class="sd">        A tensor containing weights to assign to the reduction dimensions.</span>
+<span class="sd">        Note that these weights must have the same number of dimensions</span>
+<span class="sd">        as passed in reduction_dimensions.</span>
+<span class="sd">        Example: if reduction_dimensions = [&#39;lat&#39;, &#39;lon&#39;] then</span>
+<span class="sd">        assert weights.ndim == 2. Ignored if None, by default None.</span>
+<span class="sd">    ensemble_batch_update : bool, optional</span>
+<span class="sd">        Whether to applying batch updates to the ensemble mean and variance components</span>
+<span class="sd">        of the spread and skill with each invocation of __call__. This is particularly</span>
+<span class="sd">        useful when ensemble data is recieved in a stream of batches. Each invocation of</span>
+<span class="sd">        __call__ will return the running spread/skill ratio., by default False.</span>
+<span class="sd">    reduction_batch_update : bool, optional</span>
+<span class="sd">        Whether to applying batch updates to the reduction rmse and averaging components</span>
+<span class="sd">        of the spread/skill with each invocation of __call__. This is particularly</span>
+<span class="sd">        useful when time data is recieved in a stream of batches., by default False.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>

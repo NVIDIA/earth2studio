@@ -60,15 +60,19 @@ For example, this script could be ran using:
   When running in parallel, make sure the .env file in the repository examples
   folder is *not* present. The .env file is intended for the documentation build only.
 
-.. GENERATED FROM PYTHON SOURCE LINES 62-79
+.. GENERATED FROM PYTHON SOURCE LINES 62-83
 
 .. code-block:: Python
 
-    import numpy as np
-    import torch
+    import os
+
+    os.makedirs("outputs", exist_ok=True)
     from dotenv import load_dotenv
 
     load_dotenv()  # TODO: make common example prep function
+
+    import numpy as np
+    import torch
     from loguru import logger
     from modulus.distributed import DistributedManager
 
@@ -82,14 +86,14 @@ For example, this script could be ran using:
         f"Inference runner {dist.rank} of {dist.world_size} with device {dist.device}"
     )
 
-.. GENERATED FROM PYTHON SOURCE LINES 80-84
+.. GENERATED FROM PYTHON SOURCE LINES 84-88
 
 Next the needed components get initialized.
 Rigorous parallel support is not part of Earth2Studio's design goals, there are some
 spots where potential race conditions can occur. Thus some additional care should be
 taken to ensure safe parallel inference.
 
-.. GENERATED FROM PYTHON SOURCE LINES 86-99
+.. GENERATED FROM PYTHON SOURCE LINES 90-103
 
 .. code-block:: Python
 
@@ -107,7 +111,7 @@ taken to ensure safe parallel inference.
         model = DLWP.load_model(package)
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 100-107
+.. GENERATED FROM PYTHON SOURCE LINES 104-111
 
 When loading models that are built into Earth2Studio, the model's checkpoint files
 will be downloaded into the machines cache. If each inference process has access to
@@ -117,7 +121,7 @@ the same cache location, then only one should download the checkpoint triggered 
 Here :py:class:`earth2studio.models.px.DLWP` checkpoint files are first downloaded by
 process 0 and then loaded by other processes.
 
-.. GENERATED FROM PYTHON SOURCE LINES 109-113
+.. GENERATED FROM PYTHON SOURCE LINES 113-117
 
 .. code-block:: Python
 
@@ -126,13 +130,13 @@ process 0 and then loaded by other processes.
     data = ARCO()
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 114-117
+.. GENERATED FROM PYTHON SOURCE LINES 118-121
 
 The remote date store will place cached data into separate caches for each process.
 This makes the download of initial state data safe during parallel inference but also
 means that multiple jobs will download the same date-time if needed.
 
-.. GENERATED FROM PYTHON SOURCE LINES 119-122
+.. GENERATED FROM PYTHON SOURCE LINES 123-126
 
 .. code-block:: Python
 
@@ -140,7 +144,7 @@ means that multiple jobs will download the same date-time if needed.
     io = ZarrBackend(file_name=f"outputs/08_output_{dist.rank}.zarr", chunks=chunks)
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 123-133
+.. GENERATED FROM PYTHON SOURCE LINES 127-137
 
 Earth2Studio does not provide distributed IO support. The recommendation is to always
 output data for each process to a separate file, then aggregate the data during post
@@ -153,7 +157,7 @@ several years and just save total column water vapor. Shard the initial date-tim
 across the each process. The distributed manager will provide the device ID for the
 process.
 
-.. GENERATED FROM PYTHON SOURCE LINES 135-152
+.. GENERATED FROM PYTHON SOURCE LINES 139-156
 
 .. code-block:: Python
 
@@ -175,7 +179,7 @@ process.
     torch.distributed.barrier()
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 153-164
+.. GENERATED FROM PYTHON SOURCE LINES 157-168
 
 Post Processing
 ---------------
@@ -189,7 +193,7 @@ allows outputs from all processes to get treated as a single data array.
   It is best practice to perform post processing in a separate job / script entirely
   to better utilize compute resources.
 
-.. GENERATED FROM PYTHON SOURCE LINES 164-191
+.. GENERATED FROM PYTHON SOURCE LINES 168-195
 
 .. code-block:: Python
 

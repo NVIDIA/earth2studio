@@ -58,10 +58,13 @@ Thus, we need the following:
 - Datasource: Pull data from the GFS data api :py:class:`earth2studio.data.GFS`.
 - IO Backend: Save the outputs into a Zarr store :py:class:`earth2studio.io.ZarrBackend`.
 
-.. GENERATED FROM PYTHON SOURCE LINES 59-81
+.. GENERATED FROM PYTHON SOURCE LINES 59-84
 
 .. code-block:: Python
 
+    import os
+
+    os.makedirs("outputs", exist_ok=True)
     from dotenv import load_dotenv
 
     load_dotenv()  # TODO: make common example prep function
@@ -85,7 +88,7 @@ Thus, we need the following:
     io = ZarrBackend()
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 82-88
+.. GENERATED FROM PYTHON SOURCE LINES 85-91
 
 Execute the Workflow
 --------------------
@@ -94,7 +97,7 @@ Workflow will return the provided IO object back to the user, which can be used 
 then post process. Some have additional APIs that can be handy for post-processing or
 saving to file. Check the API docs for more information.
 
-.. GENERATED FROM PYTHON SOURCE LINES 90-99
+.. GENERATED FROM PYTHON SOURCE LINES 93-102
 
 .. code-block:: Python
 
@@ -108,7 +111,7 @@ saving to file. Check the API docs for more information.
     print(io.root.tree())
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 100-111
+.. GENERATED FROM PYTHON SOURCE LINES 103-114
 
 Post Processing
 ---------------
@@ -122,14 +125,12 @@ prognostic model.
   outputs of both the prognostic and diagnostic, we recommend writing a custom
   workflow.
 
-.. GENERATED FROM PYTHON SOURCE LINES 113-157
+.. GENERATED FROM PYTHON SOURCE LINES 116-158
 
 .. code-block:: Python
 
-    import os
     from datetime import datetime
 
-    os.makedirs("outputs", exist_ok=True)
     import cartopy.crs as ccrs
     import matplotlib.pyplot as plt
     import numpy as np

@@ -47,9 +47,16 @@ temperature in Kelvin to Celsius to make it more readable for the average person
 Our diagnostic model has a base class of :py:class:`torch.nn.Module` which allows us
 to get the required :py:obj:`to(device)` method for free.
 
-.. GENERATED FROM PYTHON SOURCE LINES 49-134
+.. GENERATED FROM PYTHON SOURCE LINES 49-141
 
 .. code-block:: Python
+
+    import os
+
+    os.makedirs("outputs", exist_ok=True)
+    from dotenv import load_dotenv
+
+    load_dotenv()  # TODO: make common example prep function
 
     from collections import OrderedDict
 
@@ -137,7 +144,7 @@ to get the required :py:obj:`to(device)` method for free.
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 135-147
+.. GENERATED FROM PYTHON SOURCE LINES 142-154
 
 Input/Output Coordinates
 ~~~~~~~~~~~~~~~~~~~~~~~~
@@ -152,7 +159,7 @@ to be the global surface temperature specified in :py:file:`earth2studio.lexicon
 The output is a custom variable :py:var:`t2m_c` that represents the temperature in
 Celsius.
 
-.. GENERATED FROM PYTHON SOURCE LINES 149-160
+.. GENERATED FROM PYTHON SOURCE LINES 156-167
 
 :py:func:`__call__` API
 ~~~~~~~~~~~~~~~~~~~~~~~
@@ -166,14 +173,14 @@ updated and returned.
   operations easier. For more details about this refer to the :ref:`batch_function_userguide`
   section of the user guide.
 
-.. GENERATED FROM PYTHON SOURCE LINES 162-166
+.. GENERATED FROM PYTHON SOURCE LINES 169-173
 
 Set Up
 ------
 With the custom diagnostic model defined, the next step is to set up and run a
 workflow. We will use the built in workflow :py:meth:`earth2studio.run.diagnostic`.
 
-.. GENERATED FROM PYTHON SOURCE LINES 168-174
+.. GENERATED FROM PYTHON SOURCE LINES 175-181
 
 Lets instantiate the components needed.
 
@@ -182,7 +189,7 @@ Lets instantiate the components needed.
 - Datasource: Pull data from the GFS data api :py:class:`earth2studio.data.GFS`.
 - IO Backend: Save the outputs into a Zarr store :py:class:`earth2studio.io.ZarrBackend`.
 
-.. GENERATED FROM PYTHON SOURCE LINES 176-197
+.. GENERATED FROM PYTHON SOURCE LINES 183-204
 
 .. code-block:: Python
 
@@ -208,14 +215,14 @@ Lets instantiate the components needed.
     io = ZarrBackend()
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 198-202
+.. GENERATED FROM PYTHON SOURCE LINES 205-209
 
 Execute the Workflow
 --------------------
 Running our workflow with a build in prognostic model and a custom diagnostic is the
 same as running a built in diagnostic.
 
-.. GENERATED FROM PYTHON SOURCE LINES 204-211
+.. GENERATED FROM PYTHON SOURCE LINES 211-218
 
 .. code-block:: Python
 
@@ -227,19 +234,16 @@ same as running a built in diagnostic.
     print(io.root.tree())
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 212-215
+.. GENERATED FROM PYTHON SOURCE LINES 219-222
 
 Post Processing
 ---------------
 Let's plot the Celsius temperature field from our custom diagnostic model.
 
-.. GENERATED FROM PYTHON SOURCE LINES 217-264
+.. GENERATED FROM PYTHON SOURCE LINES 224-268
 
 .. code-block:: Python
 
-    import os
-
-    os.makedirs("outputs", exist_ok=True)
     import cartopy.crs as ccrs
     import matplotlib.pyplot as plt
 
