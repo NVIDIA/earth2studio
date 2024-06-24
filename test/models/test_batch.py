@@ -31,13 +31,14 @@ def PhooModel():
     class BatchModel(torch.nn.Module):
         # Simple fake prognostic model that takes in a tensor of size [B, 2, 1] and
         # returns one of size [B, 1, 1] in the variable dimension.
-        input_coords = OrderedDict(
-            [
-                ("batch", np.empty(1)),
-                ("variable", np.array(["a", "b"])),
-                ("x", np.ones(1)),
-            ]
-        )
+        def input_coords(self) -> OrderedDict:
+            return OrderedDict(
+                [
+                    ("batch", np.empty(1)),
+                    ("variable", np.array(["a", "b"])),
+                    ("x", np.ones(1)),
+                ]
+            )
 
         @batch_coords()
         def output_coords(self, input_coords: OrderedDict) -> OrderedDict:

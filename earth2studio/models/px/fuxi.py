@@ -158,16 +158,26 @@ class FuXi(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         # Load short model into memory
         self.ort = create_ort_session(ort_short, self.device)
 
-    input_coords = OrderedDict(
-        {
-            "batch": np.empty(0),
-            "time": np.empty(0),
-            "lead_time": np.array([np.timedelta64(-6, "h"), np.timedelta64(0, "h")]),
-            "variable": np.array(VARIABLES),
-            "lat": np.linspace(90, -90, 721, endpoint=True),
-            "lon": np.linspace(0, 360, 1440, endpoint=False),
-        }
-    )
+    def input_coords(self) -> CoordSystem:
+        """Input coordinate system of the prognostic model
+
+        Returns
+        -------
+        CoordSystem
+            Coordinate system dictionary
+        """
+        return OrderedDict(
+            {
+                "batch": np.empty(0),
+                "time": np.empty(0),
+                "lead_time": np.array(
+                    [np.timedelta64(-6, "h"), np.timedelta64(0, "h")]
+                ),
+                "variable": np.array(VARIABLES),
+                "lat": np.linspace(90, -90, 721, endpoint=True),
+                "lon": np.linspace(0, 360, 1440, endpoint=False),
+            }
+        )
 
     @batch_coords()
     def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
@@ -199,10 +209,11 @@ class FuXi(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         test_coords["lead_time"] = (
             test_coords["lead_time"] - input_coords["lead_time"][-1]
         )
-        for i, key in enumerate(self.input_coords):
+        target_input_coords = self.input_coords()
+        for i, key in enumerate(target_input_coords):
             handshake_dim(test_coords, key, i)
             if key != "batch" and key != "time":
-                handshake_coords(test_coords, self.input_coords, key)
+                handshake_coords(test_coords, target_input_coords, key)
 
         output_coords["batch"] = input_coords["batch"]
         output_coords["time"] = input_coords["time"]
@@ -429,10 +440,11 @@ class FuXi(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             output = out[:, :, 1:]
             yield output, out_coords.copy()
 
-            # Use output as next input
+            # Use output as next input ([t-1, t] -> [t, t+1])
             x = out
             coords["lead_time"] = (
-                coords["lead_time"] + self.output_coords(self.input_coords)["lead_time"]
+                coords["lead_time"]
+                + self.output_coords(self.input_coords())["lead_time"]
             )
 
     def create_iterator(

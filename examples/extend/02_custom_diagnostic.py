@@ -51,7 +51,7 @@ from collections import OrderedDict
 import numpy as np
 import torch
 
-from earth2studio.models.batch import batch_func
+from earth2studio.models.batch import batch_coords, batch_func
 from earth2studio.utils import handshake_coords, handshake_dim
 from earth2studio.utils.type import CoordSystem
 
@@ -62,23 +62,54 @@ class CustomDiagnostic(torch.nn.Module):
     def __init__(self):
         super().__init__()
 
-    input_coords = OrderedDict(
-        {
-            "batch": np.empty(0),
-            "variable": np.array(["t2m"]),
-            "lat": np.linspace(90, -90, 721),
-            "lon": np.linspace(0, 360, 1440, endpoint=False),
-        }
-    )
+    def input_coords(self) -> CoordSystem:
+        """Input coordinate system of the prognostic model
 
-    output_coords = OrderedDict(
-        {
-            "batch": np.empty(0),
-            "variable": np.array(["t2m_c"]),
-            "lat": np.linspace(90, -90, 721),
-            "lon": np.linspace(0, 360, 1440, endpoint=False),
-        }
-    )
+        Returns
+        -------
+        CoordSystem
+            Coordinate system dictionary
+        """
+        return OrderedDict(
+            {
+                "batch": np.empty(0),
+                "variable": np.array(["t2m"]),
+                "lat": np.linspace(90, -90, 721),
+                "lon": np.linspace(0, 360, 1440, endpoint=False),
+            }
+        )
+
+    @batch_coords()
+    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
+        """Output coordinate system of the prognostic model
+
+        Parameters
+        ----------
+        input_coords : CoordSystem
+            Input coordinate system to transform into output_coords
+
+        Returns
+        -------
+        CoordSystem
+            Coordinate system dictionary
+        """
+        # Check input coordinates are valid
+        target_input_coords = self.input_coords()
+        for i, (key, value) in enumerate(target_input_coords.items()):
+            if key != "batch":
+                handshake_dim(input_coords, key, i)
+                handshake_coords(input_coords, target_input_coords, key)
+
+        output_coords = OrderedDict(
+            {
+                "batch": np.empty(0),
+                "variable": np.array(["t2m_c"]),
+                "lat": np.linspace(90, -90, 721),
+                "lon": np.linspace(0, 360, 1440, endpoint=False),
+            }
+        )
+        output_coords["batch"] = input_coords["batch"]
+        return output_coords
 
     @batch_func()
     def __call__(
@@ -95,15 +126,8 @@ class CustomDiagnostic(torch.nn.Module):
         coords : CoordSystem
             Input coordinate system
         """
-        for i, (key, value) in enumerate(self.input_coords.items()):
-            if key != "batch":
-                handshake_dim(coords, key, i)
-                handshake_coords(coords, self.input_coords, key)
-
-        out_coords = coords.copy()
-        out_coords["variable"] = self.output_coords["variable"]
+        out_coords = self.output_coords(coords)
         out = x - 273.15  # To celcius
-
         return out, out_coords
 
 
@@ -112,11 +136,14 @@ class CustomDiagnostic(torch.nn.Module):
 # ~~~~~~~~~~~~~~~~~~~~~~~~
 # Defining the input/output coordinate systems is essential for any model in
 # Earth2Studio since this is how both the package and users can learn what type of data
-# the model expects. Have a look at :ref:`coordinates_userguide` for details on
-# coordinate system. For this diagnostic model, we simply define the input coordinates
-# to be the global surface temperature specified in
-# :py:file:`earth2studio.lexicon.base.py`. The output is a custom variable
-# :py:var:`t2m_c` that represents the temperature in Celsius.
+# the model expects. This requires the definition of  :py:func:`input_coords` and
+# :py:func:`output_coords`. Have a look at :ref:`coordinates_userguide` for details on
+# coordinate system.
+#
+# For this diagnostic model, we simply define the input coordinates
+# to be the global surface temperature specified in :py:file:`earth2studio.lexicon.base.py`.
+# The output is a custom variable :py:var:`t2m_c` that represents the temperature in
+# Celsius.
 
 # %%
 # :py:func:`__call__` API
@@ -146,9 +173,6 @@ class CustomDiagnostic(torch.nn.Module):
 # - IO Backend: Save the outputs into a Zarr store :py:class:`earth2studio.io.ZarrBackend`.
 
 # %%
-from collections import OrderedDict
-
-import numpy as np
 from dotenv import load_dotenv
 
 load_dotenv()  # TODO: make common example prep function

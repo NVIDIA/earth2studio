@@ -121,8 +121,8 @@ def run_stats(
     x, coords = fetch_data(
         source=data,
         time=time,
-        lead_time=prognostic.input_coords["lead_time"],
-        variable=prognostic.input_coords["variable"],
+        lead_time=prognostic.input_coords()["lead_time"],
+        variable=prognostic.input_coords()["variable"],
         device=device,
     )
     logger.success(f"Fetched data from {data.__class__.__name__}")
@@ -139,7 +139,7 @@ def run_stats(
     io.add_array(total_coords, str(statistic))
 
     # Map lat and lon if needed
-    x, coords = map_coords(x, coords, prognostic.input_coords)
+    x, coords = map_coords(x, coords, prognostic.input_coords())
 
     # Create prognostic iterator
     model = prognostic.create_iterator(x, coords)

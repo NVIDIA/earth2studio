@@ -83,28 +83,29 @@ def deterministic(
     prognostic = prognostic.to(device)
     # sphinx - fetch data start
     # Fetch data from data source and load onto device
+    prognositc_ic = prognostic.input_coords()
     time = to_time_array(time)
     x, coords = fetch_data(
         source=data,
         time=time,
-        variable=prognostic.input_coords["variable"],
-        lead_time=prognostic.input_coords["lead_time"],
+        variable=prognositc_ic["variable"],
+        lead_time=prognositc_ic["lead_time"],
         device=device,
     )
     logger.success(f"Fetched data from {data.__class__.__name__}")
     # sphinx - fetch data end
 
     # Set up IO backend
-    total_coords = prognostic.output_coords(prognostic.input_coords).copy()
+    total_coords = prognostic.output_coords(prognostic.input_coords()).copy()
     for key, value in prognostic.output_coords(
-        prognostic.input_coords
+        prognostic.input_coords()
     ).items():  # Scrub batch dims
         if value.shape == (0,):
             del total_coords[key]
     total_coords["time"] = time
     total_coords["lead_time"] = np.asarray(
         [
-            prognostic.output_coords(prognostic.input_coords)["lead_time"] * i
+            prognostic.output_coords(prognostic.input_coords())["lead_time"] * i
             for i in range(nsteps + 1)
         ]
     ).flatten()
@@ -117,7 +118,7 @@ def deterministic(
     io.add_array(total_coords, var_names)
 
     # Map lat and lon if needed
-    x, coords = map_coords(x, coords, prognostic.input_coords)
+    x, coords = map_coords(x, coords, prognostic.input_coords())
     # Create prognostic iterator
     model = prognostic.create_iterator(x, coords)
 
@@ -186,29 +187,31 @@ def diagnostic(
     prognostic = prognostic.to(device)
     diagnostic = diagnostic.to(device)
     # Fetch data from data source and load onto device
+    prognositc_ic = prognostic.input_coords()
+    diagnostic_ic = diagnostic.input_coords()
     time = to_time_array(time)
     x, coords = fetch_data(
         source=data,
         time=time,
-        variable=prognostic.input_coords["variable"],
-        lead_time=prognostic.input_coords["lead_time"],
+        variable=prognositc_ic["variable"],
+        lead_time=prognositc_ic["lead_time"],
         device=device,
     )
     logger.success(f"Fetched data from {data.__class__.__name__}")
 
     # Set up IO backend
-    total_coords = prognostic.output_coords(prognostic.input_coords)
+    total_coords = prognostic.output_coords(prognostic.input_coords())
     for key, value in prognostic.output_coords(
-        prognostic.input_coords
+        prognostic.input_coords()
     ).items():  # Scrub batch dims
-        if key in diagnostic.output_coords(diagnostic.input_coords):
-            total_coords[key] = diagnostic.output_coords(diagnostic.input_coords)[key]
+        if key in diagnostic.output_coords(diagnostic_ic):
+            total_coords[key] = diagnostic.output_coords(diagnostic_ic)[key]
         if value.shape == (0,):
             del total_coords[key]
     total_coords["time"] = time
     total_coords["lead_time"] = np.asarray(
         [
-            prognostic.output_coords(prognostic.input_coords)["lead_time"] * i
+            prognostic.output_coords(prognostic.input_coords())["lead_time"] * i
             for i in range(nsteps + 1)
         ]
     ).flatten()
@@ -221,7 +224,7 @@ def diagnostic(
     io.add_array(total_coords, var_names)
 
     # Map lat and lon if needed
-    x, coords = map_coords(x, coords, prognostic.input_coords)
+    x, coords = map_coords(x, coords, prognositc_ic)
     # Create prognostic iterator
     model = prognostic.create_iterator(x, coords)
 
@@ -230,7 +233,7 @@ def diagnostic(
         for step, (x, coords) in enumerate(model):
 
             # Run diagnostic
-            x, coords = map_coords(x, coords, diagnostic.input_coords)
+            x, coords = map_coords(x, coords, diagnostic_ic)
             x, coords = diagnostic(x, coords)
             # Subselect domain/variables as indicated in output_coords
             x, coords = map_coords(x, coords, output_coords)
@@ -300,12 +303,13 @@ def ensemble(
     prognostic = prognostic.to(device)
 
     # Fetch data from data source and load onto device
+    prognositc_ic = prognostic.input_coords()
     time = to_time_array(time)
     x0, coords0 = fetch_data(
         source=data,
         time=time,
-        variable=prognostic.input_coords["variable"],
-        lead_time=prognostic.input_coords["lead_time"],
+        variable=prognositc_ic["variable"],
+        lead_time=prognositc_ic["lead_time"],
         device="cpu",
     )
     logger.success(f"Fetched data from {data.__class__.__name__}")
@@ -314,7 +318,7 @@ def ensemble(
     total_coords = {"ensemble": np.arange(nensemble)} | coords0.copy()
     total_coords["lead_time"] = np.asarray(
         [
-            prognostic.output_coords(prognostic.input_coords)["lead_time"] * i
+            prognostic.output_coords(prognostic.input_coords())["lead_time"] * i
             for i in range(nsteps + 1)
         ]
     ).flatten()
@@ -354,7 +358,7 @@ def ensemble(
         x = x.unsqueeze(0).repeat(mini_batch_size, *([1] * x.ndim))
 
         # Map lat and lon if needed
-        x, coords = map_coords(x, coords, prognostic.input_coords)
+        x, coords = map_coords(x, coords, prognositc_ic)
 
         # Perturb ensemble
         x, coords = perturbation(x, coords)
