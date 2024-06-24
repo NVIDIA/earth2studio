@@ -22,6 +22,7 @@ from typing import Literal
 from loguru import logger
 import apache_beam as beam
 from apache_beam.options.pipeline_options import PipelineOptions
+from apache_beam.metrics.metric import Metrics
 
 import numpy as np
 import torch
@@ -77,8 +78,7 @@ def build_dataset(
     source: DataSource,
     time: TimeArray,
     variable: VariableArray,
-    dataset_name: str,
-    zarr_cache: zarr.hierarchy.Group,
+    dataset: zarr.Array,
     transform: None = None,
     apache_beam_options: None = None,
 ):
@@ -91,54 +91,39 @@ def build_dataset(
         logger.info("No Apache Beam options provided, using default options (Single-threaded, local runner)")
         apache_beam_options = PipelineOptions()
 
-    # Initialize the dataset
-    dataset = zarr.open(dataset_name, mode='w')
-    dataset.create_dataset("variables", shape=(len(time), len(variable), 721, 1440), dtype='f4')
+    # Check dataset has correct shape
+    if dataset.shape[0] != len(time) or dataset.shape[1] != len(variable):
+        raise ValueError(
+            f"Dataset shape {dataset.shape} does not match time {len(time)} and variable {len(variable)} shape"
+        )
 
     # Fetch data on first time step to make sure all datasets in cache are created
     # TODO: Probably remove this
     for var in variable:
-        source.fetch_cached_array(time[0], var, zarr_cache)
+        source.fetch_array(time[0], var)
 
     # Create elements for Apache Beam pipeline
     elements = [(i, t, variable) for i, t in enumerate(time)]
 
     # Make fetch data DoFn
     class FetchDataDoFn(beam.DoFn):
-        def __init__(self, source, zarr_cache, dataset, transform=None):
+        def __init__(self, source, dataset, total, report_every=1000, transform=None):
             self.source = source
-            self.zarr_cache = zarr_cache
             self.dataset = dataset
+            self.total = total
+            self.report_every = report_every
             self.transform = transform
+            self.progress = Metrics.counter(self.__class__, 'progress')
 
         def process(self, element):
             t_index, time, variable = element
             for i, var in enumerate(variable):
-                data = self.source.fetch_cached_array(time, var, self.zarr_cache)
+                data = self.source.fetch_array(time, var)
                 if self.transform is not None:
-                    data = self.transform(data)
-                self.dataset["variables"][t_index, i, :, :] = data
+                    data = self.transform(time, var, data)
+                self.dataset[t_index, i, :, :] = data
+            self.progress.inc()
             yield (time, variable)
-
-    # Make progress reporting DoFn
-    class LoggingProgressDoFn(beam.DoFn):
-        def __init__(self, report_interval, total):
-            self.report_interval = report_interval
-            self.total = total
-            self.processed = 0
-        
-        def start_bundle(self):
-            self.processed = 0
-        
-        def process(self, element):
-            self.processed += 1
-            if self.processed % self.report_interval == 0:
-                logger.info(f'Processed {self.processed} out of {self.total} elements')
-                logger.info(f'Percentage complete: {self.processed / self.total * 100}%')
-            yield element
-    
-        def finish_bundle(self):
-            logger.info(f'Finished processing bundle with {self.processed} elements')
 
     # Run the pipeline
     logger.info("Starting Apache Beam pipeline")
@@ -146,8 +131,7 @@ def build_dataset(
         arco_chunks = (
             p
             | "Create elements" >> beam.Create(elements)
-            | "Fetch data" >> beam.ParDo(FetchDataDoFn(source, zarr_cache, dataset))
-            | "Progress" >> beam.ParDo(LoggingProgressDoFn(100, len(time)))
+            | "Fetch data" >> beam.ParDo(FetchDataDoFn(source, dataset, len(time), report_every=10, transform=transform))
         )
 
 def prep_data_array(

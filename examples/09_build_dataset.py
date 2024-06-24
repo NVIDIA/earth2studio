@@ -20,40 +20,66 @@ Building a Dataset From Data Sources
 ====================================
 """
 
+import zarr
 import datetime
 import pandas as pd
+import torch
+import matplotlib.pyplot as plt
+import matplotlib.animation as animation
 from apache_beam.options.pipeline_options import PipelineOptions
 
+
 from earth2studio.data import ARCO, build_dataset
+import earth2grid
+
+# Create zarr cache
+zarr_cache = zarr.open("my_zarr_cache.zarr", mode="a")
 
 # Create the data source
-data = ARCO()
+data = ARCO(zarr_cache=zarr_cache)
 
-# Create Zarr Cache
-zarr_cache = data.initialize_zarr_cache(
-    file_path="my_zarr_cache.zarr",
-)
+# Make healpix transformation
+level = 8
+nside = 2**level
+hpx = earth2grid.healpix.Grid(level=level, pixel_order=earth2grid.healpix.XY())
+src = earth2grid.latlon.equiangular_lat_lon_grid(721, 1440)
+regrid = earth2grid.get_regridder(src, hpx)
+def _transform(regrid, nside): # Functional Closure
+    import torch
+    def transform(time, variable, x):
+        x_torch = torch.as_tensor(x)
+        x_torch = x_torch.double()
+        hlp_x = regrid(x_torch).reshape(12, nside, nside)
+        return hlp_x.numpy()
+    return transform
+transform = _transform(regrid, nside)
 
-# Fetch Data from Zarr Cache, This will automatically download the data from the source if needed
-data.fetch_cached_array(
-    time=datetime.datetime(2020, 1, 1),
-    variable="u10m",
-    zarr_cache=zarr_cache,
-) 
-
-# Lets try to fetch a dataset with standard interface
-ds = data(datetime.datetime(2022, 1, 1), variable=["u10m", "v10m"], zarr_cache=zarr_cache)
-
-# Run again to show its cached, this will print some cached message
-ds = data(datetime.datetime(2022, 1, 1), variable=["u10m", "v10m"], zarr_cache=zarr_cache)
-
-# Generate dataset
+# Apache Beam options
 options = PipelineOptions([ 
     '--runner=DirectRunner',   
-    '--direct_num_workers=0',
+    '--direct_num_workers=8',
     '--direct_running_mode=multi_processing',
 ])  
+
+# Make Store Dataset
 time = pd.date_range("2000-01-01", freq="6h", periods=1000)
+zarr_dataset = zarr.open("my_dataset.zarr", mode="r")
+
+# Build the predicted variables
 variable = ["u10m", "v10m"]
-dataset_name = "my_dataset.zarr"
-build_dataset(data, time, variable, dataset_name, zarr_cache=zarr_cache, apache_beam_options=options)
+dataset = zarr_dataset.create_dataset("predicted_variables", shape=(len(time), len(variable), 12, nside, nside), chunks=(1, len(variable), 12, nside, nside), dtype="f4")
+build_dataset(data, time, variable, dataset, apache_beam_options=options, transform=transform)
+
+# Build the un-predicted variables
+variable = ["land_sea_mask"]
+dataset = zarr_dataset.create_dataset("unpredicted_variables", shape=(len(time), len(variable), 12, nside, nside), chunks=(1, len(variable), 12, nside, nside), dtype="f4")
+build_dataset(data, time, variable, dataset, apache_beam_options=options, transform=transform)
+
+# Make animation of the dataset
+fig, ax = plt.subplots()
+def animate(i):
+    ax.clear()
+    ax.scatter(hpx.lon, hpx.lat, c=zarr_dataset["predicted_variables"][i, 0].flatten(), s=0.1)
+    ax.set_title(time[i])
+ani = animation.FuncAnimation(fig, animate, frames=len(time), interval=100)
+plt.show()
