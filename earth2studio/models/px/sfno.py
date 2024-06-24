@@ -146,34 +146,28 @@ class SFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self.model = core_model
         self.register_buffer("center", center)
         self.register_buffer("scale", scale)
-        self.variables = VARIABLES
 
-        lat = np.linspace(90.0, -90.0, 721)
-        lon = np.linspace(0, 360, 1440, endpoint=False)
-        self.input_coords = OrderedDict(
+    def __str__(self) -> str:
+        return "sfno_73ch_small"
+
+    def input_coords(self) -> CoordSystem:
+        """Input coordinate system of the prognostic model
+
+        Returns
+        -------
+        CoordSystem
+            Coordinate system dictionary
+        """
+        return OrderedDict(
             {
                 "batch": np.empty(0),
                 "time": np.empty(0),
                 "lead_time": np.array([np.timedelta64(0, "h")]),
                 "variable": np.array(VARIABLES),
-                "lat": lat,
-                "lon": lon,
+                "lat": np.linspace(90.0, -90.0, 721),
+                "lon": np.linspace(0, 360, 1440, endpoint=False),
             }
         )
-
-        self._output_coords = OrderedDict(
-            {
-                "batch": np.empty(0),
-                "time": np.empty(0),
-                "lead_time": np.array([np.timedelta64(6, "h")]),
-                "variable": np.array(VARIABLES),
-                "lat": lat,
-                "lon": lon,
-            }
-        )
-
-    def __str__(self) -> str:
-        return "sfno_73ch_small"
 
     @batch_coords()
     def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
@@ -191,7 +185,16 @@ class SFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             Coordinate system dictionary
         """
 
-        output_coords = self._output_coords.copy()
+        output_coords = OrderedDict(
+            {
+                "batch": np.empty(0),
+                "time": np.empty(0),
+                "lead_time": np.array([np.timedelta64(6, "h")]),
+                "variable": np.array(VARIABLES),
+                "lat": np.linspace(90.0, -90.0, 721),
+                "lon": np.linspace(0, 360, 1440, endpoint=False),
+            }
+        )
 
         if input_coords is None:
             return output_coords
@@ -200,10 +203,11 @@ class SFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         test_coords["lead_time"] = (
             test_coords["lead_time"] - input_coords["lead_time"][-1]
         )
-        for i, key in enumerate(self.input_coords):
+        target_input_coords = self.input_coords()
+        for i, key in enumerate(target_input_coords):
             if key not in ["batch", "time"]:
                 handshake_dim(test_coords, key, i)
-                handshake_coords(test_coords, self.input_coords, key)
+                handshake_coords(test_coords, target_input_coords, key)
 
         output_coords["batch"] = input_coords["batch"]
         output_coords["time"] = input_coords["time"]

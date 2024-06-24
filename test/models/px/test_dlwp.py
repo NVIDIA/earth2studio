@@ -84,7 +84,7 @@ def test_dlwp_call(time, dlwp_phoo_cs_transform, device):
         scale=scale,
     ).to(device)
 
-    dc = p.input_coords.copy()
+    dc = p.input_coords()
     del dc["batch"]
     del dc["time"]
     del dc["lead_time"]
@@ -93,8 +93,8 @@ def test_dlwp_call(time, dlwp_phoo_cs_transform, device):
     r = Random(dc)
 
     # Get Data and convert to tensor, coords
-    lead_time = p.input_coords["lead_time"]
-    variable = p.input_coords["variable"]
+    lead_time = p.input_coords()["lead_time"]
+    variable = p.input_coords()["variable"]
     x, coords = fetch_data(r, time, variable, lead_time, device=device)
 
     out, out_coords = p(x, coords)
@@ -103,7 +103,7 @@ def test_dlwp_call(time, dlwp_phoo_cs_transform, device):
         time = [time]
 
     assert out.shape == torch.Size(
-        [len(time), 1, len(p.output_coords(p.input_coords)["variable"]), 721, 1440]
+        [len(time), 1, len(p.output_coords(p.input_coords())["variable"]), 721, 1440]
     )
     assert (out_coords["variable"] == p.output_coords(coords)["variable"]).all()
     assert (out_coords["time"] == time).all()
@@ -144,7 +144,7 @@ def test_dlwp_iter(ensemble, dlwp_phoo_cs_transform, device):
         scale=scale,
     ).to(device)
 
-    dc = p.input_coords.copy()
+    dc = p.input_coords()
     del dc["batch"]
     del dc["time"]
     del dc["lead_time"]
@@ -153,8 +153,8 @@ def test_dlwp_iter(ensemble, dlwp_phoo_cs_transform, device):
     r = Random(dc)
 
     # Get Data and convert to tensor, coords
-    lead_time = p.input_coords["lead_time"]
-    variable = p.input_coords["variable"]
+    lead_time = p.input_coords()["lead_time"]
+    variable = p.input_coords()["variable"]
     x, coords = fetch_data(r, time, variable, lead_time, device=device)
 
     # Add ensemble to front
@@ -175,7 +175,7 @@ def test_dlwp_iter(ensemble, dlwp_phoo_cs_transform, device):
         assert len(out.shape) == 6
         assert out.shape[0] == ensemble
         assert (
-            out_coords["variable"] == p.output_coords(p.input_coords)["variable"]
+            out_coords["variable"] == p.output_coords(p.input_coords())["variable"]
         ).all()
         assert (out_coords["time"] == time).all()
         assert out_coords["lead_time"] == np.timedelta64(6 * (i + 1), "h")
@@ -230,8 +230,8 @@ def test_dlwp_exceptions(dc, dlwp_phoo_cs_transform, device):
     r = Random(dc)
 
     # Get Data and convert to tensor, coords
-    lead_time = p.input_coords["lead_time"]
-    variable = p.input_coords["variable"]
+    lead_time = p.input_coords()["lead_time"]
+    variable = p.input_coords()["variable"]
     x, coords = fetch_data(r, time, variable, lead_time, device=device)
 
     with pytest.raises((KeyError, ValueError)):
@@ -256,7 +256,7 @@ def test_dlwp_package(device, model):
     # Test the cached model package DLWP
     p = model.to(device)
 
-    dc = p.input_coords.copy()
+    dc = p.input_coords()
     del dc["batch"]
     del dc["time"]
     del dc["lead_time"]
@@ -265,8 +265,8 @@ def test_dlwp_package(device, model):
     r = Random(dc)
 
     # Get Data and convert to tensor, coords
-    lead_time = p.input_coords["lead_time"]
-    variable = p.input_coords["variable"]
+    lead_time = p.input_coords()["lead_time"]
+    variable = p.input_coords()["variable"]
     x, coords = fetch_data(r, time, variable, lead_time, device=device)
 
     out, out_coords = p(x, coords)

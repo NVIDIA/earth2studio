@@ -109,9 +109,9 @@ def run(
     # Fetch data from data source and load onto device
     time = to_time_array(time)
     x, coords = prep_data_array(
-        data(time, corrdiff.input_coords["variable"]), device=device
+        data(time, corrdiff.input_coords()["variable"]), device=device
     )
-    x, coords = map_coords(x, coords, corrdiff.input_coords)
+    x, coords = map_coords(x, coords, corrdiff.input_coords())
 
     logger.success(f"Fetched data from {data.__class__.__name__}")
 

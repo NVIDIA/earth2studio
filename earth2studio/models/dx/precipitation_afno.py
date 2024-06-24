@@ -89,14 +89,22 @@ class PrecipitationAFNO(torch.nn.Module, AutoModelMixin):
         self.register_buffer("scale", scale)
         self.eps = 1e-5
 
-    input_coords = OrderedDict(
-        {
-            "batch": np.empty(0),
-            "variable": np.array(VARIABLES),
-            "lat": np.linspace(90, -90, 720, endpoint=False),
-            "lon": np.linspace(0, 360, 1440, endpoint=False),
-        }
-    )
+    def input_coords(self) -> CoordSystem:
+        """Input coordinate system of diagnostic model
+
+        Returns
+        -------
+        CoordSystem
+            Coordinate system dictionary
+        """
+        return OrderedDict(
+            {
+                "batch": np.empty(0),
+                "variable": np.array(VARIABLES),
+                "lat": np.linspace(90, -90, 720, endpoint=False),
+                "lon": np.linspace(0, 360, 1440, endpoint=False),
+            }
+        )
 
     @batch_coords()
     def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
@@ -113,13 +121,13 @@ class PrecipitationAFNO(torch.nn.Module, AutoModelMixin):
         CoordSystem
             Coordinate system dictionary
         """
-
+        target_input_coords = self.input_coords()
         handshake_dim(input_coords, "lon", 3)
         handshake_dim(input_coords, "lat", 2)
         handshake_dim(input_coords, "variable", 1)
-        handshake_coords(input_coords, self.input_coords, "lon")
-        handshake_coords(input_coords, self.input_coords, "lat")
-        handshake_coords(input_coords, self.input_coords, "variable")
+        handshake_coords(input_coords, target_input_coords, "lon")
+        handshake_coords(input_coords, target_input_coords, "lat")
+        handshake_coords(input_coords, target_input_coords, "variable")
 
         output_coords = input_coords.copy()
         output_coords["variable"] = np.array(["tp"])
