@@ -46,6 +46,13 @@ In this example you will learn:
 # to get the required :py:obj:`to(device)` method for free.
 
 # %%
+import os
+
+os.makedirs("outputs", exist_ok=True)
+from dotenv import load_dotenv
+
+load_dotenv()  # TODO: make common example prep function
+
 from collections import OrderedDict
 
 import numpy as np
@@ -214,9 +221,6 @@ print(io.root.tree())
 # Let's plot the Celsius temperature field from our custom diagnostic model.
 
 # %%
-import os
-
-os.makedirs("outputs", exist_ok=True)
 import cartopy.crs as ccrs
 import matplotlib.pyplot as plt
 
