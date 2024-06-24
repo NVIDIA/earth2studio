@@ -70,17 +70,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Updated Package to use WholeFileCacheFileSystem. Extend package API to open and
   resolve. Deprication warning added to get.
 
-### Deprecated
-
-### Removed
-
 ### Fixed
 
 - Enable version switch in documentation site
 - Longitude coordinates of precip and climatenet diagnostic models
 - Fixed pressure levels of IFS datasource to include all available
-
-### Security
 
 ### Dependencies
 
