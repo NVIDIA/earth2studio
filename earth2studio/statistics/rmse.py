@@ -126,42 +126,39 @@ class rmse:
 
 
 class spread_skill_ratio:
-    """
-     Metric for calculating the spread/skill ratio of an ensemble forecast.
+    """Metric for calculating the spread/skill ratio of an ensemble forecast.
 
      Specifically, the spread is defined as the standard deviation of the ensemble
      forecast. The skill is defined as the rmse of the ensemble mean prediction. The
      ratio of these two quantities is defined as the spread/skill ratio.
 
-
-     Parameters
-     ----------
-     ensemble_dimension: str
-         The dimension over which the spread and skill are calculated over.
-         This should usually be "ensemble".
-     reduction_dimensions: list[str]
-         Dimensions to reduce (mean) the spread/skill ratio over. This is commonly done
-         over time but can also be the globe or some region.
-         Example ['time', 'lat', 'lon']
-     ensemble_weights: torch.Tensor = None
-         A one-dimensional tensor containing weights to assign to the
-         ensemble_dimension.
-     reduction_weights: torch.Tensor = None
-         A tensor containing weights to assign to the reduction dimensions.
-         Note that these weights must have the same number of dimensions
-         as passed in reduction_dimensions.
-         Example: if reduction_dimensions = ['lat', 'lon'] then
-         assert weights.ndim == 2.
-         If reduction_dimensions is None, then this argument is ignored.
-    ensemble_batch_update: bool = False
-         Whether to applying batch updates to the ensemble mean and variance components of
-         the spread and skill with each invocation of __call__.
-         This is particularly useful when ensemble data is recieved in a stream of batches.
-         Each invocation of __call__ will return the running spread/skill ratio.
-     batch_update: bool = False
-         Whether to applying batch updates to the reduction rmse and averaging components
-         of the spread/skill with each invocation of __call__.
-         This is particularly useful when time data is recieved in a stream of batches.
+    Parameters
+    ----------
+    ensemble_dimension : str
+        The dimension over which the spread and skill are calculated over.
+        This should usually be "ensemble".
+    reduction_dimensions : list[str]
+        Dimensions to reduce (mean) the spread/skill ratio over. This is commonly done
+        over time but can also be the globe or some region.
+        Example: ['time', 'lat', 'lon']
+    ensemble_weights : torch.Tensor | None, optional
+        A one-dimensional tensor containing weights to assign to the ensemble_dimension,
+        by default None.
+    reduction_weights : torch.Tensor, optional
+        A tensor containing weights to assign to the reduction dimensions.
+        Note that these weights must have the same number of dimensions
+        as passed in reduction_dimensions.
+        Example: if reduction_dimensions = ['lat', 'lon'] then
+        assert weights.ndim == 2. Ignored if None, by default None.
+    ensemble_batch_update : bool, optional
+        Whether to applying batch updates to the ensemble mean and variance components
+        of the spread and skill with each invocation of __call__. This is particularly
+        useful when ensemble data is recieved in a stream of batches. Each invocation of
+        __call__ will return the running spread/skill ratio., by default False.
+    reduction_batch_update : bool, optional
+        Whether to applying batch updates to the reduction rmse and averaging components
+        of the spread/skill with each invocation of __call__. This is particularly
+        useful when time data is recieved in a stream of batches., by default False.
     """
 
     def __init__(
