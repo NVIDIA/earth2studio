@@ -6,7 +6,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.2.0] - 2024-xx-xx
+## [0.2.0] - 2024-07-23
 
 ### Added
 
@@ -45,17 +45,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Updated Package to use WholeFileCacheFileSystem. Extend package API to open and
   resolve. Deprication warning added to get.
 
-### Deprecated
-
-### Removed
-
 ### Fixed
 
 - Enable version switch in documentation site
 - Longitude coordinates of precip and climatenet diagnostic models
 - Fixed pressure levels of IFS datasource to include all available
-
-### Security
 
 ### Dependencies
 
