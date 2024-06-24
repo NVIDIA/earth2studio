@@ -56,6 +56,9 @@ In this example you will learn:
 # - IO Backend: Save the outputs into a Zarr store :py:class:`earth2studio.io.ZarrBackend`.
 
 # %%
+import os
+
+os.makedirs("outputs", exist_ok=True)
 from dotenv import load_dotenv
 
 load_dotenv()  # TODO: make common example prep function
@@ -143,7 +146,7 @@ def plot_(axi, data, title, cmap):
     axi.gridlines()
 
 
-for variable, cmap in zip(["t2m", "tcwv"], ["coolwarm", "Blues"]):
+for variable, cmap in zip(["tcwv"], ["Blues"]):
     step = 4  # lead time = 24 hrs
 
     plt.close("all")
@@ -174,4 +177,4 @@ for variable, cmap in zip(["t2m", "tcwv"], ["coolwarm", "Blues"]):
         cmap,
     )
 
-    plt.savefig(f"outputs/02_{forecast}_{variable}_{step}_ensemble.jpg")
+    plt.savefig(f"outputs/03_{forecast}_{variable}_{step}_ensemble.jpg")

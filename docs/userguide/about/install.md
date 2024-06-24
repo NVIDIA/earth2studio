@@ -50,6 +50,15 @@ Some models require additional dependencies which are not installed by default.
 Use the optional install commands to add these dependencies.
 
 ::::{tab-set}
+:::{tab-item} CorrDiff
+
+Notes: Additional dependencies for all CorrDiff models.
+
+```bash
+pip install earth2studio[corrdiff]
+```
+
+:::
 
 :::{tab-item} FengWu
 
@@ -144,7 +153,7 @@ docker run -i -t nvcr.io/nvidia/pytorch:24.01-py3
 >>> pip install onnx onnxruntime-gpu==1.17.1 --extra-index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/onnxruntime-cuda-12/pypi/simple/
 >>> pip install "makani[all] @ git+https://github.com/NVIDIA/modulus-makani.git@v0.1.0"
 
->>> pip install earth2studio[pangu,fengwu,sfno]
+>>> pip install earth2studio[all]
 ```
 
 ## Conda Environment

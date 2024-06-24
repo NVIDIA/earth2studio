@@ -48,6 +48,13 @@ In this example you will learn:
 # different devices. If your model is PyTorch, then this will be easy.
 
 # %%
+import os
+
+os.makedirs("outputs", exist_ok=True)
+from dotenv import load_dotenv
+
+load_dotenv()  # TODO: make common example prep function
+
 from collections import OrderedDict
 from collections.abc import Generator, Iterator
 
@@ -286,9 +293,6 @@ print(io.root.tree())
 # become progressively more noisy as time progresses.
 
 # %%
-import os
-
-os.makedirs("outputs", exist_ok=True)
 import matplotlib.pyplot as plt
 
 forecast = "2024-01-01"
