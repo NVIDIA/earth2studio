@@ -124,7 +124,7 @@ im = ax.pcolormesh(
     io["lat"][:],
     io[variable][0, step],
     transform=ccrs.PlateCarree(),
-    cmap="coolwarm",
+    cmap="Spectral_r",
 )
 
 # Set title
