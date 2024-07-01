@@ -41,7 +41,7 @@ Data is **always** moved between components using unnormalized physical units.
 
 As previously discussed, coordinate dictionaries are a critical part of Earth-2
 Inference Studio's data movement.
-We wanted the coordinate object to be a fairly primative data object that allows users
+We wanted the coordinate object to be a fairly primitive data object that allows users
 to interact with the data outside the project and keep things transparent in workflows.
 Inside the package these are typed as `CoordSystem` which is defined as the following:
 
@@ -90,7 +90,7 @@ Inference Studio when possible and the packages we interface with.
   - `np.ndarray[np.timedelta64[ns]]` (`LeadTimeArray`)
 * - `variable`
   - Dimension representing physical variable (atmospheric, surface, etc). Earth-2
-  Inference Studio has its own naming convention. See lexicon docs more more details.
+  Inference Studio has its own naming convention. See {ref}`lexicon_userguide` docs more more details.
   - `np.ndarray[str]` (`VariableArray`)
 * - `lat`
   - Lattitude coordinate array

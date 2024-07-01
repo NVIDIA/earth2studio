@@ -42,8 +42,8 @@ additional details.
 ### Loading a Pre-trained Diagnostic
 
 The following two commands can be used to download and load a pre-trained built
-diangostic model.
-More information on how the automatic download of checkpoints can be found in the
+diagnostic model.
+More information on automatic downloading of checkpoints can be found in the
 {ref}`automodel_userguide` section.
 
 ```python
