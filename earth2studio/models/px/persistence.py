@@ -149,7 +149,7 @@ class Persistence(torch.nn.Module, PrognosticMixin):
         x : torch.Tensor
             Input tensor
         coords : CoordSystem
-            Coordinate system, should have dimensions [time, variable, *domain_dims]
+            Coordinate system, should have dimensions ``[time, variable, *domain_dims]``
 
         Returns
         ------
