@@ -79,7 +79,7 @@ class DiagnosticModel(Protocol):
         pass
 
     def to(self, device: Any) -> DiagnosticModel:
-        """Moves prognostic model onto inference device, this is typically satisfied via
+        """Moves diagnostic model onto inference device, this is typically satisfied via
         `torch.nn.Module`.
 
         Parameters
@@ -89,7 +89,7 @@ class DiagnosticModel(Protocol):
 
         Returns
         -------
-        PrognosticModel
-            Returns instance of prognostic
+        DiagnosticModel
+            Returns instance of diagnostic
         """
         pass

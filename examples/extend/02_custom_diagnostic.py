@@ -148,8 +148,8 @@ class CustomDiagnostic(torch.nn.Module):
 # coordinate system.
 #
 # For this diagnostic model, we simply define the input coordinates
-# to be the global surface temperature specified in :py:file:`earth2studio.lexicon.base.py`.
-# The output is a custom variable :py:var:`t2m_c` that represents the temperature in
+# to be the global surface temperature specified in :file:`earth2studio.lexicon.base.py`.
+# The output is a custom variable :code:`t2m_c` that represents the temperature in
 # Celsius.
 
 # %%
