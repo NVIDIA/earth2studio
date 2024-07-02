@@ -83,6 +83,7 @@ class GFS:
         self,
         time: datetime | list[datetime] | TimeArray,
         variable: str | list[str] | VariableArray,
+        forecast_hour: int = 0
     ) -> xr.DataArray:
         """Retrieve GFS initial data to be used for initial conditions for the given
         time, variable information, and optional history.
@@ -111,7 +112,7 @@ class GFS:
         # Fetch index file for requested time
         data_arrays = []
         for t0 in time:
-            data_array = self.fetch_gfs_dataarray(t0, variable)
+            data_array = self.fetch_gfs_dataarray(t0, variable, forecast_hour=forecast_hour)
             data_arrays.append(data_array)
 
         # Delete cache if needed
@@ -124,6 +125,7 @@ class GFS:
         self,
         time: datetime,
         variables: list[str],
+        forecast_hour: int = 0,
     ) -> xr.DataArray:
         """Retrives GFS data array for given date time by fetching the index file,
         fetching variable grib files and lastly combining grib files into single data
@@ -147,12 +149,12 @@ class GFS:
             Un supported variable.
         """
         logger.debug(f"Fetching GFS index file: {time}")
-        index_file = self._fetch_index(time)
+        index_file = self._fetch_index(time, forecast_hour=forecast_hour)
 
         file_name = f"gfs.{time.year}{time.month:0>2}{time.day:0>2}/{time.hour:0>2}"
         # Would need to update "f000" for getting forecast steps
         file_name = os.path.join(
-            file_name, f"atmos/gfs.t{time.hour:0>2}z.pgrb2.0p25.f000"
+            file_name, f"atmos/gfs.t{time.hour:0>2}z.pgrb2.0p25.f{forecast_hour:0>3}"
         )
         grib_file_name = os.path.join(self.GFS_BUCKET_NAME, file_name)
 
@@ -230,7 +232,7 @@ class GFS:
             # if not self.available(time):
             #     raise ValueError(f"Requested date time {time} not available in GFS")
 
-    def _fetch_index(self, time: datetime) -> dict[str, tuple[int, int]]:
+    def _fetch_index(self, time: datetime, forecast_hour: int = 0) -> dict[str, tuple[int, int]]:
         """Fetch GFS atmospheric index file
 
         Parameters
@@ -246,7 +248,7 @@ class GFS:
         # https://www.nco.ncep.noaa.gov/pmb/products/gfs/
         file_name = f"gfs.{time.year}{time.month:0>2}{time.day:0>2}/{time.hour:0>2}"
         file_name = os.path.join(
-            file_name, f"atmos/gfs.t{time.hour:0>2}z.pgrb2.0p25.f000.idx"
+            file_name, f"atmos/gfs.t{time.hour:0>2}z.pgrb2.0p25.f{forecast_hour:0>3}.idx"
         )
         s3_uri = os.path.join(self.GFS_BUCKET_NAME, file_name)
         # Grab index file
