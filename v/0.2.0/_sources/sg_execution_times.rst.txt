@@ -6,7 +6,7 @@
 
 Computation times
 =================
-**12:21.067** total execution time for 11 files **from all galleries**:
+**11:38.342** total execution time for 11 files **from all galleries**:
 
 .. container::
 
@@ -32,36 +32,36 @@ Computation times
    * - Example
      - Time
      - Mem (MB)
-   * - :ref:`sphx_glr_examples_08_distributed_manager.py` (``../examples/08_distributed_manager.py``)
-     - 02:41.626
-     - 0.0
    * - :ref:`sphx_glr_examples_07_seasonal_statistics.py` (``../examples/07_seasonal_statistics.py``)
-     - 02:39.318
+     - 02:49.164
+     - 0.0
+   * - :ref:`sphx_glr_examples_08_distributed_manager.py` (``../examples/08_distributed_manager.py``)
+     - 02:27.180
      - 0.0
    * - :ref:`sphx_glr_examples_03_ensemble_workflow.py` (``../examples/03_ensemble_workflow.py``)
-     - 01:30.826
+     - 01:28.838
      - 0.0
    * - :ref:`sphx_glr_examples_01_deterministic_workflow.py` (``../examples/01_deterministic_workflow.py``)
-     - 01:08.213
+     - 01:08.802
      - 0.0
    * - :ref:`sphx_glr_examples_extend_03_custom_datasource.py` (``../examples/extend/03_custom_datasource.py``)
-     - 01:01.772
-     - 0.0
-   * - :ref:`sphx_glr_examples_02_diagnostic_workflow.py` (``../examples/02_diagnostic_workflow.py``)
-     - 00:47.533
+     - 00:57.806
      - 0.0
    * - :ref:`sphx_glr_examples_06_model_perturbation_hook.py` (``../examples/06_model_perturbation_hook.py``)
-     - 00:47.342
+     - 00:44.496
      - 0.0
    * - :ref:`sphx_glr_examples_extend_02_custom_diagnostic.py` (``../examples/extend/02_custom_diagnostic.py``)
-     - 00:44.506
+     - 00:44.280
      - 0.0
-   * - :ref:`sphx_glr_examples_04_corrdiff_inference.py` (``../examples/04_corrdiff_inference.py``)
-     - 00:29.118
+   * - :ref:`sphx_glr_examples_02_diagnostic_workflow.py` (``../examples/02_diagnostic_workflow.py``)
+     - 00:26.821
      - 0.0
    * - :ref:`sphx_glr_examples_05_ensemble_workflow_extend.py` (``../examples/05_ensemble_workflow_extend.py``)
-     - 00:25.690
+     - 00:23.435
+     - 0.0
+   * - :ref:`sphx_glr_examples_04_corrdiff_inference.py` (``../examples/04_corrdiff_inference.py``)
+     - 00:22.345
      - 0.0
    * - :ref:`sphx_glr_examples_extend_01_custom_prognostic.py` (``../examples/extend/01_custom_prognostic.py``)
-     - 00:05.124
+     - 00:05.175
      - 0.0
