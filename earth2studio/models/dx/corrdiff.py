@@ -136,6 +136,7 @@ class CorrDiffTaiwan(torch.nn.Module, AutoModelMixin):
         self.solver = solver
 
     def input_coords(self) -> CoordSystem:
+        """Input coordinate system"""
         return OrderedDict(
             {
                 "batch": np.empty(0),
@@ -329,12 +330,16 @@ class CorrDiffTaiwan(torch.nn.Module, AutoModelMixin):
 
         # Create latents
         rnd = StackedRandomGenerator(x.device, sample_seeds)
+
+        coord = self.output_coords(self.input_coords())
+        img_resolution_x = len(coord["ilat"])
+        img_resolution_y = len(coord["ilon"])
         latents = rnd.randn(
             [
                 self.number_of_samples,
                 self.regression_model.img_out_channels,
-                self.regression_model.img_resolution,
-                self.regression_model.img_resolution,
+                img_resolution_x,
+                img_resolution_y,
             ],
             device=x.device,
         )
