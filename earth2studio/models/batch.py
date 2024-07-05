@@ -91,9 +91,10 @@ class batch_func:
         ValueError
             If model's input_coords do not contain the batch dimension
         """
+        input_coords = model.input_coords()
         if (
-            next(iter(model.input_coords)) != "batch"
-            and next(iter(model.output_coords(model.input_coords))) != "batch"
+            next(iter(input_coords)) != "batch"
+            and next(iter(model.output_coords(input_coords))) != "batch"
         ):
             raise ValueError(
                 "Model coordinate systems not compatible with batch processing"
@@ -106,13 +107,13 @@ class batch_func:
         flatten_coords: CoordSystem
         batched_coords: CoordSystem
         # If dims of input is one less than input coords, just prepend batch dim
-        if len(x.shape) == len(model.input_coords) - 1:
+        if len(x.shape) == len(input_coords) - 1:
             flatten_coords = coords.copy()
             flatten_coords.update({"batch": np.array([0])})
             flatten_coords.move_to_end("batch", last=False)
             return x.unsqueeze(0), flatten_coords, OrderedDict({}), torch.Size([])
 
-        i = len(coords) - len(model.input_coords.keys()) + 1
+        i = len(coords) - len(input_coords.keys()) + 1
         batched_shape = x.shape[:i]
         # Prep coordinate dicts
         batched_coords = OrderedDict(islice(coords.items(), 0, i))
@@ -266,8 +267,8 @@ class batch_coords:
         ValueError
             If model's input_coords do not contain the batch dimension
         """
-
-        if next(iter(model.input_coords)) != "batch":
+        input_coords = model.input_coords()
+        if next(iter(input_coords)) != "batch":
             raise ValueError(
                 "Model input coordinate systems not compatible with batch processing"
             )
@@ -275,13 +276,13 @@ class batch_coords:
         flatten_coords: CoordSystem
         batched_coords: CoordSystem
         # If dims of input is one less than input coords, just prepend batch dim
-        if len(coords) == len(model.input_coords) - 1:
+        if len(coords) == len(input_coords) - 1:
             flatten_coords = coords.copy()
             flatten_coords.update({"batch": np.array([0])})
             flatten_coords.move_to_end("batch", last=False)
             return flatten_coords, OrderedDict({})
 
-        i = len(coords) - len(model.input_coords.keys()) + 1
+        i = len(coords) - len(input_coords.keys()) + 1
         # Prep coordinate dicts
         batched_coords = OrderedDict(islice(coords.items(), 0, i))
         flatten_coords = OrderedDict(islice(coords.items(), i, None))

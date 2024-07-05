@@ -77,7 +77,9 @@ In this example you will learn:
 # default (identity) forward and rear hooks. Then we will define new hooks for the model and rerun the
 # inference request.
 # %%
+import os
 
+os.makedirs("outputs", exist_ok=True)
 from dotenv import load_dotenv
 
 load_dotenv()  # TODO: make common example prep function

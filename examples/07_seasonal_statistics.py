@@ -56,11 +56,14 @@ In this example you will learn:
 # inference. See ensemble examples for details on how to extend this example for that purpose.
 
 # %%
-from datetime import datetime
+import os
 
+os.makedirs("outputs", exist_ok=True)
 from dotenv import load_dotenv
 
 load_dotenv()  # TODO: make common example prep function
+
+from datetime import datetime
 
 import numpy as np
 import pandas as pd
@@ -121,16 +124,17 @@ def run_stats(
     x, coords = fetch_data(
         source=data,
         time=time,
-        lead_time=prognostic.input_coords["lead_time"],
-        variable=prognostic.input_coords["variable"],
+        lead_time=prognostic.input_coords()["lead_time"],
+        variable=prognostic.input_coords()["variable"],
         device=device,
     )
     logger.success(f"Fetched data from {data.__class__.__name__}")
 
     # Set up IO backend
     total_coords = coords.copy()
+    output_coords = prognostic.output_coords(prognostic.input_coords())
     total_coords["lead_time"] = np.asarray(
-        [prognostic.output_coords["lead_time"] * i for i in range(nsteps + 1)]
+        [output_coords["lead_time"] * i for i in range(nsteps + 1)]
     ).flatten()
     # Remove reduced dimensions from statistic
     for d in statistic.reduction_dimensions:
@@ -139,7 +143,7 @@ def run_stats(
     io.add_array(total_coords, str(statistic))
 
     # Map lat and lon if needed
-    x, coords = map_coords(x, coords, prognostic.input_coords)
+    x, coords = map_coords(x, coords, prognostic.input_coords())
 
     # Create prognostic iterator
     model = prognostic.create_iterator(x, coords)

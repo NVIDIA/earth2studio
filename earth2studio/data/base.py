@@ -14,12 +14,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Protocol, runtime_checkable
 
 import xarray as xr
 
-from earth2studio.utils.type import TimeArray, VariableArray
+from earth2studio.utils.type import LeadTimeArray, TimeArray, VariableArray
 
 
 @runtime_checkable
@@ -44,8 +44,43 @@ class DataSource(Protocol):
         Returns
         -------
         xr.DataArray
-            An xarray data-array with the dimensions [time, channel, ....]. The coords
+            An xarray data-array with the dimensions [time, variable, ....]. The coords
             should be provided. Time coordinate should be a datetime array and the
-            channel coordinate should be array of strings with Earth2Studio channel ids.
+            variable coordinate should be array of strings with Earth2Studio variable
+            ids.
+        """
+        pass
+
+
+@runtime_checkable
+class ForecastSource(Protocol):
+    """Forecast source interface"""
+
+    def __call__(
+        self,
+        time: datetime | list[datetime] | TimeArray,
+        lead_time: timedelta | list[timedelta] | LeadTimeArray,
+        variable: str | list[str] | VariableArray,
+    ) -> xr.DataArray:
+        """Function to get data.
+
+        Parameters
+        ----------
+        time : datetime | list[datetime] | TimeArray
+            Datetime, list of datetimes or array of np.datetime64 to return data for.
+        lead_time: timedelta | list[timedelta], LeadTimeArray
+            Timedelta, list of timedeltas or array of np.timedelta that refers to the
+            forecast lead time to fetch.
+        variable : str | list[str] | VariableArray
+            String, list of strings or array of strings that refer to variables to
+            return.
+
+        Returns
+        -------
+        xr.DataArray
+            An xarray data-array with the dimensions [time, variable, lead_time, ...].
+            The coords should be provided. Time coordinate should be a TimeArray,
+            lead time coordinate a LeadTimeArray and the variable coordinate should be
+            an array of strings with Earth2Studio variable ids.
         """
         pass

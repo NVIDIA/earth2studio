@@ -44,6 +44,13 @@ In this example you will learn:
 # calculate the relative humidity based on temperature and geo-potential.
 
 # %%
+import os
+
+os.makedirs("outputs", exist_ok=True)
+from dotenv import load_dotenv
+
+load_dotenv()  # TODO: make common example prep function
+
 from datetime import datetime
 
 import numpy as np
@@ -147,7 +154,7 @@ class CustomDataSource:
         specific_humidity : np.array
             Specific humidity field (g.kg-1)
         pressure : float
-            Pressure (P)
+            Pressure (Pa)
 
         Returns
         -------
@@ -205,9 +212,6 @@ da_gfs = ds_gfs(time=datetime(2022, 1, 1, hour=0), variable=["r500"])
 print(da_custom)
 
 # %%
-import os
-
-os.makedirs("outputs", exist_ok=True)
 import cartopy.crs as ccrs
 import matplotlib.pyplot as plt
 

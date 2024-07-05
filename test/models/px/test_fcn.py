@@ -53,7 +53,7 @@ def test_fcn_call(time, device):
 
     p = FCN(model, center, scale).to(device)
 
-    dc = p.input_coords.copy()
+    dc = p.input_coords()
     del dc["batch"]
     del dc["lead_time"]
     del dc["variable"]
@@ -61,8 +61,8 @@ def test_fcn_call(time, device):
     r = Random(dc)
 
     # Get Data and convert to tensor, coords
-    lead_time = p.input_coords["lead_time"]
-    variable = p.input_coords["variable"]
+    lead_time = p.input_coords()["lead_time"]
+    variable = p.input_coords()["variable"]
     x, coords = fetch_data(r, time, variable, lead_time, device=device)
 
     out, out_coords = p(x, coords)
@@ -93,7 +93,7 @@ def test_fcn_iter(ensemble, device):
 
     p = FCN(model, center, scale).to(device)
 
-    dc = p.input_coords.copy()
+    dc = p.input_coords()
     del dc["batch"]
     del dc["lead_time"]
     del dc["variable"]
@@ -101,8 +101,8 @@ def test_fcn_iter(ensemble, device):
     r = Random(dc)
 
     # Get Data and convert to tensor, coords
-    lead_time = p.input_coords["lead_time"]
-    variable = p.input_coords["variable"]
+    lead_time = p.input_coords()["lead_time"]
+    variable = p.input_coords()["variable"]
     x, coords = fetch_data(r, time, variable, lead_time, device=device)
 
     # Add ensemble to front
@@ -149,8 +149,8 @@ def test_fcn_exceptions(dc, device):
     r = Random(dc)
 
     # Get Data and convert to tensor, coords
-    lead_time = p.input_coords["lead_time"]
-    variable = p.input_coords["variable"]
+    lead_time = p.input_coords()["lead_time"]
+    variable = p.input_coords()["variable"]
     x, coords = fetch_data(r, time, variable, lead_time, device=device)
 
     with pytest.raises((KeyError, ValueError)):
@@ -175,7 +175,7 @@ def test_fcn_package(model, device):
     # Test the cached model package FCN
     p = model.to(device)
 
-    dc = p.input_coords.copy()
+    dc = p.input_coords()
     del dc["batch"]
     del dc["lead_time"]
     del dc["variable"]
@@ -183,8 +183,8 @@ def test_fcn_package(model, device):
     r = Random(dc)
 
     # Get Data and convert to tensor, coords
-    lead_time = p.input_coords["lead_time"]
-    variable = p.input_coords["variable"]
+    lead_time = p.input_coords()["lead_time"]
+    variable = p.input_coords()["variable"]
     x, coords = fetch_data(r, time, variable, lead_time, device=device)
 
     out, out_coords = p(x, coords)

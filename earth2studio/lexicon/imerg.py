@@ -34,9 +34,17 @@ class IMERGLexicon(metaclass=LexiconType):
     def get_item(cls, val: str) -> tuple[str, Callable]:
         """Return name in IMERG vocabulary."""
         imerg_key = cls.VOCAB[val]
+        if val == "tp":
+            # IMERG is mm/hr by default, convert to meters to match ECMWF
+            # https://arthurhou.pps.eosdis.nasa.gov/Documents/IMERG_TechnicalDocumentation_final.pdf
+            def mod(x: np.array) -> np.array:
+                """Modify data value (if necessary)."""
+                return x / 1000.0
 
-        def mod(x: np.array) -> np.array:
-            """Modify name (if necessary)."""
-            return x
+        else:
+
+            def mod(x: np.array) -> np.array:
+                """Modify name (if necessary)."""
+                return x
 
         return imerg_key, mod

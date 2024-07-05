@@ -82,7 +82,7 @@ def test_pangu_call(time, PanguModel, delta_t, onnx_test_package, device):
     # Use dummy package
     p = PanguModel.load_model(onnx_test_package).to(device)
 
-    dc = p.input_coords.copy()
+    dc = p.input_coords()
     del dc["batch"]
     del dc["lead_time"]
     del dc["variable"]
@@ -90,8 +90,8 @@ def test_pangu_call(time, PanguModel, delta_t, onnx_test_package, device):
     r = Random(dc)
 
     # Get Data and convert to tensor, coords
-    lead_time = p.input_coords["lead_time"]
-    variable = p.input_coords["variable"]
+    lead_time = p.input_coords()["lead_time"]
+    variable = p.input_coords()["variable"]
     x, coords = fetch_data(r, time, variable, lead_time, device=device)
 
     out, out_coords = p(x, coords)
@@ -130,7 +130,7 @@ def test_pangu_iter(ensemble, PanguModel, delta_t, onnx_test_package, device):
     # Use dummy package
     p = PanguModel.load_model(onnx_test_package).to(device)
 
-    dc = p.input_coords.copy()
+    dc = p.input_coords()
     del dc["batch"]
     del dc["lead_time"]
     del dc["variable"]
@@ -138,8 +138,8 @@ def test_pangu_iter(ensemble, PanguModel, delta_t, onnx_test_package, device):
     r = Random(dc)
 
     # Get Data and convert to tensor, coords
-    lead_time = p.input_coords["lead_time"]
-    variable = p.input_coords["variable"]
+    lead_time = p.input_coords()["lead_time"]
+    variable = p.input_coords()["variable"]
     x, coords = fetch_data(r, time, variable, lead_time, device=device)
 
     # Add ensemble to front
@@ -199,8 +199,8 @@ def test_pangu_exceptions(dc, PanguModel, delta_t, onnx_test_package, device):
     r = Random(dc)
 
     # Get Data and convert to tensor, coords
-    lead_time = p.input_coords["lead_time"]
-    variable = p.input_coords["variable"]
+    lead_time = p.input_coords()["lead_time"]
+    variable = p.input_coords()["variable"]
     x, coords = fetch_data(r, time, variable, lead_time, device=device)
 
     with pytest.raises((KeyError, ValueError)):
@@ -224,7 +224,7 @@ def test_pangu_package(PanguModel, delta_t, device, model_cache_context):
             package = PanguModel.load_default_package()
             p = PanguModel.load_model(package).to(device)
 
-    dc = p.input_coords.copy()
+    dc = p.input_coords()
     del dc["batch"]
     del dc["lead_time"]
     del dc["variable"]
@@ -232,8 +232,8 @@ def test_pangu_package(PanguModel, delta_t, device, model_cache_context):
     r = Random(dc)
 
     # Get Data and convert to tensor, coords
-    lead_time = p.input_coords["lead_time"]
-    variable = p.input_coords["variable"]
+    lead_time = p.input_coords()["lead_time"]
+    variable = p.input_coords()["variable"]
     x, coords = fetch_data(r, time, variable, lead_time, device=device)
 
     out, out_coords = p(x, coords)

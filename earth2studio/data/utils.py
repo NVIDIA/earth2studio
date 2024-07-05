@@ -16,7 +16,7 @@
 
 import tempfile
 from collections import OrderedDict
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Literal
 
@@ -25,7 +25,11 @@ import torch
 import xarray as xr
 
 from earth2studio.data.base import DataSource
-from earth2studio.utils.time import timearray_to_datetime, to_time_array
+from earth2studio.utils.time import (
+    leadtimearray_to_timedelta,
+    timearray_to_datetime,
+    to_time_array,
+)
 from earth2studio.utils.type import CoordSystem, LeadTimeArray, TimeArray, VariableArray
 
 
@@ -127,6 +131,38 @@ def prep_data_inputs(
         time = timearray_to_datetime(time)
 
     return time, variable
+
+
+def prep_forecast_inputs(
+    time: datetime | list[datetime] | TimeArray,
+    lead_time: timedelta | list[timedelta] | LeadTimeArray,
+    variable: str | list[str] | VariableArray,
+) -> tuple[list[datetime], list[timedelta], list[str]]:
+    """Simple method to pre-process forecast source inputs into a common form
+
+    Parameters
+    ----------
+    time : datetime | list[datetime] | TimeArray
+        Datetime, list of datetimes or array of np.datetime64 to fetch
+    lead_time: timedelta | list[timedelta], LeadTimeArray
+        Timedelta, list of timedeltas or array of np.timedelta to fetch
+    variable : str | list[str] | VariableArray
+        String, list of strings or array of strings that refer to variables
+
+    Returns
+    -------
+    tuple[list[datetime], list[timedelta], list[str]]
+        Time, lead time, and variable lists
+    """
+    if isinstance(lead_time, timedelta):
+        lead_time = [lead_time]
+
+    if isinstance(lead_time, np.ndarray):  # np.timedelta64 -> timedelta
+        lead_time = leadtimearray_to_timedelta(lead_time)
+
+    time, variable = prep_data_inputs(time, variable)
+
+    return time, lead_time, variable
 
 
 def datasource_to_file(

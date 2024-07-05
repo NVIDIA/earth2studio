@@ -53,14 +53,14 @@ def test_sfno_call(time, device):
     p = SFNO(model, center, scale).to(device)
 
     # Create "domain coords"
-    dc = {k: p.input_coords[k] for k in ["lat", "lon"]}
+    dc = {k: p.input_coords()[k] for k in ["lat", "lon"]}
 
     # Initialize Data Source
     r = Random(dc)
 
     # Get Data and convert to tensor, coords
-    lead_time = p.input_coords["lead_time"]
-    variable = p.input_coords["variable"]
+    lead_time = p.input_coords()["lead_time"]
+    variable = p.input_coords()["variable"]
     x, coords = fetch_data(r, time, variable, lead_time, device=device)
 
     out, out_coords = p(x, coords)
@@ -93,14 +93,14 @@ def test_sfno_iter(ensemble, device):
     p = SFNO(model, center, scale).to(device)
 
     # Create "domain coords"
-    dc = {k: p.input_coords[k] for k in ["lat", "lon"]}
+    dc = {k: p.input_coords()[k] for k in ["lat", "lon"]}
 
     # Initialize Data Source
     r = Random(dc)
 
     # Get Data and convert to tensor, coords
-    lead_time = p.input_coords["lead_time"]
-    variable = p.input_coords["variable"]
+    lead_time = p.input_coords()["lead_time"]
+    variable = p.input_coords()["variable"]
     x, coords = fetch_data(r, time, variable, lead_time, device=device)
 
     # Add ensemble to front
@@ -119,7 +119,7 @@ def test_sfno_iter(ensemble, device):
         assert len(out.shape) == 6
         assert out.shape == torch.Size([ensemble, len(time), 1, 73, 721, 1440])
         assert (
-            out_coords["variable"] == p.output_coords(p.input_coords)["variable"]
+            out_coords["variable"] == p.output_coords(p.input_coords())["variable"]
         ).all()
         assert (out_coords["ensemble"] == np.arange(ensemble)).all()
         assert out_coords["lead_time"][0] == np.timedelta64(6 * (i + 1), "h")
@@ -149,8 +149,8 @@ def test_sfno_exceptions(dc, device):
     r = Random(dc)
 
     # Get Data and convert to tensor, coords
-    lead_time = p.input_coords["lead_time"]
-    variable = p.input_coords["variable"]
+    lead_time = p.input_coords()["lead_time"]
+    variable = p.input_coords()["variable"]
     x, coords = fetch_data(r, time, variable, lead_time, device=device)
 
     with pytest.raises((KeyError, ValueError)):
@@ -176,14 +176,14 @@ def test_sfno_package(device, model):
     p = model.to(device)
 
     # Create "domain coords"
-    dc = {k: p.input_coords[k] for k in ["lat", "lon"]}
+    dc = {k: p.input_coords()[k] for k in ["lat", "lon"]}
 
     # Initialize Data Source
     r = Random(dc)
 
     # Get Data and convert to tensor, coords
-    lead_time = p.input_coords["lead_time"]
-    variable = p.input_coords["variable"]
+    lead_time = p.input_coords()["lead_time"]
+    variable = p.input_coords()["variable"]
     x, coords = fetch_data(r, time, variable, lead_time, device=device)
 
     out, out_coords = p(x, coords)

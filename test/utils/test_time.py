@@ -14,12 +14,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import numpy as np
 import pytest
 
-from earth2studio.utils.time import timearray_to_datetime, to_time_array
+from earth2studio.utils.time import (
+    leadtimearray_to_timedelta,
+    timearray_to_datetime,
+    to_time_array,
+)
 
 
 @pytest.mark.parametrize(
@@ -36,6 +40,22 @@ def test_to_datetime(time):
     array = np.array(time, dtype=np.datetime64)
     time_np = timearray_to_datetime(array)
     assert all(t1 == t2 for t1, t2 in zip(time, time_np))
+
+
+@pytest.mark.parametrize(
+    "timedelta",
+    [
+        [timedelta(hours=1, minutes=2, seconds=3)],
+        [
+            timedelta(weeks=1, hours=2, microseconds=3),
+            timedelta(days=1, seconds=2, milliseconds=3),
+        ],
+    ],
+)
+def test_to_timedelta(timedelta):
+    array = np.array(timedelta, dtype="timedelta64[us]")
+    timedelta_np = leadtimearray_to_timedelta(array)
+    assert all(t1 == t2 for t1, t2 in zip(timedelta, timedelta_np))
 
 
 @pytest.mark.parametrize(

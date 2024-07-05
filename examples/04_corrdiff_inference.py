@@ -57,6 +57,13 @@ In this example you will learn:
 # - number_of_samples: Number of samples to generate from the model
 
 # %%
+import os
+
+os.makedirs("outputs", exist_ok=True)
+from dotenv import load_dotenv
+
+load_dotenv()  # TODO: make common example prep function
+
 from collections import OrderedDict
 from datetime import datetime
 
@@ -109,22 +116,23 @@ def run(
     # Fetch data from data source and load onto device
     time = to_time_array(time)
     x, coords = prep_data_array(
-        data(time, corrdiff.input_coords["variable"]), device=device
+        data(time, corrdiff.input_coords()["variable"]), device=device
     )
-    x, coords = map_coords(x, coords, corrdiff.input_coords)
+    x, coords = map_coords(x, coords, corrdiff.input_coords())
 
     logger.success(f"Fetched data from {data.__class__.__name__}")
 
     # Set up IO backend
+    output_coords = corrdiff.output_coords(corrdiff.input_coords())
     total_coords = OrderedDict(
         {
             "time": coords["time"],
-            "sample": corrdiff.output_coords["sample"],
-            "ilat": corrdiff.output_coords["ilat"],
-            "ilon": corrdiff.output_coords["ilon"],
+            "sample": output_coords["sample"],
+            "ilat": output_coords["ilat"],
+            "ilon": output_coords["ilon"],
         }
     )
-    io.add_array(total_coords, corrdiff.output_coords["variable"])
+    io.add_array(total_coords, output_coords["variable"])
 
     # Add lat/lon grid metadata arrays
     io.add_array(
@@ -160,12 +168,8 @@ def run(
 #
 
 # %%
-from dotenv import load_dotenv
-
 from earth2studio.data import GFS
 from earth2studio.io import ZarrBackend
-
-load_dotenv()  # TODO: make common example prep function
 
 # Create CorrDiff model
 package = CorrDiffTaiwan.load_default_package()
@@ -248,4 +252,4 @@ ax2.coastlines()
 ax2.gridlines()
 ax2.set_title("10-meter Wind Speed")
 
-plt.savefig("outputs/03_corr_diff_prediction.jpg")
+plt.savefig("outputs/04_corr_diff_prediction.jpg")

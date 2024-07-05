@@ -152,17 +152,15 @@ class PanguBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self.device = torch.ones(1).device  # Hack to get default device
         self.ort = None
 
-    @property
     def input_coords(self) -> CoordSystem:
-        """Input coordinate system of prognostic model, time dimension should contain
-        time-delta objects
+        """Input coordinate system of the prognostic model
 
         Returns
         -------
         CoordSystem
             Coordinate system dictionary
         """
-        return self._input_coords
+        return self._input_coords.copy()
 
     @batch_coords()
     def output_coords(
@@ -175,7 +173,6 @@ class PanguBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         ----------
         input_coords : CoordSystem
             Input coordinate system to transform into output_coords
-            by default None, will use self.input_coords.
 
         Returns
         -------
@@ -188,10 +185,11 @@ class PanguBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         test_coords["lead_time"] = (
             test_coords["lead_time"] - input_coords["lead_time"][-1]
         )
-        for i, key in enumerate(self.input_coords):
+        target_input_coords = self.input_coords()
+        for i, key in enumerate(target_input_coords):
             if key != "batch":
                 handshake_dim(test_coords, key, i)
-                handshake_coords(test_coords, self.input_coords, key)
+                handshake_coords(test_coords, target_input_coords, key)
 
         output_coords["batch"] = input_coords["batch"]
         output_coords["lead_time"] = (

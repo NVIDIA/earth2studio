@@ -59,11 +59,15 @@ In this example you will learn:
 #   folder is *not* present. The .env file is intended for the documentation build only.
 
 # %%
-import numpy as np
-import torch
+import os
+
+os.makedirs("outputs", exist_ok=True)
 from dotenv import load_dotenv
 
 load_dotenv()  # TODO: make common example prep function
+
+import numpy as np
+import torch
 from loguru import logger
 from modulus.distributed import DistributedManager
 

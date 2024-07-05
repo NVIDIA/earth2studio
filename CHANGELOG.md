@@ -6,7 +6,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.2.0] - 2024-xx-xx
+## [0.3.0a0] - 2024-09-xx
+
+### Added
+
+- Forecast datasource API
+- GFS Forecast datasource
+
+### Changed
+
+### Deprecated
+
+### Removed
+
+### Fixed
+
+### Security
+
+### Dependencies
+
+## [0.2.0] - 2024-07-23
 
 ### Added
 
@@ -40,8 +59,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Removed original `Perturbation` class
 - Updated SFNO coordinates to include optional batch dimension.
 - NetCDF reads are now mode='r+' instead of 'w'.
-- Change 'output_coords' for models from a property to a method that
-  accepts input coordinates to determine the corresponding outputs.
+- Change 'input_coords' and 'output_coords' for models from a property to methods.
+  'output_coords' accepts an input coordinates to determine the corresponding outputs.
 - Updated Package to use WholeFileCacheFileSystem. Extend package API to open and
   resolve. Deprication warning added to get.
 

@@ -88,7 +88,7 @@ def test_fuxi_call(time, fuxi_test_package, device):
     # Use dummy package
     p = FuXi.load_model(fuxi_test_package).to(device)
 
-    dc = p.input_coords.copy()
+    dc = p.input_coords()
     del dc["batch"]
     del dc["time"]
     del dc["lead_time"]
@@ -97,8 +97,8 @@ def test_fuxi_call(time, fuxi_test_package, device):
     r = Random(dc)
 
     # Get Data and convert to tensor, coords
-    lead_time = p.input_coords["lead_time"]
-    variable = p.input_coords["variable"]
+    lead_time = p.input_coords()["lead_time"]
+    variable = p.input_coords()["variable"]
     x, coords = fetch_data(r, time, variable, lead_time, device=device)
 
     out, out_coords = p(x, coords)
@@ -107,7 +107,7 @@ def test_fuxi_call(time, fuxi_test_package, device):
         time = [time]
 
     assert out.shape == torch.Size(
-        [len(time), 1, len(p.output_coords(p.input_coords)["variable"]), 721, 1440]
+        [len(time), 1, len(p.output_coords(p.input_coords())["variable"]), 721, 1440]
     )
     assert (out_coords["variable"] == p.output_coords(coords)["variable"]).all()
     assert (out_coords["time"] == time).all()
@@ -131,7 +131,7 @@ def test_fuxi_iter(ensemble, fuxi_test_package, device):
     # Use dummy package
     p = FuXi.load_model(fuxi_test_package).to(device)
 
-    dc = p.input_coords.copy()
+    dc = p.input_coords()
     del dc["batch"]
     del dc["time"]
     del dc["lead_time"]
@@ -140,8 +140,8 @@ def test_fuxi_iter(ensemble, fuxi_test_package, device):
     r = Random(dc)
 
     # Get Data and convert to tensor, coords
-    lead_time = p.input_coords["lead_time"]
-    variable = p.input_coords["variable"]
+    lead_time = p.input_coords()["lead_time"]
+    variable = p.input_coords()["variable"]
     x, coords = fetch_data(r, time, variable, lead_time, device=device)
 
     # Add ensemble to front
@@ -171,7 +171,7 @@ def test_fuxi_iter(ensemble, fuxi_test_package, device):
         assert len(out.shape) == 6
         assert out.shape[0] == ensemble
         assert (
-            out_coords["variable"] == p.output_coords(p.input_coords)["variable"]
+            out_coords["variable"] == p.output_coords(p.input_coords())["variable"]
         ).all()
         assert (out_coords["time"] == time).all()
         assert out_coords["lead_time"][0] == np.timedelta64(6 * (i + 1), "h")
@@ -195,12 +195,14 @@ def test_fuxi_iter(ensemble, fuxi_test_package, device):
             ensemble,
             len(time),
             1,
-            len(p.output_coords(p.input_coords)["variable"]),
+            len(p.output_coords(p.input_coords())["variable"]),
             721,
             1440,
         ]
     )
-    assert (out_coords["variable"] == p.output_coords(p.input_coords)["variable"]).all()
+    assert (
+        out_coords["variable"] == p.output_coords(p.input_coords())["variable"]
+    ).all()
     assert torch.allclose(
         out, (x[:, 1:] + 1)
     )  # Phoo model should add by delta t each call
@@ -225,8 +227,8 @@ def test_fuxi_exceptions(dc, fuxi_test_package, device):
     r = Random(dc)
 
     # Get Data and convert to tensor, coords
-    lead_time = p.input_coords["lead_time"]
-    variable = p.input_coords["variable"]
+    lead_time = p.input_coords()["lead_time"]
+    variable = p.input_coords()["variable"]
     x, coords = fetch_data(r, time, variable, lead_time, device=device)
 
     with pytest.raises((KeyError, ValueError)):
@@ -244,7 +246,7 @@ def test_fuxi_package(device, model_cache_context):
             package = FuXi.load_default_package()
             p = FuXi.load_model(package).to(device)
 
-    dc = p.input_coords.copy()
+    dc = p.input_coords()
     del dc["batch"]
     del dc["time"]
     del dc["lead_time"]
@@ -253,8 +255,8 @@ def test_fuxi_package(device, model_cache_context):
     r = Random(dc)
 
     # Get Data and convert to tensor, coords
-    lead_time = p.input_coords["lead_time"]
-    variable = p.input_coords["variable"]
+    lead_time = p.input_coords()["lead_time"]
+    variable = p.input_coords()["variable"]
     x, coords = fetch_data(r, time, variable, lead_time, device=device)
 
     out, out_coords = p(x, coords)
