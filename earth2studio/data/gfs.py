@@ -18,7 +18,7 @@ import hashlib
 import os
 import pathlib
 import shutil
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import numpy as np
 import s3fs
@@ -28,9 +28,9 @@ from modulus.distributed.manager import DistributedManager
 from s3fs.core import S3FileSystem
 from tqdm import tqdm
 
-from earth2studio.data.utils import prep_data_inputs
+from earth2studio.data.utils import prep_data_inputs, prep_forecast_inputs
 from earth2studio.lexicon import GFSLexicon
-from earth2studio.utils.type import TimeArray, VariableArray
+from earth2studio.utils.type import LeadTimeArray, TimeArray, VariableArray
 
 logger.remove()
 logger.add(lambda msg: tqdm.write(msg, end=""), colorize=True)
@@ -59,7 +59,8 @@ class GFS:
     Note
     ----
     This data source only fetches the initial state of GFS and does not fetch an
-    predicted time steps.
+    predicted time steps. See :class:`~earth2studio.data.GFS_FX` for fetching predicted
+    data from this forecast system.
 
     Note
     ----
@@ -109,9 +110,10 @@ class GFS:
         self._validate_time(time)
 
         # Fetch index file for requested time
+        # Should really async this stuff
         data_arrays = []
         for t0 in time:
-            data_array = self.fetch_gfs_dataarray(t0, variable)
+            data_array = self.fetch_dataarray(t0, variable)
             data_arrays.append(data_array)
 
         # Delete cache if needed
@@ -120,21 +122,19 @@ class GFS:
 
         return xr.concat(data_arrays, dim="time")
 
-    def fetch_gfs_dataarray(
+    def fetch_dataarray(
         self,
         time: datetime,
         variables: list[str],
     ) -> xr.DataArray:
-        """Retrives GFS data array for given date time by fetching the index file,
-        fetching variable grib files and lastly combining grib files into single data
-        array.
+        """Retrives GFS initial state data array for given date time
 
         Parameters
         ----------
         time : datetime
             Date time to fetch
         variables : list[str]
-            list of atmosphric variables to fetch. Must be supported in GFS lexicon
+            List of atmosphric variables to fetch. Must be supported in GFS lexicon
 
         Returns
         -------
@@ -146,21 +146,49 @@ class GFS:
         KeyError
             Un supported variable.
         """
-        logger.debug(f"Fetching GFS index file: {time}")
-        index_file = self._fetch_index(time)
+        da = self._fetch_gfs_dataarray(time, timedelta(hours=0), variables)
+        return da.isel(lead_time=0)
+
+    def _fetch_gfs_dataarray(
+        self,
+        time: datetime,
+        lead_time: timedelta,
+        variables: list[str],
+    ) -> xr.DataArray:
+        """Fetch GFS data array. This will first fetch the index file to get byte range
+        of the needed data, fetch the respective grib files and lastly combining grib
+        files into single data array.
+
+        Parameters
+        ----------
+        time : datetime
+            Date time to fetch
+        lead_time : timedelta
+            Forecast lead time to fetch
+        variables : list[str]
+            Variables to fetch
+
+        Returns
+        -------
+        xr.DataArray
+            FS data array for given time and lead time
+        """
+        logger.debug(f"Fetching GFS index file: {time} lead {lead_time}")
+        index_file = self._fetch_index(time, lead_time)
+        lead_hour = int(lead_time.total_seconds() // 3600)
 
         file_name = f"gfs.{time.year}{time.month:0>2}{time.day:0>2}/{time.hour:0>2}"
-        # Would need to update "f000" for getting forecast steps
         file_name = os.path.join(
-            file_name, f"atmos/gfs.t{time.hour:0>2}z.pgrb2.0p25.f000"
+            file_name, f"atmos/gfs.t{time.hour:0>2}z.pgrb2.0p25.f{lead_hour:03d}"
         )
         grib_file_name = os.path.join(self.GFS_BUCKET_NAME, file_name)
 
         gfsda = xr.DataArray(
-            data=np.empty((1, len(variables), len(self.GFS_LAT), len(self.GFS_LON))),
-            dims=["time", "variable", "lat", "lon"],
+            data=np.empty((1, 1, len(variables), len(self.GFS_LAT), len(self.GFS_LON))),
+            dims=["time", "lead_time", "variable", "lat", "lon"],
             coords={
                 "time": [time],
+                "lead_time": [lead_time],
                 "variable": variables,
                 "lat": self.GFS_LAT,
                 "lon": self.GFS_LON,
@@ -193,7 +221,9 @@ class GFS:
             byte_offset = index_file[gfs_name][0]
             byte_length = index_file[gfs_name][1]
             # Download the grib file to cache
-            logger.debug(f"Fetching GFS grib file for variable: {variable} at {time}")
+            logger.debug(
+                f"Fetching GFS grib file for variable: {variable} at {time}_{lead_hour}"
+            )
             grib_file = self._download_s3_grib_cached(
                 grib_file_name, byte_offset=byte_offset, byte_length=byte_length
             )
@@ -201,7 +231,7 @@ class GFS:
             da = xr.open_dataarray(
                 grib_file, engine="cfgrib", backend_kwargs={"indexpath": ""}
             )
-            gfsda[0, i] = modifier(da.values)
+            gfsda[0, 0, i] = modifier(da.values)
             # sphinx - lexicon end
 
         return gfsda
@@ -230,7 +260,9 @@ class GFS:
             # if not self.available(time):
             #     raise ValueError(f"Requested date time {time} not available in GFS")
 
-    def _fetch_index(self, time: datetime) -> dict[str, tuple[int, int]]:
+    def _fetch_index(
+        self, time: datetime, lead_time: timedelta
+    ) -> dict[str, tuple[int, int]]:
         """Fetch GFS atmospheric index file
 
         Parameters
@@ -244,9 +276,10 @@ class GFS:
             Dictionary of GFS vairables (byte offset, byte length)
         """
         # https://www.nco.ncep.noaa.gov/pmb/products/gfs/
+        lead_hour = int(lead_time.total_seconds() // 3600)
         file_name = f"gfs.{time.year}{time.month:0>2}{time.day:0>2}/{time.hour:0>2}"
         file_name = os.path.join(
-            file_name, f"atmos/gfs.t{time.hour:0>2}z.pgrb2.0p25.f000.idx"
+            file_name, f"atmos/gfs.t{time.hour:0>2}z.pgrb2.0p25.f{lead_hour:03d}.idx"
         )
         s3_uri = os.path.join(self.GFS_BUCKET_NAME, file_name)
         # Grab index file
@@ -348,3 +381,132 @@ class GFS:
         exists = fs.exists(s3_uri)
 
         return exists
+
+
+class GFS_FX(GFS):
+    """The global forecast service (GFS) forecast source provided on an equirectangular
+    grid. GFS is a weather forecast model developed by NOAA. This data source is on a
+    0.25 degree lat lon grid at 6-hour intervals spanning from Feb 26th 2021 to present
+    date. Each forecast provides hourly predictions up to 16 days (384 hours).
+
+    Parameters
+    ----------
+    cache : bool, optional
+        Cache data source on local memory, by default True
+    verbose : bool, optional
+        Print download progress, by default True
+
+    Warning
+    -------
+    This is a remote data source and can potentially download a large amount of data
+    to your local machine for large requests.
+
+    Note
+    ----
+    Additional information on the data repository can be referenced here:
+
+    - https://registry.opendata.aws/noaa-gfs-bdp-pds/
+    - https://www.emc.ncep.noaa.gov/emc/pages/numerical_forecast_systems/gfs.php
+    """
+
+    def __call__(  # type: ignore[override]
+        self,
+        time: datetime | list[datetime] | TimeArray,
+        lead_time: timedelta | list[timedelta] | LeadTimeArray,
+        variable: str | list[str] | VariableArray,
+    ) -> xr.DataArray:
+        """Retrieve GFS forecast data
+
+        Parameters
+        ----------
+        time : datetime | list[datetime] | TimeArray
+            Timestamps to return data for (UTC).
+        lead_time: timedelta | list[timedelta] | LeadTimeArray
+            Forecast lead times to fetch.
+        variable : str | list[str] | VariableArray
+            String, list of strings or array of strings that refer to variables to
+            return. Must be in the GFS lexicon.
+
+        Returns
+        -------
+        xr.DataArray
+            GFS weather data array
+        """
+        time, lead_time, variable = prep_forecast_inputs(time, lead_time, variable)
+
+        # Create cache dir if doesnt exist
+        pathlib.Path(self.cache).mkdir(parents=True, exist_ok=True)
+
+        # Make sure input time is valid
+        self._validate_time(time)
+        self._validate_leadtime(lead_time)
+
+        # Fetch index file for requested time
+        # Should really async this stuff
+        data_arrays = []
+        for t0 in time:
+            lead_arrays = []
+            for l0 in lead_time:
+                data_array = self.fetch_dataarray(t0, l0, variable)
+                lead_arrays.append(data_array)
+
+            data_arrays.append(xr.concat(lead_arrays, dim="lead_time"))
+
+        # Delete cache if needed
+        if not self._cache:
+            shutil.rmtree(self.cache)
+
+        return xr.concat(data_arrays, dim="time")
+
+    def fetch_dataarray(  # type: ignore[override]
+        self,
+        time: datetime,
+        lead_time: timedelta,
+        variables: list[str],
+    ) -> xr.DataArray:
+        """Retrives GFS data array for given date time by fetching the index file,
+        fetching variable grib files and lastly combining grib files into single data
+        array.
+
+        Parameters
+        ----------
+        time : datetime
+            Date time to fetch
+        lead_time : timedelta
+            Forecast lead time to fetch
+        variables : list[str]
+            List of atmosphric variables to fetch. Must be supported in GFS lexicon
+
+        Returns
+        -------
+        xr.DataArray
+            GFS data array for given date time
+
+        Raises
+        ------
+        KeyError
+            Un supported variable.
+        """
+        return self._fetch_gfs_dataarray(time, lead_time, variables)
+
+    @classmethod
+    def _validate_leadtime(cls, lead_times: list[timedelta]) -> None:
+        """Verify if lead time is valid for GFS based on offline knowledge
+
+        Parameters
+        ----------
+        lead_times : list[timedelta]
+            list of lead times to fetch data
+        """
+        for delta in lead_times:
+            if not delta.total_seconds() % 3600 == 0:
+                raise ValueError(
+                    f"Requested lead time {delta} needs to be 1 hour interval for GFS"
+                )
+            # To update search "gfs." at https://noaa-gfs-bdp-pds.s3.amazonaws.com/index.html
+            # They are slowly adding more data
+            hours = int(delta.total_seconds() // 3600)
+            if hours > 384 or hours < 0:
+                raise ValueError(
+                    f"Requested lead time {delta} can only be a max of 384 hours for GFS"
+                )

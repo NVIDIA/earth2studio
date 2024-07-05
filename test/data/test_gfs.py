@@ -21,7 +21,7 @@ import shutil
 import numpy as np
 import pytest
 
-from earth2studio.data import GFS
+from earth2studio.data import GFS, GFS_FX
 
 
 @pytest.mark.slow
@@ -56,6 +56,42 @@ def test_gfs_fetch(time, variable):
     assert shape[3] == 1440
     assert not np.isnan(data.values).any()
     assert GFS.available(time[0])
+    assert np.array_equal(data.coords["variable"].values, np.array(variable))
+
+
+@pytest.mark.slow
+@pytest.mark.xfail
+@pytest.mark.timeout(30)
+@pytest.mark.parametrize(
+    "lead_time",
+    [
+        datetime.timedelta(hours=1),
+        [datetime.timedelta(hours=2), datetime.timedelta(hours=3)],
+        np.array([np.timedelta64(0, "h")]),
+    ],
+)
+def test_gfs_fx_fetch(lead_time):
+    time = datetime.datetime(year=2022, month=12, day=25)
+    variable = "t2m"
+    ds = GFS_FX(cache=False)
+    data = ds(time, lead_time, variable)
+    shape = data.shape
+
+    if isinstance(variable, str):
+        variable = [variable]
+
+    if isinstance(lead_time, datetime.timedelta):
+        lead_time = [lead_time]
+
+    if isinstance(time, datetime.datetime):
+        time = [time]
+
+    assert shape[0] == len(time)
+    assert shape[1] == len(lead_time)
+    assert shape[2] == len(variable)
+    assert shape[3] == 721
+    assert shape[4] == 1440
+    assert not np.isnan(data.values).any()
     assert np.array_equal(data.coords["variable"].values, np.array(variable))
 
 
@@ -117,3 +153,20 @@ def test_gfs_available(time, variable):
     with pytest.raises(ValueError):
         ds = GFS()
         ds(time, variable)
+
+
+@pytest.mark.timeout(15)
+@pytest.mark.parametrize(
+    "lead_time",
+    [
+        datetime.timedelta(hours=-1),
+        [datetime.timedelta(hours=2), datetime.timedelta(hours=2, minutes=1)],
+        np.array([np.timedelta64(385, "h")]),
+    ],
+)
+def test_gfs_fx_available(lead_time):
+    time = datetime.datetime(year=2022, month=12, day=25)
+    variable = "t2m"
+    with pytest.raises(ValueError):
+        ds = GFS_FX()
+        ds(time, lead_time, variable)
