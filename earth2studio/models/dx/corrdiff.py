@@ -20,13 +20,11 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Literal
 
-import modulus
 import numpy as np
 import torch
 import zarr
 from modulus.models import Module
 from modulus.utils.generative import StackedRandomGenerator, ablation_sampler
-from packaging.version import Version
 
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_coords, batch_func
@@ -333,14 +331,9 @@ class CorrDiffTaiwan(torch.nn.Module, AutoModelMixin):
         # Create latents
         rnd = StackedRandomGenerator(x.device, sample_seeds)
 
-        # API break: https://github.com/NVIDIA/modulus/pull/540
-        if Version(modulus.__version__) <= Version("0.6.0"):
-            img_resolution_x = self.regression_model.img_resolution
-            img_resolution_y = self.regression_model.img_resolution
-        else:
-            img_resolution_x = self.regression_model.model.img_shape_x
-            img_resolution_y = self.regression_model.model.img_shape_y
-
+        coord = self.output_coords(self.input_coords())
+        img_resolution_x = len(coord["ilat"])
+        img_resolution_y = len(coord["ilon"])
         latents = rnd.randn(
             [
                 self.number_of_samples,
