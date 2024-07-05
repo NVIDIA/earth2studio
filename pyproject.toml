@@ -104,6 +104,7 @@ dev = [
     "ruff==0.1.5",
 ]
 docs = [
+    "cartopy",
     "sphinx-design",
     "sphinx>=6.0.0",
     "jupytext>=1.15.0",
