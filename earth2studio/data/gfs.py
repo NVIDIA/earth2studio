@@ -84,7 +84,6 @@ class GFS:
         self,
         time: datetime | list[datetime] | TimeArray,
         variable: str | list[str] | VariableArray,
-        forecast_hour: int = 0,
     ) -> xr.DataArray:
         """Retrieve GFS initial data to be used for initial conditions for the given
         time, variable information, and optional history.
@@ -127,7 +126,6 @@ class GFS:
         self,
         time: datetime,
         variables: list[str],
-        forecast_hour: int = 0,
     ) -> xr.DataArray:
         """Retrives GFS initial state data array for given date time
 

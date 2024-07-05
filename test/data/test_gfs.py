@@ -38,11 +38,10 @@ from earth2studio.data import GFS, GFS_FX
     ],
 )
 @pytest.mark.parametrize("variable", ["t2m", ["msl"]])
-@pytest.mark.parametrize("forecast_hour", list(range(13)))
-def test_gfs_fetch(time, variable, forecast_hour):
+def test_gfs_fetch(time, variable):
 
     ds = GFS(cache=False)
-    data = ds(time, variable, forecast_hour=forecast_hour)
+    data = ds(time, variable)
     shape = data.shape
 
     if isinstance(variable, str):
