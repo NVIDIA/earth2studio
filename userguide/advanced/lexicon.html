@@ -564,7 +564,9 @@ fetch the correct data.</p>
             <span class="n">byte_offset</span> <span class="o">=</span> <span class="n">index_file</span><span class="p">[</span><span class="n">gfs_name</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
             <span class="n">byte_length</span> <span class="o">=</span> <span class="n">index_file</span><span class="p">[</span><span class="n">gfs_name</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span>
             <span class="c1"># Download the grib file to cache</span>
-            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Fetching GFS grib file for variable: </span><span class="si">{</span><span class="n">variable</span><span class="si">}</span><span class="s2"> at </span><span class="si">{</span><span class="n">time</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Fetching GFS grib file for variable: </span><span class="si">{</span><span class="n">variable</span><span class="si">}</span><span class="s2"> at </span><span class="si">{</span><span class="n">time</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">lead_hour</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="p">)</span>
             <span class="n">grib_file</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_download_s3_grib_cached</span><span class="p">(</span>
                 <span class="n">grib_file_name</span><span class="p">,</span> <span class="n">byte_offset</span><span class="o">=</span><span class="n">byte_offset</span><span class="p">,</span> <span class="n">byte_length</span><span class="o">=</span><span class="n">byte_length</span>
             <span class="p">)</span>
@@ -572,7 +574,7 @@ fetch the correct data.</p>
             <span class="n">da</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">open_dataarray</span><span class="p">(</span>
                 <span class="n">grib_file</span><span class="p">,</span> <span class="n">engine</span><span class="o">=</span><span class="s2">&quot;cfgrib&quot;</span><span class="p">,</span> <span class="n">backend_kwargs</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;indexpath&quot;</span><span class="p">:</span> <span class="s2">&quot;&quot;</span><span class="p">}</span>
             <span class="p">)</span>
-            <span class="n">gfsda</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">modifier</span><span class="p">(</span><span class="n">da</span><span class="o">.</span><span class="n">values</span><span class="p">)</span>
+            <span class="n">gfsda</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">modifier</span><span class="p">(</span><span class="n">da</span><span class="o">.</span><span class="n">values</span><span class="p">)</span>
 </pre></div>
 </div>
 <p>It is a common pattern for data source lexicons to contain a modifier function that is

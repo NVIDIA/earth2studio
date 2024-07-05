@@ -446,7 +446,7 @@ document.write(`
 
 <span class="kn">import</span> <span class="nn">tempfile</span>
 <span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">OrderedDict</span>
-<span class="kn">from</span> <span class="nn">datetime</span> <span class="kn">import</span> <span class="n">datetime</span>
+<span class="kn">from</span> <span class="nn">datetime</span> <span class="kn">import</span> <span class="n">datetime</span><span class="p">,</span> <span class="n">timedelta</span>
 <span class="kn">from</span> <span class="nn">pathlib</span> <span class="kn">import</span> <span class="n">Path</span>
 <span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Literal</span>
 
@@ -455,7 +455,11 @@ document.write(`
 <span class="kn">import</span> <span class="nn">xarray</span> <span class="k">as</span> <span class="nn">xr</span>
 
 <span class="kn">from</span> <span class="nn">earth2studio.data.base</span> <span class="kn">import</span> <span class="n">DataSource</span>
-<span class="kn">from</span> <span class="nn">earth2studio.utils.time</span> <span class="kn">import</span> <span class="n">timearray_to_datetime</span><span class="p">,</span> <span class="n">to_time_array</span>
+<span class="kn">from</span> <span class="nn">earth2studio.utils.time</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">leadtimearray_to_timedelta</span><span class="p">,</span>
+    <span class="n">timearray_to_datetime</span><span class="p">,</span>
+    <span class="n">to_time_array</span><span class="p">,</span>
+<span class="p">)</span>
 <span class="kn">from</span> <span class="nn">earth2studio.utils.type</span> <span class="kn">import</span> <span class="n">CoordSystem</span><span class="p">,</span> <span class="n">LeadTimeArray</span><span class="p">,</span> <span class="n">TimeArray</span><span class="p">,</span> <span class="n">VariableArray</span>
 
 
@@ -563,6 +567,38 @@ document.write(`
         <span class="n">time</span> <span class="o">=</span> <span class="n">timearray_to_datetime</span><span class="p">(</span><span class="n">time</span><span class="p">)</span>
 
     <span class="k">return</span> <span class="n">time</span><span class="p">,</span> <span class="n">variable</span>
+
+
+<span class="k">def</span> <span class="nf">prep_forecast_inputs</span><span class="p">(</span>
+    <span class="n">time</span><span class="p">:</span> <span class="n">datetime</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="n">datetime</span><span class="p">]</span> <span class="o">|</span> <span class="n">TimeArray</span><span class="p">,</span>
+    <span class="n">lead_time</span><span class="p">:</span> <span class="n">timedelta</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="n">timedelta</span><span class="p">]</span> <span class="o">|</span> <span class="n">LeadTimeArray</span><span class="p">,</span>
+    <span class="n">variable</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="n">VariableArray</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="n">datetime</span><span class="p">],</span> <span class="nb">list</span><span class="p">[</span><span class="n">timedelta</span><span class="p">],</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Simple method to pre-process forecast source inputs into a common form</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    time : datetime | list[datetime] | TimeArray</span>
+<span class="sd">        Datetime, list of datetimes or array of np.datetime64 to fetch</span>
+<span class="sd">    lead_time: timedelta | list[timedelta], LeadTimeArray</span>
+<span class="sd">        Timedelta, list of timedeltas or array of np.timedelta to fetch</span>
+<span class="sd">    variable : str | list[str] | VariableArray</span>
+<span class="sd">        String, list of strings or array of strings that refer to variables</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    tuple[list[datetime], list[timedelta], list[str]]</span>
+<span class="sd">        Time, lead time, and variable lists</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">lead_time</span><span class="p">,</span> <span class="n">timedelta</span><span class="p">):</span>
+        <span class="n">lead_time</span> <span class="o">=</span> <span class="p">[</span><span class="n">lead_time</span><span class="p">]</span>
+
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">lead_time</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">):</span>  <span class="c1"># np.timedelta64 -&gt; timedelta</span>
+        <span class="n">lead_time</span> <span class="o">=</span> <span class="n">leadtimearray_to_timedelta</span><span class="p">(</span><span class="n">lead_time</span><span class="p">)</span>
+
+    <span class="n">time</span><span class="p">,</span> <span class="n">variable</span> <span class="o">=</span> <span class="n">prep_data_inputs</span><span class="p">(</span><span class="n">time</span><span class="p">,</span> <span class="n">variable</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">time</span><span class="p">,</span> <span class="n">lead_time</span><span class="p">,</span> <span class="n">variable</span>
 
 
 <div class="viewcode-block" id="datasource_to_file">
