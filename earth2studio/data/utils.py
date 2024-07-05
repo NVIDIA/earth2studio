@@ -151,8 +151,8 @@ def prep_forecast_inputs(
 
     Returns
     -------
-    tuple[list[datetime], list[str]]
-        Time and variable lists
+    tuple[list[datetime], list[timedelta], list[str]]
+        Time, lead time, and variable lists
     """
     if isinstance(lead_time, timedelta):
         lead_time = [lead_time]
