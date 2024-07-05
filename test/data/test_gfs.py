@@ -14,9 +14,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import datetime
 import pathlib
 import shutil
+from datetime import datetime, timedelta
 
 import numpy as np
 import pytest
@@ -30,10 +30,10 @@ from earth2studio.data import GFS, GFS_FX
 @pytest.mark.parametrize(
     "time",
     [
-        datetime.datetime(year=2022, month=12, day=25),
+        datetime(year=2022, month=12, day=25),
         [
-            datetime.datetime(year=2022, month=1, day=1, hour=6),
-            datetime.datetime(year=2023, month=2, day=3, hour=18),
+            datetime(year=2022, month=1, day=1, hour=6),
+            datetime(year=2023, month=2, day=3, hour=18),
         ],
     ],
 )
@@ -47,7 +47,7 @@ def test_gfs_fetch(time, variable):
     if isinstance(variable, str):
         variable = [variable]
 
-    if isinstance(time, datetime.datetime):
+    if isinstance(time, datetime):
         time = [time]
 
     assert shape[0] == len(time)
@@ -63,15 +63,23 @@ def test_gfs_fetch(time, variable):
 @pytest.mark.xfail
 @pytest.mark.timeout(30)
 @pytest.mark.parametrize(
-    "lead_time",
+    "time,lead_time",
     [
-        datetime.timedelta(hours=1),
-        [datetime.timedelta(hours=2), datetime.timedelta(hours=3)],
-        np.array([np.timedelta64(0, "h")]),
+        (datetime(year=2022, month=12, day=25), timedelta(hours=1)),
+        (
+            datetime(year=2022, month=12, day=25),
+            [timedelta(hours=2), timedelta(hours=3)],
+        ),
+        (
+            np.array(
+                [np.datetime64("2024-01-01T00:00"), np.datetime64("2024-02-01T00:00")]
+            ),
+            np.array([np.timedelta64(0, "h")]),
+        ),
     ],
 )
-def test_gfs_fx_fetch(lead_time):
-    time = datetime.datetime(year=2022, month=12, day=25)
+def test_gfs_fx_fetch(time, lead_time):
+    time = datetime(year=2022, month=12, day=25)
     variable = "t2m"
     ds = GFS_FX(cache=False)
     data = ds(time, lead_time, variable)
@@ -80,10 +88,10 @@ def test_gfs_fx_fetch(lead_time):
     if isinstance(variable, str):
         variable = [variable]
 
-    if isinstance(lead_time, datetime.timedelta):
+    if isinstance(lead_time, timedelta):
         lead_time = [lead_time]
 
-    if isinstance(time, datetime.datetime):
+    if isinstance(time, datetime):
         time = [time]
 
     assert shape[0] == len(time)
@@ -142,9 +150,9 @@ def test_gfs_cache(time, variable, cache):
 @pytest.mark.parametrize(
     "time",
     [
-        datetime.datetime(year=2021, month=2, day=16),
-        datetime.datetime(year=2023, month=1, day=1, hour=13),
-        datetime.datetime.now(),
+        datetime(year=2021, month=2, day=16),
+        datetime(year=2023, month=1, day=1, hour=13),
+        datetime.now(),
     ],
 )
 @pytest.mark.parametrize("variable", ["mpl"])
@@ -159,13 +167,13 @@ def test_gfs_available(time, variable):
 @pytest.mark.parametrize(
     "lead_time",
     [
-        datetime.timedelta(hours=-1),
-        [datetime.timedelta(hours=2), datetime.timedelta(hours=2, minutes=1)],
+        timedelta(hours=-1),
+        [timedelta(hours=2), timedelta(hours=2, minutes=1)],
         np.array([np.timedelta64(385, "h")]),
     ],
 )
 def test_gfs_fx_available(lead_time):
-    time = datetime.datetime(year=2022, month=12, day=25)
+    time = datetime(year=2022, month=12, day=25)
     variable = "t2m"
     with pytest.raises(ValueError):
         ds = GFS_FX()
