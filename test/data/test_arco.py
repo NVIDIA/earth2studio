@@ -133,33 +133,6 @@ def test_arco_cache(time, variable, cache):
         pass
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(30)
-def test_arco_tp06():
-    time = datetime.datetime(year=1993, month=4, day=5)
-    variable = "tp06"
-    ds = ARCO(cache=True)
-    data = ds(time, variable)
-    # Manually build tp06
-    tp06_manual = np.zeros(data.shape)
-    for i in range(6):
-        time0 = time - datetime.timedelta(hours=i)
-        data0 = ds(time0, "tp")
-        tp06_manual += data0.values
-
-    shape = data.shape
-
-    assert shape[0] == 1
-    assert shape[1] == 1
-    assert shape[2] == 721
-    assert shape[3] == 1440
-    assert np.array_equal(data.coords["variable"].values, np.array([variable]))
-    assert not np.isnan(data.values).any()
-    assert np.array_equal(data.values, tp06_manual)
-    assert ARCO.available(time)
-
-
 @pytest.mark.xfail
 @pytest.mark.timeout(15)
 @pytest.mark.parametrize(
