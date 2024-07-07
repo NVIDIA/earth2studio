@@ -21,6 +21,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 
+- Removed tp06 from ARCO, use WB2 instead
+
 ### Fixed
 
 ### Security
