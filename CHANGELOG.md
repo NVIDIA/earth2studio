@@ -15,6 +15,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Refactored ARCO datasource to use asyncio
+
 ### Deprecated
 
 ### Removed
