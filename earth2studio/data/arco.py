@@ -164,16 +164,15 @@ class ARCO:
             (t, i, v, j) for j, v in enumerate(variable) for i, t in enumerate(time)
         ]
         func_map = map(fetch_wrapper, args)
-        print(func_map)
 
         pbar = tqdm(
             total=len(args), desc="Fetching ARCO data", disable=(not self._verbose)
         )
         # Mypy will struggle here because the async generator uses a generic type
-        async for t, v, data in unordered_generator(  # type: ignore
+        async for t, v, data in unordered_generator(
             func_map, limit=self.async_process_limit
         ):
-            xr_array[t, v] = data  # type: ignore
+            xr_array[t, v] = data
             pbar.update(1)
 
         return xr_array
@@ -316,13 +315,3 @@ class ARCO:
         time_index = cls._get_time_index(time)
         max_index = zarr_group["time"][-1]
         return time_index >= 0 and time_index <= max_index
-
-
-if __name__ == "__main__":
-    da = ARCO()
-
-    time = [datetime(2023, 1, 1, 0, 0), datetime(2023, 1, 2, 0, 0)]
-    variable = ["t2m", "msl", "u100m", "v100m", "u500", "v500"]
-
-    out = da(time, variable)
-    print(out)
