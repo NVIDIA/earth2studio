@@ -34,16 +34,16 @@ the required APIs.
 Diagnostic models also tend to extend one class:
 
 1. {class}`earth2studio.models.auto.AutoModel`: Defines APIs for models that have
-checkpoints that can be auto downloaded and cached. See the Automodel guide for
-additional details.
+checkpoints that can be auto downloaded and cached. See the {ref}`automodel_userguide`
+guide for additional details.
 
 ## Diagnostic Usage
 
 ### Loading a Pre-trained Diagnostic
 
 The following two commands can be used to download and load a pre-trained built
-diangostic model.
-More information on how the automatic download of checkpoints can be found in the
+diagnostic model.
+More information on automatic downloading of checkpoints can be found in the
 {ref}`automodel_userguide` section.
 
 ```python

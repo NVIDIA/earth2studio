@@ -28,7 +28,7 @@ from earth2studio.utils.type import CoordSystem
 
 class Persistence(torch.nn.Module, PrognosticMixin):
     """Persistence model that generates a forecast by applying the identity operator on
-    the initial condition and indexing the lead time by 6 hours. Primarly used in
+    the initial condition and indexing the lead time by 6 hours. Primarily used in
     testing.
 
     Parameters
@@ -149,7 +149,7 @@ class Persistence(torch.nn.Module, PrognosticMixin):
         x : torch.Tensor
             Input tensor
         coords : CoordSystem
-            Coordinate system, should have dimensions [time, variable, *domain_dims]
+            Coordinate system, should have dimensions ``[time, variable, *domain_dims]``
 
         Returns
         ------
