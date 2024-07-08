@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
     <link href="../../../_static/favicon.ico" rel="icon" type="image/x-icon">
-    <title>earth2studio.io.KVBackend &#8212; Earth2Studio 0.3.0a0 documentation</title>
+    <title>earth2studio.statistics.weights.lat_weight &#8212; Earth2Studio 0.3.0a0 documentation</title>
   
   
   
@@ -52,7 +52,7 @@
     <script src="../../../_static/design-tabs.js?v=f930bc37"></script>
     <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
     <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
-    <script>DOCUMENTATION_OPTIONS.pagename = 'modules/generated/io/earth2studio.io.KVBackend';</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'modules/generated/statistics/earth2studio.statistics.weights.lat_weight';</script>
     <script>
         DOCUMENTATION_OPTIONS.theme_version = '0.15.2';
         DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'https://raw.githubusercontent.com/NVIDIA/earth2studio/gh-pages/_static/switcher.json';
@@ -61,8 +61,8 @@
         </script>
     <link rel="index" title="Index" href="../../../genindex.html" />
     <link rel="search" title="Search" href="../../../search.html" />
-    <link rel="next" title="earth2studio.io.NetCDF4Backend" href="earth2studio.io.NetCDF4Backend.html" />
-    <link rel="prev" title="earth2studio.io: IO Backends" href="../../io.html" />
+    <link rel="next" title="earth2studio.utils: Utils" href="../../utils.html" />
+    <link rel="prev" title="earth2studio.statistics.variance" href="earth2studio.statistics.variance.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   </head>
@@ -424,11 +424,11 @@ document.write(`
 <li class="toctree-l2"><a class="reference internal" href="../data/earth2studio.data.prep_data_array.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.prep_data_array</a></li>
 </ul>
 </li>
-<li class="toctree-l1 current active has-children"><a class="reference internal" href="../../io.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.io</span></code>: IO Backends</a><input checked="" class="toctree-checkbox" id="toctree-checkbox-3" name="toctree-checkbox-3" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-3"><i class="fa-solid fa-chevron-down"></i></label><ul class="current">
-<li class="toctree-l2 current active"><a class="current reference internal" href="#"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.io</span></code>.KVBackend</a></li>
-<li class="toctree-l2"><a class="reference internal" href="earth2studio.io.NetCDF4Backend.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.io</span></code>.NetCDF4Backend</a></li>
-<li class="toctree-l2"><a class="reference internal" href="earth2studio.io.XarrayBackend.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.io</span></code>.XarrayBackend</a></li>
-<li class="toctree-l2"><a class="reference internal" href="earth2studio.io.ZarrBackend.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.io</span></code>.ZarrBackend</a></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../io.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.io</span></code>: IO Backends</a><input class="toctree-checkbox" id="toctree-checkbox-3" name="toctree-checkbox-3" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-3"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l2"><a class="reference internal" href="../io/earth2studio.io.KVBackend.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.io</span></code>.KVBackend</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../io/earth2studio.io.NetCDF4Backend.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.io</span></code>.NetCDF4Backend</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../io/earth2studio.io.XarrayBackend.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.io</span></code>.XarrayBackend</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../io/earth2studio.io.ZarrBackend.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.io</span></code>.ZarrBackend</a></li>
 </ul>
 </li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../../perturbation.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.perturbation</span></code>: Perturbations</a><input class="toctree-checkbox" id="toctree-checkbox-4" name="toctree-checkbox-4" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-4"><i class="fa-solid fa-chevron-down"></i></label><ul>
@@ -440,16 +440,16 @@ document.write(`
 <li class="toctree-l2"><a class="reference internal" href="../perturbation/earth2studio.perturbation.Zero.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.perturbation</span></code>.Zero</a></li>
 </ul>
 </li>
-<li class="toctree-l1 has-children"><a class="reference internal" href="../../statistics.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>: Statistics</a><input class="toctree-checkbox" id="toctree-checkbox-5" name="toctree-checkbox-5" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-5"><i class="fa-solid fa-chevron-down"></i></label><ul>
-<li class="toctree-l2"><a class="reference internal" href="../statistics/earth2studio.statistics.acc.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>.acc</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../statistics/earth2studio.statistics.crps.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>.crps</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../statistics/earth2studio.statistics.mean.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>.mean</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../statistics/earth2studio.statistics.rank_histogram.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>.rank_histogram</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../statistics/earth2studio.statistics.rmse.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>.rmse</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../statistics/earth2studio.statistics.spread_skill_ratio.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>.spread_skill_ratio</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../statistics/earth2studio.statistics.std.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>.std</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../statistics/earth2studio.statistics.variance.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>.variance</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../statistics/earth2studio.statistics.weights.lat_weight.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics.weights</span></code>.lat_weight</a></li>
+<li class="toctree-l1 current active has-children"><a class="reference internal" href="../../statistics.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>: Statistics</a><input checked="" class="toctree-checkbox" id="toctree-checkbox-5" name="toctree-checkbox-5" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-5"><i class="fa-solid fa-chevron-down"></i></label><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="earth2studio.statistics.acc.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>.acc</a></li>
+<li class="toctree-l2"><a class="reference internal" href="earth2studio.statistics.crps.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>.crps</a></li>
+<li class="toctree-l2"><a class="reference internal" href="earth2studio.statistics.mean.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>.mean</a></li>
+<li class="toctree-l2"><a class="reference internal" href="earth2studio.statistics.rank_histogram.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>.rank_histogram</a></li>
+<li class="toctree-l2"><a class="reference internal" href="earth2studio.statistics.rmse.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>.rmse</a></li>
+<li class="toctree-l2"><a class="reference internal" href="earth2studio.statistics.spread_skill_ratio.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>.spread_skill_ratio</a></li>
+<li class="toctree-l2"><a class="reference internal" href="earth2studio.statistics.std.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>.std</a></li>
+<li class="toctree-l2"><a class="reference internal" href="earth2studio.statistics.variance.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>.variance</a></li>
+<li class="toctree-l2 current active"><a class="current reference internal" href="#"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics.weights</span></code>.lat_weight</a></li>
 </ul>
 </li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../../utils.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.utils</span></code>: Utils</a><input class="toctree-checkbox" id="toctree-checkbox-6" name="toctree-checkbox-6" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-6"><i class="fa-solid fa-chevron-down"></i></label><ul>
@@ -509,7 +509,7 @@ document.write(`
     <li class="breadcrumb-item"><a href="../../index.html" class="nav-link">API Reference</a></li>
     
     
-    <li class="breadcrumb-item"><a href="../../io.html" class="nav-link"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.io</span></code>: IO Backends</a></li>
+    <li class="breadcrumb-item"><a href="../../statistics.html" class="nav-link"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>: Statistics</a></li>
     
     <li class="breadcrumb-item active" aria-current="page"><code...</li>
   </ul>
@@ -528,58 +528,26 @@ document.write(`
 <div id="searchbox"></div>
                 <article class="bd-article">
                   
-  <section id="earth2studio-io-kvbackend">
-<h1><a class="reference internal" href="../../io.html#module-earth2studio.io" title="earth2studio.io"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.io</span></code></a>.KVBackend<a class="headerlink" href="#earth2studio-io-kvbackend" title="Link to this heading">#</a></h1>
-<dl class="py class">
-<dt class="sig sig-object py" id="earth2studio.io.KVBackend">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">earth2studio.io.</span></span><span class="sig-name descname"><span class="pre">KVBackend</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">device</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'cpu'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/earth2studio/io/kv.html#KVBackend"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.io.KVBackend" title="Link to this definition">#</a></dt>
-<dd><p>A key-value (dict) backend.</p>
+  <section id="earth2studio-statistics-weights-lat-weight">
+<h1><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics.weights</span></code>.lat_weight<a class="headerlink" href="#earth2studio-statistics-weights-lat-weight" title="Link to this heading">#</a></h1>
+<dl class="py function">
+<dt class="sig sig-object py" id="earth2studio.statistics.weights.lat_weight">
+<span class="sig-prename descclassname"><span class="pre">earth2studio.statistics.weights.</span></span><span class="sig-name descname"><span class="pre">lat_weight</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">lat</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/earth2studio/statistics/weights.html#lat_weight"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.statistics.weights.lat_weight" title="Link to this definition">#</a></dt>
+<dd><p>Compute the cosine-based latitude weighting for a given tensor
+representing latitude coordinates. The latitude coordinates
+are assumed to be in degrees.</p>
+<p>Uses the formula weights = cos(lat * pi / 180.0)</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>device</strong> (<em>str = 'cpu'</em>) – Device to keep array tensors.</p>
+<dd class="field-odd"><p><strong>lat</strong> (<em>Union</em><em>[</em><em>np.ndarray</em><em>, </em><em>torch.Tensor</em><em>]</em>) – Array of latitude values, in degrees. Should be in the range [-90, 90].</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>weights</strong> – Array of latitude weights, formally defined above.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Union[np.ndarray, torch.Tensor]</p>
 </dd>
 </dl>
-<dl class="py method">
-<dt class="sig sig-object py" id="earth2studio.io.KVBackend.add_array">
-<span class="sig-name descname"><span class="pre">add_array</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">coords</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">array_name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/earth2studio/io/kv.html#KVBackend.add_array"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.io.KVBackend.add_array" title="Link to this definition">#</a></dt>
-<dd><p>Add an array to the existing KV store.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>coords</strong> (<em>CoordSystem</em>) – Ordered dict of coordinate information.</p></li>
-<li><p><strong>array_name</strong> (<em>str</em>) – Name to add to kv store for the new array. Can optionally
-be a list of array_names.</p></li>
-<li><p><strong>data</strong> (<em>torch.Tensor</em><em> | </em><em>list</em><em>[</em><em>torch.Tensor</em><em>]</em><em>, </em><em>optional</em>) – Optional data to initialize the array with. If None, then
-the KV store array is initialized with torch.float32 zeros.
-Can also pass a list of tensors, which must match in length to the
-list of array_names passed. If a list of tensors is passed, it is assumed
-that each tensor share <cite>coords</cite>.</p></li>
-</ul>
-</dd>
-<dt class="field-even">Return type<span class="colon">:</span></dt>
-<dd class="field-even"><p>None</p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="earth2studio.io.KVBackend.write">
-<span class="sig-name descname"><span class="pre">write</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">coords</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">array_name</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/earth2studio/io/kv.html#KVBackend.write"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.io.KVBackend.write" title="Link to this definition">#</a></dt>
-<dd><p>Write data to the current KV store using the passed array_name.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>x</strong> (<em>torch.Tensor</em><em> | </em><em>list</em><em>[</em><em>torch.Tensor</em><em>]</em>) – Tensor(s) to be written to KV store.</p></li>
-<li><p><strong>coords</strong> (<em>OrderedDict</em>) – Coordinates of the passed data.</p></li>
-<li><p><strong>array_name</strong> (<em>str</em><em> | </em><em>list</em><em>[</em><em>str</em><em>]</em>) – Name(s) of the array(s) that will be written to.</p></li>
-</ul>
-</dd>
-<dt class="field-even">Return type<span class="colon">:</span></dt>
-<dd class="field-even"><p>None</p>
-</dd>
-</dl>
-</dd></dl>
-
 </dd></dl>
 
 <div class="clearer"></div></section>
@@ -595,20 +563,20 @@ that each tensor share <cite>coords</cite>.</p></li>
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="../../io.html"
+       href="earth2studio.statistics.variance.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.io</span></code>: IO Backends</p>
+        <p class="prev-next-title"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>.variance</p>
       </div>
     </a>
     <a class="right-next"
-       href="earth2studio.io.NetCDF4Backend.html"
+       href="../../utils.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.io</span></code>.NetCDF4Backend</p>
+        <p class="prev-next-title"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.utils</span></code>: Utils</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
@@ -630,18 +598,14 @@ that each tensor share <cite>coords</cite>.</p></li>
   </div>
   <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="visible nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.io.KVBackend"><code class="docutils literal notranslate"><span class="pre">KVBackend</span></code></a><ul class="nav section-nav flex-column">
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.io.KVBackend.add_array"><code class="docutils literal notranslate"><span class="pre">KVBackend.add_array()</span></code></a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.io.KVBackend.write"><code class="docutils literal notranslate"><span class="pre">KVBackend.write()</span></code></a></li>
-</ul>
-</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.statistics.weights.lat_weight"><code class="docutils literal notranslate"><span class="pre">lat_weight()</span></code></a></li>
 </ul>
   </nav></div>
 
   <div class="sidebar-secondary-item">
 
   <div class="tocsection sourcelink">
-    <a href="../../../_sources/modules/generated/io/earth2studio.io.KVBackend.rst.txt">
+    <a href="../../../_sources/modules/generated/statistics/earth2studio.statistics.weights.lat_weight.rst.txt">
       <i class="fa-solid fa-file-lines"></i> Show Source
     </a>
   </div>

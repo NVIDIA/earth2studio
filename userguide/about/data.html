@@ -534,7 +534,7 @@ complete information one needs to interpret any stage of a workflow.</p>
 <span id="coordinates-userguide"></span><h2>Coordinate Systems<a class="headerlink" href="#coordinate-systems" title="Link to this heading">#</a></h2>
 <p>As previously discussed, coordinate dictionaries are a critical part of Earth-2
 Inference Studio’s data movement.
-We wanted the coordinate object to be a fairly primative data object that allows users
+We wanted the coordinate object to be a fairly primitive data object that allows users
 to interact with the data outside the project and keep things transparent in workflows.
 Inside the package these are typed as <code class="docutils literal notranslate"><span class="pre">CoordSystem</span></code> which is defined as the following:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">CoordSystem</span> <span class="o">=</span> <span class="n">NewType</span><span class="p">(</span><span class="s2">&quot;CoordSystem&quot;</span><span class="p">,</span> <span class="n">OrderedDict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">])</span>
@@ -586,7 +586,8 @@ dimension, consult batching docs for more details.</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">variable</span></code></p></td>
 <td><p>Dimension representing physical variable (atmospheric, surface, etc). Earth-2
-Inference Studio has its own naming convention. See lexicon docs more more details.</p></td>
+Inference Studio has its own naming convention. See <a class="reference internal" href="../advanced/lexicon.html#lexicon-userguide"><span class="std std-ref">Lexicon</span></a> docs
+for more more details.</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">np.ndarray[str]</span></code> (<code class="docutils literal notranslate"><span class="pre">VariableArray</span></code>)</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lat</span></code></p></td>
@@ -695,7 +696,7 @@ validate the input coordinate dictionary.</p></li>
 
 </pre></div>
 </div>
-<p>The <code class="docutils literal notranslate"><span class="pre">input_coords()</span></code> function provides the spec of that is required as an input to this
+<p>The <code class="docutils literal notranslate"><span class="pre">input_coords()</span></code> function provides the coordinate spec of the input tensor expected by the
 model. In the case of FourCastNet, it’s expecting a input tensor of shape <code class="docutils literal notranslate"><span class="pre">[...,1,26,720,1440]</span></code>
 which corresponds to <code class="docutils literal notranslate"><span class="pre">[...,lead,variables,lat,lon]</span></code>.</p>
 <p>The <code class="docutils literal notranslate"><span class="pre">output_coords()</span></code> function provides validation and transformation of coordinates
@@ -714,14 +715,14 @@ how they operate:</p>
 <span class="n">model</span> <span class="o">=</span> <span class="n">FCN</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
 <span class="n">input_coords</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">input_coords</span><span class="p">()</span>
 <span class="n">output_coords</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">output_coords</span><span class="p">(</span><span class="n">input_coords</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Input lead:&quot;</span><span class="p">,</span> <span class="n">input_coords</span><span class="p">[</span><span class="s1">&#39;lead_time&#39;</span><span class="p">])</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Input  lead:&quot;</span><span class="p">,</span> <span class="n">input_coords</span><span class="p">[</span><span class="s1">&#39;lead_time&#39;</span><span class="p">])</span>
 <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Output lead:&quot;</span><span class="p">,</span> <span class="n">output_coords</span><span class="p">[</span><span class="s1">&#39;lead_time&#39;</span><span class="p">])</span>
 <span class="n">output_coords</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">output_coords</span><span class="p">(</span><span class="n">output_coords</span><span class="p">)</span>
 <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Output lead 2:&quot;</span><span class="p">,</span> <span class="n">output_coords</span><span class="p">[</span><span class="s1">&#39;lead_time&#39;</span><span class="p">])</span>
 </pre></div>
 </div>
 <p>The output of the following script will be:</p>
-<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="go">Input coords: [0]</span>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="go">Input  lead: [0]</span>
 <span class="go">Output lead: [6]</span>
 <span class="go">Output lead 2: [12]</span>
 </pre></div>

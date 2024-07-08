@@ -531,7 +531,7 @@ the API documentation <a class="reference internal" href="../../modules/models.h
         <span class="k">pass</span>
 
     <span class="k">def</span> <span class="nf">output_coords</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_coords</span><span class="p">:</span> <span class="n">CoordSystem</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">CoordSystem</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Output coordinate system of the prognostic model give an input coordinate</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Output coordinate system of the diagnostic model given an input coordinate</span>
 <span class="sd">        system.</span>
 
 <span class="sd">        Parameters</span>
@@ -552,7 +552,7 @@ the API documentation <a class="reference internal" href="../../modules/models.h
         <span class="k">pass</span>
 
     <span class="k">def</span> <span class="nf">to</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">device</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">DiagnosticModel</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Moves prognostic model onto inference device, this is typically satisfied via</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Moves diagnostic model onto inference device, this is typically satisfied via</span>
 <span class="sd">        `torch.nn.Module`.</span>
 
 <span class="sd">        Parameters</span>
@@ -562,8 +562,8 @@ the API documentation <a class="reference internal" href="../../modules/models.h
 
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
-<span class="sd">        PrognosticModel</span>
-<span class="sd">            Returns instance of prognostic</span>
+<span class="sd">        DiagnosticModel</span>
+<span class="sd">            Returns instance of diagnostic</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">pass</span>
 </pre></div>
@@ -576,8 +576,8 @@ the required APIs.</p>
 <p>Diagnostic models also tend to extend one class:</p>
 <ol class="arabic simple">
 <li><p><code class="xref py py-class docutils literal notranslate"><span class="pre">earth2studio.models.auto.AutoModel</span></code>: Defines APIs for models that have
-checkpoints that can be auto downloaded and cached. See the Automodel guide for
-additional details.</p></li>
+checkpoints that can be auto downloaded and cached. See the <a class="reference internal" href="../advanced/auto.html#automodel-userguide"><span class="std std-ref">AutoModels</span></a>
+guide for additional details.</p></li>
 </ol>
 </section>
 <section id="diagnostic-usage">
@@ -585,8 +585,8 @@ additional details.</p></li>
 <section id="loading-a-pre-trained-diagnostic">
 <h3>Loading a Pre-trained Diagnostic<a class="headerlink" href="#loading-a-pre-trained-diagnostic" title="Link to this heading">#</a></h3>
 <p>The following two commands can be used to download and load a pre-trained built
-diangostic model.
-More information on how the automatic download of checkpoints can be found in the
+diagnostic model.
+More information on automatic downloading of checkpoints can be found in the
 <a class="reference internal" href="../advanced/auto.html#automodel-userguide"><span class="std std-ref">AutoModels</span></a> section.</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">earth2studio.models.dx</span> <span class="kn">import</span> <span class="n">DiagnosticModel</span>
 

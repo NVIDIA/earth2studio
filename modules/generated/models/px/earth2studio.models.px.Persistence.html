@@ -449,8 +449,7 @@ document.write(`
 <li class="toctree-l2"><a class="reference internal" href="../../statistics/earth2studio.statistics.spread_skill_ratio.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>.spread_skill_ratio</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../statistics/earth2studio.statistics.std.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>.std</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../statistics/earth2studio.statistics.variance.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>.variance</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../statistics/earth2studio.statistics.weights.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>.weights</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../statistics/earth2studio.statistics.utils.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>.utils</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../statistics/earth2studio.statistics.weights.lat_weight.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics.weights</span></code>.lat_weight</a></li>
 </ul>
 </li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../../../utils.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.utils</span></code>: Utils</a><input class="toctree-checkbox" id="toctree-checkbox-6" name="toctree-checkbox-6" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-6"><i class="fa-solid fa-chevron-down"></i></label><ul>
@@ -535,7 +534,7 @@ document.write(`
 <dt class="sig sig-object py" id="earth2studio.models.px.Persistence">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">earth2studio.models.px.</span></span><span class="sig-name descname"><span class="pre">Persistence</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">variable</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">domain_coords</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">history</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dt</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">numpy.timedelta64(6,</span> <span class="pre">'h')</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/earth2studio/models/px/persistence.html#Persistence"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.px.Persistence" title="Link to this definition">#</a></dt>
 <dd><p>Persistence model that generates a forecast by applying the identity operator on
-the initial condition and indexing the lead time by 6 hours. Primarly used in
+the initial condition and indexing the lead time by 6 hours. Primarily used in
 testing.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -555,7 +554,7 @@ testing.</p>
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>x</strong> (<em>torch.Tensor</em>) – Input tensor</p></li>
-<li><p><strong>coords</strong> (<em>CoordSystem</em>) – Coordinate system, should have dimensions [time, variable, <a href="#id1"><span class="problematic" id="id2">*</span></a>domain_dims]</p></li>
+<li><p><strong>coords</strong> (<em>CoordSystem</em>) – Coordinate system, should have dimensions <code class="docutils literal notranslate"><span class="pre">[time,</span> <span class="pre">variable,</span> <span class="pre">*domain_dims]</span></code></p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>

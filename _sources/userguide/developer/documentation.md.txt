@@ -110,6 +110,10 @@ To build the core documentation without executing examples use:
 
 ```bash
 make docs
+
+# The above command required sphinx-build command.
+# If it is not automatically found, try setting it explicitly.
+SPHINXBUILD="python -m sphinx.cmd.build" make docs
 ```
 
 For full docs, where all examples are ran use:

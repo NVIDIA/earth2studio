@@ -578,6 +578,10 @@ which will be addressed on a case-by-case basis.</p>
 <h2>Building Documentation<a class="headerlink" href="#building-documentation" title="Link to this heading">#</a></h2>
 <p>To build the core documentation without executing examples use:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>make<span class="w"> </span>docs
+
+<span class="c1"># The above command required sphinx-build command.</span>
+<span class="c1"># If it is not automatically found, try setting it explicitly.</span>
+<span class="nv">SPHINXBUILD</span><span class="o">=</span><span class="s2">&quot;python -m sphinx.cmd.build&quot;</span><span class="w"> </span>make<span class="w"> </span>docs
 </pre></div>
 </div>
 <p>For full docs, where all examples are ran use:</p>

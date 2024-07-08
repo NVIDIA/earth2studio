@@ -31,5 +31,10 @@ Various statistic and metric calculations for analysing inference data.
     :toctree: generated/statistics/
     :template: function.rst
 
-    statistics.weights
-    statistics.utils
+    statistics.weights.lat_weight
+
+.. toctree::
+    :hidden:
+    :maxdepth: 1
+
+    generated/statistics/earth2studio.statistics.weights
