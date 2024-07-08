@@ -35,10 +35,10 @@ Prognostic models also tend to extend two classes:
 
 1. {class}`earth2studio.models.px.utils.PrognosticMixin`: which is a util class that
 defines iterator hooks used in all the built in models. These provide a finer level
-of control over how the time-series prediction of models.
+of control over the time-series prediction of models.
 2. {class}`earth2studio.models.auto.AutoModel`: Defines APIs for models that have
-checkpoints that can be auto downloaded and cached. See the Automodel guide for
-additional details.
+checkpoints that can be auto downloaded and cached. See the {ref}`automodel_userguide`
+guide for additional details.
 
 ## Prognostic Usage
 

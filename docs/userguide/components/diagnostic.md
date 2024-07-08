@@ -34,8 +34,8 @@ the required APIs.
 Diagnostic models also tend to extend one class:
 
 1. {class}`earth2studio.models.auto.AutoModel`: Defines APIs for models that have
-checkpoints that can be auto downloaded and cached. See the Automodel guide for
-additional details.
+checkpoints that can be auto downloaded and cached. See the {ref}`automodel_userguide`
+guide for additional details.
 
 ## Diagnostic Usage
 
