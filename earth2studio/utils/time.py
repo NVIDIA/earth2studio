@@ -13,11 +13,11 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import numpy as np
 
-from earth2studio.utils.type import TimeArray
+from earth2studio.utils.type import LeadTimeArray, TimeArray
 
 
 def timearray_to_datetime(time: TimeArray) -> list[datetime]:
@@ -38,6 +38,26 @@ def timearray_to_datetime(time: TimeArray) -> list[datetime]:
     time = [datetime.utcfromtimestamp((date - _unix) / _ds) for date in time]
 
     return time
+
+
+def leadtimearray_to_timedelta(lead_time: LeadTimeArray) -> list[timedelta]:
+    """Simple converter from numpy timedelta64 array into a list of timedeltas
+
+    Parameters
+    ----------
+    lead_time : TimeArray
+        Numpy timedelta64 array
+
+    Returns
+    -------
+    list[timedelta]
+        List of timedelta object
+    """
+    # microsecond is smallest unit python timedelta supports
+    return [
+        timedelta(microseconds=int(time.astype("timedelta64[us]").astype(int)))
+        for time in lead_time
+    ]
 
 
 def to_time_array(time: list[str] | list[datetime] | TimeArray) -> TimeArray:

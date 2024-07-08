@@ -37,6 +37,21 @@ Used for fetching initial conditions for inference and validation data for scori
    data.DataArrayFile
    data.DataSetFile
 
+Forecast Sources
+~~~~~~~~~~~~~~~~
+
+Extended data sources that allow users to download forecast data, these are not
+interchangable with standard data sources.
+Typically used in intercomparison workflows.
+
+.. currentmodule:: earth2studio
+
+.. autosummary::
+   :toctree: generated/data/
+   :template: datasource.rst
+
+   data.GFS_FX
+
 Functions
 ~~~~~~~~~
 .. currentmodule:: earth2studio
