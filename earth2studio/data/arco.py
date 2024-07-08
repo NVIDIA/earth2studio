@@ -169,10 +169,10 @@ class ARCO:
             total=len(args), desc="Fetching ARCO data", disable=(not self._verbose)
         )
         # Mypy will struggle here because the async generator uses a generic type
-        async for t, v, data in unordered_generator(
+        async for t, v, data in unordered_generator(  # type: ignore[misc,unused-ignore]
             func_map, limit=self.async_process_limit
         ):
-            xr_array[t, v] = data
+            xr_array[t, v] = data  # type: ignore[has-type,unused-ignore]
             pbar.update(1)
 
         return xr_array
