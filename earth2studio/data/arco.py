@@ -157,7 +157,7 @@ class ARCO:
         async def fetch_wrapper(
             e: tuple[datetime, int, str, int]
         ) -> tuple[int, int, np.ndarray]:
-            """Small wrapper to make"""
+            """Small wrapper that is awaitable for async generator"""
             return e[1], e[3], self.fetch_array(e[0], e[2])
 
         args = [
