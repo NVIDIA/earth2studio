@@ -41,7 +41,7 @@ Data is **always** moved between components using unnormalized physical units.
 
 As previously discussed, coordinate dictionaries are a critical part of Earth-2
 Inference Studio's data movement.
-We wanted the coordinate object to be a fairly primative data object that allows users
+We wanted the coordinate object to be a fairly primitive data object that allows users
 to interact with the data outside the project and keep things transparent in workflows.
 Inside the package these are typed as `CoordSystem` which is defined as the following:
 
@@ -90,7 +90,8 @@ Inference Studio when possible and the packages we interface with.
   - `np.ndarray[np.timedelta64[ns]]` (`LeadTimeArray`)
 * - `variable`
   - Dimension representing physical variable (atmospheric, surface, etc). Earth-2
-  Inference Studio has its own naming convention. See lexicon docs more more details.
+  Inference Studio has its own naming convention. See {ref}`lexicon_userguide` docs
+  for more more details.
   - `np.ndarray[str]` (`VariableArray`)
 * - `lat`
   - Lattitude coordinate array
@@ -140,7 +141,7 @@ For an example, consider the FourCastNet model's implementations:
     :language: python
 ```
 
-The `input_coords()` function provides the spec of that is required as an input to this
+The `input_coords()` function provides the coordinate spec of the input tensor expected by the
 model. In the case of FourCastNet, it's expecting a input tensor of shape `[...,1,26,720,1440]`
 which corresponds to `[...,lead,variables,lat,lon]`.
 
@@ -163,7 +164,7 @@ from earth2studio.models.px import FCN
 model = FCN(None, None, None)
 input_coords = model.input_coords()
 output_coords = model.output_coords(input_coords)
-print("Input lead:", input_coords['lead_time'])
+print("Input  lead:", input_coords['lead_time'])
 print("Output lead:", output_coords['lead_time'])
 output_coords = model.output_coords(output_coords)
 print("Output lead 2:", output_coords['lead_time'])
@@ -172,7 +173,7 @@ print("Output lead 2:", output_coords['lead_time'])
 The output of the following script will be:
 
 ```console
-Input coords: [0]
+Input  lead: [0]
 Output lead: [6]
 Output lead 2: [12]
 ```

@@ -58,7 +58,7 @@ class DiagnosticModel(Protocol):
         pass
 
     def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
-        """Output coordinate system of the prognostic model give an input coordinate
+        """Output coordinate system of the diagnostic model given an input coordinate
         system.
 
         Parameters
@@ -79,7 +79,7 @@ class DiagnosticModel(Protocol):
         pass
 
     def to(self, device: Any) -> DiagnosticModel:
-        """Moves prognostic model onto inference device, this is typically satisfied via
+        """Moves diagnostic model onto inference device, this is typically satisfied via
         `torch.nn.Module`.
 
         Parameters
@@ -89,7 +89,7 @@ class DiagnosticModel(Protocol):
 
         Returns
         -------
-        PrognosticModel
-            Returns instance of prognostic
+        DiagnosticModel
+            Returns instance of diagnostic
         """
         pass
