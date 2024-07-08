@@ -14,9 +14,9 @@ Many of these names are based on ECMWF's parameter database but not all.
 Below are a few examples:
 
 - `t2m`: Temperature in Kelvin at 2 meters
-- `u10m`: Zonal winds at 10 meters
-- `v10m`: Zonal winds at 10 meters
-- `u200`: Zonal winds at 200 hPa
+- `u10m`: u-component of Zonal winds at 10 meters
+- `v10m`: v-component of Zonal winds at 10 meters
+- `u200`: u-component of Zonal winds at 200 hPa
 - `z250`: Geo-potential at 250 hPa
 - `z500`: Geo-potential at 500 hPa
 - `tcwv`: Total column water vapor

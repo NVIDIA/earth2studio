@@ -33,7 +33,7 @@ class Statistic(Protocol):
         pass
 
     def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
-        """Output coordinate system of the prognostic model
+        """Output coordinate system of the computed statistic, corresponding to the given input coordinates
 
         Parameters
         ----------
@@ -73,7 +73,7 @@ class Metric(Protocol):
         pass
 
     def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
-        """Output coordinate system of the prognostic model
+        """Output coordinate system of the computed statistic, corresponding to the given input coordinates
 
         Parameters
         ----------

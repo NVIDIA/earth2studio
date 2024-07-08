@@ -17,7 +17,7 @@
 # %%
 """
 Model Hook Injection: Perturbation
-==========================
+==================================
 
 Adding model noise by using custom hooks.
 

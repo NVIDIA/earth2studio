@@ -391,14 +391,15 @@ class WB2Climatology:
     climatology_zarr_store : ClimatologyZarrStore, optional
         Stpres within `gs://weatherbench2/datasets/era5-hourly-climatology/` to select
         As of 05/03/2024 this is the following list of available files:
-            - 1990-2017_6h_1440x721.zarr
-            - 1990-2017_6h_512x256_equiangular_conservative.zarr
-            - 1990-2017_6h_240x121_equiangular_with_poles_conservative.zarr
-            - 1990-2017_6h_64x32_equiangular_conservative.zarr
-            - 1990-2019_6h_1440x721.zarr
-            - 1990-2019_6h_512x256_equiangular_conservative.zarr
-            - 1990-2019_6h_240x121_equiangular_with_poles_conservative.zarr
-            - 1990-2019_6h_64x32_equiangular_conservative.zarr
+
+        - 1990-2017_6h_1440x721.zarr
+        - 1990-2017_6h_512x256_equiangular_conservative.zarr
+        - 1990-2017_6h_240x121_equiangular_with_poles_conservative.zarr
+        - 1990-2017_6h_64x32_equiangular_conservative.zarr
+        - 1990-2019_6h_1440x721.zarr
+        - 1990-2019_6h_512x256_equiangular_conservative.zarr
+        - 1990-2019_6h_240x121_equiangular_with_poles_conservative.zarr
+        - 1990-2019_6h_64x32_equiangular_conservative.zarr
 
         by default `1990-2019_6h_1440x721.zarr`
     cache : bool, optional
