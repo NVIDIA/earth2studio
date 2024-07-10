@@ -30,7 +30,11 @@ class Gaussian:
     """
 
     def __init__(self, noise_amplitude: float | torch.Tensor = 0.05):
-        self.noise_amplitude = noise_amplitude
+        self.noise_amplitude = (
+            noise_amplitude
+            if isinstance(noise_amplitude, torch.Tensor)
+            else torch.Tensor([noise_amplitude])
+        )
 
     @torch.inference_mode()
     def __call__(
@@ -52,4 +56,5 @@ class Gaussian:
         tuple[torch.Tensor, CoordSystem]:
             Output tensor and respective coordinate system dictionary
         """
-        return x + self.noise_amplitude * torch.randn_like(x), coords
+        noise_amplitude = self.noise_amplitude.to(x.device)
+        return x + noise_amplitude * torch.randn_like(x), coords

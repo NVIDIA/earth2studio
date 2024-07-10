@@ -51,7 +51,11 @@ class SphericalGaussian:
         tau: float = 3.0,
         sigma: float | None = None,
     ):
-        self.noise_amplitude = noise_amplitude
+        self.noise_amplitude = (
+            noise_amplitude
+            if isinstance(noise_amplitude, torch.Tensor)
+            else torch.Tensor([noise_amplitude])
+        )
         self.alpha = alpha
         self.tau = tau
         self.sigma = sigma
@@ -107,7 +111,8 @@ class SphericalGaussian:
         else:
             noise = sample_noise
 
-        return x + self.noise_amplitude * noise, coords
+        noise_amplitude = self.noise_amplitude.to(x.device)
+        return x + noise_amplitude * noise, coords
 
 
 class GaussianRandomFieldS2(torch.nn.Module):

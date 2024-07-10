@@ -63,7 +63,11 @@ class BredVector:
         seeding_perturbation_method: Perturbation = Brown(),
     ):
         self.model = model
-        self.noise_amplitude = noise_amplitude
+        self.noise_amplitude = (
+            noise_amplitude
+            if isinstance(noise_amplitude, torch.Tensor)
+            else torch.Tensor([noise_amplitude])
+        )
         self.ensemble_perturb = ensemble_perturb
         self.integration_steps = integration_steps
         self.seeding_perturbation_method = seeding_perturbation_method
@@ -90,6 +94,7 @@ class BredVector:
         tuple[torch.Tensor, CoordSystem]:
             Output tensor and respective coordinate system dictionary
         """
+        noise_amplitude = self.noise_amplitude.to(x.device)
         dx, coords = self.seeding_perturbation_method(x, coords)
         dx -= x
 
@@ -101,10 +106,9 @@ class BredVector:
             x2, _ = self.model(x1, coords)
             if self.ensemble_perturb:
                 dx1 = x2 - xd
-                dx = dx1 + self.noise_amplitude * (dx - dx.mean(dim=0))
+                dx = dx1 + noise_amplitude * (dx - dx.mean(dim=0))
             else:
                 dx = x2 - xd
 
         gamma = torch.norm(x) / torch.norm(x + dx)
-
-        return x + dx * self.noise_amplitude * gamma, coords
+        return x + dx * noise_amplitude * gamma, coords
