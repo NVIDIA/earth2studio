@@ -33,8 +33,9 @@ class SphericalGaussian:
 
     Parameters
     ----------
-    noise_amplitude : float, optional
-        Noise amplitude, by default 0.05
+    noise_amplitude : float | Tensor, optional
+        Noise amplitude, by default 0.05. If a tensor,
+        this must be broadcastable with the input data.
     alpha : float, optional
         Regularity parameter. Larger means smoother, by default 2.0
     tau : float, optional
@@ -45,7 +46,7 @@ class SphericalGaussian:
 
     def __init__(
         self,
-        noise_amplitude: float = 0.05,
+        noise_amplitude: float | torch.Tensor = 0.05,
         alpha: float = 2.0,
         tau: float = 3.0,
         sigma: float | None = None,

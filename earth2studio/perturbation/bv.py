@@ -33,8 +33,9 @@ class BredVector:
     model : Callable[[torch.Tensor], torch.Tensor]
         Dynamical model, typically this is the prognostic AI model.
         TODO: Update to prognostic looper
-    noise_amplitude : float, optional
-        Noise amplitude, by default 0.05
+    noise_amplitude : float | Tensor, optional
+        Noise amplitude, by default 0.05. If a tensor,
+        this must be broadcastable with the input data.
     integration_steps : int, optional
         Number of integration steps to use in forward call, by default 20
     ensemble_perturb : bool, optional
@@ -56,7 +57,7 @@ class BredVector:
             [torch.Tensor, CoordSystem],
             tuple[torch.Tensor, CoordSystem],
         ],
-        noise_amplitude: float = 0.05,
+        noise_amplitude: float | torch.Tensor = 0.05,
         integration_steps: int = 20,
         ensemble_perturb: bool = False,
         seeding_perturbation_method: Perturbation = Brown(),

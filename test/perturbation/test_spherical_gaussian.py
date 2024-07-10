@@ -27,14 +27,17 @@ from earth2studio.perturbation import SphericalGaussian
     [
         [
             torch.randn(1, 2, 16, 32),
-            OrderedDict([("a", []), ("b", []), ("lat", []), ("lon", [])]),
+            OrderedDict([("a", []), ("variable", []), ("lat", []), ("lon", [])]),
         ],
-        [torch.randn(2, 17, 32), OrderedDict([("a", []), ("lat", []), ("lon", [])])],
+        [
+            torch.randn(2, 17, 32),
+            OrderedDict([("variable", []), ("lat", []), ("lon", [])]),
+        ],
     ],
 )
 @pytest.mark.parametrize(
     "amplitude,alpha,tau,sigma",
-    [[1.0, 2.0, 3.0, None], [0.05, 1.0, 10.0, 2.0]],
+    [[1.0, 2.0, 3.0, None], [0.05, 1.0, 10.0, 2.0], ["tensor", 1.0, 10.0, 2.0]],
 )
 @pytest.mark.parametrize(
     "device",
@@ -51,7 +54,10 @@ from earth2studio.perturbation import SphericalGaussian
 def test_spherical_gaussian(x, coords, amplitude, alpha, tau, sigma, device):
 
     x = x.to(device)
-
+    if amplitude == "tensor":
+        amplitude = torch.randn(
+            [x.shape[list(coords).index("variable")], 1, 1], device=device
+        )
     prtb = SphericalGaussian(amplitude, alpha, tau, sigma)
     xout, coords = prtb(x, coords)
     dx = xout - x

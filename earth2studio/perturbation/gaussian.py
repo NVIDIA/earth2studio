@@ -24,11 +24,12 @@ class Gaussian:
 
     Parameters
     ----------
-    noise_amplitude : float, optional
-        Noise amplitude, by default 0.05
+    noise_amplitude : float | Tensor, optional
+        Noise amplitude, by default 0.05. If a tensor,
+        this must be broadcastable with the input data.
     """
 
-    def __init__(self, noise_amplitude: float = 0.05):
+    def __init__(self, noise_amplitude: float | torch.Tensor = 0.05):
         self.noise_amplitude = noise_amplitude
 
     @torch.inference_mode()
