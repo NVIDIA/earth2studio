@@ -52,7 +52,7 @@ def model():
 )
 @pytest.mark.parametrize(
     "amplitude,steps,ensemble",
-    [[1.0, 5, False], [1.0, 3, True]],
+    [[1.0, 5, False], [1.0, 3, True], ["tensor", 2, True]],
 )
 @pytest.mark.parametrize(
     "seeding_perturbation_method",
@@ -77,6 +77,11 @@ def test_bred_vec(
     model = model.to(device)
     model.index = 0
     x = x.to(device)
+
+    if amplitude == "tensor":
+        amplitude = torch.randn(
+            [x.shape[list(coords).index("variable")], 1, 1], device=device
+        )
 
     prtb = BredVector(model, amplitude, steps, ensemble, seeding_perturbation_method)
     xout, coords = prtb(x, coords)

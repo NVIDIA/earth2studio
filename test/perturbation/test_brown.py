@@ -37,7 +37,7 @@ from earth2studio.perturbation import Brown
 )
 @pytest.mark.parametrize(
     "amplitude,reddening",
-    [[1.0, 2], [0.05, 3]],
+    [[1.0, 2], [0.05, 3], ["tensor", 2]],
 )
 @pytest.mark.parametrize(
     "device",
@@ -55,6 +55,10 @@ def test_brown(x, coords, amplitude, reddening, device):
 
     x = x.to(device)
 
+    if amplitude == "tensor":
+        amplitude = torch.randn(
+            [x.shape[list(coords).index("variable")], 1, 1], device=device
+        )
     prtb = Brown(amplitude, reddening)
     xout, coords = prtb(x, coords)
     dx = xout - x
