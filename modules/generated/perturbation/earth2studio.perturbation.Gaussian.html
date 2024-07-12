@@ -536,7 +536,8 @@ document.write(`
 <dd><p>Standard Gaussian peturbation</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>noise_amplitude</strong> (<em>float</em><em>, </em><em>optional</em>) – Noise amplitude, by default 0.05</p>
+<dd class="field-odd"><p><strong>noise_amplitude</strong> (<em>float</em><em> | </em><em>Tensor</em><em>, </em><em>optional</em>) – Noise amplitude, by default 0.05. If a tensor,
+this must be broadcastable with the input data.</p>
 </dd>
 </dl>
 <dl class="py method">

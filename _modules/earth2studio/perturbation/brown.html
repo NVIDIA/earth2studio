@@ -457,15 +457,22 @@ document.write(`
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
-<span class="sd">    noise_amplitude : float, optional</span>
-<span class="sd">        Noise amplitude, by default 0.05</span>
+<span class="sd">    noise_amplitude : float | Tensor, optional</span>
+<span class="sd">        Noise amplitude, by default 0.05. If a tensor,</span>
+<span class="sd">        this must be broadcastable with the input data.</span>
 <span class="sd">    reddening : int, optional</span>
 <span class="sd">        Reddening in Fourier space, by default 2</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">noise_amplitude</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.05</span><span class="p">,</span> <span class="n">reddening</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">noise_amplitude</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span> <span class="o">=</span> <span class="mf">0.05</span><span class="p">,</span> <span class="n">reddening</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2</span>
+    <span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">reddening</span> <span class="o">=</span> <span class="n">reddening</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">noise_amplitude</span> <span class="o">=</span> <span class="n">noise_amplitude</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">noise_amplitude</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">noise_amplitude</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">noise_amplitude</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span>
+            <span class="k">else</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">([</span><span class="n">noise_amplitude</span><span class="p">])</span>
+        <span class="p">)</span>
 
 <div class="viewcode-block" id="Brown.__call__">
 <a class="viewcode-back" href="../../../modules/generated/perturbation/earth2studio.perturbation.Brown.html#earth2studio.perturbation.Brown.__call__">[docs]</a>
@@ -496,8 +503,8 @@ document.write(`
         <span class="n">handshake_dim</span><span class="p">(</span><span class="n">coords</span><span class="p">,</span> <span class="n">required_dim</span><span class="o">=</span><span class="s2">&quot;lon&quot;</span><span class="p">,</span> <span class="n">required_index</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
 
         <span class="n">noise</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_generate_noise_correlated</span><span class="p">(</span><span class="nb">tuple</span><span class="p">(</span><span class="n">shape</span><span class="p">),</span> <span class="n">device</span><span class="o">=</span><span class="n">x</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
-
-        <span class="k">return</span> <span class="n">x</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">noise_amplitude</span> <span class="o">*</span> <span class="n">noise</span><span class="p">,</span> <span class="n">coords</span></div>
+        <span class="n">noise_amplitude</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">noise_amplitude</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">x</span> <span class="o">+</span> <span class="n">noise_amplitude</span> <span class="o">*</span> <span class="n">noise</span><span class="p">,</span> <span class="n">coords</span></div>
 
 
     <span class="k">def</span> <span class="nf">_generate_noise_correlated</span><span class="p">(</span>

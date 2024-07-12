@@ -465,8 +465,9 @@ document.write(`
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
-<span class="sd">    noise_amplitude : float, optional</span>
-<span class="sd">        Noise amplitude, by default 0.05</span>
+<span class="sd">    noise_amplitude : float | Tensor, optional</span>
+<span class="sd">        Noise amplitude, by default 0.05. If a tensor,</span>
+<span class="sd">        this must be broadcastable with the input data.</span>
 <span class="sd">    alpha : float, optional</span>
 <span class="sd">        Regularity parameter. Larger means smoother, by default 2.0</span>
 <span class="sd">    tau : float, optional</span>
@@ -477,12 +478,16 @@ document.write(`
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
-        <span class="n">noise_amplitude</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.05</span><span class="p">,</span>
+        <span class="n">noise_amplitude</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span> <span class="o">=</span> <span class="mf">0.05</span><span class="p">,</span>
         <span class="n">alpha</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">2.0</span><span class="p">,</span>
         <span class="n">tau</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">3.0</span><span class="p">,</span>
         <span class="n">sigma</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">):</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">noise_amplitude</span> <span class="o">=</span> <span class="n">noise_amplitude</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">noise_amplitude</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">noise_amplitude</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">noise_amplitude</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span>
+            <span class="k">else</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">([</span><span class="n">noise_amplitude</span><span class="p">])</span>
+        <span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">alpha</span> <span class="o">=</span> <span class="n">alpha</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">tau</span> <span class="o">=</span> <span class="n">tau</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">sigma</span> <span class="o">=</span> <span class="n">sigma</span>
@@ -540,7 +545,8 @@ document.write(`
         <span class="k">else</span><span class="p">:</span>
             <span class="n">noise</span> <span class="o">=</span> <span class="n">sample_noise</span>
 
-        <span class="k">return</span> <span class="n">x</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">noise_amplitude</span> <span class="o">*</span> <span class="n">noise</span><span class="p">,</span> <span class="n">coords</span></div>
+        <span class="n">noise_amplitude</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">noise_amplitude</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">x</span> <span class="o">+</span> <span class="n">noise_amplitude</span> <span class="o">*</span> <span class="n">noise</span><span class="p">,</span> <span class="n">coords</span></div>
 </div>
 
 

@@ -540,7 +540,8 @@ ensemble forecasting.</p>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>model</strong> (<em>Callable</em><em>[</em><em>[</em><em>torch.Tensor</em><em>]</em><em>, </em><em>torch.Tensor</em><em>]</em>) – Dynamical model, typically this is the prognostic AI model.
 TODO: Update to prognostic looper</p></li>
-<li><p><strong>noise_amplitude</strong> (<em>float</em><em>, </em><em>optional</em>) – Noise amplitude, by default 0.05</p></li>
+<li><p><strong>noise_amplitude</strong> (<em>float</em><em> | </em><em>Tensor</em><em>, </em><em>optional</em>) – Noise amplitude, by default 0.05. If a tensor,
+this must be broadcastable with the input data.</p></li>
 <li><p><strong>integration_steps</strong> (<em>int</em><em>, </em><em>optional</em>) – Number of integration steps to use in forward call, by default 20</p></li>
 <li><p><strong>ensemble_perturb</strong> (<em>bool</em><em>, </em><em>optional</em>) – Perturb the ensemble in an interacting fashion, by default False</p></li>
 <li><p><strong>seeding_perturbation_method</strong> (<em>Perturbation</em><em>, </em><em>optional</em>) – Method to seed the Bred Vector perturbation, by default Brown Noise</p></li>
