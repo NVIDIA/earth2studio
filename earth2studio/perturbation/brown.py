@@ -25,15 +25,22 @@ class Brown:
 
     Parameters
     ----------
-    noise_amplitude : float, optional
-        Noise amplitude, by default 0.05
+    noise_amplitude : float | Tensor, optional
+        Noise amplitude, by default 0.05. If a tensor,
+        this must be broadcastable with the input data.
     reddening : int, optional
         Reddening in Fourier space, by default 2
     """
 
-    def __init__(self, noise_amplitude: float = 0.05, reddening: int = 2):
+    def __init__(
+        self, noise_amplitude: float | torch.Tensor = 0.05, reddening: int = 2
+    ):
         self.reddening = reddening
-        self.noise_amplitude = noise_amplitude
+        self.noise_amplitude = (
+            noise_amplitude
+            if isinstance(noise_amplitude, torch.Tensor)
+            else torch.Tensor([noise_amplitude])
+        )
 
     @torch.inference_mode()
     def __call__(
@@ -62,8 +69,8 @@ class Brown:
         handshake_dim(coords, required_dim="lon", required_index=-1)
 
         noise = self._generate_noise_correlated(tuple(shape), device=x.device)
-
-        return x + self.noise_amplitude * noise, coords
+        noise_amplitude = self.noise_amplitude.to(x.device)
+        return x + noise_amplitude * noise, coords
 
     def _generate_noise_correlated(
         self, shape: tuple[int, ...], device: torch.device

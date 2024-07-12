@@ -33,8 +33,9 @@ class SphericalGaussian:
 
     Parameters
     ----------
-    noise_amplitude : float, optional
-        Noise amplitude, by default 0.05
+    noise_amplitude : float | Tensor, optional
+        Noise amplitude, by default 0.05. If a tensor,
+        this must be broadcastable with the input data.
     alpha : float, optional
         Regularity parameter. Larger means smoother, by default 2.0
     tau : float, optional
@@ -45,12 +46,16 @@ class SphericalGaussian:
 
     def __init__(
         self,
-        noise_amplitude: float = 0.05,
+        noise_amplitude: float | torch.Tensor = 0.05,
         alpha: float = 2.0,
         tau: float = 3.0,
         sigma: float | None = None,
     ):
-        self.noise_amplitude = noise_amplitude
+        self.noise_amplitude = (
+            noise_amplitude
+            if isinstance(noise_amplitude, torch.Tensor)
+            else torch.Tensor([noise_amplitude])
+        )
         self.alpha = alpha
         self.tau = tau
         self.sigma = sigma
@@ -106,7 +111,8 @@ class SphericalGaussian:
         else:
             noise = sample_noise
 
-        return x + self.noise_amplitude * noise, coords
+        noise_amplitude = self.noise_amplitude.to(x.device)
+        return x + noise_amplitude * noise, coords
 
 
 class GaussianRandomFieldS2(torch.nn.Module):
