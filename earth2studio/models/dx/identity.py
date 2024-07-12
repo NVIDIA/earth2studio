@@ -58,7 +58,6 @@ class Identity(torch.nn.Module):
         CoordSystem
             Coordinate system dictionary
         """
-
         return input_coords.copy()
 
     @torch.inference_mode()

@@ -16,7 +16,6 @@
 
 from collections import OrderedDict
 
-import numpy as np
 import pytest
 import torch
 
@@ -24,18 +23,21 @@ from earth2studio.perturbation import Gaussian
 
 
 @pytest.mark.parametrize(
-    "x",
+    "x, coords",
     [
-        torch.randn(2, 4, 16, 16),
-        torch.randn(2, 2, 4, 16, 16),
+        [
+            torch.randn(2, 16, 16, 16),
+            OrderedDict([("a", []), ("variable", []), ("lat", []), ("lon", [])]),
+        ],
+        [
+            torch.randn(2, 32, 16),
+            OrderedDict([("variable", []), ("lat", []), ("lon", [])]),
+        ],
     ],
 )
 @pytest.mark.parametrize(
     "amplitude",
-    [
-        1.0,
-        0.05,
-    ],
+    [1.0, 0.05, "tensor"],
 )
 @pytest.mark.parametrize(
     "device",
@@ -49,11 +51,14 @@ from earth2studio.perturbation import Gaussian
         ),
     ],
 )
-def test_gaussian(x, amplitude, device):
+def test_gaussian(x, coords, amplitude, device):
 
     x = x.to(device)
-    coords = OrderedDict([(f"{i}", np.arange(x.shape[i])) for i in range(x.ndim)])
 
+    if amplitude == "tensor":
+        amplitude = torch.randn(
+            [x.shape[list(coords).index("variable")], 1, 1], device=device
+        )
     prtb = Gaussian(amplitude)
     xout, coords = prtb(x, coords)
     dx = xout - x
@@ -62,7 +67,9 @@ def test_gaussian(x, amplitude, device):
     assert torch.allclose(
         torch.mean(dx), torch.Tensor([0]).to(device), rtol=1e-2, atol=1e-1
     )
-    assert torch.allclose(
-        torch.std(dx), torch.Tensor([amplitude]).to(device), rtol=1e-2, atol=1e-1
-    )
+
+    if not isinstance(amplitude, torch.Tensor):
+        assert torch.allclose(
+            torch.std(dx), torch.Tensor([amplitude]).to(device), rtol=1e-2, atol=1e-1
+        )
     assert dx.device == x.device
