@@ -78,7 +78,6 @@ def test_crps(
     z, c = CRPS(x, x_coords, y, y_coords)
     assert ensemble_dimension not in c
     if reduction_dimensions is not None:
-        print(list(c), reduction_dimensions)
         assert all([rd not in c for rd in reduction_dimensions])
     assert list(z.shape) == [len(val) for val in c.values()]
 
