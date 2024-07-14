@@ -14,11 +14,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import asyncio
 import tempfile
 from collections import OrderedDict
+from collections.abc import AsyncGenerator, Awaitable, Iterator
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal, TypeVar
 
 import numpy as np
 import torch
@@ -224,3 +226,63 @@ def datasource_to_file(
             da.to_zarr(file_name)
         case _:
             raise ValueError(f"Unsupported backend {backend}")
+
+
+T = TypeVar("T")
+
+
+async def unordered_generator(
+    func_map: Iterator[Awaitable[Any]], limit: int
+) -> AsyncGenerator[T, None]:
+    """Creates an async unordered generator
+
+    Parameters
+    ----------
+    func_map : Iterator[Awaitable[Any]]
+        Function map to get exectured. Such as the output of map(func, args)
+    limit : int
+        Limit of concurrent async processes
+
+    Yields
+    ------
+    AsyncGenerator[T, None]
+        Unordered async generator
+    """
+    async for task in _limit_concurrency(func_map, limit):
+        yield await task
+
+
+async def _limit_concurrency(
+    aws: Iterator[Awaitable[T]], limit: int
+) -> AsyncGenerator[T, None]:
+    """Limited concurrency async generator. Throttles number of async io processes
+
+    Note
+    ----
+    Taken from: https://death.andgravity.com/limit-concurrency
+    """
+    try:
+        aws = aiter(aws)  # type: ignore
+        is_async = True
+    except TypeError:
+        aws = iter(aws)
+        is_async = False
+
+    aws_ended = False
+    pending: set[asyncio.Future] = set()
+
+    while pending or not aws_ended:
+        while len(pending) < limit and not aws_ended:
+            try:
+                aw = await anext(aws) if is_async else next(aws)  # type: ignore
+            except StopAsyncIteration if is_async else StopIteration:  # noqa
+                aws_ended = True
+            else:
+                pending.add(asyncio.ensure_future(aw))
+
+        if not pending:
+            return
+
+        done, pending = await asyncio.wait(pending, return_when=asyncio.FIRST_COMPLETED)
+        while done:
+            yield done.pop()

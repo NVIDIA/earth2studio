@@ -14,10 +14,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import asyncio
 import os
 import pathlib
 import shutil
-from datetime import datetime, timedelta
+from datetime import datetime
 
 import fsspec
 import gcsfs
@@ -28,7 +29,7 @@ from loguru import logger
 from modulus.distributed.manager import DistributedManager
 from tqdm import tqdm
 
-from earth2studio.data.utils import prep_data_inputs
+from earth2studio.data.utils import prep_data_inputs, unordered_generator
 from earth2studio.lexicon import ARCOLexicon
 from earth2studio.utils.type import TimeArray, VariableArray
 
@@ -81,6 +82,8 @@ class ARCO:
                 gcs=gcs,
             )
         self.zarr_group = zarr.open(gcstore, mode="r")
+        self.async_timeout = 100
+        self.async_process_limit = 4
 
     def __call__(
         self,
@@ -109,101 +112,115 @@ class ARCO:
         # Make sure input time is valid
         self._validate_time(time)
 
-        # Fetch index file for requested time
-        data_arrays = []
-        for t0 in time:
-            data_array = self.fetch_arco_dataarray(t0, variable)
-            data_arrays.append(data_array)
+        xr_array = asyncio.run(
+            asyncio.wait_for(self.create_data_array(time, variable), self.async_timeout)
+        )
 
         # Delete cache if needed
         if not self._cache:
             shutil.rmtree(self.cache)
 
-        return xr.concat(data_arrays, dim="time")
+        return xr_array
 
-    def fetch_arco_dataarray(
-        self,
-        time: datetime,
-        variables: list[str],
+    async def create_data_array(
+        self, time: list[datetime], variable: list[str]
     ) -> xr.DataArray:
-        """Retrives ARCO data array for given date time by downloading a lat lon array
-        from the Zarr store
+        """Async function that creates and populates an xarray data array with requested
+        ARCO data. Asyncio tasks are created for each data array enabling concurrent
+        fetching.
 
         Parameters
         ----------
-        time : datetime
-            Date time to fetch
-        variables : list[str]
-            list of atmosphric variables to fetch. Must be supported in ARCO lexicon
+        time : list[datetime]
+            Time list to fetch
+        variable : list[str]
+            Variable list to fetch
 
         Returns
         -------
         xr.DataArray
-            ARCO data array for given date time
+            Xarray data array
         """
-        arcoda = xr.DataArray(
-            data=np.empty((1, len(variables), len(self.ARCO_LAT), len(self.ARCO_LON))),
+        xr_array = xr.DataArray(
+            data=np.empty(
+                (len(time), len(variable), len(self.ARCO_LAT), len(self.ARCO_LON))
+            ),
             dims=["time", "variable", "lat", "lon"],
             coords={
-                "time": [time],
-                "variable": variables,
+                "time": time,
+                "variable": variable,
                 "lat": self.ARCO_LAT,
                 "lon": self.ARCO_LON,
             },
         )
 
+        async def fetch_wrapper(
+            e: tuple[datetime, int, str, int]
+        ) -> tuple[int, int, np.ndarray]:
+            """Small wrapper that is awaitable for async generator"""
+            return e[1], e[3], self.fetch_array(e[0], e[2])
+
+        args = [
+            (t, i, v, j) for j, v in enumerate(variable) for i, t in enumerate(time)
+        ]
+        func_map = map(fetch_wrapper, args)
+
+        pbar = tqdm(
+            total=len(args), desc="Fetching ARCO data", disable=(not self._verbose)
+        )
+        # Mypy will struggle here because the async generator uses a generic type
+        async for t, v, data in unordered_generator(  # type: ignore[misc,unused-ignore]
+            func_map, limit=self.async_process_limit
+        ):
+            xr_array[t, v] = data  # type: ignore[has-type,unused-ignore]
+            pbar.update(1)
+
+        return xr_array
+
+    def fetch_array(self, time: datetime, variable: str) -> np.ndarray:
+        """Fetches requested array from remote store
+
+        Parameters
+        ----------
+        time : datetime
+            Time to fetch
+        variable : str
+            Variable to fetch
+
+        Returns
+        -------
+        np.ndarray
+            Data
+        """
         # Load levels coordinate system from Zarr store and check
         level_coords = self.zarr_group["level"][:]
         # Get time index (vanilla zarr doesnt support date indices)
         time_index = self._get_time_index(time)
 
-        # TODO: Add MP here
-        for i, variable in enumerate(
-            tqdm(
-                variables, desc=f"Fetching ARCO for {time}", disable=(not self._verbose)
-            )
-        ):
-            logger.debug(
-                f"Fetching ARCO zarr array for variable: {variable} at {time.isoformat()}"
-            )
-            try:
-                arco_name, modifier = ARCOLexicon[variable]
-            except KeyError as e:
-                logger.error(f"variable id {variable} not found in ARCO lexicon")
-                raise e
+        logger.debug(
+            f"Fetching ARCO zarr array for variable: {variable} at {time.isoformat()}"
+        )
+        try:
+            arco_name, modifier = ARCOLexicon[variable]
+        except KeyError as e:
+            logger.error(f"variable id {variable} not found in ARCO lexicon")
+            raise e
 
-            arco_variable, level = arco_name.split("::")
+        arco_variable, level = arco_name.split("::")
 
-            # special variables
-            if variable == "tp06":
-                arcoda[0, i] = modifier(self._fetch_tp06(time))
-                continue
+        shape = self.zarr_group[arco_variable].shape
+        # Static variables
+        if len(shape) == 2:
+            output = modifier(self.zarr_group[arco_variable][:])
+        # Surface variable
+        elif len(shape) == 3:
+            output = modifier(self.zarr_group[arco_variable][time_index])
+        # Atmospheric variable
+        else:
+            level_index = np.where(level_coords == int(level))[0][0]
+            output = modifier(self.zarr_group[arco_variable][time_index, level_index])
 
-            shape = self.zarr_group[arco_variable].shape
-            # Static variables
-            if len(shape) == 2:
-                arcoda[0, i] = modifier(self.zarr_group[arco_variable][:])
-            # Surface variable
-            elif len(shape) == 3:
-                arcoda[0, i] = modifier(self.zarr_group[arco_variable][time_index])
-            # Atmospheric variable
-            else:
-                level_index = np.where(level_coords == int(level))[0][0]
-                arcoda[0, i] = modifier(
-                    self.zarr_group[arco_variable][time_index, level_index]
-                )
-
-        return arcoda
-
-    def _fetch_tp06(self, time: datetime) -> np.array:
-        """Handle special tp06 variable"""
-        tp06_array = np.zeros((self.ARCO_LAT.shape[0], self.ARCO_LON.shape[0]))
-        # Accumulate over past 6 hours
-        for i in range(6):
-            time_index = self._get_time_index(time - timedelta(hours=i))
-            tp06_array += self.zarr_group["total_precipitation"][time_index]
-
-        return tp06_array
+        return output
 
     @property
     def cache(self) -> str:
@@ -246,7 +263,7 @@ class ARCO:
     @classmethod
     def _get_time_index(cls, time: datetime) -> int:
         """Small little index converter to go from datetime to integer index.
-        We don't need to do with with xarray, but since we are vanilla zaar for speed
+        We don't need to do with with xarray, but since we are vanilla zarr for speed
         this conversion must be manual.
 
         Parameters
@@ -280,7 +297,7 @@ class ARCO:
         if isinstance(time, np.datetime64):  # np.datetime64 -> datetime
             _unix = np.datetime64(0, "s")
             _ds = np.timedelta64(1, "s")
-            time = datetime.utcfromtimestamp((time - _unix) / _ds)
+            time = datetime.utcfromtimestamp(float((time - _unix) / _ds))
 
         # Offline checks
         try:
