@@ -514,7 +514,7 @@ document.write(`
                 <span class="n">gcs</span><span class="o">=</span><span class="n">gcs</span><span class="p">,</span>
             <span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">zarr_group</span> <span class="o">=</span> <span class="n">zarr</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="n">gcstore</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;r&quot;</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">async_timeout</span> <span class="o">=</span> <span class="mi">100</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">async_timeout</span> <span class="o">=</span> <span class="mi">600</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">async_process_limit</span> <span class="o">=</span> <span class="mi">4</span>
 
 <div class="viewcode-block" id="ARCO.__call__">
