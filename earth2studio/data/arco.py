@@ -82,7 +82,7 @@ class ARCO:
                 gcs=gcs,
             )
         self.zarr_group = zarr.open(gcstore, mode="r")
-        self.async_timeout = 100
+        self.async_timeout = 600
         self.async_process_limit = 4
 
     def __call__(
