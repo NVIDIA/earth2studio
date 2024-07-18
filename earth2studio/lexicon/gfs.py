@@ -40,6 +40,7 @@ class GFSLexicon(metaclass=LexiconType):
         "sp": "PRES::surface",
         "msl": "PRMSL::mean sea level",
         "tcwv": "PWAT::entire atmosphere (considered as a single layer)",
+        "2d": "DPT::2 m above ground",
         "u1": "UGRD::1 mb",
         "u2": "UGRD::2 mb",
         "u3": "UGRD::3 mb",
