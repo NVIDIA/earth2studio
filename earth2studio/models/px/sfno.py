@@ -143,7 +143,6 @@ class SFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self.model = core_model
         self.register_buffer("center", center)
         self.register_buffer("scale", scale)
-        # self.VARIABLES = self.load_variables()
 
     def __str__(self) -> str:
         return "sfno_73ch_small"
