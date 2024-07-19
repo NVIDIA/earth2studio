@@ -13,6 +13,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import json
 import os
 from collections import OrderedDict
 from collections.abc import Generator, Iterator
@@ -24,7 +25,6 @@ try:
     from makani.models.model_package import load_model_package
 except ImportError:
     load_model_package = None
-import json
 
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_coords, batch_func
@@ -128,9 +128,11 @@ class SFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     core_model : torch.nn.Module
         Core PyTorch model with loaded weights
     center : torch.Tensor
-        Model center normalization tensor of size [73]
+        Model center normalization tensor
     scale : torch.Tensor
-        Model scale normalization tensor of size [73]
+        Model scale normalization tensor
+    variables : np.array, optional
+        Variables associated with model, by default 73 variable model.
     """
 
     def __init__(
@@ -138,11 +140,13 @@ class SFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         core_model: torch.nn.Module,
         center: torch.Tensor,
         scale: torch.Tensor,
+        variables: np.array = np.array(VARIABLES),
     ):
         super().__init__()
         self.model = core_model
         self.register_buffer("center", center)
         self.register_buffer("scale", scale)
+        self.variables = variables
 
     def __str__(self) -> str:
         return "sfno_73ch_small"
@@ -154,16 +158,12 @@ class SFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         CoordSystem
             Coordinate system dictionary
         """
-        package = self.load_default_package()
-        config_path = package.get("config.json")
-        with open(config_path) as f:
-            VARIABLES = json.load(f)["channel_names"]
         return OrderedDict(
             {
                 "batch": np.empty(0),
                 "time": np.empty(0),
                 "lead_time": np.array([np.timedelta64(0, "h")]),
-                "variable": np.array(VARIABLES),
+                "variable": np.array(self.variables),
                 "lat": np.linspace(90.0, -90.0, 721),
                 "lon": np.linspace(0, 360, 1440, endpoint=False),
             }
@@ -182,16 +182,12 @@ class SFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         CoordSystem
             Coordinate system dictionary
         """
-        package = self.load_default_package()
-        config_path = package.get("config.json")
-        with open(config_path) as f:
-            VARIABLES = json.load(f)["channel_names"]
         output_coords = OrderedDict(
             {
                 "batch": np.empty(0),
                 "time": np.empty(0),
                 "lead_time": np.array([np.timedelta64(6, "h")]),
-                "variable": np.array(VARIABLES),
+                "variable": np.array(self.variables),
                 "lat": np.linspace(90.0, -90.0, 721),
                 "lon": np.linspace(0, 360, 1440, endpoint=False),
             }
@@ -253,9 +249,7 @@ class SFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             :, : len(variables)
         ]
         return cls(
-            model,
-            center=local_center,
-            scale=local_std,
+            model, center=local_center, scale=local_std, variables=np.array(variables)
         )
 
     @torch.inference_mode()
