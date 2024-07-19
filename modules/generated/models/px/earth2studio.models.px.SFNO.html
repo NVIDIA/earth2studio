@@ -532,47 +532,50 @@ document.write(`
 <h1><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.SFNO<a class="headerlink" href="#earth2studio-models-px-sfno" title="Link to this heading">#</a></h1>
 <dl class="py class">
 <dt class="sig sig-object py" id="earth2studio.models.px.SFNO">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">earth2studio.models.px.</span></span><span class="sig-name descname"><span class="pre">SFNO</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">core_model</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">center</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scale</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/earth2studio/models/px/sfno.html#SFNO"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.px.SFNO" title="Link to this definition">#</a></dt>
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">earth2studio.models.px.</span></span><span class="sig-name descname"><span class="pre">SFNO</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">core_model</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">center</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scale</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">variables</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">array(['u10m',</span> <span class="pre">'v10m',</span> <span class="pre">'u100m',</span> <span class="pre">'v100m',</span> <span class="pre">'t2m',</span> <span class="pre">'sp',</span> <span class="pre">'msl',</span> <span class="pre">'tcwv',</span> <span class="pre">'u50',</span> <span class="pre">'u100',</span> <span class="pre">'u150',</span> <span class="pre">'u200',</span> <span class="pre">'u250',</span> <span class="pre">'u300',</span> <span class="pre">'u400',</span> <span class="pre">'u500',</span> <span class="pre">'u600',</span> <span class="pre">'u700',</span> <span class="pre">'u850',</span> <span class="pre">'u925',</span> <span class="pre">'u1000',</span> <span class="pre">'v50',</span> <span class="pre">'v100',</span> <span class="pre">'v150',</span> <span class="pre">'v200',</span> <span class="pre">'v250',</span> <span class="pre">'v300',</span> <span class="pre">'v400',</span> <span class="pre">'v500',</span> <span class="pre">'v600',</span> <span class="pre">'v700',</span> <span class="pre">'v850',</span> <span class="pre">'v925',</span> <span class="pre">'v1000',</span> <span class="pre">'z50',</span> <span class="pre">'z100',</span> <span class="pre">'z150',</span> <span class="pre">'z200',</span> <span class="pre">'z250',</span> <span class="pre">'z300',</span> <span class="pre">'z400',</span> <span class="pre">'z500',</span> <span class="pre">'z600',</span> <span class="pre">'z700',</span> <span class="pre">'z850',</span> <span class="pre">'z925',</span> <span class="pre">'z1000',</span> <span class="pre">'t50',</span> <span class="pre">'t100',</span> <span class="pre">'t150',</span> <span class="pre">'t200',</span> <span class="pre">'t250',</span> <span class="pre">'t300',</span> <span class="pre">'t400',</span> <span class="pre">'t500',</span> <span class="pre">'t600',</span> <span class="pre">'t700',</span> <span class="pre">'t850',</span> <span class="pre">'t925',</span> <span class="pre">'t1000',</span> <span class="pre">'q50',</span> <span class="pre">'q100',</span> <span class="pre">'q150',</span> <span class="pre">'q200',</span> <span class="pre">'q250',</span> <span class="pre">'q300',</span> <span class="pre">'q400',</span> <span class="pre">'q500',</span> <span class="pre">'q600',</span> <span class="pre">'q700',</span> <span class="pre">'q850',</span> <span class="pre">'q925',</span> <span class="pre">'q1000'],</span> <span class="pre">dtype='&lt;U5')</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/earth2studio/models/px/sfno.html#SFNO"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.px.SFNO" title="Link to this definition">#</a></dt>
 <dd><p>Spherical Fourier Operator Network global prognostic model.
 Consists of a single model with a time-step size of 6 hours.
 FourCastNet operates on 0.25 degree lat-lon grid (south-pole excluding)
-equirectangular grid with 73 variables.</p>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>This model and checkpoint are trained using Modulus-Makani. For more information
-see the following references:</p>
-<ul class="simple">
-<li><p><a class="reference external" href="https://arxiv.org/abs/2306.03838">https://arxiv.org/abs/2306.03838</a></p></li>
-<li><p><a class="github reference external" href="https://github.com/NVIDIA/modulus-makani">NVIDIA/modulus-makani</a></p></li>
-<li><p><a class="reference external" href="https://catalog.ngc.nvidia.com/orgs/nvidia/teams/modulus/models/sfno_73ch_small">https://catalog.ngc.nvidia.com/orgs/nvidia/teams/modulus/models/sfno_73ch_small</a></p></li>
-</ul>
+equirectangular grid with 73 variables.
+.. note:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">This</span> <span class="n">model</span> <span class="ow">and</span> <span class="n">checkpoint</span> <span class="n">are</span> <span class="n">trained</span> <span class="n">using</span> <span class="n">Modulus</span><span class="o">-</span><span class="n">Makani</span><span class="o">.</span> <span class="n">For</span> <span class="n">more</span> <span class="n">information</span>
+<span class="n">see</span> <span class="n">the</span> <span class="n">following</span> <span class="n">references</span><span class="p">:</span>
+<span class="o">-</span> <span class="n">https</span><span class="p">:</span><span class="o">//</span><span class="n">arxiv</span><span class="o">.</span><span class="n">org</span><span class="o">/</span><span class="nb">abs</span><span class="o">/</span><span class="mf">2306.03838</span>
+<span class="o">-</span> <span class="n">https</span><span class="p">:</span><span class="o">//</span><span class="n">github</span><span class="o">.</span><span class="n">com</span><span class="o">/</span><span class="n">NVIDIA</span><span class="o">/</span><span class="n">modulus</span><span class="o">-</span><span class="n">makani</span>
+<span class="o">-</span> <span class="n">https</span><span class="p">:</span><span class="o">//</span><span class="n">catalog</span><span class="o">.</span><span class="n">ngc</span><span class="o">.</span><span class="n">nvidia</span><span class="o">.</span><span class="n">com</span><span class="o">/</span><span class="n">orgs</span><span class="o">/</span><span class="n">nvidia</span><span class="o">/</span><span class="n">teams</span><span class="o">/</span><span class="n">modulus</span><span class="o">/</span><span class="n">models</span><span class="o">/</span><span class="n">sfno_73ch_small</span>
+</pre></div>
 </div>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>core_model</strong> (<em>torch.nn.Module</em>) – Core PyTorch model with loaded weights</p></li>
-<li><p><strong>center</strong> (<em>torch.Tensor</em>) – Model center normalization tensor of size [73]</p></li>
-<li><p><strong>scale</strong> (<em>torch.Tensor</em>) – Model scale normalization tensor of size [73]</p></li>
+<li><p><strong>center</strong> (<em>torch.Tensor</em>) – Model center normalization tensor</p></li>
+<li><p><strong>scale</strong> (<em>torch.Tensor</em>) – Model scale normalization tensor</p></li>
+<li><p><strong>variables</strong> (<em>np.array</em><em>, </em><em>optional</em>) – Variables associated with model, by default 73 variable model.</p></li>
 </ul>
 </dd>
 </dl>
 <dl class="py method">
 <dt class="sig sig-object py" id="earth2studio.models.px.SFNO.__call__">
 <span class="sig-name descname"><span class="pre">__call__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">coords</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/earth2studio/models/px/sfno.html#SFNO.__call__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.px.SFNO.__call__" title="Link to this definition">#</a></dt>
-<dd><p>Runs prognostic model 1 step.</p>
+<dd><p>Runs prognostic model 1 step.
+:param x: Input tensor
+:type x: torch.Tensor
+:param coords: Input coordinate system
+:type coords: CoordSystem</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>x</strong> (<em>torch.Tensor</em>) – Input tensor</p></li>
-<li><p><strong>coords</strong> (<em>CoordSystem</em>) – Input coordinate system</p></li>
-</ul>
-</dd>
-<dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p><ul class="simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p><ul class="simple">
 <li><p><strong>x</strong> (<em>torch.Tensor</em>)</p></li>
 <li><p><strong>coords</strong> (<em>CoordSystem</em>)</p></li>
 </ul>
 </p>
+</dd>
+<dt class="field-even">Parameters<span class="colon">:</span></dt>
+<dd class="field-even"><ul class="simple">
+<li><p><strong>x</strong> (<em>Tensor</em>)</p></li>
+<li><p><strong>coords</strong> (<em>OrderedDict</em><em>[</em><em>str</em><em>, </em><em>ndarray</em><em>]</em>)</p></li>
+</ul>
 </dd>
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>tuple[<em>Tensor</em>, <em>OrderedDict</em>[str, <em>ndarray</em>]]</p>
@@ -584,17 +587,21 @@ see the following references:</p>
 <dt class="sig sig-object py" id="earth2studio.models.px.SFNO.create_iterator">
 <span class="sig-name descname"><span class="pre">create_iterator</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">coords</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/earth2studio/models/px/sfno.html#SFNO.create_iterator"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.px.SFNO.create_iterator" title="Link to this definition">#</a></dt>
 <dd><p>Creates a iterator which can be used to perform time-integration of the
-prognostic model. Will return the initial condition first (0th step).</p>
+prognostic model. Will return the initial condition first (0th step).
+:param x: Input tensor
+:type x: torch.Tensor
+:param coords: Input coordinate system
+:type coords: CoordSystem</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>x</strong> (<em>torch.Tensor</em>) – Input tensor</p></li>
-<li><p><strong>coords</strong> (<em>CoordSystem</em>) – Input coordinate system</p></li>
-</ul>
-</dd>
-<dt class="field-even">Yields<span class="colon">:</span></dt>
-<dd class="field-even"><p><em>Iterator[tuple[torch.Tensor, CoordSystem]]</em> – Iterator that generates time-steps of the prognostic model container the
+<dt class="field-odd">Yields<span class="colon">:</span></dt>
+<dd class="field-odd"><p><em>Iterator[tuple[torch.Tensor, CoordSystem]]</em> – Iterator that generates time-steps of the prognostic model container the
 output data tensor and coordinate system dictionary.</p>
+</dd>
+<dt class="field-even">Parameters<span class="colon">:</span></dt>
+<dd class="field-even"><ul class="simple">
+<li><p><strong>x</strong> (<em>Tensor</em>)</p></li>
+<li><p><strong>coords</strong> (<em>OrderedDict</em><em>[</em><em>str</em><em>, </em><em>ndarray</em><em>]</em>)</p></li>
+</ul>
 </dd>
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><em>Iterator</em>[tuple[<em>Tensor</em>, <em>OrderedDict</em>[str, <em>ndarray</em>]]]</p>
@@ -615,11 +622,14 @@ output data tensor and coordinate system dictionary.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="earth2studio.models.px.SFNO.load_model">
-<em class="property"><span class="pre">classmethod</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">load_model</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">package</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/earth2studio/models/px/sfno.html#SFNO.load_model"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.px.SFNO.load_model" title="Link to this definition">#</a></dt>
+<em class="property"><span class="pre">classmethod</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">load_model</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">package</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">variables</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">['u10m',</span> <span class="pre">'v10m',</span> <span class="pre">'u100m',</span> <span class="pre">'v100m',</span> <span class="pre">'t2m',</span> <span class="pre">'sp',</span> <span class="pre">'msl',</span> <span class="pre">'tcwv',</span> <span class="pre">'u50',</span> <span class="pre">'u100',</span> <span class="pre">'u150',</span> <span class="pre">'u200',</span> <span class="pre">'u250',</span> <span class="pre">'u300',</span> <span class="pre">'u400',</span> <span class="pre">'u500',</span> <span class="pre">'u600',</span> <span class="pre">'u700',</span> <span class="pre">'u850',</span> <span class="pre">'u925',</span> <span class="pre">'u1000',</span> <span class="pre">'v50',</span> <span class="pre">'v100',</span> <span class="pre">'v150',</span> <span class="pre">'v200',</span> <span class="pre">'v250',</span> <span class="pre">'v300',</span> <span class="pre">'v400',</span> <span class="pre">'v500',</span> <span class="pre">'v600',</span> <span class="pre">'v700',</span> <span class="pre">'v850',</span> <span class="pre">'v925',</span> <span class="pre">'v1000',</span> <span class="pre">'z50',</span> <span class="pre">'z100',</span> <span class="pre">'z150',</span> <span class="pre">'z200',</span> <span class="pre">'z250',</span> <span class="pre">'z300',</span> <span class="pre">'z400',</span> <span class="pre">'z500',</span> <span class="pre">'z600',</span> <span class="pre">'z700',</span> <span class="pre">'z850',</span> <span class="pre">'z925',</span> <span class="pre">'z1000',</span> <span class="pre">'t50',</span> <span class="pre">'t100',</span> <span class="pre">'t150',</span> <span class="pre">'t200',</span> <span class="pre">'t250',</span> <span class="pre">'t300',</span> <span class="pre">'t400',</span> <span class="pre">'t500',</span> <span class="pre">'t600',</span> <span class="pre">'t700',</span> <span class="pre">'t850',</span> <span class="pre">'t925',</span> <span class="pre">'t1000',</span> <span class="pre">'q50',</span> <span class="pre">'q100',</span> <span class="pre">'q150',</span> <span class="pre">'q200',</span> <span class="pre">'q250',</span> <span class="pre">'q300',</span> <span class="pre">'q400',</span> <span class="pre">'q500',</span> <span class="pre">'q600',</span> <span class="pre">'q700',</span> <span class="pre">'q850',</span> <span class="pre">'q925',</span> <span class="pre">'q1000']</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/earth2studio/models/px/sfno.html#SFNO.load_model"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.px.SFNO.load_model" title="Link to this definition">#</a></dt>
 <dd><p>Load prognostic from package</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>package</strong> (<a class="reference internal" href="../earth2studio.models.auto.Package.html#earth2studio.models.auto.Package" title="earth2studio.models.auto.Package"><em>Package</em></a>)</p>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>package</strong> (<a class="reference internal" href="../earth2studio.models.auto.Package.html#earth2studio.models.auto.Package" title="earth2studio.models.auto.Package"><em>Package</em></a>)</p></li>
+<li><p><strong>variables</strong> (<em>list</em>)</p></li>
+</ul>
 </dd>
 <dt class="field-even">Return type<span class="colon">:</span></dt>
 <dd class="field-even"><p><em>PrognosticModel</em></p>
@@ -730,7 +740,7 @@ output data tensor and coordinate system dictionary.</p>
         <div class="footer-item">
 
   <p class="sphinx-version">
-    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 7.4.5.
+    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 7.4.6.
     <br/>
   </p>
 </div>
