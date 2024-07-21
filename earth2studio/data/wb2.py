@@ -30,11 +30,9 @@ from loguru import logger
 from modulus.distributed.manager import DistributedManager
 from tqdm import tqdm
 
-from earth2studio.data.utils import prep_data_inputs
+from earth2studio.data.utils import datasource_cache_root, prep_data_inputs
 from earth2studio.lexicon import WB2Lexicon
 from earth2studio.utils.type import TimeArray, VariableArray
-
-LOCAL_CACHE = os.path.join(os.path.expanduser("~"), ".cache", "earth2studio")
 
 
 class _WB2Base:
@@ -193,7 +191,7 @@ class _WB2Base:
     @property
     def cache(self) -> str:
         """Get the appropriate cache location."""
-        cache_location = os.path.join(LOCAL_CACHE, "wb2era5")
+        cache_location = os.path.join(datasource_cache_root(), "wb2era5")
         if not self._cache:
             cache_location = os.path.join(
                 cache_location, f"tmp_{DistributedManager().rank}"
@@ -565,7 +563,7 @@ class WB2Climatology:
     @property
     def cache(self) -> str:
         """Get the appropriate cache location."""
-        cache_location = os.path.join(LOCAL_CACHE, "wb2")
+        cache_location = os.path.join(datasource_cache_root(), "wb2")
         if not self._cache:
             cache_location = os.path.join(
                 cache_location, f"tmp_{DistributedManager().rank}"
