@@ -28,14 +28,16 @@ from modulus.distributed.manager import DistributedManager
 from s3fs.core import S3FileSystem
 from tqdm import tqdm
 
-from earth2studio.data.utils import prep_data_inputs, prep_forecast_inputs
+from earth2studio.data.utils import (
+    datasource_cache_root,
+    prep_data_inputs,
+    prep_forecast_inputs,
+)
 from earth2studio.lexicon import GFSLexicon
 from earth2studio.utils.type import LeadTimeArray, TimeArray, VariableArray
 
 logger.remove()
 logger.add(lambda msg: tqdm.write(msg, end=""), colorize=True)
-
-LOCAL_CACHE = os.path.join(os.path.expanduser("~"), ".cache", "earth2studio")
 
 
 class GFS:
@@ -337,7 +339,7 @@ class GFS:
     @property
     def cache(self) -> str:
         """Return appropriate cache location."""
-        cache_location = os.path.join(LOCAL_CACHE, "gfs")
+        cache_location = os.path.join(datasource_cache_root(), "gfs")
         if not self._cache:
             cache_location = os.path.join(
                 cache_location, f"tmp_{DistributedManager().rank}"
