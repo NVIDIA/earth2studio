@@ -401,6 +401,10 @@ Notice that the NetCDF IO function has additional APIs to interact with the stor
 
       :download:`Download Python source code: 07_seasonal_statistics.py <07_seasonal_statistics.py>`
 
+    .. container:: sphx-glr-download sphx-glr-download-zip
+
+      :download:`Download zipped: 07_seasonal_statistics.zip <07_seasonal_statistics.zip>`
+
 
 .. only:: html
 

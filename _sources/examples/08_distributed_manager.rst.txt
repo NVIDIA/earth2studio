@@ -240,6 +240,10 @@ allows outputs from all processes to get treated as a single data array.
 
       :download:`Download Python source code: 08_distributed_manager.py <08_distributed_manager.py>`
 
+    .. container:: sphx-glr-download sphx-glr-download-zip
+
+      :download:`Download zipped: 08_distributed_manager.zip <08_distributed_manager.zip>`
+
 
 .. only:: html
 

@@ -211,6 +211,10 @@ Notice that the Zarr IO function has additional APIs to interact with the stored
 
       :download:`Download Python source code: 03_ensemble_workflow.py <03_ensemble_workflow.py>`
 
+    .. container:: sphx-glr-download sphx-glr-download-zip
+
+      :download:`Download zipped: 03_ensemble_workflow.zip <03_ensemble_workflow.zip>`
+
 
 .. only:: html
 

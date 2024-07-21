@@ -289,6 +289,10 @@ Notice that the Zarr IO function has additional APIs to interact with the stored
 
       :download:`Download Python source code: 04_corrdiff_inference.py <04_corrdiff_inference.py>`
 
+    .. container:: sphx-glr-download sphx-glr-download-zip
+
+      :download:`Download zipped: 04_corrdiff_inference.zip <04_corrdiff_inference.zip>`
+
 
 .. only:: html
 

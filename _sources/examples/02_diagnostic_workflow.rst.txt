@@ -187,6 +187,10 @@ prognostic model.
 
       :download:`Download Python source code: 02_diagnostic_workflow.py <02_diagnostic_workflow.py>`
 
+    .. container:: sphx-glr-download sphx-glr-download-zip
+
+      :download:`Download zipped: 02_diagnostic_workflow.zip <02_diagnostic_workflow.zip>`
+
 
 .. only:: html
 

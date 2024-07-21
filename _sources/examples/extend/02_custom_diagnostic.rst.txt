@@ -304,6 +304,10 @@ Let's plot the Celsius temperature field from our custom diagnostic model.
 
       :download:`Download Python source code: 02_custom_diagnostic.py <02_custom_diagnostic.py>`
 
+    .. container:: sphx-glr-download sphx-glr-download-zip
+
+      :download:`Download zipped: 02_custom_diagnostic.zip <02_custom_diagnostic.zip>`
+
 
 .. only:: html
 

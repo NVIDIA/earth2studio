@@ -349,6 +349,10 @@ vapor field for a few time-steps.
 
       :download:`Download Python source code: 03_custom_datasource.py <03_custom_datasource.py>`
 
+    .. container:: sphx-glr-download sphx-glr-download-zip
+
+      :download:`Download zipped: 03_custom_datasource.zip <03_custom_datasource.zip>`
+
 
 .. only:: html
 

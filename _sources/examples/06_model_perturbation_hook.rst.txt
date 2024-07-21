@@ -356,6 +356,10 @@ Notice that the Zarr IO function has additional APIs to interact with the stored
 
       :download:`Download Python source code: 06_model_perturbation_hook.py <06_model_perturbation_hook.py>`
 
+    .. container:: sphx-glr-download sphx-glr-download-zip
+
+      :download:`Download zipped: 06_model_perturbation_hook.zip <06_model_perturbation_hook.zip>`
+
 
 .. only:: html
 

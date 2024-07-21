@@ -360,6 +360,10 @@ become progressively more noisy as time progresses.
 
       :download:`Download Python source code: 01_custom_prognostic.py <01_custom_prognostic.py>`
 
+    .. container:: sphx-glr-download sphx-glr-download-zip
+
+      :download:`Download zipped: 01_custom_prognostic.zip <01_custom_prognostic.zip>`
+
 
 .. only:: html
 

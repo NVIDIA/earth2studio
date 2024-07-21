@@ -118,7 +118,7 @@ and commonly used workflows.
 
 .. raw:: html
 
-    <div class="sphx-glr-thumbcontainer" tooltip="This example will demonstrate how to run a simple inference workflow to generate a forecast and...">
+    <div class="sphx-glr-thumbcontainer" tooltip="This example will demonstrate how to run a simple inference workflow to generate a forecast and then to save a statistic of that data. There are a handful of built-in statistics available in earth2studio.statistics, but here we will demonstrate how to define a custom statistic and run inference.">
 
 .. only:: html
 

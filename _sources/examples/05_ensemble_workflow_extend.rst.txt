@@ -265,6 +265,10 @@ perturbing the temperature field.
 
       :download:`Download Python source code: 05_ensemble_workflow_extend.py <05_ensemble_workflow_extend.py>`
 
+    .. container:: sphx-glr-download sphx-glr-download-zip
+
+      :download:`Download zipped: 05_ensemble_workflow_extend.zip <05_ensemble_workflow_extend.zip>`
+
 
 .. only:: html
 
