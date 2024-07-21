@@ -27,11 +27,9 @@ from fsspec.implementations.cached import CachingFileSystem
 from modulus.distributed.manager import DistributedManager
 from modulus.utils.zenith_angle import cos_zenith_angle_from_timestamp
 
-from earth2studio.data.utils import prep_data_inputs
+from earth2studio.data.utils import datasource_cache_root, prep_data_inputs
 from earth2studio.utils import handshake_dim
 from earth2studio.utils.type import CoordSystem, TimeArray, VariableArray
-
-LOCAL_CACHE = os.path.join(os.path.expanduser("~"), ".cache", "earth2studio")
 
 
 class ARCORxBase:
@@ -128,7 +126,7 @@ class ARCORxBase:
     @property
     def cache(self) -> str:
         """Get the appropriate cache location."""
-        cache_location = os.path.join(LOCAL_CACHE, self.id)
+        cache_location = os.path.join(datasource_cache_root(), self.id)
         if not self._cache:
             cache_location = os.path.join(
                 cache_location, f"tmp_{DistributedManager().rank}"

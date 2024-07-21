@@ -25,6 +25,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Fixed caching of data sources to be controlled with `EARTH2STUDIO_CACHE` env var
+
 ### Security
 
 ### Dependencies

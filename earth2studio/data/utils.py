@@ -15,6 +15,7 @@
 # limitations under the License.
 
 import asyncio
+import os
 import tempfile
 from collections import OrderedDict
 from collections.abc import AsyncGenerator, Awaitable, Iterator
@@ -25,6 +26,7 @@ from typing import Any, Literal, TypeVar
 import numpy as np
 import torch
 import xarray as xr
+from loguru import logger
 
 from earth2studio.data.base import DataSource
 from earth2studio.utils.time import (
@@ -226,6 +228,22 @@ def datasource_to_file(
             da.to_zarr(file_name)
         case _:
             raise ValueError(f"Unsupported backend {backend}")
+
+
+def datasource_cache_root() -> str:
+    """Returns the root directory for data sources"""
+    default_cache = os.path.join(os.path.expanduser("~"), ".cache", "earth2studio")
+    default_cache = os.environ.get("EARTH2STUDIO_CACHE", default_cache)
+
+    try:
+        os.makedirs(default_cache, exist_ok=True)
+    except OSError as e:
+        logger.error(
+            f"Failed to create cache folder {default_cache}, check permissions"
+        )
+        raise e
+
+    return default_cache
 
 
 T = TypeVar("T")

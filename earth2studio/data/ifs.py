@@ -28,13 +28,12 @@ from modulus.distributed.manager import DistributedManager
 from s3fs.core import S3FileSystem
 from tqdm import tqdm
 
-from earth2studio.data.utils import prep_data_inputs
+from earth2studio.data.utils import datasource_cache_root, prep_data_inputs
 from earth2studio.lexicon import IFSLexicon
 from earth2studio.utils.type import TimeArray, VariableArray
 
 logger.remove()
 logger.add(lambda msg: tqdm.write(msg, end=""), colorize=True)
-LOCAL_CACHE = os.path.join(os.path.expanduser("~"), ".cache", "earth2studio")
 
 
 class IFS:
@@ -66,6 +65,7 @@ class IFS:
 
     - https://confluence.ecmwf.int/display/DAC/ECMWF+open+data%3A+real-time+forecasts
     - https://registry.opendata.aws/ecmwf-forecasts/
+    - https://console.cloud.google.com/storage/browser/ecmwf-open-data/
     """
 
     IFS_BUCKET_NAME = "ecmwf-forecasts"
@@ -75,7 +75,7 @@ class IFS:
     def __init__(self, cache: bool = True, verbose: bool = True):
         self._cache = cache
         self._verbose = verbose
-        self.client = ecmwf.opendata.Client(source="aws")
+        self.client = ecmwf.opendata.Client(source="azure")
 
     def __call__(
         self,
@@ -232,7 +232,7 @@ class IFS:
     @property
     def cache(self) -> str:
         """Get the appropriate cache location."""
-        cache_location = os.path.join(LOCAL_CACHE, "ifs")
+        cache_location = os.path.join(datasource_cache_root(), "ifs")
         if not self._cache:
             cache_location = os.path.join(
                 cache_location, f"tmp_{DistributedManager().rank}"

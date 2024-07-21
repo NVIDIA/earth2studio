@@ -17,7 +17,7 @@ dependencies = [
     "cftime",
     "eccodes>=1.4.0",
     "ecmwflibs>=0.5.2",
-    "ecmwf-opendata>=0.2.0",
+    "ecmwf-opendata>=0.3.3",
     "fsspec>=2024.2.0",
     "gcsfs",
     "h5py>=3.2.0",
