@@ -25,8 +25,8 @@ import gcsfs
 import numpy as np
 import xarray as xr
 import zarr
-from loguru import logger
 from fsspec.implementations.cached import WholeFileCacheFileSystem
+from loguru import logger
 from modulus.distributed.manager import DistributedManager
 from tqdm import tqdm
 
@@ -54,18 +54,18 @@ class _WB2Base:
 
         fs = gcsfs.GCSFileSystem(
             cache_timeout=-1,
-            token='anon',
+            token="anon",  # noqa: S106
             access="read_only",
             block_size=2**20,
         )
-        
+
         if self._cache:
             cache_options = {
                 "cache_storage": self.cache,
-                "expiry_time": 31622400  # 1 year
+                "expiry_time": 31622400,  # 1 year
             }
             fs = WholeFileCacheFileSystem(fs=fs, **cache_options)
-        
+
         fs_map = fsspec.FSMap(f"weatherbench2/datasets/era5/{wb2_zarr_store}", fs)
         self.zarr_group = zarr.open(fs_map, mode="r")
 
@@ -435,19 +435,22 @@ class WB2Climatology:
 
         fs = gcsfs.GCSFileSystem(
             cache_timeout=-1,
-            token='anon',
+            token="anon",  # noqa: S106
             access="read_only",
             block_size=2**20,
         )
-        
+
         if self._cache:
             cache_options = {
                 "cache_storage": self.cache,
-                "expiry_time": 31622400  # 1 year
+                "expiry_time": 31622400,  # 1 year
             }
             fs = WholeFileCacheFileSystem(fs=fs, **cache_options)
-        
-        fs_map = fsspec.FSMap(f"weatherbench2/datasets/era5-hourly-climatology/{climatology_zarr_store}", fs)
+
+        fs_map = fsspec.FSMap(
+            f"weatherbench2/datasets/era5-hourly-climatology/{climatology_zarr_store}",
+            fs,
+        )
         self.zarr_group = zarr.open(fs_map, mode="r")
 
     def __call__(

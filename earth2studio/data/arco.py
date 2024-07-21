@@ -25,8 +25,8 @@ import gcsfs
 import numpy as np
 import xarray as xr
 import zarr
-from loguru import logger
 from fsspec.implementations.cached import WholeFileCacheFileSystem
+from loguru import logger
 from modulus.distributed.manager import DistributedManager
 from tqdm import tqdm
 
@@ -71,19 +71,21 @@ class ARCO:
 
         fs = gcsfs.GCSFileSystem(
             cache_timeout=-1,
-            token='anon',
+            token="anon",  # noqa: S106
             access="read_only",
             block_size=2**20,
         )
-        
+
         if self._cache:
             cache_options = {
                 "cache_storage": self.cache,
-                "expiry_time": 31622400  # 1 year
+                "expiry_time": 31622400,  # 1 year
             }
             fs = WholeFileCacheFileSystem(fs=fs, **cache_options)
-      
-        fs_map = fsspec.FSMap("gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3", fs)
+
+        fs_map = fsspec.FSMap(
+            "gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3", fs
+        )
         self.zarr_group = zarr.open(fs_map, mode="r")
         self.async_timeout = 600
         self.async_process_limit = 4
