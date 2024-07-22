@@ -245,7 +245,7 @@ class NetCDF4Backend:
                             for dim, value in coords.items()
                         ]
                     )
-                ] = xi.to("cpu", non_blocking=True).numpy()
+                ] = xi.to("cpu").numpy()
 
     def read(
         self, coords: CoordSystem, array_name: str, device: torch.device = "cpu"
