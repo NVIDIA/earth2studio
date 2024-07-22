@@ -169,7 +169,7 @@ class KVBackend:
                             for dim, value in coords.items()
                         ]
                     )
-                ] = xi.to(self.device, non_blocking=True)
+                ] = xi.to(self.device)
 
     def to_xarray(self, **xr_kwargs: Any) -> xarray.Dataset:
         """
