@@ -169,7 +169,7 @@ class XarrayBackend:
                             for dim, value in coords.items()
                         ]
                     )
-                ] = xi.to("cpu", non_blocking=True).numpy()
+                ] = xi.to("cpu").numpy()
 
     def read(
         self,
