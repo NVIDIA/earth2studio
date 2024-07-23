@@ -482,7 +482,7 @@ document.write(`
 
         <span class="n">fs</span> <span class="o">=</span> <span class="n">gcsfs</span><span class="o">.</span><span class="n">GCSFileSystem</span><span class="p">(</span>
             <span class="n">cache_timeout</span><span class="o">=-</span><span class="mi">1</span><span class="p">,</span>
-            <span class="n">token</span><span class="o">=</span><span class="s2">&quot;anon&quot;</span><span class="p">,</span>  <span class="c1"># noqa: S106</span>
+            <span class="n">token</span><span class="o">=</span><span class="s2">&quot;anon&quot;</span><span class="p">,</span>  <span class="c1"># noqa: S106 # nosec B106</span>
             <span class="n">access</span><span class="o">=</span><span class="s2">&quot;read_only&quot;</span><span class="p">,</span>
             <span class="n">block_size</span><span class="o">=</span><span class="mi">2</span><span class="o">**</span><span class="mi">20</span><span class="p">,</span>
         <span class="p">)</span>
@@ -874,7 +874,7 @@ document.write(`
 
         <span class="n">fs</span> <span class="o">=</span> <span class="n">gcsfs</span><span class="o">.</span><span class="n">GCSFileSystem</span><span class="p">(</span>
             <span class="n">cache_timeout</span><span class="o">=-</span><span class="mi">1</span><span class="p">,</span>
-            <span class="n">token</span><span class="o">=</span><span class="s2">&quot;anon&quot;</span><span class="p">,</span>  <span class="c1"># noqa: S106</span>
+            <span class="n">token</span><span class="o">=</span><span class="s2">&quot;anon&quot;</span><span class="p">,</span>  <span class="c1"># noqa: S106 # nosec B106</span>
             <span class="n">access</span><span class="o">=</span><span class="s2">&quot;read_only&quot;</span><span class="p">,</span>
             <span class="n">block_size</span><span class="o">=</span><span class="mi">2</span><span class="o">**</span><span class="mi">20</span><span class="p">,</span>
         <span class="p">)</span>
