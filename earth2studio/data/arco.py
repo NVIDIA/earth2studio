@@ -73,7 +73,7 @@ class ARCO:
 
         fs = gcsfs.GCSFileSystem(
             cache_timeout=-1,
-            token="anon",  # noqa: S106
+            token="anon",  # noqa: S106 # nosec B106
             access="read_only",
             block_size=2**20,
         )
