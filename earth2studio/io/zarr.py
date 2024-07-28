@@ -32,15 +32,20 @@ class ZarrBackend:
     ----------
     file_name : str, optional
         Optional name to provide to the zarr store, if provided then this function
-        will create a directory store with this file name. If not, will create a memory store.
+        will create a directory store with this file name. If none, will create a
+        in-memory store., by default None
     chunks : dict[str, int], optional
-        An ordered dict of chunks to use with the data passed through data/coords.
+        An ordered dict of chunks to use with the data passed through data/coords, by
+        default {}
+    zarr_kwargs : dict[str, Any], optional
+        Key word arguments for zarr.Group root object, by default {"overwrite": False}
     """
 
     def __init__(
         self,
         file_name: str = None,
         chunks: dict[str, int] = {},
+        zarr_kwargs: dict[str, Any] = {"overwrite": False},
     ) -> None:
 
         if file_name is None:
@@ -48,7 +53,7 @@ class ZarrBackend:
         else:
             self.store = zarr.storage.DirectoryStore(file_name)
 
-        self.root = zarr.group(self.store)
+        self.root = zarr.group(self.store, **zarr_kwargs)
 
         # Read data from file, if available
         self.coords: CoordSystem = OrderedDict({})
