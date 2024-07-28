@@ -37,6 +37,10 @@ class NetCDF4Backend:
     nc_kwargs : dict[str, Any], optional
         Key word arguments for netCDF.Dataset root object, by default
         {"mode": "r+", "diskless": False}
+
+    Note
+    ----
+    For keyword argument options see: https://unidata.github.io/netcdf4-python/#netCDF4.Dataset
     """
 
     def __init__(

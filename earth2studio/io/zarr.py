@@ -39,6 +39,10 @@ class ZarrBackend:
         default {}
     zarr_kwargs : dict[str, Any], optional
         Key word arguments for zarr.Group root object, by default {"overwrite": False}
+
+    Note
+    ----
+    For keyword argument options see: https://zarr.readthedocs.io/en/stable/api/hierarchy.html
     """
 
     def __init__(
