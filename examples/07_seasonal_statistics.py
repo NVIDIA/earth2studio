@@ -194,6 +194,7 @@ data = GFS()
 # Create the IO handler, store in memory
 io = NetCDF4Backend(
     file_name="outputs/soi.nc",
+    nc_kwargs={"mode": "w"},
 )
 
 # Create the custom statistic

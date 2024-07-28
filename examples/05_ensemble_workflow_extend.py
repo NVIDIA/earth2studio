@@ -113,7 +113,11 @@ avsg = ApplyToVariable(SphericalGaussian(noise_amplitude=1.0), "t2m")
 
 # Create the IO handler, store in memory
 chunks = {"ensemble": 1, "time": 1}
-io = ZarrBackend(file_name="outputs/05_ensemble_avsg.zarr", chunks=chunks)
+io = ZarrBackend(
+    file_name="outputs/05_ensemble_avsg.zarr",
+    chunks=chunks,
+    zarr_kwargs={"overwrite": True},
+)
 
 # %%
 # Execute the Workflow
