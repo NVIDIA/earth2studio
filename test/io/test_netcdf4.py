@@ -67,7 +67,7 @@ def test_netcdf4_fields(
     )
 
     # Test Memory Store
-    nc = NetCDF4Backend("inmemory.nc", diskless=True, persist=False)
+    nc = NetCDF4Backend("inmemory.nc", nc_kwargs={"diskless": True, "persist": False})
     assert isinstance(nc.root, netCDF4.Dataset)
 
     # Instantiate
@@ -207,11 +207,7 @@ def test_netcdf4_variable(
     var_names = coords.pop("variable")
 
     # Test Memory Store
-    nc = NetCDF4Backend(
-        "inmemory.nc",
-        diskless=True,
-        persist=False,
-    )
+    nc = NetCDF4Backend("inmemory.nc", nc_kwargs={"diskless": True, "persist": False})
     assert isinstance(nc.root, netCDF4.Dataset)
 
     nc.add_array(coords, var_names)
@@ -293,11 +289,7 @@ def test_netcdf4_exceptions(
     )
 
     # Test Memory Store
-    nc = NetCDF4Backend(
-        "inmemory.nc",
-        diskless=True,
-        persist=False,
-    )
+    nc = NetCDF4Backend("inmemory.nc", nc_kwargs={"diskless": True, "persist": False})
     assert isinstance(nc.root, netCDF4.Dataset)
 
     # Test mismatch between len(array_names) and len(data)
