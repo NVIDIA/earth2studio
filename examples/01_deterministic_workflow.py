@@ -73,7 +73,7 @@ model = FCN.load_model(package)
 data = GFS()
 
 # Create the IO handler, store in memory
-io = ZarrBackend(zarr_kwargs={"overwrite": True})
+io = ZarrBackend()
 
 # %%
 # Execute the Workflow
