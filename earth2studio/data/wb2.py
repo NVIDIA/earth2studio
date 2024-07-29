@@ -193,6 +193,8 @@ class _WB2Base:
         """Get the appropriate cache location."""
         cache_location = os.path.join(datasource_cache_root(), "wb2era5")
         if not self._cache:
+            if not DistributedManager.is_initialized():
+                DistributedManager.initialize()
             cache_location = os.path.join(
                 cache_location, f"tmp_{DistributedManager().rank}"
             )
@@ -565,6 +567,8 @@ class WB2Climatology:
         """Get the appropriate cache location."""
         cache_location = os.path.join(datasource_cache_root(), "wb2")
         if not self._cache:
+            if not DistributedManager.is_initialized():
+                DistributedManager.initialize()
             cache_location = os.path.join(
                 cache_location, f"tmp_{DistributedManager().rank}"
             )
