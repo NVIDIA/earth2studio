@@ -83,7 +83,11 @@ data = GFS()
 
 # Create the IO handler, store in memory
 chunks = {"ensemble": 1, "time": 1}
-io = ZarrBackend(file_name="outputs/02_ensemble_sg.zarr", chunks=chunks)
+io = ZarrBackend(
+    file_name="outputs/03_ensemble_sg.zarr",
+    chunks=chunks,
+    backend_kwargs={"overwrite": True},
+)
 
 # %%
 # Execute the Workflow
