@@ -776,6 +776,8 @@ document.write(`
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Return appropriate cache location.&quot;&quot;&quot;</span>
         <span class="n">cache_location</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">datasource_cache_root</span><span class="p">(),</span> <span class="s2">&quot;gfs&quot;</span><span class="p">)</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">DistributedManager</span><span class="o">.</span><span class="n">is_initialized</span><span class="p">():</span>
+                <span class="n">DistributedManager</span><span class="o">.</span><span class="n">initialize</span><span class="p">()</span>
             <span class="n">cache_location</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
                 <span class="n">cache_location</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;tmp_</span><span class="si">{</span><span class="n">DistributedManager</span><span class="p">()</span><span class="o">.</span><span class="n">rank</span><span class="si">}</span><span class="s2">&quot;</span>
             <span class="p">)</span>

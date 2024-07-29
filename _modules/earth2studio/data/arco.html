@@ -448,6 +448,7 @@ document.write(`
 <span class="kn">import</span> <span class="nn">os</span>
 <span class="kn">import</span> <span class="nn">pathlib</span>
 <span class="kn">import</span> <span class="nn">shutil</span>
+<span class="kn">import</span> <span class="nn">threading</span>
 <span class="kn">from</span> <span class="nn">datetime</span> <span class="kn">import</span> <span class="n">datetime</span>
 
 <span class="kn">import</span> <span class="nn">fsspec</span>
@@ -553,9 +554,23 @@ document.write(`
         <span class="c1"># Make sure input time is valid</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_validate_time</span><span class="p">(</span><span class="n">time</span><span class="p">)</span>
 
-        <span class="n">xr_array</span> <span class="o">=</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">run</span><span class="p">(</span>
-            <span class="n">asyncio</span><span class="o">.</span><span class="n">wait_for</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">create_data_array</span><span class="p">(</span><span class="n">time</span><span class="p">,</span> <span class="n">variable</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">async_timeout</span><span class="p">)</span>
-        <span class="p">)</span>
+        <span class="c1"># This makes this function safe in existing async io loops</span>
+        <span class="c1"># I.e. runnable in Jupyter notebooks</span>
+        <span class="n">xr_array</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="k">def</span> <span class="nf">thread_func</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">            </span><span class="sd">&quot;&quot;&quot;Function to call in seperate thread&quot;&quot;&quot;</span>
+            <span class="k">nonlocal</span> <span class="n">xr_array</span>
+            <span class="n">loop</span> <span class="o">=</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">new_event_loop</span><span class="p">()</span>
+            <span class="n">xr_array</span> <span class="o">=</span> <span class="n">loop</span><span class="o">.</span><span class="n">run_until_complete</span><span class="p">(</span>
+                <span class="n">asyncio</span><span class="o">.</span><span class="n">wait_for</span><span class="p">(</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">create_data_array</span><span class="p">(</span><span class="n">time</span><span class="p">,</span> <span class="n">variable</span><span class="p">),</span> <span class="n">timeout</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">async_timeout</span>
+                <span class="p">)</span>
+            <span class="p">)</span>
+
+        <span class="n">thread</span> <span class="o">=</span> <span class="n">threading</span><span class="o">.</span><span class="n">Thread</span><span class="p">(</span><span class="n">target</span><span class="o">=</span><span class="n">thread_func</span><span class="p">)</span>
+        <span class="n">thread</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+        <span class="n">thread</span><span class="o">.</span><span class="n">join</span><span class="p">()</span>
 
         <span class="c1"># Delete cache if needed</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span><span class="p">:</span>
@@ -669,6 +684,8 @@ document.write(`
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the appropriate cache location.&quot;&quot;&quot;</span>
         <span class="n">cache_location</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">datasource_cache_root</span><span class="p">(),</span> <span class="s2">&quot;arco&quot;</span><span class="p">)</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">DistributedManager</span><span class="o">.</span><span class="n">is_initialized</span><span class="p">():</span>
+                <span class="n">DistributedManager</span><span class="o">.</span><span class="n">initialize</span><span class="p">()</span>
             <span class="n">cache_location</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
                 <span class="n">cache_location</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;tmp_</span><span class="si">{</span><span class="n">DistributedManager</span><span class="p">()</span><span class="o">.</span><span class="n">rank</span><span class="si">}</span><span class="s2">&quot;</span>
             <span class="p">)</span>
