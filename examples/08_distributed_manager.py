@@ -121,7 +121,11 @@ data = ARCO()
 
 # %%
 chunks = {"time": 1}
-io = ZarrBackend(file_name=f"outputs/08_output_{dist.rank}.zarr", chunks=chunks)
+io = ZarrBackend(
+    file_name=f"outputs/08_output_{dist.rank}.zarr",
+    chunks=chunks,
+    backend_kwargs={"overwrite": True},
+)
 
 # %%
 # Earth2Studio does not provide distributed IO support. The recommendation is to always

@@ -67,7 +67,9 @@ def test_netcdf4_fields(
     )
 
     # Test Memory Store
-    nc = NetCDF4Backend("inmemory.nc", diskless=True, persist=False)
+    nc = NetCDF4Backend(
+        "inmemory.nc", backend_kwargs={"mode": "w", "diskless": True, "persist": False}
+    )
     assert isinstance(nc.root, netCDF4.Dataset)
 
     # Instantiate
@@ -208,9 +210,7 @@ def test_netcdf4_variable(
 
     # Test Memory Store
     nc = NetCDF4Backend(
-        "inmemory.nc",
-        diskless=True,
-        persist=False,
+        "inmemory.nc", backend_kwargs={"mode": "w", "diskless": True, "persist": False}
     )
     assert isinstance(nc.root, netCDF4.Dataset)
 
@@ -294,9 +294,7 @@ def test_netcdf4_exceptions(
 
     # Test Memory Store
     nc = NetCDF4Backend(
-        "inmemory.nc",
-        diskless=True,
-        persist=False,
+        "inmemory.nc", backend_kwargs={"mode": "w", "diskless": True, "persist": False}
     )
     assert isinstance(nc.root, netCDF4.Dataset)
 
