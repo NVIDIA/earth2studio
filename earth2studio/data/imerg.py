@@ -273,6 +273,8 @@ class IMERG:
         """Return appropriate cache location."""
         cache_location = os.path.join(datasource_cache_root(), "imerg")
         if not self._cache:
+            if not DistributedManager.is_initialized():
+                DistributedManager.initialize()
             cache_location = os.path.join(
                 cache_location, f"tmp_{DistributedManager().rank}"
             )

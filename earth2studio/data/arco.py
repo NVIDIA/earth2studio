@@ -18,6 +18,7 @@ import asyncio
 import os
 import pathlib
 import shutil
+import threading
 from datetime import datetime
 
 import fsspec
@@ -119,9 +120,23 @@ class ARCO:
         # Make sure input time is valid
         self._validate_time(time)
 
-        xr_array = asyncio.run(
-            asyncio.wait_for(self.create_data_array(time, variable), self.async_timeout)
-        )
+        # This makes this function safe in existing async io loops
+        # I.e. runnable in Jupyter notebooks
+        xr_array = None
+
+        def thread_func() -> None:
+            """Function to call in seperate thread"""
+            nonlocal xr_array
+            loop = asyncio.new_event_loop()
+            xr_array = loop.run_until_complete(
+                asyncio.wait_for(
+                    self.create_data_array(time, variable), timeout=self.async_timeout
+                )
+            )
+
+        thread = threading.Thread(target=thread_func)
+        thread.start()
+        thread.join()
 
         # Delete cache if needed
         if not self._cache:
@@ -234,6 +249,8 @@ class ARCO:
         """Get the appropriate cache location."""
         cache_location = os.path.join(datasource_cache_root(), "arco")
         if not self._cache:
+            if not DistributedManager.is_initialized():
+                DistributedManager.initialize()
             cache_location = os.path.join(
                 cache_location, f"tmp_{DistributedManager().rank}"
             )
