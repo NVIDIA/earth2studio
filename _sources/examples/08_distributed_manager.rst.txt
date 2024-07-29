@@ -136,15 +136,19 @@ The remote date store will place cached data into separate caches for each proce
 This makes the download of initial state data safe during parallel inference but also
 means that multiple jobs will download the same date-time if needed.
 
-.. GENERATED FROM PYTHON SOURCE LINES 123-126
+.. GENERATED FROM PYTHON SOURCE LINES 123-130
 
 .. code-block:: Python
 
     chunks = {"time": 1}
-    io = ZarrBackend(file_name=f"outputs/08_output_{dist.rank}.zarr", chunks=chunks)
+    io = ZarrBackend(
+        file_name=f"outputs/08_output_{dist.rank}.zarr",
+        chunks=chunks,
+        backend_kwargs={"overwrite": True},
+    )
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 127-137
+.. GENERATED FROM PYTHON SOURCE LINES 131-141
 
 Earth2Studio does not provide distributed IO support. The recommendation is to always
 output data for each process to a separate file, then aggregate the data during post
@@ -157,7 +161,7 @@ several years and just save total column water vapor. Shard the initial date-tim
 across the each process. The distributed manager will provide the device ID for the
 process.
 
-.. GENERATED FROM PYTHON SOURCE LINES 139-156
+.. GENERATED FROM PYTHON SOURCE LINES 143-160
 
 .. code-block:: Python
 
@@ -179,7 +183,7 @@ process.
     torch.distributed.barrier()
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 157-168
+.. GENERATED FROM PYTHON SOURCE LINES 161-172
 
 Post Processing
 ---------------
@@ -193,7 +197,7 @@ allows outputs from all processes to get treated as a single data array.
   It is best practice to perform post processing in a separate job / script entirely
   to better utilize compute resources.
 
-.. GENERATED FROM PYTHON SOURCE LINES 168-195
+.. GENERATED FROM PYTHON SOURCE LINES 172-199
 
 .. code-block:: Python
 

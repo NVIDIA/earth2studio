@@ -59,7 +59,7 @@ We need the following:
 - Datasource: Pull data from the GFS data api :py:class:`earth2studio.data.GFS`.
 - IO Backend: Save the outputs into a Zarr store :py:class:`earth2studio.io.ZarrBackend`.
 
-.. GENERATED FROM PYTHON SOURCE LINES 59-88
+.. GENERATED FROM PYTHON SOURCE LINES 59-92
 
 .. code-block:: Python
 
@@ -90,10 +90,14 @@ We need the following:
 
     # Create the IO handler, store in memory
     chunks = {"ensemble": 1, "time": 1}
-    io = ZarrBackend(file_name="outputs/02_ensemble_sg.zarr", chunks=chunks)
+    io = ZarrBackend(
+        file_name="outputs/03_ensemble_sg.zarr",
+        chunks=chunks,
+        backend_kwargs={"overwrite": True},
+    )
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 89-98
+.. GENERATED FROM PYTHON SOURCE LINES 93-102
 
 Execute the Workflow
 --------------------
@@ -105,7 +109,7 @@ saving to file. Check the API docs for more information.
 For the forecast we will predict for 10 steps (for FCN, this is 60 hours) with 8 ensemble
 members which will be ran in 2 batches with batch size 4.
 
-.. GENERATED FROM PYTHON SOURCE LINES 100-116
+.. GENERATED FROM PYTHON SOURCE LINES 104-120
 
 .. code-block:: Python
 
@@ -126,7 +130,7 @@ members which will be ran in 2 batches with batch size 4.
     )
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 117-123
+.. GENERATED FROM PYTHON SOURCE LINES 121-127
 
 Post Processing
 ---------------
@@ -135,7 +139,7 @@ fields on projections of a sphere.
 
 Notice that the Zarr IO function has additional APIs to interact with the stored data.
 
-.. GENERATED FROM PYTHON SOURCE LINES 125-181
+.. GENERATED FROM PYTHON SOURCE LINES 129-185
 
 .. code-block:: Python
 

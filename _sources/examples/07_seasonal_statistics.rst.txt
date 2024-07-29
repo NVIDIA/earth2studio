@@ -180,7 +180,7 @@ We need the following:
 - Datasource: Pull data from the GFS data api :py:class:`earth2studio.data.GFS`.
 - IO Backend: Save the outputs into a NetCDF4 store :py:class:`earth2studio.io.NetCDF4Backend`.
 
-.. GENERATED FROM PYTHON SOURCE LINES 177-333
+.. GENERATED FROM PYTHON SOURCE LINES 177-334
 
 .. code-block:: Python
 
@@ -204,6 +204,7 @@ We need the following:
     # Create the IO handler, store in memory
     io = NetCDF4Backend(
         file_name="outputs/soi.nc",
+        backend_kwargs={"mode": "w"},
     )
 
     # Create the custom statistic
@@ -341,7 +342,7 @@ We need the following:
     soi = SOI()
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 334-341
+.. GENERATED FROM PYTHON SOURCE LINES 335-342
 
 Execute the Workflow
 --------------------
@@ -351,7 +352,7 @@ then post process. Some have additional APIs that can be handy for post-processi
 saving to file. Check the API docs for more information.
 We simulate a trajectory of 60 time steps, or 2 months using Pangu24
 
-.. GENERATED FROM PYTHON SOURCE LINES 343-348
+.. GENERATED FROM PYTHON SOURCE LINES 344-349
 
 .. code-block:: Python
 
@@ -361,7 +362,7 @@ We simulate a trajectory of 60 time steps, or 2 months using Pangu24
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 349-354
+.. GENERATED FROM PYTHON SOURCE LINES 350-355
 
 Post Processing
 ---------------
@@ -369,7 +370,7 @@ The last step is to post process our results.
 
 Notice that the NetCDF IO function has additional APIs to interact with the stored data.
 
-.. GENERATED FROM PYTHON SOURCE LINES 356-368
+.. GENERATED FROM PYTHON SOURCE LINES 357-369
 
 .. code-block:: Python
 

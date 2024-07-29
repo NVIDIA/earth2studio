@@ -532,17 +532,24 @@ document.write(`
 <h1><a class="reference internal" href="../../io.html#module-earth2studio.io" title="earth2studio.io"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.io</span></code></a>.ZarrBackend<a class="headerlink" href="#earth2studio-io-zarrbackend" title="Link to this heading">#</a></h1>
 <dl class="py class">
 <dt class="sig sig-object py" id="earth2studio.io.ZarrBackend">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">earth2studio.io.</span></span><span class="sig-name descname"><span class="pre">ZarrBackend</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">file_name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">chunks</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">{}</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/earth2studio/io/zarr.html#ZarrBackend"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.io.ZarrBackend" title="Link to this definition">#</a></dt>
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">earth2studio.io.</span></span><span class="sig-name descname"><span class="pre">ZarrBackend</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">file_name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">chunks</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">{}</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">backend_kwargs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">{'overwrite':</span> <span class="pre">False}</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/earth2studio/io/zarr.html#ZarrBackend"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.io.ZarrBackend" title="Link to this definition">#</a></dt>
 <dd><p>A backend that supports the zarr format.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>file_name</strong> (<em>str</em><em>, </em><em>optional</em>) – Optional name to provide to the zarr store, if provided then this function
-will create a directory store with this file name. If not, will create a memory store.</p></li>
-<li><p><strong>chunks</strong> (<em>dict</em><em>[</em><em>str</em><em>, </em><em>int</em><em>]</em><em>, </em><em>optional</em>) – An ordered dict of chunks to use with the data passed through data/coords.</p></li>
+will create a directory store with this file name. If none, will create a
+in-memory store., by default None</p></li>
+<li><p><strong>chunks</strong> (<em>dict</em><em>[</em><em>str</em><em>, </em><em>int</em><em>]</em><em>, </em><em>optional</em>) – An ordered dict of chunks to use with the data passed through data/coords, by
+default {}</p></li>
+<li><p><strong>backend_kwargs</strong> (<em>dict</em><em>[</em><em>str</em><em>, </em><em>Any</em><em>]</em><em>, </em><em>optional</em>) – Key word arguments for zarr.Group root object, by default {“overwrite”: False}</p></li>
 </ul>
 </dd>
 </dl>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>For keyword argument options see: <a class="reference external" href="https://zarr.readthedocs.io/en/stable/api/hierarchy.html">https://zarr.readthedocs.io/en/stable/api/hierarchy.html</a></p>
+</div>
 <dl class="py method">
 <dt class="sig sig-object py" id="earth2studio.io.ZarrBackend.add_array">
 <span class="sig-name descname"><span class="pre">add_array</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">coords</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">array_name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/earth2studio/io/zarr.html#ZarrBackend.add_array"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.io.ZarrBackend.add_array" title="Link to this definition">#</a></dt>

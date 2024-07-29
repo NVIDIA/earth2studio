@@ -93,7 +93,7 @@ The perturbation method in :ref:`sphx_glr_examples_03_ensemble_workflow.py` is n
 applies the same noise amplitude to every variable. We can create a custom wrapper
 that only applies the perturbation method to a particular variable instead.
 
-.. GENERATED FROM PYTHON SOURCE LINES 88-118
+.. GENERATED FROM PYTHON SOURCE LINES 88-122
 
 .. code-block:: Python
 
@@ -125,10 +125,14 @@ that only applies the perturbation method to a particular variable instead.
 
     # Create the IO handler, store in memory
     chunks = {"ensemble": 1, "time": 1}
-    io = ZarrBackend(file_name="outputs/05_ensemble_avsg.zarr", chunks=chunks)
+    io = ZarrBackend(
+        file_name="outputs/05_ensemble_avsg.zarr",
+        chunks=chunks,
+        backend_kwargs={"overwrite": True},
+    )
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 119-128
+.. GENERATED FROM PYTHON SOURCE LINES 123-132
 
 Execute the Workflow
 --------------------
@@ -140,7 +144,7 @@ saving to file. Check the API docs for more information.
 For the forecast we will predict for 10 steps (for FCN, this is 60 hours) with 8 ensemble
 members which will be ran in 2 batches with batch size 4.
 
-.. GENERATED FROM PYTHON SOURCE LINES 130-145
+.. GENERATED FROM PYTHON SOURCE LINES 134-149
 
 .. code-block:: Python
 
@@ -160,7 +164,7 @@ members which will be ran in 2 batches with batch size 4.
     )
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 146-153
+.. GENERATED FROM PYTHON SOURCE LINES 150-157
 
 Post Processing
 ---------------
@@ -170,7 +174,7 @@ expect, the initial state is plotted.
 
 Notice that the Zarr IO function has additional APIs to interact with the stored data.
 
-.. GENERATED FROM PYTHON SOURCE LINES 155-199
+.. GENERATED FROM PYTHON SOURCE LINES 159-203
 
 .. code-block:: Python
 
@@ -219,14 +223,14 @@ Notice that the Zarr IO function has additional APIs to interact with the stored
     plt.savefig(f"outputs/05_{forecast}_{step}_ensemble.jpg")
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 200-204
+.. GENERATED FROM PYTHON SOURCE LINES 204-208
 
 Due to the intrinsic coupling between all fields, we should expect all variables to
 have some uncertainty for later lead times. Here the total column water vapor is
 plotted at a lead time of 24 hours, note the variance in the members despite just
 perturbing the temperature field.
 
-.. GENERATED FROM PYTHON SOURCE LINES 206-225
+.. GENERATED FROM PYTHON SOURCE LINES 210-229
 
 .. code-block:: Python
 

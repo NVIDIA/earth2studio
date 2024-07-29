@@ -446,6 +446,7 @@ document.write(`
 
 <span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">OrderedDict</span>
 <span class="kn">from</span> <span class="nn">collections.abc</span> <span class="kn">import</span> <span class="n">Iterator</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span>
 
 <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 <span class="kn">import</span> <span class="nn">torch</span>
@@ -463,31 +464,25 @@ document.write(`
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
-<span class="sd">    file_name : str,</span>
-<span class="sd">        File name to provide for creating the netcdf4 store.</span>
-<span class="sd">    diskless : bool, optional</span>
-<span class="sd">        Whether to store the Dataset in memory buffer</span>
-<span class="sd">        Default value is False.</span>
-<span class="sd">    persist : bool, optional</span>
-<span class="sd">        Whether to save in-memory diskless buffer to disk upon close.</span>
-<span class="sd">        Default value is False.</span>
+<span class="sd">    file_name : str</span>
+<span class="sd">        _description_</span>
+<span class="sd">    backend_kwargs : dict[str, Any], optional</span>
+<span class="sd">        Key word arguments for netCDF.Dataset root object, by default</span>
+<span class="sd">        {&quot;mode&quot;: &quot;r+&quot;, &quot;diskless&quot;: False}</span>
+
+<span class="sd">    Note</span>
+<span class="sd">    ----</span>
+<span class="sd">    For keyword argument options see: https://unidata.github.io/netcdf4-python/#netCDF4.Dataset</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">file_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-        <span class="n">diskless</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
-        <span class="n">persist</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">backend_kwargs</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;mode&quot;</span><span class="p">:</span> <span class="s2">&quot;r+&quot;</span><span class="p">,</span> <span class="s2">&quot;diskless&quot;</span><span class="p">:</span> <span class="kc">False</span><span class="p">},</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-
+        <span class="n">backend_kwargs</span><span class="p">[</span><span class="s2">&quot;format&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;NETCDF4&quot;</span>
         <span class="c1"># Set persist to false if diskless is false</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">root</span> <span class="o">=</span> <span class="n">Dataset</span><span class="p">(</span>
-            <span class="n">file_name</span><span class="p">,</span>
-            <span class="s2">&quot;r+&quot;</span><span class="p">,</span>
-            <span class="nb">format</span><span class="o">=</span><span class="s2">&quot;NETCDF4&quot;</span><span class="p">,</span>
-            <span class="n">diskless</span><span class="o">=</span><span class="n">diskless</span><span class="p">,</span>
-            <span class="n">persist</span><span class="o">=</span><span class="n">persist</span> <span class="k">if</span> <span class="n">diskless</span> <span class="k">else</span> <span class="kc">False</span><span class="p">,</span>
-        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">root</span> <span class="o">=</span> <span class="n">Dataset</span><span class="p">(</span><span class="n">file_name</span><span class="p">,</span> <span class="o">**</span><span class="n">backend_kwargs</span><span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">coords</span><span class="p">:</span> <span class="n">CoordSystem</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">({})</span>
         <span class="k">for</span> <span class="n">dim</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">root</span><span class="o">.</span><span class="n">dimensions</span><span class="p">:</span>
