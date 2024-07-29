@@ -37,7 +37,7 @@ class ZarrBackend:
     chunks : dict[str, int], optional
         An ordered dict of chunks to use with the data passed through data/coords, by
         default {}
-    zarr_kwargs : dict[str, Any], optional
+    backend_kwargs : dict[str, Any], optional
         Key word arguments for zarr.Group root object, by default {"overwrite": False}
 
     Note
@@ -49,7 +49,7 @@ class ZarrBackend:
         self,
         file_name: str = None,
         chunks: dict[str, int] = {},
-        zarr_kwargs: dict[str, Any] = {"overwrite": False},
+        backend_kwargs: dict[str, Any] = {"overwrite": False},
     ) -> None:
 
         if file_name is None:
@@ -57,7 +57,7 @@ class ZarrBackend:
         else:
             self.store = zarr.storage.DirectoryStore(file_name)
 
-        self.root = zarr.group(self.store, **zarr_kwargs)
+        self.root = zarr.group(self.store, **backend_kwargs)
 
         # Read data from file, if available
         self.coords: CoordSystem = OrderedDict({})

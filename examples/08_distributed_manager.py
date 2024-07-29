@@ -124,7 +124,7 @@ chunks = {"time": 1}
 io = ZarrBackend(
     file_name=f"outputs/08_output_{dist.rank}.zarr",
     chunks=chunks,
-    zarr_kwargs={"overwrite": True},
+    backend_kwargs={"overwrite": True},
 )
 
 # %%

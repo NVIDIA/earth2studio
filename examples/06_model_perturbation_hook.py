@@ -160,7 +160,7 @@ model.front_hook = lambda x, coords: (
 io_perturbed = ZarrBackend(
     file_name="outputs/05_ensemble_model_perturbation.zarr",
     chunks=chunks,
-    zarr_kwargs={"overwrite": True},
+    backend_kwargs={"overwrite": True},
 )
 io_perturbed = ensemble(
     [forecast_date],

@@ -116,7 +116,7 @@ chunks = {"ensemble": 1, "time": 1}
 io = ZarrBackend(
     file_name="outputs/05_ensemble_avsg.zarr",
     chunks=chunks,
-    zarr_kwargs={"overwrite": True},
+    backend_kwargs={"overwrite": True},
 )
 
 # %%

@@ -34,7 +34,7 @@ class NetCDF4Backend:
     ----------
     file_name : str
         _description_
-    nc_kwargs : dict[str, Any], optional
+    backend_kwargs : dict[str, Any], optional
         Key word arguments for netCDF.Dataset root object, by default
         {"mode": "r+", "diskless": False}
 
@@ -46,11 +46,11 @@ class NetCDF4Backend:
     def __init__(
         self,
         file_name: str,
-        nc_kwargs: dict[str, Any] = {"mode": "r+", "diskless": False},
+        backend_kwargs: dict[str, Any] = {"mode": "r+", "diskless": False},
     ) -> None:
-        nc_kwargs["format"] = "NETCDF4"
+        backend_kwargs["format"] = "NETCDF4"
         # Set persist to false if diskless is false
-        self.root = Dataset(file_name, **nc_kwargs)
+        self.root = Dataset(file_name, **backend_kwargs)
 
         self.coords: CoordSystem = OrderedDict({})
         for dim in self.root.dimensions:
