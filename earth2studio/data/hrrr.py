@@ -188,6 +188,8 @@ class HRRR:
         """Return appropriate cache location."""
         cache_location = os.path.join(datasource_cache_root(), "hrrr")
         if not self._cache:
+            if not DistributedManager.is_initialized():
+                DistributedManager.initialize()
             cache_location = os.path.join(
                 cache_location, f"tmp_{DistributedManager().rank}"
             )
