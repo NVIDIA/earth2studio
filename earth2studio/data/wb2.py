@@ -409,9 +409,6 @@ class WB2Climatology:
         Cache data source on local memory, by default True
     verbose : bool, optional
         Print download progress, by default True
-    local : bool, optional
-        Assumes the path provided in `climatology_zarr_store` is a location
-        to a local zarr store.
 
     Warning
     -------
