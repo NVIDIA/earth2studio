@@ -392,7 +392,7 @@ class WB2Climatology:
     Parameters
     ----------
     climatology_zarr_store : ClimatologyZarrStore, optional
-        Sopres within `gs://weatherbench2/datasets/era5-hourly-climatology/` to select
+        Stores within `gs://weatherbench2/datasets/era5-hourly-climatology/` to select
         As of 05/03/2024 this is the following list of available files:
 
         - 1990-2017_6h_1440x721.zarr
@@ -431,33 +431,27 @@ class WB2Climatology:
         climatology_zarr_store: ClimatologyZarrStore = "1990-2017_6h_1440x721.zarr",
         cache: bool = True,
         verbose: bool = True,
-        local: bool = False,
     ):
 
         self._cache = cache
         self._verbose = verbose
 
-        if local:
-            fs = fsspec.implementations.local.LocalFileSystem()
-            path = f"{climatology_zarr_store}"
-        else:
-            fs = gcsfs.GCSFileSystem(
-                cache_timeout=-1,
-                token="anon",  # noqa: S106 # nosec B106
-                access="read_only",
-                block_size=2**20,
-            )
+        fs = gcsfs.GCSFileSystem(
+            cache_timeout=-1,
+            token="anon",  # noqa: S106 # nosec B106
+            access="read_only",
+            block_size=2**20,
+        )
 
-            if self._cache:
-                cache_options = {
-                    "cache_storage": self.cache,
-                    "expiry_time": 31622400,  # 1 year
-                }
-                fs = WholeFileCacheFileSystem(fs=fs, **cache_options)
+        if self._cache:
+            cache_options = {
+                "cache_storage": self.cache,
+                "expiry_time": 31622400,  # 1 year
+            }
+            fs = WholeFileCacheFileSystem(fs=fs, **cache_options)
 
-            path = f"weatherbench2/datasets/era5-hourly-climatology/{climatology_zarr_store}"
         fs_map = fsspec.FSMap(
-            path,
+            f"weatherbench2/datasets/era5-hourly-climatology/{climatology_zarr_store}",
             fs,
         )
         self.zarr_group = zarr.open(fs_map, mode="r")
