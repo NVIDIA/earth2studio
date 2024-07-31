@@ -215,6 +215,24 @@ def map_coords(
         inc = mapped_coords[key]
         dim = list(input_coords).index(key)
 
+        if np.all(inc == outc):
+            # skip interpolation if input and output coords are identical
+            continue
+        else:
+            # use a simple slice if output coords are found as a continuous
+            # subset of input coords
+            try:
+                i0 = list(inc).index(outc[0])
+                i1 = i0 + len(outc)
+                if i1 < len(inc) and (inc[i0:i1] == outc).all():
+                    x_slice = [slice(None)] * len(input_coords)
+                    x_slice[dim] = slice(i0, i1)
+                    x = x[x_slice]
+                    mapped_coords[key] = input_coords[key][i0:i1]
+                    continue
+            except ValueError:  # can be raised by list.index
+                pass
+
         if not np.issubdtype(value.dtype, np.number):
             if not np.all(np.isin(outc, inc)):
                 raise ValueError(f"Error! Some elements of {outc} are not in {inc}.")
