@@ -32,13 +32,9 @@ class DataArrayFile:
         Path to xarray data array compatible file.
     """
 
-    def __init__(self, file_path: str):
+    def __init__(self, file_path: str, **xr_args: Any):
         self.file_path = file_path
-
-    @property
-    def da(self, xr_args: dict[str, Any] = {}) -> xr.DataArray:
-        """Return the appropriate xarray DataArray."""
-        return xr.open_dataarray(self.file_path, **xr_args)
+        self.da = xr.open_dataarray(self.file_path, **xr_args)
 
     def __call__(
         self,
@@ -74,14 +70,9 @@ class DataSetFile:
         Data array name in xarray dataset
     """
 
-    def __init__(self, file_path: str, array_name: str):
+    def __init__(self, file_path: str, array_name: str, **xr_args: Any):
         self.file_path = file_path
-        self.array_name = array_name
-
-    @property
-    def da(self, xr_args: dict[str, Any] = {}) -> xr.DataArray:
-        """Return the appropriate xarray DataArray."""
-        return xr.open_dataset(self.file_path, **xr_args)[self.array_name]
+        self.da = xr.open_dataset(self.file_path, **xr_args)[array_name]
 
     def __call__(
         self,

@@ -18,6 +18,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Refactored ARCO datasource to use asyncio
 - Updated NetCDF4 and Zarr IO to take kwargs for root storage objects allowing better
   control over storage behavior. Breaking changes to NetCDF4 init API.
+- Changed the `da` property to DataSetFile and DataArrayFile to no longer be a property
+  and moved xr_args to object instantiator.
 
 ### Deprecated
 
