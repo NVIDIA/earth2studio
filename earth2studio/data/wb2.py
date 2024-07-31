@@ -392,7 +392,7 @@ class WB2Climatology:
     Parameters
     ----------
     climatology_zarr_store : ClimatologyZarrStore, optional
-        Stpres within `gs://weatherbench2/datasets/era5-hourly-climatology/` to select
+        Stores within `gs://weatherbench2/datasets/era5-hourly-climatology/` to select
         As of 05/03/2024 this is the following list of available files:
 
         - 1990-2017_6h_1440x721.zarr

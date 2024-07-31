@@ -106,7 +106,7 @@ def test_data_array_netcdf(foo_data_array, time, variable):
 def test_data_set_netcdf(foo_data_set, array, time, variable):
     foo_data_set.to_netcdf("test.nc")
     # Load data source and request data array
-    data_source = DataSetFile("test.nc", array_name=array)
+    data_source = DataSetFile("test.nc", array)
     data = data_source(time, variable)
     # Delete nc file
     pathlib.Path("test.nc").unlink(missing_ok=True)
