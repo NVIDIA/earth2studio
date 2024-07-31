@@ -218,7 +218,7 @@ def map_coords(
         if np.all(inc == outc):
             # skip interpolation if input and output coords are identical
             continue
-        else:
+        elif (inc.ndim == 1) and (outc.ndim == 1):
             # use a simple slice if output coords are found as a continuous
             # subset of input coords
             try:
