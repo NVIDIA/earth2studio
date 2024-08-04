@@ -185,7 +185,11 @@ class NetCDF4Backend:
 
         for name, di in zip(array_name, data):
             if name in self.root.variables:
-                raise AssertionError(f"Warning! {name} is already in NetCDF Store.")
+                raise RuntimeError(
+                    f"{name} is already in NetCDF Store. "
+                    + "NetCDF does not allow variables to be redefined. "
+                    + r"To overwrite entire NetCDF, create object with backend_kwargs=\{'mode': 'w'\}"
+                )
 
             di = di.cpu().numpy() if di is not None else None
             dtype = di.dtype if di is not None else "float32"
