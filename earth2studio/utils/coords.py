@@ -229,7 +229,7 @@ def map_coords(
                 mapped_coords[key] = outc
                 continue
 
-            # Generatic
+            # Generic
             if not np.issubdtype(value.dtype, np.number):
                 # sort inputs and outputs before np.in1d
                 indx_inc = inc.argsort()
