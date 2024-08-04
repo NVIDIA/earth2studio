@@ -260,7 +260,6 @@ def map_coords(
             )
 
         if method == "nearest":
-            print(inc, outc)
             # Method = nearest
             c1 = np.repeat(inc[:, np.newaxis], outc.shape[0], axis=1)
             c2 = np.repeat(outc[np.newaxis, :], inc.shape[0], axis=0)
