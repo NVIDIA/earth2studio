@@ -255,7 +255,7 @@ def map_coords(
 
         if not np.issubdtype(value.dtype, np.number):
             raise ValueError(
-                f"For non-numeric coordinates, {key} all values must be in the input. "
+                f"For non-numeric coordinate, {key}, all values of output coords must be in the input coordinates. "
                 + f"Some elements of {outc} are not in {inc}."
             )
 
