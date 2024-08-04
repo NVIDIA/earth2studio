@@ -163,7 +163,10 @@ class ZarrBackend:
 
         for name, di in zip(array_name, data):
             if name in self.root and not kwargs.get("overwrite", False):
-                raise AssertionError(f"Warning! {name} is already in zarr store.")
+                raise RuntimeError(
+                    f"{name} is already in Zarr Store. "
+                    + "To overwrite entire Zarr dataset pass overwrite=True to this function"
+                )
 
             di = di.cpu().numpy() if di is not None else None
             dtype = di.dtype if di is not None else "float32"

@@ -278,6 +278,47 @@ def test_zarr_variable(
 
 
 @pytest.mark.parametrize(
+    "overwrite",
+    [True, False],
+)
+@pytest.mark.parametrize("device", ["cpu", "cuda:0"])  #
+def test_zarr_file(overwrite: bool, device: str, tmp_path: str) -> None:
+    time = [np.datetime64("1958-01-31T00:00:00")]
+    variable = ["t2m", "tcwv"]
+    total_coords = OrderedDict(
+        {
+            "time": np.asarray(time),
+            "variable": np.asarray(variable),
+            "lat": np.linspace(-90, 90, 180),
+            "lon": np.linspace(0, 360, 360, endpoint=False),
+        }
+    )
+
+    # Test File Store
+    z = ZarrBackend(tmp_path / "test.zarr", backend_kwargs={"overwrite": overwrite})
+
+    shape = tuple([len(values) for values in total_coords.values()])
+    array_name = "fields"
+    dummy = torch.randn(shape, device=device, dtype=torch.float32)
+    z.add_array(total_coords, array_name, data=dummy)
+
+    # Check to see if write overwrite in add array works
+    if overwrite:
+        z.add_array(total_coords, array_name, data=dummy, overwrite=True)
+    else:
+        with pytest.raises(RuntimeError):
+            z.add_array(total_coords, array_name, data=dummy)
+
+    z = ZarrBackend(tmp_path / "test.zarr", backend_kwargs={"overwrite": overwrite})
+    # Check to see if write overwrite in constructor allows redefintion Zarr
+    if overwrite:
+        z.add_array(total_coords, array_name, data=dummy)
+    else:
+        with pytest.raises(RuntimeError):
+            z.add_array(total_coords, array_name, data=dummy)
+
+
+@pytest.mark.parametrize(
     "time",
     [
         [np.datetime64("1958-01-31")],

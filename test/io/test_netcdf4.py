@@ -268,6 +268,44 @@ def test_netcdf4_variable(
 
 
 @pytest.mark.parametrize(
+    "mode",
+    ["r+", "w"],
+)
+@pytest.mark.parametrize("device", ["cpu", "cuda:0"])  #
+def test_netcdf4_file(mode: str, device: str, tmp_path: str) -> None:
+    time = [np.datetime64("1958-01-31T00:00:00")]
+    variable = ["t2m", "tcwv"]
+    total_coords = OrderedDict(
+        {
+            "time": np.asarray(time),
+            "variable": np.asarray(variable),
+            "lat": np.linspace(-90, 90, 180),
+            "lon": np.linspace(0, 360, 360, endpoint=False),
+        }
+    )
+
+    # Test File Store
+    nc = NetCDF4Backend(tmp_path / "test.nc", backend_kwargs={"mode": mode})
+    assert isinstance(nc.root, netCDF4.Dataset)
+
+    shape = tuple([len(values) for values in total_coords.values()])
+    array_name = "fields"
+    dummy = torch.randn(shape, device=device, dtype=torch.float32)
+    nc.add_array(total_coords, array_name, data=dummy)
+    nc.close()
+
+    # Check to see if write mode overwrites netCDF
+    if mode == "w":
+        nc = NetCDF4Backend(tmp_path / "test.nc", backend_kwargs={"mode": mode})
+        nc.add_array(total_coords, array_name, data=dummy)
+    else:
+        with pytest.raises(RuntimeError):
+            nc = NetCDF4Backend(tmp_path / "test.nc", backend_kwargs={"mode": mode})
+            nc.add_array(total_coords, array_name, data=dummy)
+    nc.close()
+
+
+@pytest.mark.parametrize(
     "time",
     [
         [np.datetime64("1958-01-31")],
@@ -311,7 +349,7 @@ def test_netcdf4_exceptions(
         ["dummy_1"],
         data=[dummy],
     )
-    with pytest.raises(AssertionError):
+    with pytest.raises(RuntimeError):
         nc.add_array(
             total_coords,
             ["dummy_1"],
