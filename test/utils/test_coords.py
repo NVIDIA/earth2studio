@@ -69,15 +69,24 @@ def test_map_nearest(device):
     )
     data = torch.randn(3, 3).to(device)
 
+    # No change
+    out, outc = map_coords(data, coords, coords)
+    assert torch.allclose(out, data)
+    assert np.all(outc["variable"] == outc["variable"])
+
+    # Select slice in 1D
     out, outc = map_coords(data, coords, OrderedDict([("variable", np.array(["a"]))]))
     assert torch.allclose(out, data[:1])
     assert np.all(outc["variable"] == np.array(["a"]))
 
+    # Select slice in 1D
     out, outc = map_coords(
         data, coords, OrderedDict([("batch", None), ("variable", np.array(["b", "c"]))])
     )
     assert torch.allclose(out, data[1:])
+    assert np.all(outc["variable"] == np.array(["b", "c"]))
 
+    # Select slice in 2D
     out, outc = map_coords(
         data,
         coords,

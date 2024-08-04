@@ -215,52 +215,52 @@ def map_coords(
         inc = mapped_coords[key]
         dim = list(input_coords).index(key)
 
-        if np.all(inc == outc):
-            # skip interpolation if input and output coords are identical
-            continue
-        elif (inc.ndim == 1) and (outc.ndim == 1):
-            # use a simple slice if output coords are found as a continuous
-            # subset of input coords
-            try:
-                i0 = list(inc).index(outc[0])
-                i1 = i0 + len(outc)
-                if i1 < len(inc) and (inc[i0:i1] == outc).all():
-                    x_slice = [slice(None)] * len(input_coords)
-                    x_slice[dim] = slice(i0, i1)
-                    x = x[x_slice]
-                    mapped_coords[key] = input_coords[key][i0:i1]
-                    continue
-            except ValueError:  # can be raised by list.index
-                pass
+        if np.all(np.isin(outc, inc)):
+            if np.all(inc == outc):
+                # skip interpolation if input and output coords are identical
+                continue
+
+            indx = np.where(inc == outc[0])[0][0]
+            # Slice condition
+            if np.all(inc[indx : indx + outc.shape[0]] == outc):
+                x_slice = [slice(None)] * len(input_coords)
+                x_slice[dim] = slice(indx, indx + outc.shape[0])
+                x = x[x_slice]
+                mapped_coords[key] = outc
+                continue
+
+            # Generatic
+            if not np.issubdtype(value.dtype, np.number):
+                # sort inputs and outputs before np.in1d
+                indx_inc = inc.argsort()
+                indx_outc = outc.argsort()
+                indx_rev_outc = indx_outc.argsort()
+                indx = np.where(
+                    np.in1d(inc[indx_inc], outc[indx_outc], assume_unique=True)
+                )[0]
+
+                # undo sorting
+                indx = indx_inc[indx][indx_rev_outc]
+
+                if len(indx) != len(value):
+                    raise ValueError(
+                        f"Output coord dim {key} contains values not present in input"
+                    )
+
+                mapped_coords[key] = outc
+                x = torch.index_select(
+                    x, dim, torch.tensor(indx, dtype=torch.int32, device=x.device)
+                )
+                continue
 
         if not np.issubdtype(value.dtype, np.number):
-            if not np.all(np.isin(outc, inc)):
-                raise ValueError(f"Error! Some elements of {outc} are not in {inc}.")
-            # Not numerical just sub select
-
-            # sort inputs and outputs before np.in1d
-            indx_inc = inc.argsort()
-            indx_outc = outc.argsort()
-            indx_rev_outc = indx_outc.argsort()
-            indx = np.where(
-                np.in1d(inc[indx_inc], outc[indx_outc], assume_unique=True)
-            )[0]
-
-            # undo sorting
-            indx = indx_inc[indx][indx_rev_outc]
-
-            if len(indx) != len(value):
-                raise ValueError(
-                    f"Output coord dim {key} contains values not present in input"
-                )
-
-            mapped_coords[key] = outc
-            x = torch.index_select(
-                x, dim, torch.tensor(indx, dtype=torch.int32, device=x.device)
+            raise ValueError(
+                f"For non-numeric coordinates, {key} all values must be in the input. "
+                + f"Some elements of {outc} are not in {inc}."
             )
 
-        else:
-
+        if method == "nearest":
+            print(inc, outc)
             # Method = nearest
             c1 = np.repeat(inc[:, np.newaxis], outc.shape[0], axis=1)
             c2 = np.repeat(outc[np.newaxis, :], inc.shape[0], axis=0)
@@ -272,7 +272,9 @@ def map_coords(
                 x, dim, torch.tensor(idx, dtype=torch.int32, device=x.device)
             )
             mapped_coords[key] = outc
-
+            continue
+        else:
+            raise ValueError(f"Map method {method} not supported")
             # TODO: Linear
             # c = np.pad(array, pad_width=1, mode='edge')
             # idx2 = numpy.where(c[idx+2] < c[idx] , idx+1, idx-1)
