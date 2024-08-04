@@ -165,7 +165,7 @@ class ZarrBackend:
             if name in self.root and not kwargs.get("overwrite", False):
                 raise RuntimeError(
                     f"{name} is already in Zarr Store. "
-                    + "To overwrite entire Zarr dataset pass overwrite=True to this function"
+                    + "To overwrite Zarr array pass overwrite=True to this function"
                 )
 
             di = di.cpu().numpy() if di is not None else None
