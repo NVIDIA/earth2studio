@@ -364,7 +364,7 @@ def test_zarr_exceptions(
         data=[dummy],
         overwrite=False,
     )
-    with pytest.raises(AssertionError):
+    with pytest.raises(RuntimeError):
         z.add_array(
             total_coords,
             ["dummy_1"],
