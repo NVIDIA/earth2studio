@@ -20,6 +20,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   control over storage behavior. Breaking changes to NetCDF4 init API.
 - Changed the `da` property to DataSetFile and DataArrayFile to no longer be a property
   and moved xr_args to object instantiator.
+- Improved map_coords to handle slices and indentical coords more efficiently; removed
+  unused ignore_batch argument.
 
 ### Deprecated
 

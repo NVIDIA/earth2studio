@@ -69,21 +69,53 @@ def test_map_nearest(device):
     )
     data = torch.randn(3, 3).to(device)
 
+    # No change
+    out, outc = map_coords(data, coords, coords)
+    assert torch.allclose(out, data)
+    assert np.all(outc["variable"] == outc["variable"])
+
+    # Select slice in 1D
     out, outc = map_coords(data, coords, OrderedDict([("variable", np.array(["a"]))]))
     assert torch.allclose(out, data[:1])
     assert np.all(outc["variable"] == np.array(["a"]))
 
+    # Select slice in 1D
     out, outc = map_coords(
         data, coords, OrderedDict([("batch", None), ("variable", np.array(["b", "c"]))])
     )
     assert torch.allclose(out, data[1:])
+    assert np.all(outc["variable"] == np.array(["b", "c"]))
 
+    # Select slice in 2D
     out, outc = map_coords(
         data,
         coords,
         OrderedDict([("variable", np.array(["b", "c"])), ("lat", np.array([1]))]),
     )
     assert torch.allclose(out, data[1:, :1])
+
+    # Select index 1D
+    out, outc = map_coords(data, coords, OrderedDict([("lat", np.array([1, 3]))]))
+    assert torch.allclose(out, torch.cat([data[:, :1], data[:, 2:]], dim=-1))
+    assert np.all(outc["lat"] == np.array([1, 3]))
+
+    # Select index 2D
+    out, outc = map_coords(
+        data,
+        coords,
+        OrderedDict([("variable", np.array(["a", "c"])), ("lat", np.array([1, 3]))]),
+    )
+    assert out.shape == torch.Size((2, 2))
+    assert np.all(outc["variable"] == np.array(["a", "c"]))
+    assert np.all(outc["lat"] == np.array([1, 3]))
+
+    # Select index 1D reverse
+    out, outc = map_coords(
+        data, coords, OrderedDict([("variable", np.array(["c", "a"]))])
+    )
+    truth = torch.cat((data[-1:], data[:1]), dim=0)
+    assert torch.allclose(out, truth)
+    assert np.all(outc["variable"] == np.array(["c", "a"]))
 
     out, outc = map_coords(
         data,
