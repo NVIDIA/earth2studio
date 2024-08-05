@@ -216,7 +216,7 @@ def map_coords(
         dim = list(input_coords).index(key)
 
         if np.all(np.isin(outc, inc)):
-            if np.all(inc == outc):
+            if inc.shape[0] == outc.shape[0] and np.all(inc == outc):
                 # skip interpolation if input and output coords are identical
                 continue
 
@@ -229,8 +229,8 @@ def map_coords(
                 mapped_coords[key] = outc
                 continue
 
-            # Generic
-            if not np.issubdtype(value.dtype, np.number):
+            # Generic fall back
+            if True:
                 # sort inputs and outputs before np.in1d
                 indx_inc = inc.argsort()
                 indx_outc = outc.argsort()

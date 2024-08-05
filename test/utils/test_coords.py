@@ -94,6 +94,21 @@ def test_map_nearest(device):
     )
     assert torch.allclose(out, data[1:, :1])
 
+    # Select index 1D
+    out, outc = map_coords(data, coords, OrderedDict([("lat", np.array([1, 3]))]))
+    assert torch.allclose(out, torch.cat([data[:, :1], data[:, 2:]], dim=-1))
+    assert np.all(outc["lat"] == np.array([1, 3]))
+
+    # Select index 2D
+    out, outc = map_coords(
+        data,
+        coords,
+        OrderedDict([("variable", np.array(["a", "c"])), ("lat", np.array([1, 3]))]),
+    )
+    assert out.shape == torch.Size((2, 2))
+    assert np.all(outc["variable"] == np.array(["a", "c"]))
+    assert np.all(outc["lat"] == np.array([1, 3]))
+
     out, outc = map_coords(
         data,
         coords,
