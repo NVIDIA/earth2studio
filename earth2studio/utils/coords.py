@@ -221,8 +221,9 @@ def map_coords(
                 continue
 
             indx = np.where(inc == outc[0])[0][0]
+            inc_slice = inc[indx : indx + outc.shape[0]]
             # Slice condition
-            if np.all(inc[indx : indx + outc.shape[0]] == outc):
+            if inc_slice.shape[0] == outc.shape[0] and np.all(inc_slice == outc):
                 x_slice = [slice(None)] * len(input_coords)
                 x_slice[dim] = slice(indx, indx + outc.shape[0])
                 x = x[x_slice]
