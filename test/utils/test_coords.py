@@ -109,6 +109,14 @@ def test_map_nearest(device):
     assert np.all(outc["variable"] == np.array(["a", "c"]))
     assert np.all(outc["lat"] == np.array([1, 3]))
 
+    # Select index 1D reverse
+    out, outc = map_coords(
+        data, coords, OrderedDict([("variable", np.array(["c", "a"]))])
+    )
+    truth = torch.cat((data[-1:], data[:1]), dim=0)
+    assert torch.allclose(out, truth)
+    assert np.all(outc["variable"] == np.array(["c", "a"]))
+
     out, outc = map_coords(
         data,
         coords,

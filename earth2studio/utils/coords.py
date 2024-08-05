@@ -166,7 +166,6 @@ def map_coords(
     input_coords: CoordSystem,
     output_coords: CoordSystem,
     method: Literal["nearest"] = "nearest",
-    ignore_batch: bool = True,
 ) -> tuple[torch.Tensor, CoordSystem]:
     """A basic interpolation util to map between coordinate systems with common
     dimensions. Namely, `output_coords` should consist of keys are present in
@@ -183,8 +182,6 @@ def map_coords(
         Target output coordinates to map.
     method : Literal[&quot;nearest&quot;], optional
         Method to use for mapping numeric coordinates, by default "nearest"
-    ignore_batch: bool, optional
-        Ignore batch dimension in output coordinate if present, by default True
 
     Returns
     -------
