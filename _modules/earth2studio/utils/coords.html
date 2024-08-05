@@ -607,7 +607,6 @@ document.write(`
     <span class="n">input_coords</span><span class="p">:</span> <span class="n">CoordSystem</span><span class="p">,</span>
     <span class="n">output_coords</span><span class="p">:</span> <span class="n">CoordSystem</span><span class="p">,</span>
     <span class="n">method</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;nearest&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;nearest&quot;</span><span class="p">,</span>
-    <span class="n">ignore_batch</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">CoordSystem</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;A basic interpolation util to map between coordinate systems with common</span>
 <span class="sd">    dimensions. Namely, `output_coords` should consist of keys are present in</span>
@@ -624,8 +623,6 @@ document.write(`
 <span class="sd">        Target output coordinates to map.</span>
 <span class="sd">    method : Literal[&amp;quot;nearest&amp;quot;], optional</span>
 <span class="sd">        Method to use for mapping numeric coordinates, by default &quot;nearest&quot;</span>
-<span class="sd">    ignore_batch: bool, optional</span>
-<span class="sd">        Ignore batch dimension in output coordinate if present, by default True</span>
 
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
@@ -656,34 +653,52 @@ document.write(`
         <span class="n">inc</span> <span class="o">=</span> <span class="n">mapped_coords</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
         <span class="n">dim</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">input_coords</span><span class="p">)</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
 
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">issubdtype</span><span class="p">(</span><span class="n">value</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">number</span><span class="p">):</span>
-            <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="n">outc</span><span class="p">,</span> <span class="n">inc</span><span class="p">)):</span>
-                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Error! Some elements of </span><span class="si">{</span><span class="n">outc</span><span class="si">}</span><span class="s2"> are not in </span><span class="si">{</span><span class="n">inc</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
-            <span class="c1"># Not numerical just sub select</span>
+        <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="n">outc</span><span class="p">,</span> <span class="n">inc</span><span class="p">)):</span>
+            <span class="k">if</span> <span class="n">inc</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="n">outc</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="ow">and</span> <span class="n">np</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="n">inc</span> <span class="o">==</span> <span class="n">outc</span><span class="p">):</span>
+                <span class="c1"># skip interpolation if input and output coords are identical</span>
+                <span class="k">continue</span>
 
-            <span class="c1"># sort inputs and outputs before np.in1d</span>
-            <span class="n">indx_inc</span> <span class="o">=</span> <span class="n">inc</span><span class="o">.</span><span class="n">argsort</span><span class="p">()</span>
-            <span class="n">indx_outc</span> <span class="o">=</span> <span class="n">outc</span><span class="o">.</span><span class="n">argsort</span><span class="p">()</span>
-            <span class="n">indx_rev_outc</span> <span class="o">=</span> <span class="n">indx_outc</span><span class="o">.</span><span class="n">argsort</span><span class="p">()</span>
-            <span class="n">indx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span>
-                <span class="n">np</span><span class="o">.</span><span class="n">in1d</span><span class="p">(</span><span class="n">inc</span><span class="p">[</span><span class="n">indx_inc</span><span class="p">],</span> <span class="n">outc</span><span class="p">[</span><span class="n">indx_outc</span><span class="p">],</span> <span class="n">assume_unique</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-            <span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">indx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">inc</span> <span class="o">==</span> <span class="n">outc</span><span class="p">[</span><span class="mi">0</span><span class="p">])[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">inc_slice</span> <span class="o">=</span> <span class="n">inc</span><span class="p">[</span><span class="n">indx</span> <span class="p">:</span> <span class="n">indx</span> <span class="o">+</span> <span class="n">outc</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span>
+            <span class="c1"># Slice condition</span>
+            <span class="k">if</span> <span class="n">inc_slice</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="n">outc</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="ow">and</span> <span class="n">np</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="n">inc_slice</span> <span class="o">==</span> <span class="n">outc</span><span class="p">):</span>
+                <span class="n">x_slice</span> <span class="o">=</span> <span class="p">[</span><span class="nb">slice</span><span class="p">(</span><span class="kc">None</span><span class="p">)]</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="n">input_coords</span><span class="p">)</span>
+                <span class="n">x_slice</span><span class="p">[</span><span class="n">dim</span><span class="p">]</span> <span class="o">=</span> <span class="nb">slice</span><span class="p">(</span><span class="n">indx</span><span class="p">,</span> <span class="n">indx</span> <span class="o">+</span> <span class="n">outc</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+                <span class="n">x</span> <span class="o">=</span> <span class="n">x</span><span class="p">[</span><span class="n">x_slice</span><span class="p">]</span>
+                <span class="n">mapped_coords</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">outc</span>
+                <span class="k">continue</span>
 
-            <span class="c1"># undo sorting</span>
-            <span class="n">indx</span> <span class="o">=</span> <span class="n">indx_inc</span><span class="p">[</span><span class="n">indx</span><span class="p">][</span><span class="n">indx_rev_outc</span><span class="p">]</span>
+            <span class="c1"># Generic fall back</span>
+            <span class="k">if</span> <span class="kc">True</span><span class="p">:</span>
+                <span class="c1"># sort inputs and outputs before np.in1d</span>
+                <span class="n">indx_inc</span> <span class="o">=</span> <span class="n">inc</span><span class="o">.</span><span class="n">argsort</span><span class="p">()</span>
+                <span class="n">indx_outc</span> <span class="o">=</span> <span class="n">outc</span><span class="o">.</span><span class="n">argsort</span><span class="p">()</span>
+                <span class="n">indx_rev_outc</span> <span class="o">=</span> <span class="n">indx_outc</span><span class="o">.</span><span class="n">argsort</span><span class="p">()</span>
+                <span class="n">indx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span>
+                    <span class="n">np</span><span class="o">.</span><span class="n">in1d</span><span class="p">(</span><span class="n">inc</span><span class="p">[</span><span class="n">indx_inc</span><span class="p">],</span> <span class="n">outc</span><span class="p">[</span><span class="n">indx_outc</span><span class="p">],</span> <span class="n">assume_unique</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+                <span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
 
-            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">indx</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">value</span><span class="p">):</span>
-                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                    <span class="sa">f</span><span class="s2">&quot;Output coord dim </span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s2"> contains values not present in input&quot;</span>
+                <span class="c1"># undo sorting</span>
+                <span class="n">indx</span> <span class="o">=</span> <span class="n">indx_inc</span><span class="p">[</span><span class="n">indx</span><span class="p">][</span><span class="n">indx_rev_outc</span><span class="p">]</span>
+
+                <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">indx</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">value</span><span class="p">):</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                        <span class="sa">f</span><span class="s2">&quot;Output coord dim </span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s2"> contains values not present in input&quot;</span>
+                    <span class="p">)</span>
+
+                <span class="n">mapped_coords</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">outc</span>
+                <span class="n">x</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">index_select</span><span class="p">(</span>
+                    <span class="n">x</span><span class="p">,</span> <span class="n">dim</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">indx</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">int32</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">x</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
                 <span class="p">)</span>
+                <span class="k">continue</span>
 
-            <span class="n">mapped_coords</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">outc</span>
-            <span class="n">x</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">index_select</span><span class="p">(</span>
-                <span class="n">x</span><span class="p">,</span> <span class="n">dim</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">indx</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">int32</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">x</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">issubdtype</span><span class="p">(</span><span class="n">value</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">number</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;For non-numeric coordinate, </span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s2">, all values of output coords must be in the input coordinates. &quot;</span>
+                <span class="o">+</span> <span class="sa">f</span><span class="s2">&quot;Some elements of </span><span class="si">{</span><span class="n">outc</span><span class="si">}</span><span class="s2"> are not in </span><span class="si">{</span><span class="n">inc</span><span class="si">}</span><span class="s2">.&quot;</span>
             <span class="p">)</span>
 
-        <span class="k">else</span><span class="p">:</span>
-
+        <span class="k">if</span> <span class="n">method</span> <span class="o">==</span> <span class="s2">&quot;nearest&quot;</span><span class="p">:</span>
             <span class="c1"># Method = nearest</span>
             <span class="n">c1</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">repeat</span><span class="p">(</span><span class="n">inc</span><span class="p">[:,</span> <span class="n">np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">],</span> <span class="n">outc</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
             <span class="n">c2</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">repeat</span><span class="p">(</span><span class="n">outc</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">,</span> <span class="p">:],</span> <span class="n">inc</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
@@ -695,7 +710,9 @@ document.write(`
                 <span class="n">x</span><span class="p">,</span> <span class="n">dim</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">idx</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">int32</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">x</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
             <span class="p">)</span>
             <span class="n">mapped_coords</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">outc</span>
-
+            <span class="k">continue</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Map method </span><span class="si">{</span><span class="n">method</span><span class="si">}</span><span class="s2"> not supported&quot;</span><span class="p">)</span>
             <span class="c1"># TODO: Linear</span>
             <span class="c1"># c = np.pad(array, pad_width=1, mode=&#39;edge&#39;)</span>
             <span class="c1"># idx2 = numpy.where(c[idx+2] &lt; c[idx] , idx+1, idx-1)</span>
@@ -803,7 +820,7 @@ document.write(`
         <div class="footer-item">
 
   <p class="sphinx-version">
-    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 7.4.7.
+    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 8.0.2.
     <br/>
   </p>
 </div>

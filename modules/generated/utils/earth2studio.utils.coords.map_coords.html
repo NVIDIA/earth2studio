@@ -532,7 +532,7 @@ document.write(`
 <h1><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.utils.coords</span></code>.map_coords<a class="headerlink" href="#earth2studio-utils-coords-map-coords" title="Link to this heading">#</a></h1>
 <dl class="py function">
 <dt class="sig sig-object py" id="earth2studio.utils.coords.map_coords">
-<span class="sig-prename descclassname"><span class="pre">earth2studio.utils.coords.</span></span><span class="sig-name descname"><span class="pre">map_coords</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">input_coords</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output_coords</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">method</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'nearest'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ignore_batch</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/earth2studio/utils/coords.html#map_coords"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.utils.coords.map_coords" title="Link to this definition">#</a></dt>
+<span class="sig-prename descclassname"><span class="pre">earth2studio.utils.coords.</span></span><span class="sig-name descname"><span class="pre">map_coords</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">input_coords</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output_coords</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">method</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'nearest'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/earth2studio/utils/coords.html#map_coords"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.utils.coords.map_coords" title="Link to this definition">#</a></dt>
 <dd><p>A basic interpolation util to map between coordinate systems with common
 dimensions. Namely, <cite>output_coords</cite> should consist of keys are present in
 <cite>input_coords</cite>. Note that <cite>output_coords</cite> do not need have all the dimensions of the
@@ -544,7 +544,6 @@ dimensions. Namely, <cite>output_coords</cite> should consist of keys are presen
 <li><p><strong>input_coords</strong> (<em>CoordSystem</em>) – Respective input coordinate system</p></li>
 <li><p><strong>output_coords</strong> (<em>CoordSystem</em>) – Target output coordinates to map.</p></li>
 <li><p><strong>method</strong> (<em>Literal</em><em>[</em><em>&amp;quot;nearest&amp;quot;</em><em>]</em><em>, </em><em>optional</em>) – Method to use for mapping numeric coordinates, by default “nearest”</p></li>
-<li><p><strong>ignore_batch</strong> (<em>bool</em><em>, </em><em>optional</em>) – Ignore batch dimension in output coordinate if present, by default True</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
@@ -667,7 +666,7 @@ dimensions. Namely, <cite>output_coords</cite> should consist of keys are presen
         <div class="footer-item">
 
   <p class="sphinx-version">
-    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 7.4.7.
+    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 8.0.2.
     <br/>
   </p>
 </div>
