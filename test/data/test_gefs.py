@@ -169,3 +169,13 @@ def test_gefs_lead_available(lead_time):
     with pytest.raises(ValueError):
         ds = GEFS_FX(cache=False)
         ds(time, lead_time, variable)
+
+
+@pytest.mark.timeout(5)
+@pytest.mark.parametrize(
+    "product",
+    ["gec0", "gex00", "gep31", "gep00"],
+)
+def test_gefs_invalid_product(product):
+    with pytest.raises(ValueError):
+        GEFS_FX(product, cache=False)

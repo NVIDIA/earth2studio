@@ -19,7 +19,6 @@ import os
 import pathlib
 import shutil
 from datetime import datetime, timedelta
-from typing import Literal
 
 import numpy as np
 import s3fs
@@ -51,7 +50,7 @@ class GEFS_FX:
 
     Parameters
     ----------
-    product : Literal["gec00", "gepNN"], optional
+    product : str, optional
         GEFS product. Options are: control gec00 (control), gepNN (forecast member NN,
         e.g. gep01, gep02,...), by default "gec00"
     cache : bool, optional
@@ -89,7 +88,7 @@ class GEFS_FX:
 
     def __init__(
         self,
-        product: Literal["gec00", "gepNN"] = "gec00",
+        product: str = "gec00",
         cache: bool = True,
         verbose: bool = True,
     ):
