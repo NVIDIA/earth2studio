@@ -85,7 +85,7 @@ class GEFS_FX:
     GEFS_LAT = np.linspace(90, -90, 361)
     GEFS_LON = np.linspace(0, 359.5, 720)
 
-    GEFS_PRODUCTS = ["gec00"] + [f"gepNN{i:02d}" for i in range(1, 30)]
+    GEFS_PRODUCTS = ["gec00"] + [f"gep{i:02d}" for i in range(1, 31)]
 
     def __init__(
         self,
@@ -234,7 +234,7 @@ class GEFS_FX:
             f"Fetching GEFS data for variable: {variable} at {time.isoformat()} lead time {lead_time}"
         )
         try:
-            gefs_name, modifier = GEFSLexicon[variable]  # type:ignore
+            gefs_name, modifier = GEFSLexicon[variable]
             gefs_grib, gefs_var, gefs_level = gefs_name.split("::")
         except KeyError as e:
             logger.error(f"variable id {variable} not found in GEFS lexicon")
@@ -311,7 +311,7 @@ class GEFS_FX:
             list of date times to fetch data
         """
         for time in times:
-            if not (time - datetime(1900, 1, 1)).total_seconds() % 32400 == 0:
+            if not (time - datetime(1900, 1, 1)).total_seconds() % 21600 == 0:
                 raise ValueError(
                     f"Requested date time {time} needs to be 6 hour interval for GEFS"
                 )
