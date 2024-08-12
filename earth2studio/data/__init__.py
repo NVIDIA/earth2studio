@@ -17,6 +17,7 @@
 from .arco import ARCO
 from .base import DataSource
 from .cds import CDS
+from .gefs import GEFS_FX
 from .gfs import GFS, GFS_FX
 from .hrrr import HRRR
 from .ifs import IFS

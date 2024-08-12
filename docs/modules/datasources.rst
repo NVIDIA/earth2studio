@@ -51,6 +51,7 @@ Typically used in intercomparison workflows.
    :template: datasource.rst
 
    data.GFS_FX
+   data.GEFS_FX
 
 Functions
 ~~~~~~~~~
