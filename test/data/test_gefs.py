@@ -28,21 +28,28 @@ from earth2studio.data import GEFS_FX
 @pytest.mark.xfail
 @pytest.mark.timeout(30)
 @pytest.mark.parametrize(
-    "time",
+    "time,lead_time,variable",
     [
-        [datetime(year=2022, month=12, day=25)],
+        (
+            datetime(year=2020, month=11, day=1),
+            [timedelta(hours=3), timedelta(hours=384)],
+            "t2m",
+        ),
+        (
+            [
+                datetime(year=2021, month=8, day=8, hour=6),
+                datetime(year=2022, month=4, day=20, hour=12),
+            ],
+            timedelta(hours=0),
+            ["msl"],
+        ),
+        (
+            datetime(year=2020, month=11, day=1),
+            [timedelta(hours=240)],
+            np.array(["tcwv", "u10m"]),
+        ),
     ],
 )
-@pytest.mark.parametrize(
-    "lead_time",
-    [
-        timedelta(hours=0),
-        [
-            timedelta(hours=258),
-        ],
-    ],
-)
-@pytest.mark.parametrize("variable", ["t2m", ["msl"]])
 def test_gefs_fetch(time, lead_time, variable):
 
     ds = GEFS_FX(cache=False)
@@ -160,10 +167,11 @@ def test_gefs_available(time):
     [
         timedelta(hours=-1),
         [timedelta(hours=2), timedelta(hours=2, minutes=1)],
-        np.array([np.timedelta64(259, "h")]),
+        np.array([np.timedelta64(243, "h")]),
+        np.array([np.timedelta64(390, "h")]),
     ],
 )
-def test_gefs_lead_available(lead_time):
+def test_gefs_invalid_lead(lead_time):
     time = datetime(year=2022, month=12, day=25)
     variable = "t2m"
     with pytest.raises(ValueError):
@@ -173,8 +181,21 @@ def test_gefs_lead_available(lead_time):
 
 @pytest.mark.timeout(5)
 @pytest.mark.parametrize(
+    "variable",
+    ["aaa", "t1m"],
+)
+def test_gefs_invalid_variable(variable):
+    time = datetime(year=2022, month=12, day=25)
+    lead_time = timedelta(hours=0)
+    with pytest.raises(KeyError):
+        ds = GEFS_FX(cache=False)
+        ds(time, lead_time, variable)
+
+
+@pytest.mark.timeout(5)
+@pytest.mark.parametrize(
     "product",
-    ["gec0", "gex00", "gep31", "gep00"],
+    ["gec0", "gep31", "gep00"],
 )
 def test_gefs_invalid_product(product):
     with pytest.raises(ValueError):

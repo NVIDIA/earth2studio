@@ -46,7 +46,7 @@ class GEFS_FX:
     model developed by  National Centers for Environmental Prediction (NCEP). This data
     source is on a 0.5 degree lat lon grid at 6-hour intervals spanning from
     Sept 23rd 2020 to present date. Each forecast provides 3-hourly predictions up to
-    10 days (258 hours).
+    10 days (240 hours) and 6 hourly predictions for another 6 days (384 hours).
 
     Parameters
     ----------
@@ -331,17 +331,25 @@ class GEFS_FX:
             list of lead times to fetch data
         """
         for delta in lead_times:
-            if not delta.total_seconds() % 10800 == 0:
-                raise ValueError(
-                    f"Requested lead time {delta} needs to be 1 hour interval for GEFS"
-                )
             # To update search "gefs." at https://noaa-gefs-pds.s3.amazonaws.com/index.html
-            # They are slowly adding more data
             hours = int(delta.total_seconds() // 3600)
-            if hours > 258 or hours < 0:
+            if hours > 384 or hours < 0:
                 raise ValueError(
-                    f"Requested lead time {delta} can only be a max of 258 hours for GEFS"
+                    f"Requested lead time {delta} can only be a max of 384 hours for GEFS"
                 )
+
+            # 3-hours supported for first 10 days
+            if delta.total_seconds() // 3600 <= 240:
+                if not delta.total_seconds() % 10800 == 0:
+                    raise ValueError(
+                        f"Requested lead time {delta} needs to be 3 hour interval for first 10 days in GEFS"
+                    )
+            # 6 hours for rest
+            else:
+                if not delta.total_seconds() % 21600 == 0:
+                    raise ValueError(
+                        f"Requested lead time {delta} needs to be 6 hour interval for last 6 days in GEFS"
+                    )
 
     @property
     def cache(self) -> str:
