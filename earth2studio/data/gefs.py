@@ -42,12 +42,12 @@ logger.add(lambda msg: tqdm.write(msg, end=""), colorize=True)
 
 
 class GEFS_FX:
-    """The Global Ensemble Forecast System (GEFS) forecast source is a 21 member
+    """The Global Ensemble Forecast System (GEFS) forecast source is a 30 member
     ensemble forecast provided on an equirectangular grid. GEFS is a weather forecast
     model developed by  National Centers for Environmental Prediction (NCEP). This data
     source is on a 0.5 degree lat lon grid at 6-hour intervals spanning from
-    Jan 1st 2017 to present date. Each forecast provides 3-hourly predictions up to 10
-    days (258 hours).
+    Sept 23rd 2020 to present date. Each forecast provides 3-hourly predictions up to
+    10 days (258 hours).
 
     Parameters
     ----------
@@ -68,7 +68,7 @@ class GEFS_FX:
     ----
     This forecast source is an ensemble forecast of isobaric variables (secondary
     variables). Additional surface variables are provided by GEFS at 0.25 degree
-    esolution but are not integrated.
+    resolution but are not integrated.
 
     Note
     ----
