@@ -393,18 +393,3 @@ class GEFS_FX:
         exists = fs.exists(s3_uri)
 
         return exists
-
-
-if __name__ == "__main__":
-
-    ds = GEFS_FX(cache=False)
-
-    data = ds(datetime(2020, 12, 12), timedelta(hours=3), ["msl"])
-
-    print(ds.available(datetime(2020, 9, 22, 18)))
-    print(data)
-
-    # import matplotlib.pyplot as plt
-
-    # plt.imshow(data[0,0,0])
-    # plt.show()
