@@ -40,8 +40,14 @@ class HRRRLexicon(metaclass=LexiconType):
             "u80m": "sfc::UGRD::80 m above ground",
             "v80m": "sfc::VGRD::80 m above ground",
             "t2m": "sfc::TMP::2 m above ground",
+            "refc": "sfc::REFC::entire atmosphere",
             "sp": "sfc::PRES::surface",
+            "tp": "sfc::APCP::surface",
             "tcwv": "sfc::PWAT::entire atmosphere (considered as a single layer)",
+            "csnow": "sfc::CSNOW::surface",
+            "cicep": "sfc::CICEP::surface",
+            "cfrzr": "sfc::CFRZR::surface",
+            "crain": "sfc::CRAIN::surface",
         }
         prs_levels = [
             50,
