@@ -21,7 +21,7 @@ from datetime import datetime, timedelta
 import numpy as np
 import pytest
 
-from earth2studio.data import GEFS_FX
+from earth2studio.data import GEFS_FX, GEFS_FX_721_1440
 
 
 @pytest.mark.slow
@@ -50,7 +50,7 @@ from earth2studio.data import GEFS_FX
         ),
     ],
 )
-def test_gefs_fetch(time, lead_time, variable):
+def test_gefs_0p50_fetch(time, lead_time, variable):
 
     ds = GEFS_FX(cache=False)
     data = ds(time, lead_time, variable)
@@ -72,6 +72,44 @@ def test_gefs_fetch(time, lead_time, variable):
     assert shape[4] == 720
     assert not np.isnan(data.values).any()
     assert GEFS_FX.available(time[0])
+    assert np.array_equal(data.coords["variable"].values, np.array(variable))
+
+
+@pytest.mark.slow
+@pytest.mark.xfail
+@pytest.mark.timeout(30)
+@pytest.mark.parametrize(
+    "time,lead_time,variable",
+    [
+        (
+            datetime(year=2020, month=11, day=1),
+            [timedelta(hours=0), timedelta(hours=240)],
+            "t2m",
+        ),
+    ],
+)
+def test_gefs_0p25_fetch(time, lead_time, variable):
+
+    ds = GEFS_FX_721_1440(cache=False)
+    data = ds(time, lead_time, variable)
+    shape = data.shape
+
+    if isinstance(variable, str):
+        variable = [variable]
+
+    if isinstance(lead_time, timedelta):
+        lead_time = [lead_time]
+
+    if isinstance(time, datetime):
+        time = [time]
+
+    assert shape[0] == len(time)
+    assert shape[1] == len(lead_time)
+    assert shape[2] == len(variable)
+    assert shape[3] == 721
+    assert shape[4] == 1440
+    assert not np.isnan(data.values).any()
+    assert GEFS_FX_721_1440.available(time[0])
     assert np.array_equal(data.coords["variable"].values, np.array(variable))
 
 
@@ -176,6 +214,23 @@ def test_gefs_invalid_lead(lead_time):
     variable = "t2m"
     with pytest.raises(ValueError):
         ds = GEFS_FX(cache=False)
+        ds(time, lead_time, variable)
+
+
+@pytest.mark.timeout(5)
+@pytest.mark.parametrize(
+    "lead_time",
+    [
+        timedelta(hours=-1),
+        [timedelta(hours=2), timedelta(hours=2, minutes=1)],
+        np.array([np.timedelta64(241, "h")]),
+    ],
+)
+def test_gefs_0p25_invalid_lead(lead_time):
+    time = datetime(year=2022, month=12, day=25)
+    variable = "t2m"
+    with pytest.raises(ValueError):
+        ds = GEFS_FX_721_1440(cache=False)
         ds(time, lead_time, variable)
 
 
