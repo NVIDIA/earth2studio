@@ -16,7 +16,7 @@
 
 from .arco import ARCOLexicon
 from .cds import CDSLexicon
-from .gefs import GEFSLexicon
+from .gefs import GEFSLexicon, GEFSLexiconSel
 from .gfs import GFSLexicon
 from .hrrr import HRRRLexicon
 from .ifs import IFSLexicon
