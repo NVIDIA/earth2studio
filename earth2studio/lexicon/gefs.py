@@ -250,6 +250,7 @@ class GEFSLexiconSel(metaclass=LexiconType):
     Additional resources:
     - https://www.nco.ncep.noaa.gov/pmb/products/gens/gec00.t00z.pgrb2s.0p25.f000.shtml
     - https://www.nco.ncep.noaa.gov/pmb/products/gens/gec00.t00z.pgrb2s.0p25.f003.shtml
+    - https://www.nco.ncep.noaa.gov/pmb/docs/grib2/grib2_doc/grib2_table4-2-0-3.shtml
     """
 
     VOCAB = {
@@ -258,6 +259,7 @@ class GEFSLexiconSel(metaclass=LexiconType):
         "t2m": "pgrb2s::TMP::2 m above ground",
         "r2m": "pgrb2s::RH::2 m above ground",
         "sp": "pgrb2s::PRES::surface",
+        "msl": "pgrb2s::MSLET::mean sea level",  # MSLP (Eta model reduction)
         "tcwv": "pgrb2s::PWAT::entire atmosphere (considered as a single layer)",
     }
 
