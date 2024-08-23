@@ -366,7 +366,7 @@ class GEFS_FX(_GEFSBase):
 
     Warning
     -------
-    Some variables in the GEFS lexicon may not be avaiable at lead time 0. Consult GEFS
+    Some variables in the GEFS lexicon may not be available at lead time 0. Consult GEFS
     documentation for additional information.
 
     Note
@@ -476,7 +476,7 @@ class GEFS_FX_721_1440(_GEFSBase):
 
     Warning
     -------
-    Some variables in the GEFS lexicon may not be avaiable at lead time 0. Consult GEFS
+    Some variables in the GEFS lexicon may not be available at lead time 0. Consult GEFS
     documentation for additional information.
 
     Note
