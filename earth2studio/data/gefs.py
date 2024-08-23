@@ -450,7 +450,7 @@ class GEFS_FX(_GEFSBase):
                     )
 
 
-class GEFS_FX_721_1440(_GEFSBase):
+class GEFS_FX_721x1440(_GEFSBase):
     """The Global Ensemble Forecast System (GEFS) forecast source is a 30 member
     ensemble forecast provided on an 0.25 degree equirectangular grid. GEFS is a
     weather forecast model developed by  National Centers for Environmental Prediction
