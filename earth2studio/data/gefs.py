@@ -33,84 +33,28 @@ from earth2studio.data.utils import (
     datasource_cache_root,
     prep_forecast_inputs,
 )
-from earth2studio.lexicon import GEFSLexicon
+from earth2studio.lexicon import GEFSLexicon, GEFSLexiconSel
+from earth2studio.lexicon.base import LexiconType
 from earth2studio.utils.type import LeadTimeArray, TimeArray, VariableArray
 
 logger.remove()
 logger.add(lambda msg: tqdm.write(msg, end=""), colorize=True)
 
 
-class GEFS_FX:
-    """The Global Ensemble Forecast System (GEFS) forecast source is a 30 member
-    ensemble forecast provided on an equirectangular grid. GEFS is a weather forecast
-    model developed by  National Centers for Environmental Prediction (NCEP). This data
-    source is on a 0.5 degree lat lon grid at 6-hour intervals spanning from
-    Sept 23rd 2020 to present date. Each forecast provides 3-hourly predictions up to
-    10 days (240 hours) and 6 hourly predictions for another 6 days (384 hours).
+class _GEFSBase:
 
-    Parameters
-    ----------
-    product : str, optional
-        GEFS product. Options are: control gec00 (control), gepNN (forecast member NN,
-        e.g. gep01, gep02,...), by default "gec00"
-    cache : bool, optional
-        Cache data source on local memory, by default True
-    verbose : bool, optional
-        Print download progress, by default True
+    GEFS_BUCKET_NAME: str
+    GEFS_CHECK_CLASS: str
+    GEFS_LAT: np.ndarray
+    GEFS_LON: np.ndarray
 
-    Warning
-    -------
-    This is a remote data source and can potentially download a large amount of data
-    to your local machine for large requests.
+    MAX_BYTE_SIZE: int
 
-    Note
-    ----
-    This forecast source is an ensemble forecast of isobaric variables (secondary
-    variables). Additional surface variables are provided by GEFS at 0.25 degree
-    resolution but are not integrated.
-
-    Note
-    ----
-    Additional information on the data repository can be referenced here:
-
-    - https://registry.opendata.aws/noaa-gefs/
-    - https://www.ncei.noaa.gov/products/weather-climate-models/global-ensemble-forecast
-    - https://www.nco.ncep.noaa.gov/pmb/products/gens/
-    """
-
-    GEFS_BUCKET_NAME = "noaa-gefs-pds"
-    MAX_BYTE_SIZE = 5000000
-
-    GEFS_LAT = np.linspace(90, -90, 361)
-    GEFS_LON = np.linspace(0, 359.5, 720)
-
-    GEFS_PRODUCTS = ["gec00"] + [f"gep{i:02d}" for i in range(1, 31)]
-
-    def __init__(
-        self,
-        product: str = "gec00",
-        cache: bool = True,
-        verbose: bool = True,
-    ):
-
-        if product not in self.GEFS_PRODUCTS:
-            raise ValueError(f"Invalid GEFS product {product}")
-
-        self._cache = cache
-        self._verbose = verbose
-        self._product = product
-        self.s3fs = s3fs.S3FileSystem(
-            anon=True,
-            default_block_size=2**20,
-            client_kwargs={},
-        )
-
-        # if self._cache:
-        cache_options = {
-            "cache_storage": self.cache,
-            "expiry_time": 31622400,  # 1 year
-        }
-        self.fs = WholeFileCacheFileSystem(fs=self.s3fs, **cache_options)
+    _cache: bool
+    _verbose: bool
+    lexicon: LexiconType
+    fs: s3fs.S3FileSystem
+    s3fs: s3fs.S3FileSystem
 
     def __call__(
         self,
@@ -233,21 +177,15 @@ class GEFS_FX:
             f"Fetching GEFS data for variable: {variable} at {time.isoformat()} lead time {lead_time}"
         )
         try:
-            gefs_name, modifier = GEFSLexicon[variable]
+            gefs_name, modifier = self.lexicon[variable]
             gefs_grib, gefs_var, gefs_level = gefs_name.split("::")
         except KeyError as e:
             logger.error(f"variable id {variable} not found in GEFS lexicon")
             raise e
 
-        # Set up s3 file paths
-        lead_hour = int(lead_time.total_seconds() // 3600)
-        file_name = f"gefs.{time.year}{time.month:0>2}{time.day:0>2}/{time.hour:0>2}"
-        index_file_name = os.path.join(
-            file_name,
-            f"atmos/{gefs_grib}p5/{self._product}.t{time.hour:0>2}z.{gefs_grib}.0p50.f{lead_hour:03d}.idx",
-        )
-        s3_index_uri = os.path.join(self.GEFS_BUCKET_NAME, index_file_name)
-        s3_grib_uri = os.path.join(self.GEFS_BUCKET_NAME, index_file_name[:-4])
+        file_name = self._get_grid_name(time, lead_time, gefs_grib)
+        s3_index_uri = os.path.join(self.GEFS_BUCKET_NAME, file_name + ".idx")
+        s3_grib_uri = os.path.join(self.GEFS_BUCKET_NAME, file_name)
 
         # Download the grib index file and parse
         with self.fs.open(s3_index_uri) as file:
@@ -300,6 +238,27 @@ class GEFS_FX:
         )
         return modifier(da.values)
 
+    def _get_grid_name(
+        self, time: datetime, lead_time: timedelta, grid_class: str
+    ) -> str:
+        """Returns gribfile name to fetch, should override in child
+
+        Parameters
+        ----------
+        time : datetime
+            Time to fetch
+        lead_time: timedelta
+            Lead time to fetch
+        grid_class : str
+            Grib classification in GEFS (e.g. pgrb2a, pgrb2b, pgrb2s)
+
+        Returns
+        -------
+        str
+            File name of Grib file in S3 bucket
+        """
+        raise NotImplementedError("Child class needs to implement this")
+
     @classmethod
     def _validate_time(cls, times: list[datetime]) -> None:
         """Verify if date time is valid for GEFS based on offline knowledge
@@ -314,8 +273,7 @@ class GEFS_FX:
                 raise ValueError(
                     f"Requested date time {time} needs to be 6 hour interval for GEFS"
                 )
-            # To update search "gfs." at https://noaa-gfs-bdp-pds.s3.amazonaws.com/index.html
-            # They are slowly adding more data
+            # Brute forces checked this, older dates missing data
             if time < datetime(year=2020, month=9, day=23):
                 raise ValueError(
                     f"Requested date time {time} needs to be after Sept 23rd, 2020 for GEFS"
@@ -330,26 +288,7 @@ class GEFS_FX:
         lead_times : list[timedelta]
             list of lead times to fetch data
         """
-        for delta in lead_times:
-            # To update search "gefs." at https://noaa-gefs-pds.s3.amazonaws.com/index.html
-            hours = int(delta.total_seconds() // 3600)
-            if hours > 384 or hours < 0:
-                raise ValueError(
-                    f"Requested lead time {delta} can only be a max of 384 hours for GEFS"
-                )
-
-            # 3-hours supported for first 10 days
-            if delta.total_seconds() // 3600 <= 240:
-                if not delta.total_seconds() % 10800 == 0:
-                    raise ValueError(
-                        f"Requested lead time {delta} needs to be 3 hour interval for first 10 days in GEFS"
-                    )
-            # 6 hours for rest
-            else:
-                if not delta.total_seconds() % 21600 == 0:
-                    raise ValueError(
-                        f"Requested lead time {delta} needs to be 6 hour interval for last 6 days in GEFS"
-                    )
+        raise NotImplementedError("Child class needs to implement this")
 
     @property
     def cache(self) -> str:
@@ -395,8 +334,226 @@ class GEFS_FX:
 
         # Object store directory for given time
         # Should contain two keys: atmos and wave
-        file_name = f"gefs.{time.year}{time.month:0>2}{time.day:0>2}/{time.hour:0>2}/atmos/pgrb2bp5/"
+        file_name = f"gefs.{time.year}{time.month:0>2}{time.day:0>2}/{time.hour:0>2}/atmos/{cls.GEFS_CHECK_CLASS}/"
         s3_uri = f"s3://{cls.GEFS_BUCKET_NAME}/{file_name}"
         exists = fs.exists(s3_uri)
 
         return exists
+
+
+class GEFS_FX(_GEFSBase):
+    """The Global Ensemble Forecast System (GEFS) forecast source is a 30 member
+    ensemble forecast provided on an 0.5 degree equirectangular grid.  GEFS is a weather
+    forecast model developed by  National Centers for Environmental Prediction (NCEP).
+    This forecast source has data at 6-hour intervals spanning from Sept 23rd 2020 to
+    present date. Each forecast provides 3-hourly predictions up to 10 days (240 hours)
+    and 6 hourly predictions for another 6 days (384 hours).
+
+    Parameters
+    ----------
+    product : str, optional
+        GEFS product. Options are: control gec00 (control), gepNN (forecast member NN,
+        e.g. gep01, gep02,...), by default "gec00"
+    cache : bool, optional
+        Cache data source on local memory, by default True
+    verbose : bool, optional
+        Print download progress, by default True
+
+    Warning
+    -------
+    This is a remote data source and can potentially download a large amount of data
+    to your local machine for large requests.
+
+    Warning
+    -------
+    Some variables in the GEFS lexicon may not be avaiable at lead time 0. Consult GEFS
+    documentation for additional information.
+
+    Note
+    ----
+    Additional information on the data repository can be referenced here:
+
+    - https://registry.opendata.aws/noaa-gefs/
+    - https://www.ncei.noaa.gov/products/weather-climate-models/global-ensemble-forecast
+    - https://www.nco.ncep.noaa.gov/pmb/products/gens/
+    """
+
+    GEFS_BUCKET_NAME = "noaa-gefs-pds"
+    MAX_BYTE_SIZE = 5000000
+
+    GEFS_LAT = np.linspace(90, -90, 361)
+    GEFS_LON = np.linspace(0, 359.5, 720)
+
+    GEFS_PRODUCTS = ["gec00"] + [f"gep{i:02d}" for i in range(1, 31)]
+    GEFS_CHECK_CLASS = "pgrb2bp5"
+
+    def __init__(
+        self,
+        product: str = "gec00",
+        cache: bool = True,
+        verbose: bool = True,
+    ):
+
+        if product not in self.GEFS_PRODUCTS:
+            raise ValueError(f"Invalid GEFS product {product}")
+
+        self._cache = cache
+        self._verbose = verbose
+        self._product = product
+        self.s3fs = s3fs.S3FileSystem(
+            anon=True,
+            default_block_size=2**20,
+            client_kwargs={},
+        )
+
+        # if self._cache:
+        cache_options = {
+            "cache_storage": self.cache,
+            "expiry_time": 31622400,  # 1 year
+        }
+        self.fs = WholeFileCacheFileSystem(fs=self.s3fs, **cache_options)
+        self.lexicon = GEFSLexicon
+
+    def _get_grid_name(
+        self, time: datetime, lead_time: timedelta, grid_class: str
+    ) -> str:
+        """Return grib file name"""
+        lead_hour = int(lead_time.total_seconds() // 3600)
+        file_name = f"gefs.{time.year}{time.month:0>2}{time.day:0>2}/{time.hour:0>2}"
+        return os.path.join(
+            file_name,
+            f"atmos/{grid_class}p5/{self._product}.t{time.hour:0>2}z.{grid_class}.0p50.f{lead_hour:03d}",
+        )
+
+    @classmethod
+    def _validate_leadtime(cls, lead_times: list[timedelta]) -> None:
+        """Verify if lead time is valid for GEFS based on offline knowledge"""
+        for delta in lead_times:
+            # To update search "gefs." at https://noaa-gefs-pds.s3.amazonaws.com/index.html
+            hours = int(delta.total_seconds() // 3600)
+            if hours > 384 or hours < 0:
+                raise ValueError(
+                    f"Requested lead time {delta} can only be a max of 384 hours for GEFS"
+                )
+
+            # 3-hours supported for first 10 days
+            if delta.total_seconds() // 3600 <= 240:
+                if not delta.total_seconds() % 10800 == 0:
+                    raise ValueError(
+                        f"Requested lead time {delta} needs to be 3 hour interval for first 10 days in GEFS"
+                    )
+            # 6 hours for rest
+            else:
+                if not delta.total_seconds() % 21600 == 0:
+                    raise ValueError(
+                        f"Requested lead time {delta} needs to be 6 hour interval for last 6 days in GEFS"
+                    )
+
+
+class GEFS_FX_721_1440(_GEFSBase):
+    """The Global Ensemble Forecast System (GEFS) forecast source is a 30 member
+    ensemble forecast provided on an 0.25 degree equirectangular grid. GEFS is a
+    weather forecast model developed by  National Centers for Environmental Prediction
+    (NCEP). This data source provides the select variables of GEFS served on a higher
+    resolution grid t 6-hour intervals spanning from Sept 23rd 2020 to present date.
+    Each forecast provides 3-hourly predictions up to 10 days (240 hours) and 6 hourly
+    predictions for another 6 days (384 hours).
+
+    Parameters
+    ----------
+    product : str, optional
+        GEFS product. Options are: control gec00 (control), gepNN (forecast member NN,
+        e.g. gep01, gep02,...), by default "gec00"
+    cache : bool, optional
+        Cache data source on local memory, by default True
+    verbose : bool, optional
+        Print download progress, by default True
+
+    Warning
+    -------
+    This is a remote data source and can potentially download a large amount of data
+    to your local machine for large requests.
+
+    Warning
+    -------
+    Some variables in the GEFS lexicon may not be avaiable at lead time 0. Consult GEFS
+    documentation for additional information.
+
+    Note
+    ----
+    NCEP only provides a small subset of variables on the higher resoluton 0.25 degree
+    grid. For a larger selection, use the standard GEFS data source.
+
+    Note
+    ----
+    Additional information on the data repository can be referenced here:
+
+    - https://registry.opendata.aws/noaa-gefs/
+    - https://www.ncei.noaa.gov/products/weather-climate-models/global-ensemble-forecast
+    - https://www.nco.ncep.noaa.gov/pmb/products/gens/
+    """
+
+    GEFS_BUCKET_NAME = "noaa-gefs-pds"
+    MAX_BYTE_SIZE = 5000000
+
+    GEFS_LAT = np.linspace(90, -90, 721)
+    GEFS_LON = np.linspace(0, 359.75, 1440)
+
+    GEFS_PRODUCTS = ["gec00"] + [f"gep{i:02d}" for i in range(1, 31)]
+    GEFS_CHECK_CLASS = "pgrb2sp25"
+
+    def __init__(
+        self,
+        product: str = "gec00",
+        cache: bool = True,
+        verbose: bool = True,
+    ):
+
+        if product not in self.GEFS_PRODUCTS:
+            raise ValueError(f"Invalid GEFS select variable product {product}")
+
+        self._cache = cache
+        self._verbose = verbose
+        self._product = product
+        self.s3fs = s3fs.S3FileSystem(
+            anon=True,
+            default_block_size=2**20,
+            client_kwargs={},
+        )
+
+        # if self._cache:
+        cache_options = {
+            "cache_storage": self.cache,
+            "expiry_time": 31622400,  # 1 year
+        }
+        self.fs = WholeFileCacheFileSystem(fs=self.s3fs, **cache_options)
+        self.lexicon = GEFSLexiconSel
+
+    def _get_grid_name(
+        self, time: datetime, lead_time: timedelta, grid_class: str
+    ) -> str:
+        """Return grib file name"""
+        lead_hour = int(lead_time.total_seconds() // 3600)
+        file_name = f"gefs.{time.year}{time.month:0>2}{time.day:0>2}/{time.hour:0>2}"
+        return os.path.join(
+            file_name,
+            f"atmos/{grid_class}p25/{self._product}.t{time.hour:0>2}z.{grid_class}.0p25.f{lead_hour:03d}",
+        )
+
+    @classmethod
+    def _validate_leadtime(cls, lead_times: list[timedelta]) -> None:
+        """Verify if lead time is valid for GEFS based on offline knowledge"""
+        for delta in lead_times:
+            # To update search "gefs." at https://noaa-gefs-pds.s3.amazonaws.com/index.html
+            hours = int(delta.total_seconds() // 3600)
+            if hours > 240 or hours < 0:
+                raise ValueError(
+                    f"Requested lead time {delta} can only be a max of 240 hours for GEFS 0.25 degree data"
+                )
+
+            # 3-hours supported for first 10 days
+            if delta.total_seconds() // 3600 <= 240:
+                if not delta.total_seconds() % 10800 == 0:
+                    raise ValueError(
+                        f"Requested lead time {delta} needs to be 3 hour interval for first 10 days in GEFS 0.25 degree data"
+                    )

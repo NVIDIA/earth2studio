@@ -52,6 +52,7 @@ Typically used in intercomparison workflows.
 
    data.GFS_FX
    data.GEFS_FX
+   data.GEFS_FX_721_1440
 
 Functions
 ~~~~~~~~~

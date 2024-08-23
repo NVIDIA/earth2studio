@@ -23,7 +23,7 @@ from .base import LexiconType
 
 class GEFSLexicon(metaclass=LexiconType):
     """Global Ensemble Forecast System Lexicon, right now only support isobarric
-    GEFS specified <Parameter ID>::<Level/ Layer>
+    GEFS vocab specified <Data class>::<Parameter ID>::<Level/ Layer>
 
     Note
     ----
@@ -220,6 +220,45 @@ class GEFSLexicon(metaclass=LexiconType):
         "q950": "pgrb2b::SPFH::950 mb",
         "q975": "pgrb2b::SPFH::975 mb",
         "q1000": "pgrb2b::SPFH::1000 mb",
+    }
+
+    @classmethod
+    def get_item(cls, val: str) -> tuple[str, Callable]:
+        """Get item from GFS vocabulary."""
+        gfs_key = cls.VOCAB[val]
+        if gfs_key.split("::")[0] == "HGT":
+
+            def mod(x: np.array) -> np.array:
+                """Modify data value (if necessary)."""
+                return x * 9.81
+
+        else:
+
+            def mod(x: np.array) -> np.array:
+                """Modify data value (if necessary)."""
+                return x
+
+        return gfs_key, mod
+
+
+class GEFSLexiconSel(metaclass=LexiconType):
+    """Global Ensemble Forecast System 0.25 Degree Lexicon (Select variables). GEFS
+    vocab specified <Data class>::<Parameter ID>::<Level/ Layer>
+
+    Note
+    ----
+    Additional resources:
+    - https://www.nco.ncep.noaa.gov/pmb/products/gens/gec00.t00z.pgrb2s.0p25.f000.shtml
+    - https://www.nco.ncep.noaa.gov/pmb/products/gens/gec00.t00z.pgrb2s.0p25.f003.shtml
+    """
+
+    VOCAB = {
+        "u10m": "pgrb2s::UGRD::10 m above ground",
+        "v10m": "pgrb2s::VGRD::10 m above ground",
+        "t2m": "pgrb2s::TMP::2 m above ground",
+        "r2m": "pgrb2s::RH::2 m above ground",
+        "sp": "pgrb2s::PRES::surface",
+        "tcwv": "pgrb2s::PWAT::entire atmosphere (considered as a single layer)",
     }
 
     @classmethod
