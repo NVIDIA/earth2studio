@@ -463,89 +463,29 @@ document.write(`
     <span class="n">datasource_cache_root</span><span class="p">,</span>
     <span class="n">prep_forecast_inputs</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">earth2studio.lexicon</span> <span class="kn">import</span> <span class="n">GEFSLexicon</span>
+<span class="kn">from</span> <span class="nn">earth2studio.lexicon</span> <span class="kn">import</span> <span class="n">GEFSLexicon</span><span class="p">,</span> <span class="n">GEFSLexiconSel</span>
+<span class="kn">from</span> <span class="nn">earth2studio.lexicon.base</span> <span class="kn">import</span> <span class="n">LexiconType</span>
 <span class="kn">from</span> <span class="nn">earth2studio.utils.type</span> <span class="kn">import</span> <span class="n">LeadTimeArray</span><span class="p">,</span> <span class="n">TimeArray</span><span class="p">,</span> <span class="n">VariableArray</span>
 
 <span class="n">logger</span><span class="o">.</span><span class="n">remove</span><span class="p">()</span>
 <span class="n">logger</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="k">lambda</span> <span class="n">msg</span><span class="p">:</span> <span class="n">tqdm</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">msg</span><span class="p">,</span> <span class="n">end</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">),</span> <span class="n">colorize</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
 
-<div class="viewcode-block" id="GEFS_FX">
-<a class="viewcode-back" href="../../../modules/generated/data/earth2studio.data.GEFS_FX.html#earth2studio.data.GEFS_FX">[docs]</a>
-<span class="k">class</span> <span class="nc">GEFS_FX</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;The Global Ensemble Forecast System (GEFS) forecast source is a 30 member</span>
-<span class="sd">    ensemble forecast provided on an equirectangular grid. GEFS is a weather forecast</span>
-<span class="sd">    model developed by  National Centers for Environmental Prediction (NCEP). This data</span>
-<span class="sd">    source is on a 0.5 degree lat lon grid at 6-hour intervals spanning from</span>
-<span class="sd">    Sept 23rd 2020 to present date. Each forecast provides 3-hourly predictions up to</span>
-<span class="sd">    10 days (240 hours) and 6 hourly predictions for another 6 days (384 hours).</span>
+<span class="k">class</span> <span class="nc">_GEFSBase</span><span class="p">:</span>
 
-<span class="sd">    Parameters</span>
-<span class="sd">    ----------</span>
-<span class="sd">    product : str, optional</span>
-<span class="sd">        GEFS product. Options are: control gec00 (control), gepNN (forecast member NN,</span>
-<span class="sd">        e.g. gep01, gep02,...), by default &quot;gec00&quot;</span>
-<span class="sd">    cache : bool, optional</span>
-<span class="sd">        Cache data source on local memory, by default True</span>
-<span class="sd">    verbose : bool, optional</span>
-<span class="sd">        Print download progress, by default True</span>
+    <span class="n">GEFS_BUCKET_NAME</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">GEFS_CHECK_CLASS</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">GEFS_LAT</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>
+    <span class="n">GEFS_LON</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>
 
-<span class="sd">    Warning</span>
-<span class="sd">    -------</span>
-<span class="sd">    This is a remote data source and can potentially download a large amount of data</span>
-<span class="sd">    to your local machine for large requests.</span>
+    <span class="n">MAX_BYTE_SIZE</span><span class="p">:</span> <span class="nb">int</span>
 
-<span class="sd">    Note</span>
-<span class="sd">    ----</span>
-<span class="sd">    This forecast source is an ensemble forecast of isobaric variables (secondary</span>
-<span class="sd">    variables). Additional surface variables are provided by GEFS at 0.25 degree</span>
-<span class="sd">    resolution but are not integrated.</span>
+    <span class="n">_cache</span><span class="p">:</span> <span class="nb">bool</span>
+    <span class="n">_verbose</span><span class="p">:</span> <span class="nb">bool</span>
+    <span class="n">lexicon</span><span class="p">:</span> <span class="n">LexiconType</span>
+    <span class="n">fs</span><span class="p">:</span> <span class="n">s3fs</span><span class="o">.</span><span class="n">S3FileSystem</span>
+    <span class="n">s3fs</span><span class="p">:</span> <span class="n">s3fs</span><span class="o">.</span><span class="n">S3FileSystem</span>
 
-<span class="sd">    Note</span>
-<span class="sd">    ----</span>
-<span class="sd">    Additional information on the data repository can be referenced here:</span>
-
-<span class="sd">    - https://registry.opendata.aws/noaa-gefs/</span>
-<span class="sd">    - https://www.ncei.noaa.gov/products/weather-climate-models/global-ensemble-forecast</span>
-<span class="sd">    - https://www.nco.ncep.noaa.gov/pmb/products/gens/</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-
-    <span class="n">GEFS_BUCKET_NAME</span> <span class="o">=</span> <span class="s2">&quot;noaa-gefs-pds&quot;</span>
-    <span class="n">MAX_BYTE_SIZE</span> <span class="o">=</span> <span class="mi">5000000</span>
-
-    <span class="n">GEFS_LAT</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">90</span><span class="p">,</span> <span class="o">-</span><span class="mi">90</span><span class="p">,</span> <span class="mi">361</span><span class="p">)</span>
-    <span class="n">GEFS_LON</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mf">359.5</span><span class="p">,</span> <span class="mi">720</span><span class="p">)</span>
-
-    <span class="n">GEFS_PRODUCTS</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;gec00&quot;</span><span class="p">]</span> <span class="o">+</span> <span class="p">[</span><span class="sa">f</span><span class="s2">&quot;gep</span><span class="si">{</span><span class="n">i</span><span class="si">:</span><span class="s2">02d</span><span class="si">}</span><span class="s2">&quot;</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">31</span><span class="p">)]</span>
-
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span>
-        <span class="n">product</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;gec00&quot;</span><span class="p">,</span>
-        <span class="n">cache</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
-        <span class="n">verbose</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
-    <span class="p">):</span>
-
-        <span class="k">if</span> <span class="n">product</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">GEFS_PRODUCTS</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Invalid GEFS product </span><span class="si">{</span><span class="n">product</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-
-        <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span> <span class="o">=</span> <span class="n">cache</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_verbose</span> <span class="o">=</span> <span class="n">verbose</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_product</span> <span class="o">=</span> <span class="n">product</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">s3fs</span> <span class="o">=</span> <span class="n">s3fs</span><span class="o">.</span><span class="n">S3FileSystem</span><span class="p">(</span>
-            <span class="n">anon</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-            <span class="n">default_block_size</span><span class="o">=</span><span class="mi">2</span><span class="o">**</span><span class="mi">20</span><span class="p">,</span>
-            <span class="n">client_kwargs</span><span class="o">=</span><span class="p">{},</span>
-        <span class="p">)</span>
-
-        <span class="c1"># if self._cache:</span>
-        <span class="n">cache_options</span> <span class="o">=</span> <span class="p">{</span>
-            <span class="s2">&quot;cache_storage&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">cache</span><span class="p">,</span>
-            <span class="s2">&quot;expiry_time&quot;</span><span class="p">:</span> <span class="mi">31622400</span><span class="p">,</span>  <span class="c1"># 1 year</span>
-        <span class="p">}</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">fs</span> <span class="o">=</span> <span class="n">WholeFileCacheFileSystem</span><span class="p">(</span><span class="n">fs</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">s3fs</span><span class="p">,</span> <span class="o">**</span><span class="n">cache_options</span><span class="p">)</span>
-
-<div class="viewcode-block" id="GEFS_FX.__call__">
-<a class="viewcode-back" href="../../../modules/generated/data/earth2studio.data.GEFS_FX.html#earth2studio.data.GEFS_FX.__call__">[docs]</a>
     <span class="k">def</span> <span class="fm">__call__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">time</span><span class="p">:</span> <span class="n">datetime</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="n">datetime</span><span class="p">]</span> <span class="o">|</span> <span class="n">TimeArray</span><span class="p">,</span>
@@ -585,8 +525,7 @@ document.write(`
         <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span><span class="p">:</span>
             <span class="n">shutil</span><span class="o">.</span><span class="n">rmtree</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cache</span><span class="p">)</span>
 
-        <span class="k">return</span> <span class="n">xr_array</span></div>
-
+        <span class="k">return</span> <span class="n">xr_array</span>
 
     <span class="k">def</span> <span class="nf">create_data_array</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">time</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">datetime</span><span class="p">],</span> <span class="n">lead_time</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">timedelta</span><span class="p">],</span> <span class="n">variable</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span>
@@ -668,21 +607,15 @@ document.write(`
             <span class="sa">f</span><span class="s2">&quot;Fetching GEFS data for variable: </span><span class="si">{</span><span class="n">variable</span><span class="si">}</span><span class="s2"> at </span><span class="si">{</span><span class="n">time</span><span class="o">.</span><span class="n">isoformat</span><span class="p">()</span><span class="si">}</span><span class="s2"> lead time </span><span class="si">{</span><span class="n">lead_time</span><span class="si">}</span><span class="s2">&quot;</span>
         <span class="p">)</span>
         <span class="k">try</span><span class="p">:</span>
-            <span class="n">gefs_name</span><span class="p">,</span> <span class="n">modifier</span> <span class="o">=</span> <span class="n">GEFSLexicon</span><span class="p">[</span><span class="n">variable</span><span class="p">]</span>
+            <span class="n">gefs_name</span><span class="p">,</span> <span class="n">modifier</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">lexicon</span><span class="p">[</span><span class="n">variable</span><span class="p">]</span>
             <span class="n">gefs_grib</span><span class="p">,</span> <span class="n">gefs_var</span><span class="p">,</span> <span class="n">gefs_level</span> <span class="o">=</span> <span class="n">gefs_name</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;::&quot;</span><span class="p">)</span>
         <span class="k">except</span> <span class="ne">KeyError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
             <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;variable id </span><span class="si">{</span><span class="n">variable</span><span class="si">}</span><span class="s2"> not found in GEFS lexicon&quot;</span><span class="p">)</span>
             <span class="k">raise</span> <span class="n">e</span>
 
-        <span class="c1"># Set up s3 file paths</span>
-        <span class="n">lead_hour</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">lead_time</span><span class="o">.</span><span class="n">total_seconds</span><span class="p">()</span> <span class="o">//</span> <span class="mi">3600</span><span class="p">)</span>
-        <span class="n">file_name</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;gefs.</span><span class="si">{</span><span class="n">time</span><span class="o">.</span><span class="n">year</span><span class="si">}{</span><span class="n">time</span><span class="o">.</span><span class="n">month</span><span class="si">:</span><span class="s2">0&gt;2</span><span class="si">}{</span><span class="n">time</span><span class="o">.</span><span class="n">day</span><span class="si">:</span><span class="s2">0&gt;2</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">time</span><span class="o">.</span><span class="n">hour</span><span class="si">:</span><span class="s2">0&gt;2</span><span class="si">}</span><span class="s2">&quot;</span>
-        <span class="n">index_file_name</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
-            <span class="n">file_name</span><span class="p">,</span>
-            <span class="sa">f</span><span class="s2">&quot;atmos/</span><span class="si">{</span><span class="n">gefs_grib</span><span class="si">}</span><span class="s2">p5/</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_product</span><span class="si">}</span><span class="s2">.t</span><span class="si">{</span><span class="n">time</span><span class="o">.</span><span class="n">hour</span><span class="si">:</span><span class="s2">0&gt;2</span><span class="si">}</span><span class="s2">z.</span><span class="si">{</span><span class="n">gefs_grib</span><span class="si">}</span><span class="s2">.0p50.f</span><span class="si">{</span><span class="n">lead_hour</span><span class="si">:</span><span class="s2">03d</span><span class="si">}</span><span class="s2">.idx&quot;</span><span class="p">,</span>
-        <span class="p">)</span>
-        <span class="n">s3_index_uri</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">GEFS_BUCKET_NAME</span><span class="p">,</span> <span class="n">index_file_name</span><span class="p">)</span>
-        <span class="n">s3_grib_uri</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">GEFS_BUCKET_NAME</span><span class="p">,</span> <span class="n">index_file_name</span><span class="p">[:</span><span class="o">-</span><span class="mi">4</span><span class="p">])</span>
+        <span class="n">file_name</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_grid_name</span><span class="p">(</span><span class="n">time</span><span class="p">,</span> <span class="n">lead_time</span><span class="p">,</span> <span class="n">gefs_grib</span><span class="p">)</span>
+        <span class="n">s3_index_uri</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">GEFS_BUCKET_NAME</span><span class="p">,</span> <span class="n">file_name</span> <span class="o">+</span> <span class="s2">&quot;.idx&quot;</span><span class="p">)</span>
+        <span class="n">s3_grib_uri</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">GEFS_BUCKET_NAME</span><span class="p">,</span> <span class="n">file_name</span><span class="p">)</span>
 
         <span class="c1"># Download the grib index file and parse</span>
         <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">fs</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="n">s3_index_uri</span><span class="p">)</span> <span class="k">as</span> <span class="n">file</span><span class="p">:</span>
@@ -735,6 +668,27 @@ document.write(`
         <span class="p">)</span>
         <span class="k">return</span> <span class="n">modifier</span><span class="p">(</span><span class="n">da</span><span class="o">.</span><span class="n">values</span><span class="p">)</span>
 
+    <span class="k">def</span> <span class="nf">_get_grid_name</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">time</span><span class="p">:</span> <span class="n">datetime</span><span class="p">,</span> <span class="n">lead_time</span><span class="p">:</span> <span class="n">timedelta</span><span class="p">,</span> <span class="n">grid_class</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Returns gribfile name to fetch, should override in child</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        time : datetime</span>
+<span class="sd">            Time to fetch</span>
+<span class="sd">        lead_time: timedelta</span>
+<span class="sd">            Lead time to fetch</span>
+<span class="sd">        grid_class : str</span>
+<span class="sd">            Grib classification in GEFS (e.g. pgrb2a, pgrb2b, pgrb2s)</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        str</span>
+<span class="sd">            File name of Grib file in S3 bucket</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;Child class needs to implement this&quot;</span><span class="p">)</span>
+
     <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">_validate_time</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">times</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">datetime</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Verify if date time is valid for GEFS based on offline knowledge</span>
@@ -749,8 +703,7 @@ document.write(`
                 <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
                     <span class="sa">f</span><span class="s2">&quot;Requested date time </span><span class="si">{</span><span class="n">time</span><span class="si">}</span><span class="s2"> needs to be 6 hour interval for GEFS&quot;</span>
                 <span class="p">)</span>
-            <span class="c1"># To update search &quot;gfs.&quot; at https://noaa-gfs-bdp-pds.s3.amazonaws.com/index.html</span>
-            <span class="c1"># They are slowly adding more data</span>
+            <span class="c1"># Brute forces checked this, older dates missing data</span>
             <span class="k">if</span> <span class="n">time</span> <span class="o">&lt;</span> <span class="n">datetime</span><span class="p">(</span><span class="n">year</span><span class="o">=</span><span class="mi">2020</span><span class="p">,</span> <span class="n">month</span><span class="o">=</span><span class="mi">9</span><span class="p">,</span> <span class="n">day</span><span class="o">=</span><span class="mi">23</span><span class="p">):</span>
                 <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
                     <span class="sa">f</span><span class="s2">&quot;Requested date time </span><span class="si">{</span><span class="n">time</span><span class="si">}</span><span class="s2"> needs to be after Sept 23rd, 2020 for GEFS&quot;</span>
@@ -765,26 +718,7 @@ document.write(`
 <span class="sd">        lead_times : list[timedelta]</span>
 <span class="sd">            list of lead times to fetch data</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">for</span> <span class="n">delta</span> <span class="ow">in</span> <span class="n">lead_times</span><span class="p">:</span>
-            <span class="c1"># To update search &quot;gefs.&quot; at https://noaa-gefs-pds.s3.amazonaws.com/index.html</span>
-            <span class="n">hours</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">delta</span><span class="o">.</span><span class="n">total_seconds</span><span class="p">()</span> <span class="o">//</span> <span class="mi">3600</span><span class="p">)</span>
-            <span class="k">if</span> <span class="n">hours</span> <span class="o">&gt;</span> <span class="mi">384</span> <span class="ow">or</span> <span class="n">hours</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                    <span class="sa">f</span><span class="s2">&quot;Requested lead time </span><span class="si">{</span><span class="n">delta</span><span class="si">}</span><span class="s2"> can only be a max of 384 hours for GEFS&quot;</span>
-                <span class="p">)</span>
-
-            <span class="c1"># 3-hours supported for first 10 days</span>
-            <span class="k">if</span> <span class="n">delta</span><span class="o">.</span><span class="n">total_seconds</span><span class="p">()</span> <span class="o">//</span> <span class="mi">3600</span> <span class="o">&lt;=</span> <span class="mi">240</span><span class="p">:</span>
-                <span class="k">if</span> <span class="ow">not</span> <span class="n">delta</span><span class="o">.</span><span class="n">total_seconds</span><span class="p">()</span> <span class="o">%</span> <span class="mi">10800</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                        <span class="sa">f</span><span class="s2">&quot;Requested lead time </span><span class="si">{</span><span class="n">delta</span><span class="si">}</span><span class="s2"> needs to be 3 hour interval for first 10 days in GEFS&quot;</span>
-                    <span class="p">)</span>
-            <span class="c1"># 6 hours for rest</span>
-            <span class="k">else</span><span class="p">:</span>
-                <span class="k">if</span> <span class="ow">not</span> <span class="n">delta</span><span class="o">.</span><span class="n">total_seconds</span><span class="p">()</span> <span class="o">%</span> <span class="mi">21600</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                        <span class="sa">f</span><span class="s2">&quot;Requested lead time </span><span class="si">{</span><span class="n">delta</span><span class="si">}</span><span class="s2"> needs to be 6 hour interval for last 6 days in GEFS&quot;</span>
-                    <span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;Child class needs to implement this&quot;</span><span class="p">)</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">cache</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
@@ -798,8 +732,6 @@ document.write(`
             <span class="p">)</span>
         <span class="k">return</span> <span class="n">cache_location</span>
 
-<div class="viewcode-block" id="GEFS_FX.available">
-<a class="viewcode-back" href="../../../modules/generated/data/earth2studio.data.GEFS_FX.html#earth2studio.data.GEFS_FX.available">[docs]</a>
     <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">available</span><span class="p">(</span>
         <span class="bp">cls</span><span class="p">,</span>
@@ -832,12 +764,234 @@ document.write(`
 
         <span class="c1"># Object store directory for given time</span>
         <span class="c1"># Should contain two keys: atmos and wave</span>
-        <span class="n">file_name</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;gefs.</span><span class="si">{</span><span class="n">time</span><span class="o">.</span><span class="n">year</span><span class="si">}{</span><span class="n">time</span><span class="o">.</span><span class="n">month</span><span class="si">:</span><span class="s2">0&gt;2</span><span class="si">}{</span><span class="n">time</span><span class="o">.</span><span class="n">day</span><span class="si">:</span><span class="s2">0&gt;2</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">time</span><span class="o">.</span><span class="n">hour</span><span class="si">:</span><span class="s2">0&gt;2</span><span class="si">}</span><span class="s2">/atmos/pgrb2bp5/&quot;</span>
+        <span class="n">file_name</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;gefs.</span><span class="si">{</span><span class="n">time</span><span class="o">.</span><span class="n">year</span><span class="si">}{</span><span class="n">time</span><span class="o">.</span><span class="n">month</span><span class="si">:</span><span class="s2">0&gt;2</span><span class="si">}{</span><span class="n">time</span><span class="o">.</span><span class="n">day</span><span class="si">:</span><span class="s2">0&gt;2</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">time</span><span class="o">.</span><span class="n">hour</span><span class="si">:</span><span class="s2">0&gt;2</span><span class="si">}</span><span class="s2">/atmos/</span><span class="si">{</span><span class="bp">cls</span><span class="o">.</span><span class="n">GEFS_CHECK_CLASS</span><span class="si">}</span><span class="s2">/&quot;</span>
         <span class="n">s3_uri</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;s3://</span><span class="si">{</span><span class="bp">cls</span><span class="o">.</span><span class="n">GEFS_BUCKET_NAME</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">file_name</span><span class="si">}</span><span class="s2">&quot;</span>
         <span class="n">exists</span> <span class="o">=</span> <span class="n">fs</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">s3_uri</span><span class="p">)</span>
 
-        <span class="k">return</span> <span class="n">exists</span></div>
-</div>
+        <span class="k">return</span> <span class="n">exists</span>
+
+
+<div class="viewcode-block" id="GEFS_FX">
+<a class="viewcode-back" href="../../../modules/generated/data/earth2studio.data.GEFS_FX.html#earth2studio.data.GEFS_FX">[docs]</a>
+<span class="k">class</span> <span class="nc">GEFS_FX</span><span class="p">(</span><span class="n">_GEFSBase</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;The Global Ensemble Forecast System (GEFS) forecast source is a 30 member</span>
+<span class="sd">    ensemble forecast provided on an 0.5 degree equirectangular grid.  GEFS is a weather</span>
+<span class="sd">    forecast model developed by  National Centers for Environmental Prediction (NCEP).</span>
+<span class="sd">    This forecast source has data at 6-hour intervals spanning from Sept 23rd 2020 to</span>
+<span class="sd">    present date. Each forecast provides 3-hourly predictions up to 10 days (240 hours)</span>
+<span class="sd">    and 6 hourly predictions for another 6 days (384 hours).</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    product : str, optional</span>
+<span class="sd">        GEFS product. Options are: control gec00 (control), gepNN (forecast member NN,</span>
+<span class="sd">        e.g. gep01, gep02,...), by default &quot;gec00&quot;</span>
+<span class="sd">    cache : bool, optional</span>
+<span class="sd">        Cache data source on local memory, by default True</span>
+<span class="sd">    verbose : bool, optional</span>
+<span class="sd">        Print download progress, by default True</span>
+
+<span class="sd">    Warning</span>
+<span class="sd">    -------</span>
+<span class="sd">    This is a remote data source and can potentially download a large amount of data</span>
+<span class="sd">    to your local machine for large requests.</span>
+
+<span class="sd">    Warning</span>
+<span class="sd">    -------</span>
+<span class="sd">    Some variables in the GEFS lexicon may not be available at lead time 0. Consult GEFS</span>
+<span class="sd">    documentation for additional information.</span>
+
+<span class="sd">    Note</span>
+<span class="sd">    ----</span>
+<span class="sd">    Additional information on the data repository can be referenced here:</span>
+
+<span class="sd">    - https://registry.opendata.aws/noaa-gefs/</span>
+<span class="sd">    - https://www.ncei.noaa.gov/products/weather-climate-models/global-ensemble-forecast</span>
+<span class="sd">    - https://www.nco.ncep.noaa.gov/pmb/products/gens/</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">GEFS_BUCKET_NAME</span> <span class="o">=</span> <span class="s2">&quot;noaa-gefs-pds&quot;</span>
+    <span class="n">MAX_BYTE_SIZE</span> <span class="o">=</span> <span class="mi">5000000</span>
+
+    <span class="n">GEFS_LAT</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">90</span><span class="p">,</span> <span class="o">-</span><span class="mi">90</span><span class="p">,</span> <span class="mi">361</span><span class="p">)</span>
+    <span class="n">GEFS_LON</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mf">359.5</span><span class="p">,</span> <span class="mi">720</span><span class="p">)</span>
+
+    <span class="n">GEFS_PRODUCTS</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;gec00&quot;</span><span class="p">]</span> <span class="o">+</span> <span class="p">[</span><span class="sa">f</span><span class="s2">&quot;gep</span><span class="si">{</span><span class="n">i</span><span class="si">:</span><span class="s2">02d</span><span class="si">}</span><span class="s2">&quot;</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">31</span><span class="p">)]</span>
+    <span class="n">GEFS_CHECK_CLASS</span> <span class="o">=</span> <span class="s2">&quot;pgrb2bp5&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">product</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;gec00&quot;</span><span class="p">,</span>
+        <span class="n">cache</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="n">verbose</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="p">):</span>
+
+        <span class="k">if</span> <span class="n">product</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">GEFS_PRODUCTS</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Invalid GEFS product </span><span class="si">{</span><span class="n">product</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span> <span class="o">=</span> <span class="n">cache</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_verbose</span> <span class="o">=</span> <span class="n">verbose</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_product</span> <span class="o">=</span> <span class="n">product</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">s3fs</span> <span class="o">=</span> <span class="n">s3fs</span><span class="o">.</span><span class="n">S3FileSystem</span><span class="p">(</span>
+            <span class="n">anon</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="n">default_block_size</span><span class="o">=</span><span class="mi">2</span><span class="o">**</span><span class="mi">20</span><span class="p">,</span>
+            <span class="n">client_kwargs</span><span class="o">=</span><span class="p">{},</span>
+        <span class="p">)</span>
+
+        <span class="c1"># if self._cache:</span>
+        <span class="n">cache_options</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">&quot;cache_storage&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">cache</span><span class="p">,</span>
+            <span class="s2">&quot;expiry_time&quot;</span><span class="p">:</span> <span class="mi">31622400</span><span class="p">,</span>  <span class="c1"># 1 year</span>
+        <span class="p">}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">fs</span> <span class="o">=</span> <span class="n">WholeFileCacheFileSystem</span><span class="p">(</span><span class="n">fs</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">s3fs</span><span class="p">,</span> <span class="o">**</span><span class="n">cache_options</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">lexicon</span> <span class="o">=</span> <span class="n">GEFSLexicon</span>
+
+    <span class="k">def</span> <span class="nf">_get_grid_name</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">time</span><span class="p">:</span> <span class="n">datetime</span><span class="p">,</span> <span class="n">lead_time</span><span class="p">:</span> <span class="n">timedelta</span><span class="p">,</span> <span class="n">grid_class</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return grib file name&quot;&quot;&quot;</span>
+        <span class="n">lead_hour</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">lead_time</span><span class="o">.</span><span class="n">total_seconds</span><span class="p">()</span> <span class="o">//</span> <span class="mi">3600</span><span class="p">)</span>
+        <span class="n">file_name</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;gefs.</span><span class="si">{</span><span class="n">time</span><span class="o">.</span><span class="n">year</span><span class="si">}{</span><span class="n">time</span><span class="o">.</span><span class="n">month</span><span class="si">:</span><span class="s2">0&gt;2</span><span class="si">}{</span><span class="n">time</span><span class="o">.</span><span class="n">day</span><span class="si">:</span><span class="s2">0&gt;2</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">time</span><span class="o">.</span><span class="n">hour</span><span class="si">:</span><span class="s2">0&gt;2</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="k">return</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
+            <span class="n">file_name</span><span class="p">,</span>
+            <span class="sa">f</span><span class="s2">&quot;atmos/</span><span class="si">{</span><span class="n">grid_class</span><span class="si">}</span><span class="s2">p5/</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_product</span><span class="si">}</span><span class="s2">.t</span><span class="si">{</span><span class="n">time</span><span class="o">.</span><span class="n">hour</span><span class="si">:</span><span class="s2">0&gt;2</span><span class="si">}</span><span class="s2">z.</span><span class="si">{</span><span class="n">grid_class</span><span class="si">}</span><span class="s2">.0p50.f</span><span class="si">{</span><span class="n">lead_hour</span><span class="si">:</span><span class="s2">03d</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">_validate_leadtime</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">lead_times</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">timedelta</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Verify if lead time is valid for GEFS based on offline knowledge&quot;&quot;&quot;</span>
+        <span class="k">for</span> <span class="n">delta</span> <span class="ow">in</span> <span class="n">lead_times</span><span class="p">:</span>
+            <span class="c1"># To update search &quot;gefs.&quot; at https://noaa-gefs-pds.s3.amazonaws.com/index.html</span>
+            <span class="n">hours</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">delta</span><span class="o">.</span><span class="n">total_seconds</span><span class="p">()</span> <span class="o">//</span> <span class="mi">3600</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">hours</span> <span class="o">&gt;</span> <span class="mi">384</span> <span class="ow">or</span> <span class="n">hours</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;Requested lead time </span><span class="si">{</span><span class="n">delta</span><span class="si">}</span><span class="s2"> can only be a max of 384 hours for GEFS&quot;</span>
+                <span class="p">)</span>
+
+            <span class="c1"># 3-hours supported for first 10 days</span>
+            <span class="k">if</span> <span class="n">delta</span><span class="o">.</span><span class="n">total_seconds</span><span class="p">()</span> <span class="o">//</span> <span class="mi">3600</span> <span class="o">&lt;=</span> <span class="mi">240</span><span class="p">:</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">delta</span><span class="o">.</span><span class="n">total_seconds</span><span class="p">()</span> <span class="o">%</span> <span class="mi">10800</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                        <span class="sa">f</span><span class="s2">&quot;Requested lead time </span><span class="si">{</span><span class="n">delta</span><span class="si">}</span><span class="s2"> needs to be 3 hour interval for first 10 days in GEFS&quot;</span>
+                    <span class="p">)</span>
+            <span class="c1"># 6 hours for rest</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">delta</span><span class="o">.</span><span class="n">total_seconds</span><span class="p">()</span> <span class="o">%</span> <span class="mi">21600</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                        <span class="sa">f</span><span class="s2">&quot;Requested lead time </span><span class="si">{</span><span class="n">delta</span><span class="si">}</span><span class="s2"> needs to be 6 hour interval for last 6 days in GEFS&quot;</span>
+                    <span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="GEFS_FX_721_1440">
+<a class="viewcode-back" href="../../../modules/generated/data/earth2studio.data.GEFS_FX_721_1440.html#earth2studio.data.GEFS_FX_721_1440">[docs]</a>
+<span class="k">class</span> <span class="nc">GEFS_FX_721_1440</span><span class="p">(</span><span class="n">_GEFSBase</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;The Global Ensemble Forecast System (GEFS) forecast source is a 30 member</span>
+<span class="sd">    ensemble forecast provided on an 0.25 degree equirectangular grid. GEFS is a</span>
+<span class="sd">    weather forecast model developed by  National Centers for Environmental Prediction</span>
+<span class="sd">    (NCEP). This data source provides the select variables of GEFS served on a higher</span>
+<span class="sd">    resolution grid t 6-hour intervals spanning from Sept 23rd 2020 to present date.</span>
+<span class="sd">    Each forecast provides 3-hourly predictions up to 10 days (240 hours) and 6 hourly</span>
+<span class="sd">    predictions for another 6 days (384 hours).</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    product : str, optional</span>
+<span class="sd">        GEFS product. Options are: control gec00 (control), gepNN (forecast member NN,</span>
+<span class="sd">        e.g. gep01, gep02,...), by default &quot;gec00&quot;</span>
+<span class="sd">    cache : bool, optional</span>
+<span class="sd">        Cache data source on local memory, by default True</span>
+<span class="sd">    verbose : bool, optional</span>
+<span class="sd">        Print download progress, by default True</span>
+
+<span class="sd">    Warning</span>
+<span class="sd">    -------</span>
+<span class="sd">    This is a remote data source and can potentially download a large amount of data</span>
+<span class="sd">    to your local machine for large requests.</span>
+
+<span class="sd">    Warning</span>
+<span class="sd">    -------</span>
+<span class="sd">    Some variables in the GEFS lexicon may not be available at lead time 0. Consult GEFS</span>
+<span class="sd">    documentation for additional information.</span>
+
+<span class="sd">    Note</span>
+<span class="sd">    ----</span>
+<span class="sd">    NCEP only provides a small subset of variables on the higher resoluton 0.25 degree</span>
+<span class="sd">    grid. For a larger selection, use the standard GEFS data source.</span>
+
+<span class="sd">    Note</span>
+<span class="sd">    ----</span>
+<span class="sd">    Additional information on the data repository can be referenced here:</span>
+
+<span class="sd">    - https://registry.opendata.aws/noaa-gefs/</span>
+<span class="sd">    - https://www.ncei.noaa.gov/products/weather-climate-models/global-ensemble-forecast</span>
+<span class="sd">    - https://www.nco.ncep.noaa.gov/pmb/products/gens/</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">GEFS_BUCKET_NAME</span> <span class="o">=</span> <span class="s2">&quot;noaa-gefs-pds&quot;</span>
+    <span class="n">MAX_BYTE_SIZE</span> <span class="o">=</span> <span class="mi">5000000</span>
+
+    <span class="n">GEFS_LAT</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">90</span><span class="p">,</span> <span class="o">-</span><span class="mi">90</span><span class="p">,</span> <span class="mi">721</span><span class="p">)</span>
+    <span class="n">GEFS_LON</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mf">359.75</span><span class="p">,</span> <span class="mi">1440</span><span class="p">)</span>
+
+    <span class="n">GEFS_PRODUCTS</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;gec00&quot;</span><span class="p">]</span> <span class="o">+</span> <span class="p">[</span><span class="sa">f</span><span class="s2">&quot;gep</span><span class="si">{</span><span class="n">i</span><span class="si">:</span><span class="s2">02d</span><span class="si">}</span><span class="s2">&quot;</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">31</span><span class="p">)]</span>
+    <span class="n">GEFS_CHECK_CLASS</span> <span class="o">=</span> <span class="s2">&quot;pgrb2sp25&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">product</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;gec00&quot;</span><span class="p">,</span>
+        <span class="n">cache</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="n">verbose</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="p">):</span>
+
+        <span class="k">if</span> <span class="n">product</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">GEFS_PRODUCTS</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Invalid GEFS select variable product </span><span class="si">{</span><span class="n">product</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span> <span class="o">=</span> <span class="n">cache</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_verbose</span> <span class="o">=</span> <span class="n">verbose</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_product</span> <span class="o">=</span> <span class="n">product</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">s3fs</span> <span class="o">=</span> <span class="n">s3fs</span><span class="o">.</span><span class="n">S3FileSystem</span><span class="p">(</span>
+            <span class="n">anon</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="n">default_block_size</span><span class="o">=</span><span class="mi">2</span><span class="o">**</span><span class="mi">20</span><span class="p">,</span>
+            <span class="n">client_kwargs</span><span class="o">=</span><span class="p">{},</span>
+        <span class="p">)</span>
+
+        <span class="c1"># if self._cache:</span>
+        <span class="n">cache_options</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">&quot;cache_storage&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">cache</span><span class="p">,</span>
+            <span class="s2">&quot;expiry_time&quot;</span><span class="p">:</span> <span class="mi">31622400</span><span class="p">,</span>  <span class="c1"># 1 year</span>
+        <span class="p">}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">fs</span> <span class="o">=</span> <span class="n">WholeFileCacheFileSystem</span><span class="p">(</span><span class="n">fs</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">s3fs</span><span class="p">,</span> <span class="o">**</span><span class="n">cache_options</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">lexicon</span> <span class="o">=</span> <span class="n">GEFSLexiconSel</span>
+
+    <span class="k">def</span> <span class="nf">_get_grid_name</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">time</span><span class="p">:</span> <span class="n">datetime</span><span class="p">,</span> <span class="n">lead_time</span><span class="p">:</span> <span class="n">timedelta</span><span class="p">,</span> <span class="n">grid_class</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return grib file name&quot;&quot;&quot;</span>
+        <span class="n">lead_hour</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">lead_time</span><span class="o">.</span><span class="n">total_seconds</span><span class="p">()</span> <span class="o">//</span> <span class="mi">3600</span><span class="p">)</span>
+        <span class="n">file_name</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;gefs.</span><span class="si">{</span><span class="n">time</span><span class="o">.</span><span class="n">year</span><span class="si">}{</span><span class="n">time</span><span class="o">.</span><span class="n">month</span><span class="si">:</span><span class="s2">0&gt;2</span><span class="si">}{</span><span class="n">time</span><span class="o">.</span><span class="n">day</span><span class="si">:</span><span class="s2">0&gt;2</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">time</span><span class="o">.</span><span class="n">hour</span><span class="si">:</span><span class="s2">0&gt;2</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="k">return</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
+            <span class="n">file_name</span><span class="p">,</span>
+            <span class="sa">f</span><span class="s2">&quot;atmos/</span><span class="si">{</span><span class="n">grid_class</span><span class="si">}</span><span class="s2">p25/</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_product</span><span class="si">}</span><span class="s2">.t</span><span class="si">{</span><span class="n">time</span><span class="o">.</span><span class="n">hour</span><span class="si">:</span><span class="s2">0&gt;2</span><span class="si">}</span><span class="s2">z.</span><span class="si">{</span><span class="n">grid_class</span><span class="si">}</span><span class="s2">.0p25.f</span><span class="si">{</span><span class="n">lead_hour</span><span class="si">:</span><span class="s2">03d</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">_validate_leadtime</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">lead_times</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">timedelta</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Verify if lead time is valid for GEFS based on offline knowledge&quot;&quot;&quot;</span>
+        <span class="k">for</span> <span class="n">delta</span> <span class="ow">in</span> <span class="n">lead_times</span><span class="p">:</span>
+            <span class="c1"># To update search &quot;gefs.&quot; at https://noaa-gefs-pds.s3.amazonaws.com/index.html</span>
+            <span class="n">hours</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">delta</span><span class="o">.</span><span class="n">total_seconds</span><span class="p">()</span> <span class="o">//</span> <span class="mi">3600</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">hours</span> <span class="o">&gt;</span> <span class="mi">240</span> <span class="ow">or</span> <span class="n">hours</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;Requested lead time </span><span class="si">{</span><span class="n">delta</span><span class="si">}</span><span class="s2"> can only be a max of 240 hours for GEFS 0.25 degree data&quot;</span>
+                <span class="p">)</span>
+
+            <span class="c1"># 3-hours supported for first 10 days</span>
+            <span class="k">if</span> <span class="n">delta</span><span class="o">.</span><span class="n">total_seconds</span><span class="p">()</span> <span class="o">//</span> <span class="mi">3600</span> <span class="o">&lt;=</span> <span class="mi">240</span><span class="p">:</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">delta</span><span class="o">.</span><span class="n">total_seconds</span><span class="p">()</span> <span class="o">%</span> <span class="mi">10800</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                        <span class="sa">f</span><span class="s2">&quot;Requested lead time </span><span class="si">{</span><span class="n">delta</span><span class="si">}</span><span class="s2"> needs to be 3 hour interval for first 10 days in GEFS 0.25 degree data&quot;</span>
+                    <span class="p">)</span></div>
 
 </pre></div>
 
