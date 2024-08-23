@@ -96,7 +96,7 @@ Inference Studio when possible and the packages we interface with.
 * - `lat`
   - Lattitude coordinate array
   - `np.ndarray[float]`
-* - `lat`
+* - `lon`
   - Longitude coordinate array
   - `np.ndarray[float]`
 ```
