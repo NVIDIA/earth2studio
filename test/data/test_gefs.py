@@ -21,7 +21,7 @@ from datetime import datetime, timedelta
 import numpy as np
 import pytest
 
-from earth2studio.data import GEFS_FX, GEFS_FX_721_1440
+from earth2studio.data import GEFS_FX, GEFS_FX_721x1440
 
 
 @pytest.mark.slow
@@ -90,7 +90,7 @@ def test_gefs_0p50_fetch(time, lead_time, variable):
 )
 def test_gefs_0p25_fetch(time, lead_time, variable):
 
-    ds = GEFS_FX_721_1440(cache=False)
+    ds = GEFS_FX_721x1440(cache=False)
     data = ds(time, lead_time, variable)
     shape = data.shape
 
@@ -109,7 +109,7 @@ def test_gefs_0p25_fetch(time, lead_time, variable):
     assert shape[3] == 721
     assert shape[4] == 1440
     assert not np.isnan(data.values).any()
-    assert GEFS_FX_721_1440.available(time[0])
+    assert GEFS_FX_721x1440.available(time[0])
     assert np.array_equal(data.coords["variable"].values, np.array(variable))
 
 
@@ -230,7 +230,7 @@ def test_gefs_0p25_invalid_lead(lead_time):
     time = datetime(year=2022, month=12, day=25)
     variable = "t2m"
     with pytest.raises(ValueError):
-        ds = GEFS_FX_721_1440(cache=False)
+        ds = GEFS_FX_721x1440(cache=False)
         ds(time, lead_time, variable)
 
 
