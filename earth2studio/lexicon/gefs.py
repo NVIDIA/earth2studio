@@ -256,6 +256,7 @@ class GEFSLexiconSel(metaclass=LexiconType):
         "u10m": "pgrb2s::UGRD::10 m above ground",
         "v10m": "pgrb2s::VGRD::10 m above ground",
         "t2m": "pgrb2s::TMP::2 m above ground",
+        "q2m": "pgrb2s::HGT::surface",
         "r2m": "pgrb2s::RH::2 m above ground",
         "sp": "pgrb2s::PRES::surface",
         "tcwv": "pgrb2s::PWAT::entire atmosphere (considered as a single layer)",
