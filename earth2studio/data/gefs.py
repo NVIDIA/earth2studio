@@ -190,9 +190,10 @@ class _GEFSBase:
         # Download the grib index file and parse
         with self.fs.open(s3_index_uri) as file:
             index_lines = [line.decode("utf-8").rstrip() for line in file]
-
+        # Add dummy variable at end of file with max offset
+        index_lines.append(f"xx:{self.fs.size(s3_grib_uri)}:d=xx:NULL:NULL:NULL:NULL")
         index_table = {}
-        # Note we actually drop the last variable here (Vertical Speed Shear)
+
         for i, line in enumerate(index_lines[:-1]):
             lsplit = line.split(":")
             if len(lsplit) < 7:
