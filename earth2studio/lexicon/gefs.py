@@ -259,7 +259,7 @@ class GEFSLexiconSel(metaclass=LexiconType):
         "t2m": "pgrb2s::TMP::2 m above ground",
         "r2m": "pgrb2s::RH::2 m above ground",
         "sp": "pgrb2s::PRES::surface",
-        "msl": "pgrb2s::MSLET::mean sea level",  # MSLP (Eta model reduction)
+        "msl": "pgrb2s::PRMSL::mean sea level",  # Pressure Reduced to MSL
         "tcwv": "pgrb2s::PWAT::entire atmosphere (considered as a single layer)",
     }
 
