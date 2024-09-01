@@ -22,6 +22,8 @@ import pytest
 from earth2studio.models.auto import (
     AutoModelMixin,
     Package,
+)
+from earth2studio.models.auto.package import (
     TqdmCallbackRelative,
     TqdmFormat,
 )
