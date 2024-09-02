@@ -172,7 +172,7 @@ def test_hrrr_available(time, variable):
     [
         timedelta(hours=-1),
         [timedelta(hours=2), timedelta(hours=2, minutes=1)],
-        np.array([np.timedelta64(48, "h")]),
+        np.array([np.timedelta64(49, "h")]),
     ],
 )
 def test_hrrr_fx_available(lead_time):
