@@ -19,7 +19,7 @@ from .base import DataSource
 from .cds import CDS
 from .gefs import GEFS_FX, GEFS_FX_721x1440
 from .gfs import GFS, GFS_FX
-from .hrrr import HRRR
+from .hrrr import HRRR, HRRR_FX
 from .ifs import IFS
 from .imerg import IMERG
 from .rand import Random
