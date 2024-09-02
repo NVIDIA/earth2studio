@@ -18,7 +18,7 @@ The following are the suggested locations in order of preference:
 - *NGC Model Registry* - If a model is supported/developed by Nvidia Modulus team, the
 checkpoint can be uploaded on the [NGC model registry](https://catalog.ngc.nvidia.com/models).
 This is the preferred location for Nvidia supported models that have gone under a more
-rigorous internal evaluation. Private registires are also supported.
+rigorous internal evaluation. Private registries are also supported.
 
 - *Huggingface Model Registry* - Huggingface offers
 [model registries](https://huggingface.co/models) that any user can upload and share
