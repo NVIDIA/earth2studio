@@ -121,8 +121,7 @@ class _HRRRBase:
                 # Transpose time and lead time
                 data = np.transpose(data, (1, 0, 2, 3, 4))
 
-                # Could initialize array ahead of time, but do not know coords ahead of time
-                # need to improve
+                # Could initialize array ahead of time, need to improve
                 data_arrays[id] = xr.DataArray(
                     data=data,
                     dims=["time", "lead_time", "variable", "hrrr_y", "hrrr_x"],
