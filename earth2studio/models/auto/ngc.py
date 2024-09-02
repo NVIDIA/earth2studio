@@ -35,18 +35,37 @@ async def get_client(**kwargs) -> aiohttp.ClientSession:  # type: ignore
 
 
 class NGCModelFileSystem(HTTPFileSystem):
-    """NGC Model Registry HTTP file system. Largely a wrapper ontop of  fsspec
-    HTTPFileSystem class.
+    """NGC model registry file system for pulling and opening files that are stored
+    on both public and private model registries. Largely a wrapper ontop of fsspec
+    HTTPFileSystem class. This works using a url with the following pattern:
+
+    `ngc://models/<org_id/team_id/model_id>@<version>/<path/in/repo>`
+
+    or if no team
+
+    `ngc://models/<org_id/model_id>@<version>/<path/in/repo>`
+
+    For example:
+    `ngc://models/nvidia/modulus/sfno_73ch_small@0.1.0/sfno_73ch_small/config.json`
+
+    Note
+    ----
+    For private registries use one of the standard authentication methods such as
+    an environment variable (NGC_CLI_API_KEY) or ngc config file a NGC API key that has
+    access to the respective model registry.
+
+    - https://docs.ngc.nvidia.com/cli/script.html?highlight=ngc_cli_api
+    - https://docs.ngc.nvidia.com/cli/cmd.html
 
     Parameters
-        ----------
+    ----------
     block_size: int
         Blocks to read bytes; if 0, will default to raw requests file-like
         objects instead of HTTPFile instances
     simple_links: bool
         If True, will consider both HTML <a> tags and anything that looks
         like a URL; if False, will consider only the former.
-    same_scheme: True
+    same_scheme: bool
         When doing ls/glob, if this is True, only consider paths that have
         http/https matching the input URLs.
     size_policy: this argument is deprecated
@@ -65,8 +84,8 @@ class NGCModelFileSystem(HTTPFileSystem):
 
     def __init__(  # type: ignore
         self,
-        simple_links=True,
         block_size=None,
+        simple_links=True,
         same_scheme=True,
         size_policy=None,
         cache_type="bytes",

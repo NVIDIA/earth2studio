@@ -16,7 +16,7 @@
 
 from typing import Any
 
-from earth2studio.models.auto import Package
+from earth2studio.models.auto.package import Package
 
 
 class AutoModelMixin:

@@ -18,7 +18,7 @@ The following are the suggested locations in order of preference:
 - *NGC Model Registry* - If a model is supported/developed by Nvidia Modulus team, the
 checkpoint can be uploaded on the [NGC model registry](https://catalog.ngc.nvidia.com/models).
 This is the preferred location for Nvidia supported models that have gone under a more
-rigorous internal evaluation.
+rigorous internal evaluation. Private registires are also supported.
 
 - *Huggingface Model Registry* - Huggingface offers
 [model registries](https://huggingface.co/models) that any user can upload and share
@@ -88,6 +88,9 @@ cached_path_to_file = package.resolve("fcn.zip")
 opened_file = package.open("fcn.zip")
 ```
 
+In this example, when calling open, the asset at `ngc://models/nvidia/modulus/modulus_fcn@v0.2\fcn.zip`
+will be fetched and caches on the local machine.
+A file buffer will then be returned pointing to the cached version of the file.
 The cached path is a directory on the local file system which can be configured via
 environment variables.
 See {ref}`configuration_userguide` section for details.
