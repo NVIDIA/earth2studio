@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - GFS forecast datasource
 - GEFS (0.5deg and 0.25deg) forecast datasource
 - HRRR forecast datasource
+- Support for private NGC model packages
 
 ### Changed
 
