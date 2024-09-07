@@ -18,6 +18,7 @@ import http.client
 import os
 import re
 import urllib.parse
+from typing import Any
 
 import aiohttp
 from fsspec.asyn import sync_wrapper
@@ -116,7 +117,6 @@ class NGCModelFileSystem(HTTPFileSystem):
             encoded,
             **storage_options,
         )
-
         # Bit of a hack to easily get a sync version of this function
         # https://github.com/fsspec/filesystem_spec/blob/master/fsspec/asyn.py#L275
         # open requires the creation of a HttpFile, easier to sync intercept this at the start
@@ -186,22 +186,22 @@ class NGCModelFileSystem(HTTPFileSystem):
                 url = urllib.parse.urljoin(url, filepath)
         return url
 
-    async def _authenticate_ngc(
-        self, asset_url: str, headers: dict
-    ) -> tuple[int, str | None]:
-        """Authenticates user with NGC and recieves temporary download URL for asset
+    async def _get_ngc(
+        self, asset_url: str, headers: dict[str, str] = {}
+    ) -> tuple[int, dict[str, Any] | None]:
+        """Send get request to NGC and recieves asset reponse
 
         Parameters
         ----------
         url : str
             File/asset URL
-        headers : dict
-            Headers for AuthN GET request
+        headers :  dict[str, str], optional
+            Headers for AuthN GET request, by default {}
 
         Returns
         -------
         tuple[int, str]
-            Status code and direct download URL
+            Status code and response JSON
         """
         # Based on: https://gitlab-master.nvidia.com/ngc/apps/ngc-cli/-/blob/main/ngcbpc/ngcbpc/transfer/async_download.py?ref_type=heads#L782
         # Get the direct download URL
@@ -211,8 +211,8 @@ class NGCModelFileSystem(HTTPFileSystem):
             status = dl_url_resp.status
             if status == http.client.OK:
                 direct_url_dict = await dl_url_resp.json()
-                direct_url = direct_url_dict["urls"][0]
-                return http.client.ACCEPTED, direct_url
+                return status, direct_url_dict
+
             return status, None
 
     async def _get_model_asset_url(self, rpath: str) -> str:
@@ -224,24 +224,52 @@ class NGCModelFileSystem(HTTPFileSystem):
         # Create headers to determine if we have authn headers and point to private vs public APIs
         auth_header = Authentication.auth_header(auth_org=org, auth_team=team)
         headers = rest_utils.default_headers(auth_header)
+
+        direct_url = None
         if "Authorization" in headers:
+            api_type = "private"
             url = self._get_ngc_model_url(name, version, org, team, filepath, True)
-            status, direct_url = await self._authenticate_ngc(url, headers)
+            status, response = await self._get_ngc(url, headers)
             # Attempt authn with renew
             if status == http.client.UNAUTHORIZED:
                 auth_header = Authentication.auth_header(
                     auth_org=org, auth_team=team, renew=True
                 )
                 headers = rest_utils.default_headers(auth_header)
-                status, direct_url = await self._authenticate_ngc(url, headers)
+                status, response = await self._get_ngc(url, headers)
+
+            if status == http.client.OK and response is not None:
+                direct_url = response["urls"][0]
+        # No API headers created, so fall back to public access method
         else:
-            status = 200
-            direct_url = self._get_ngc_model_url(
-                name, version, org, team, filepath, False
-            )
+            api_type = "public"
+            # Check to see if asset is there on NGC at all
+            url = self._get_ngc_model_url(name, version, org, team, None, False)
+            status, response = await self._get_ngc(url)
+            if status == http.client.OK and response is not None:
+                paths = [
+                    file["path"] for file in response["modelFiles"]
+                ]  # List of all model files
+                if filepath in paths:
+                    direct_url = self._get_ngc_model_url(
+                        name, version, org, team, filepath, False
+                    )
+                else:
+                    status = 404
+
         #  Do some graceful error catching down here...
+        if status == http.client.UNAUTHORIZED:
+            raise http.client.HTTPException(
+                f"Unauthorized NGC API key for {api_type} model package"
+            )
+        if status == http.client.NOT_FOUND:
+            raise http.client.HTTPException(
+                f"Requested {api_type} model package {rpath} not found"
+            )
         if not direct_url:
-            raise http.client.HTTPException("Failed to get valid download URL")
+            raise http.client.HTTPException(
+                f"Failed to get valid download URL for {api_type} model package"
+            )
 
         return direct_url
 

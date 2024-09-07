@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import http.client
 from pathlib import Path
 
 import fsspec
@@ -23,6 +24,7 @@ from earth2studio.models.auto import (
     AutoModelMixin,
     Package,
 )
+from earth2studio.models.auto.ngc import NGCModelFileSystem
 from earth2studio.models.auto.package import (
     TqdmCallbackRelative,
     TqdmFormat,
@@ -113,6 +115,60 @@ def test_package(url, file, cache_folder, model_cache_context):
         # Getting depricated
         file_path2 = package.get(file)
         assert file_path == file_path2
+
+
+@pytest.mark.parametrize(
+    "url,file",
+    [
+        (
+            "ngc://models/nvidia/modulus/sfno_73ch_small@0.1.0",  # Public
+            "sfno_73ch_small/metadata.json",
+        ),
+        (
+            "ngc://models/nvstaging/simnet/modulus_ci@v0.1",  # Private
+            "test.txt",
+        ),
+    ],
+)
+def test_ngc_package(url, file, cache_folder, model_cache_context):
+    # Clear instance cache to make sure we always create a new fsspec file system
+    # every test. Fsspec caches fs instances by default
+    # https://github.com/fsspec/filesystem_spec/blob/master/fsspec/spec.py#L47
+    NGCModelFileSystem.clear_instance_cache()
+    with model_cache_context(
+        EARTH2STUDIO_CACHE=str(cache_folder.resolve()),
+        EARTH2STUDIO_PACKAGE_TIMEOUT="30",
+    ):
+        package = Package(str(url))
+        file_path = package.resolve(file)
+        assert Path(file_path).is_file()
+
+
+@pytest.mark.parametrize(
+    "url,file",
+    [
+        (
+            "ngc://models/nvidia/modulus/sfno_73ch_small@0.1.0",  # Public
+            "sfno_73ch_small/wrong-metadata.json",
+        ),
+        (
+            "ngc://models/nvidia/earth2/test@v0.1",  # Private with no access
+            "test.txt",
+        ),
+    ],
+)
+def test_ngc_package_errors(url, file, cache_folder, model_cache_context):
+    # Clear instance cache to make sure we always create a new fsspec file system
+    # every test. Fsspec caches fs instances by default
+    # https://github.com/fsspec/filesystem_spec/blob/master/fsspec/spec.py#L47
+    NGCModelFileSystem.clear_instance_cache()
+
+    with model_cache_context(
+        EARTH2STUDIO_CACHE=str(cache_folder.resolve()),
+        EARTH2STUDIO_PACKAGE_TIMEOUT="30",
+    ):
+        with pytest.raises(http.client.HTTPException):
+            Package(str(url))
 
 
 def test_auto_model_mixin():
