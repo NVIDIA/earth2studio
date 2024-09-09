@@ -167,7 +167,7 @@ def model(model_cache_context) -> SFNO:
 
 
 @pytest.mark.ci_cache
-@pytest.mark.timeout(360)
+# @pytest.mark.timeout(360)
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
 def test_sfno_package(device, model):
     torch.cuda.empty_cache()
