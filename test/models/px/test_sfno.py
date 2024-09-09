@@ -159,27 +159,15 @@ def test_sfno_exceptions(dc, device):
 
 @pytest.fixture(scope="module")
 def model(model_cache_context) -> SFNO:
-    from os import listdir
-    from os.path import isfile, join
-
-    from earth2studio.models.auto import Package
-
     # Test only on cuda device
     with model_cache_context():
-        onlyfiles = [
-            f
-            for f in listdir(Package.default_cache("sfno"))
-            if isfile(join(Package.default_cache("sfno"), f))
-        ]
-        print(onlyfiles)
-
         package = SFNO.load_default_package()
         p = SFNO.load_model(package)
         return p
 
 
 @pytest.mark.ci_cache
-# @pytest.mark.timeout(360)
+@pytest.mark.timeout(360)
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
 def test_sfno_package(device, model):
     torch.cuda.empty_cache()
