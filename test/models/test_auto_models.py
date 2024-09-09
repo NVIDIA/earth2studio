@@ -144,6 +144,7 @@ def test_ngc_package(url, file, cache_folder, model_cache_context):
         assert Path(file_path).is_file()
 
 
+# Very hard to test this since the ngcbcp package does module level api variable init
 @pytest.mark.parametrize(
     "url,file",
     [
@@ -168,7 +169,8 @@ def test_ngc_package_errors(url, file, cache_folder, model_cache_context):
         EARTH2STUDIO_PACKAGE_TIMEOUT="30",
     ):
         with pytest.raises(http.client.HTTPException):
-            Package(str(url))
+            package = Package(str(url))
+            package.open(file)
 
 
 def test_auto_model_mixin():
