@@ -86,7 +86,7 @@ def test_auto_model(model, model_cache_context):
 @pytest.fixture(scope="session")
 def cache_folder(tmp_path_factory):
     fn = tmp_path_factory.mktemp("cache")
-    open(fn / "test.txt", "a").close()
+    open(fn / "temp.txt", "a").close()
     return fn
 
 
