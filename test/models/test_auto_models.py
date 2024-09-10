@@ -86,14 +86,14 @@ def test_auto_model(model, model_cache_context):
 @pytest.fixture(scope="session")
 def cache_folder(tmp_path_factory):
     fn = tmp_path_factory.mktemp("cache")
-    open(fn / "temp.txt", "a").close()
+    open(fn / "temp.txt", "w").close()
     return fn
 
 
 @pytest.mark.parametrize(
     "url,file",
     [
-        (None, "test.txt"),
+        (None, "temp.txt"),
         ("hf://NickGeneva/earth_ai", "README.md"),
         (
             "ngc://models/nvidia/modulus/sfno_73ch_small@0.1.0",
