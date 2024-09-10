@@ -792,13 +792,11 @@ document.write(`
 <span class="sd">            list of lead times to fetch data</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">for</span> <span class="n">delta</span> <span class="ow">in</span> <span class="n">lead_times</span><span class="p">:</span>
-            <span class="nb">print</span><span class="p">(</span><span class="n">delta</span><span class="p">)</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="n">delta</span><span class="o">.</span><span class="n">total_seconds</span><span class="p">()</span> <span class="o">%</span> <span class="mi">3600</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
                 <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
                     <span class="sa">f</span><span class="s2">&quot;Requested lead time </span><span class="si">{</span><span class="n">delta</span><span class="si">}</span><span class="s2"> needs to be 1 hour interval for HRRR&quot;</span>
                 <span class="p">)</span>
             <span class="n">hours</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">delta</span><span class="o">.</span><span class="n">total_seconds</span><span class="p">()</span> <span class="o">//</span> <span class="mi">3600</span><span class="p">)</span>
-            <span class="nb">print</span><span class="p">(</span><span class="n">hours</span><span class="p">)</span>
             <span class="k">if</span> <span class="n">hours</span> <span class="o">&gt;</span> <span class="mi">48</span> <span class="ow">or</span> <span class="n">hours</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
                 <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
                     <span class="sa">f</span><span class="s2">&quot;Requested lead time </span><span class="si">{</span><span class="n">delta</span><span class="si">}</span><span class="s2"> can only be a max of 48 hours for HRRR&quot;</span>

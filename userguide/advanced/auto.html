@@ -494,7 +494,7 @@ The following are the suggested locations in order of preference:</p>
 <li><p><em>NGC Model Registry</em> - If a model is supported/developed by Nvidia Modulus team, the
 checkpoint can be uploaded on the <a class="reference external" href="https://catalog.ngc.nvidia.com/models">NGC model registry</a>.
 This is the preferred location for Nvidia supported models that have gone under a more
-rigorous internal evaluation.</p></li>
+rigorous internal evaluation. Private registries are also supported.</p></li>
 <li><p><em>Huggingface Model Registry</em> - Huggingface offers
 <a class="reference external" href="https://huggingface.co/models">model registries</a> that any user can upload and share
 checkpoint files with.
@@ -511,11 +511,11 @@ Any automodel in Earth2Studio needs to implement both the
 <code class="xref py py-func docutils literal notranslate"><span class="pre">load_default_package()</span></code> and <code class="xref py py-func docutils literal notranslate"><span class="pre">load_model()</span></code> functions.</p>
 <dl class="py class">
 <dt class="sig sig-object py">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">earth2studio.models.auto.</span></span><span class="sig-name descname"><span class="pre">AutoModelMixin</span></span><a class="reference internal" href="../../_modules/earth2studio/models/auto.html#AutoModelMixin"><span class="viewcode-link"><span class="pre">[source]</span></span></a></dt>
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">earth2studio.models.auto.</span></span><span class="sig-name descname"><span class="pre">AutoModelMixin</span></span><a class="reference internal" href="../../_modules/earth2studio/models/auto/mixin.html#AutoModelMixin"><span class="viewcode-link"><span class="pre">[source]</span></span></a></dt>
 <dd><p>Abstract class that defines the utils needed auto loading / instantiating models</p>
 <dl class="py method">
 <dt class="sig sig-object py">
-<em class="property"><span class="pre">classmethod</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">load_default_package</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/earth2studio/models/auto.html#AutoModelMixin.load_default_package"><span class="viewcode-link"><span class="pre">[source]</span></span></a></dt>
+<em class="property"><span class="pre">classmethod</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">load_default_package</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/earth2studio/models/auto/mixin.html#AutoModelMixin.load_default_package"><span class="viewcode-link"><span class="pre">[source]</span></span></a></dt>
 <dd><p>Loads the default model package</p>
 <dl class="field-list simple">
 <dt class="field-odd">Returns<span class="colon">:</span></dt>
@@ -529,7 +529,7 @@ Any automodel in Earth2Studio needs to implement both the
 
 <dl class="py method">
 <dt class="sig sig-object py">
-<em class="property"><span class="pre">classmethod</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">load_model</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">package</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/earth2studio/models/auto.html#AutoModelMixin.load_model"><span class="viewcode-link"><span class="pre">[source]</span></span></a></dt>
+<em class="property"><span class="pre">classmethod</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">load_model</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">package</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/earth2studio/models/auto/mixin.html#AutoModelMixin.load_model"><span class="viewcode-link"><span class="pre">[source]</span></span></a></dt>
 <dd><p>Instantiates and loads default model object from provided model package</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -612,7 +612,10 @@ follows:</p>
 <span class="n">opened_file</span> <span class="o">=</span> <span class="n">package</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="s2">&quot;fcn.zip&quot;</span><span class="p">)</span>
 </pre></div>
 </div>
-<p>The cached path is a directory on the local file system which can be configured via
+<p>In this example, when calling open, the asset at <code class="docutils literal notranslate"><span class="pre">ngc://models/nvidia/modulus/modulus_fcn&#64;v0.2\fcn.zip</span></code>
+will be fetched and caches on the local machine.
+A file buffer will then be returned pointing to the cached version of the file.
+The cached path is a directory on the local file system which can be configured via
 environment variables.
 See <a class="reference internal" href="../about/install.html#configuration-userguide"><span class="std std-ref">Configuration</span></a> section for details.</p>
 <div class="admonition note">
