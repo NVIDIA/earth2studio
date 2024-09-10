@@ -18,7 +18,6 @@ import io
 import os
 import re
 import warnings
-from typing import Any
 
 import aiohttp
 import fsspec
@@ -27,12 +26,13 @@ from fsspec.callbacks import Callback, TqdmCallback
 from fsspec.compression import compr
 from fsspec.core import BaseCache, split_protocol
 from fsspec.implementations.cached import LocalTempFile, WholeFileCacheFileSystem
-from fsspec.implementations.http import HTTPFileSystem
 from fsspec.spec import AbstractBufferedFile, AbstractFileSystem
 from fsspec.utils import infer_compression
 from huggingface_hub import HfFileSystem
 from loguru import logger
 from tqdm import tqdm
+
+from earth2studio.models.auto.ngc import NGCModelFileSystem
 
 # TODO: Make this package wide? Same as in run.py
 logger.remove()
@@ -181,19 +181,8 @@ class Package:
                     "Invalid URL, should be of form ngc://models/<org_id/team_id/model_id>@<version>\n"
                     + f" got {root}"
                 )
-            root = root.replace(suffix, "")
-            if len(root.split("@")[0].split("/")) == 3:
-                (org, team, model_version) = root.split("/", 2)
-                (model, version) = model_version.split("@", 1)
-            else:
-                (org, model_version) = root.split("/", 1)
-                (model, version) = model_version.split("@", 1)
-                team = None
-            if team:
-                self.root = f"https://api.ngc.nvidia.com/v2/models/{org}/{team}/{model}/versions/{version}/files/"
-            else:
-                self.root = f"https://api.ngc.nvidia.com/v2/models/{org}/{model}/versions/{version}/files/"
-            self.fs = HTTPFileSystem(
+            self.root = root
+            self.fs = NGCModelFileSystem(  # type: ignore
                 block_size=Package.default_blocksize(),
                 client_kwargs={
                     "timeout": aiohttp.ClientTimeout(total=Package.default_timeout())
@@ -337,59 +326,3 @@ class Package:
             "Package.get(path) deprecated. Use Package.resolve(path) instead."
         )
         return self.resolve(file_path)
-
-
-class AutoModelMixin:
-    """Abstract class that defines the utils needed auto loading / instantiating models"""
-
-    @classmethod
-    def load_default_package(cls) -> Package:
-        """Loads the default model package
-
-        Returns
-        -------
-        Package
-            Model package, file system, object
-        """
-        raise NotImplementedError("No default package supported")
-
-    @classmethod
-    def load_model(
-        cls,
-        package: Package,
-    ) -> Any:  # TODO: Fix types here
-        """Instantiates and loads default model object from provided model package
-
-        Parameters
-        ----------
-        package: Package
-            Model package, file system, to fetch assets
-        """
-        raise NotImplementedError("Load model function not implemented")
-
-    @classmethod
-    def from_pretrained(cls, pretrained_model_name_or_path: str | None = None) -> Any:
-        """Loads and instantiates a pre-trained Earth2Studio model
-
-        Parameters
-        ----------
-        pretrained_model_name_or_path : str, optional
-            Path to model package (file system). If none is provided, the built in
-            package will be used if provide, by default None. Valid inputs include:
-            - A path to a directory containing model weights saved e.g.,
-                ./my_model_directory/.
-            - A path or url/uri to a remote file system supported by Fsspec
-            - A s3 uri supported by s3fs
-            - A NGC model registry uri
-
-        Returns
-        -------
-        Union[PrognosticModel, Diagnostic]
-            Instantiated model with loaded checkpoint from loaded model package
-        """
-        if pretrained_model_name_or_path is None:
-            package = cls.load_default_package()
-        else:
-            package = Package(pretrained_model_name_or_path)
-
-        return cls.load_model(package)

@@ -351,13 +351,11 @@ class HRRR_FX(_HRRRBase):
             list of lead times to fetch data
         """
         for delta in lead_times:
-            print(delta)
             if not delta.total_seconds() % 3600 == 0:
                 raise ValueError(
                     f"Requested lead time {delta} needs to be 1 hour interval for HRRR"
                 )
             hours = int(delta.total_seconds() // 3600)
-            print(hours)
             if hours > 48 or hours < 0:
                 raise ValueError(
                     f"Requested lead time {delta} can only be a max of 48 hours for HRRR"
