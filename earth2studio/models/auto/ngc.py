@@ -130,7 +130,7 @@ class NGCModelFileSystem(HTTPFileSystem):
         # ngc://models/<org_id/team_id/model_id>@<version>/<path/in/repo>`
         suffix = "ngc://models/"
         # The regex check
-        pattern = re.compile(rf"{suffix}[\w-]+(/[\w-]+)?/[\w-]+@[A-Za-z0-9.]+")
+        pattern = re.compile(rf"{suffix}[\w-]+(/[\w-]+)?(/[\w-]+)?@[A-Za-z0-9.]+")
         if not pattern.match(root):
             raise ValueError(
                 "Invalid URL, should be of form ngc://models/<org_id/team_id/model_id>@<version>\n"
@@ -169,7 +169,10 @@ class NGCModelFileSystem(HTTPFileSystem):
     ) -> str:
         # Authenticated API
         if authenticated_api:
-            url = f"https://api.ngc.nvidia.com/v2/{format_org_team(org, team)}/models/{name}/{version}/files"
+            url = "https://api.ngc.nvidia.com/v2/"
+            if format_org_team(org, team):
+                url += f"{format_org_team(org, team)}/"
+            url += f"models/{name}/{version}/files"
             if filepath:
                 url = f"{url}?path={filepath}"
         # Public API

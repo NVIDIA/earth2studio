@@ -144,6 +144,82 @@ def test_ngc_package(url, file, cache_folder, model_cache_context):
         assert Path(file_path).is_file()
 
 
+def test_ngc_filesystem():
+    fs = NGCModelFileSystem()
+    # fs._parse_ngc_uri("ngc://models/<org_id/team_id/model_id>@<version>")
+    name, version, org, team, filepath = fs._parse_ngc_uri(
+        "ngc://models/org/model_name@1.0"
+    )
+    assert name == "model_name"
+    assert version == "1.0"
+    assert org == "org"
+    assert team is None
+    assert filepath is None
+
+    name, version, org, team, filepath = fs._parse_ngc_uri(
+        "ngc://models/org/team/model_name@1.0/"
+    )
+    assert name == "model_name"
+    assert version == "1.0"
+    assert org == "org"
+    assert team == "team"
+    assert filepath is None
+
+    name, version, org, team, filepath = fs._parse_ngc_uri(
+        "ngc://models/model_name@1.0/file"
+    )
+    assert name == "model_name"
+    assert version == "1.0"
+    assert org is None
+    assert team is None
+    assert filepath == "file"
+
+    with pytest.raises(ValueError):
+        fs._parse_ngc_uri("ngc://models/a/b/c/d@1.0/file")
+    with pytest.raises(ValueError):
+        fs._parse_ngc_uri("ngc://models/a/b/c/d")
+    with pytest.raises(ValueError):
+        fs._parse_ngc_uri("models/a/b/c@1.0/file")
+
+    url = fs._get_ngc_model_url("name", "1.0", authenticated_api=False)
+    assert url == "https://api.ngc.nvidia.com/v2/models/name/versions/1.0/files/"
+
+    url = fs._get_ngc_model_url(
+        "name", "1.0", "org", "team", "file.txt", authenticated_api=False
+    )
+    assert (
+        url
+        == "https://api.ngc.nvidia.com/v2/models/org/team/name/versions/1.0/files/file.txt"
+    )
+
+    url = fs._get_ngc_model_url(
+        "name", "1.0", "org", None, "file.txt", authenticated_api=False
+    )
+    assert (
+        url
+        == "https://api.ngc.nvidia.com/v2/models/org/name/versions/1.0/files/file.txt"
+    )
+
+    url = fs._get_ngc_model_url("name", "1.0", authenticated_api=True)
+    assert url == "https://api.ngc.nvidia.com/v2/models/name/1.0/files"
+
+    url = fs._get_ngc_model_url(
+        "name", "1.0", "orgname", "teamname", "file.txt", authenticated_api=True
+    )
+    assert (
+        url
+        == "https://api.ngc.nvidia.com/v2/org/orgname/team/teamname/models/name/1.0/files?path=file.txt"
+    )
+
+    url = fs._get_ngc_model_url(
+        "name", "1.0", "orgname", None, "file.txt", authenticated_api=True
+    )
+    assert (
+        url
+        == "https://api.ngc.nvidia.com/v2/org/orgname/models/name/1.0/files?path=file.txt"
+    )
+
+
 # Very hard to test this since the ngcbcp package does module level api variable init
 @pytest.mark.parametrize(
     "url,file",
