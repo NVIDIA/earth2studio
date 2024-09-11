@@ -106,6 +106,8 @@ dev = [
 ]
 docs = [
     "cartopy",
+    "matplotlib",
+    "scipy",
     "sphinx-design",
     "sphinx>=6.0.0",
     "jupytext>=1.15.0",
