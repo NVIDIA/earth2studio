@@ -6,7 +6,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.3.0a0] - 2024-09-xx
+## [0.4.0a0] - 2024-11-xx
+
+### Added
+
+### Changed
+
+### Deprecated
+
+### Removed
+
+### Fixed
+
+### Security
+
+### Dependencies
+
+## [0.3.0] - 2024-09-25
 
 ### Added
 
@@ -27,8 +43,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   unused ignore_batch argument.
 - Set zarr chunks for lead time to size 1 in examples.
 
-### Deprecated
-
 ### Removed
 
 - Removed tp06 from ARCO, use WB2 instead
@@ -36,8 +50,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Fixed caching of data sources to be controlled with `EARTH2STUDIO_CACHE` env var
-
-### Security
 
 ### Dependencies
 
