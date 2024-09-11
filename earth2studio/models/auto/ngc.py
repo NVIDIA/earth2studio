@@ -206,7 +206,7 @@ class NGCModelFileSystem(HTTPFileSystem):
         tuple[int, str]
             Status code and response JSON
         """
-        # Based on: https://gitlab-master.nvidia.com/ngc/apps/ngc-cli/-/blob/main/ngcbpc/ngcbpc/transfer/async_download.py?ref_type=heads#L782
+        # Based on: ngc/apps/ngc-cli/-/blob/main/ngcbpc/ngcbpc/transfer/async_download.py?ref_type=heads#L782
         # Get the direct download URL
         async with aiohttp.ClientSession() as session:
             # Use http filesystem encode URL
@@ -283,7 +283,7 @@ class NGCModelFileSystem(HTTPFileSystem):
         # To find possible files one needs to hit the /file/ root and pull out
         # possible URLS from the response
         # E.g. https://api.ngc.nvidia.com/v2/models/nvidia/modulus/sfno_73ch_small/versions/0.1.0/files/
-        # could add pages via https://gitlab-master.nvidia.com/ngc/apps/ngc-cli/-/blob/main/ngcbpc/ngcbpc/transfer/async_download.py?ref_type=heads#L817
+        # could add pages via apps/ngc-cli/-/blob/main/ngcbpc/ngcbpc/transfer/async_download.py?ref_type=heads#L817
         # response['modelFiles'] lists possible files
         raise NotImplementedError("Glob / recursive patterns not supported yet")
         return await super()._expand_path(path, recursive, maxdepth)
