@@ -120,7 +120,7 @@ data = ARCO()
 # means that multiple jobs will download the same date-time if needed.
 
 # %%
-chunks = {"time": 1}
+chunks = {"time": 1, "lead_time": 1}
 io = ZarrBackend(
     file_name=f"outputs/08_output_{dist.rank}.zarr",
     chunks=chunks,
