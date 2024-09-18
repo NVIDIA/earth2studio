@@ -25,6 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and moved xr_args to object instantiator.
 - Improved map_coords to handle slices and indentical coords more efficiently; removed
   unused ignore_batch argument.
+- Set zarr chunks for lead time to size 1 in examples.
 
 ### Deprecated
 
