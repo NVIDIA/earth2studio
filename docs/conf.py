@@ -132,4 +132,5 @@ sphinx_gallery_conf = {
     "backreferences_dir": "modules/backreferences",
     "doc_module": ("earth2studio"),
     "exclude_implicit_doc": {r"load_model", r"load_default_package"},
+    "log_level": {"backreference_missing": "debug"},
 }
