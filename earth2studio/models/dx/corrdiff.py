@@ -24,7 +24,12 @@ import numpy as np
 import torch
 import zarr
 from modulus.models import Module
-from modulus.utils.generative import StackedRandomGenerator, ablation_sampler
+from modulus.utils.generative import StackedRandomGenerator
+
+try:  # Modulus version < 0.8.0
+    from modulus.utils.generative import ablation_sampler
+except ImportError:
+    from modulus.utils.generative import deterministic_sampler as ablation_sampler
 
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_coords, batch_func
