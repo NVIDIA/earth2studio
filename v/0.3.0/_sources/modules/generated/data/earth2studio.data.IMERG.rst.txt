@@ -1,0 +1,21 @@
+﻿:mod:`earth2studio.data`.IMERG
+=====================================
+
+.. currentmodule:: earth2studio.data
+
+.. autoclass:: IMERG
+
+
+    .. automethod:: __call__
+    .. automethod:: available
+
+
+.. _sphx_glr_backref_earth2studio.data.IMERG:
+
+.. minigallery:: earth2studio.data.IMERG
+      :add-heading:
+      :heading-level: ^
+
+.. raw:: html
+
+    <div class="clearer"></div>

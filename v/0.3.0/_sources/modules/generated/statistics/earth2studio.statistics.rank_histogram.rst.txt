@@ -1,0 +1,20 @@
+﻿:mod:`earth2studio.statistics`.rank_histogram
+====================================================
+
+.. currentmodule:: earth2studio.statistics
+
+.. autoclass:: rank_histogram
+
+
+    .. automethod:: __call__
+
+
+.. _sphx_glr_backref_earth2studio.statistics.rank_histogram:
+
+.. minigallery:: earth2studio.statistics.rank_histogram
+      :add-heading:
+      :heading-level: ^
+
+.. raw:: html
+
+    <div class="clearer"></div>
