@@ -68,11 +68,10 @@ docs-full:
 	rm -rf docs/modules/backreferences
 	$(MAKE) -C docs clean
 	rm -rf examples/outputs
-
-	for FILENAME in $(EXAMPLE_FILENAMES) ; do \
-		PLOT_GALLERY=True RUN_STALE_EXAMPLES=True FILENAME_PATTERN=$$FILENAME $(MAKE) -C docs html \
-	done
-	# PLOT_GALLERY=True RUN_STALE_EXAMPLES=True $(MAKE) -C docs html
+	# for FILENAME in $(EXAMPLE_FILENAMES) ; do \
+	# 	PLOT_GALLERY=True RUN_STALE_EXAMPLES=True FILENAME_PATTERN=$$FILENAME $(MAKE) -C docs html \
+	# done
+	PLOT_GALLERY=True RUN_STALE_EXAMPLES=True $(MAKE) -C docs html
 
 .PHONY: docs-dev
 docs-dev:
