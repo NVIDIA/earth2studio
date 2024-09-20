@@ -82,7 +82,6 @@ html_css_files = [
     "css/custom.css",
 ]
 html_theme_options = {
-    "announcement": "Earth2Studio is now OSS!",
     "logo": {
         "text": "Earth2Studio",
         "image_light": "_static/NVIDIA-Logo-V-ForScreen-ForLightBG.png",
