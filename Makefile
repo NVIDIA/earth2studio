@@ -54,6 +54,12 @@ docs:
 	$(MAKE) -C docs clean
 	$(MAKE) -C docs html
 
+EXAMPLE_FILENAMES = \
+	01_deterministic_workflow.py \
+	02_diagnostic_workflow.py \
+	03_ensemble_workflow.py \
+	04_corrdiff_inference.py
+
 .PHONY: docs-full
 docs-full:
 	pip install .[docs]
@@ -62,7 +68,11 @@ docs-full:
 	rm -rf docs/modules/backreferences
 	$(MAKE) -C docs clean
 	rm -rf examples/outputs
-	PLOT_GALLERY=True RUN_STALE_EXAMPLES=True $(MAKE) -C docs html
+
+	for FILENAME in $(EXAMPLE_FILENAMES) ; do \
+		PLOT_GALLERY=True RUN_STALE_EXAMPLES=True FILENAME_PATTERN=$$FILENAME $(MAKE) -C docs html \
+	done
+	# PLOT_GALLERY=True RUN_STALE_EXAMPLES=True $(MAKE) -C docs html
 
 .PHONY: docs-dev
 docs-dev:
