@@ -10,12 +10,6 @@
     .. automethod:: available
    {% endblock %}
 
-.. _sphx_glr_backref_{{module}}.{{objname}}:
-
-.. minigallery:: {{module}}.{{objname}}
-      :add-heading:
-      :heading-level: ^
-
 .. raw:: html
 
     <div class="clearer"></div>
