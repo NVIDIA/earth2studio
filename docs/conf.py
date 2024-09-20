@@ -131,7 +131,8 @@ sphinx_gallery_conf = {
     "run_stale_examples": run_stale_examples,
     "backreferences_dir": "modules/backreferences",
     "doc_module": ("earth2studio"),
+    "reset_modules": ("matplotlib"),
+    "show_memory": True,
     "exclude_implicit_doc": {r"load_model", r"load_default_package"},
     "log_level": {"backreference_missing": "debug"},
-    "download_all_examples": False,
 }
