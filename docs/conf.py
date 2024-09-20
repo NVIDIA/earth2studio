@@ -42,7 +42,8 @@ modulus = root.parent / "third_party" / "modulus"
 release = version("earth2studio")
 
 sys.path.insert(0, root.parent.as_posix())
-sys.path.insert(0, modulus.as_posix())
+# Add current folder to use sphinxext.py
+sys.path.insert(0, os.path.dirname(__file__))
 
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
@@ -69,7 +70,7 @@ extensions = [
 source_suffix = [".rst", ".md"]
 myst_enable_extensions = ["colon_fence"]
 templates_path = ["_templates"]
-exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
+exclude_patterns = ["_build", "sphinxext.py", "Thumbs.db", ".DS_Store"]
 autodoc_typehints = "description"
 
 # -- Options for HTML output -------------------------------------------------
@@ -131,7 +132,7 @@ sphinx_gallery_conf = {
     "run_stale_examples": run_stale_examples,
     "backreferences_dir": "modules/backreferences",
     "doc_module": ("earth2studio"),
-    "reset_modules": ("matplotlib"),
+    "reset_modules": ("matplotlib", "sphinxext.reset_torch"),
     "show_memory": True,
     "exclude_implicit_doc": {r"load_model", r"load_default_package"},
     "log_level": {"backreference_missing": "debug"},
