@@ -53,6 +53,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Dependencies
 
 - Restrict torch_harmonics version to >=0.5.0, <0.7.1
+- Removed specific ONNX version requirement, newer ORT-gpu versions appear to operate
+  fine with CUDA 12
 
 ## [0.2.0] - 2024-07-23
 

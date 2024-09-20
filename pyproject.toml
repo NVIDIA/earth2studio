@@ -58,13 +58,13 @@ Changelog = "https://github.com/NVIDIA/earth2studio/blob/main/CHANGELOG.md"
 
 [project.optional-dependencies]
 fengwu = [
-    "onnxruntime-gpu==1.17.1",
+    "onnxruntime-gpu",
 ]
 fuxi = [
-    "onnxruntime-gpu==1.17.1",
+    "onnxruntime-gpu",
 ]
 pangu = [
-    "onnxruntime-gpu==1.17.1",
+    "onnxruntime-gpu",
 ]
 sfno = [
     # makani needs to be installed manually
@@ -81,7 +81,7 @@ corrdiff = [
     "einops>=0.7.0",
 ]
 all = [
-    "onnxruntime-gpu>=1.14.0",
+    "onnxruntime-gpu",
     "jsbeautifier",
     "pynvml",
     "numba",
