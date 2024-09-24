@@ -254,6 +254,8 @@ perturbing the temperature field.
 
     plt.savefig(f"outputs/05_{forecast}_{step}_ensemble.jpg")
 
+**Estimated memory usage:**  0 MB
+
 
 .. _sphx_glr_download_examples_05_ensemble_workflow_extend.py:
 

@@ -334,6 +334,8 @@ vapor field for a few time-steps.
 
     plt.savefig("outputs/custom_datasource_prediction.jpg", bbox_inches="tight")
 
+**Estimated memory usage:**  0 MB
+
 
 .. _sphx_glr_download_examples_extend_03_custom_datasource.py:
 

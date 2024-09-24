@@ -343,6 +343,8 @@ Notice that the Zarr IO function has additional APIs to interact with the stored
             bbox_inches="tight",
         )
 
+**Estimated memory usage:**  0 MB
+
 
 .. _sphx_glr_download_examples_06_model_perturbation_hook.py:
 

@@ -200,6 +200,8 @@ Notice that the Zarr IO function has additional APIs to interact with the stored
 
         plt.savefig(f"outputs/03_{forecast}_{variable}_{step}_ensemble.jpg")
 
+**Estimated memory usage:**  0 MB
+
 
 .. _sphx_glr_download_examples_03_ensemble_workflow.py:
 
