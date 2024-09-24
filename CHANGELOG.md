@@ -12,6 +12,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Set zarr chunks for lead time to size 1 in examples.
+
 ### Deprecated
 
 ### Removed
@@ -22,7 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Dependencies
 
-## [0.3.0] - 2024-09-25
+## [0.3.0] - 2024-09-24
 
 ### Added
 
@@ -41,7 +43,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and moved xr_args to object instantiator.
 - Improved map_coords to handle slices and indentical coords more efficiently; removed
   unused ignore_batch argument.
-- Set zarr chunks for lead time to size 1 in examples.
 
 ### Removed
 
