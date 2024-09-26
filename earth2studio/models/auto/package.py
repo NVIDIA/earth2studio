@@ -95,7 +95,13 @@ class CallbackWholeFileCacheFileSystem(WholeFileCacheFileSystem):
                     f2.write(data)  # type: ignore
         else:
             if "callback" in kwargs:  # Patch here
-                self.fs.get_file(path, fn, callback=kwargs["callback"])
+                try:
+                    self.fs.get_file(path, fn, callback=kwargs["callback"])
+                except fsspec.exceptions.FSTimeoutError as exc:
+                    timeout = Package.default_timeout()
+                    m = 'Loading model artefact resulted in timeout. Consider increasing timeout through environment variable "EARTH2STUDIO_PACKAGE_TIMEOUT". Currently it is set to %s seconds.' % timeout
+                    logger.error(m)
+                    raise exc
             else:
                 self.fs.get_file(path, fn)
         self.save_cache()
