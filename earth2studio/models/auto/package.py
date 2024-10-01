@@ -236,7 +236,7 @@ class Package:
         int
             Time out in seconds
         """
-        default_timeout = 300
+        default_timeout = 3000
         try:
             timeout = os.environ.get("EARTH2STUDIO_PACKAGE_TIMEOUT", default_timeout)
             default_timeout = int(timeout)

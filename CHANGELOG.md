@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.4.0a0] - 2024-11-xx
 
 ### Added
+- support for local directory of IC files
 
 ### Changed
 
