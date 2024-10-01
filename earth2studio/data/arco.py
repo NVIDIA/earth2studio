@@ -68,7 +68,9 @@ class ARCO:
     ARCO_LAT = np.linspace(90, -90, 721)
     ARCO_LON = np.linspace(0, 359.75, 1440)
 
-    def __init__(self, cache: bool = True, verbose: bool = True):
+    def __init__(self, cache: bool = True,
+                 verbose: bool = True,
+                 async_timeout: int = 600):
         self._cache = cache
         self._verbose = verbose
 
@@ -90,7 +92,7 @@ class ARCO:
             "gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3", fs
         )
         self.zarr_group = zarr.open(fs_map, mode="r")
-        self.async_timeout = 600
+        self.async_timeout = async_timeout
         self.async_process_limit = 4
 
     def __call__(
