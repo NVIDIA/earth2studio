@@ -35,19 +35,19 @@ class HRRRLexicon(metaclass=LexiconType):
     def build_vocab() -> dict[str, str]:
         """Create HRRR vocab dictionary"""
         sfc_variables = {
-            "u10m": "sfc::UGRD::10 m above ground",
-            "v10m": "sfc::VGRD::10 m above ground",
-            "u80m": "sfc::UGRD::80 m above ground",
-            "v80m": "sfc::VGRD::80 m above ground",
-            "t2m": "sfc::TMP::2 m above ground",
-            "refc": "sfc::REFC::entire atmosphere",
-            "sp": "sfc::PRES::surface",
-            "tp": "sfc:::APCP:.*:(?:0-1|[1-9]\d*-\d+) hour::surface",
-            "tcwv": "sfc::PWAT::entire atmosphere (considered as a single layer)",
-            "csnow": "sfc::CSNOW::surface",
-            "cicep": "sfc::CICEP::surface",
-            "cfrzr": "sfc::CFRZR::surface",
-            "crain": "sfc::CRAIN::surface",
+            "u10m": "sfc::UGRD:10 m above ground",
+            "v10m": "sfc::VGRD:10 m above ground",
+            "u80m": "sfc::UGRD:80 m above ground",
+            "v80m": "sfc::VGRD:80 m above ground",
+            "t2m": "sfc::TMP:2 m above ground",
+            "refc": "sfc::REFC:entire atmosphere",
+            "sp": "sfc::PRES:surface",
+            "tp": "sfc::APCP:.*:(?:0-1|[1-9]\d*-\d+) hour",
+            "tcwv": "sfc::PWAT:entire atmosphere (considered as a single layer)",
+            "csnow": "sfc::CSNOW:surface",
+            "cicep": "sfc::CICEP:surface",
+            "cfrzr": "sfc::CFRZR:surface",
+            "crain": "sfc::CRAIN:surface",
         }
         prs_levels = [
             50,
@@ -95,7 +95,7 @@ class HRRRLexicon(metaclass=LexiconType):
         prs_variables = {}
         for (id, variable) in zip(e2s_id, prs_names):
             for level in prs_levels:
-                prs_variables[f"{id}{level:d}"] = f"prs::{variable}::{level} mb"
+                prs_variables[f"{id}{level:d}"] = f"prs::{variable}:{level} mb"
 
         return {**sfc_variables, **prs_variables}
 

@@ -76,10 +76,11 @@ class _HRRRBase:
             try:
                 hrrr_str, modifier = HRRRLexicon[var]
                 hrrr_name = hrrr_str.split("::")
+                
                 if hrrr_name[0] == "sfc":
-                    sfc_vars[var] = (f":{hrrr_name[1]}:{hrrr_name[2]}", modifier)
+                    sfc_vars[var] = (f":{hrrr_name[1]}", modifier)
                 else:
-                    prs_vars[var] = (f":{hrrr_name[1]}:{hrrr_name[2]}", modifier)
+                    prs_vars[var] = (f":{hrrr_name[1]}", modifier)
             except KeyError:  # noqa: PERF203
                 raise KeyError(f"variable id {var} not found in HRRR lexicon")
 
@@ -105,7 +106,7 @@ class _HRRRBase:
                 desc=f"Fetching HRRR {product} fields",
                 disable=(not self._verbose),
             ):
-                ds = fh.xarray(hrrr_id, verbose=False)
+                ds = fh.xarray(hrrr_id, verbose=True)
                 if "gribfile_projection" in ds.data_vars:
                     ds = ds.drop("gribfile_projection")
                 da = next(iter(ds.data_vars.values()))
