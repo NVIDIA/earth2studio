@@ -76,7 +76,7 @@ class _HRRRBase:
             try:
                 hrrr_str, modifier = HRRRLexicon[var]
                 hrrr_name = hrrr_str.split("::")
-                
+
                 if hrrr_name[0] == "sfc":
                     sfc_vars[var] = (f":{hrrr_name[1]}", modifier)
                 else:
