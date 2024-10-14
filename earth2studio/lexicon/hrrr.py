@@ -42,7 +42,7 @@ class HRRRLexicon(metaclass=LexiconType):
             "t2m": "sfc::TMP::2 m above ground",
             "refc": "sfc::REFC::entire atmosphere",
             "sp": "sfc::PRES::surface",
-            "tp": "sfc::APCP::surface",
+            "tp": "sfc:::APCP:.*:(?:0-1|[1-9]\d*-\d+) hour::surface",
             "tcwv": "sfc::PWAT::entire atmosphere (considered as a single layer)",
             "csnow": "sfc::CSNOW::surface",
             "cicep": "sfc::CICEP::surface",
