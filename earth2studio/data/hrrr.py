@@ -365,25 +365,24 @@ class HRRR_FX(_HRRRBase):
 
 if __name__ == "__main__":
     from datetime import datetime
-    
-    from earth2studio.data import HRRR
-    
+
     ds = HRRR_FX(cache=False)
-    
-    da = ds(datetime(2022,1,1), timedelta(hours=2), "tp")
+
+    da = ds(datetime(2022, 1, 1), timedelta(hours=2), "tp")
     print(da)
-    
+
     from herbie import FastHerbie
+
     fh = FastHerbie(
-                [datetime(2022,1,1)],
-                model="hrrr",
-                product="sfc",
-                fxx=[2],
-                max_threads=8,
-                verbose=False,
-                priority=["aws", "google", "nomads"],
-            )
-            
+        [datetime(2022, 1, 1)],
+        model="hrrr",
+        product="sfc",
+        fxx=[2],
+        max_threads=8,
+        verbose=False,
+        priority=["aws", "google", "nomads"],
+    )
+
     da2 = fh.xarray("APCP:surface:1-2 hour acc fcst")
-    
-    print(np.sum(da.values-da2.tp.values))
+
+    print(np.sum(da.values - da2.tp.values))
