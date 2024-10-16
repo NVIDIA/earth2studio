@@ -28,7 +28,9 @@ class HRRRLexicon(metaclass=LexiconType):
     Note
     ----
     Additional resources:
-    https://www.nco.ncep.noaa.gov/pmb/products/hrrr/
+    - https://www.nco.ncep.noaa.gov/pmb/products/hrrr/
+    - https://www.nco.ncep.noaa.gov/pmb/products/hrrr/hrrr.t00z.wrfsfcf00.grib2.shtml
+    - https://www.nco.ncep.noaa.gov/pmb/products/hrrr/hrrr.t00z.wrfsfcf02.grib2.shtml
     """
 
     @staticmethod
@@ -42,7 +44,8 @@ class HRRRLexicon(metaclass=LexiconType):
             "t2m": "sfc::TMP:2 m above ground",
             "refc": "sfc::REFC:entire atmosphere",
             "sp": "sfc::PRES:surface",
-            "tp": r"sfc::APCP:.*:(?:0-1|[1-9]\d*-\d+) hour",
+            # Regex to get last hour tp with HRRR_FX, not total accumulated
+            "tp": r"sfc::APCP:.*:((?:0-1|[1-9]\d*-\d+) hour|0-0 day acc fcst)",
             "tcwv": "sfc::PWAT:entire atmosphere (considered as a single layer)",
             "csnow": "sfc::CSNOW:surface",
             "cicep": "sfc::CICEP:surface",
