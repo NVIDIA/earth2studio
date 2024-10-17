@@ -106,7 +106,7 @@ class _HRRRBase:
                 desc=f"Fetching HRRR {product} fields",
                 disable=(not self._verbose),
             ):
-                ds = fh.xarray(hrrr_id, verbose=True)
+                ds = fh.xarray(hrrr_id, verbose=False)
                 if "gribfile_projection" in ds.data_vars:
                     ds = ds.drop("gribfile_projection")
                 da = next(iter(ds.data_vars.values()))
