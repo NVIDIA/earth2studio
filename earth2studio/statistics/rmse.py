@@ -15,6 +15,7 @@
 # limitations under the License.
 
 import torch
+import numpy as np
 
 from earth2studio.utils.coords import handshake_dim
 from earth2studio.utils.type import CoordSystem
@@ -260,3 +261,75 @@ class spread_skill_ratio:
         skill, output_coords = self.reduced_rmse(em, output_coords, y, y_coords)
         spread, output_coords = self.reduced_mean(*self.ensemble_var(x, x_coords))
         return skill / torch.sqrt(spread), output_coords
+
+
+class skill_spread(spread_skill_ratio):
+    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
+        """Output coordinate system of the computed statistic, corresponding to the given input coordinates
+
+        Parameters
+        ----------
+        input_coords : CoordSystem
+            Input coordinate system to transform into output_coords
+
+        Returns
+        -------
+        CoordSystem
+            Coordinate system dictionary
+        """
+        output_coords = input_coords.copy()
+        for dimension in self.reduction_dimensions:
+            handshake_dim(input_coords, dimension)
+            output_coords.pop(dimension)
+
+        output_coords.update({'metric': np.array(['mse', 'variance'])})
+        output_coords.move_to_end('metric', last=False)
+
+        return output_coords
+
+
+    def __call__(
+        self,
+        x: torch.Tensor,
+        x_coords: CoordSystem,
+        y: torch.Tensor,
+        y_coords: CoordSystem,
+    ) -> tuple[torch.Tensor, CoordSystem]:
+        """
+        Apply metric to data `x` and `y`, checking that their coordinates
+        are broadcastable. While reducing over `reduction_dims`.
+
+        If batch_update was passed True upon metric initialization then this method
+        returns the running sample RMSE over all seen batches.
+
+        Parameters
+        ----------
+        x : torch.Tensor
+            The ensemble forecast input tensor. This is the tensor over which the
+            ensemble mean and spread are calculated with respect to.
+        x_coords : CoordSystem
+            Ordered dict representing coordinate system that describes the `x` tensor.
+            `reduction_dimensions` must be in coords.
+        y : torch.Tensor
+            The observation input tensor.
+        y_coords : CoordSystem
+            Ordered dict representing coordinate system that describes the `y` tensor.
+            `reduction_dimensions` must be in coords.
+
+        Returns
+        -------
+        tuple[torch.Tensor, CoordSystem]
+            Returns root mean squared error tensor with appropriate reduced coordinates.
+        """
+
+
+        em, output_coords = self.ensemble_mean(x, x_coords)
+        skill, output_coords = self.reduced_rmse(em, output_coords, y, y_coords)
+        var, output_coords = self.reduced_mean(*self.ensemble_var(x, x_coords))
+
+        mse = torch.square(skill)
+
+        output_coords.update({'metric': np.array(['mse', 'variance'])})
+        output_coords.move_to_end('metric', last=False)
+
+        return torch.stack((mse, var)), output_coords

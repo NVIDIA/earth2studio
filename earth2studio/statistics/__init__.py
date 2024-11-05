@@ -19,5 +19,5 @@ from .base import Metric, Statistic
 from .crps import crps
 from .moments import mean, std, variance  # noqa
 from .rank import rank_histogram  # noqa
-from .rmse import rmse, spread_skill_ratio  # noqa
+from .rmse import rmse, spread_skill_ratio, skill_spread  # noqa
 from .weights import lat_weight  # noqa
