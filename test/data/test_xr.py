@@ -18,12 +18,11 @@ import os
 import shutil
 import datetime
 import pathlib
+import pytest
+from typing import List
 
 import numpy as np
-import pytest
 import xarray as xr
-
-from typing import List
 
 from earth2studio.data import DataArrayFile, DataSetFile, DataArrayDirectory
 
@@ -148,19 +147,19 @@ def foo_dat_arr(time: List[datetime.datetime] = [
 @pytest.mark.parametrize("variable", ["u10m", ["u10m", "v10m"]])
 def test_data_array_dir(time, variable):
     os.makedirs("test_dat/2018", exist_ok=True)
-    aa = foo_dat_arr([datetime.datetime(year=2018, month=1, day=1),
-                    datetime.datetime(year=2018, month=1, day=8)])
-    aa.to_netcdf("test_dat/2018/2018_01.nc")
+    foo_dat_arr([datetime.datetime(year=2018, month=1, day=1),
+                 datetime.datetime(year=2018, month=1, day=8)]).to_netcdf("test_dat/2018/2018_01.nc")
     os.makedirs("test_dat/2019", exist_ok=True)
-    bb = foo_dat_arr([datetime.datetime(year=2019, month=1, day=1),
-                    datetime.datetime(year=2019, month=1, day=8)])
-    bb.to_netcdf("test_dat/2019/2019_01.nc")
+    foo_dat_arr([datetime.datetime(year=2019, month=1, day=1),
+                 datetime.datetime(year=2019, month=1, day=8)]).to_netcdf("test_dat/2019/2019_01.nc")
+
     # Load data source and request data array
     data_source = DataArrayDirectory("test_dat")
     data = data_source(time, variable)
-    # Delete nc file
-    # pathlib.Path("test_dat").unlink(missing_ok=True)
+
+    # Delete directory
     shutil.rmtree("test_dat")
+
     # Check consisten
     assert np.all(
         data.sel(time=time, variable=variable).values == data.values
