@@ -250,6 +250,8 @@ class DataArrayDirectory:
         """
         if not (isinstance(time, list) or isinstance(time, ndarray)):
             time = [time]
+        if not isinstance(variable, list):
+            variable = [variable]
 
         arrs = []
         for tt in time:
