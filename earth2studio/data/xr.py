@@ -17,11 +17,10 @@
 import os
 from datetime import datetime
 from typing import Any
-from numpy import ndarray
-from pandas import to_datetime
-from datetime import datetime
 
 import xarray as xr
+from numpy import ndarray
+from pandas import to_datetime
 
 from earth2studio.utils.type import TimeArray, VariableArray
 
@@ -117,58 +116,56 @@ class DataVarFile:
     xr_args : Any
         Keyword arguments to send to the xarray opening method.
     """
+
     def __init__(self, file_path: str, **xr_args: Any):
         self.file_path = file_path
 
         if os.path.isdir(file_path):
             import numpy as np
-            files = sorted([
-                os.path.join(
-                    file_path, file
-                ) for file in os.listdir(file_path)
-            ])
+
+            files = sorted(
+                [os.path.join(file_path, file) for file in os.listdir(file_path)]
+            )
 
             ds = []
             ds0 = []
             count = 0
             for f in files:
                 if len(ds0) == 0:
-                    t0 = f.split('/')[-1].split('_pkg')[0].split('_')[-1][:13] # TODO move out of loop, use time defined in file
-                    temp_ds = xr.open_dataset(f, chunks = {'lead_time': 1})
-                    temp_ds['ensemble'] = np.array([2*count, 2*count + 1])
+                    t0 = (
+                        f.split("/")[-1].split("_pkg")[0].split("_")[-1][:13]
+                    )  # TODO move out of loop, use time defined in file
+                    temp_ds = xr.open_dataset(f, chunks={"lead_time": 1})
+                    temp_ds["ensemble"] = np.array([2 * count, 2 * count + 1])
                     ds0.append(temp_ds)
                 else:
-                    t0 = f.split('/')[-1].split('_pkg')[0].split('_')[-1][:13]
+                    t0 = f.split("/")[-1].split("_pkg")[0].split("_")[-1][:13]
                     if t0 == t1:
-                        temp_ds = xr.open_dataset(f, chunks = {'lead_time': 1})
-                        temp_ds['ensemble'] = np.array([2*count, 2*count + 1])
+                        temp_ds = xr.open_dataset(f, chunks={"lead_time": 1})
+                        temp_ds["ensemble"] = np.array([2 * count, 2 * count + 1])
                         ds0.append(temp_ds)
                     else:
                         count = 0
-                        ds0 = xr.concat(ds0, 'ensemble')
+                        ds0 = xr.concat(ds0, "ensemble")
                         ds.append(ds0)
-                        temp_ds = xr.open_dataset(f, chunks = {'lead_time': 1})
-                        temp_ds['ensemble'] = np.array([2*count, 2*count + 1])
+                        temp_ds = xr.open_dataset(f, chunks={"lead_time": 1})
+                        temp_ds["ensemble"] = np.array([2 * count, 2 * count + 1])
                         ds0 = [temp_ds]
                 t1 = t0
                 count += 1
 
-            ds.append(xr.concat(ds0, 'ensemble'))
-            ds = xr.concat(ds, 'time')
+            ds.append(xr.concat(ds0, "ensemble"))
+            ds = xr.concat(ds, "time")
         else:
-            ds = xr.open_dataset(
-                file_path, **xr_args
-            )
+            ds = xr.open_dataset(file_path, **xr_args)
 
-        tr_dim = ['time', 'lead_time', 'variable', 'lat', 'lon']
-        if 'ensemble' in ds:
-            tr_dim = ['ensemble',] + tr_dim
+        tr_dim = ["time", "lead_time", "variable", "lat", "lon"]
+        if "ensemble" in ds:
+            tr_dim = [
+                "ensemble",
+            ] + tr_dim
 
-        self.da = ds.to_array(
-                dim = 'variable'
-            ).transpose(
-            *tr_dim
-        )
+        self.da = ds.to_array(dim="variable").transpose(*tr_dim)
 
     def __call__(
         self,
@@ -190,6 +187,7 @@ class DataVarFile:
             Loaded data array
         """
         return self.da.sel(time=time, variable=variable)
+
 
 class DataArrayDirectory:
     """A local xarray dataarray directory data source. This file should be compatable with
@@ -226,7 +224,7 @@ class DataArrayDirectory:
                             arr = xr.open_dataarray(pth, **xr_args)
                         except:
                             continue
-                        mon = fl.split('.')[0].split('_')[-1]
+                        mon = fl.split(".")[0].split("_")[-1]
                         self.das[yr][mon] = arr
 
     def __call__(
@@ -259,4 +257,4 @@ class DataArrayDirectory:
             mon = str(to_datetime(tt).month).zfill(2)
             arrs.append(self.das[yr][mon].sel(time=tt, variable=variable))
 
-        return xr.concat(arrs, dim='time')
+        return xr.concat(arrs, dim="time")

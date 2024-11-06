@@ -14,8 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import torch
 import numpy as np
+import torch
 
 from earth2studio.utils.coords import handshake_dim
 from earth2studio.utils.type import CoordSystem
@@ -282,11 +282,10 @@ class skill_spread(spread_skill_ratio):
             handshake_dim(input_coords, dimension)
             output_coords.pop(dimension)
 
-        output_coords.update({'metric': np.array(['mse', 'variance'])})
-        output_coords.move_to_end('metric', last=False)
+        output_coords.update({"metric": np.array(["mse", "variance"])})
+        output_coords.move_to_end("metric", last=False)
 
         return output_coords
-
 
     def __call__(
         self,
@@ -322,14 +321,13 @@ class skill_spread(spread_skill_ratio):
             Returns root mean squared error tensor with appropriate reduced coordinates.
         """
 
-
         em, output_coords = self.ensemble_mean(x, x_coords)
         skill, output_coords = self.reduced_rmse(em, output_coords, y, y_coords)
         var, output_coords = self.reduced_mean(*self.ensemble_var(x, x_coords))
 
         mse = torch.square(skill)
 
-        output_coords.update({'metric': np.array(['mse', 'variance'])})
-        output_coords.move_to_end('metric', last=False)
+        output_coords.update({"metric": np.array(["mse", "variance"])})
+        output_coords.move_to_end("metric", last=False)
 
         return torch.stack((mse, var)), output_coords

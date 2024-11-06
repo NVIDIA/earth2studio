@@ -14,17 +14,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os
-import shutil
 import datetime
+import os
 import pathlib
-import pytest
-from typing import List
+import shutil
 
 import numpy as np
+import pytest
 import xarray as xr
 
-from earth2studio.data import DataArrayFile, DataSetFile, DataArrayDirectory
+from earth2studio.data import DataArrayDirectory, DataArrayFile, DataSetFile
 
 
 @pytest.fixture
@@ -119,12 +118,13 @@ def test_data_set_netcdf(foo_data_set, array, time, variable):
     )
 
 
-
-def foo_dat_arr(time: List[datetime.datetime] = [
+def foo_dat_arr(
+    time: list[datetime.datetime] = [
         datetime.datetime(year=2018, month=1, day=1),
         datetime.datetime(year=2018, month=2, day=1),
         datetime.datetime(year=2018, month=3, day=1),
-    ]):
+    ]
+):
     variable = ["u10m", "v10m", "t2m"]
 
     da = xr.DataArray(
@@ -137,6 +137,7 @@ def foo_dat_arr(time: List[datetime.datetime] = [
     )
     return da
 
+
 @pytest.mark.parametrize(
     "time",
     [
@@ -147,11 +148,19 @@ def foo_dat_arr(time: List[datetime.datetime] = [
 @pytest.mark.parametrize("variable", ["u10m", ["u10m", "v10m"]])
 def test_data_array_dir(time, variable):
     os.makedirs("test_dat/2018", exist_ok=True)
-    foo_dat_arr([datetime.datetime(year=2018, month=1, day=1),
-                 datetime.datetime(year=2018, month=1, day=8)]).to_netcdf("test_dat/2018/2018_01.nc")
+    foo_dat_arr(
+        [
+            datetime.datetime(year=2018, month=1, day=1),
+            datetime.datetime(year=2018, month=1, day=8),
+        ]
+    ).to_netcdf("test_dat/2018/2018_01.nc")
     os.makedirs("test_dat/2019", exist_ok=True)
-    foo_dat_arr([datetime.datetime(year=2019, month=1, day=1),
-                 datetime.datetime(year=2019, month=1, day=8)]).to_netcdf("test_dat/2019/2019_01.nc")
+    foo_dat_arr(
+        [
+            datetime.datetime(year=2019, month=1, day=1),
+            datetime.datetime(year=2019, month=1, day=8),
+        ]
+    ).to_netcdf("test_dat/2019/2019_01.nc")
 
     # Load data source and request data array
     data_source = DataArrayDirectory("test_dat")
@@ -161,6 +170,4 @@ def test_data_array_dir(time, variable):
     shutil.rmtree("test_dat")
 
     # Check consisten
-    assert np.all(
-        data.sel(time=time, variable=variable).values == data.values
-    )
+    assert np.all(data.sel(time=time, variable=variable).values == data.values)

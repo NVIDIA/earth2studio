@@ -71,9 +71,9 @@ class ARCO:
     ARCO_LAT = np.linspace(90, -90, 721)
     ARCO_LON = np.linspace(0, 359.75, 1440)
 
-    def __init__(self, cache: bool = True,
-                 verbose: bool = True,
-                 async_timeout: int = 600):
+    def __init__(
+        self, cache: bool = True, verbose: bool = True, async_timeout: int = 600
+    ):
         self._cache = cache
         self._verbose = verbose
 
