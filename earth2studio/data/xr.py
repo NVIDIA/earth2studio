@@ -248,7 +248,7 @@ class DataArrayDirectory:
         """
         if not (isinstance(time, list) or isinstance(time, ndarray)):
             time = [time]
-        if not isinstance(variable, list):
+        if not (isinstance(variable, list) or isinstance(variable, ndarray)):
             variable = [variable]
 
         arrs = []
