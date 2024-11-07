@@ -245,6 +245,10 @@ class GEFSLexiconSel(metaclass=LexiconType):
     """Global Ensemble Forecast System 0.25 Degree Lexicon (Select variables). GEFS
     vocab specified <Data class>::<Parameter ID>::<Level/ Layer>
 
+    Warning
+    -------
+    Some variables are only present for lead time greater than 0
+
     Note
     ----
     Additional resources:
@@ -261,6 +265,11 @@ class GEFSLexiconSel(metaclass=LexiconType):
         "sp": "pgrb2s::PRES::surface",
         "msl": "pgrb2s::PRMSL::mean sea level",  # Pressure Reduced to MSL
         "tcwv": "pgrb2s::PWAT::entire atmosphere (considered as a single layer)",
+        "tp": "pgrb2s::APCP::surface",  # 3 hour acc
+        "csnow": "pgrb2s::CSNOW::surface",  # 3 hour ave
+        "cicep": "pgrb2s::CICEP::surface",  # 3 hour ave
+        "cfrzr": "pgrb2s::CFRZR::surface",  # 3 hour ave
+        "crain": "pgrb2s::CRAIN::surface",  # 3 hour ave
     }
 
     @classmethod

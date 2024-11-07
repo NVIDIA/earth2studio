@@ -14,4 +14,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-__version__ = "0.4.0a0"
+
+def reset_torch(gallery_conf, fname):
+    """Function to clean up torch between sphinx examples"""
+    import gc
+
+    import torch
+
+    torch.cuda.empty_cache()
+    gc.collect()

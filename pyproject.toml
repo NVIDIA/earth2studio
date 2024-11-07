@@ -15,7 +15,7 @@ dependencies = [
     "cdsapi >= 0.6.1",
     "cfgrib >= 0.9.10.3",
     "cftime",
-    "eccodes>=1.4.0",
+    'eccodes>=1.4.0; python_version<"3.12"',
     "ecmwflibs>=0.5.2",
     "ecmwf-opendata>=0.3.3",
     "fsspec>=2024.2.0",
@@ -34,7 +34,7 @@ dependencies = [
     "s3fs>=2023.5.0",
     "setuptools>=67.6.0",
     "torch>=2.0.0",
-    "torch_harmonics>=0.5.0, <0.7.1",
+    "torch_harmonics==0.6.*",
     "tqdm>=4.65.0",
     "xarray[parallel]>=2023.1.0",
     "zarr>=2.14.2",
@@ -58,13 +58,13 @@ Changelog = "https://github.com/NVIDIA/earth2studio/blob/main/CHANGELOG.md"
 
 [project.optional-dependencies]
 fengwu = [
-    "onnxruntime-gpu==1.17.1",
+    "onnxruntime-gpu",
 ]
 fuxi = [
-    "onnxruntime-gpu==1.17.1",
+    "onnxruntime-gpu",
 ]
 pangu = [
-    "onnxruntime-gpu==1.17.1",
+    "onnxruntime-gpu",
 ]
 sfno = [
     # makani needs to be installed manually
@@ -81,7 +81,7 @@ corrdiff = [
     "einops>=0.7.0",
 ]
 all = [
-    "onnxruntime-gpu>=1.14.0",
+    "onnxruntime-gpu",
     "jsbeautifier",
     "pynvml",
     "numba",
@@ -106,6 +106,8 @@ dev = [
 ]
 docs = [
     "cartopy",
+    "matplotlib",
+    "scipy",
     "sphinx-design",
     "sphinx>=6.0.0",
     "jupytext>=1.15.0",
