@@ -147,7 +147,8 @@ class SFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self.register_buffer("center", center)
         self.register_buffer("scale", scale)
         self.variables = variables
-        self.variables[self.variables == "2d"] = "d2m"
+        if "2d" in self.variables:
+            self.variables[self.variables == "2d"] = "d2m"
 
     def __str__(self) -> str:
         return "sfno_73ch_small"

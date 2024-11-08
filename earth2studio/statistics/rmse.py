@@ -299,7 +299,7 @@ class skill_spread(spread_skill_ratio):
         are broadcastable. While reducing over `reduction_dims`.
 
         If batch_update was passed True upon metric initialization then this method
-        returns the running sample RMSE over all seen batches.
+        returns the running sample MSE and variance over all seen batches.
 
         Parameters
         ----------
@@ -318,7 +318,7 @@ class skill_spread(spread_skill_ratio):
         Returns
         -------
         tuple[torch.Tensor, CoordSystem]
-            Returns root mean squared error tensor with appropriate reduced coordinates.
+            Returns a tensor containing MSE and variance with appropriate reduced coordinates.
         """
 
         em, output_coords = self.ensemble_mean(x, x_coords)
