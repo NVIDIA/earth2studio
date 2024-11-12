@@ -16,7 +16,7 @@
 
 import warnings
 from collections import OrderedDict
-from collections.abc import Generator
+from collections.abc import Generator, Iterator
 from itertools import product
 
 import numpy as np
@@ -93,7 +93,6 @@ class StormCast(torch.nn.Module, AutoModelMixin):
         stds: torch.Tensor,
         invariants: torch.Tensor,
         variables: np.array = np.array(VARIABLES),
-        conditioning_dt: np.timedelta64 | None = None,
         conditioning_means: torch.Tensor | None = None,
         conditioning_stds: torch.Tensor | None = None,
         conditioning_variables: np.array = np.array(CONDITIONING_VARIABLES),
@@ -111,7 +110,6 @@ class StormCast(torch.nn.Module, AutoModelMixin):
 
         self.variables = variables
 
-        self.conditioning_dt = conditioning_dt
         self.conditioning_variables = conditioning_variables
         self.conditioning_data_source = conditioning_data_source
         if conditioning_data_source is None:
@@ -208,7 +206,6 @@ class StormCast(torch.nn.Module, AutoModelMixin):
         means = metadata["means"].values
         stds = metadata["stds"].values
 
-        conditioning_dt = np.timedelta64(config.data.conditioning_dt, "h")
         conditioning_variables = metadata["conditioning_variables"].values
         conditioning_means = metadata["conditioning_means"].values
         conditioning_stds = metadata["conditioning_stds"].values
@@ -216,6 +213,7 @@ class StormCast(torch.nn.Module, AutoModelMixin):
         # Load invariants
         invariants = metadata["invariants"].sel(channel=config.invariants).values
         invariants = torch.from_numpy(invariants).repeat(1, 1, 1, 1)
+        # TODO do we need the below if using RegressionWrapperV2? Not defined
         regression.set_invariant(invariants)
 
         return cls(
@@ -227,7 +225,6 @@ class StormCast(torch.nn.Module, AutoModelMixin):
             stds,
             invariants,
             variables=variables,
-            conditioning_dt=conditioning_dt,
             conditioning_means=conditioning_means,
             conditioning_stds=conditioning_stds,
             conditioning_variables=conditioning_variables,
@@ -238,7 +235,7 @@ class StormCast(torch.nn.Module, AutoModelMixin):
     def _forward(self, x: torch.Tensor, conditioning: torch.Tensor) -> torch.Tensor:
 
         # Scale data
-        if "conditoning_means" in self._buffers:
+        if "conditioning_means" in self._buffers:
             conditioning = conditioning - self.conditioning_means
         if "conditioning_stds" in self._buffers:
             conditioning = conditioning / self.conditioning_stds
@@ -261,7 +258,7 @@ class StormCast(torch.nn.Module, AutoModelMixin):
             self.diffusion_model,
             latents=latents,
             condition=condition,
-            **self.sampler_args
+            **self.sampler_args,
         )
 
         out += edm_out
@@ -427,3 +424,22 @@ class StormCast(torch.nn.Module, AutoModelMixin):
             * (normed_lon_distance)
         )
         return result.reshape(*values.shape[:-2], latshape, lonshape)
+
+    def create_iterator(
+        self, x: torch.Tensor, coords: CoordSystem
+    ) -> Iterator[tuple[torch.Tensor, CoordSystem]]:
+        """Creates a iterator which can be used to perform time-integration of the
+        prognostic model. Will return the initial condition first (0th step).
+        Parameters
+        ----------
+        x : torch.Tensor
+            Input tensor
+        coords : CoordSystem
+            Input coordinate system
+        Yields
+        ------
+        Iterator[tuple[torch.Tensor, CoordSystem]]
+            Iterator that generates time-steps of the prognostic model container the
+            output data tensor and coordinate system dictionary.
+        """
+        yield from self._default_generator(x, coords)

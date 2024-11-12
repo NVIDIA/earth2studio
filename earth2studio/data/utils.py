@@ -43,8 +43,12 @@ def fetch_data(
     variable: VariableArray,
     lead_time: LeadTimeArray = np.array([np.timedelta64(0, "h")]),
     device: torch.device = "cpu",
+    interp_to: CoordSystem = None,
+    interp_method: str = "nearest",
 ) -> tuple[torch.Tensor, CoordSystem]:
     """Utility function to fetch data for models and load data on the target device.
+    If desired, xarray interpolation/regridding in the spatial domain can be used
+    by passing a target coordinate system via the optional `interp_to` argument.
 
     Parameters
     ----------
@@ -59,6 +63,11 @@ def fetch_data(
         np.array(np.timedelta64(0, "h"))
     device : torch.device, optional
         Torch devive to load data tensor to, by default "cpu"
+    interp_to : CoordSystem, optional
+        If provided, the fetched data will be interpolated to the coordinates
+        specified by lat/lon arrays in this CoordSystem
+    interp_method : str
+        Interpolation method to use with xarray (by default 'nearest')
 
     Returns
     -------
@@ -75,15 +84,25 @@ def fetch_data(
         da0 = da0.assign_coords(time=time)
         da.append(da0)
 
-    return prep_data_array(xr.concat(da, "lead_time"), device=device)
+    return prep_data_array(
+        xr.concat(da, "lead_time"),
+        device=device,
+        interp_to=interp_to,
+        interp_type=interp_method,
+    )
 
 
 def prep_data_array(
     da: xr.DataArray,
     device: torch.device = "cpu",
+    interp_to: CoordSystem = None,
+    interp_method: str = "nearest",
 ) -> tuple[torch.Tensor, CoordSystem]:
     """Prepares a data array from a data source for inference workflows by converting
     the data array to a torch tensor and the coordinate system to an OrderedDict.
+
+    If desired, xarray interpolation/regridding in the spatial domain can be used
+    by passing a target coordinate system via the optional `interp_to` argument.
 
     Parameters
     ----------
@@ -91,6 +110,11 @@ def prep_data_array(
         Input data array
     device : torch.device, optional
         Torch devive to load data tensor to, by default "cpu"
+    interp_to : CoordSystem, optional
+        If provided, the fetched data will be interpolated to the coordinates
+        specified by lat/lon arrays in this CoordSystem
+    interp_method : str
+        Interpolation method to use with xarray (by default 'nearest')
 
     Returns
     -------
@@ -98,11 +122,25 @@ def prep_data_array(
         Tuple containing output tensor and coordinate OrderedDict
     """
 
+    if interp_to is not None:
+        lat, lon = interp_to["lat"], interp_to["lon"]
+        da = da.interp(lat=lat, lon=lon, method=interp_method)
+
     out = torch.Tensor(da.values).to(device)
 
     out_coords = OrderedDict()
-    for dim in da.coords.dims:
-        out_coords[dim] = np.array(da.coords[dim])
+
+    curvilinear = "lat" in da.coords and len(da.coords["lat"].shape) > 1
+    if curvilinear:
+        # Assume the lat, lon array are defined as DataArray coordinates
+        for dim in da.coords.dims:
+            if dim not in ["lat", "lon"]:
+                out_coords[dim] = np.array(da.coords[dim])
+        out_coords["lat"] = np.array(da.coords["lat"])
+        out_coords["lon"] = np.array(da.coords["lon"])
+    else:
+        for dim in da.coords.dims:
+            out_coords[dim] = np.array(da.coords[dim])
 
     return out, out_coords
 
