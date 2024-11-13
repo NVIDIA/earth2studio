@@ -251,7 +251,7 @@ class CorrelatedSphericalField(torch.nn.Module):
 
         # Set specrtral cofficients to this value at initial time
         # for stability in teh AR(1) process.  See link in description
-        coeff = ((1 - self.phi**2) ** (-0.5)) * self.sigma_n * xi
+        coeff: torch.tensor = ((1 - self.phi**2) ** (-0.5)) * self.sigma_n * xi
         coeff = coeff.unsqueeze(0)
         self.register_buffer("coeff", coeff)
 
@@ -282,7 +282,7 @@ class CorrelatedSphericalField(torch.nn.Module):
         noises = []
         # iterate over samples in batch
         for _ in range(xx.shape[0]):
-            noise = self.isht(self.coeff) * 4 * np.pi
+            noise = self.isht(self.coeff) * 4 * np.pi  # type: ignore
             noises.append(noise.reshape(1, 1, 1, self.N, self.nlat, self.nlat * 2))
 
             # Sample Gaussian noise. # TODO why??? for next step maybe?
@@ -291,7 +291,7 @@ class CorrelatedSphericalField(torch.nn.Module):
             ).squeeze()
             xi = torch.view_as_complex(xi)
 
-            self.coeff = (self.phi * self.coeff) + (self.sigma_n * xi)
+            self.coeff = (self.phi * self.coeff) + (self.sigma_n * xi)  # type: ignore
 
         return torch.cat(noises)
 
