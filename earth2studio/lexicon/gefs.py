@@ -38,6 +38,7 @@ class GEFSLexicon(metaclass=LexiconType):
         "u100m": "pgrb2b::UGRD::100 m above ground",
         "v100m": "pgrb2b::VGRD::100 m above ground",
         "t2m": "pgrb2a::TMP::2 m above ground",
+        "d2m": "pgrb2b::DPT::2 m above ground",
         "r2m": "pgrb2a::RH::2 m above ground",
         "q2m": "pgrb2b::SPFH::2 m above ground",
         "t100m": "pgrb2b::TMP::100 m above ground",
@@ -261,6 +262,7 @@ class GEFSLexiconSel(metaclass=LexiconType):
         "u10m": "pgrb2s::UGRD::10 m above ground",
         "v10m": "pgrb2s::VGRD::10 m above ground",
         "t2m": "pgrb2s::TMP::2 m above ground",
+        "d2m": "pgrb2s::DPT::2 m above ground",
         "r2m": "pgrb2s::RH::2 m above ground",
         "sp": "pgrb2s::PRES::surface",
         "msl": "pgrb2s::PRMSL::mean sea level",  # Pressure Reduced to MSL

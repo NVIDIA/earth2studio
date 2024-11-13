@@ -177,19 +177,18 @@ class CorrelatedSphericalField(torch.nn.Module):
 
     Parameters
     ----------
-    length_scale : int
-        Length scale in km
-
-    time_scale : int
-        Time scale for the AR(1) process, that governs
-        the evolution of the coefficients
-
-    sigma: desired standard deviation of the field in
-            grid point space
-
     nlat : int
         Number of latitudinal modes;
         longitudinal modes are 2*nlat.
+    length_scale : int
+        Length scale in km
+    time_scale : int
+        Time scale for the AR(1) process, that governs
+        the evolution of the coefficients
+    sigma: float
+        desired standard deviation of the field in grid point space
+    N: int
+        Number of latent dimensions
     grid : string, default is "equiangular"
         Grid type. Currently supports "equiangular" and
         "legendre-gauss".
