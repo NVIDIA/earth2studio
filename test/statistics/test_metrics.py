@@ -161,6 +161,7 @@ def test_spread_skill(
     z, c = SSR(x, x_coords, y, y_coords)
     assert not any([ri in c for ri in ["ensemble"] + reduction_dimensions])
     assert list(z.shape) == [len(val) for val in c.values()]
+    assert torch.allclose(z, torch.ones_like(z), rtol=1e-1, atol=1e-1)
 
     out_test_coords = SSR.output_coords(x_coords)
     for i, ci in enumerate(c):
