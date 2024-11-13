@@ -100,95 +100,6 @@ class DataSetFile:
         return self.da.sel(time=time, variable=variable)
 
 
-class DataVarFile:
-    """A local xarray dataset file data source where the underlying data
-    has been saved with variable names as xarray `Data variables`.
-
-    This is essentially a utility function for users that want to convert
-    the data structure into something usable by earth2studio.
-
-    Parameters
-    ----------
-    file_path : str
-        A file path or directory containing the xarray compatible file(s).
-        If this is a directory, we find all files using os.path.listdir and
-        open with xarray.open_mfdataset(files, **xr_args)
-    xr_args : Any
-        Keyword arguments to send to the xarray opening method.
-    """
-
-    def __init__(self, file_path: str, **xr_args: Any):
-        self.file_path = file_path
-
-        if os.path.isdir(file_path):
-            import numpy as np
-
-            files = sorted(
-                [os.path.join(file_path, file) for file in os.listdir(file_path)]
-            )
-
-            ds = []
-            ds0 = []
-            count = 0
-            for f in files:
-                if len(ds0) == 0:
-                    t0 = (
-                        f.split("/")[-1].split("_pkg")[0].split("_")[-1][:13]
-                    )  # TODO move out of loop, use time defined in file
-                    temp_ds = xr.open_dataset(f, chunks={"lead_time": 1})
-                    temp_ds["ensemble"] = np.array([2 * count, 2 * count + 1])
-                    ds0.append(temp_ds)
-                else:
-                    t0 = f.split("/")[-1].split("_pkg")[0].split("_")[-1][:13]
-                    if t0 == t1:
-                        temp_ds = xr.open_dataset(f, chunks={"lead_time": 1})
-                        temp_ds["ensemble"] = np.array([2 * count, 2 * count + 1])
-                        ds0.append(temp_ds)
-                    else:
-                        count = 0
-                        ds0 = xr.concat(ds0, "ensemble")
-                        ds.append(ds0)
-                        temp_ds = xr.open_dataset(f, chunks={"lead_time": 1})
-                        temp_ds["ensemble"] = np.array([2 * count, 2 * count + 1])
-                        ds0 = [temp_ds]
-                t1 = t0
-                count += 1
-
-            ds.append(xr.concat(ds0, "ensemble"))
-            ds = xr.concat(ds, "time")
-        else:
-            ds = xr.open_dataset(file_path, **xr_args)
-
-        tr_dim = ["time", "lead_time", "variable", "lat", "lon"]
-        if "ensemble" in ds:
-            tr_dim = [
-                "ensemble",
-            ] + tr_dim
-
-        self.da = ds.to_array(dim="variable").transpose(*tr_dim)
-
-    def __call__(
-        self,
-        time: datetime | list[datetime] | TimeArray,
-        variable: str | list[str] | VariableArray,
-    ) -> xr.DataArray:
-        """Function to get data.
-
-        Parameters
-        ----------
-        time : datetime | list[datetime] | TimeArray
-            Timestamps to return data for.
-        variable : str | list[str] | VariableArray
-            Strings or list of strings that refer to variables to return.
-
-        Returns
-        -------
-        xr.DataArray
-            Loaded data array
-        """
-        return self.da.sel(time=time, variable=variable)
-
-
 class DataArrayDirectory:
     """A local xarray dataarray directory data source. This file should be compatable with
     xarray. For example, a netCDF file. the structure of the directory should be like
@@ -212,7 +123,7 @@ class DataArrayDirectory:
 
     def __init__(self, dir_path: str, **xr_args: Any):
         self.dir_path = dir_path
-        self.das = {}
+        self.das: dict[str, dict[str, xr.DataArray]] = {}
         for yr in os.listdir(self.dir_path):
             yr_dir = os.path.join(self.dir_path, yr)
             if os.path.isdir(yr_dir):
@@ -222,7 +133,7 @@ class DataArrayDirectory:
                     if os.path.isfile(pth):
                         try:
                             arr = xr.open_dataarray(pth, **xr_args)
-                        except:
+                        except:  # noqa
                             continue
                         mon = fl.split(".")[0].split("_")[-1]
                         self.das[yr][mon] = arr
