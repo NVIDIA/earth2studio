@@ -438,6 +438,7 @@ document.write(`
 <span class="c1"># See the License for the specific language governing permissions and</span>
 <span class="c1"># limitations under the License.</span>
 
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 <span class="kn">import</span> <span class="nn">torch</span>
 
 <span class="kn">from</span> <span class="nn">earth2studio.utils.coords</span> <span class="kn">import</span> <span class="n">handshake_dim</span>
@@ -696,6 +697,76 @@ document.write(`
         <span class="k">return</span> <span class="n">skill</span> <span class="o">/</span> <span class="n">torch</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">spread</span><span class="p">),</span> <span class="n">output_coords</span></div>
 </div>
 
+
+
+<span class="k">class</span> <span class="nc">skill_spread</span><span class="p">(</span><span class="n">spread_skill_ratio</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">output_coords</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_coords</span><span class="p">:</span> <span class="n">CoordSystem</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">CoordSystem</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Output coordinate system of the computed statistic, corresponding to the given input coordinates</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        input_coords : CoordSystem</span>
+<span class="sd">            Input coordinate system to transform into output_coords</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        CoordSystem</span>
+<span class="sd">            Coordinate system dictionary</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">output_coords</span> <span class="o">=</span> <span class="n">input_coords</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">dimension</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">reduction_dimensions</span><span class="p">:</span>
+            <span class="n">handshake_dim</span><span class="p">(</span><span class="n">input_coords</span><span class="p">,</span> <span class="n">dimension</span><span class="p">)</span>
+            <span class="n">output_coords</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">dimension</span><span class="p">)</span>
+
+        <span class="n">output_coords</span><span class="o">.</span><span class="n">update</span><span class="p">({</span><span class="s2">&quot;metric&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="s2">&quot;mse&quot;</span><span class="p">,</span> <span class="s2">&quot;variance&quot;</span><span class="p">])})</span>
+        <span class="n">output_coords</span><span class="o">.</span><span class="n">move_to_end</span><span class="p">(</span><span class="s2">&quot;metric&quot;</span><span class="p">,</span> <span class="n">last</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">output_coords</span>
+
+    <span class="k">def</span> <span class="fm">__call__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+        <span class="n">x_coords</span><span class="p">:</span> <span class="n">CoordSystem</span><span class="p">,</span>
+        <span class="n">y</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+        <span class="n">y_coords</span><span class="p">:</span> <span class="n">CoordSystem</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">CoordSystem</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Apply metric to data `x` and `y`, checking that their coordinates</span>
+<span class="sd">        are broadcastable. While reducing over `reduction_dims`.</span>
+
+<span class="sd">        If batch_update was passed True upon metric initialization then this method</span>
+<span class="sd">        returns the running sample MSE and variance over all seen batches.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        x : torch.Tensor</span>
+<span class="sd">            The ensemble forecast input tensor. This is the tensor over which the</span>
+<span class="sd">            ensemble mean and spread are calculated with respect to.</span>
+<span class="sd">        x_coords : CoordSystem</span>
+<span class="sd">            Ordered dict representing coordinate system that describes the `x` tensor.</span>
+<span class="sd">            `reduction_dimensions` must be in coords.</span>
+<span class="sd">        y : torch.Tensor</span>
+<span class="sd">            The observation input tensor.</span>
+<span class="sd">        y_coords : CoordSystem</span>
+<span class="sd">            Ordered dict representing coordinate system that describes the `y` tensor.</span>
+<span class="sd">            `reduction_dimensions` must be in coords.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        tuple[torch.Tensor, CoordSystem]</span>
+<span class="sd">            Returns a tensor containing MSE and variance with appropriate reduced coordinates.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">em</span><span class="p">,</span> <span class="n">output_coords</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ensemble_mean</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">x_coords</span><span class="p">)</span>
+        <span class="n">skill</span><span class="p">,</span> <span class="n">output_coords</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">reduced_rmse</span><span class="p">(</span><span class="n">em</span><span class="p">,</span> <span class="n">output_coords</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">y_coords</span><span class="p">)</span>
+        <span class="n">var</span><span class="p">,</span> <span class="n">output_coords</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">reduced_mean</span><span class="p">(</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">ensemble_var</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">x_coords</span><span class="p">))</span>
+
+        <span class="n">mse</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">square</span><span class="p">(</span><span class="n">skill</span><span class="p">)</span>
+
+        <span class="n">output_coords</span><span class="o">.</span><span class="n">update</span><span class="p">({</span><span class="s2">&quot;metric&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="s2">&quot;mse&quot;</span><span class="p">,</span> <span class="s2">&quot;variance&quot;</span><span class="p">])})</span>
+        <span class="n">output_coords</span><span class="o">.</span><span class="n">move_to_end</span><span class="p">(</span><span class="s2">&quot;metric&quot;</span><span class="p">,</span> <span class="n">last</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">stack</span><span class="p">((</span><span class="n">mse</span><span class="p">,</span> <span class="n">var</span><span class="p">)),</span> <span class="n">output_coords</span>
 </pre></div>
 
                 </article>

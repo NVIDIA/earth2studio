@@ -607,19 +607,18 @@ document.write(`
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
-<span class="sd">    length_scale : int</span>
-<span class="sd">        Length scale in km</span>
-
-<span class="sd">    time_scale : int</span>
-<span class="sd">        Time scale for the AR(1) process, that governs</span>
-<span class="sd">        the evolution of the coefficients</span>
-
-<span class="sd">    sigma: desired standard deviation of the field in</span>
-<span class="sd">            grid point space</span>
-
 <span class="sd">    nlat : int</span>
 <span class="sd">        Number of latitudinal modes;</span>
 <span class="sd">        longitudinal modes are 2*nlat.</span>
+<span class="sd">    length_scale : int</span>
+<span class="sd">        Length scale in km</span>
+<span class="sd">    time_scale : int</span>
+<span class="sd">        Time scale for the AR(1) process, that governs</span>
+<span class="sd">        the evolution of the coefficients</span>
+<span class="sd">    sigma: float</span>
+<span class="sd">        desired standard deviation of the field in grid point space</span>
+<span class="sd">    N: int</span>
+<span class="sd">        Number of latent dimensions</span>
 <span class="sd">    grid : string, default is &quot;equiangular&quot;</span>
 <span class="sd">        Grid type. Currently supports &quot;equiangular&quot; and</span>
 <span class="sd">        &quot;legendre-gauss&quot;.</span>

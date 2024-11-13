@@ -609,6 +609,7 @@ document.write(`
     <span class="n">lead_time</span><span class="p">:</span> <span class="n">LeadTimeArray</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">np</span><span class="o">.</span><span class="n">timedelta64</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;h&quot;</span><span class="p">)]),</span>
     <span class="n">backend</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;netcdf&quot;</span><span class="p">,</span> <span class="s2">&quot;zarr&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;netcdf&quot;</span><span class="p">,</span>
     <span class="n">chunks</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;variable&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">},</span>
+    <span class="n">dtype</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Utility function that can be used for building a local data store needed</span>
 <span class="sd">    for an inference request. This file can then be used with the</span>
@@ -632,6 +633,8 @@ document.write(`
 <span class="sd">        Storage backend to save output file as, by default &quot;netcdf&quot;</span>
 <span class="sd">    chunks : dict[str, int], optional</span>
 <span class="sd">        Chunk sizes along each dimension, by default {&quot;variable&quot;: 1}</span>
+<span class="sd">    dtype : np.dtype, optional</span>
+<span class="sd">        Data type for storing data</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">time</span><span class="p">,</span> <span class="n">datetime</span><span class="p">):</span>
         <span class="n">time</span> <span class="o">=</span> <span class="p">[</span><span class="n">time</span><span class="p">]</span>
@@ -652,6 +655,9 @@ document.write(`
     <span class="n">da</span> <span class="o">=</span> <span class="n">source</span><span class="p">(</span><span class="n">time</span><span class="p">,</span> <span class="n">variable</span><span class="p">)</span>
     <span class="n">da</span> <span class="o">=</span> <span class="n">da</span><span class="o">.</span><span class="n">assign_coords</span><span class="p">(</span><span class="n">time</span><span class="o">=</span><span class="n">time</span><span class="p">)</span>
     <span class="n">da</span> <span class="o">=</span> <span class="n">da</span><span class="o">.</span><span class="n">chunk</span><span class="p">(</span><span class="n">chunks</span><span class="o">=</span><span class="n">chunks</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">dtype</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">da</span> <span class="o">=</span> <span class="n">da</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">)</span>
 
     <span class="k">match</span> <span class="n">backend</span><span class="p">:</span>
         <span class="k">case</span> <span class="s2">&quot;netcdf&quot;</span><span class="p">:</span>

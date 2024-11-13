@@ -478,6 +478,9 @@ document.write(`
 <span class="sd">        Cache data source on local memory, by default True</span>
 <span class="sd">    verbose : bool, optional</span>
 <span class="sd">        Print download progress, by default True</span>
+<span class="sd">    async_timeout : int, optional</span>
+<span class="sd">        Time in sec after which download will be cancelled if not finished successfully,</span>
+<span class="sd">        by default 600</span>
 
 <span class="sd">    Warning</span>
 <span class="sd">    -------</span>
@@ -494,7 +497,9 @@ document.write(`
     <span class="n">ARCO_LAT</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">90</span><span class="p">,</span> <span class="o">-</span><span class="mi">90</span><span class="p">,</span> <span class="mi">721</span><span class="p">)</span>
     <span class="n">ARCO_LON</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mf">359.75</span><span class="p">,</span> <span class="mi">1440</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cache</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span> <span class="n">verbose</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">cache</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span> <span class="n">verbose</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span> <span class="n">async_timeout</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">600</span>
+    <span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span> <span class="o">=</span> <span class="n">cache</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_verbose</span> <span class="o">=</span> <span class="n">verbose</span>
 
@@ -516,7 +521,7 @@ document.write(`
             <span class="s2">&quot;gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3&quot;</span><span class="p">,</span> <span class="n">fs</span>
         <span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">zarr_group</span> <span class="o">=</span> <span class="n">zarr</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="n">fs_map</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;r&quot;</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">async_timeout</span> <span class="o">=</span> <span class="mi">600</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">async_timeout</span> <span class="o">=</span> <span class="n">async_timeout</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">async_process_limit</span> <span class="o">=</span> <span class="mi">4</span>
 
 <div class="viewcode-block" id="ARCO.__call__">
