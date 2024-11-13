@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
 import warnings
 from collections import OrderedDict
 from collections.abc import Generator, Iterator
@@ -23,13 +24,14 @@ import numpy as np
 import torch
 import xarray as xr
 from hydra.utils import instantiate
-from networks import edm_sampler
 from omegaconf import OmegaConf
 
-from earth2studio.data import DataSource, prep_data_array
+from earth2studio.data import DataSource, fetch_data
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_coords, batch_func
 from earth2studio.models.dx.base import DiagnosticModel
+from earth2studio.models.nn.stormcast_networks import edm_sampler
+from earth2studio.models.px.utils import PrognosticMixin
 from earth2studio.utils import (
     handshake_coords,
     handshake_dim,
@@ -59,7 +61,7 @@ CONDITIONING_VARIABLES = ["u10m", "v10m", "t2m", "tcwv", "mslp", "sp"] + [
 INVARIANTS = ["orography", "land_sea_mask"]
 
 
-class StormCast(torch.nn.Module, AutoModelMixin):
+class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     """
 
 
@@ -98,6 +100,7 @@ class StormCast(torch.nn.Module, AutoModelMixin):
         conditioning_variables: np.array = np.array(CONDITIONING_VARIABLES),
         conditioning_data_source: DataSource | None = None,
         sampler_args: dict[str, float | int] = {},
+        interp_method: str = "linear",
     ):
         super().__init__()
         self.regression_model = regression_model
@@ -106,7 +109,9 @@ class StormCast(torch.nn.Module, AutoModelMixin):
         self.lon = lon
         self.register_buffer("means", means)
         self.register_buffer("stds", stds)
-        self.register_buff("invariants", invariants)
+        self.register_buffer("invariants", invariants)
+        self.interp_method = interp_method
+        self.sampler_args = sampler_args
 
         self.variables = variables
 
@@ -163,17 +168,36 @@ class StormCast(torch.nn.Module, AutoModelMixin):
                 "lon": self.lon,
             }
         )
+        if input_coords is None:
+            return output_coords
 
         target_input_coords = self.input_coords()
-        handshake_dim(input_coords, "lon", 3)
-        handshake_dim(input_coords, "lat", 2)
-        handshake_dim(input_coords, "variable", 1)
+        handshake_dim(input_coords, "lon", 5)
+        handshake_dim(input_coords, "lat", 4)
+        handshake_dim(input_coords, "variable", 3)
         handshake_coords(input_coords, target_input_coords, "lon")
         handshake_coords(input_coords, target_input_coords, "lat")
         handshake_coords(input_coords, target_input_coords, "variable")
 
         output_coords["batch"] = input_coords["batch"]
+        output_coords["time"] = input_coords["time"]
+        output_coords["lead_time"] = (
+            output_coords["lead_time"] + input_coords["lead_time"]
+        )
         return output_coords
+
+    @classmethod
+    def load_default_package(cls) -> Package:
+        """Load prognostic package"""
+        package = Package(
+            "ngc://models/wf7ic9e2c5ge/stormcast@v1.0.1",
+            cache_options={
+                "cache_storage": Package.default_cache("stormcast"),
+                "same_names": True,
+            },
+        )
+        package.root = os.path.join(package.root, "stormcast")
+        return package
 
     @classmethod
     def load_model(cls, package: Package) -> DiagnosticModel:
@@ -201,14 +225,14 @@ class StormCast(torch.nn.Module, AutoModelMixin):
         metadata = xr.open_zarr("metadata.zarr.zip")
 
         variables = metadata["variable"].values
-        lat = metadata["lat"].values
-        lon = metadata["lon"].values
+        lat = metadata.coords["lat"].values
+        lon = metadata.coords["lon"].values
         means = metadata["means"].values
         stds = metadata["stds"].values
 
         conditioning_variables = metadata["conditioning_variables"].values
-        conditioning_means = metadata["conditioning_means"].values
-        conditioning_stds = metadata["conditioning_stds"].values
+        conditioning_means = torch.from_numpy(metadata["conditioning_means"].values)
+        conditioning_stds = torch.from_numpy(metadata["conditioning_stds"].values)
 
         # Load invariants
         invariants = metadata["invariants"].sel(channel=config.invariants).values
@@ -243,7 +267,7 @@ class StormCast(torch.nn.Module, AutoModelMixin):
         x = (x - self.means) / self.stds
 
         # Run regression model
-        invariant_tensor = self.invariant.repeat(x.shape[0], 1, 1, 1)
+        invariant_tensor = self.invariants.repeat(x.shape[0], 1, 1, 1)
         concats = torch.cat((x, conditioning, invariant_tensor), dim=1)
         noise = torch.randn([conditioning.shape[0], 1, 1, 1], device=x.device)
 
@@ -281,24 +305,19 @@ class StormCast(torch.nn.Module, AutoModelMixin):
                     "If no conditioning data source is provided,"
                     + "then conditioning data must be passed."
                 )
-            time = coords["time"]
-            lead_time = coords["lead_time"]
-            ds = self.conditioning_data_source(
-                time, lead_time, self.conditioning_variables
+            conditioning, conditioning_coords = fetch_data(
+                self.conditioning_data_source,
+                time=coords["time"],
+                variable=self.conditioning_variables,
+                lead_time=coords["lead_time"],
+                device=x.device,
+                interp_to=coords,
+                interp_method=self.interp_method,
             )
-            conditioning, conditioning_coords = prep_data_array(ds, device=x.device)
-            conditioning = self.interpolate(
-                conditioning,
-                torch.as_tensor(conditioning_coords["lat"], device=x.device),
-                torch.as_tensor(conditioning_coords["lon"], device=x.device),
-                torch.as_tensor(self.lat, device=x.device),
-                torch.as_tensor(self.lon, device=x.device),
-            )
-            conditioning_coords["lat"] = self.lat
-            conditioning_coords["lon"] = self.lon
-
-            # Need to repeat conditioning to match x
+            # Add a batch dim
             conditioning = conditioning.repeat(x.shape[0], 1, 1, 1, 1, 1)
+            conditioning_coords.update({"batch": np.empty(0)})
+            conditioning_coords.move_to_end("batch", last=False)
 
         # Handshake conditioning coords
         handshake_coords(conditioning_coords, coords, "lon")
@@ -308,12 +327,12 @@ class StormCast(torch.nn.Module, AutoModelMixin):
 
         output_coords = self.output_coords(coords)
 
-        x, conditioning = (
-            x.reshape(-1, x.shape[-3:]),
-            conditioning.reshape(-1, x.shape[-3:]),
-        )
-        for i in range(x.shape[0]):
-            x[i : i + 1] = self._forward(x[i : i + 1], conditioning[i])
+        for i, _ in enumerate(coords["batch"]):
+            for j, _ in enumerate(coords["time"]):
+                for k, _ in enumerate(coords["lead_time"]):
+                    x[i, j, k : k + 1] = self._forward(
+                        x[i, j, k : k + 1], conditioning[i, j, k : k + 1]
+                    )
 
         return x, output_coords
 
@@ -342,88 +361,6 @@ class StormCast(torch.nn.Module, AutoModelMixin):
             # Rear hook
             x, coords = self.rear_hook(x, coords)
             yield x, coords.copy()
-
-    @staticmethod
-    def interpolate(
-        values: torch.Tensor,
-        lat0: torch.Tensor,
-        lon0: torch.Tensor,
-        lat1: torch.Tensor,
-        lon1: torch.Tensor,
-    ) -> torch.Tensor:
-        """Specialized form of bilinear interpolation intended for optimal use on GPU.
-
-        In particular, the mapped values must be defined on a regular rectangular grid,
-        (lat0, lon0). Both lat0 and lon0 are vectors with equal spacing.
-
-        lat1, lon1 are assumed to be 2-dimensional meshgrids with possibly unequal spacing.
-
-        Parameters
-        ----------
-        values : torch.Tensor [..., W_in, H_in]
-            Input values defined over (lat0, lon0) that will be interpolated onto
-            (lat1, lon1) grid.
-        lat0 : torch.Tensor [W_in, ]
-            Vector of input latitude coordinates, assumed to be increasing with
-            equal spacing.
-        lon0 : torch.Tensor [H_in, ]
-            Vector of input longitude coordinates, assumed to be increasing with
-            equal spacing.
-        lat1 : torch.Tensor [W_out, H_out]
-            Tensor of output latitude coordinates
-        lon1 : torch.Tensor [W_out, H_out]
-            Tensor of output longitude coordinates
-
-        Returns
-        -------
-        result : torch.Tensor [..., W_out, H_out]
-            Tensor of interpolated values onto lat1, lon1 grid.
-        """
-
-        # Get input grid shape and flatten
-        latshape, lonshape = lat1.shape
-        lat1 = lat1.flatten()
-        lon1 = lon1.flatten()
-
-        # Get indices of nearest points
-        latinds = torch.searchsorted(lat0, lat1) - 1
-        loninds = torch.searchsorted(lon0, lon1) - 1
-
-        # Get original grid spacing
-        dlat = lat0[1] - lat0[0]
-        if dlat < 0:
-            # If latitudes are not increasing then need to flip
-            lat0 = torch.flip(lat0, (0,))
-            values = torch.flip(values, (-2,))
-
-        dlon = lon0[1] - lon0[0]
-
-        # Get unit distances
-        normed_lat_distance = (lat1 - lat0[latinds]) / dlat
-        normed_lon_distance = (lon1 - lon0[loninds]) / dlon
-
-        # Apply bilinear mapping
-        result = (
-            values[..., latinds, loninds]
-            * (1 - normed_lat_distance)
-            * (1 - normed_lon_distance)
-        )
-        result += (
-            values[..., latinds, loninds + 1]
-            * (1 - normed_lat_distance)
-            * (normed_lon_distance)
-        )
-        result += (
-            values[..., latinds + 1, loninds]
-            * (normed_lat_distance)
-            * (1 - normed_lon_distance)
-        )
-        result += (
-            values[..., latinds + 1, loninds + 1]
-            * (normed_lat_distance)
-            * (normed_lon_distance)
-        )
-        return result.reshape(*values.shape[:-2], latshape, lonshape)
 
     def create_iterator(
         self, x: torch.Tensor, coords: CoordSystem

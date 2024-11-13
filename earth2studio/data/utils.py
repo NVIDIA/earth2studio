@@ -88,7 +88,7 @@ def fetch_data(
         xr.concat(da, "lead_time"),
         device=device,
         interp_to=interp_to,
-        interp_type=interp_method,
+        interp_method=interp_method,
     )
 
 
@@ -123,8 +123,15 @@ def prep_data_array(
     """
 
     if interp_to is not None:
-        lat, lon = interp_to["lat"], interp_to["lon"]
-        da = da.interp(lat=lat, lon=lon, method=interp_method)
+        target_lat = xr.DataArray(interp_to["lat"], dims=["y", "x"])
+        target_lon = xr.DataArray(interp_to["lon"], dims=["y", "x"])
+        target_grid = xr.Dataset({"latitude": target_lat, "longitude": target_lon})
+
+        da = da.interp(
+            lat=target_grid["latitude"],
+            lon=target_grid["longitude"],
+            method=interp_method,
+        )
 
     out = torch.Tensor(da.values).to(device)
 
@@ -134,7 +141,7 @@ def prep_data_array(
     if curvilinear:
         # Assume the lat, lon array are defined as DataArray coordinates
         for dim in da.coords.dims:
-            if dim not in ["lat", "lon"]:
+            if dim in ["time", "variable", "lead_time"]:
                 out_coords[dim] = np.array(da.coords[dim])
         out_coords["lat"] = np.array(da.coords["lat"])
         out_coords["lon"] = np.array(da.coords["lon"])
