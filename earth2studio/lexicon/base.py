@@ -31,6 +31,7 @@ E2STUDIO_VOCAB = {
     "u100m": "u-component of wind at 100 m",
     "v100m": "v-component of wind at 100 m",
     "t2m": "temperature at 2m",
+    "d2m": "dewpoint temperature at 2m",
     "r2m": "relative humidity at 2 m",
     "q2m": "specific humidity at 2 m",
     "sp": "surface pressure",

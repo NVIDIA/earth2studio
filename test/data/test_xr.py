@@ -15,13 +15,15 @@
 # limitations under the License.
 
 import datetime
+import os
 import pathlib
+import shutil
 
 import numpy as np
 import pytest
 import xarray as xr
 
-from earth2studio.data import DataArrayFile, DataSetFile
+from earth2studio.data import DataArrayDirectory, DataArrayFile, DataSetFile
 
 
 @pytest.fixture
@@ -114,3 +116,58 @@ def test_data_set_netcdf(foo_data_set, array, time, variable):
     assert np.all(
         foo_data_set[array].sel(time=time, variable=variable).values == data.values
     )
+
+
+def foo_dat_arr(
+    time: list[datetime.datetime] = [
+        datetime.datetime(year=2018, month=1, day=1),
+        datetime.datetime(year=2018, month=2, day=1),
+        datetime.datetime(year=2018, month=3, day=1),
+    ]
+):
+    variable = ["u10m", "v10m", "t2m"]
+
+    da = xr.DataArray(
+        data=np.random.randn(len(time), len(variable), 8, 16),
+        dims=["time", "variable", "lat", "lon"],
+        coords={
+            "time": time,
+            "variable": variable,
+        },
+    )
+    return da
+
+
+@pytest.mark.parametrize(
+    "time",
+    [
+        datetime.datetime(year=2018, month=1, day=1),
+        datetime.datetime(year=2019, month=1, day=8),
+    ],
+)
+@pytest.mark.parametrize("variable", ["u10m", ["u10m", "v10m"]])
+def test_data_array_dir(time, variable):
+    os.makedirs("test_dat/2018", exist_ok=True)
+    foo_dat_arr(
+        [
+            datetime.datetime(year=2018, month=1, day=1),
+            datetime.datetime(year=2018, month=1, day=8),
+        ]
+    ).to_netcdf("test_dat/2018/2018_01.nc")
+    os.makedirs("test_dat/2019", exist_ok=True)
+    foo_dat_arr(
+        [
+            datetime.datetime(year=2019, month=1, day=1),
+            datetime.datetime(year=2019, month=1, day=8),
+        ]
+    ).to_netcdf("test_dat/2019/2019_01.nc")
+
+    # Load data source and request data array
+    data_source = DataArrayDirectory("test_dat")
+    data = data_source(time, variable)
+
+    # Delete directory
+    shutil.rmtree("test_dat")
+
+    # Check consisten
+    assert np.all(data.sel(time=time, variable=variable).values == data.values)

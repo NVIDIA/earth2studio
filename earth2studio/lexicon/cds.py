@@ -39,6 +39,7 @@ class CDSLexicon(metaclass=LexiconType):
         "u100m": "reanalysis-era5-single-levels::100m_u_component_of_wind::",
         "v100m": "reanalysis-era5-single-levels::100m_v_component_of_wind::",
         "t2m": "reanalysis-era5-single-levels::2m_temperature::",
+        "d2m": "reanalysis-era5-single-levels::2m_dewpoint_temperature::",
         "sp": "reanalysis-era5-single-levels::surface_pressure::",
         "msl": "reanalysis-era5-single-levels::mean_sea_level_pressure::",
         "tcwv": "reanalysis-era5-single-levels::total_column_water_vapour::",

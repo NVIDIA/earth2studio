@@ -39,9 +39,9 @@ class XarrayBackend:
 
     """
 
-    def __init__(self, coords: CoordSystem, **xr_kwargs: Any) -> None:
+    def __init__(self, coords: CoordSystem = OrderedDict({}), **xr_kwargs: Any) -> None:
         self.root = xr.Dataset(data_vars={}, coords=coords, **xr_kwargs)
-        self.coords: CoordSystem = OrderedDict({})
+        self.coords = coords
 
     def __contains__(self, item: str) -> bool:
         """Checks if item in xarray Dataset.

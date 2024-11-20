@@ -42,6 +42,7 @@ class GFSLexicon(metaclass=LexiconType):
         "u100m": "UGRD::100 m above ground",
         "v100m": "VGRD::100 m above ground",
         "t2m": "TMP::2 m above ground",
+        "d2m": "DPT::2 m above ground",
         "sp": "PRES::surface",
         "msl": "PRMSL::mean sea level",
         "tcwv": "PWAT::entire atmosphere (considered as a single layer)",
