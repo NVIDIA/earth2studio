@@ -515,10 +515,15 @@ Note that the class has a <code class="docutils literal notranslate"><span class
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Global Forecast System Lexicon</span>
 <span class="sd">    GFS specified &lt;Parameter ID&gt;::&lt;Level/ Layer&gt;</span>
 
+<span class="sd">    Warning</span>
+<span class="sd">    -------</span>
+<span class="sd">    Some variables are only present for lead time greater than 0</span>
+
 <span class="sd">    Note</span>
 <span class="sd">    ----</span>
 <span class="sd">    Additional resources:</span>
 <span class="sd">    https://www.nco.ncep.noaa.gov/pmb/products/gfs/gfs.t00z.pgrb2.0p25.f000.shtml</span>
+<span class="sd">    https://www.nco.ncep.noaa.gov/pmb/products/gfs/gfs.t00z.pgrb2.0p25.f003.shtml</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="n">VOCAB</span> <span class="o">=</span> <span class="p">{</span>
@@ -527,11 +532,6 @@ Note that the class has a <code class="docutils literal notranslate"><span class
         <span class="s2">&quot;u100m&quot;</span><span class="p">:</span> <span class="s2">&quot;UGRD::100 m above ground&quot;</span><span class="p">,</span>
         <span class="s2">&quot;v100m&quot;</span><span class="p">:</span> <span class="s2">&quot;VGRD::100 m above ground&quot;</span><span class="p">,</span>
         <span class="s2">&quot;t2m&quot;</span><span class="p">:</span> <span class="s2">&quot;TMP::2 m above ground&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;d2m&quot;</span><span class="p">:</span> <span class="s2">&quot;DPT::2 m above ground&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;sp&quot;</span><span class="p">:</span> <span class="s2">&quot;PRES::surface&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;msl&quot;</span><span class="p">:</span> <span class="s2">&quot;PRMSL::mean sea level&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;tcwv&quot;</span><span class="p">:</span> <span class="s2">&quot;PWAT::entire atmosphere (considered as a single layer)&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;u1&quot;</span><span class="p">:</span> <span class="s2">&quot;UGRD::1 mb&quot;</span><span class="p">,</span>
 </pre></div>
 </div>
 <p>How the value of each variable is left up the the data source.
@@ -552,11 +552,16 @@ fetch the correct data.</p>
 <span class="w">                    </span><span class="sd">&quot;&quot;&quot;Modify data (if necessary).&quot;&quot;&quot;</span>
                     <span class="k">return</span> <span class="n">x</span>
 
-            <span class="k">if</span> <span class="n">gfs_name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">index_file</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="ne">KeyError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Could not find variable </span><span class="si">{</span><span class="n">gfs_name</span><span class="si">}</span><span class="s2"> in index file&quot;</span><span class="p">)</span>
+            <span class="n">byte_offset</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="n">byte_length</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">index_file</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                <span class="k">if</span> <span class="n">gfs_name</span> <span class="ow">in</span> <span class="n">key</span><span class="p">:</span>
+                    <span class="n">byte_offset</span> <span class="o">=</span> <span class="n">value</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+                    <span class="n">byte_length</span> <span class="o">=</span> <span class="n">value</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+                    <span class="k">break</span>
 
-            <span class="n">byte_offset</span> <span class="o">=</span> <span class="n">index_file</span><span class="p">[</span><span class="n">gfs_name</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
-            <span class="n">byte_length</span> <span class="o">=</span> <span class="n">index_file</span><span class="p">[</span><span class="n">gfs_name</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span>
+            <span class="k">if</span> <span class="n">byte_offset</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">KeyError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Could not find variable </span><span class="si">{</span><span class="n">gfs_name</span><span class="si">}</span><span class="s2"> in index file&quot;</span><span class="p">)</span>
             <span class="c1"># Download the grib file to cache</span>
             <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
                 <span class="sa">f</span><span class="s2">&quot;Fetching GFS grib file for variable: </span><span class="si">{</span><span class="n">variable</span><span class="si">}</span><span class="s2"> at </span><span class="si">{</span><span class="n">time</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">lead_hour</span><span class="si">}</span><span class="s2">&quot;</span>
