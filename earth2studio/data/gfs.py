@@ -217,11 +217,16 @@ class GFS:
                     """Modify data (if necessary)."""
                     return x
 
-            if gfs_name not in index_file:
-                raise KeyError(f"Could not find variable {gfs_name} in index file")
+            byte_offset = None
+            byte_length = None
+            for key, value in index_file.items():
+                if gfs_name in key:
+                    byte_offset = value[0]
+                    byte_length = value[1]
+                    break
 
-            byte_offset = index_file[gfs_name][0]
-            byte_length = index_file[gfs_name][1]
+            if byte_offset is None:
+                raise KeyError(f"Could not find variable {gfs_name} in index file")
             # Download the grib file to cache
             logger.debug(
                 f"Fetching GFS grib file for variable: {variable} at {time}_{lead_hour}"
@@ -299,7 +304,7 @@ class GFS:
             nlsplit = index_lines[i + 1].split(":")
             byte_length = int(nlsplit[1]) - int(lsplit[1])
             byte_offset = int(lsplit[1])
-            key = f"{lsplit[3]}::{lsplit[4]}"
+            key = f"{lsplit[0]}::{lsplit[3]}::{lsplit[4]}"
             if byte_length > self.MAX_BYTE_SIZE:
                 raise ValueError(
                     f"Byte length, {byte_length}, of variable {key} larger than safe threshold of {self.MAX_BYTE_SIZE}"

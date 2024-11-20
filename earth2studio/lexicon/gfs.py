@@ -25,10 +25,15 @@ class GFSLexicon(metaclass=LexiconType):
     """Global Forecast System Lexicon
     GFS specified <Parameter ID>::<Level/ Layer>
 
+    Warning
+    -------
+    Some variables are only present for lead time greater than 0
+
     Note
     ----
     Additional resources:
     https://www.nco.ncep.noaa.gov/pmb/products/gfs/gfs.t00z.pgrb2.0p25.f000.shtml
+    https://www.nco.ncep.noaa.gov/pmb/products/gfs/gfs.t00z.pgrb2.0p25.f003.shtml
     """
 
     VOCAB = {
@@ -41,6 +46,8 @@ class GFSLexicon(metaclass=LexiconType):
         "sp": "PRES::surface",
         "msl": "PRMSL::mean sea level",
         "tcwv": "PWAT::entire atmosphere (considered as a single layer)",
+        "tp": "596::APCP::surface",  # 3 hour acc
+        "2d": "DPT::2 m above ground",
         "u1": "UGRD::1 mb",
         "u2": "UGRD::2 mb",
         "u3": "UGRD::3 mb",
