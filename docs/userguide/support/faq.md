@@ -15,3 +15,20 @@ Whether its you're own model or someone else's checkpoint, we are always interes
 making Earth2Studio as feature rich as possible for users.
 Open an issue to discuss the model you're interested in using / integrating and we can
 work out a plan to get it integrated.
+
+## Earth2Studio requires X.Y.Z package or Python version, can I use another?
+
+Earth2Studio has adopted the [scientific python](https://scientific-python.org/specs/)
+spec 0 for minimum supported dependencies.
+This mean adopting a common time-based policy for dropping dependencies to encourage the
+use of modern Python and packages.
+This helps improve matainance of the package and security posture.
+This does not imply a strict requirement for all functionality and does not apply to
+optional packages.
+
+## Install AttributeError: module 'pkgutil' with Python 3.12
+
+Python 3.12 is presently broken due to core dependencies of Earth2Studio blocking the
+install.
+We are working on resolving this as soon as we can, we suggest downgrading to 3.11 in
+the mean time.

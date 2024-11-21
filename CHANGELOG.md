@@ -20,11 +20,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 
+- Removed `available` function from CDS datasource
+
 ### Fixed
 
 ### Security
 
 ### Dependencies
+
+- Moving several ECMWF dependencies to optional
+- Adding minimum version for numpy
+- Bump minimum CDS API version for new API
+- Moving unique data packages to optional deps
 
 ## [0.3.0] - 2024-09-24
 

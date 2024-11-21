@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import importlib.util
 import os
 import pathlib
 import shutil
@@ -39,6 +40,13 @@ logger.add(lambda msg: tqdm.write(msg, end=""), colorize=True)
 
 class _HRRRBase:
     def __init__(self, cache: bool = True, verbose: bool = True):
+        # Optional import not installed error
+        herbie = importlib.util.find_spec("herbie")
+        if herbie is None:
+            raise ImportError(
+                "herbie-data is not installed, install manually or using `pip install earth2studio[data]`"
+            )
+
         self._cache = cache
         self._verbose = verbose
 

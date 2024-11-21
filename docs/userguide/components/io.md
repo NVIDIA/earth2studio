@@ -47,8 +47,9 @@ Most data stores offer several additional utilities such as `__contains__`,
 {mod}`earth2studio.io.ZarrBackend`:
 
 ```{literalinclude} ../../../earth2studio/io/zarr.py
-    :lines: 53-81
     :language: python
+    :start-after: sphinx - io zarr start
+    :end-before: sphinx - io zarr end
 ```
 
 Because of `datetime` compatibility, we recommend using the `ZarrBackend` as a default.
