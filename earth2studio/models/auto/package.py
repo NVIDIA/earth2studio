@@ -291,7 +291,7 @@ class Package:
                 return self.fs.open(full_path, callback=callback)
             except fsspec.exceptions.FSTimeoutError as e:
                 logger.error(
-                    f'Loading model artefact resulted in timeout. Consider increasing timeout through environment variable "EARTH2STUDIO_PACKAGE_TIMEOUT". Currently it is set to {self.default_timeout()} seconds.'
+                    f"Package fetch timeout. Consider increasing timeout through environment variable 'EARTH2STUDIO_PACKAGE_TIMEOUT'. Currently {self.default_timeout()}s."
                 )
                 raise e
 
