@@ -12,6 +12,7 @@ readme = "README.md"
 requires-python = ">=3.10"
 license = {text = "Apache 2.0"}
 dependencies = [
+    "cfgrib >= 0.9.10.3",
     "cftime",
     "fsspec>=2024.2.0",
     "gcsfs",
@@ -59,7 +60,6 @@ Changelog = "https://github.com/NVIDIA/earth2studio/blob/main/CHANGELOG.md"
 [project.optional-dependencies]
 data = [
     "cdsapi >= 0.7.4",
-    "cfgrib >= 0.9.10.3",
     'eccodes>=1.4.0; python_version<"3.12"',
     "ecmwflibs>=0.5.2",
     "ecmwf-opendata>=0.3.3",
