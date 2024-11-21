@@ -182,7 +182,7 @@ class Package:
                     + f" got {root}"
                 )
             self.root = root
-            self.fs = NGCModelFileSystem(
+            self.fs = NGCModelFileSystem(  # type: ignore
                 block_size=Package.default_blocksize(),
                 client_kwargs={
                     "timeout": aiohttp.ClientTimeout(total=Package.default_timeout())
