@@ -24,7 +24,10 @@ from dataclasses import dataclass
 from datetime import datetime
 from time import sleep
 
-import cdsapi
+try:
+    import cdsapi
+except ImportError:
+    cdsapi = None
 import numpy as np
 import xarray as xr
 from loguru import logger
@@ -71,9 +74,10 @@ class CDS:
 
     Note
     ----
-    Additional information on the data repository can be referenced here:
+    Additional information on the data repository, registration, and authentication can
+    be referenced here:
 
-    - https://cds.climate.copernicus.eu/cdsapp#!/home
+    - https://cds.climate.copernicus.eu/how-to-api
     """
 
     MAX_BYTE_SIZE = 20000000
@@ -82,6 +86,12 @@ class CDS:
     CDS_LON = np.linspace(0, 359.75, 1440)
 
     def __init__(self, cache: bool = True, verbose: bool = True):
+        # Optional import not installed error
+        if cdsapi is None:
+            raise ImportError(
+                "cdsapi is not installed, install manually or using `pip install earth2studio[data]`"
+            )
+
         self._cache = cache
         self._verbose = verbose
         self.cds_client = cdsapi.Client(
@@ -304,7 +314,7 @@ class CDS:
                     break
                 elif reply["state"] in ("queued", "running"):
                     logger.debug(f"Request ID: {reply['request_id']}, sleeping")
-                    sleep(1.0)
+                    sleep(5.0)
                 elif reply["state"] in ("failed",):
                     logger.error(
                         f"CDS request fail for: {dataset_name} {variable} {level} {time}"

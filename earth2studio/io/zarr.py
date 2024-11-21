@@ -45,6 +45,7 @@ class ZarrBackend:
     For keyword argument options see: https://zarr.readthedocs.io/en/stable/api/hierarchy.html
     """
 
+    # sphinx - io zarr start
     def __init__(
         self,
         file_name: str = None,
@@ -104,6 +105,7 @@ class ZarrBackend:
         """Return an iterator over Zarr Group member names."""
         return self.root.__iter__()
 
+    # sphinx - io zarr end
     def add_array(
         self,
         coords: CoordSystem,

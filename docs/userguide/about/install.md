@@ -42,6 +42,18 @@ We encourage users that face package issues to familiarize themselves with the o
 model installs and suggested environment set up for the most complete experience.
 :::
 
+(data_dependencies)=
+
+## Datasource Dependencies
+
+Some data sources require additional dependencies, libraries or specific Python versions
+to install.
+To install all dependencies
+
+```bash
+pip install earth2studio[data]
+```
+
 (model_dependencies)=
 
 ## Model Dependencies

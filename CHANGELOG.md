@@ -26,6 +26,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Dependencies
 
+- Moving several ECMWF dependencies to optional
+- Adding minimum version for numpy
+- Bump minimum CDS API version for new API
+
 ## [0.3.0] - 2024-09-24
 
 ### Added

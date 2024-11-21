@@ -12,23 +12,17 @@ readme = "README.md"
 requires-python = ">=3.10"
 license = {text = "Apache 2.0"}
 dependencies = [
-    "cdsapi >= 0.6.1",
-    "cfgrib >= 0.9.10.3",
     "cftime",
-    'eccodes>=1.4.0; python_version<"3.12"',
-    "ecmwflibs>=0.5.2",
-    "ecmwf-opendata>=0.3.3",
     "fsspec>=2024.2.0",
     "gcsfs",
     "h5py>=3.2.0",
     "h5netcdf>=1.0.0",
-    "herbie-data",
     "huggingface-hub>=0.4.0",
     "importlib_metadata",
     "loguru",
     "netCDF4>=1.6.4",
     "ngcsdk>=3.48.0",
-    "numpy",
+    "numpy>=1.24.0",
     "nvidia-modulus>=0.6.0",
     "python-dotenv",
     "s3fs>=2023.5.0",
@@ -44,9 +38,15 @@ classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: Apache Software License",
     "Operating System :: OS Independent",
+    'Programming Language :: Python',
+    'Programming Language :: Python :: 3',
+    'Programming Language :: Python :: 3.10',
+    'Programming Language :: Python :: 3.11',
+    'Programming Language :: Python :: 3 :: Only',
     "Intended Audience :: Science/Research",
     "Environment :: GPU",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    'Typing :: Typed',
 ]
 dynamic = ["version"]
 
@@ -57,6 +57,14 @@ Issues = "https://github.com/NVIDIA/earth2studio/issues"
 Changelog = "https://github.com/NVIDIA/earth2studio/blob/main/CHANGELOG.md"
 
 [project.optional-dependencies]
+data = [
+    "cdsapi >= 0.7.4",
+    "cfgrib >= 0.9.10.3",
+    'eccodes>=1.4.0; python_version<"3.12"',
+    "ecmwflibs>=0.5.2",
+    "ecmwf-opendata>=0.3.3",
+    "herbie-data",
+]
 fengwu = [
     "onnxruntime-gpu",
 ]
@@ -81,6 +89,12 @@ corrdiff = [
     "einops>=0.7.0",
 ]
 all = [
+    "cdsapi >= 0.7.4",
+    "cfgrib >= 0.9.10.3",
+    'eccodes>=1.4.0; python_version<"3.12"',
+    "ecmwflibs>=0.5.2",
+    "ecmwf-opendata>=0.3.3",
+    "herbie-data",
     "onnxruntime-gpu",
     "jsbeautifier",
     "pynvml",
