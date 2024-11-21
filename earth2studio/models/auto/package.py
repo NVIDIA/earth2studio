@@ -182,7 +182,7 @@ class Package:
                     + f" got {root}"
                 )
             self.root = root
-            self.fs = NGCModelFileSystem(  # type: ignore
+            self.fs = NGCModelFileSystem(
                 block_size=Package.default_blocksize(),
                 client_kwargs={
                     "timeout": aiohttp.ClientTimeout(total=Package.default_timeout())
@@ -287,7 +287,13 @@ class Package:
             },
             tqdm_cls=TqdmFormat,
         ) as callback:
-            return self.fs.open(full_path, callback=callback)
+            try:
+                return self.fs.open(full_path, callback=callback)
+            except fsspec.exceptions.FSTimeoutError as e:
+                logger.error(
+                    f'Loading model artefact resulted in timeout. Consider increasing timeout through environment variable "EARTH2STUDIO_PACKAGE_TIMEOUT". Currently it is set to {self.default_timeout()} seconds.'
+                )
+                raise e
 
     def resolve(self, file_path: str) -> str:
         """Resolves current relative file path to absolute path inside Package cache
