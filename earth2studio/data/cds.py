@@ -15,7 +15,6 @@
 # limitations under the License.
 
 import hashlib
-import multiprocessing as mp
 import os
 import pathlib
 import shutil
@@ -23,8 +22,12 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
 from time import sleep
+from typing import Any
 
-import cdsapi
+try:
+    import cdsapi
+except ImportError:
+    cdsapi = None
 import numpy as np
 import xarray as xr
 from loguru import logger
@@ -71,9 +74,10 @@ class CDS:
 
     Note
     ----
-    Additional information on the data repository can be referenced here:
+    Additional information on the data repository, registration, and authentication can
+    be referenced here:
 
-    - https://cds.climate.copernicus.eu/cdsapp#!/home
+    - https://cds.climate.copernicus.eu/how-to-api
     """
 
     MAX_BYTE_SIZE = 20000000
@@ -82,6 +86,12 @@ class CDS:
     CDS_LON = np.linspace(0, 359.75, 1440)
 
     def __init__(self, cache: bool = True, verbose: bool = True):
+        # Optional import not installed error
+        if cdsapi is None:
+            raise ImportError(
+                "cdsapi is not installed, install manually or using `pip install earth2studio[data]`"
+            )
+
         self._cache = cache
         self._verbose = verbose
         self.cds_client = cdsapi.Client(
@@ -152,11 +162,11 @@ class CDS:
         if isinstance(variables, str):
             variables = [variables]
         requests = self._build_requests(time, variables)
-        pbar = tqdm(
-            total=len(requests),
-            desc=f"Fetching CDS for {time}",
-            disable=(not self._verbose),
-        )
+        # pbar = tqdm(
+        #     total=len(requests),
+        #     desc=f"Fetching CDS for {time}",
+        #     disable=(not self._verbose),
+        # )
 
         # Fetch process for getting data off CDS
         def _fetch_process(request: CDSRequest, rank: int, return_dict: dict) -> None:
@@ -168,18 +178,22 @@ class CDS:
             )
             return_dict[i] = grib_file
 
-        manager = mp.Manager()
-        return_dict = manager.dict()
-        processes = []
+        return_dict: dict[int, Any] = {}
         for i, request in enumerate(requests):
-            process = mp.Process(target=_fetch_process, args=(request, i, return_dict))
-            processes.append(process)
-            process.start()
+            _fetch_process(request, i, return_dict)
 
-        # wait for all processes to complete
-        for process in processes:
-            process.join()
-            pbar.update(1)
+        # manager = mp.Manager()
+        # return_dict = manager.dict()
+        # processes = []
+        # for i, request in enumerate(requests):
+        #     process = mp.Process(target=_fetch_process, args=(request, i, return_dict))
+        #     processes.append(process)
+        #     process.start()
+
+        # # wait for all processes to complete
+        # for process in processes:
+        #     process.join()
+        #     pbar.update(1)
 
         da = xr.DataArray(
             data=np.empty((1, len(variables), len(self.CDS_LAT), len(self.CDS_LON))),
@@ -289,6 +303,7 @@ class CDS:
                 "day": time.day,
                 "time": time.strftime("%H:00"),
                 "format": "grib",
+                "download_format": "unarchived",
             }
             if dataset_name == "reanalysis-era5-pressure-levels":
                 rbody["pressure_level"] = level
@@ -304,7 +319,7 @@ class CDS:
                     break
                 elif reply["state"] in ("queued", "running"):
                     logger.debug(f"Request ID: {reply['request_id']}, sleeping")
-                    sleep(1.0)
+                    sleep(5.0)
                 elif reply["state"] in ("failed",):
                     logger.error(
                         f"CDS request fail for: {dataset_name} {variable} {level} {time}"
@@ -312,6 +327,8 @@ class CDS:
                     logger.error(f"Message: {reply['error'].get('message')}")
                     logger.error(f"Reason: {reply['error'].get('reason')}")
                     raise Exception("%s." % (reply["error"].get("message")))
+                else:
+                    sleep(2.0)
             # Download when ready
             r.download(cache_path)
 
@@ -328,58 +345,3 @@ class CDS:
                 cache_location, f"tmp_{DistributedManager().rank}"
             )
         return cache_location
-
-    @classmethod
-    def available(
-        cls,
-        time: datetime | np.datetime64,
-    ) -> bool:
-        """Checks if given date time is avaliable in the CDS with the pressure level
-        database
-
-        Parameters
-        ----------
-        time : datetime | np.datetime64
-            Date time to access
-
-        Returns
-        -------
-        bool
-            If date time is avaiable
-        """
-        if isinstance(time, np.datetime64):  # np.datetime64 -> datetime
-            _unix = np.datetime64(0, "s")
-            _ds = np.timedelta64(1, "s")
-            time = datetime.utcfromtimestamp((time - _unix) / _ds)
-
-        client = cdsapi.Client(debug=False, quiet=True, wait_until_complete=False)
-        # Assemble request
-        r = client.retrieve(
-            "reanalysis-era5-single-levels",
-            {
-                "variable": "2m_temperature",
-                "product_type": "reanalysis",
-                "year": time.year,
-                "month": time.month,
-                "day": time.day,
-                "time": time.strftime("%H:00"),
-                "format": "grib",
-            },
-        )
-        # Queue request
-        while True:
-            r.update()
-            reply = r.reply
-            logger.debug(f"Request ID:{reply['request_id']}, state: {reply['state']}")
-            if reply["state"] == "completed":
-                break
-            elif reply["state"] in ("queued", "running"):
-                logger.debug(f"Request ID: {reply['request_id']}, sleeping")
-                sleep(0.5)
-            elif reply["state"] in ("failed",):
-                logger.error(f"CDS request fail for {time}")
-                logger.error(f"Message: {reply['error'].get('message')}")
-                logger.error(f"Reason: {reply['error'].get('reason')}")
-                return False
-
-        return True

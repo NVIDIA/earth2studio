@@ -26,11 +26,10 @@ from earth2studio.data import CDS
 
 @pytest.mark.slow
 @pytest.mark.xfail
-@pytest.mark.timeout(5)
+@pytest.mark.timeout(30)
 @pytest.mark.parametrize(
     "time",
     [
-        datetime.datetime(year=1958, month=1, day=31),
         [
             datetime.datetime(year=1971, month=6, day=1, hour=6),
             datetime.datetime(year=2021, month=11, day=23, hour=12),
@@ -56,13 +55,12 @@ def test_cds_fetch(time, variable):
     assert shape[2] == 721
     assert shape[3] == 1440
     assert not np.isnan(data.values).any()
-    assert CDS.available(time[0])
     assert np.array_equal(data.coords["variable"].values, np.array(variable))
 
 
 @pytest.mark.slow
 @pytest.mark.xfail
-@pytest.mark.timeout(5)
+@pytest.mark.timeout(90)
 @pytest.mark.parametrize(
     "time",
     [
@@ -102,7 +100,7 @@ def test_cds_cache(time, variable, cache):
 
 
 @pytest.mark.xfail
-@pytest.mark.timeout(5)
+@pytest.mark.timeout(30)
 @pytest.mark.parametrize(
     "time",
     [
@@ -113,7 +111,6 @@ def test_cds_cache(time, variable, cache):
 )
 @pytest.mark.parametrize("variable", ["mpl"])
 def test_cds_available(time, variable):
-    assert not CDS.available(time)
     with pytest.raises(ValueError):
         ds = CDS()
         ds(time, variable)
