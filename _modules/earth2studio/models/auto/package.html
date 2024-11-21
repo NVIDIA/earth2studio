@@ -724,7 +724,13 @@ document.write(`
             <span class="p">},</span>
             <span class="n">tqdm_cls</span><span class="o">=</span><span class="n">TqdmFormat</span><span class="p">,</span>
         <span class="p">)</span> <span class="k">as</span> <span class="n">callback</span><span class="p">:</span>
-            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">fs</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="n">full_path</span><span class="p">,</span> <span class="n">callback</span><span class="o">=</span><span class="n">callback</span><span class="p">)</span></div>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">fs</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="n">full_path</span><span class="p">,</span> <span class="n">callback</span><span class="o">=</span><span class="n">callback</span><span class="p">)</span>
+            <span class="k">except</span> <span class="n">fsspec</span><span class="o">.</span><span class="n">exceptions</span><span class="o">.</span><span class="n">FSTimeoutError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;Package fetch timeout. Consider increasing timeout through environment variable &#39;EARTH2STUDIO_PACKAGE_TIMEOUT&#39;. Currently </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">default_timeout</span><span class="p">()</span><span class="si">}</span><span class="s2">s.&quot;</span>
+                <span class="p">)</span>
+                <span class="k">raise</span> <span class="n">e</span></div>
 
 
 <div class="viewcode-block" id="Package.resolve">

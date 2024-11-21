@@ -489,6 +489,23 @@ making Earth2Studio as feature rich as possible for users.
 Open an issue to discuss the model you’re interested in using / integrating and we can
 work out a plan to get it integrated.</p>
 </section>
+<section id="earth2studio-requires-x-y-z-package-or-python-version-can-i-use-another">
+<h2>Earth2Studio requires X.Y.Z package or Python version, can I use another?<a class="headerlink" href="#earth2studio-requires-x-y-z-package-or-python-version-can-i-use-another" title="Link to this heading">#</a></h2>
+<p>Earth2Studio has adopted the <a class="reference external" href="https://scientific-python.org/specs/">scientific python</a>
+spec 0 for minimum supported dependencies.
+This mean adopting a common time-based policy for dropping dependencies to encourage the
+use of modern Python and packages.
+This helps improve matainance of the package and security posture.
+This does not imply a strict requirement for all functionality and does not apply to
+optional packages.</p>
+</section>
+<section id="install-attributeerror-module-pkgutil-with-python-3-12">
+<h2>Install AttributeError: module ‘pkgutil’ with Python 3.12<a class="headerlink" href="#install-attributeerror-module-pkgutil-with-python-3-12" title="Link to this heading">#</a></h2>
+<p>Python 3.12 is presently broken due to core dependencies of Earth2Studio blocking the
+install.
+We are working on resolving this as soon as we can, we suggest downgrading to 3.11 in
+the mean time.</p>
+</section>
 </section>
 
 
@@ -539,6 +556,8 @@ work out a plan to get it integrated.</p>
     <ul class="visible nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#there-is-a-feature-in-the-docs-but-not-in-the-pip-install-package">There is a feature in the docs but not in the pip install package?</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#will-earth2studio-add-xyz-model">Will Earth2Studio add XYZ model?</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio-requires-x-y-z-package-or-python-version-can-i-use-another">Earth2Studio requires X.Y.Z package or Python version, can I use another?</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#install-attributeerror-module-pkgutil-with-python-3-12">Install AttributeError: module ‘pkgutil’ with Python 3.12</a></li>
 </ul>
   </nav></div>
 

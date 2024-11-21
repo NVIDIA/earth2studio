@@ -439,7 +439,6 @@ document.write(`
 <span class="c1"># limitations under the License.</span>
 
 <span class="kn">import</span> <span class="nn">hashlib</span>
-<span class="kn">import</span> <span class="nn">multiprocessing</span> <span class="k">as</span> <span class="nn">mp</span>
 <span class="kn">import</span> <span class="nn">os</span>
 <span class="kn">import</span> <span class="nn">pathlib</span>
 <span class="kn">import</span> <span class="nn">shutil</span>
@@ -447,8 +446,12 @@ document.write(`
 <span class="kn">from</span> <span class="nn">dataclasses</span> <span class="kn">import</span> <span class="n">dataclass</span>
 <span class="kn">from</span> <span class="nn">datetime</span> <span class="kn">import</span> <span class="n">datetime</span>
 <span class="kn">from</span> <span class="nn">time</span> <span class="kn">import</span> <span class="n">sleep</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span>
 
-<span class="kn">import</span> <span class="nn">cdsapi</span>
+<span class="k">try</span><span class="p">:</span>
+    <span class="kn">import</span> <span class="nn">cdsapi</span>
+<span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+    <span class="n">cdsapi</span> <span class="o">=</span> <span class="kc">None</span>
 <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 <span class="kn">import</span> <span class="nn">xarray</span> <span class="k">as</span> <span class="nn">xr</span>
 <span class="kn">from</span> <span class="nn">loguru</span> <span class="kn">import</span> <span class="n">logger</span>
@@ -497,9 +500,10 @@ document.write(`
 
 <span class="sd">    Note</span>
 <span class="sd">    ----</span>
-<span class="sd">    Additional information on the data repository can be referenced here:</span>
+<span class="sd">    Additional information on the data repository, registration, and authentication can</span>
+<span class="sd">    be referenced here:</span>
 
-<span class="sd">    - https://cds.climate.copernicus.eu/cdsapp#!/home</span>
+<span class="sd">    - https://cds.climate.copernicus.eu/how-to-api</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="n">MAX_BYTE_SIZE</span> <span class="o">=</span> <span class="mi">20000000</span>
@@ -508,6 +512,12 @@ document.write(`
     <span class="n">CDS_LON</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mf">359.75</span><span class="p">,</span> <span class="mi">1440</span><span class="p">)</span>
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cache</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span> <span class="n">verbose</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">):</span>
+        <span class="c1"># Optional import not installed error</span>
+        <span class="k">if</span> <span class="n">cdsapi</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ImportError</span><span class="p">(</span>
+                <span class="s2">&quot;cdsapi is not installed, install manually or using `pip install earth2studio[data]`&quot;</span>
+            <span class="p">)</span>
+
         <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span> <span class="o">=</span> <span class="n">cache</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_verbose</span> <span class="o">=</span> <span class="n">verbose</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">cds_client</span> <span class="o">=</span> <span class="n">cdsapi</span><span class="o">.</span><span class="n">Client</span><span class="p">(</span>
@@ -581,11 +591,11 @@ document.write(`
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">variables</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
             <span class="n">variables</span> <span class="o">=</span> <span class="p">[</span><span class="n">variables</span><span class="p">]</span>
         <span class="n">requests</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_build_requests</span><span class="p">(</span><span class="n">time</span><span class="p">,</span> <span class="n">variables</span><span class="p">)</span>
-        <span class="n">pbar</span> <span class="o">=</span> <span class="n">tqdm</span><span class="p">(</span>
-            <span class="n">total</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">requests</span><span class="p">),</span>
-            <span class="n">desc</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;Fetching CDS for </span><span class="si">{</span><span class="n">time</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
-            <span class="n">disable</span><span class="o">=</span><span class="p">(</span><span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_verbose</span><span class="p">),</span>
-        <span class="p">)</span>
+        <span class="c1"># pbar = tqdm(</span>
+        <span class="c1">#     total=len(requests),</span>
+        <span class="c1">#     desc=f&quot;Fetching CDS for {time}&quot;,</span>
+        <span class="c1">#     disable=(not self._verbose),</span>
+        <span class="c1"># )</span>
 
         <span class="c1"># Fetch process for getting data off CDS</span>
         <span class="k">def</span> <span class="nf">_fetch_process</span><span class="p">(</span><span class="n">request</span><span class="p">:</span> <span class="n">CDSRequest</span><span class="p">,</span> <span class="n">rank</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">return_dict</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
@@ -597,18 +607,22 @@ document.write(`
             <span class="p">)</span>
             <span class="n">return_dict</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">grib_file</span>
 
-        <span class="n">manager</span> <span class="o">=</span> <span class="n">mp</span><span class="o">.</span><span class="n">Manager</span><span class="p">()</span>
-        <span class="n">return_dict</span> <span class="o">=</span> <span class="n">manager</span><span class="o">.</span><span class="n">dict</span><span class="p">()</span>
-        <span class="n">processes</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">return_dict</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">request</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">requests</span><span class="p">):</span>
-            <span class="n">process</span> <span class="o">=</span> <span class="n">mp</span><span class="o">.</span><span class="n">Process</span><span class="p">(</span><span class="n">target</span><span class="o">=</span><span class="n">_fetch_process</span><span class="p">,</span> <span class="n">args</span><span class="o">=</span><span class="p">(</span><span class="n">request</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">return_dict</span><span class="p">))</span>
-            <span class="n">processes</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">process</span><span class="p">)</span>
-            <span class="n">process</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+            <span class="n">_fetch_process</span><span class="p">(</span><span class="n">request</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">return_dict</span><span class="p">)</span>
 
-        <span class="c1"># wait for all processes to complete</span>
-        <span class="k">for</span> <span class="n">process</span> <span class="ow">in</span> <span class="n">processes</span><span class="p">:</span>
-            <span class="n">process</span><span class="o">.</span><span class="n">join</span><span class="p">()</span>
-            <span class="n">pbar</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+        <span class="c1"># manager = mp.Manager()</span>
+        <span class="c1"># return_dict = manager.dict()</span>
+        <span class="c1"># processes = []</span>
+        <span class="c1"># for i, request in enumerate(requests):</span>
+        <span class="c1">#     process = mp.Process(target=_fetch_process, args=(request, i, return_dict))</span>
+        <span class="c1">#     processes.append(process)</span>
+        <span class="c1">#     process.start()</span>
+
+        <span class="c1"># # wait for all processes to complete</span>
+        <span class="c1"># for process in processes:</span>
+        <span class="c1">#     process.join()</span>
+        <span class="c1">#     pbar.update(1)</span>
 
         <span class="n">da</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">(</span>
             <span class="n">data</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="mi">1</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">variables</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">CDS_LAT</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">CDS_LON</span><span class="p">))),</span>
@@ -718,6 +732,7 @@ document.write(`
                 <span class="s2">&quot;day&quot;</span><span class="p">:</span> <span class="n">time</span><span class="o">.</span><span class="n">day</span><span class="p">,</span>
                 <span class="s2">&quot;time&quot;</span><span class="p">:</span> <span class="n">time</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="s2">&quot;%H:00&quot;</span><span class="p">),</span>
                 <span class="s2">&quot;format&quot;</span><span class="p">:</span> <span class="s2">&quot;grib&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;download_format&quot;</span><span class="p">:</span> <span class="s2">&quot;unarchived&quot;</span><span class="p">,</span>
             <span class="p">}</span>
             <span class="k">if</span> <span class="n">dataset_name</span> <span class="o">==</span> <span class="s2">&quot;reanalysis-era5-pressure-levels&quot;</span><span class="p">:</span>
                 <span class="n">rbody</span><span class="p">[</span><span class="s2">&quot;pressure_level&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">level</span>
@@ -733,7 +748,7 @@ document.write(`
                     <span class="k">break</span>
                 <span class="k">elif</span> <span class="n">reply</span><span class="p">[</span><span class="s2">&quot;state&quot;</span><span class="p">]</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;queued&quot;</span><span class="p">,</span> <span class="s2">&quot;running&quot;</span><span class="p">):</span>
                     <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Request ID: </span><span class="si">{</span><span class="n">reply</span><span class="p">[</span><span class="s1">&#39;request_id&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">, sleeping&quot;</span><span class="p">)</span>
-                    <span class="n">sleep</span><span class="p">(</span><span class="mf">1.0</span><span class="p">)</span>
+                    <span class="n">sleep</span><span class="p">(</span><span class="mf">5.0</span><span class="p">)</span>
                 <span class="k">elif</span> <span class="n">reply</span><span class="p">[</span><span class="s2">&quot;state&quot;</span><span class="p">]</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;failed&quot;</span><span class="p">,):</span>
                     <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span>
                         <span class="sa">f</span><span class="s2">&quot;CDS request fail for: </span><span class="si">{</span><span class="n">dataset_name</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">variable</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">level</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">time</span><span class="si">}</span><span class="s2">&quot;</span>
@@ -741,6 +756,8 @@ document.write(`
                     <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Message: </span><span class="si">{</span><span class="n">reply</span><span class="p">[</span><span class="s1">&#39;error&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;message&#39;</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
                     <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Reason: </span><span class="si">{</span><span class="n">reply</span><span class="p">[</span><span class="s1">&#39;error&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;reason&#39;</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
                     <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%s</span><span class="s2">.&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">reply</span><span class="p">[</span><span class="s2">&quot;error&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;message&quot;</span><span class="p">)))</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">sleep</span><span class="p">(</span><span class="mf">2.0</span><span class="p">)</span>
             <span class="c1"># Download when ready</span>
             <span class="n">r</span><span class="o">.</span><span class="n">download</span><span class="p">(</span><span class="n">cache_path</span><span class="p">)</span>
 
@@ -756,65 +773,7 @@ document.write(`
             <span class="n">cache_location</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
                 <span class="n">cache_location</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;tmp_</span><span class="si">{</span><span class="n">DistributedManager</span><span class="p">()</span><span class="o">.</span><span class="n">rank</span><span class="si">}</span><span class="s2">&quot;</span>
             <span class="p">)</span>
-        <span class="k">return</span> <span class="n">cache_location</span>
-
-<div class="viewcode-block" id="CDS.available">
-<a class="viewcode-back" href="../../../modules/generated/data/earth2studio.data.CDS.html#earth2studio.data.CDS.available">[docs]</a>
-    <span class="nd">@classmethod</span>
-    <span class="k">def</span> <span class="nf">available</span><span class="p">(</span>
-        <span class="bp">cls</span><span class="p">,</span>
-        <span class="n">time</span><span class="p">:</span> <span class="n">datetime</span> <span class="o">|</span> <span class="n">np</span><span class="o">.</span><span class="n">datetime64</span><span class="p">,</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Checks if given date time is avaliable in the CDS with the pressure level</span>
-<span class="sd">        database</span>
-
-<span class="sd">        Parameters</span>
-<span class="sd">        ----------</span>
-<span class="sd">        time : datetime | np.datetime64</span>
-<span class="sd">            Date time to access</span>
-
-<span class="sd">        Returns</span>
-<span class="sd">        -------</span>
-<span class="sd">        bool</span>
-<span class="sd">            If date time is avaiable</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">time</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">datetime64</span><span class="p">):</span>  <span class="c1"># np.datetime64 -&gt; datetime</span>
-            <span class="n">_unix</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">datetime64</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;s&quot;</span><span class="p">)</span>
-            <span class="n">_ds</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">timedelta64</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;s&quot;</span><span class="p">)</span>
-            <span class="n">time</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">utcfromtimestamp</span><span class="p">((</span><span class="n">time</span> <span class="o">-</span> <span class="n">_unix</span><span class="p">)</span> <span class="o">/</span> <span class="n">_ds</span><span class="p">)</span>
-
-        <span class="n">client</span> <span class="o">=</span> <span class="n">cdsapi</span><span class="o">.</span><span class="n">Client</span><span class="p">(</span><span class="n">debug</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">quiet</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">wait_until_complete</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
-        <span class="c1"># Assemble request</span>
-        <span class="n">r</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">retrieve</span><span class="p">(</span>
-            <span class="s2">&quot;reanalysis-era5-single-levels&quot;</span><span class="p">,</span>
-            <span class="p">{</span>
-                <span class="s2">&quot;variable&quot;</span><span class="p">:</span> <span class="s2">&quot;2m_temperature&quot;</span><span class="p">,</span>
-                <span class="s2">&quot;product_type&quot;</span><span class="p">:</span> <span class="s2">&quot;reanalysis&quot;</span><span class="p">,</span>
-                <span class="s2">&quot;year&quot;</span><span class="p">:</span> <span class="n">time</span><span class="o">.</span><span class="n">year</span><span class="p">,</span>
-                <span class="s2">&quot;month&quot;</span><span class="p">:</span> <span class="n">time</span><span class="o">.</span><span class="n">month</span><span class="p">,</span>
-                <span class="s2">&quot;day&quot;</span><span class="p">:</span> <span class="n">time</span><span class="o">.</span><span class="n">day</span><span class="p">,</span>
-                <span class="s2">&quot;time&quot;</span><span class="p">:</span> <span class="n">time</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="s2">&quot;%H:00&quot;</span><span class="p">),</span>
-                <span class="s2">&quot;format&quot;</span><span class="p">:</span> <span class="s2">&quot;grib&quot;</span><span class="p">,</span>
-            <span class="p">},</span>
-        <span class="p">)</span>
-        <span class="c1"># Queue request</span>
-        <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
-            <span class="n">r</span><span class="o">.</span><span class="n">update</span><span class="p">()</span>
-            <span class="n">reply</span> <span class="o">=</span> <span class="n">r</span><span class="o">.</span><span class="n">reply</span>
-            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Request ID:</span><span class="si">{</span><span class="n">reply</span><span class="p">[</span><span class="s1">&#39;request_id&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">, state: </span><span class="si">{</span><span class="n">reply</span><span class="p">[</span><span class="s1">&#39;state&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-            <span class="k">if</span> <span class="n">reply</span><span class="p">[</span><span class="s2">&quot;state&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;completed&quot;</span><span class="p">:</span>
-                <span class="k">break</span>
-            <span class="k">elif</span> <span class="n">reply</span><span class="p">[</span><span class="s2">&quot;state&quot;</span><span class="p">]</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;queued&quot;</span><span class="p">,</span> <span class="s2">&quot;running&quot;</span><span class="p">):</span>
-                <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Request ID: </span><span class="si">{</span><span class="n">reply</span><span class="p">[</span><span class="s1">&#39;request_id&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">, sleeping&quot;</span><span class="p">)</span>
-                <span class="n">sleep</span><span class="p">(</span><span class="mf">0.5</span><span class="p">)</span>
-            <span class="k">elif</span> <span class="n">reply</span><span class="p">[</span><span class="s2">&quot;state&quot;</span><span class="p">]</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;failed&quot;</span><span class="p">,):</span>
-                <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;CDS request fail for </span><span class="si">{</span><span class="n">time</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-                <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Message: </span><span class="si">{</span><span class="n">reply</span><span class="p">[</span><span class="s1">&#39;error&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;message&#39;</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-                <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Reason: </span><span class="si">{</span><span class="n">reply</span><span class="p">[</span><span class="s1">&#39;error&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;reason&#39;</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-                <span class="k">return</span> <span class="kc">False</span>
-
-        <span class="k">return</span> <span class="kc">True</span></div>
-</div>
+        <span class="k">return</span> <span class="n">cache_location</span></div>
 
 </pre></div>
 

@@ -444,7 +444,10 @@ document.write(`
 <span class="kn">import</span> <span class="nn">shutil</span>
 <span class="kn">from</span> <span class="nn">datetime</span> <span class="kn">import</span> <span class="n">datetime</span>
 
-<span class="kn">import</span> <span class="nn">ecmwf.opendata</span>
+<span class="k">try</span><span class="p">:</span>
+    <span class="kn">import</span> <span class="nn">ecmwf.opendata</span> <span class="k">as</span> <span class="nn">opendata</span>
+<span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+    <span class="n">opendata</span> <span class="o">=</span> <span class="kc">None</span>
 <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 <span class="kn">import</span> <span class="nn">xarray</span> <span class="k">as</span> <span class="nn">xr</span>
 <span class="kn">from</span> <span class="nn">loguru</span> <span class="kn">import</span> <span class="n">logger</span>
@@ -499,9 +502,15 @@ document.write(`
     <span class="n">IFS_LON</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mf">359.75</span><span class="p">,</span> <span class="mi">1440</span><span class="p">)</span>
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cache</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span> <span class="n">verbose</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">):</span>
+        <span class="c1"># Optional import not installed error</span>
+        <span class="k">if</span> <span class="n">opendata</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ImportError</span><span class="p">(</span>
+                <span class="s2">&quot;ecmwf-opendata is not installed, install manually or using `pip install earth2studio[data]`&quot;</span>
+            <span class="p">)</span>
+
         <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span> <span class="o">=</span> <span class="n">cache</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_verbose</span> <span class="o">=</span> <span class="n">verbose</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">client</span> <span class="o">=</span> <span class="n">ecmwf</span><span class="o">.</span><span class="n">opendata</span><span class="o">.</span><span class="n">Client</span><span class="p">(</span><span class="n">source</span><span class="o">=</span><span class="s2">&quot;azure&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">client</span> <span class="o">=</span> <span class="n">opendata</span><span class="o">.</span><span class="n">Client</span><span class="p">(</span><span class="n">source</span><span class="o">=</span><span class="s2">&quot;azure&quot;</span><span class="p">)</span>
 
 <div class="viewcode-block" id="IFS.__call__">
 <a class="viewcode-back" href="../../../modules/generated/data/earth2studio.data.IFS.html#earth2studio.data.IFS.__call__">[docs]</a>
