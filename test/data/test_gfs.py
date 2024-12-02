@@ -126,7 +126,7 @@ def test_gfs_cache(time, variable, cache):
     assert shape[3] == 1440
     assert not np.isnan(data.values).any()
     assert GFS.available(time[0])
-    # Cahce should be present
+    # Cache should be present
     assert pathlib.Path(ds.cache).is_dir() == cache
 
     # Load from cach or refetch
@@ -144,6 +144,37 @@ def test_gfs_cache(time, variable, cache):
         shutil.rmtree(ds.cache)
     except FileNotFoundError:
         pass
+
+
+@pytest.mark.slow
+@pytest.mark.xfail
+@pytest.mark.timeout(15)
+@pytest.mark.parametrize(
+    "source,time,variable,valid",
+    [
+        ("ncep", datetime.now() - timedelta(days=1), "t2m", True),
+        ("foo", datetime.now() - timedelta(days=1), "t2m", False),
+    ],
+)
+def test_gfs_sources(source, time, variable, valid):
+
+    if not valid:
+        with pytest.raises(ValueError):
+            ds = GFS(source=source, cache=False)
+        return
+    # Get nearest 6 hour mark
+    time = time.replace(second=0, microsecond=0, minute=0)
+    time = time.replace(hour=6 * (time.hour // 6))
+
+    ds = GFS(source=source, cache=False)
+    data = ds(time, variable)
+    shape = data.shape
+
+    assert shape[0] == 1
+    assert shape[1] == 1
+    assert shape[2] == 721
+    assert shape[3] == 1440
+    assert not np.isnan(data.values).any()
 
 
 @pytest.mark.timeout(15)
