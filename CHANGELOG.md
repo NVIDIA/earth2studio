@@ -10,6 +10,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added NCEP data store to GFS data source for real-time forecast apps
+
 ### Changed
 
 - Set zarr chunks for lead time to size 1 in examples.
