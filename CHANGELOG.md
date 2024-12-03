@@ -6,9 +6,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.4.0a0] - 2024-11-xx
+## [0.4.0] - 2024-12-04
 
 ### Added
+
+- Added NCEP data store to GFS data source for real-time forecast apps
 
 ### Changed
 
@@ -16,15 +18,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Updated HRRR tp to be hourly accumulated (Grib index 090)
 - Added tp to GFS_FX datasource (not supported by GFS)
 
-### Deprecated
-
 ### Removed
 
 - Removed `available` function from CDS datasource
-
-### Fixed
-
-### Security
 
 ### Dependencies
 
