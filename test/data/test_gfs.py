@@ -181,7 +181,7 @@ def test_gfs_sources(source, time, variable, valid):
 @pytest.mark.parametrize(
     "time",
     [
-        datetime(year=2021, month=2, day=16),
+        datetime(year=2020, month=12, day=31),
         datetime(year=2023, month=1, day=1, hour=13),
         datetime.now(),
     ],

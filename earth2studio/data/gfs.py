@@ -91,9 +91,9 @@ class GFS:
             # To update search "gfs." at https://noaa-gfs-bdp-pds.s3.amazonaws.com/index.html
             # They are slowly adding more data
             def _range(time: datetime) -> None:
-                if time < datetime(year=2021, month=2, day=17):
+                if time < datetime(year=2021, month=1, day=1):
                     raise ValueError(
-                        f"Requested date time {time} needs to be after February 17th, 2021 for GFS on AWS"
+                        f"Requested date time {time} needs to be after January 1st, 2021 for GFS on AWS"
                     )
 
             self._history_range = _range
