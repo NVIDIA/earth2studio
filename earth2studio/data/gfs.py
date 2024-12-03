@@ -417,6 +417,8 @@ class GFS_FX(GFS):
 
     Parameters
     ----------
+    source: str, optional
+        Data store location to pull from. Options are [aws, ncep], by default aws
     cache : bool, optional
         Cache data source on local memory, by default True
     verbose : bool, optional
