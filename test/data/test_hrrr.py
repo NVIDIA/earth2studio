@@ -77,7 +77,7 @@ def test_hrrr_fetch(time, variable):
             np.array(
                 [np.datetime64("2024-01-01T00:00"), np.datetime64("2024-02-01T00:00")]
             ),
-            np.array([np.timedelta64(0, "h")]),
+            np.array([np.timedelta64(1, "h")]),
         ),
     ],
 )

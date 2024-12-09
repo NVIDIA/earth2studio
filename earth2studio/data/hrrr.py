@@ -146,7 +146,9 @@ class _HRRRBase:
                         hrrr_level
                     ][hrrr_var][hrrr_level][hrrr_var]
                     if hrrr_product == "fcst":
-                        lead_index = int(ld.total_seconds() // 3600)
+                        # Minus 1 here because index 0 is forecast with leadtime 1hr
+                        # forecast_period coordinate system tells what the lead times are in hours
+                        lead_index = int(ld.total_seconds() // 3600) - 1
                         data = data[lead_index]
 
                     hrrr_da[i, j, k] = data
@@ -378,7 +380,7 @@ class HRRR_FX(_HRRRBase):
                     f"Requested lead time {delta} needs to be 1 hour interval for HRRR"
                 )
             hours = int(delta.total_seconds() // 3600)
-            if hours > 48 or hours < 0:
+            if hours > 18 or hours < 1:
                 raise ValueError(
-                    f"Requested lead time {delta} can only be a max of 48 hours for HRRR"
+                    f"Requested lead time {delta} can only be between [1,18] hours for HRRR forecast"
                 )
