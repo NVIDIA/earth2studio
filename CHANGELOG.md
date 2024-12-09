@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Set zarr chunks for lead time to size 1 in examples.
 - Updated HRRR tp to be hourly accumulated (Grib index 090)
 - Added tp to GFS_FX datasource (not supported by GFS)
+- Moved HRRR data source to Zarr datastore on S3
 
 ### Removed
 
@@ -28,6 +29,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Adding minimum version for numpy
 - Bump minimum CDS API version for new API
 - Moving unique data packages to optional deps
+- Removed Herbie as dependency
 
 ## [0.3.0] - 2024-09-24
 
