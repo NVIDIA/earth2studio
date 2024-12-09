@@ -22,8 +22,8 @@ from .base import LexiconType
 
 
 class HRRRLexicon(metaclass=LexiconType):
-    """High-Resolution Rapid Refresh Lexicon
-    HRRR specified <Provider ID>::<Parameter ID>::<Level/ Layer>
+    """High-Resolution Rapid Refresh Analysis Lexicon
+    HRRR specified <Provider ID>::<Product ID>::<Level/ Layer>::<Parameter ID>
 
     Note
     ----
@@ -37,20 +37,18 @@ class HRRRLexicon(metaclass=LexiconType):
     def build_vocab() -> dict[str, str]:
         """Create HRRR vocab dictionary"""
         sfc_variables = {
-            "u10m": "sfc::UGRD:10 m above ground",
-            "v10m": "sfc::VGRD:10 m above ground",
-            "u80m": "sfc::UGRD:80 m above ground",
-            "v80m": "sfc::VGRD:80 m above ground",
-            "t2m": "sfc::TMP:2 m above ground",
-            "refc": "sfc::REFC:entire atmosphere",
-            "sp": "sfc::PRES:surface",
-            # Regex to get last hour tp with HRRR_FX, not total accumulated
-            "tp": r"sfc::APCP:.*:((?:0-1|[1-9]\d*-\d+) hour|0-0 day acc fcst)",
-            "tcwv": "sfc::PWAT:entire atmosphere (considered as a single layer)",
-            "csnow": "sfc::CSNOW:surface",
-            "cicep": "sfc::CICEP:surface",
-            "cfrzr": "sfc::CFRZR:surface",
-            "crain": "sfc::CRAIN:surface",
+            "u10m": "sfc::anl::10m_above_ground::UGRD",
+            "v10m": "sfc::anl::10m_above_ground::VGRD",
+            "u80m": "sfc::anl::80m_above_ground::UGRD",
+            "v80m": "sfc::anl::80m_above_ground::VGRD",
+            "t2m": "sfc::anl::2m_above_ground::TMP",
+            "refc": "sfc::anl::entire_atmosphere::REFC",
+            "sp": "sfc::anl::surface::PRES",
+            "tcwv": "sfc::anl::entire_atmosphere_single_layer::PWAT",
+            "csnow": "sfc::anl::surface::CSNOW",
+            "cicep": "sfc::anl::surface::CICEP",
+            "cfrzr": "sfc::anl::surface::CFRZR",
+            "crain": "sfc::anl::surface::CRAIN",
         }
         prs_levels = [
             50,
@@ -98,7 +96,75 @@ class HRRRLexicon(metaclass=LexiconType):
         prs_variables = {}
         for (id, variable) in zip(e2s_id, prs_names):
             for level in prs_levels:
-                prs_variables[f"{id}{level:d}"] = f"prs::{variable}:{level} mb"
+                prs_variables[f"{id}{level:d}"] = f"prs::anl::{level}mb::{variable}"
+
+        return {**sfc_variables, **prs_variables}
+
+    VOCAB = build_vocab()
+
+    @classmethod
+    def get_item(cls, val: str) -> tuple[str, Callable]:
+        """Get item from HRRR vocabulary."""
+        hrrr_key = cls.VOCAB[val]
+        if hrrr_key.split("::")[1] == "HGT":
+
+            def mod(x: np.array) -> np.array:
+                """Modify data value (if necessary)."""
+                return x * 9.81
+
+        else:
+
+            def mod(x: np.array) -> np.array:
+                """Modify data value (if necessary)."""
+                return x
+
+        return hrrr_key, mod
+
+
+class HRRRFXLexicon(metaclass=LexiconType):
+    """High-Resolution Rapid Refresh Forcast Lexicon
+    HRRR specified <Provider ID>::<Product ID>::<Level/ Layer>::<Parameter ID>
+
+    Note
+    ----
+    Additional resources:
+    - https://www.nco.ncep.noaa.gov/pmb/products/hrrr/
+    - https://www.nco.ncep.noaa.gov/pmb/products/hrrr/hrrr.t00z.wrfsfcf00.grib2.shtml
+    - https://www.nco.ncep.noaa.gov/pmb/products/hrrr/hrrr.t00z.wrfsfcf02.grib2.shtml
+    """
+
+    @staticmethod
+    def build_vocab() -> dict[str, str]:
+        """Create HRRR vocab dictionary"""
+        sfc_variables = {
+            "u10m": "sfc::fcst::10m_above_ground::UGRD",
+            "v10m": "sfc::fcst::10m_above_ground::VGRD",
+            "u80m": "sfc::fcst::80m_above_ground::UGRD",
+            "v80m": "sfc::fcst::80m_above_ground::VGRD",
+            "t2m": "sfc::fcst::2m_above_ground::TMP",
+            "refc": "sfc::fcst::entire_atmosphere::REFC",
+            "sp": "sfc::fcst::surface::PRES",
+            "tp": "sfc::fcst::surface::APCP_1hr_acc_fcst",
+            "tcwv": "sfc::fcst::entire_atmosphere_single_layer::PWAT",
+            "csnow": "sfc::fcst::surface::CSNOW",
+            "cicep": "sfc::fcst::surface::CICEP",
+            "cfrzr": "sfc::fcst::surface::CFRZR",
+            "crain": "sfc::fcst::surface::CRAIN",
+        }
+        prs_levels = [
+            250,
+            300,
+            500,
+            850,
+            925,
+            1000,
+        ]
+        prs_names = ["UGRD", "VGRD"]
+        e2s_id = ["u", "v"]
+        prs_variables = {}
+        for (id, variable) in zip(e2s_id, prs_names):
+            for level in prs_levels:
+                prs_variables[f"{id}{level:d}"] = f"sfc::fcst::{level}mb::{variable}"
 
         return {**sfc_variables, **prs_variables}
 
