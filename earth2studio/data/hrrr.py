@@ -382,12 +382,3 @@ class HRRR_FX(_HRRRBase):
                 raise ValueError(
                     f"Requested lead time {delta} can only be a max of 48 hours for HRRR"
                 )
-
-
-if __name__ == "__main__":
-
-    ds = HRRR(cache=False)
-
-    da = ds([datetime(2024, 8, 2, hour=5)], list(HRRRFXLexicon.keys()))
-    print(da)
-    da.to_netcdf("")
