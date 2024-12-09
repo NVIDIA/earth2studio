@@ -77,7 +77,7 @@ def test_hrrr_fetch(time, variable):
             np.array(
                 [np.datetime64("2024-01-01T00:00"), np.datetime64("2024-02-01T00:00")]
             ),
-            np.array([np.timedelta64(0, "h")]),
+            np.array([np.timedelta64(1, "h")]),
         ),
     ],
 )
@@ -155,7 +155,7 @@ def test_hrrr_cache(time, variable, cache):
 @pytest.mark.parametrize(
     "time",
     [
-        datetime(year=2014, month=8, day=4, hour=0),
+        datetime(year=2018, month=7, day=12, hour=0),
     ],
 )
 @pytest.mark.parametrize("variable", ["u100"])

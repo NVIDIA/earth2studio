@@ -6,25 +6,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.4.0a0] - 2024-11-xx
+## [0.4.0] - 2024-12-04
 
 ### Added
+
+- Added NCEP data store to GFS data source for real-time forecast apps
 
 ### Changed
 
 - Set zarr chunks for lead time to size 1 in examples.
 - Updated HRRR tp to be hourly accumulated (Grib index 090)
 - Added tp to GFS_FX datasource (not supported by GFS)
-
-### Deprecated
+- Moved HRRR data source to Zarr datastore on S3
 
 ### Removed
 
 - Removed `available` function from CDS datasource
-
-### Fixed
-
-### Security
 
 ### Dependencies
 
@@ -32,6 +29,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Adding minimum version for numpy
 - Bump minimum CDS API version for new API
 - Moving unique data packages to optional deps
+- Removed Herbie as dependency
 
 ## [0.3.0] - 2024-09-24
 
