@@ -155,7 +155,7 @@ def test_hrrr_cache(time, variable, cache):
 @pytest.mark.parametrize(
     "time",
     [
-        datetime(year=2014, month=8, day=4, hour=0),
+        datetime(year=2018, month=7, day=12, hour=0),
     ],
 )
 @pytest.mark.parametrize("variable", ["u100"])
