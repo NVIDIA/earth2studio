@@ -1,3 +1,19 @@
+# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import numpy as np
 import torch
 from numpy.typing import ArrayLike
@@ -24,7 +40,7 @@ def latlon_interpolation_regular(
     values : torch.Tensor [..., H_in, W_in]
         Input values defined over (lat0, lon0) that will be interpolated onto
         (lat1, lon1) grid.
-    lat0 : torch.Tensor [W_in, ]
+    lat0 : torch.Tensor [H_in, ]
         Vector of input latitude coordinates, assumed to be increasing with
         equal spacing.
     lon0 : torch.Tensor [W_in, ]
@@ -94,22 +110,22 @@ class LatLonInterpolation(nn.Module):
 
     Parameters
     ----------
-    lat0 : torch.Tensor [H_in, W_in]
+    lat_in : torch.Tensor | ArrayLike [H_in, W_in]
         Tensor of input latitude coordinates
-    lon0 : torch.Tensor [H_in, W_in]
+    lon_in : torch.Tensor | ArrayLike [H_in, W_in]
         Tensor of input longitude coordinates
-    lat1 : torch.Tensor [W_out, H_out]
+    lat_out : torch.Tensor | ArrayLike [H_out, W_out]
         Tensor of output latitude coordinates
-    lon1 : torch.Tensor [W_out, H_out]
+    lon_out : torch.Tensor | ArrayLike [H_out, W_out]
         Tensor of output longitude coordinates
     """
 
     def __init__(
         self,
-        lat_in: Tensor | ArrayLike,
-        lon_in: Tensor | ArrayLike,
-        lat_out: Tensor | ArrayLike,
-        lon_out: Tensor | ArrayLike,
+        lat_in: torch.Tensor | ArrayLike,
+        lon_in: torch.Tensor | ArrayLike,
+        lat_out: torch.Tensor | ArrayLike,
+        lon_out: torch.Tensor | ArrayLike,
     ):
         super().__init__()
 
@@ -151,6 +167,11 @@ class LatLonInterpolation(nn.Module):
         values : torch.Tensor [..., H_in, W_in]
             Input values defined over (lat0, lon0) that will be interpolated onto
             (lat1, lon1) grid.
+
+        Returns
+        -------
+        result : torch.Tensor [..., H_out, W_out]
+            Tensor of interpolated values onto lat1, lon1 grid.
         """
         i = self.i_map
         i0 = i.floor().to(dtype=torch.int64)
