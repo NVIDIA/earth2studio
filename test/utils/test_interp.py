@@ -38,6 +38,7 @@ def test_interpolation(device, input_type):
         assert (y[:, 1:] > y[:, :-1]).all()
 
 
+@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
 def test_interpolation_analytical(device):
     lat_in = np.array([[0.0, 0.0], [1.0, 1.0]])
     lon_in = np.array([[0.0, 1.0], [0.0, 1.0]])
