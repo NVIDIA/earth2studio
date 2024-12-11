@@ -105,19 +105,22 @@ class LatLonInterpolation(nn.Module):
     contained within the input grid.
 
     Initializing the interpolation object can be somewhat slow, but interpolation is
-    fast and runs on the GPU once initialized. Therefore, prefer to reuse the
+    fast and can run on the GPU once initialized. Therefore, prefer to reuse the
     interpolation object when possible.
+
+    To run the interpolation on the GPU, use the .to() method of the interpolator
+    to move it to the GPU before running the interpolation.
 
     Parameters
     ----------
-    lat_in : torch.Tensor | ArrayLike [H_in, W_in]
-        Tensor of input latitude coordinates
-    lon_in : torch.Tensor | ArrayLike [H_in, W_in]
-        Tensor of input longitude coordinates
-    lat_out : torch.Tensor | ArrayLike [H_out, W_out]
-        Tensor of output latitude coordinates
-    lon_out : torch.Tensor | ArrayLike [H_out, W_out]
-        Tensor of output longitude coordinates
+    lat_in : torch.Tensor | ArrayLike
+        Tensor [H_in, W_in] of input latitude coordinates
+    lon_in : torch.Tensor | ArrayLike
+        Tensor [H_in, W_in] of input longitude coordinates
+    lat_out : torch.Tensor | ArrayLike
+        Tensor [H_out, W_out] of output latitude coordinates
+    lon_out : torch.Tensor | ArrayLike
+        Tensor [H_out, W_out] of output longitude coordinates
     """
 
     def __init__(
@@ -164,14 +167,14 @@ class LatLonInterpolation(nn.Module):
 
         Parameters
         ----------
-        values : torch.Tensor [..., H_in, W_in]
-            Input values defined over (lat0, lon0) that will be interpolated onto
-            (lat1, lon1) grid.
+        values : torch.Tensor
+            Input values of shape [..., H_in, W_in] defined over (lat_in, lon_in)
+            that will be interpolated onto (lat_out, lon_out) grid.
 
         Returns
         -------
-        result : torch.Tensor [..., H_out, W_out]
-            Tensor of interpolated values onto lat1, lon1 grid.
+        result : torch.Tensor
+            Tensor of shape [..., H_out, W_out] of interpolated values on lat1, lon1 grid.
         """
         i = self.i_map
         i0 = i.floor().to(dtype=torch.int64)
