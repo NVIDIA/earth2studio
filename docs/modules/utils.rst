@@ -25,6 +25,12 @@ A collection of utilities to manipulate and check coordinate systems dictionarie
    utils.coords.map_coords
    utils.coords.split_coords
 
+.. autosummary::
+   :toctree: generated/utils/
+   :template: class.rst
+
+   utils.interp.LatLonInterpolation
+
 :mod:`earth2studio.utils`: Time
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
