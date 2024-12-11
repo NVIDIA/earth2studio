@@ -462,6 +462,7 @@ document.write(`
     <span class="n">handshake_coords</span><span class="p">,</span>
     <span class="n">handshake_dim</span><span class="p">,</span>
 <span class="p">)</span>
+<span class="kn">from</span> <span class="nn">earth2studio.utils.interp</span> <span class="kn">import</span> <span class="n">latlon_interpolation_regular</span>
 <span class="kn">from</span> <span class="nn">earth2studio.utils.type</span> <span class="kn">import</span> <span class="n">CoordSystem</span>
 
 <span class="n">VARIABLES</span> <span class="o">=</span> <span class="p">[</span>
@@ -721,7 +722,7 @@ document.write(`
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Interpolate from input lat/lon (self.lat, self.lon) onto output lat/lon</span>
 <span class="sd">        (self.lat_grid, self.lon_grid) using bilinear interpolation.&quot;&quot;&quot;</span>
         <span class="n">input_coords</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">input_coords</span><span class="p">()</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">interpolate</span><span class="p">(</span>
+        <span class="k">return</span> <span class="n">latlon_interpolation_regular</span><span class="p">(</span>
             <span class="n">x</span><span class="p">,</span>
             <span class="n">torch</span><span class="o">.</span><span class="n">as_tensor</span><span class="p">(</span><span class="n">input_coords</span><span class="p">[</span><span class="s2">&quot;lat&quot;</span><span class="p">],</span> <span class="n">device</span><span class="o">=</span><span class="n">x</span><span class="o">.</span><span class="n">device</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">),</span>
             <span class="n">torch</span><span class="o">.</span><span class="n">as_tensor</span><span class="p">(</span><span class="n">input_coords</span><span class="p">[</span><span class="s2">&quot;lon&quot;</span><span class="p">],</span> <span class="n">device</span><span class="o">=</span><span class="n">x</span><span class="o">.</span><span class="n">device</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">),</span>
@@ -901,84 +902,7 @@ document.write(`
 
         <span class="n">x_next</span> <span class="o">=</span> <span class="n">net</span><span class="p">(</span><span class="n">x_hat</span><span class="p">,</span> <span class="n">x_lr</span><span class="p">,</span> <span class="n">t_hat</span><span class="p">,</span> <span class="n">class_labels</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
 
-        <span class="k">return</span> <span class="n">x_next</span>
-
-    <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">interpolate</span><span class="p">(</span>
-        <span class="n">values</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
-        <span class="n">lat0</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
-        <span class="n">lon0</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
-        <span class="n">lat1</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
-        <span class="n">lon1</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Specialized form of bilinear interpolation intended for optimal use on GPU.</span>
-
-<span class="sd">        In particular, the mapped values must be defined on a regular rectangular grid,</span>
-<span class="sd">        (lat0, lon0). Both lat0 and lon0 are vectors with equal spacing.</span>
-
-<span class="sd">        lat1, lon1 are assumed to be 2-dimensional meshgrids with possibly unequal spacing.</span>
-
-<span class="sd">        Parameters</span>
-<span class="sd">        ----------</span>
-<span class="sd">        values : torch.Tensor [..., W_in, H_in]</span>
-<span class="sd">            Input values defined over (lat0, lon0) that will be interpolated onto</span>
-<span class="sd">            (lat1, lon1) grid.</span>
-<span class="sd">        lat0 : torch.Tensor [W_in, ]</span>
-<span class="sd">            Vector of input latitude coordinates, assumed to be increasing with</span>
-<span class="sd">            equal spacing.</span>
-<span class="sd">        lon0 : torch.Tensor [H_in, ]</span>
-<span class="sd">            Vector of input longitude coordinates, assumed to be increasing with</span>
-<span class="sd">            equal spacing.</span>
-<span class="sd">        lat1 : torch.Tensor [W_out, H_out]</span>
-<span class="sd">            Tensor of output latitude coordinates</span>
-<span class="sd">        lon1 : torch.Tensor [W_out, H_out]</span>
-<span class="sd">            Tensor of output longitude coordinates</span>
-
-<span class="sd">        Returns</span>
-<span class="sd">        -------</span>
-<span class="sd">        result : torch.Tensor [..., W_out, H_out]</span>
-<span class="sd">            Tensor of interpolated values onto lat1, lon1 grid.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-
-        <span class="c1"># Get input grid shape and flatten</span>
-        <span class="n">latshape</span><span class="p">,</span> <span class="n">lonshape</span> <span class="o">=</span> <span class="n">lat1</span><span class="o">.</span><span class="n">shape</span>
-        <span class="n">lat1</span> <span class="o">=</span> <span class="n">lat1</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span>
-        <span class="n">lon1</span> <span class="o">=</span> <span class="n">lon1</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span>
-
-        <span class="c1"># Get indices of nearest points</span>
-        <span class="n">latinds</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">searchsorted</span><span class="p">(</span><span class="n">lat0</span><span class="p">,</span> <span class="n">lat1</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span>
-        <span class="n">loninds</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">searchsorted</span><span class="p">(</span><span class="n">lon0</span><span class="p">,</span> <span class="n">lon1</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span>
-
-        <span class="c1"># Get original grid spacing</span>
-        <span class="n">dlat</span> <span class="o">=</span> <span class="n">lat0</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">lat0</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
-        <span class="n">dlon</span> <span class="o">=</span> <span class="n">lon0</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">lon0</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
-
-        <span class="c1"># Get unit distances</span>
-        <span class="n">normed_lat_distance</span> <span class="o">=</span> <span class="p">(</span><span class="n">lat1</span> <span class="o">-</span> <span class="n">lat0</span><span class="p">[</span><span class="n">latinds</span><span class="p">])</span> <span class="o">/</span> <span class="n">dlat</span>
-        <span class="n">normed_lon_distance</span> <span class="o">=</span> <span class="p">(</span><span class="n">lon1</span> <span class="o">-</span> <span class="n">lon0</span><span class="p">[</span><span class="n">loninds</span><span class="p">])</span> <span class="o">/</span> <span class="n">dlon</span>
-
-        <span class="c1"># Apply bilinear mapping</span>
-        <span class="n">result</span> <span class="o">=</span> <span class="p">(</span>
-            <span class="n">values</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">latinds</span><span class="p">,</span> <span class="n">loninds</span><span class="p">]</span>
-            <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">normed_lat_distance</span><span class="p">)</span>
-            <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">normed_lon_distance</span><span class="p">)</span>
-        <span class="p">)</span>
-        <span class="n">result</span> <span class="o">+=</span> <span class="p">(</span>
-            <span class="n">values</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">latinds</span><span class="p">,</span> <span class="n">loninds</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span>
-            <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">normed_lat_distance</span><span class="p">)</span>
-            <span class="o">*</span> <span class="p">(</span><span class="n">normed_lon_distance</span><span class="p">)</span>
-        <span class="p">)</span>
-        <span class="n">result</span> <span class="o">+=</span> <span class="p">(</span>
-            <span class="n">values</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">latinds</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">loninds</span><span class="p">]</span>
-            <span class="o">*</span> <span class="p">(</span><span class="n">normed_lat_distance</span><span class="p">)</span>
-            <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">normed_lon_distance</span><span class="p">)</span>
-        <span class="p">)</span>
-        <span class="n">result</span> <span class="o">+=</span> <span class="p">(</span>
-            <span class="n">values</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">latinds</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">loninds</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span>
-            <span class="o">*</span> <span class="p">(</span><span class="n">normed_lat_distance</span><span class="p">)</span>
-            <span class="o">*</span> <span class="p">(</span><span class="n">normed_lon_distance</span><span class="p">)</span>
-        <span class="p">)</span>
-        <span class="k">return</span> <span class="n">result</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">*</span><span class="n">values</span><span class="o">.</span><span class="n">shape</span><span class="p">[:</span><span class="o">-</span><span class="mi">2</span><span class="p">],</span> <span class="n">latshape</span><span class="p">,</span> <span class="n">lonshape</span><span class="p">)</span></div>
+        <span class="k">return</span> <span class="n">x_next</span></div>
 
 </pre></div>
 
