@@ -155,13 +155,14 @@ class LatLonInterpolation(nn.Module):
         i_map = i_interp(out_points).reshape(lat_out.shape)
         j_map = j_interp(out_points).reshape(lat_out.shape)
 
-        i_map = torch.Tensor(i_map.clip(min=0, max=lat_in.shape[0] - 2))
-        j_map = torch.Tensor(j_map.clip(min=0, max=lat_in.shape[1] - 2))
+        i_map = torch.Tensor(i_map)
+        j_map = torch.Tensor(j_map)
 
         self.register_buffer("i_map", i_map)
         self.register_buffer("j_map", j_map)
 
     @torch.inference_mode()
+    @torch.compile
     def forward(self, values: Tensor) -> Tensor:
         """Perform bilinear interpolation for values.
 
@@ -177,10 +178,10 @@ class LatLonInterpolation(nn.Module):
             Tensor of shape [..., H_out, W_out] of interpolated values on lat1, lon1 grid.
         """
         i = self.i_map
-        i0 = i.floor().to(dtype=torch.int64)
+        i0 = i.floor().to(dtype=torch.int64).clamp(min=0, max=values.shape[-2] - 2)
         i1 = i0 + 1
         j = self.j_map
-        j0 = j.floor().to(dtype=torch.int64)
+        j0 = j.floor().to(dtype=torch.int64).clamp(min=0, max=values.shape[-1] - 2)
         j1 = j0 + 1
 
         f00 = values[..., i0, j0]

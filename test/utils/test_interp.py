@@ -36,3 +36,30 @@ def test_interpolation(device, input_type):
         assert ((y >= 0) & (y <= 1)).all()
     elif input_type == "gradient":
         assert (y[:, 1:] > y[:, :-1]).all()
+
+
+def test_interpolation_analytical(device):
+    lat_in = np.array([[0.0, 0.0], [1.0, 1.0]])
+    lon_in = np.array([[0.0, 1.0], [0.0, 1.0]])
+
+    (lat_out, lon_out) = np.mgrid[:1.01:0.25, :1.01:0.25]
+
+    interp = LatLonInterpolation(lat_in, lon_in, lat_out, lon_out)
+    interp.to(device=device)
+
+    x = torch.tensor([[0.0, 1.0], [1.0, 2.0]], device=device)
+    y = interp(x)
+
+    y_correct = torch.tensor(
+        [
+            [0.00, 0.25, 0.50, 0.75, 1.00],
+            [0.25, 0.50, 0.75, 1.00, 1.25],
+            [0.50, 0.75, 1.00, 1.25, 1.50],
+            [0.75, 1.00, 1.25, 1.50, 1.75],
+            [1.00, 1.25, 1.50, 1.75, 2.00],
+        ],
+        device=device,
+    )
+
+    epsilon = 1e-6  # allow for some FP roundoff
+    assert (abs(y - y_correct) < epsilon).all()
