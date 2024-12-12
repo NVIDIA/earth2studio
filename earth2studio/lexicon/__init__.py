@@ -21,4 +21,5 @@ from .gfs import GFSLexicon
 from .hrrr import HRRRLexicon
 from .ifs import IFSLexicon
 from .imerg import IMERGLexicon
+from .ncar import NCARLexicon
 from .wb2 import WB2Lexicon
