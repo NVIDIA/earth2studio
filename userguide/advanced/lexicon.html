@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
     <link href="../../_static/favicon.ico" rel="icon" type="image/x-icon">
-    <title>Lexicon &#8212; Earth2Studio 0.4.0a0 documentation</title>
+    <title>Lexicon &#8212; Earth2Studio 0.5.0a0 documentation</title>
   
   
   
@@ -42,7 +42,7 @@
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=8d27b9dea8ad943066ae" />
   <script src="../../_static/vendor/fontawesome/6.5.1/js/all.min.js?digest=8d27b9dea8ad943066ae"></script>
 
-    <script src="../../_static/documentation_options.js?v=539fad7d"></script>
+    <script src="../../_static/documentation_options.js?v=aeef923b"></script>
     <script src="../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script>let toggleHintShow = 'Click to show';</script>
@@ -564,10 +564,12 @@ fetch the correct data.</p>
                 <span class="k">raise</span> <span class="ne">KeyError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Could not find variable </span><span class="si">{</span><span class="n">gfs_name</span><span class="si">}</span><span class="s2"> in index file&quot;</span><span class="p">)</span>
             <span class="c1"># Download the grib file to cache</span>
             <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;Fetching GFS grib file for variable: </span><span class="si">{</span><span class="n">variable</span><span class="si">}</span><span class="s2"> at </span><span class="si">{</span><span class="n">time</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">lead_hour</span><span class="si">}</span><span class="s2">&quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;Fetching GFS grib file for variable: </span><span class="si">{</span><span class="n">variable</span><span class="si">}</span><span class="s2"> at </span><span class="si">{</span><span class="n">time</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">lead_time</span><span class="si">}</span><span class="s2">&quot;</span>
             <span class="p">)</span>
-            <span class="n">grib_file</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_download_s3_grib_cached</span><span class="p">(</span>
-                <span class="n">grib_file_name</span><span class="p">,</span> <span class="n">byte_offset</span><span class="o">=</span><span class="n">byte_offset</span><span class="p">,</span> <span class="n">byte_length</span><span class="o">=</span><span class="n">byte_length</span>
+            <span class="n">grib_file</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_fetch_remote_file</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_grib_uri</span><span class="p">(</span><span class="n">time</span><span class="p">,</span> <span class="n">lead_time</span><span class="p">),</span>
+                <span class="n">byte_offset</span><span class="o">=</span><span class="n">byte_offset</span><span class="p">,</span>
+                <span class="n">byte_length</span><span class="o">=</span><span class="n">byte_length</span><span class="p">,</span>
             <span class="p">)</span>
             <span class="c1"># Open into xarray data-array</span>
             <span class="n">da</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">open_dataarray</span><span class="p">(</span>

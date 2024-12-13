@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
     <link href="../../_static/favicon.ico" rel="icon" type="image/x-icon">
-    <title>Troubleshooting &#8212; Earth2Studio 0.4.0a0 documentation</title>
+    <title>Troubleshooting &#8212; Earth2Studio 0.5.0a0 documentation</title>
   
   
   
@@ -42,7 +42,7 @@
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=8d27b9dea8ad943066ae" />
   <script src="../../_static/vendor/fontawesome/6.5.1/js/all.min.js?digest=8d27b9dea8ad943066ae"></script>
 
-    <script src="../../_static/documentation_options.js?v=539fad7d"></script>
+    <script src="../../_static/documentation_options.js?v=aeef923b"></script>
     <script src="../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script>let toggleHintShow = 'Click to show';</script>
@@ -490,7 +490,9 @@ libcublasLt.so.11: cannot open shared object file: No such file or directory.</p
 </div></blockquote>
 <p>This is an error from ONNX runtime not being installed correctly.
 If you are using CUDA 12 make sure you manually pip install following the instructions
-on the ONNX <a class="reference external" href="https://onnxruntime.ai/docs/install/#python-installs">documentation</a>.</p>
+on the ONNX <a class="reference external" href="https://onnxruntime.ai/docs/install/#python-installs">documentation</a>.
+You may need to manally link the need libraries, see this
+<a class="reference external" href="https://github.com/microsoft/onnxruntime/issues/19616">Github issue</a> for reference.</p>
 <p>Still having some problems? Open an issue.</p>
 </section>
 </section>

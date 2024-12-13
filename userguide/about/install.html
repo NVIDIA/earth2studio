@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
     <link href="../../_static/favicon.ico" rel="icon" type="image/x-icon">
-    <title>Install &#8212; Earth2Studio 0.4.0a0 documentation</title>
+    <title>Install &#8212; Earth2Studio 0.5.0a0 documentation</title>
   
   
   
@@ -42,7 +42,7 @@
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=8d27b9dea8ad943066ae" />
   <script src="../../_static/vendor/fontawesome/6.5.1/js/all.min.js?digest=8d27b9dea8ad943066ae"></script>
 
-    <script src="../../_static/documentation_options.js?v=539fad7d"></script>
+    <script src="../../_static/documentation_options.js?v=aeef923b"></script>
     <script src="../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script>let toggleHintShow = 'Click to show';</script>
@@ -580,7 +580,7 @@ setting up Earth2Studio to run all build in models.</p>
 <p>The recommended environment to run Earth2Studio in is the <a class="reference external" href="https://catalog.ngc.nvidia.com/orgs/nvidia/teams/modulus/containers/modulus">Modulus docker container</a>.
 This is the environment the team develops with and is the primary test bed.
 You can install Earth2Studio in a running container directly:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>docker<span class="w"> </span>run<span class="w"> </span>-i<span class="w"> </span>-t<span class="w"> </span>nvcr.io/nvidia/modulus/modulus:24.09
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>docker<span class="w"> </span>run<span class="w"> </span>-i<span class="w"> </span>-t<span class="w"> </span>nvcr.io/nvidia/modulus/modulus:24.12
 
 &gt;&gt;&gt;<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span><span class="s2">&quot;makani[all] @ git+https://github.com/NVIDIA/modulus-makani.git@v0.1.0&quot;</span>
 
@@ -602,7 +602,7 @@ You can install Earth2Studio in a running container directly:</p>
 Earth2Studio.
 Thus, some may prefer to install from the <a class="reference external" href="https://catalog.ngc.nvidia.com/orgs/nvidia/containers/pytorch">PyTorch container</a>.
 Note that for ONNX models to work we will need a <a class="reference external" href="https://onnxruntime.ai/docs/install/#install-onnx-runtime-ort-1">specific install</a>:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>docker<span class="w"> </span>run<span class="w"> </span>-i<span class="w"> </span>-t<span class="w"> </span>nvcr.io/nvidia/pytorch:24.08-py3
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>docker<span class="w"> </span>run<span class="w"> </span>-i<span class="w"> </span>-t<span class="w"> </span>nvcr.io/nvidia/pytorch:24.11-py3
 
 &gt;&gt;&gt;<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span><span class="s2">&quot;makani[all] @ git+https://github.com/NVIDIA/modulus-makani.git@v0.1.0&quot;</span>
 
@@ -615,7 +615,7 @@ Note that for ONNX models to work we will need a <a class="reference external" h
 <p>For instances where Docker is not an option, we recommend creating a Conda environment.
 Ensuring the PyTorch is running on your GPU is essential, make sure you are <a class="reference external" href="https://pytorch.org/get-started/locally/">installing</a>
 the correct PyTorch for your hardware and CUDA is accessible.</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>conda<span class="w"> </span>create<span class="w"> </span>-n<span class="w"> </span>earth2studio<span class="w"> </span><span class="nv">python</span><span class="o">=</span><span class="m">3</span>.10
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>conda<span class="w"> </span>create<span class="w"> </span>-n<span class="w"> </span>earth2studio<span class="w"> </span><span class="nv">python</span><span class="o">=</span><span class="m">3</span>.11
 conda<span class="w"> </span>activate<span class="w"> </span>earth2studio
 
 conda<span class="w"> </span>install<span class="w"> </span>pytorch<span class="w"> </span>pytorch-cuda<span class="o">=</span><span class="m">12</span>.1<span class="w"> </span>-c<span class="w"> </span>pytorch<span class="w"> </span>-c<span class="w"> </span>nvidia

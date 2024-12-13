@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>earth2studio.data.gfs &#8212; Earth2Studio 0.4.0a0 documentation</title>
+    <title>earth2studio.data.gfs &#8212; Earth2Studio 0.5.0a0 documentation</title>
   
   
   
@@ -41,7 +41,7 @@
 <link rel="preload" as="script" href="../../../_static/scripts/pydata-sphinx-theme.js?digest=8d27b9dea8ad943066ae" />
   <script src="../../../_static/vendor/fontawesome/6.5.1/js/all.min.js?digest=8d27b9dea8ad943066ae"></script>
 
-    <script src="../../../_static/documentation_options.js?v=539fad7d"></script>
+    <script src="../../../_static/documentation_options.js?v=aeef923b"></script>
     <script src="../../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script>let toggleHintShow = 'Click to show';</script>
@@ -447,6 +447,7 @@ document.write(`
 <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 <span class="kn">import</span> <span class="nn">s3fs</span>
 <span class="kn">import</span> <span class="nn">xarray</span> <span class="k">as</span> <span class="nn">xr</span>
+<span class="kn">from</span> <span class="nn">fsspec.implementations.ftp</span> <span class="kn">import</span> <span class="n">FTPFileSystem</span>
 <span class="kn">from</span> <span class="nn">loguru</span> <span class="kn">import</span> <span class="n">logger</span>
 <span class="kn">from</span> <span class="nn">modulus.distributed.manager</span> <span class="kn">import</span> <span class="n">DistributedManager</span>
 <span class="kn">from</span> <span class="nn">s3fs.core</span> <span class="kn">import</span> <span class="n">S3FileSystem</span>
@@ -474,6 +475,8 @@ document.write(`
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
+<span class="sd">    source: str, optional</span>
+<span class="sd">        Data store location to pull from. Options are [aws, ncep], by default aws</span>
 <span class="sd">    cache : bool, optional</span>
 <span class="sd">        Cache data source on local memory, by default True</span>
 <span class="sd">    verbose : bool, optional</span>
@@ -504,9 +507,37 @@ document.write(`
     <span class="n">GFS_LAT</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">90</span><span class="p">,</span> <span class="o">-</span><span class="mi">90</span><span class="p">,</span> <span class="mi">721</span><span class="p">)</span>
     <span class="n">GFS_LON</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mf">359.75</span><span class="p">,</span> <span class="mi">1440</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cache</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span> <span class="n">verbose</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">source</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;aws&quot;</span><span class="p">,</span> <span class="n">cache</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span> <span class="n">verbose</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span> <span class="o">=</span> <span class="n">cache</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_verbose</span> <span class="o">=</span> <span class="n">verbose</span>
+
+        <span class="k">if</span> <span class="n">source</span> <span class="o">==</span> <span class="s2">&quot;aws&quot;</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">uri_prefix</span> <span class="o">=</span> <span class="s2">&quot;noaa-gfs-bdp-pds&quot;</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">fs</span> <span class="o">=</span> <span class="n">s3fs</span><span class="o">.</span><span class="n">S3FileSystem</span><span class="p">(</span><span class="n">anon</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">client_kwargs</span><span class="o">=</span><span class="p">{})</span>
+            <span class="c1"># To update search &quot;gfs.&quot; at https://noaa-gfs-bdp-pds.s3.amazonaws.com/index.html</span>
+            <span class="c1"># They are slowly adding more data</span>
+            <span class="k">def</span> <span class="nf">_range</span><span class="p">(</span><span class="n">time</span><span class="p">:</span> <span class="n">datetime</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">time</span> <span class="o">&lt;</span> <span class="n">datetime</span><span class="p">(</span><span class="n">year</span><span class="o">=</span><span class="mi">2021</span><span class="p">,</span> <span class="n">month</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">day</span><span class="o">=</span><span class="mi">1</span><span class="p">):</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                        <span class="sa">f</span><span class="s2">&quot;Requested date time </span><span class="si">{</span><span class="n">time</span><span class="si">}</span><span class="s2"> needs to be after January 1st, 2021 for GFS on AWS&quot;</span>
+                    <span class="p">)</span>
+
+            <span class="bp">self</span><span class="o">.</span><span class="n">_history_range</span> <span class="o">=</span> <span class="n">_range</span>
+        <span class="k">elif</span> <span class="n">source</span> <span class="o">==</span> <span class="s2">&quot;ncep&quot;</span><span class="p">:</span>
+            <span class="c1"># Could use http location, but using ftp since better for larger data</span>
+            <span class="c1"># https://nomads.ncep.noaa.gov/pub/data/nccf/com/gfs/prod/</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">uri_prefix</span> <span class="o">=</span> <span class="s2">&quot;pub/data/nccf/com/gfs/prod/&quot;</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">fs</span> <span class="o">=</span> <span class="n">FTPFileSystem</span><span class="p">(</span><span class="n">host</span><span class="o">=</span><span class="s2">&quot;ftpprd.ncep.noaa.gov&quot;</span><span class="p">)</span>
+
+            <span class="k">def</span> <span class="nf">_range</span><span class="p">(</span><span class="n">time</span><span class="p">:</span> <span class="n">datetime</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">time</span> <span class="o">+</span> <span class="n">timedelta</span><span class="p">(</span><span class="n">days</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">datetime</span><span class="o">.</span><span class="n">today</span><span class="p">():</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                        <span class="sa">f</span><span class="s2">&quot;Requested date time </span><span class="si">{</span><span class="n">time</span><span class="si">}</span><span class="s2"> needs to be within past 10 days for GFS NCEP source&quot;</span>
+                    <span class="p">)</span>
+
+            <span class="bp">self</span><span class="o">.</span><span class="n">_history_range</span> <span class="o">=</span> <span class="n">_range</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Invalid GFS source </span><span class="si">{</span><span class="n">source</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 
 <div class="viewcode-block" id="GFS.__call__">
 <a class="viewcode-back" href="../../../modules/generated/data/earth2studio.data.GFS.html#earth2studio.data.GFS.__call__">[docs]</a>
@@ -605,14 +636,7 @@ document.write(`
 <span class="sd">            FS data array for given time and lead time</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Fetching GFS index file: </span><span class="si">{</span><span class="n">time</span><span class="si">}</span><span class="s2"> lead </span><span class="si">{</span><span class="n">lead_time</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-        <span class="n">index_file</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_fetch_index</span><span class="p">(</span><span class="n">time</span><span class="p">,</span> <span class="n">lead_time</span><span class="p">)</span>
-        <span class="n">lead_hour</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">lead_time</span><span class="o">.</span><span class="n">total_seconds</span><span class="p">()</span> <span class="o">//</span> <span class="mi">3600</span><span class="p">)</span>
-
-        <span class="n">file_name</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;gfs.</span><span class="si">{</span><span class="n">time</span><span class="o">.</span><span class="n">year</span><span class="si">}{</span><span class="n">time</span><span class="o">.</span><span class="n">month</span><span class="si">:</span><span class="s2">0&gt;2</span><span class="si">}{</span><span class="n">time</span><span class="o">.</span><span class="n">day</span><span class="si">:</span><span class="s2">0&gt;2</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">time</span><span class="o">.</span><span class="n">hour</span><span class="si">:</span><span class="s2">0&gt;2</span><span class="si">}</span><span class="s2">&quot;</span>
-        <span class="n">file_name</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
-            <span class="n">file_name</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;atmos/gfs.t</span><span class="si">{</span><span class="n">time</span><span class="o">.</span><span class="n">hour</span><span class="si">:</span><span class="s2">0&gt;2</span><span class="si">}</span><span class="s2">z.pgrb2.0p25.f</span><span class="si">{</span><span class="n">lead_hour</span><span class="si">:</span><span class="s2">03d</span><span class="si">}</span><span class="s2">&quot;</span>
-        <span class="p">)</span>
-        <span class="n">grib_file_name</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">GFS_BUCKET_NAME</span><span class="p">,</span> <span class="n">file_name</span><span class="p">)</span>
+        <span class="n">index_file</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_fetch_index</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_grib_index_uri</span><span class="p">(</span><span class="n">time</span><span class="p">,</span> <span class="n">lead_time</span><span class="p">))</span>
 
         <span class="n">gfsda</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">(</span>
             <span class="n">data</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">variables</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">GFS_LAT</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">GFS_LON</span><span class="p">))),</span>
@@ -658,10 +682,12 @@ document.write(`
                 <span class="k">raise</span> <span class="ne">KeyError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Could not find variable </span><span class="si">{</span><span class="n">gfs_name</span><span class="si">}</span><span class="s2"> in index file&quot;</span><span class="p">)</span>
             <span class="c1"># Download the grib file to cache</span>
             <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;Fetching GFS grib file for variable: </span><span class="si">{</span><span class="n">variable</span><span class="si">}</span><span class="s2"> at </span><span class="si">{</span><span class="n">time</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">lead_hour</span><span class="si">}</span><span class="s2">&quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;Fetching GFS grib file for variable: </span><span class="si">{</span><span class="n">variable</span><span class="si">}</span><span class="s2"> at </span><span class="si">{</span><span class="n">time</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">lead_time</span><span class="si">}</span><span class="s2">&quot;</span>
             <span class="p">)</span>
-            <span class="n">grib_file</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_download_s3_grib_cached</span><span class="p">(</span>
-                <span class="n">grib_file_name</span><span class="p">,</span> <span class="n">byte_offset</span><span class="o">=</span><span class="n">byte_offset</span><span class="p">,</span> <span class="n">byte_length</span><span class="o">=</span><span class="n">byte_length</span>
+            <span class="n">grib_file</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_fetch_remote_file</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_grib_uri</span><span class="p">(</span><span class="n">time</span><span class="p">,</span> <span class="n">lead_time</span><span class="p">),</span>
+                <span class="n">byte_offset</span><span class="o">=</span><span class="n">byte_offset</span><span class="p">,</span>
+                <span class="n">byte_length</span><span class="o">=</span><span class="n">byte_length</span><span class="p">,</span>
             <span class="p">)</span>
             <span class="c1"># Open into xarray data-array</span>
             <span class="n">da</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">open_dataarray</span><span class="p">(</span>
@@ -672,8 +698,7 @@ document.write(`
 
         <span class="k">return</span> <span class="n">gfsda</span>
 
-    <span class="nd">@classmethod</span>
-    <span class="k">def</span> <span class="nf">_validate_time</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">times</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">datetime</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">_validate_time</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">times</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">datetime</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Verify if date time is valid for GFS based on offline knowledge</span>
 
 <span class="sd">        Parameters</span>
@@ -686,40 +711,24 @@ document.write(`
                 <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
                     <span class="sa">f</span><span class="s2">&quot;Requested date time </span><span class="si">{</span><span class="n">time</span><span class="si">}</span><span class="s2"> needs to be 6 hour interval for GFS&quot;</span>
                 <span class="p">)</span>
-            <span class="c1"># To update search &quot;gfs.&quot; at https://noaa-gfs-bdp-pds.s3.amazonaws.com/index.html</span>
-            <span class="c1"># They are slowly adding more data</span>
-            <span class="k">if</span> <span class="n">time</span> <span class="o">&lt;</span> <span class="n">datetime</span><span class="p">(</span><span class="n">year</span><span class="o">=</span><span class="mi">2021</span><span class="p">,</span> <span class="n">month</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">day</span><span class="o">=</span><span class="mi">17</span><span class="p">):</span>
-                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                    <span class="sa">f</span><span class="s2">&quot;Requested date time </span><span class="si">{</span><span class="n">time</span><span class="si">}</span><span class="s2"> needs to be after February 17th, 2021 for GFS&quot;</span>
-                <span class="p">)</span>
+            <span class="c1"># Check history range for given source</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_history_range</span><span class="p">(</span><span class="n">time</span><span class="p">)</span>
 
-            <span class="c1"># if not self.available(time):</span>
-            <span class="c1">#     raise ValueError(f&quot;Requested date time {time} not available in GFS&quot;)</span>
-
-    <span class="k">def</span> <span class="nf">_fetch_index</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span> <span class="n">time</span><span class="p">:</span> <span class="n">datetime</span><span class="p">,</span> <span class="n">lead_time</span><span class="p">:</span> <span class="n">timedelta</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]]:</span>
+    <span class="k">def</span> <span class="nf">_fetch_index</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">index_uri</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Fetch GFS atmospheric index file</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
-<span class="sd">        time : datetime</span>
-<span class="sd">            Date time to fetch</span>
+<span class="sd">        index_uri : str</span>
+<span class="sd">            URI to grib index file to download</span>
 
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
 <span class="sd">        dict[str, tuple[int, int]]</span>
 <span class="sd">            Dictionary of GFS vairables (byte offset, byte length)</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="c1"># https://www.nco.ncep.noaa.gov/pmb/products/gfs/</span>
-        <span class="n">lead_hour</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">lead_time</span><span class="o">.</span><span class="n">total_seconds</span><span class="p">()</span> <span class="o">//</span> <span class="mi">3600</span><span class="p">)</span>
-        <span class="n">file_name</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;gfs.</span><span class="si">{</span><span class="n">time</span><span class="o">.</span><span class="n">year</span><span class="si">}{</span><span class="n">time</span><span class="o">.</span><span class="n">month</span><span class="si">:</span><span class="s2">0&gt;2</span><span class="si">}{</span><span class="n">time</span><span class="o">.</span><span class="n">day</span><span class="si">:</span><span class="s2">0&gt;2</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">time</span><span class="o">.</span><span class="n">hour</span><span class="si">:</span><span class="s2">0&gt;2</span><span class="si">}</span><span class="s2">&quot;</span>
-        <span class="n">file_name</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
-            <span class="n">file_name</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;atmos/gfs.t</span><span class="si">{</span><span class="n">time</span><span class="o">.</span><span class="n">hour</span><span class="si">:</span><span class="s2">0&gt;2</span><span class="si">}</span><span class="s2">z.pgrb2.0p25.f</span><span class="si">{</span><span class="n">lead_hour</span><span class="si">:</span><span class="s2">03d</span><span class="si">}</span><span class="s2">.idx&quot;</span>
-        <span class="p">)</span>
-        <span class="n">s3_uri</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">GFS_BUCKET_NAME</span><span class="p">,</span> <span class="n">file_name</span><span class="p">)</span>
         <span class="c1"># Grab index file</span>
-        <span class="n">index_file</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_download_s3_index_cached</span><span class="p">(</span><span class="n">s3_uri</span><span class="p">)</span>
+        <span class="n">index_file</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_fetch_remote_file</span><span class="p">(</span><span class="n">index_uri</span><span class="p">)</span>
         <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">index_file</span><span class="p">)</span> <span class="k">as</span> <span class="n">file</span><span class="p">:</span>
             <span class="n">index_lines</span> <span class="o">=</span> <span class="p">[</span><span class="n">line</span><span class="o">.</span><span class="n">rstrip</span><span class="p">()</span> <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">file</span><span class="p">]</span>
 
@@ -744,31 +753,39 @@ document.write(`
         <span class="c1"># Pop place holder</span>
         <span class="k">return</span> <span class="n">index_table</span>
 
-    <span class="k">def</span> <span class="nf">_download_s3_index_cached</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-        <span class="n">sha</span> <span class="o">=</span> <span class="n">hashlib</span><span class="o">.</span><span class="n">sha256</span><span class="p">(</span><span class="n">path</span><span class="o">.</span><span class="n">encode</span><span class="p">())</span>
-        <span class="n">filename</span> <span class="o">=</span> <span class="n">sha</span><span class="o">.</span><span class="n">hexdigest</span><span class="p">()</span>
-
-        <span class="n">cache_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cache</span><span class="p">,</span> <span class="n">filename</span><span class="p">)</span>
-        <span class="n">fs</span> <span class="o">=</span> <span class="n">s3fs</span><span class="o">.</span><span class="n">S3FileSystem</span><span class="p">(</span><span class="n">anon</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">client_kwargs</span><span class="o">=</span><span class="p">{})</span>
-        <span class="n">fs</span><span class="o">.</span><span class="n">get_file</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">cache_path</span><span class="p">)</span>
-
-        <span class="k">return</span> <span class="n">cache_path</span>
-
-    <span class="k">def</span> <span class="nf">_download_s3_grib_cached</span><span class="p">(</span>
+    <span class="k">def</span> <span class="nf">_fetch_remote_file</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">byte_offset</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span> <span class="n">byte_length</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Fetches remote file into cache&quot;&quot;&quot;</span>
         <span class="n">sha</span> <span class="o">=</span> <span class="n">hashlib</span><span class="o">.</span><span class="n">sha256</span><span class="p">((</span><span class="n">path</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">byte_offset</span><span class="p">))</span><span class="o">.</span><span class="n">encode</span><span class="p">())</span>
         <span class="n">filename</span> <span class="o">=</span> <span class="n">sha</span><span class="o">.</span><span class="n">hexdigest</span><span class="p">()</span>
-
         <span class="n">cache_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cache</span><span class="p">,</span> <span class="n">filename</span><span class="p">)</span>
 
-        <span class="n">fs</span> <span class="o">=</span> <span class="n">s3fs</span><span class="o">.</span><span class="n">S3FileSystem</span><span class="p">(</span><span class="n">anon</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">client_kwargs</span><span class="o">=</span><span class="p">{})</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">(</span><span class="n">cache_path</span><span class="p">)</span><span class="o">.</span><span class="n">is_file</span><span class="p">():</span>
-            <span class="n">data</span> <span class="o">=</span> <span class="n">fs</span><span class="o">.</span><span class="n">read_block</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">offset</span><span class="o">=</span><span class="n">byte_offset</span><span class="p">,</span> <span class="n">length</span><span class="o">=</span><span class="n">byte_length</span><span class="p">)</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fs</span><span class="o">.</span><span class="n">read_block</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">offset</span><span class="o">=</span><span class="n">byte_offset</span><span class="p">,</span> <span class="n">length</span><span class="o">=</span><span class="n">byte_length</span><span class="p">)</span>
             <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">cache_path</span><span class="p">,</span> <span class="s2">&quot;wb&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">file</span><span class="p">:</span>
                 <span class="n">file</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
 
         <span class="k">return</span> <span class="n">cache_path</span>
+
+    <span class="k">def</span> <span class="nf">_grib_uri</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">time</span><span class="p">:</span> <span class="n">datetime</span><span class="p">,</span> <span class="n">lead_time</span><span class="p">:</span> <span class="n">timedelta</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Generates the URI for GFS grib files&quot;&quot;&quot;</span>
+        <span class="n">lead_hour</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">lead_time</span><span class="o">.</span><span class="n">total_seconds</span><span class="p">()</span> <span class="o">//</span> <span class="mi">3600</span><span class="p">)</span>
+        <span class="n">file_name</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;gfs.</span><span class="si">{</span><span class="n">time</span><span class="o">.</span><span class="n">year</span><span class="si">}{</span><span class="n">time</span><span class="o">.</span><span class="n">month</span><span class="si">:</span><span class="s2">0&gt;2</span><span class="si">}{</span><span class="n">time</span><span class="o">.</span><span class="n">day</span><span class="si">:</span><span class="s2">0&gt;2</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">time</span><span class="o">.</span><span class="n">hour</span><span class="si">:</span><span class="s2">0&gt;2</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="n">file_name</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
+            <span class="n">file_name</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;atmos/gfs.t</span><span class="si">{</span><span class="n">time</span><span class="o">.</span><span class="n">hour</span><span class="si">:</span><span class="s2">0&gt;2</span><span class="si">}</span><span class="s2">z.pgrb2.0p25.f</span><span class="si">{</span><span class="n">lead_hour</span><span class="si">:</span><span class="s2">03d</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">uri_prefix</span><span class="p">,</span> <span class="n">file_name</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_grib_index_uri</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">time</span><span class="p">:</span> <span class="n">datetime</span><span class="p">,</span> <span class="n">lead_time</span><span class="p">:</span> <span class="n">timedelta</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Generates the URI for GFS index grib files&quot;&quot;&quot;</span>
+        <span class="c1"># https://www.nco.ncep.noaa.gov/pmb/products/gfs/</span>
+        <span class="n">lead_hour</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">lead_time</span><span class="o">.</span><span class="n">total_seconds</span><span class="p">()</span> <span class="o">//</span> <span class="mi">3600</span><span class="p">)</span>
+        <span class="n">file_name</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;gfs.</span><span class="si">{</span><span class="n">time</span><span class="o">.</span><span class="n">year</span><span class="si">}{</span><span class="n">time</span><span class="o">.</span><span class="n">month</span><span class="si">:</span><span class="s2">0&gt;2</span><span class="si">}{</span><span class="n">time</span><span class="o">.</span><span class="n">day</span><span class="si">:</span><span class="s2">0&gt;2</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">time</span><span class="o">.</span><span class="n">hour</span><span class="si">:</span><span class="s2">0&gt;2</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="n">file_name</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
+            <span class="n">file_name</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;atmos/gfs.t</span><span class="si">{</span><span class="n">time</span><span class="o">.</span><span class="n">hour</span><span class="si">:</span><span class="s2">0&gt;2</span><span class="si">}</span><span class="s2">z.pgrb2.0p25.f</span><span class="si">{</span><span class="n">lead_hour</span><span class="si">:</span><span class="s2">03d</span><span class="si">}</span><span class="s2">.idx&quot;</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">uri_prefix</span><span class="p">,</span> <span class="n">file_name</span><span class="p">)</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">cache</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
@@ -789,7 +806,7 @@ document.write(`
         <span class="bp">cls</span><span class="p">,</span>
         <span class="n">time</span><span class="p">:</span> <span class="n">datetime</span> <span class="o">|</span> <span class="n">np</span><span class="o">.</span><span class="n">datetime64</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Checks if given date time is avaliable in the GFS object store</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Checks if given date time is avaliable in the GFS object store. Uses S3 store</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
@@ -807,10 +824,10 @@ document.write(`
             <span class="n">time</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">utcfromtimestamp</span><span class="p">((</span><span class="n">time</span> <span class="o">-</span> <span class="n">_unix</span><span class="p">)</span> <span class="o">/</span> <span class="n">_ds</span><span class="p">)</span>
 
         <span class="c1"># Offline checks</span>
-        <span class="k">try</span><span class="p">:</span>
-            <span class="bp">cls</span><span class="o">.</span><span class="n">_validate_time</span><span class="p">([</span><span class="n">time</span><span class="p">])</span>
-        <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
-            <span class="k">return</span> <span class="kc">False</span>
+        <span class="c1"># try:</span>
+        <span class="c1">#     cls._validate_time([time])</span>
+        <span class="c1"># except ValueError:</span>
+        <span class="c1">#     return False</span>
 
         <span class="n">fs</span> <span class="o">=</span> <span class="n">S3FileSystem</span><span class="p">(</span><span class="n">anon</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
@@ -835,6 +852,8 @@ document.write(`
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
+<span class="sd">    source: str, optional</span>
+<span class="sd">        Data store location to pull from. Options are [aws, ncep], by default aws</span>
 <span class="sd">    cache : bool, optional</span>
 <span class="sd">        Cache data source on local memory, by default True</span>
 <span class="sd">    verbose : bool, optional</span>

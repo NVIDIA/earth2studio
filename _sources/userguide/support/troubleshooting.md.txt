@@ -16,5 +16,7 @@ or
 This is an error from ONNX runtime not being installed correctly.
 If you are using CUDA 12 make sure you manually pip install following the instructions
 on the ONNX [documentation](https://onnxruntime.ai/docs/install/#python-installs).
+You may need to manally link the need libraries, see this
+[Github issue](https://github.com/microsoft/onnxruntime/issues/19616) for reference.
 
 Still having some problems? Open an issue.
