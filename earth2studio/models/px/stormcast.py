@@ -207,12 +207,8 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         # load model registry:
         config = OmegaConf.load(package.resolve("model.yaml"))
 
-        regression = Module.from_checkpoint(
-            package.resolve("regression/StormCastUNet.0.0.mdlus")
-        )
-        diffusion = Module.from_checkpoint(
-            package.resolve("diffusion/EDMPrecond.0.0.mdlus")
-        )
+        regression = Module.from_checkpoint(package.resolve("StormCastUNet.0.0.mdlus"))
+        diffusion = Module.from_checkpoint(package.resolve("EDMPrecond.0.0.mdlus"))
 
         # Load metadata: means, stds, grid
         metadata = xr.open_zarr(package.resolve("metadata.zarr.zip"))
