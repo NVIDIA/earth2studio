@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Set zarr chunks for lead time to size 1 in examples.
 - Updated HRRR tp to be hourly accumulated (Grib index 090)
+- Updated HRRR Lexicon to support natural levels
 
 ### Deprecated
 
