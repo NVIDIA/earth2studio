@@ -28,12 +28,12 @@ from earth2studio.utils import handshake_dim
 
 # Spoof models with same call signature
 class PhooStormCastRegressionModel(torch.nn.Module):
-    def __init__(self, out_vars=99):
+    def __init__(self, out_vars=3):
         super().__init__()
         self.out_vars = out_vars
 
-    def forward(self, x, condition):
-        return condition[:, : self.out_vars, :, :]
+    def forward(self, x):
+        return x[:, : self.out_vars, :, :]
 
 
 class PhooStormCastDiffusionModel(torch.nn.Module):
@@ -69,27 +69,31 @@ def test_stormcast_call(time, device):
     diffusion = PhooStormCastDiffusionModel()
 
     # Init data sources
+    nvar, nvar_cond, nlat, nlon = 3, 5, 128, 160
     lat, lon = np.meshgrid(
-        np.linspace(30, 46, num=512), np.linspace(250, 275, num=640), indexing="ij"
+        np.linspace(30, 46, num=nlat), np.linspace(250, 275, num=nlon), indexing="ij"
     )
     dc = OrderedDict([("lat", lat), ("lon", lon)])
     r = Random(dc)
     r_condition = Random(
         OrderedDict(
             [
-                ("lat", np.linspace(90, -90, num=721, endpoint=True)),
-                ("lon", np.linspace(0, 360, num=1440)),
+                ("lat", np.linspace(90, -90, num=181, endpoint=True)),
+                ("lon", np.linspace(0, 360, num=360)),
             ]
         )
     )
 
+    # Spoof variable names
+    variables = np.array(["u%02d" % i for i in range(nvar)])
+
     # Init model with explicit conditioning data in constructor
-    means = torch.zeros(1, 99, 1, 1)
-    stds = torch.ones(1, 99, 1, 1)
-    invariants = torch.randn(1, 2, 512, 640)
-    conditioning_means = torch.randn(1, 26, 1, 1, device=device)
-    conditioning_stds = torch.randn(1, 26, 1, 1, device=device)
-    conditioning_variables = np.array(["u%02d" % i for i in range(26)])
+    means = torch.zeros(1, nvar, 1, 1)
+    stds = torch.ones(1, nvar, 1, 1)
+    invariants = torch.randn(1, 2, nlat, nlon)
+    conditioning_means = torch.randn(1, nvar_cond, 1, 1, device=device)
+    conditioning_stds = torch.randn(1, nvar_cond, 1, 1, device=device)
+    conditioning_variables = np.array(["u%02d" % i for i in range(nvar_cond)])
     p = StormCast(
         regression,
         diffusion,
@@ -98,10 +102,12 @@ def test_stormcast_call(time, device):
         means,
         stds,
         invariants,
+        variables=variables,
         conditioning_means=conditioning_means,
         conditioning_stds=conditioning_stds,
         conditioning_variables=conditioning_variables,
         conditioning_data_source=r_condition,
+        sampler_args={"num_steps": 2},
     ).to(device)
 
     # Get Data and convert to tensor, coords
@@ -114,7 +120,7 @@ def test_stormcast_call(time, device):
     if not isinstance(time, Iterable):
         time = [time]
 
-    assert out.shape == torch.Size([len(time), 1, 99, 512, 640])
+    assert out.shape == torch.Size([len(time), 1, nvar, nlat, nlon])
     assert (out_coords["variable"] == p.output_coords(coords)["variable"]).all()
     assert np.all(out_coords["time"] == time)
     handshake_dim(out_coords, "lon", 4)
@@ -132,12 +138,14 @@ def test_stormcast_call(time, device):
         means,
         stds,
         invariants,
+        variables,
+        sampler_args={"num_steps": 2},
     ).to(device)
 
     # Create fake conditioning info
-    condition = torch.randn(1, len(time), 1, 26, 512, 640).to(device)
+    condition = torch.randn(1, len(time), 1, nvar_cond, nlat, nlon).to(device)
     condition_coords = p.input_coords()
-    condition_coords["variable"] = np.array([26])
+    condition_coords["variable"] = np.array(["u%02d" % i for i in range(nvar_cond)])
     condition_coords["time"] = time
 
     out, out_coords = p(
@@ -147,7 +155,7 @@ def test_stormcast_call(time, device):
     if not isinstance(time, Iterable):
         time = [time]
 
-    assert out.shape == torch.Size([len(time), 1, 99, 512, 640])
+    assert out.shape == torch.Size([len(time), 1, nvar, nlat, nlon])
     assert (out_coords["variable"] == p.output_coords(coords)["variable"]).all()
     assert np.all(out_coords["time"] == time)
     handshake_dim(out_coords, "lon", 4)
@@ -171,27 +179,29 @@ def test_stormcast_iter(ensemble, device):
     diffusion = PhooStormCastDiffusionModel()
 
     # Init data sources
+    nvar, nvar_cond, nlat, nlon = 3, 5, 128, 160
     lat, lon = np.meshgrid(
-        np.linspace(30, 46, num=512), np.linspace(250, 275, num=640), indexing="ij"
+        np.linspace(30, 46, num=nlat), np.linspace(250, 275, num=nlon), indexing="ij"
     )
     dc = OrderedDict([("lat", lat), ("lon", lon)])
     r = Random(dc)
     r_condition = Random(
         OrderedDict(
             [
-                ("lat", np.linspace(90, -90, num=721, endpoint=True)),
-                ("lon", np.linspace(0, 360, num=1440)),
+                ("lat", np.linspace(90, -90, num=181, endpoint=True)),
+                ("lon", np.linspace(0, 360, num=360)),
             ]
         )
     )
 
     # Init model with explicit conditioning data in constructor
-    means = torch.zeros(1, 99, 1, 1)
-    stds = torch.ones(1, 99, 1, 1)
-    invariants = torch.randn(1, 2, 512, 640)
-    conditioning_means = torch.randn(1, 26, 1, 1, device=device)
-    conditioning_stds = torch.randn(1, 26, 1, 1, device=device)
-    conditioning_variables = np.array(["u%02d" % i for i in range(26)])
+    variables = np.array(["u%02d" % i for i in range(nvar)])
+    means = torch.zeros(1, nvar, 1, 1)
+    stds = torch.ones(1, nvar, 1, 1)
+    invariants = torch.randn(1, 2, nlat, nlon)
+    conditioning_means = torch.randn(1, nvar_cond, 1, 1, device=device)
+    conditioning_stds = torch.randn(1, nvar_cond, 1, 1, device=device)
+    conditioning_variables = np.array(["u%02d" % i for i in range(nvar_cond)])
     p = StormCast(
         regression,
         diffusion,
@@ -200,10 +210,12 @@ def test_stormcast_iter(ensemble, device):
         means,
         stds,
         invariants,
+        variables,
         conditioning_means=conditioning_means,
         conditioning_stds=conditioning_stds,
         conditioning_variables=conditioning_variables,
         conditioning_data_source=r_condition,
+        sampler_args={"num_steps": 2},
     ).to(device)
 
     # Get Data and convert to tensor, coords
@@ -225,7 +237,7 @@ def test_stormcast_iter(ensemble, device):
     next(p_iter)  # Skip first which should return the input
     for i, (out, out_coords) in enumerate(p_iter):
         assert len(out.shape) == 6
-        assert out.shape == torch.Size([ensemble, len(time), 1, 99, 512, 640])
+        assert out.shape == torch.Size([ensemble, len(time), 1, nvar, nlat, nlon])
         assert (
             out_coords["variable"] == p.output_coords(p.input_coords())["variable"]
         ).all()
@@ -322,11 +334,23 @@ def test_stormcast_package(device, model):
     # Test the cached model package StormCast
     p = model.to(device)
 
-    # Create "domain coords"
-    dc = {k: p.input_coords()[k] for k in ["lat", "lon"]}
-
-    # Initialize Data Source
+    # Create random data sources
+    dc = OrderedDict([("lat", p.lat), ("lon", p.lon)])
     r = Random(dc)
+    r_condition = Random(
+        OrderedDict(
+            [
+                ("lat", np.linspace(90, -90, num=721, endpoint=True)),
+                ("lon", np.linspace(0, 360, num=1440)),
+            ]
+        )
+    )
+
+    # Manually set the condition data source (necessary as NGC package doesn't specify)
+    p.conditioning_data_source = r_condition
+
+    # Decrease the number of edm sampling steps to speed up the test
+    p.sampler_args = {"num_steps": 2}
 
     # Get Data and convert to tensor, coords
     lead_time = p.input_coords()["lead_time"]
@@ -340,6 +364,7 @@ def test_stormcast_package(device, model):
 
     assert out.shape == torch.Size([len(time), 1, 99, 512, 640])
     assert (out_coords["variable"] == p.output_coords(coords)["variable"]).all()
+    assert np.all(out_coords["time"] == time)
     handshake_dim(out_coords, "lon", 4)
     handshake_dim(out_coords, "lat", 3)
     handshake_dim(out_coords, "variable", 2)

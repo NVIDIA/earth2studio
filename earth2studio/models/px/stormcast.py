@@ -14,7 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os
 import warnings
 from collections import OrderedDict
 from collections.abc import Generator, Iterator
@@ -23,14 +22,14 @@ from itertools import product
 import numpy as np
 import torch
 import xarray as xr
-from hydra.utils import instantiate
+from modulus.models import Module
+from modulus.utils.generative import deterministic_sampler
 from omegaconf import OmegaConf
 
 from earth2studio.data import DataSource, fetch_data
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_coords, batch_func
 from earth2studio.models.dx.base import DiagnosticModel
-from earth2studio.models.nn.stormcast_networks import edm_sampler
 from earth2studio.models.px.utils import PrognosticMixin
 from earth2studio.utils import (
     handshake_coords,
@@ -105,6 +104,7 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         super().__init__()
         self.regression_model = regression_model
         self.diffusion_model = diffusion_model
+
         self.lat = lat
         self.lon = lon
         self.register_buffer("means", means)
@@ -136,7 +136,7 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 "batch": np.empty(0),
                 "time": np.empty(0),
                 "lead_time": np.array([np.timedelta64(0, "h")]),
-                "variable": np.array(VARIABLES),
+                "variable": np.array(self.variables),
                 "lat": self.lat,
                 "lon": self.lon,
             }
@@ -163,7 +163,7 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 "batch": np.empty(0),
                 "time": np.empty(0),
                 "lead_time": np.array([np.timedelta64(1, "h")]),
-                "variable": np.array(VARIABLES),
+                "variable": np.array(self.variables),
                 "lat": self.lat,
                 "lon": self.lon,
             }
@@ -172,6 +172,7 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             return output_coords
 
         target_input_coords = self.input_coords()
+
         handshake_dim(input_coords, "lon", 5)
         handshake_dim(input_coords, "lat", 4)
         handshake_dim(input_coords, "variable", 3)
@@ -190,13 +191,12 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def load_default_package(cls) -> Package:
         """Load prognostic package"""
         package = Package(
-            "ngc://models/wf7ic9e2c5ge/stormcast@v1.0.1",
+            "ngc://models/nvidia/modulus/stormcast-v1-era5-hrrr@1.0.0",
             cache_options={
                 "cache_storage": Package.default_cache("stormcast"),
                 "same_names": True,
             },
         )
-        package.root = os.path.join(package.root, "stormcast")
         return package
 
     @classmethod
@@ -207,38 +207,40 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         # load model registry:
         config = OmegaConf.load(package.resolve("model.yaml"))
 
-        # For regression, can we remove EasyRegressionV2?
-        regression = instantiate(config.regression_model).requires_grad_(False)
-        diffusion = instantiate(config.diffusion_model).requires_grad_(False)
-
-        regression.load_state_dict(
-            torch.load(package.resolve("regression.pt")), strict=False
+        regression = Module.from_checkpoint(
+            package.resolve("regression/StormCastUNet.0.0.mdlus")
         )
-
-        diffusion.load_state_dict(
-            torch.load(package.resolve("diffusion.pt")), strict=False
+        diffusion = Module.from_checkpoint(
+            package.resolve("diffusion/EDMPrecond.0.0.mdlus")
         )
-
-        sampler_args = config.sampler_args
 
         # Load metadata: means, stds, grid
-        metadata = xr.open_zarr("metadata.zarr.zip")
+        metadata = xr.open_zarr(package.resolve("metadata.zarr.zip"))
 
         variables = metadata["variable"].values
         lat = metadata.coords["lat"].values
         lon = metadata.coords["lon"].values
-        means = metadata["means"].values
-        stds = metadata["stds"].values
+        conditioning_variables = metadata["conditioning_variable"].values
 
-        conditioning_variables = metadata["conditioning_variables"].values
-        conditioning_means = torch.from_numpy(metadata["conditioning_means"].values)
-        conditioning_stds = torch.from_numpy(metadata["conditioning_stds"].values)
+        # Expand dims and tensorify normalization buffers
+        means = torch.from_numpy(metadata["means"].values[None, :, None, None])
+        stds = torch.from_numpy(metadata["stds"].values[None, :, None, None])
+        conditioning_means = torch.from_numpy(
+            metadata["conditioning_means"].values[None, :, None, None]
+        )
+        conditioning_stds = torch.from_numpy(
+            metadata["conditioning_stds"].values[None, :, None, None]
+        )
 
         # Load invariants
-        invariants = metadata["invariants"].sel(channel=config.invariants).values
+        invariants = metadata["invariants"].sel(invariant=config.data.invariants).values
         invariants = torch.from_numpy(invariants).repeat(1, 1, 1, 1)
-        # TODO do we need the below if using RegressionWrapperV2? Not defined
-        regression.set_invariant(invariants)
+
+        # EDM sampler arguments
+        if config.sampler_args is not None:
+            sampler_args = config.sampler_args
+        else:
+            sampler_args = {}
 
         return cls(
             regression,
@@ -269,19 +271,18 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         # Run regression model
         invariant_tensor = self.invariants.repeat(x.shape[0], 1, 1, 1)
         concats = torch.cat((x, conditioning, invariant_tensor), dim=1)
-        noise = torch.randn([conditioning.shape[0], 1, 1, 1], device=x.device)
 
-        out = self.regression_model(noise, condition=concats)
+        out = self.regression_model(concats)
 
         # Concat for diffusion conditioning
         condition = torch.cat((x, out, invariant_tensor), dim=1)
         latents = torch.randn_like(x)
 
         # Run diffusion model
-        edm_out = edm_sampler(
+        edm_out = deterministic_sampler(
             self.diffusion_model,
             latents=latents,
-            condition=condition,
+            img_lr=condition,
             **self.sampler_args,
         )
 
