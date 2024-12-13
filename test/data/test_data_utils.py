@@ -135,6 +135,54 @@ def test_fetch_data_interp(time, lead_time, device):
     )
     r = Random(domain)
 
+    # Target domain, 1d lat/lon coords
+    lat = np.linspace(60, 20, num=256)
+    lon = np.linspace(130, 60, num=512)
+    target_coords = OrderedDict(
+        {
+            "lat": lat,
+            "lon": lon,
+        }
+    )
+
+    # nearest neighbor interp
+    x, coords = fetch_data(
+        r,
+        time,
+        variable,
+        lead_time,
+        device=device,
+        interp_to=target_coords,
+        interp_method="nearest",
+    )
+
+    assert x.device == torch.device(device)
+    assert np.all(coords["time"] == time)
+    assert np.all(coords["lead_time"] == lead_time)
+    assert np.all(coords["variable"] == variable)
+    assert coords["lat"].shape == (256,)
+    assert coords["lon"].shape == (512,)
+    assert not torch.isnan(x).any()
+
+    # bilinear interp
+    x, coords = fetch_data(
+        r,
+        time,
+        variable,
+        lead_time,
+        device=device,
+        interp_to=target_coords,
+        interp_method="linear",
+    )
+
+    assert x.device == torch.device(device)
+    assert np.all(coords["time"] == time)
+    assert np.all(coords["lead_time"] == lead_time)
+    assert np.all(coords["variable"] == variable)
+    assert coords["lat"].shape == (256,)
+    assert coords["lon"].shape == (512,)
+    assert not torch.isnan(x).any()
+
     # Target domain, 2d lat/lon coords
     lat = np.linspace(60, 20, num=256)
     lon = np.linspace(130, 60, num=512)
@@ -146,6 +194,7 @@ def test_fetch_data_interp(time, lead_time, device):
         }
     )
 
+    # nearest neighbor interp
     x, coords = fetch_data(
         r,
         time,
@@ -164,6 +213,7 @@ def test_fetch_data_interp(time, lead_time, device):
     assert coords["lon"].shape == (256, 512)
     assert not torch.isnan(x).any()
 
+    # bilinear interp
     x, coords = fetch_data(
         r,
         time,

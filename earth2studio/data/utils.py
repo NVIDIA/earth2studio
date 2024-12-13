@@ -123,8 +123,19 @@ def prep_data_array(
     """
 
     if interp_to is not None:
-        target_lat = xr.DataArray(interp_to["lat"], dims=["y", "x"])
-        target_lon = xr.DataArray(interp_to["lon"], dims=["y", "x"])
+        if len(interp_to["lat"].shape) > 1 or len(interp_to["lon"].shape) > 1:
+            if len(interp_to["lat"].shape) != len(interp_to["lon"].shape):
+                raise ValueError(
+                    "Discrepancy in interpolation coordinates: latitude has different shape than longitude"
+                )
+
+            # Curvilinear coordinates: define internal dims y, x
+            target_lat = xr.DataArray(interp_to["lat"], dims=["y", "x"])
+            target_lon = xr.DataArray(interp_to["lon"], dims=["y", "x"])
+        else:
+
+            target_lat = xr.DataArray(interp_to["lat"], dims=["lat"])
+            target_lon = xr.DataArray(interp_to["lon"], dims=["lon"])
         target_grid = xr.Dataset({"latitude": target_lat, "longitude": target_lon})
 
         da = da.interp(
