@@ -21,7 +21,7 @@ from datetime import datetime
 import numpy as np
 import pytest
 
-from earth2studio.data import NCAR
+from earth2studio.data import NCAR_ERA5
 
 
 @pytest.mark.slow
@@ -40,7 +40,7 @@ from earth2studio.data import NCAR
 @pytest.mark.parametrize("variable", ["t2m", ["msl"]])
 def test_ncar_fetch(time, variable):
 
-    ds = NCAR(cache=False)
+    ds = NCAR_ERA5(cache=False)
     data = ds(time, variable)
     shape = data.shape
 
@@ -60,7 +60,7 @@ def test_ncar_fetch(time, variable):
 
 @pytest.mark.slow
 @pytest.mark.xfail
-@pytest.mark.timeout(30)
+@pytest.mark.timeout(40)
 @pytest.mark.parametrize(
     "time",
     [
@@ -71,7 +71,7 @@ def test_ncar_fetch(time, variable):
 @pytest.mark.parametrize("cache", [True, False])
 def test_ncar_cache(time, variable, cache):
 
-    ds = NCAR(cache=cache)
+    ds = NCAR_ERA5(cache=cache)
     data = ds(time, variable)
     shape = data.shape
 
@@ -110,7 +110,7 @@ def test_ncar_cache(time, variable, cache):
 @pytest.mark.parametrize("variable", ["not_available"])
 def test_ncar_available(time, variable):
     with pytest.raises(KeyError):
-        ds = NCAR()
+        ds = NCAR_ERA5()
         ds(time, variable)
 
 
@@ -125,5 +125,5 @@ def test_ncar_available(time, variable):
 @pytest.mark.parametrize("variable", ["not_available"])
 def test_ncar_valid_time(time, variable):
     with pytest.raises(ValueError):
-        ds = NCAR()
+        ds = NCAR_ERA5()
         ds(time, variable)

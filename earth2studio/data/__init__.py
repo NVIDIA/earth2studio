@@ -22,7 +22,7 @@ from .gfs import GFS, GFS_FX
 from .hrrr import HRRR, HRRR_FX
 from .ifs import IFS
 from .imerg import IMERG
-from .ncar import NCAR
+from .ncar import NCAR_ERA5
 from .rand import Random
 from .rx import CosineSolarZenith, LandSeaMask, SurfaceGeoPotential
 from .utils import datasource_to_file, fetch_data, prep_data_array

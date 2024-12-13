@@ -17,7 +17,7 @@
 import pytest
 import torch
 
-from earth2studio.lexicon import NCARLexicon
+from earth2studio.lexicon import NCAR_ERA5Lexicon
 
 
 @pytest.mark.parametrize(
@@ -27,7 +27,7 @@ from earth2studio.lexicon import NCARLexicon
 def test_run_deterministic(variable, device):
     input = torch.randn(len(variable), 8).to(device)
     for v in variable:
-        label, modifier = NCARLexicon[v]
+        label, modifier = NCAR_ERA5Lexicon[v]
         output = modifier(input)
         assert isinstance(label, str)
         assert input.shape == output.shape

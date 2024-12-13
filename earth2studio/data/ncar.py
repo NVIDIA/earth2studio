@@ -33,14 +33,14 @@ from tqdm import tqdm
 from earth2studio.data.utils import (
     prep_data_inputs,
 )
-from earth2studio.lexicon import NCARLexicon
+from earth2studio.lexicon import NCAR_ERA5Lexicon
 from earth2studio.utils.type import TimeArray, VariableArray
 
 logger.remove()
 logger.add(lambda msg: tqdm.write(msg, end=""), colorize=True)
 
 
-class NCAR:
+class NCAR_ERA5:
     """ERA5 data provided by NSF NCAR via the AWS Open Data Sponsorship Program. ERA5
     is the fifth generation of the ECMWF global reanalysis and available on a 0.25
     degree WGS84 grid at hourly intervals spanning from 1940 to the present.
@@ -134,7 +134,7 @@ class NCAR:
         """
         groups = {}  # group pressure-level variables
         for var in set(variables):
-            spec, _ = NCARLexicon[var]
+            spec, _ = NCAR_ERA5Lexicon[var]
             lvl = spec.split(".")[3]  # surface/pressure-level
             ename = spec.split(".")[4].split("_")[-1]  # ECMWF name
             groups.setdefault(
@@ -268,5 +268,5 @@ class NCAR:
     def cache(self) -> Optional[str]:
         """Return appropriate cache location."""
         if self._cache:
-            return os.path.join(datasource_cache_root(), "ncar")
+            return os.path.join(datasource_cache_root(), "ncar_era5")
         return None

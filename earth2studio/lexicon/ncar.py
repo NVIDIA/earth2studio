@@ -21,7 +21,7 @@ import numpy as np
 from .base import LexiconType
 
 
-class NCARLexicon(metaclass=LexiconType):
+class NCAR_ERA5Lexicon(metaclass=LexiconType):
     """NCAR ERA5 Lexicon
     S3 specified <Prefix>.<N>_<ID>_<Name>.<Postfix>
 
