@@ -287,7 +287,13 @@ class Package:
             },
             tqdm_cls=TqdmFormat,
         ) as callback:
-            return self.fs.open(full_path, callback=callback)
+            try:
+                return self.fs.open(full_path, callback=callback)
+            except fsspec.exceptions.FSTimeoutError as e:
+                logger.error(
+                    f"Package fetch timeout. Consider increasing timeout through environment variable 'EARTH2STUDIO_PACKAGE_TIMEOUT'. Currently {self.default_timeout()}s."
+                )
+                raise e
 
     def resolve(self, file_path: str) -> str:
         """Resolves current relative file path to absolute path inside Package cache

@@ -21,7 +21,7 @@ import numpy as np
 import pytest
 import torch
 
-from earth2studio.statistics import lat_weight, rmse, spread_skill_ratio
+from earth2studio.statistics import lat_weight, rmse, skill_spread, spread_skill_ratio
 from earth2studio.utils.coords import handshake_coords, handshake_dim
 
 lat_weights = lat_weight(torch.as_tensor(np.linspace(-90.0, 90.0, 361)))
@@ -162,6 +162,56 @@ def test_spread_skill(
     assert not any([ri in c for ri in ["ensemble"] + reduction_dimensions])
     assert list(z.shape) == [len(val) for val in c.values()]
     assert torch.allclose(z, torch.ones_like(z), rtol=1e-1, atol=1e-1)
+
+    out_test_coords = SSR.output_coords(x_coords)
+    for i, ci in enumerate(c):
+        handshake_dim(out_test_coords, ci, i)
+        handshake_coords(out_test_coords, c, ci)
+
+
+@pytest.mark.parametrize(
+    "reduction_weights",
+    [
+        (["time", "lat", "lon"], lat_weights.unsqueeze(1).repeat(2, 1, 720)),
+        (["lat"], lat_weights),
+        (["lat", "lon"], lat_weights.unsqueeze(1).repeat(1, 720)),
+    ],
+)
+@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+def test_skill_spread(
+    reduction_weights: tuple[list[str], np.ndarray], device: str
+) -> None:
+
+    n_ensemble = 400
+    x = 3.0 + 2.0 * torch.randn((n_ensemble, 2, 2, 361, 720), device=device)
+
+    x_coords = OrderedDict(
+        {
+            "ensemble": np.arange(n_ensemble),
+            "time": np.array(
+                [np.datetime64("1993-04-05T00:00"), np.datetime64("1993-04-06T00:00")]
+            ),
+            "variable": ["t2m", "tcwv"],
+            "lat": np.linspace(-90.0, 90.0, 361),
+            "lon": np.linspace(0.0, 360.0, 720, endpoint=False),
+        }
+    )
+
+    y_coords = copy.deepcopy(x_coords)
+    y_coords.pop("ensemble")
+    y = 3.0 + 2.0 * torch.randn((2, 2, 361, 720), device=device)
+
+    ensemble_dimension = "ensemble"
+    reduction_dimensions, weights = reduction_weights
+    if weights is not None:
+        weights = weights.to(device)
+    SSR = skill_spread(
+        ensemble_dimension, reduction_dimensions, reduction_weights=weights
+    )
+
+    z, c = SSR(x, x_coords, y, y_coords)
+    assert not any([ri in c for ri in ["ensemble"] + reduction_dimensions])
+    assert list(z.shape) == [len(val) for val in c.values()]
 
     out_test_coords = SSR.output_coords(x_coords)
     for i, ci in enumerate(c):

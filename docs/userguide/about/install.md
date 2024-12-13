@@ -42,6 +42,18 @@ We encourage users that face package issues to familiarize themselves with the o
 model installs and suggested environment set up for the most complete experience.
 :::
 
+(data_dependencies)=
+
+## Datasource Dependencies
+
+Some data sources require additional dependencies, libraries or specific Python versions
+to install.
+To install all dependencies
+
+```bash
+pip install earth2studio[data]
+```
+
 (model_dependencies)=
 
 ## Model Dependencies
@@ -123,7 +135,7 @@ This is the environment the team develops with and is the primary test bed.
 You can install Earth2Studio in a running container directly:
 
 ```bash
-docker run -i -t nvcr.io/nvidia/modulus/modulus:24.09
+docker run -i -t nvcr.io/nvidia/modulus/modulus:24.12
 
 >>> pip install "makani[all] @ git+https://github.com/NVIDIA/modulus-makani.git@v0.1.0"
 
@@ -148,7 +160,7 @@ Thus, some may prefer to install from the [PyTorch container](https://catalog.ng
 Note that for ONNX models to work we will need a [specific install](https://onnxruntime.ai/docs/install/#install-onnx-runtime-ort-1):
 
 ```bash
-docker run -i -t nvcr.io/nvidia/pytorch:24.08-py3
+docker run -i -t nvcr.io/nvidia/pytorch:24.11-py3
 
 >>> pip install "makani[all] @ git+https://github.com/NVIDIA/modulus-makani.git@v0.1.0"
 
@@ -162,7 +174,7 @@ Ensuring the PyTorch is running on your GPU is essential, make sure you are [ins
 the correct PyTorch for your hardware and CUDA is accessible.
 
 ```bash
-conda create -n earth2studio python=3.10
+conda create -n earth2studio python=3.11
 conda activate earth2studio
 
 conda install pytorch pytorch-cuda=12.1 -c pytorch -c nvidia

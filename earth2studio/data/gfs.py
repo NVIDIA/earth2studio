@@ -23,6 +23,7 @@ from datetime import datetime, timedelta
 import numpy as np
 import s3fs
 import xarray as xr
+from fsspec.implementations.ftp import FTPFileSystem
 from loguru import logger
 from modulus.distributed.manager import DistributedManager
 from s3fs.core import S3FileSystem
@@ -48,6 +49,8 @@ class GFS:
 
     Parameters
     ----------
+    source: str, optional
+        Data store location to pull from. Options are [aws, ncep], by default aws
     cache : bool, optional
         Cache data source on local memory, by default True
     verbose : bool, optional
@@ -78,9 +81,37 @@ class GFS:
     GFS_LAT = np.linspace(90, -90, 721)
     GFS_LON = np.linspace(0, 359.75, 1440)
 
-    def __init__(self, cache: bool = True, verbose: bool = True):
+    def __init__(self, source: str = "aws", cache: bool = True, verbose: bool = True):
         self._cache = cache
         self._verbose = verbose
+
+        if source == "aws":
+            self.uri_prefix = "noaa-gfs-bdp-pds"
+            self.fs = s3fs.S3FileSystem(anon=True, client_kwargs={})
+            # To update search "gfs." at https://noaa-gfs-bdp-pds.s3.amazonaws.com/index.html
+            # They are slowly adding more data
+            def _range(time: datetime) -> None:
+                if time < datetime(year=2021, month=1, day=1):
+                    raise ValueError(
+                        f"Requested date time {time} needs to be after January 1st, 2021 for GFS on AWS"
+                    )
+
+            self._history_range = _range
+        elif source == "ncep":
+            # Could use http location, but using ftp since better for larger data
+            # https://nomads.ncep.noaa.gov/pub/data/nccf/com/gfs/prod/
+            self.uri_prefix = "pub/data/nccf/com/gfs/prod/"
+            self.fs = FTPFileSystem(host="ftpprd.ncep.noaa.gov")
+
+            def _range(time: datetime) -> None:
+                if time + timedelta(days=10) < datetime.today():
+                    raise ValueError(
+                        f"Requested date time {time} needs to be within past 10 days for GFS NCEP source"
+                    )
+
+            self._history_range = _range
+        else:
+            raise ValueError(f"Invalid GFS source {source}")
 
     def __call__(
         self,
@@ -176,14 +207,7 @@ class GFS:
             FS data array for given time and lead time
         """
         logger.debug(f"Fetching GFS index file: {time} lead {lead_time}")
-        index_file = self._fetch_index(time, lead_time)
-        lead_hour = int(lead_time.total_seconds() // 3600)
-
-        file_name = f"gfs.{time.year}{time.month:0>2}{time.day:0>2}/{time.hour:0>2}"
-        file_name = os.path.join(
-            file_name, f"atmos/gfs.t{time.hour:0>2}z.pgrb2.0p25.f{lead_hour:03d}"
-        )
-        grib_file_name = os.path.join(self.GFS_BUCKET_NAME, file_name)
+        index_file = self._fetch_index(self._grib_index_uri(time, lead_time))
 
         gfsda = xr.DataArray(
             data=np.empty((1, 1, len(variables), len(self.GFS_LAT), len(self.GFS_LON))),
@@ -217,17 +241,24 @@ class GFS:
                     """Modify data (if necessary)."""
                     return x
 
-            if gfs_name not in index_file:
-                raise KeyError(f"Could not find variable {gfs_name} in index file")
+            byte_offset = None
+            byte_length = None
+            for key, value in index_file.items():
+                if gfs_name in key:
+                    byte_offset = value[0]
+                    byte_length = value[1]
+                    break
 
-            byte_offset = index_file[gfs_name][0]
-            byte_length = index_file[gfs_name][1]
+            if byte_offset is None:
+                raise KeyError(f"Could not find variable {gfs_name} in index file")
             # Download the grib file to cache
             logger.debug(
-                f"Fetching GFS grib file for variable: {variable} at {time}_{lead_hour}"
+                f"Fetching GFS grib file for variable: {variable} at {time}_{lead_time}"
             )
-            grib_file = self._download_s3_grib_cached(
-                grib_file_name, byte_offset=byte_offset, byte_length=byte_length
+            grib_file = self._fetch_remote_file(
+                self._grib_uri(time, lead_time),
+                byte_offset=byte_offset,
+                byte_length=byte_length,
             )
             # Open into xarray data-array
             da = xr.open_dataarray(
@@ -238,8 +269,7 @@ class GFS:
 
         return gfsda
 
-    @classmethod
-    def _validate_time(cls, times: list[datetime]) -> None:
+    def _validate_time(self, times: list[datetime]) -> None:
         """Verify if date time is valid for GFS based on offline knowledge
 
         Parameters
@@ -252,40 +282,24 @@ class GFS:
                 raise ValueError(
                     f"Requested date time {time} needs to be 6 hour interval for GFS"
                 )
-            # To update search "gfs." at https://noaa-gfs-bdp-pds.s3.amazonaws.com/index.html
-            # They are slowly adding more data
-            if time < datetime(year=2021, month=2, day=17):
-                raise ValueError(
-                    f"Requested date time {time} needs to be after February 17th, 2021 for GFS"
-                )
+            # Check history range for given source
+            self._history_range(time)
 
-            # if not self.available(time):
-            #     raise ValueError(f"Requested date time {time} not available in GFS")
-
-    def _fetch_index(
-        self, time: datetime, lead_time: timedelta
-    ) -> dict[str, tuple[int, int]]:
+    def _fetch_index(self, index_uri: str) -> dict[str, tuple[int, int]]:
         """Fetch GFS atmospheric index file
 
         Parameters
         ----------
-        time : datetime
-            Date time to fetch
+        index_uri : str
+            URI to grib index file to download
 
         Returns
         -------
         dict[str, tuple[int, int]]
             Dictionary of GFS vairables (byte offset, byte length)
         """
-        # https://www.nco.ncep.noaa.gov/pmb/products/gfs/
-        lead_hour = int(lead_time.total_seconds() // 3600)
-        file_name = f"gfs.{time.year}{time.month:0>2}{time.day:0>2}/{time.hour:0>2}"
-        file_name = os.path.join(
-            file_name, f"atmos/gfs.t{time.hour:0>2}z.pgrb2.0p25.f{lead_hour:03d}.idx"
-        )
-        s3_uri = os.path.join(self.GFS_BUCKET_NAME, file_name)
         # Grab index file
-        index_file = self._download_s3_index_cached(s3_uri)
+        index_file = self._fetch_remote_file(index_uri)
         with open(index_file) as file:
             index_lines = [line.rstrip() for line in file]
 
@@ -299,7 +313,7 @@ class GFS:
             nlsplit = index_lines[i + 1].split(":")
             byte_length = int(nlsplit[1]) - int(lsplit[1])
             byte_offset = int(lsplit[1])
-            key = f"{lsplit[3]}::{lsplit[4]}"
+            key = f"{lsplit[0]}::{lsplit[3]}::{lsplit[4]}"
             if byte_length > self.MAX_BYTE_SIZE:
                 raise ValueError(
                     f"Byte length, {byte_length}, of variable {key} larger than safe threshold of {self.MAX_BYTE_SIZE}"
@@ -310,31 +324,39 @@ class GFS:
         # Pop place holder
         return index_table
 
-    def _download_s3_index_cached(self, path: str) -> str:
-        sha = hashlib.sha256(path.encode())
-        filename = sha.hexdigest()
-
-        cache_path = os.path.join(self.cache, filename)
-        fs = s3fs.S3FileSystem(anon=True, client_kwargs={})
-        fs.get_file(path, cache_path)
-
-        return cache_path
-
-    def _download_s3_grib_cached(
+    def _fetch_remote_file(
         self, path: str, byte_offset: int = 0, byte_length: int = None
     ) -> str:
+        """Fetches remote file into cache"""
         sha = hashlib.sha256((path + str(byte_offset)).encode())
         filename = sha.hexdigest()
-
         cache_path = os.path.join(self.cache, filename)
 
-        fs = s3fs.S3FileSystem(anon=True, client_kwargs={})
         if not pathlib.Path(cache_path).is_file():
-            data = fs.read_block(path, offset=byte_offset, length=byte_length)
+            data = self.fs.read_block(path, offset=byte_offset, length=byte_length)
             with open(cache_path, "wb") as file:
                 file.write(data)
 
         return cache_path
+
+    def _grib_uri(self, time: datetime, lead_time: timedelta) -> str:
+        """Generates the URI for GFS grib files"""
+        lead_hour = int(lead_time.total_seconds() // 3600)
+        file_name = f"gfs.{time.year}{time.month:0>2}{time.day:0>2}/{time.hour:0>2}"
+        file_name = os.path.join(
+            file_name, f"atmos/gfs.t{time.hour:0>2}z.pgrb2.0p25.f{lead_hour:03d}"
+        )
+        return os.path.join(self.uri_prefix, file_name)
+
+    def _grib_index_uri(self, time: datetime, lead_time: timedelta) -> str:
+        """Generates the URI for GFS index grib files"""
+        # https://www.nco.ncep.noaa.gov/pmb/products/gfs/
+        lead_hour = int(lead_time.total_seconds() // 3600)
+        file_name = f"gfs.{time.year}{time.month:0>2}{time.day:0>2}/{time.hour:0>2}"
+        file_name = os.path.join(
+            file_name, f"atmos/gfs.t{time.hour:0>2}z.pgrb2.0p25.f{lead_hour:03d}.idx"
+        )
+        return os.path.join(self.uri_prefix, file_name)
 
     @property
     def cache(self) -> str:
@@ -353,7 +375,7 @@ class GFS:
         cls,
         time: datetime | np.datetime64,
     ) -> bool:
-        """Checks if given date time is avaliable in the GFS object store
+        """Checks if given date time is avaliable in the GFS object store. Uses S3 store
 
         Parameters
         ----------
@@ -371,10 +393,10 @@ class GFS:
             time = datetime.utcfromtimestamp((time - _unix) / _ds)
 
         # Offline checks
-        try:
-            cls._validate_time([time])
-        except ValueError:
-            return False
+        # try:
+        #     cls._validate_time([time])
+        # except ValueError:
+        #     return False
 
         fs = S3FileSystem(anon=True)
 
@@ -395,6 +417,8 @@ class GFS_FX(GFS):
 
     Parameters
     ----------
+    source: str, optional
+        Data store location to pull from. Options are [aws, ncep], by default aws
     cache : bool, optional
         Cache data source on local memory, by default True
     verbose : bool, optional

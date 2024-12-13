@@ -222,6 +222,7 @@ def datasource_to_file(
     lead_time: LeadTimeArray = np.array([np.timedelta64(0, "h")]),
     backend: Literal["netcdf", "zarr"] = "netcdf",
     chunks: dict[str, int] = {"variable": 1},
+    dtype: np.dtype | None = None,
 ) -> None:
     """Utility function that can be used for building a local data store needed
     for an inference request. This file can then be used with the
@@ -245,6 +246,8 @@ def datasource_to_file(
         Storage backend to save output file as, by default "netcdf"
     chunks : dict[str, int], optional
         Chunk sizes along each dimension, by default {"variable": 1}
+    dtype : np.dtype, optional
+        Data type for storing data
     """
     if isinstance(time, datetime):
         time = [time]
@@ -265,6 +268,9 @@ def datasource_to_file(
     da = source(time, variable)
     da = da.assign_coords(time=time)
     da = da.chunk(chunks=chunks)
+
+    if dtype is not None:
+        da = da.astype(dtype=dtype)
 
     match backend:
         case "netcdf":

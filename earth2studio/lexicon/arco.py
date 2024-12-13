@@ -48,6 +48,7 @@ class ARCOLexicon(metaclass=LexiconType):
         "u100m": "100m_u_component_of_wind::",
         "v100m": "100m_v_component_of_wind::",
         "t2m": "2m_temperature::",
+        "d2m": "2m_dewpoint_temperature::",
         "sp": "surface_pressure::",
         "msl": "mean_sea_level_pressure::",
         "tcwv": "total_column_water_vapour::",

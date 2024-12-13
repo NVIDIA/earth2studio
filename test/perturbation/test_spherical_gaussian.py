@@ -19,7 +19,7 @@ from collections import OrderedDict
 import pytest
 import torch
 
-from earth2studio.perturbation import SphericalGaussian
+from earth2studio.perturbation import CorrelatedSphericalGaussian, SphericalGaussian
 
 
 @pytest.mark.parametrize(
@@ -81,4 +81,65 @@ def test_spherical_gaussian(x, coords, amplitude, alpha, tau, sigma, device):
 def test_spherical_gaussian_failure(x, coords, error):
     with pytest.raises(error):
         prtb = SphericalGaussian()
+        prtb(x, coords)
+
+
+@pytest.mark.parametrize(
+    "x, coords",
+    [
+        [
+            torch.randn(1, 2, 16, 32),
+            OrderedDict([("a", []), ("variable", []), ("lat", []), ("lon", [])]),
+        ],
+        [
+            torch.randn(1, 16, 32),
+            OrderedDict([("variable", []), ("lat", []), ("lon", [])]),
+        ],
+    ],
+)
+@pytest.mark.parametrize(
+    "amplitude,sigma,length_scale,time_scale",
+    [[1.0, 2.0, 3.0, 20.0], [0.05, 1.0, 10.0, 48.0], ["tensor", 1.0, 10.0, 28.0]],
+)
+@pytest.mark.parametrize(
+    "device",
+    [
+        "cpu",
+        pytest.param(
+            "cuda:0",
+            marks=pytest.mark.skipif(
+                not torch.cuda.is_available(), reason="cuda missing"
+            ),
+        ),
+    ],
+)
+def test_correlated_spherical_gaussian(
+    x, coords, amplitude, sigma, length_scale, time_scale, device
+):
+
+    x = x.to(device)
+    if amplitude == "tensor":
+        amplitude = torch.randn(
+            [x.shape[list(coords).index("variable")], 1, 1], device=device
+        )
+    prtb = CorrelatedSphericalGaussian(amplitude, sigma, length_scale, time_scale)
+    xout, coords = prtb(x, coords)
+    dx = xout - x
+
+    assert dx.shape == x.shape
+    assert dx.device == x.device
+
+
+@pytest.mark.parametrize(
+    "x, coords, error",
+    [
+        [torch.randn(2, 4), OrderedDict([("not_lat", []), ("lon", [])]), KeyError],
+        [torch.randn(2, 4), OrderedDict([("lat", []), ("not_lon", [])]), KeyError],
+        [torch.randn(4, 2), OrderedDict([("lon", []), ("lat", [])]), ValueError],
+        [torch.randn(4, 4), OrderedDict([("lat", []), ("lon", [])]), ValueError],
+    ],
+)
+def test_correlated_spherical_gaussian_failure(x, coords, error):
+    with pytest.raises(error):
+        prtb = CorrelatedSphericalGaussian(48.0)
         prtb(x, coords)

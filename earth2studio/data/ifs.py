@@ -20,7 +20,10 @@ import pathlib
 import shutil
 from datetime import datetime
 
-import ecmwf.opendata
+try:
+    import ecmwf.opendata as opendata
+except ImportError:
+    opendata = None
 import numpy as np
 import xarray as xr
 from loguru import logger
@@ -73,9 +76,15 @@ class IFS:
     IFS_LON = np.linspace(0, 359.75, 1440)
 
     def __init__(self, cache: bool = True, verbose: bool = True):
+        # Optional import not installed error
+        if opendata is None:
+            raise ImportError(
+                "ecmwf-opendata is not installed, install manually or using `pip install earth2studio[data]`"
+            )
+
         self._cache = cache
         self._verbose = verbose
-        self.client = ecmwf.opendata.Client(source="azure")
+        self.client = opendata.Client(source="azure")
 
     def __call__(
         self,
