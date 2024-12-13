@@ -162,7 +162,6 @@ class LatLonInterpolation(nn.Module):
         self.register_buffer("j_map", j_map)
 
     @torch.inference_mode()
-    @torch.compile
     def forward(self, values: Tensor) -> Tensor:
         """Perform bilinear interpolation for values.
 

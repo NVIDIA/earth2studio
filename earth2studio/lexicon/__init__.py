@@ -18,7 +18,7 @@ from .arco import ARCOLexicon
 from .cds import CDSLexicon
 from .gefs import GEFSLexicon, GEFSLexiconSel
 from .gfs import GFSLexicon
-from .hrrr import HRRRLexicon
+from .hrrr import HRRRFXLexicon, HRRRLexicon
 from .ifs import IFSLexicon
 from .imerg import IMERGLexicon
 from .ncar import NCARLexicon
