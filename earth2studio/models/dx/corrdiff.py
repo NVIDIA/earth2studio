@@ -38,6 +38,7 @@ from earth2studio.utils import (
     handshake_coords,
     handshake_dim,
 )
+from earth2studio.utils.interp import latlon_interpolation_regular
 from earth2studio.utils.type import CoordSystem
 
 VARIABLES = [
@@ -289,7 +290,7 @@ class CorrDiffTaiwan(torch.nn.Module, AutoModelMixin):
         """Interpolate from input lat/lon (self.lat, self.lon) onto output lat/lon
         (self.lat_grid, self.lon_grid) using bilinear interpolation."""
         input_coords = self.input_coords()
-        return self.interpolate(
+        return latlon_interpolation_regular(
             x,
             torch.as_tensor(input_coords["lat"], device=x.device, dtype=torch.float32),
             torch.as_tensor(input_coords["lon"], device=x.device, dtype=torch.float32),
@@ -467,80 +468,3 @@ class CorrDiffTaiwan(torch.nn.Module, AutoModelMixin):
         x_next = net(x_hat, x_lr, t_hat, class_labels).to(torch.float64)
 
         return x_next
-
-    @staticmethod
-    def interpolate(
-        values: torch.Tensor,
-        lat0: torch.Tensor,
-        lon0: torch.Tensor,
-        lat1: torch.Tensor,
-        lon1: torch.Tensor,
-    ) -> torch.Tensor:
-        """Specialized form of bilinear interpolation intended for optimal use on GPU.
-
-        In particular, the mapped values must be defined on a regular rectangular grid,
-        (lat0, lon0). Both lat0 and lon0 are vectors with equal spacing.
-
-        lat1, lon1 are assumed to be 2-dimensional meshgrids with possibly unequal spacing.
-
-        Parameters
-        ----------
-        values : torch.Tensor [..., W_in, H_in]
-            Input values defined over (lat0, lon0) that will be interpolated onto
-            (lat1, lon1) grid.
-        lat0 : torch.Tensor [W_in, ]
-            Vector of input latitude coordinates, assumed to be increasing with
-            equal spacing.
-        lon0 : torch.Tensor [H_in, ]
-            Vector of input longitude coordinates, assumed to be increasing with
-            equal spacing.
-        lat1 : torch.Tensor [W_out, H_out]
-            Tensor of output latitude coordinates
-        lon1 : torch.Tensor [W_out, H_out]
-            Tensor of output longitude coordinates
-
-        Returns
-        -------
-        result : torch.Tensor [..., W_out, H_out]
-            Tensor of interpolated values onto lat1, lon1 grid.
-        """
-
-        # Get input grid shape and flatten
-        latshape, lonshape = lat1.shape
-        lat1 = lat1.flatten()
-        lon1 = lon1.flatten()
-
-        # Get indices of nearest points
-        latinds = torch.searchsorted(lat0, lat1) - 1
-        loninds = torch.searchsorted(lon0, lon1) - 1
-
-        # Get original grid spacing
-        dlat = lat0[1] - lat0[0]
-        dlon = lon0[1] - lon0[0]
-
-        # Get unit distances
-        normed_lat_distance = (lat1 - lat0[latinds]) / dlat
-        normed_lon_distance = (lon1 - lon0[loninds]) / dlon
-
-        # Apply bilinear mapping
-        result = (
-            values[..., latinds, loninds]
-            * (1 - normed_lat_distance)
-            * (1 - normed_lon_distance)
-        )
-        result += (
-            values[..., latinds, loninds + 1]
-            * (1 - normed_lat_distance)
-            * (normed_lon_distance)
-        )
-        result += (
-            values[..., latinds + 1, loninds]
-            * (normed_lat_distance)
-            * (1 - normed_lon_distance)
-        )
-        result += (
-            values[..., latinds + 1, loninds + 1]
-            * (normed_lat_distance)
-            * (normed_lon_distance)
-        )
-        return result.reshape(*values.shape[:-2], latshape, lonshape)
