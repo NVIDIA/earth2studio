@@ -6,11 +6,6 @@
         "preferred": true
     },
     {
-        "name": "0.4.0",
-        "version": "0.4.0",
-        "url": "https://nvidia.github.io/earth2studio/v/0.4.0/"
-    },
-    {
         "name": "0.3.0",
         "version": "0.3.0",
         "url": "https://nvidia.github.io/earth2studio/v/0.3.0/"
