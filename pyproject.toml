@@ -63,7 +63,6 @@ data = [
     'eccodes>=1.4.0; python_version<"3.12"',
     "ecmwflibs>=0.5.2",
     "ecmwf-opendata>=0.3.3",
-    "herbie-data",
 ]
 fengwu = [
     "onnxruntime-gpu",

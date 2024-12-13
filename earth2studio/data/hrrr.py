@@ -14,14 +14,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import importlib.util
+import asyncio
 import os
 import pathlib
 import shutil
 from datetime import datetime, timedelta
 
+import fsspec
 import numpy as np
+import s3fs
 import xarray as xr
+import zarr
+from fsspec.implementations.cached import WholeFileCacheFileSystem
 from loguru import logger
 from modulus.distributed.manager import DistributedManager
 from tqdm import tqdm
@@ -31,7 +35,8 @@ from earth2studio.data.utils import (
     prep_data_inputs,
     prep_forecast_inputs,
 )
-from earth2studio.lexicon import HRRRLexicon
+from earth2studio.lexicon import HRRRFXLexicon, HRRRLexicon
+from earth2studio.lexicon.base import LexiconType
 from earth2studio.utils.type import LeadTimeArray, TimeArray, VariableArray
 
 logger.remove()
@@ -39,24 +44,39 @@ logger.add(lambda msg: tqdm.write(msg, end=""), colorize=True)
 
 
 class _HRRRBase:
-    def __init__(self, cache: bool = True, verbose: bool = True):
-        # Optional import not installed error
-        herbie = importlib.util.find_spec("herbie")
-        if herbie is None:
-            raise ImportError(
-                "herbie-data is not installed, install manually or using `pip install earth2studio[data]`"
-            )
 
+    HRRR_BUCKET_NAME = "hrrrzarr"
+    HRRR_X = np.arange(1799)
+    HRRR_Y = np.arange(1059)
+
+    def __init__(self, lexicon: LexiconType, cache: bool = True, verbose: bool = True):
         self._cache = cache
+        self._lexicon = lexicon
         self._verbose = verbose
 
-    def fetch_dataarray(
+        fs = s3fs.S3FileSystem(
+            anon=True,
+            default_block_size=2**20,
+            client_kwargs={},
+        )
+
+        if self._cache:
+            cache_options = {
+                "cache_storage": self.cache,
+                "expiry_time": 31622400,  # 1 year
+            }
+            fs = WholeFileCacheFileSystem(fs=fs, **cache_options)
+
+        fs_map = fsspec.FSMap(f"s3://{self.HRRR_BUCKET_NAME}", fs)
+        self.zarr_group = zarr.open(fs_map, mode="r")
+
+    async def async_fetch(
         self,
         time: list[datetime],
         lead_time: list[timedelta],
         variable: list[str],
     ) -> xr.DataArray:
-        """Retrieve HRRR forecast data into a single Xarray data array
+        """Async function to retrieve HRRR forecast data into a single Xarray data array
 
         Parameters
         ----------
@@ -74,82 +94,70 @@ class _HRRRBase:
             HRRR weather data array
         """
 
-        # Convert lead time timedeltas to indices
-        lead_index = [int(delta_t.total_seconds() // 3600) for delta_t in lead_time]
-
-        # Convert from Earth2Studio variable ID to HRRR id and modifier
-        sfc_vars = {}
-        prs_vars = {}
-        for var in variable:
-            try:
-                hrrr_str, modifier = HRRRLexicon[var]
-                hrrr_name = hrrr_str.split("::")
-
-                if hrrr_name[0] == "sfc":
-                    sfc_vars[var] = (f":{hrrr_name[1]}", modifier)
-                else:
-                    prs_vars[var] = (f":{hrrr_name[1]}", modifier)
-            except KeyError:  # noqa: PERF203
-                raise KeyError(f"variable id {var} not found in HRRR lexicon")
-
-        # Import here to prevent prints
-        from herbie import FastHerbie
-
-        data_arrays = {}
-        # Process surface and then pressure fields
-        for product, var_dict in zip(["sfc", "prs"], [sfc_vars, prs_vars]):
-            fh = FastHerbie(
-                time,
-                model="hrrr",
-                product=product,
-                fxx=lead_index,
-                max_threads=8,
-                save_dir=self.cache,
-                verbose=False,
-                priority=["aws", "google", "nomads"],
-            )
-            # TODO: MP
-            for id, (hrrr_id, modifier) in tqdm(
-                var_dict.items(),
-                desc=f"Fetching HRRR {product} fields",
-                disable=(not self._verbose),
-            ):
-                ds = fh.xarray(hrrr_id, verbose=False)
-                if "gribfile_projection" in ds.data_vars:
-                    ds = ds.drop("gribfile_projection")
-                da = next(iter(ds.data_vars.values()))
-
-                # Herbie squeezes dims in returned array, so expand if length is 1
-                data = da.to_numpy()
-                if len(lead_time) == 1:
-                    data = data[None]
-                if len(time) == 1:
-                    data = data[:, None]
-                # Add variable dimension
-                data = data[:, :, None]
-                # Transpose time and lead time
-                data = np.transpose(data, (1, 0, 2, 3, 4))
-
-                # Could initialize array ahead of time, need to improve
-                data_arrays[id] = xr.DataArray(
-                    data=data,
-                    dims=["time", "lead_time", "variable", "hrrr_y", "hrrr_x"],
-                    coords=dict(
-                        hrrr_x=np.arange(da.coords["longitude"].shape[1]),
-                        hrrr_y=np.arange(da.coords["longitude"].shape[0]),
-                        lon=(["hrrr_y", "hrrr_x"], da.coords["longitude"].values),
-                        lat=(["hrrr_y", "hrrr_x"], da.coords["latitude"].values),
-                        time=time,
-                        lead_time=lead_time,
-                        variable=np.array([id]),
-                    ),
+        hrrr_da = xr.DataArray(
+            data=np.empty(
+                (
+                    len(time),
+                    len(lead_time),
+                    len(variable),
+                    len(self.HRRR_Y),
+                    len(self.HRRR_X),
                 )
+            ),
+            dims=["time", "lead_time", "variable", "hrrr_y", "hrrr_x"],
+            coords={
+                "time": time,
+                "lead_time": lead_time,
+                "variable": variable,
+                "hrrr_x": self.HRRR_X,
+                "hrrr_y": self.HRRR_Y,
+                "lat": (
+                    ["hrrr_y", "hrrr_x"],
+                    self.zarr_group["grid"]["HRRR_chunk_index.zarr"]["latitude"][:],
+                ),
+                "lon": (
+                    ["hrrr_y", "hrrr_x"],
+                    self.zarr_group["grid"]["HRRR_chunk_index.zarr"]["longitude"][:]
+                    + 360,
+                ),  # Change to [0,360]
+            },
+        )
+        # Banking on async calls in zarr 3.0
+        for i, t in enumerate(time):
+            for j, ld in enumerate(lead_time):
+                for k, v in enumerate(variable):
+                    try:
+                        hrrr_str, modifier = self._lexicon[v]
+                        hrrr_class, hrrr_product, hrrr_level, hrrr_var = hrrr_str.split(
+                            "::"
+                        )
+                    except KeyError as e:
+                        logger.error(f"variable id {v} not found in HRRR lexicon")
+                        raise e
+
+                    date_group = t.strftime("%Y%m%d")
+                    time_group = t.strftime(f"%Y%m%d_%Hz_{hrrr_product}.zarr")
+
+                    logger.debug(
+                        f"Fetching HRRR {hrrr_product} variable {v} at {t.isoformat()}"
+                    )
+
+                    data = self.zarr_group[hrrr_class][date_group][time_group][
+                        hrrr_level
+                    ][hrrr_var][hrrr_level][hrrr_var]
+                    if hrrr_product == "fcst":
+                        # Minus 1 here because index 0 is forecast with leadtime 1hr
+                        # forecast_period coordinate system tells what the lead times are in hours
+                        lead_index = int(ld.total_seconds() // 3600) - 1
+                        data = data[lead_index]
+
+                    hrrr_da[i, j, k] = data
 
         # Delete cache if needed
         if not self._cache:
             shutil.rmtree(self.cache)
 
-        return xr.concat([data_arrays[var] for var in variable], dim="variable")
+        return hrrr_da
 
     @classmethod
     def _validate_time(cls, times: list[datetime]) -> None:
@@ -165,10 +173,11 @@ class _HRRRBase:
                 raise ValueError(
                     f"Requested date time {time} needs to be 1 hour interval for HRRR"
                 )
-
-            if time < datetime(year=2014, month=8, day=4, hour=1):
+            # sfc goes back to 2016 for anl, limit based on pressure
+            # frst starts on on the same date pressure starts
+            if time < datetime(year=2018, month=7, day=12, hour=13):
                 raise ValueError(
-                    f"Requested date time {time} needs to be after April 8th, 2014 1:00am for HRRR"
+                    f"Requested date time {time} needs to be after July 12th, 2018 13:00 for HRRR"
                 )
 
     @property
@@ -211,27 +220,23 @@ class _HRRRBase:
         except ValueError:
             return False
 
-        # Import here to prevent prints
-        from herbie import FastHerbie
+        fs = s3fs.S3FileSystem(anon=True)
 
-        if isinstance(time, np.datetime64):  # np.datetime64 -> datetime
-            _unix = np.datetime64(0, "s")
-            _ds = np.timedelta64(1, "s")
-            time = datetime.utcfromtimestamp((time - _unix) / _ds)
-        time, variable = prep_data_inputs(time, "t2m")
+        # Object store directory for given date
+        date_group = time.strftime("%Y%m%d")
+        time_group = time.strftime("%Y%m%d_%Hz_anl.zarr")
+        s3_uri = f"s3://{cls.HRRR_BUCKET_NAME}/sfc/{date_group}/{time_group}"
+        exists = fs.exists(s3_uri)
 
-        fh = FastHerbie(time, model="hrrr", verbose=False)
-        if len(fh.file_not_exists) > 0:
-            return False
-        else:
-            return True
+        return exists
 
 
 class HRRR(_HRRRBase):
     """High-Resolution Rapid Refresh (HRRR) data source provides hourly North-American
     weather analysis data developed by NOAA (used to initialize the HRRR forecast
     model). This data source is provided on a Lambert conformal 3km grid at 1-hour
-    intervals. The spatial dimensionality of HRRR data is [1059, 1799].
+    intervals. The spatial dimensionality of HRRR data is [1059, 1799]. This data source
+    pulls data from the HRRR zarr bucket on S3.
 
     Parameters
     ----------
@@ -251,8 +256,12 @@ class HRRR(_HRRRBase):
 
     - https://www.nco.ncep.noaa.gov/pmb/products/hrrr/
     - https://rapidrefresh.noaa.gov/hrrr/
+    - https://hrrrzarr.s3.amazonaws.com/index.html
     - https://console.cloud.google.com/marketplace/product/noaa-public/hrrr
     """
+
+    def __init__(self, cache: bool = True, verbose: bool = True):
+        super().__init__(HRRRLexicon, cache, verbose)
 
     def __call__(
         self,
@@ -283,7 +292,9 @@ class HRRR(_HRRRBase):
         # Make sure input time is valid
         self._validate_time(time)
 
-        data_array = self.fetch_dataarray(time, [timedelta(hours=0)], variable)
+        data_array = asyncio.get_event_loop().run_until_complete(
+            self.async_fetch(time, [timedelta(hours=0)], variable)
+        )
         return data_array.isel(lead_time=0).drop_vars("lead_time")
 
 
@@ -292,7 +303,7 @@ class HRRR_FX(_HRRRBase):
     weather forecasts with hourly forecast runs developed by NOAA. This forecast source
     has hourly forecast steps up to a lead time of 48 hours. Data is provided on a
     Lambert conformal 3km grid at 1-hour intervals. The spatial dimensionality of HRRR
-    data is [1059, 1799].
+    data is [1059, 1799]. This data source pulls data from the HRRR zarr bucket on S3.
 
     Parameters
     ----------
@@ -314,6 +325,9 @@ class HRRR_FX(_HRRRBase):
     - https://rapidrefresh.noaa.gov/hrrr/
     - https://console.cloud.google.com/marketplace/product/noaa-public/hrrr
     """
+
+    def __init__(self, cache: bool = True, verbose: bool = True):
+        super().__init__(HRRRFXLexicon, cache, verbose)
 
     def __call__(
         self,
@@ -347,8 +361,9 @@ class HRRR_FX(_HRRRBase):
         self._validate_time(time)
         self._validate_leadtime(lead_time)
 
-        data_array = self.fetch_dataarray(time, lead_time, variable)
-        return data_array
+        return asyncio.get_event_loop().run_until_complete(
+            self.async_fetch(time, lead_time, variable)
+        )
 
     @classmethod
     def _validate_leadtime(cls, lead_times: list[timedelta]) -> None:
@@ -365,7 +380,7 @@ class HRRR_FX(_HRRRBase):
                     f"Requested lead time {delta} needs to be 1 hour interval for HRRR"
                 )
             hours = int(delta.total_seconds() // 3600)
-            if hours > 48 or hours < 0:
+            if hours > 18 or hours < 1:
                 raise ValueError(
-                    f"Requested lead time {delta} can only be a max of 48 hours for HRRR"
+                    f"Requested lead time {delta} can only be between [1,18] hours for HRRR forecast"
                 )
