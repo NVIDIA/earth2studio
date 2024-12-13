@@ -72,6 +72,7 @@ class _HRRRBase:
         # Convert from Earth2Studio variable ID to HRRR id and modifier
         sfc_vars = {}
         prs_vars = {}
+        hybrid_vars = {}
         for var in variable:
             try:
                 hrrr_str, modifier = HRRRLexicon[var]
@@ -79,8 +80,13 @@ class _HRRRBase:
 
                 if hrrr_name[0] == "sfc":
                     sfc_vars[var] = (f":{hrrr_name[1]}", modifier)
-                else:
+                elif hrrr_name[0] == "prs":
                     prs_vars[var] = (f":{hrrr_name[1]}", modifier)
+                elif hrrr_name[0] == "nat":
+                    hybrid_vars[var] = (f":{hrrr_name[1]}", modifier)
+                else:
+                    raise ValueError(f"HRRR name {hrrr_name[0]} not found.")
+
             except KeyError:  # noqa: PERF203
                 raise KeyError(f"variable id {var} not found in HRRR lexicon")
 
@@ -89,7 +95,9 @@ class _HRRRBase:
 
         data_arrays = {}
         # Process surface and then pressure fields
-        for product, var_dict in zip(["sfc", "prs"], [sfc_vars, prs_vars]):
+        for product, var_dict in zip(
+            ["sfc", "prs", "nat"], [sfc_vars, prs_vars, hybrid_vars]
+        ):
             fh = FastHerbie(
                 time,
                 model="hrrr",

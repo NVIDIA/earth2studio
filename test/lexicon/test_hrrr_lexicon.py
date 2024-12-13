@@ -21,7 +21,13 @@ from earth2studio.lexicon import HRRRLexicon
 
 
 @pytest.mark.parametrize(
-    "variable", [["t2m"], ["u10m", "v200"], ["u80m", "z500", "q700"]]
+    "variable",
+    [
+        ["t2m"],
+        ["u10m", "v200"],
+        ["u80m", "z500", "q700"],
+        ["u_hl1", "v_hl4", "t_hl20", "p_hl30"],
+    ],
 )
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
 def test_run_deterministic(variable, device):

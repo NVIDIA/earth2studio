@@ -93,6 +93,7 @@ class HRRRLexicon(metaclass=LexiconType):
             975,
             1000,
         ]
+
         prs_names = ["UGRD", "VGRD", "HGT", "TMP", "RH", "SPFH"]
         e2s_id = ["u", "v", "z", "t", "r", "q"]
         prs_variables = {}
@@ -100,7 +101,17 @@ class HRRRLexicon(metaclass=LexiconType):
             for level in prs_levels:
                 prs_variables[f"{id}{level:d}"] = f"prs::{variable}:{level} mb"
 
-        return {**sfc_variables, **prs_variables}
+        hybrid_levels = list(range(51))
+        hybrid_names = ["UGRD", "VGRD", "HGT", "TMP", "SPFH", "PRES"]
+        e2s_hybrid_id = ["u_hl", "v_hl", "z_hl", "t_hl", "q_hl", "p_hl"]
+        hybrid_variables = {}
+        for (id, variable) in zip(e2s_hybrid_id, hybrid_names):
+            for level in hybrid_levels:
+                hybrid_variables[
+                    f"{id}{level:d}"
+                ] = f"nat::{variable}:{level} hybrid level"
+
+        return {**sfc_variables, **prs_variables, **hybrid_variables}
 
     VOCAB = build_vocab()
 
