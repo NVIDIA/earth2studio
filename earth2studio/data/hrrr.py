@@ -15,6 +15,7 @@
 # limitations under the License.
 
 import asyncio
+import hashlib
 import os
 import pathlib
 import shutil
@@ -44,6 +45,228 @@ logger.add(lambda msg: tqdm.write(msg, end=""), colorize=True)
 
 
 class _HRRRBase:
+
+    HRRR_BUCKET_NAME = "noaa-hrrr-bdp-pds"
+    HRRR_X = np.arange(1799)
+    HRRR_Y = np.arange(1059)
+    MAX_BYTE_SIZE = 5000000
+
+    def __init__(self, lexicon: LexiconType, cache: bool = True, verbose: bool = True):
+        self._cache = cache
+        self._lexicon = lexicon
+        self._verbose = verbose
+
+        self.fs = s3fs.S3FileSystem(
+            anon=True,
+            default_block_size=2**20,
+            client_kwargs={},
+        )
+
+        # Doesnt work with read block
+        # if self._cache:
+        #     cache_options = {
+        #         "cache_storage": self.cache,
+        #         "expiry_time": 31622400,  # 1 year
+        #     }
+        #     self.fs = WholeFileCacheFileSystem(fs=fs, **cache_options)
+
+    async def async_fetch(
+        self,
+        time: list[datetime],
+        lead_time: list[timedelta],
+        variable: list[str],
+    ) -> xr.DataArray:
+        """Async function to retrieve HRRR forecast data into a single Xarray data array
+
+        Parameters
+        ----------
+        time : list[datetime]
+            Timestamps to return data for (UTC).
+        lead_time: list[timedelta]
+            List of forecast lead times to fetch
+        variable : str | list[str] | VariableArray
+            String, list of strings or array of strings that refer to variables to
+            return. Must be in the HRRR lexicon.
+
+        Returns
+        -------
+        xr.DataArray
+            HRRR weather data array
+        """
+
+        hrrr_da = xr.DataArray(
+            data=np.empty(
+                (
+                    len(time),
+                    len(lead_time),
+                    len(variable),
+                    len(self.HRRR_Y),
+                    len(self.HRRR_X),
+                )
+            ),
+            dims=["time", "lead_time", "variable", "hrrr_y", "hrrr_x"],
+            coords={
+                "time": time,
+                "lead_time": lead_time,
+                "variable": variable,
+                "hrrr_x": self.HRRR_X,
+                "hrrr_y": self.HRRR_Y,
+            },
+        )
+
+        for i, t in enumerate(time):
+            for j, ld in enumerate(lead_time):
+                for k, v in enumerate(variable):
+                    try:
+                        hrrr_str, modifier = self._lexicon[v]
+                        hrrr_class, hrrr_product, hrrr_level, hrrr_var = hrrr_str.split(
+                            "::"
+                        )
+                    except KeyError as e:
+                        logger.error(f"variable id {v} not found in HRRR lexicon")
+                        raise e
+
+                    date_group = t.strftime("%Y%m%d")
+                    forcast_hour = t.strftime("%H")
+                    lead_index = int(ld.total_seconds() // 3600)
+                    s3_grib_uri = f"{self.HRRR_BUCKET_NAME}/hrrr.{date_group}/conus/hrrr.t{forcast_hour}z.wrf{hrrr_class}f{lead_index:02}.grib2"
+
+                    # Download the grib index file and parse
+                    with self.fs.open(f"{s3_grib_uri}.idx") as file:
+                        index_lines = [line.decode("utf-8").rstrip() for line in file]
+                    # Add dummy variable at end of file with max offset
+                    index_lines.append(
+                        f"xx:{self.fs.size(s3_grib_uri)}:d=xx:NULL:NULL:NULL:NULL"
+                    )
+
+                    byte_offset = None
+                    byte_length = -1
+                    for line_index, line in enumerate(index_lines[:-1]):
+                        lsplit = line.split(":")
+                        if len(lsplit) < 7:
+                            continue
+                        # If match get in byte offset and length
+                        if lsplit[3] == hrrr_var and lsplit[4] == hrrr_level:
+                            nlsplit = index_lines[line_index + 1].split(":")
+                            byte_length = int(nlsplit[1]) - int(lsplit[1])
+                            byte_offset = int(lsplit[1])
+                            key = f"{lsplit[3]}::{lsplit[4]}"
+                            if byte_length > self.MAX_BYTE_SIZE:
+                                raise ValueError(
+                                    f"Byte length, {byte_length}, of variable {key} larger than safe threshold of {self.MAX_BYTE_SIZE}"
+                                )
+                    # If byte offset is not raise error
+                    if byte_offset is None or byte_length is None:
+                        raise KeyError(
+                            f"Could not find variable {hrrr_var} level {hrrr_level} in index file"
+                        )
+                    # Read grib block into cache location
+                    sha = hashlib.sha256(
+                        (s3_grib_uri + str(byte_offset) + str(byte_length)).encode()
+                    )
+                    filename = sha.hexdigest()
+                    cache_path = os.path.join(self.cache, filename)
+                    if not pathlib.Path(cache_path).is_file():
+                        grib_buffer = self.fs.read_block(
+                            s3_grib_uri, offset=byte_offset, length=byte_length
+                        )
+                        with open(cache_path, "wb") as file:
+                            file.write(grib_buffer)
+
+                    da = xr.open_dataarray(
+                        cache_path,
+                        engine="cfgrib",
+                        backend_kwargs={"indexpath": ""},
+                    )
+                    hrrr_da[i, j, k] = modifier(da.values)
+                    if "lat" not in hrrr_da.coords:
+                        hrrr_da.coords["lat"] = (
+                            ["hrrr_y", "hrrr_x"],
+                            da.coords["latitude"].values,
+                        )
+                        hrrr_da.coords["lon"] = (
+                            ["hrrr_y", "hrrr_x"],
+                            da.coords["longitude"].values,
+                        )
+
+        # Delete cache if needed
+        if not self._cache:
+            shutil.rmtree(self.cache)
+
+        return hrrr_da
+
+    @classmethod
+    def _validate_time(cls, times: list[datetime]) -> None:
+        """Verify if date time is valid for HRRR
+
+        Parameters
+        ----------
+        times : list[datetime]
+            list of date times to fetch data
+        """
+        for time in times:
+            if not (time - datetime(1900, 1, 1)).total_seconds() % 3600 == 0:
+                raise ValueError(
+                    f"Requested date time {time} needs to be 1 hour interval for HRRR"
+                )
+            # sfc goes back to 2016 for anl, limit based on pressure
+            # frst starts on on the same date pressure starts
+            if time < datetime(year=2018, month=7, day=12, hour=13):
+                raise ValueError(
+                    f"Requested date time {time} needs to be after July 12th, 2018 13:00 for HRRR"
+                )
+
+    @property
+    def cache(self) -> str:
+        """Return appropriate cache location."""
+        cache_location = os.path.join(datasource_cache_root(), "hrrr")
+        if not self._cache:
+            if not DistributedManager.is_initialized():
+                DistributedManager.initialize()
+            cache_location = os.path.join(
+                cache_location, f"tmp_{DistributedManager().rank}"
+            )
+        return cache_location
+
+    @classmethod
+    def available(
+        cls,
+        time: datetime | np.datetime64,
+    ) -> bool:
+        """Checks if given date time is avaliable in the HRRR store
+
+        Parameters
+        ----------
+        time : datetime | np.datetime64
+            Date time to access
+
+        Returns
+        -------
+        bool
+            If date time is avaiable
+        """
+        if isinstance(time, np.datetime64):  # np.datetime64 -> datetime
+            _unix = np.datetime64(0, "s")
+            _ds = np.timedelta64(1, "s")
+            time = datetime.utcfromtimestamp((time - _unix) / _ds)
+
+        # Offline checks
+        try:
+            cls._validate_time([time])
+        except ValueError:
+            return False
+
+        fs = s3fs.S3FileSystem(anon=True)
+
+        # Object store directory for given date
+        date_group = time.strftime("%Y%m%d")
+        forcast_hour = time.strftime("%H")
+        s3_uri = f"{cls.HRRR_BUCKET_NAME}/hrrr.{date_group}/conus/hrrr.t{forcast_hour}z.wrfsfcf00.grib2.idx"
+
+        return fs.exists(s3_uri)
+
+
+class _HRRR_ZarrBase:
 
     HRRR_BUCKET_NAME = "hrrrzarr"
     HRRR_X = np.arange(1799)
@@ -151,7 +374,7 @@ class _HRRRBase:
                         lead_index = int(ld.total_seconds() // 3600) - 1
                         data = data[lead_index]
 
-                    hrrr_da[i, j, k] = data
+                    hrrr_da[i, j, k] = modifier(data)
 
         # Delete cache if needed
         if not self._cache:
@@ -380,7 +603,8 @@ class HRRR_FX(_HRRRBase):
                     f"Requested lead time {delta} needs to be 1 hour interval for HRRR"
                 )
             hours = int(delta.total_seconds() // 3600)
-            if hours > 18 or hours < 1:
+            # Note, one forecasts every 6 hours have 2 day lead times, others only have 18 hours
+            if hours > 48 or hours < 1:
                 raise ValueError(
-                    f"Requested lead time {delta} can only be between [1,18] hours for HRRR forecast"
+                    f"Requested lead time {delta} can only be between [1,48] hours for HRRR forecast"
                 )

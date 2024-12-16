@@ -37,14 +37,14 @@ class HRRRLexicon(metaclass=LexiconType):
     def build_vocab() -> dict[str, str]:
         """Create HRRR vocab dictionary"""
         sfc_variables = {
-            "u10m": "sfc::anl::10m_above_ground::UGRD",
-            "v10m": "sfc::anl::10m_above_ground::VGRD",
-            "u80m": "sfc::anl::80m_above_ground::UGRD",
-            "v80m": "sfc::anl::80m_above_ground::VGRD",
-            "t2m": "sfc::anl::2m_above_ground::TMP",
-            "refc": "sfc::anl::entire_atmosphere::REFC",
+            "u10m": "sfc::anl::10 m above ground::UGRD",
+            "v10m": "sfc::anl::10 m above ground::VGRD",
+            "u80m": "sfc::anl::80 m above ground::UGRD",
+            "v80m": "sfc::anl::80 m above ground::VGRD",
+            "t2m": "sfc::anl::2 m above ground::TMP",
+            "refc": "sfc::anl::entire atmosphere::REFC",
             "sp": "sfc::anl::surface::PRES",
-            "tcwv": "sfc::anl::entire_atmosphere_single_layer::PWAT",
+            "tcwv": "sfc::anl::entire atmosphere (considered as a single layer)::PWAT",
             "csnow": "sfc::anl::surface::CSNOW",
             "cicep": "sfc::anl::surface::CICEP",
             "cfrzr": "sfc::anl::surface::CFRZR",
@@ -96,9 +96,19 @@ class HRRRLexicon(metaclass=LexiconType):
         prs_variables = {}
         for (id, variable) in zip(e2s_id, prs_names):
             for level in prs_levels:
-                prs_variables[f"{id}{level:d}"] = f"prs::anl::{level}mb::{variable}"
+                prs_variables[f"{id}{level:d}"] = f"prs::anl::{level} mb::{variable}"
 
-        return {**sfc_variables, **prs_variables}
+        hybrid_levels = list(range(51))
+        hybrid_names = ["UGRD", "VGRD", "HGT", "TMP", "SPFH", "PRES"]
+        e2s_id = ["u", "v", "z", "t", "q", "p"]
+        hybrid_variables = {}
+        for (id, variable) in zip(e2s_id, hybrid_names):
+            for level in hybrid_levels:
+                hybrid_variables[
+                    f"{id}{level:d}hl"
+                ] = f"nat::anl::{level} hybrid level::{variable}"
+
+        return {**sfc_variables, **prs_variables, **hybrid_variables}
 
     VOCAB = build_vocab()
 
@@ -137,15 +147,15 @@ class HRRRFXLexicon(metaclass=LexiconType):
     def build_vocab() -> dict[str, str]:
         """Create HRRR vocab dictionary"""
         sfc_variables = {
-            "u10m": "sfc::fcst::10m_above_ground::UGRD",
-            "v10m": "sfc::fcst::10m_above_ground::VGRD",
-            "u80m": "sfc::fcst::80m_above_ground::UGRD",
-            "v80m": "sfc::fcst::80m_above_ground::VGRD",
-            "t2m": "sfc::fcst::2m_above_ground::TMP",
-            "refc": "sfc::fcst::entire_atmosphere::REFC",
-            "sp": "sfc::fcst::surface::PRES",
-            "tp": "sfc::fcst::surface::APCP_1hr_acc_fcst",
-            "tcwv": "sfc::fcst::entire_atmosphere_single_layer::PWAT",
+            "u10m": "sfc::fcst::10 m above ground::UGRD::",
+            "v10m": "sfc::fcst::10 m above ground::VGRD::",
+            "u80m": "sfc::fcst::80 m above ground::UGRD::",
+            "v80m": "sfc::fcst::80 m above ground::VGRD::",
+            "t2m": "sfc::fcst::2 m above ground::TMP::",
+            "refc": "sfc::fcst::entire atmosphere::REFC::",
+            "sp": "sfc::fcst::surface::PRES::",
+            "tp": "sfc::fcst::surface::APCP_1hr_acc_fcst::",  # Does not work rn
+            "tcwv": "sfc::fcst::entire atmosphere (considered as a single layer)::PWAT",
             "csnow": "sfc::fcst::surface::CSNOW",
             "cicep": "sfc::fcst::surface::CICEP",
             "cfrzr": "sfc::fcst::surface::CFRZR",
