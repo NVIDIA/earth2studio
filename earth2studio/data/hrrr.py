@@ -38,7 +38,6 @@ from earth2studio.data.utils import (
     prep_forecast_inputs,
 )
 from earth2studio.lexicon import HRRRFXLexicon, HRRRLexicon
-from earth2studio.lexicon.base import LexiconType
 from earth2studio.utils.type import LeadTimeArray, TimeArray, VariableArray
 
 logger.remove()
@@ -52,7 +51,12 @@ class _HRRRBase:
     HRRR_Y = np.arange(1059)
     MAX_BYTE_SIZE = 5000000
 
-    def __init__(self, lexicon: LexiconType, cache: bool = True, verbose: bool = True):
+    def __init__(
+        self,
+        lexicon: HRRRLexicon | HRRRFXLexicon,
+        cache: bool = True,
+        verbose: bool = True,
+    ):
         self._cache = cache
         self._lexicon = lexicon
         self._verbose = verbose
@@ -275,7 +279,12 @@ class _HRRRZarrBase(_HRRRBase):
     HRRR_X = np.arange(1799)
     HRRR_Y = np.arange(1059)
 
-    def __init__(self, lexicon: LexiconType, cache: bool = True, verbose: bool = True):
+    def __init__(
+        self,
+        lexicon: HRRRLexicon | HRRRFXLexicon,
+        cache: bool = True,
+        verbose: bool = True,
+    ):
         self._cache = cache
         self._lexicon = lexicon
         self._verbose = verbose
