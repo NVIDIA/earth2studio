@@ -474,6 +474,11 @@ class HRRR_FX(_HRRRBase):
 
     Note
     ----
+    48 hour forecasts are proved on 6 hour intervals. 18 hour forecasts are generated
+    hourly.
+
+    Note
+    ----
     Additional information on the data repository can be referenced here:
 
     - https://www.nco.ncep.noaa.gov/pmb/products/hrrr/
