@@ -132,9 +132,8 @@ class _HRRRBase:
             )
             try:
                 # Set lexicon based on lead
-                if ld.total_seconds() == 0:
-                    lexicon = HRRRLexicon
-                else:
+                lexicon: type[HRRRLexicon] | type[HRRRFXLexicon] = HRRRLexicon
+                if ld.total_seconds() != 0:
                     lexicon = HRRRFXLexicon
                 hrrr_str, modifier = lexicon[v]
                 hrrr_class, hrrr_product, hrrr_level, hrrr_var = hrrr_str.split("::")
@@ -374,13 +373,12 @@ class _HRRRZarrBase(_HRRRBase):
         for i, t in enumerate(time):
             for j, ld in enumerate(lead_time):
                 # Set lexicon based on lead
-                if ld.total_seconds() == 0:
-                    self._lexicon = HRRRLexicon()
-                else:
-                    self._lexicon = HRRRFXLexicon()
+                lexicon: type[HRRRLexicon] | type[HRRRFXLexicon] = HRRRLexicon
+                if ld.total_seconds() != 0:
+                    lexicon = HRRRFXLexicon
                 for k, v in enumerate(variable):
                     try:
-                        hrrr_str, modifier = self._lexicon[v]
+                        hrrr_str, modifier = lexicon[v]
                         hrrr_class, hrrr_product, hrrr_level, hrrr_var = hrrr_str.split(
                             "::"
                         )
