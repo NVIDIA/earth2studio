@@ -63,13 +63,13 @@ class _HRRRBase:
             client_kwargs={},
         )
 
-        # Doesnt work with read block
-        # if self._cache:
-        #     cache_options = {
-        #         "cache_storage": self.cache,
-        #         "expiry_time": 31622400,  # 1 year
-        #     }
-        #     self.fs = WholeFileCacheFileSystem(fs=fs, **cache_options)
+        # Doesnt work with read block, only use with index file
+        if self._cache:
+            cache_options = {
+                "cache_storage": self.cache,
+                "expiry_time": 31622400,  # 1 year
+            }
+            self.fsc = WholeFileCacheFileSystem(fs=self.fs, **cache_options)
 
     async def async_fetch(
         self,
@@ -133,11 +133,11 @@ class _HRRRBase:
                     s3_grib_uri = f"{self.HRRR_BUCKET_NAME}/hrrr.{date_group}/conus/hrrr.t{forcast_hour}z.wrf{hrrr_class}f{lead_index:02}.grib2"
 
                     # Download the grib index file and parse
-                    with self.fs.open(f"{s3_grib_uri}.idx") as file:
+                    with self.fsc.open(f"{s3_grib_uri}.idx") as file:
                         index_lines = [line.decode("utf-8").rstrip() for line in file]
                     # Add dummy variable at end of file with max offset
                     index_lines.append(
-                        f"xx:{self.fs.size(s3_grib_uri)}:d=xx:NULL:NULL:NULL:NULL"
+                        f"xx:{self.fsc.size(s3_grib_uri)}:d=xx:NULL:NULL:NULL:NULL"
                     )
 
                     hrrr_regex = self._lexicon.index_regex(v, t, ld)
