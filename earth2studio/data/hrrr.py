@@ -68,12 +68,11 @@ class _HRRRBase:
         )
 
         # Doesnt work with read block, only use with index file
-        if self._cache:
-            cache_options = {
-                "cache_storage": self.cache,
-                "expiry_time": 31622400,  # 1 year
-            }
-            self.fsc = WholeFileCacheFileSystem(fs=self.fs, **cache_options)
+        cache_options = {
+            "cache_storage": self.cache,
+            "expiry_time": 31622400,  # 1 year
+        }
+        self.fsc = WholeFileCacheFileSystem(fs=self.fs, **cache_options)
 
     async def async_fetch(
         self,
@@ -554,3 +553,11 @@ class HRRR_FX(_HRRRBase):
                 raise ValueError(
                     f"Requested lead time {delta} can only be between [1,48] hours for HRRR forecast"
                 )
+
+
+if __name__ == "__main__":
+    ds = HRRR(cache=False)
+
+    vars = HRRRFXLexicon.VOCAB.keys()
+    da = ds(datetime(1, 1, 1, hour=12), vars)
+    da.to_netcdf("test.nc")
