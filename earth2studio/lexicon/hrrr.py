@@ -45,7 +45,7 @@ class HRRRLexicon(metaclass=LexiconType):
             "refc": "sfc::anl::entire atmosphere::REFC",
             "sp": "sfc::anl::surface::PRES",
             "mslp": "sfc::anl::mean sea level::MSLMA",
-            "tcwv": "sfc::anl::entire atmosphere (considered as a single layer)::PWAT",
+            "tcwv": "sfc::anl::entire atmosphere::PWAT",
             "csnow": "sfc::anl::surface::CSNOW",
             "cicep": "sfc::anl::surface::CICEP",
             "cfrzr": "sfc::anl::surface::CFRZR",
@@ -99,7 +99,7 @@ class HRRRLexicon(metaclass=LexiconType):
             for level in prs_levels:
                 prs_variables[f"{id}{level:d}"] = f"prs::anl::{level} mb::{variable}"
 
-        hybrid_levels = list(range(51))
+        hybrid_levels = list(range(1, 51))
         hybrid_names = ["UGRD", "VGRD", "HGT", "TMP", "SPFH", "PRES"]
         e2s_id = ["u", "v", "z", "t", "q", "p"]
         hybrid_variables = {}
@@ -165,7 +165,7 @@ class HRRRFXLexicon(metaclass=LexiconType):
             "sp": "sfc::fcst::surface::PRES",
             "mslp": "sfc::anl::mean sea level::MSLMA",
             "tp": "sfc::fcst::surface::APCP",  # APCP_1hr_acc_fcst in Zarr store
-            "tcwv": "sfc::fcst::entire atmosphere (considered as a single layer)::PWAT",
+            "tcwv": "sfc::fcst::entire atmosphere::PWAT",
             "csnow": "sfc::fcst::surface::CSNOW",
             "cicep": "sfc::fcst::surface::CICEP",
             "cfrzr": "sfc::fcst::surface::CFRZR",
@@ -184,9 +184,9 @@ class HRRRFXLexicon(metaclass=LexiconType):
         prs_variables = {}
         for (id, variable) in zip(e2s_id, prs_names):
             for level in prs_levels:
-                prs_variables[f"{id}{level:d}"] = f"sfc::fcst::{level}mb::{variable}"
+                prs_variables[f"{id}{level:d}"] = f"sfc::fcst::{level} mb::{variable}"
 
-        hybrid_levels = list(range(51))
+        hybrid_levels = list(range(1, 51))
         hybrid_names = ["UGRD", "VGRD", "HGT", "TMP", "SPFH", "PRES"]
         e2s_id = ["u", "v", "z", "t", "q", "p"]
         hybrid_variables = {}

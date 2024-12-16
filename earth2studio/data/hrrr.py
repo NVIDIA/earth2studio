@@ -53,12 +53,10 @@ class _HRRRBase:
 
     def __init__(
         self,
-        lexicon: HRRRLexicon | HRRRFXLexicon,
         cache: bool = True,
         verbose: bool = True,
     ):
         self._cache = cache
-        self._lexicon = lexicon
         self._verbose = verbose
 
         self.fs = s3fs.S3FileSystem(
@@ -118,82 +116,98 @@ class _HRRRBase:
             },
         )
 
-        for i, t in enumerate(time):
-            for j, ld in enumerate(lead_time):
-                for k, v in enumerate(variable):
-                    try:
-                        hrrr_str, modifier = self._lexicon[v]
-                        hrrr_class, hrrr_product, hrrr_level, hrrr_var = hrrr_str.split(
-                            "::"
-                        )
-                    except KeyError as e:
-                        logger.error(f"variable id {v} not found in HRRR lexicon")
-                        raise e
+        args = [
+            (t, i, ld, j, v, k)
+            for k, v in enumerate(variable)
+            for j, ld in enumerate(lead_time)  # noqa
+            for i, t in enumerate(time)
+        ]
+        pbar = tqdm(
+            total=len(args), desc="Fetching HRRR data", disable=(not self._verbose)
+        )
 
-                    date_group = t.strftime("%Y%m%d")
-                    forcast_hour = t.strftime("%H")
-                    lead_index = int(ld.total_seconds() // 3600)
-                    s3_grib_uri = f"{self.HRRR_BUCKET_NAME}/hrrr.{date_group}/conus/hrrr.t{forcast_hour}z.wrf{hrrr_class}f{lead_index:02}.grib2"
+        for (t, i, ld, j, v, k) in args:
+            logger.debug(
+                f"Fetching HRRR data for variable: {v} at {t.isoformat()} lead time {ld}"
+            )
+            try:
+                # Set lexicon based on lead
+                if ld.total_seconds() == 0:
+                    lexicon = HRRRLexicon
+                else:
+                    lexicon = HRRRFXLexicon
+                hrrr_str, modifier = lexicon[v]
+                hrrr_class, hrrr_product, hrrr_level, hrrr_var = hrrr_str.split("::")
+                hrrr_regex = lexicon.index_regex(v, t, ld)
+            except KeyError as e:
+                logger.error(f"variable id {v} not found in HRRR lexicon")
+                raise e
 
-                    # Download the grib index file and parse
-                    with self.fsc.open(f"{s3_grib_uri}.idx") as file:
-                        index_lines = [line.decode("utf-8").rstrip() for line in file]
-                    # Add dummy variable at end of file with max offset
-                    index_lines.append(
-                        f"xx:{self.fsc.size(s3_grib_uri)}:d=xx:NULL:NULL:NULL:NULL"
-                    )
+            date_group = t.strftime("%Y%m%d")
+            forcast_hour = t.strftime("%H")
+            lead_index = int(ld.total_seconds() // 3600)
+            s3_grib_uri = f"{self.HRRR_BUCKET_NAME}/hrrr.{date_group}/conus/hrrr.t{forcast_hour}z.wrf{hrrr_class}f{lead_index:02}.grib2"
 
-                    hrrr_regex = self._lexicon.index_regex(v, t, ld)
-                    byte_offset = None
-                    byte_length = None
-                    for line_index, line in enumerate(index_lines[:-1]):
-                        lsplit = line.split(":")
-                        if len(lsplit) < 7:
-                            continue
-                        # If match get in byte offset and length
-                        if bool(re.search(hrrr_regex, line)):
-                            nlsplit = index_lines[line_index + 1].split(":")
-                            byte_length = int(nlsplit[1]) - int(lsplit[1])
-                            byte_offset = int(lsplit[1])
-                            key = f"{lsplit[3]}::{lsplit[4]}"
-                            if byte_length > self.MAX_BYTE_SIZE:
-                                raise ValueError(
-                                    f"Byte length, {byte_length}, of variable {key} larger than safe threshold of {self.MAX_BYTE_SIZE}"
-                                )
-                    # If byte offset is not raise error
-                    if byte_offset is None or byte_length is None:
-                        raise KeyError(
-                            f"Could not find variable {hrrr_var} level {hrrr_level} in index file"
-                        )
-                    # Read grib block into cache location
-                    sha = hashlib.sha256(
-                        (s3_grib_uri + str(byte_offset) + str(byte_length)).encode()
-                    )
-                    filename = sha.hexdigest()
-                    cache_path = os.path.join(self.cache, filename)
-                    if not pathlib.Path(cache_path).is_file():
-                        grib_buffer = self.fs.read_block(
-                            s3_grib_uri, offset=byte_offset, length=byte_length
-                        )
-                        with open(cache_path, "wb") as file:
-                            file.write(grib_buffer)
+            # Download the grib index file and parse
+            with self.fsc.open(f"{s3_grib_uri}.idx") as file:
+                index_lines = [line.decode("utf-8").rstrip() for line in file]
+            # Add dummy variable at end of file with max offset
+            index_lines.append(
+                f"xx:{self.fsc.size(s3_grib_uri)}:d=xx:NULL:NULL:NULL:NULL"
+            )
 
-                    da = xr.open_dataarray(
-                        cache_path,
-                        engine="cfgrib",
-                        backend_kwargs={"indexpath": ""},
-                    )
-                    hrrr_da[i, j, k] = modifier(da.values)
-                    # Add lat lon coords if not present
-                    if "lat" not in hrrr_da.coords:
-                        hrrr_da.coords["lat"] = (
-                            ["hrrr_y", "hrrr_x"],
-                            da.coords["latitude"].values,
+            byte_offset = None
+            byte_length = None
+            for line_index, line in enumerate(index_lines[:-1]):
+                lsplit = line.split(":")
+                if len(lsplit) < 7:
+                    continue
+                # If match get in byte offset and length
+                if bool(re.search(hrrr_regex, line)):
+                    nlsplit = index_lines[line_index + 1].split(":")
+                    byte_length = int(nlsplit[1]) - int(lsplit[1])
+                    byte_offset = int(lsplit[1])
+                    key = f"{lsplit[3]}::{lsplit[4]}"
+                    if byte_length > self.MAX_BYTE_SIZE:
+                        raise ValueError(
+                            f"Byte length, {byte_length}, of variable {key} larger than safe threshold of {self.MAX_BYTE_SIZE}"
                         )
-                        hrrr_da.coords["lon"] = (
-                            ["hrrr_y", "hrrr_x"],
-                            da.coords["longitude"].values,
-                        )
+            # If byte offset is not raise error
+            if byte_offset is None or byte_length is None:
+                raise KeyError(
+                    f"Could not find variable {hrrr_var} level {hrrr_level} in index file"
+                )
+            # Read grib block into cache location
+            sha = hashlib.sha256(
+                (s3_grib_uri + str(byte_offset) + str(byte_length)).encode()
+            )
+            filename = sha.hexdigest()
+            cache_path = os.path.join(self.cache, filename)
+            if not pathlib.Path(cache_path).is_file():
+                grib_buffer = self.fs.read_block(
+                    s3_grib_uri, offset=byte_offset, length=byte_length
+                )
+                with open(cache_path, "wb") as file:
+                    file.write(grib_buffer)
+
+            da = xr.open_dataarray(
+                cache_path,
+                engine="cfgrib",
+                backend_kwargs={"indexpath": ""},
+            )
+            hrrr_da[i, j, k] = modifier(da.values)
+            # Add lat lon coords if not present
+            if "lat" not in hrrr_da.coords:
+                hrrr_da.coords["lat"] = (
+                    ["hrrr_y", "hrrr_x"],
+                    da.coords["latitude"].values,
+                )
+                hrrr_da.coords["lon"] = (
+                    ["hrrr_y", "hrrr_x"],
+                    da.coords["longitude"].values,
+                )
+
+            pbar.update(1)
 
         # Delete cache if needed
         if not self._cache:
@@ -359,6 +373,11 @@ class _HRRRZarrBase(_HRRRBase):
         # Banking on async calls in zarr 3.0
         for i, t in enumerate(time):
             for j, ld in enumerate(lead_time):
+                # Set lexicon based on lead
+                if ld.total_seconds() == 0:
+                    self._lexicon = HRRRLexicon()
+                else:
+                    self._lexicon = HRRRFXLexicon()
                 for k, v in enumerate(variable):
                     try:
                         hrrr_str, modifier = self._lexicon[v]
@@ -424,7 +443,7 @@ class HRRR(_HRRRBase):
     """
 
     def __init__(self, cache: bool = True, verbose: bool = True):
-        super().__init__(HRRRLexicon, cache, verbose)
+        super().__init__(cache, verbose)
 
     def __call__(
         self,
@@ -495,7 +514,7 @@ class HRRR_FX(_HRRRBase):
     """
 
     def __init__(self, cache: bool = True, verbose: bool = True):
-        super().__init__(HRRRFXLexicon, cache, verbose)
+        super().__init__(cache, verbose)
 
     def __call__(
         self,
@@ -549,15 +568,7 @@ class HRRR_FX(_HRRRBase):
                 )
             hours = int(delta.total_seconds() // 3600)
             # Note, one forecasts every 6 hours have 2 day lead times, others only have 18 hours
-            if hours > 48 or hours < 1:
+            if hours > 48 or hours < 0:
                 raise ValueError(
-                    f"Requested lead time {delta} can only be between [1,48] hours for HRRR forecast"
+                    f"Requested lead time {delta} can only be between [0,48] hours for HRRR forecast"
                 )
-
-
-if __name__ == "__main__":
-    ds = HRRR(cache=False)
-
-    vars = HRRRFXLexicon.VOCAB.keys()
-    da = ds(datetime(1, 1, 1, hour=12), vars)
-    da.to_netcdf("test.nc")
