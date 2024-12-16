@@ -15,8 +15,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Interpolation between arbitrary lat-lon grids
+- Added hybrid level support to HRRR data source
 
 ### Changed
+
+- Switched HRRR data source back to AWS grib
 
 ### Deprecated
 
