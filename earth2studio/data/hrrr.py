@@ -18,6 +18,7 @@ import asyncio
 import hashlib
 import os
 import pathlib
+import re
 import shutil
 from datetime import datetime, timedelta
 
@@ -139,14 +140,15 @@ class _HRRRBase:
                         f"xx:{self.fs.size(s3_grib_uri)}:d=xx:NULL:NULL:NULL:NULL"
                     )
 
+                    hrrr_regex = self._lexicon.index_regex(v, t, ld)
                     byte_offset = None
-                    byte_length = -1
+                    byte_length = None
                     for line_index, line in enumerate(index_lines[:-1]):
                         lsplit = line.split(":")
                         if len(lsplit) < 7:
                             continue
                         # If match get in byte offset and length
-                        if lsplit[3] == hrrr_var and lsplit[4] == hrrr_level:
+                        if bool(re.search(hrrr_regex, line)):
                             nlsplit = index_lines[line_index + 1].split(":")
                             byte_length = int(nlsplit[1]) - int(lsplit[1])
                             byte_offset = int(lsplit[1])
@@ -179,6 +181,7 @@ class _HRRRBase:
                         backend_kwargs={"indexpath": ""},
                     )
                     hrrr_da[i, j, k] = modifier(da.values)
+                    # Add lat lon coords if not present
                     if "lat" not in hrrr_da.coords:
                         hrrr_da.coords["lat"] = (
                             ["hrrr_y", "hrrr_x"],
@@ -266,8 +269,8 @@ class _HRRRBase:
         return fs.exists(s3_uri)
 
 
-class _HRRR_ZarrBase:
-
+class _HRRRZarrBase(_HRRRBase):
+    # Not used but keeping here for now for future reference
     HRRR_BUCKET_NAME = "hrrrzarr"
     HRRR_X = np.arange(1799)
     HRRR_Y = np.arange(1059)
@@ -381,77 +384,6 @@ class _HRRR_ZarrBase:
             shutil.rmtree(self.cache)
 
         return hrrr_da
-
-    @classmethod
-    def _validate_time(cls, times: list[datetime]) -> None:
-        """Verify if date time is valid for HRRR
-
-        Parameters
-        ----------
-        times : list[datetime]
-            list of date times to fetch data
-        """
-        for time in times:
-            if not (time - datetime(1900, 1, 1)).total_seconds() % 3600 == 0:
-                raise ValueError(
-                    f"Requested date time {time} needs to be 1 hour interval for HRRR"
-                )
-            # sfc goes back to 2016 for anl, limit based on pressure
-            # frst starts on on the same date pressure starts
-            if time < datetime(year=2018, month=7, day=12, hour=13):
-                raise ValueError(
-                    f"Requested date time {time} needs to be after July 12th, 2018 13:00 for HRRR"
-                )
-
-    @property
-    def cache(self) -> str:
-        """Return appropriate cache location."""
-        cache_location = os.path.join(datasource_cache_root(), "hrrr")
-        if not self._cache:
-            if not DistributedManager.is_initialized():
-                DistributedManager.initialize()
-            cache_location = os.path.join(
-                cache_location, f"tmp_{DistributedManager().rank}"
-            )
-        return cache_location
-
-    @classmethod
-    def available(
-        cls,
-        time: datetime | np.datetime64,
-    ) -> bool:
-        """Checks if given date time is avaliable in the HRRR store
-
-        Parameters
-        ----------
-        time : datetime | np.datetime64
-            Date time to access
-
-        Returns
-        -------
-        bool
-            If date time is avaiable
-        """
-        if isinstance(time, np.datetime64):  # np.datetime64 -> datetime
-            _unix = np.datetime64(0, "s")
-            _ds = np.timedelta64(1, "s")
-            time = datetime.utcfromtimestamp((time - _unix) / _ds)
-
-        # Offline checks
-        try:
-            cls._validate_time([time])
-        except ValueError:
-            return False
-
-        fs = s3fs.S3FileSystem(anon=True)
-
-        # Object store directory for given date
-        date_group = time.strftime("%Y%m%d")
-        time_group = time.strftime("%Y%m%d_%Hz_anl.zarr")
-        s3_uri = f"s3://{cls.HRRR_BUCKET_NAME}/sfc/{date_group}/{time_group}"
-        exists = fs.exists(s3_uri)
-
-        return exists
 
 
 class HRRR(_HRRRBase):

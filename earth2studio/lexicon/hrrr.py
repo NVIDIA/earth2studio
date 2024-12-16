@@ -13,8 +13,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 from collections.abc import Callable
+from datetime import datetime, timedelta
 
 import numpy as np
 
@@ -44,6 +44,7 @@ class HRRRLexicon(metaclass=LexiconType):
             "t2m": "sfc::anl::2 m above ground::TMP",
             "refc": "sfc::anl::entire atmosphere::REFC",
             "sp": "sfc::anl::surface::PRES",
+            "mslp": "sfc::anl::mean sea level::MSLMA",
             "tcwv": "sfc::anl::entire atmosphere (considered as a single layer)::PWAT",
             "csnow": "sfc::anl::surface::CSNOW",
             "cicep": "sfc::anl::surface::CICEP",
@@ -113,10 +114,18 @@ class HRRRLexicon(metaclass=LexiconType):
     VOCAB = build_vocab()
 
     @classmethod
+    def index_regex(cls, val: str, time: datetime, lead_time: timedelta) -> str:
+        """Gets regex to check index file for"""
+        hrrr_key = cls.VOCAB[val]
+        variable = hrrr_key.split("::")[3]
+        level = hrrr_key.split("::")[2]
+        return f"{variable}:{level}"
+
+    @classmethod
     def get_item(cls, val: str) -> tuple[str, Callable]:
         """Get item from HRRR vocabulary."""
         hrrr_key = cls.VOCAB[val]
-        if hrrr_key.split("::")[1] == "HGT":
+        if hrrr_key.split("::")[3] == "HGT" and val.startswith("z"):
 
             def mod(x: np.array) -> np.array:
                 """Modify data value (if necessary)."""
@@ -147,14 +156,15 @@ class HRRRFXLexicon(metaclass=LexiconType):
     def build_vocab() -> dict[str, str]:
         """Create HRRR vocab dictionary"""
         sfc_variables = {
-            "u10m": "sfc::fcst::10 m above ground::UGRD::",
-            "v10m": "sfc::fcst::10 m above ground::VGRD::",
-            "u80m": "sfc::fcst::80 m above ground::UGRD::",
-            "v80m": "sfc::fcst::80 m above ground::VGRD::",
-            "t2m": "sfc::fcst::2 m above ground::TMP::",
-            "refc": "sfc::fcst::entire atmosphere::REFC::",
-            "sp": "sfc::fcst::surface::PRES::",
-            "tp": "sfc::fcst::surface::APCP_1hr_acc_fcst::",  # Does not work rn
+            "u10m": "sfc::fcst::10 m above ground::UGRD",
+            "v10m": "sfc::fcst::10 m above ground::VGRD",
+            "u80m": "sfc::fcst::80 m above ground::UGRD",
+            "v80m": "sfc::fcst::80 m above ground::VGRD",
+            "t2m": "sfc::fcst::2 m above ground::TMP",
+            "refc": "sfc::fcst::entire atmosphere::REFC",
+            "sp": "sfc::fcst::surface::PRES",
+            "mslp": "sfc::anl::mean sea level::MSLMA",
+            "tp": "sfc::fcst::surface::APCP",  # APCP_1hr_acc_fcst in Zarr store
             "tcwv": "sfc::fcst::entire atmosphere (considered as a single layer)::PWAT",
             "csnow": "sfc::fcst::surface::CSNOW",
             "cicep": "sfc::fcst::surface::CICEP",
@@ -176,15 +186,38 @@ class HRRRFXLexicon(metaclass=LexiconType):
             for level in prs_levels:
                 prs_variables[f"{id}{level:d}"] = f"sfc::fcst::{level}mb::{variable}"
 
-        return {**sfc_variables, **prs_variables}
+        hybrid_levels = list(range(51))
+        hybrid_names = ["UGRD", "VGRD", "HGT", "TMP", "SPFH", "PRES"]
+        e2s_id = ["u", "v", "z", "t", "q", "p"]
+        hybrid_variables = {}
+        for (id, variable) in zip(e2s_id, hybrid_names):
+            for level in hybrid_levels:
+                hybrid_variables[
+                    f"{id}{level:d}hl"
+                ] = f"nat::fcst::{level} hybrid level::{variable}"
+
+        return {**sfc_variables, **prs_variables, **hybrid_variables}
 
     VOCAB = build_vocab()
+
+    @classmethod
+    def index_regex(cls, val: str, time: datetime, lead_time: timedelta) -> str:
+        """Gets regex to check index file for"""
+        # Deal with ACPC having two different values (thanks NOAA)
+        hrrr_key = cls.VOCAB[val]
+        if val == "tp":
+            lead_index = int(lead_time.total_seconds() // 3600)
+            return f"APCP:surface:{lead_index-1}-{lead_index} hour acc"
+        else:
+            variable = hrrr_key.split("::")[3]
+            level = hrrr_key.split("::")[2]
+            return f"{variable}:{level}"
 
     @classmethod
     def get_item(cls, val: str) -> tuple[str, Callable]:
         """Get item from HRRR vocabulary."""
         hrrr_key = cls.VOCAB[val]
-        if hrrr_key.split("::")[1] == "HGT":
+        if hrrr_key.split("::")[3] == "HGT" and val.startswith("z"):
 
             def mod(x: np.array) -> np.array:
                 """Modify data value (if necessary)."""
