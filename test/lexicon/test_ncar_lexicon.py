@@ -14,17 +14,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from .arco import ARCO
-from .base import DataSource
-from .cds import CDS
-from .gefs import GEFS_FX, GEFS_FX_721x1440
-from .gfs import GFS, GFS_FX
-from .hrrr import HRRR, HRRR_FX
-from .ifs import IFS
-from .imerg import IMERG
-from .ncar import NCAR_ERA5
-from .rand import Random
-from .rx import CosineSolarZenith, LandSeaMask, SurfaceGeoPotential
-from .utils import datasource_to_file, fetch_data, prep_data_array
-from .wb2 import WB2ERA5, WB2Climatology, WB2ERA5_32x64, WB2ERA5_121x240
-from .xr import DataArrayDirectory, DataArrayFile, DataSetFile
+import pytest
+import torch
+
+from earth2studio.lexicon import NCAR_ERA5Lexicon
+
+
+@pytest.mark.parametrize(
+    "variable", [["t2m"], ["u10m", "z1000"], ["msl", "t150", "q700", "r700"]]
+)
+@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+def test_run_deterministic(variable, device):
+    input = torch.randn(len(variable), 8).to(device)
+    for v in variable:
+        label, modifier = NCAR_ERA5Lexicon[v]
+        output = modifier(input)
+        assert isinstance(label, str)
+        assert input.shape == output.shape
+        assert input.device == output.device
