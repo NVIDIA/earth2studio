@@ -174,8 +174,14 @@ def prep_data_array(
 
     else:
         out = torch.Tensor(da.values).to(device)
-        out_coords["lat"] = np.array(da.coords["lat"])
-        out_coords["lon"] = np.array(da.coords["lon"])
+        if "lat" in da.coords and "lat" not in da.coords.dims:
+            # Curvilinear grid case: lat/lon coords are 2D arrays, not in dims
+            out_coords["lat"] = da.coords["lat"].values
+            out_coords["lon"] = da.coords["lon"].values
+        else:
+            for dim in da.coords.dims:
+                if dim not in ["time", "lead_time", "variable"]:
+                    out_coords[dim] = np.array(da.coords[dim])
 
     return out, out_coords
 

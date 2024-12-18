@@ -191,7 +191,7 @@ def test_skill_spread(
             "time": np.array(
                 [np.datetime64("1993-04-05T00:00"), np.datetime64("1993-04-06T00:00")]
             ),
-            "variable": ["t2m", "tcwv"],
+            "variable": np.array(["t2m", "tcwv"]),
             "lat": np.linspace(-90.0, 90.0, 361),
             "lon": np.linspace(0.0, 360.0, 720, endpoint=False),
         }
