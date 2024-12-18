@@ -164,7 +164,11 @@ class batch_func:
         # TODO: Better typing for model object
         @functools.wraps(func)
         def _wrapper(
-            model: Any, x: torch.Tensor, coords: CoordSystem
+            model: Any,
+            x: torch.Tensor,
+            coords: CoordSystem,
+            conditioning: torch.Tensor | None = None,
+            conditioning_coords: CoordSystem | None = None,
         ) -> tuple[torch.Tensor, CoordSystem]:
 
             x, flatten_coords, batched_coords, batched_shape = self._compress_batch(
@@ -172,7 +176,16 @@ class batch_func:
             )
 
             # Model forward
-            out, out_coords = func(model, x, flatten_coords)
+            if conditioning is not None:
+                out, out_coords = func(
+                    model,
+                    x,
+                    flatten_coords,
+                    conditioning=conditioning,
+                    conditioning_coords=conditioning_coords,
+                )
+            else:
+                out, out_coords = func(model, x, flatten_coords)
             out, out_coords = self._decompress_batch(
                 out, out_coords, batched_coords, batched_shape
             )

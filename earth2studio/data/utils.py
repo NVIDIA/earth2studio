@@ -29,6 +29,7 @@ import xarray as xr
 from loguru import logger
 
 from earth2studio.data.base import DataSource
+from earth2studio.utils.interp import LatLonInterpolation
 from earth2studio.utils.time import (
     leadtimearray_to_timedelta,
     timearray_to_datetime,
@@ -43,8 +44,12 @@ def fetch_data(
     variable: VariableArray,
     lead_time: LeadTimeArray = np.array([np.timedelta64(0, "h")]),
     device: torch.device = "cpu",
+    interp_to: CoordSystem = None,
+    interp_method: str = "nearest",
 ) -> tuple[torch.Tensor, CoordSystem]:
     """Utility function to fetch data for models and load data on the target device.
+    If desired, xarray interpolation/regridding in the spatial domain can be used
+    by passing a target coordinate system via the optional `interp_to` argument.
 
     Parameters
     ----------
@@ -59,6 +64,11 @@ def fetch_data(
         np.array(np.timedelta64(0, "h"))
     device : torch.device, optional
         Torch devive to load data tensor to, by default "cpu"
+    interp_to : CoordSystem, optional
+        If provided, the fetched data will be interpolated to the coordinates
+        specified by lat/lon arrays in this CoordSystem
+    interp_method : str
+        Interpolation method to use with xarray (by default 'nearest')
 
     Returns
     -------
@@ -75,15 +85,25 @@ def fetch_data(
         da0 = da0.assign_coords(time=time)
         da.append(da0)
 
-    return prep_data_array(xr.concat(da, "lead_time"), device=device)
+    return prep_data_array(
+        xr.concat(da, "lead_time"),
+        device=device,
+        interp_to=interp_to,
+        interp_method=interp_method,
+    )
 
 
 def prep_data_array(
     da: xr.DataArray,
     device: torch.device = "cpu",
+    interp_to: CoordSystem = None,
+    interp_method: str = "nearest",
 ) -> tuple[torch.Tensor, CoordSystem]:
     """Prepares a data array from a data source for inference workflows by converting
     the data array to a torch tensor and the coordinate system to an OrderedDict.
+
+    If desired, xarray interpolation/regridding in the spatial domain can be used
+    by passing a target coordinate system via the optional `interp_to` argument.
 
     Parameters
     ----------
@@ -91,6 +111,11 @@ def prep_data_array(
         Input data array
     device : torch.device, optional
         Torch devive to load data tensor to, by default "cpu"
+    interp_to : CoordSystem, optional
+        If provided, the fetched data will be interpolated to the coordinates
+        specified by lat/lon arrays in this CoordSystem
+    interp_method : str
+        Interpolation method to use with xarray (by default 'nearest')
 
     Returns
     -------
@@ -98,11 +123,65 @@ def prep_data_array(
         Tuple containing output tensor and coordinate OrderedDict
     """
 
-    out = torch.Tensor(da.values).to(device)
-
+    # Initialize the output CoordSystem
     out_coords = OrderedDict()
     for dim in da.coords.dims:
-        out_coords[dim] = np.array(da.coords[dim])
+        if dim in ["time", "lead_time", "variable"]:
+            out_coords[dim] = np.array(da.coords[dim])
+
+    # Fetch data and regrid if necessary
+    if interp_to is not None:
+        if len(interp_to["lat"].shape) != len(interp_to["lon"].shape):
+            raise ValueError(
+                "Discrepancy in interpolation coordinates: latitude has different number of dims than longitude"
+            )
+
+        if "lat" not in da.dims:
+            # Data source uses curvilinear coordinates
+            if interp_method != "linear":
+                raise ValueError(
+                    "fetch_data does not support interpolation methods other than linear when data source has a curvilinear grid"
+                )
+            interp = LatLonInterpolation(
+                lat_in=da["lat"].values,
+                lon_in=da["lon"].values,
+                lat_out=interp_to["lat"],
+                lon_out=interp_to["lon"],
+            ).to(device)
+            data = torch.Tensor(da.values).to(device)
+            out = interp(data)
+
+        else:
+
+            if len(interp_to["lat"].shape) > 1 or len(interp_to["lon"].shape) > 1:
+                # Target grid uses curvilinear coordinates: define internal dims y, x
+                target_lat = xr.DataArray(interp_to["lat"], dims=["y", "x"])
+                target_lon = xr.DataArray(interp_to["lon"], dims=["y", "x"])
+            else:
+                target_lat = xr.DataArray(interp_to["lat"], dims=["lat"])
+                target_lon = xr.DataArray(interp_to["lon"], dims=["lon"])
+
+            da = da.interp(
+                lat=target_lat,
+                lon=target_lon,
+                method=interp_method,
+            )
+
+            out = torch.Tensor(da.values).to(device)
+
+        out_coords["lat"] = interp_to["lat"]
+        out_coords["lon"] = interp_to["lon"]
+
+    else:
+        out = torch.Tensor(da.values).to(device)
+        if "lat" in da.coords and "lat" not in da.coords.dims:
+            # Curvilinear grid case: lat/lon coords are 2D arrays, not in dims
+            out_coords["lat"] = da.coords["lat"].values
+            out_coords["lon"] = da.coords["lon"].values
+        else:
+            for dim in da.coords.dims:
+                if dim not in ["time", "lead_time", "variable"]:
+                    out_coords[dim] = np.array(da.coords[dim])
 
     return out, out_coords
 
