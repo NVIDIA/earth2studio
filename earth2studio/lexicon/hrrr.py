@@ -92,16 +92,17 @@ class HRRRLexicon(metaclass=LexiconType):
             975,
             1000,
         ]
-        prs_names = ["UGRD", "VGRD", "HGT", "TMP", "RH", "SPFH"]
-        e2s_id = ["u", "v", "z", "t", "r", "q"]
+
+        prs_names = ["UGRD", "VGRD", "HGT", "TMP", "RH", "SPFH", "HGT"]
+        e2s_id = ["u", "v", "z", "t", "r", "q", "Z"]
         prs_variables = {}
         for (id, variable) in zip(e2s_id, prs_names):
             for level in prs_levels:
                 prs_variables[f"{id}{level:d}"] = f"prs::anl::{level} mb::{variable}"
 
         hybrid_levels = list(range(1, 51))
-        hybrid_names = ["UGRD", "VGRD", "HGT", "TMP", "SPFH", "PRES"]
-        e2s_id = ["u", "v", "z", "t", "q", "p"]
+        hybrid_names = ["UGRD", "VGRD", "HGT", "TMP", "SPFH", "PRES", "HGT"]
+        e2s_id = ["u", "v", "z", "t", "q", "p", "Z"]
         hybrid_variables = {}
         for (id, variable) in zip(e2s_id, hybrid_names):
             for level in hybrid_levels:
@@ -187,8 +188,8 @@ class HRRRFXLexicon(metaclass=LexiconType):
                 prs_variables[f"{id}{level:d}"] = f"sfc::fcst::{level} mb::{variable}"
 
         hybrid_levels = list(range(1, 51))
-        hybrid_names = ["UGRD", "VGRD", "HGT", "TMP", "SPFH", "PRES"]
-        e2s_id = ["u", "v", "z", "t", "q", "p"]
+        hybrid_names = ["UGRD", "VGRD", "HGT", "TMP", "SPFH", "PRES", "HGT"]
+        e2s_id = ["u", "v", "z", "t", "q", "p", "Z"]
         hybrid_variables = {}
         for (id, variable) in zip(e2s_id, hybrid_names):
             for level in hybrid_levels:

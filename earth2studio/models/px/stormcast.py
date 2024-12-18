@@ -37,15 +37,19 @@ from earth2studio.utils import (
 )
 from earth2studio.utils.type import CoordSystem
 
+# Variables used in StormCastV1 paper
 VARIABLES = (
     ["u10m", "v10m", "t2m", "mslp"]
     + [
         var + str(level)
         for var, level in product(
-            ["u_hl", "v_hl", "t_hl", "q_hl", "z_hl", "p_hl"],
-            [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 13, 15, 20, 25, 30],
+            ["u", "v", "t", "q", "Z", "p"],
+            map(
+                lambda x: str(x) + "hl",
+                [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 13, 15, 20, 25, 30],
+            ),
         )
-        if not ((var == "p_hl") and (level > 20))
+        if not ((var == "p") and (int(level.replace("hl", "")) > 20))
     ]
     + [
         "refc",
@@ -57,31 +61,41 @@ CONDITIONING_VARIABLES = ["u10m", "v10m", "t2m", "tcwv", "mslp", "sp"] + [
     for var, level in product(["u", "v", "z", "t", "q"], [1000, 850, 500, 250])
 ]
 
-INVARIANTS = ["orography", "land_sea_mask"]
+INVARIANTS = ["lsm", "orography"]
+
+# Extent of domain in StormCastV1 paper (HRRR Lambert projection indices)
+X_START, X_END = 579, 1219
+Y_START, Y_END = 273, 785
 
 
 class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
-    """
-
-
-    Note
-    ----
-
+    """StormCast generative convection-allowing model for regional forecasts
+    Consists of two core models, a regression and diffusion model
+    This class implements StormCastV1, the model released in:
+     https://arxiv.org/abs/2408.10958
+    Model time step size is 1 hour, taking as input:
+        - High-resolution (3km) HRRR state over the central United States (99 vars)
+        - High-resolution land-sea mask and orography invariants
+        - Coarse resolution (25km) global state (26 vars)
+    The high-resolution grid is the HRRR Lambert conformal projection
+    Coarse-resolution inputs are regridded to the HRRR grid internally.
 
     Parameters
     ----------
-    residual_model : torch.nn.Module
-        Core pytorch model
-    regression_model : torch.nn.Module
-        Core pytorch model
-    in_center : torch.Tensor
-        Model input center normalization tensor
-    in_scale : torch.Tensor
-        Model input scale normalization tensor
-    out_center : torch.Tensor
-        Model output center normalization tensor
-    out_scale : torch.Tensor
-        Model output scale normalization tensor
+    regression_model (torch.nn.Module): Deterministic model used to make an initial prediction
+    diffusion_model (torch.nn.Module): Generative model correcting the deterministic prediciton
+    lat (np.array): Latitude array (2D) of the domain
+    lon (np.array): Latitude array (2D) of the domain
+    means (torch.Tensor): Mean value of each input high-resolution variable
+    stds (torch.Tensor): Standard deviation of each input high-resolution variable
+    invariants (torch.Tensor): Static invariant  quantities
+    variables (np.array, optional): High-resolution variables Defaults to np.array(VARIABLES).
+    conditioning_means (torch.Tensor | None, optional): Means to normalize conditioning data. Defaults to None.
+    conditioning_stds (torch.Tensor | None, optional): Stds to normalize conditioning data Defaults to None.
+    conditioning_variables (np.array, optional): Global variables for conditioning. Defaults to np.array(CONDITIONING_VARIABLES).
+    conditioning_data_source (DataSource | None, optional): Data Source to use for global conditoining. Defaults to None. Required for running in iterator mode
+    sampler_args (dict[str, float  |  int], optional): Arguments to pass to the diffusion sampler. Defaults to {}.
+    interp_method (str, optional): Interpolation method to use when regridding coarse conditoining data. Defaults to "linear".
     """
 
     def __init__(
@@ -191,7 +205,7 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def load_default_package(cls) -> Package:
         """Load prognostic package"""
         package = Package(
-            "ngc://models/nvidia/modulus/stormcast-v1-era5-hrrr@1.0.0",
+            "ngc://models/nvidia/modulus/stormcast-v1-era5-hrrr@1.0.1",
             cache_options={
                 "cache_storage": Package.default_cache("stormcast"),
                 "same_names": True,
@@ -284,8 +298,11 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         out += edm_out
 
+        out = out * self.stds + self.means
+
         return out
 
+    @torch.inference_mode()
     @batch_func()
     def __call__(
         self,

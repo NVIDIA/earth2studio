@@ -29,6 +29,7 @@ import xarray as xr
 from loguru import logger
 
 from earth2studio.data.base import DataSource
+from earth2studio.utils.interp import LatLonInterpolation
 from earth2studio.utils.time import (
     leadtimearray_to_timedelta,
     timearray_to_datetime,
@@ -122,43 +123,59 @@ def prep_data_array(
         Tuple containing output tensor and coordinate OrderedDict
     """
 
-    if interp_to is not None:
-        if len(interp_to["lat"].shape) > 1 or len(interp_to["lon"].shape) > 1:
-            if len(interp_to["lat"].shape) != len(interp_to["lon"].shape):
-                raise ValueError(
-                    "Discrepancy in interpolation coordinates: latitude has different shape than longitude"
-                )
+    # Initialize the output CoordSystem
+    out_coords = OrderedDict()
+    for dim in da.coords.dims:
+        if dim in ["time", "lead_time", "variable"]:
+            out_coords[dim] = np.array(da.coords[dim])
 
-            # Curvilinear coordinates: define internal dims y, x
-            target_lat = xr.DataArray(interp_to["lat"], dims=["y", "x"])
-            target_lon = xr.DataArray(interp_to["lon"], dims=["y", "x"])
+    # Fetch data and regrid if necessary
+    if interp_to is not None:
+        if len(interp_to["lat"].shape) != len(interp_to["lon"].shape):
+            raise ValueError(
+                "Discrepancy in interpolation coordinates: latitude has different number of dims than longitude"
+            )
+
+        if "lat" not in da.dims:
+            # Data source uses curvilinear coordinates
+            if interp_method != "linear":
+                raise ValueError(
+                    "fetch_data does not support interpolation methods other than linear when data source has a curvilinear grid"
+                )
+            interp = LatLonInterpolation(
+                lat_in=da["lat"].values,
+                lon_in=da["lon"].values,
+                lat_out=interp_to["lat"],
+                lon_out=interp_to["lon"],
+            ).to(device)
+            data = torch.Tensor(da.values).to(device)
+            out = interp(data)
+
         else:
 
-            target_lat = xr.DataArray(interp_to["lat"], dims=["lat"])
-            target_lon = xr.DataArray(interp_to["lon"], dims=["lon"])
-        target_grid = xr.Dataset({"latitude": target_lat, "longitude": target_lon})
+            if len(interp_to["lat"].shape) > 1 or len(interp_to["lon"].shape) > 1:
+                # Target grid uses curvilinear coordinates: define internal dims y, x
+                target_lat = xr.DataArray(interp_to["lat"], dims=["y", "x"])
+                target_lon = xr.DataArray(interp_to["lon"], dims=["y", "x"])
+            else:
+                target_lat = xr.DataArray(interp_to["lat"], dims=["lat"])
+                target_lon = xr.DataArray(interp_to["lon"], dims=["lon"])
 
-        da = da.interp(
-            lat=target_grid["latitude"],
-            lon=target_grid["longitude"],
-            method=interp_method,
-        )
+            da = da.interp(
+                lat=target_lat,
+                lon=target_lon,
+                method=interp_method,
+            )
 
-    out = torch.Tensor(da.values).to(device)
+            out = torch.Tensor(da.values).to(device)
 
-    out_coords = OrderedDict()
+        out_coords["lat"] = interp_to["lat"]
+        out_coords["lon"] = interp_to["lon"]
 
-    curvilinear = "lat" in da.coords and len(da.coords["lat"].shape) > 1
-    if curvilinear:
-        # Assume the lat, lon array are defined as DataArray coordinates
-        for dim in da.coords.dims:
-            if dim in ["time", "variable", "lead_time"]:
-                out_coords[dim] = np.array(da.coords[dim])
+    else:
+        out = torch.Tensor(da.values).to(device)
         out_coords["lat"] = np.array(da.coords["lat"])
         out_coords["lon"] = np.array(da.coords["lon"])
-    else:
-        for dim in da.coords.dims:
-            out_coords[dim] = np.array(da.coords[dim])
 
     return out, out_coords
 
