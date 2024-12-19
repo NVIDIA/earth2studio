@@ -129,41 +129,6 @@ def test_stormcast_call(time, device):
     handshake_dim(out_coords, "lead_time", 1)
     handshake_dim(out_coords, "time", 0)
 
-    # Init model without conditioning info in constructor
-    p = StormCast(
-        regression,
-        diffusion,
-        lat,
-        lon,
-        means,
-        stds,
-        invariants,
-        variables,
-        sampler_args={"num_steps": 2},
-    ).to(device)
-
-    # Create fake conditioning info
-    condition = torch.randn(1, len(time), 1, nvar_cond, nlat, nlon).to(device)
-    condition_coords = p.input_coords()
-    condition_coords["variable"] = np.array(["u%02d" % i for i in range(nvar_cond)])
-    condition_coords["time"] = time
-
-    out, out_coords = p(
-        x, coords, conditioning=condition, conditioning_coords=condition_coords
-    )
-
-    if not isinstance(time, Iterable):
-        time = [time]
-
-    assert out.shape == torch.Size([len(time), 1, nvar, nlat, nlon])
-    assert (out_coords["variable"] == p.output_coords(coords)["variable"]).all()
-    assert np.all(out_coords["time"] == time)
-    handshake_dim(out_coords, "lon", 4)
-    handshake_dim(out_coords, "lat", 3)
-    handshake_dim(out_coords, "variable", 2)
-    handshake_dim(out_coords, "lead_time", 1)
-    handshake_dim(out_coords, "time", 0)
-
 
 @pytest.mark.parametrize(
     "ensemble",
@@ -289,9 +254,9 @@ def test_stormcast_exceptions(dc, device):
     variable = p.input_coords()["variable"]
     x, coords = fetch_data(r, time, variable, lead_time, device=device)
 
-    with pytest.raises(ValueError):
+    with pytest.raises(RuntimeError):
         # Calling with no conditioning info should fail
-        p(x, coords, conditioning=None, conditioning_coords=None)
+        p(x, coords)
 
     # Create iterator and consume first batch (initial condition)
     p_iter = p.create_iterator(x, coords)
@@ -299,21 +264,6 @@ def test_stormcast_exceptions(dc, device):
     with pytest.raises(ValueError):
         # Using the generator with no built-in conditioning should fail
         next(p_iter)
-
-    # Add conditioning info but use wrong coords
-    nlat, nlon = dc["lat"].shape[0], dc["lon"].shape[1]
-    condition = torch.randn(1, 1, 26, nlat, nlon).to(device)
-    condition_coords = p.input_coords()
-    condition_coords["variable"] = np.array([26])
-    condition_coords["time"] = time
-    condition_coords["lat"] = dc["lat"]
-    condition_coords["lon"] = dc["lon"]
-    lead_time = p.input_coords()["lead_time"]
-    variable = p.input_coords()["variable"]
-    x, coords = fetch_data(r, time, variable, lead_time, device=device)
-
-    with pytest.raises((KeyError, ValueError)):
-        p(x, coords, conditioning=condition, conditioning_coords=condition_coords)
 
 
 @pytest.fixture(scope="module")

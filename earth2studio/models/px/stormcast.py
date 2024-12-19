@@ -19,6 +19,7 @@ from collections import OrderedDict
 from collections.abc import Generator, Iterator
 from itertools import product
 
+import modulus
 import numpy as np
 import torch
 import xarray as xr
@@ -133,8 +134,9 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self.conditioning_data_source = conditioning_data_source
         if conditioning_data_source is None:
             warnings.warn(
-                "No conditioning data source is provided, "
-                + "conditioning data is expected to be passed."
+                "No conditioning data source was provided to StormCast, "
+                + "set the conditioning_data_source attribute of the model "
+                + "before running inference."
             )
 
         if conditioning_means is not None:
@@ -216,8 +218,20 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     @classmethod
     def load_model(cls, package: Package) -> DiagnosticModel:
         """Load StormCast model."""
+
+        # Require appropriate modulus version
+        installed_version = modulus.__version__
+        if installed_version < "0.10.0a0":
+            raise RuntimeError(
+                f"modulus version 0.10.0a0 or later is required "
+                f"to load the StormCast package from NGC, "
+                f"but version {installed_version} is installed. "
+                f"Please pip install "
+                f"nvidia-modulus @ git+https://github.com/NVIDIA/modulus.git"
+            )
+
         OmegaConf.register_new_resolver("eval", eval)
-        """Load diagnostic from package"""
+
         # load model registry:
         config = OmegaConf.load(package.resolve("model.yaml"))
 
@@ -308,30 +322,27 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self,
         x: torch.Tensor,
         coords: CoordSystem,
-        conditioning: torch.Tensor | None = None,
-        conditioning_coords: CoordSystem | None = None,
     ) -> tuple[torch.Tensor, CoordSystem]:
         """Forward pass of diagnostic"""
 
-        if conditioning is None:
-            if self.conditioning_data_source is None:
-                raise ValueError(
-                    "If no conditioning data source is provided,"
-                    + "then conditioning data must be passed."
-                )
-            conditioning, conditioning_coords = fetch_data(
-                self.conditioning_data_source,
-                time=coords["time"],
-                variable=self.conditioning_variables,
-                lead_time=coords["lead_time"],
-                device=x.device,
-                interp_to=coords,
-                interp_method=self.interp_method,
+        if self.conditioning_data_source is None:
+            raise RuntimeError(
+                "StormCast has been called without initializing the model's conditioning_data_source"
             )
-            # Add a batch dim
-            conditioning = conditioning.repeat(x.shape[0], 1, 1, 1, 1, 1)
-            conditioning_coords.update({"batch": np.empty(0)})
-            conditioning_coords.move_to_end("batch", last=False)
+
+        conditioning, conditioning_coords = fetch_data(
+            self.conditioning_data_source,
+            time=coords["time"],
+            variable=self.conditioning_variables,
+            lead_time=coords["lead_time"],
+            device=x.device,
+            interp_to=coords,
+            interp_method=self.interp_method,
+        )
+        # Add a batch dim
+        conditioning = conditioning.repeat(x.shape[0], 1, 1, 1, 1, 1)
+        conditioning_coords.update({"batch": np.empty(0)})
+        conditioning_coords.move_to_end("batch", last=False)
 
         # Handshake conditioning coords
         handshake_coords(conditioning_coords, coords, "lon")
