@@ -51,6 +51,10 @@ class IFS:
         Cache data source on local memory, by default True
     verbose : bool, optional
         Print download progress, by default True
+    source : str, optional
+        Data source to fetch data from, by default "aws".
+        Note, "azure" can return 'HTTPError: 409 Client Error:
+        Public access is not permitted on this storage account.'
 
     Warning
     -------
@@ -75,7 +79,7 @@ class IFS:
     IFS_LAT = np.linspace(90, -90, 721)
     IFS_LON = np.linspace(0, 359.75, 1440)
 
-    def __init__(self, cache: bool = True, verbose: bool = True):
+    def __init__(self, cache: bool = True, verbose: bool = True, source: str = "aws"):
         # Optional import not installed error
         if opendata is None:
             raise ImportError(
@@ -84,7 +88,7 @@ class IFS:
 
         self._cache = cache
         self._verbose = verbose
-        self.client = opendata.Client(source="azure")
+        self.client = opendata.Client(source=source)
 
     def __call__(
         self,
