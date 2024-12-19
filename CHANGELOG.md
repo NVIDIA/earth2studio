@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Switched HRRR data source back to AWS grib
+- Make source an argument for IFS, default of aws
 
 ### Deprecated
 
