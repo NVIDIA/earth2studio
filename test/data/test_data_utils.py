@@ -123,6 +123,135 @@ def test_fetch_data(time, lead_time, device):
         np.array([np.timedelta64(-6, "h"), np.timedelta64(0, "h")]),
     ],
 )
+@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+def test_fetch_data_interp(time, lead_time, device):
+    # Original (source) domain
+    variable = np.array(["a", "b", "c"])
+    domain = OrderedDict(
+        {
+            "lat": np.linspace(90, -90, 721, endpoint=True),
+            "lon": np.linspace(0, 360, 1440),
+        }
+    )
+    r = Random(domain)
+
+    # Target domain, 1d lat/lon coords
+    lat = np.linspace(60, 20, num=256)
+    lon = np.linspace(130, 60, num=512)
+    target_coords = OrderedDict(
+        {
+            "lat": lat,
+            "lon": lon,
+        }
+    )
+
+    # nearest neighbor interp
+    x, coords = fetch_data(
+        r,
+        time,
+        variable,
+        lead_time,
+        device=device,
+        interp_to=target_coords,
+        interp_method="nearest",
+    )
+
+    assert x.device == torch.device(device)
+    assert np.all(coords["time"] == time)
+    assert np.all(coords["lead_time"] == lead_time)
+    assert np.all(coords["variable"] == variable)
+    assert coords["lat"].shape == (256,)
+    assert coords["lon"].shape == (512,)
+    assert not torch.isnan(x).any()
+
+    # bilinear interp
+    x, coords = fetch_data(
+        r,
+        time,
+        variable,
+        lead_time,
+        device=device,
+        interp_to=target_coords,
+        interp_method="linear",
+    )
+
+    assert x.device == torch.device(device)
+    assert np.all(coords["time"] == time)
+    assert np.all(coords["lead_time"] == lead_time)
+    assert np.all(coords["variable"] == variable)
+    assert coords["lat"].shape == (256,)
+    assert coords["lon"].shape == (512,)
+    assert not torch.isnan(x).any()
+
+    # Target domain, 2d lat/lon coords
+    lat = np.linspace(60, 20, num=256)
+    lon = np.linspace(130, 60, num=512)
+    lat2d, lon2d = np.meshgrid(lat, lon, indexing="ij")
+    target_coords = OrderedDict(
+        {
+            "lat": lat2d,
+            "lon": lon2d,
+        }
+    )
+
+    # nearest neighbor interp
+    x, coords = fetch_data(
+        r,
+        time,
+        variable,
+        lead_time,
+        device=device,
+        interp_to=target_coords,
+        interp_method="nearest",
+    )
+
+    assert x.device == torch.device(device)
+    assert np.all(coords["time"] == time)
+    assert np.all(coords["lead_time"] == lead_time)
+    assert np.all(coords["variable"] == variable)
+    assert coords["lat"].shape == (256, 512)
+    assert coords["lon"].shape == (256, 512)
+    assert not torch.isnan(x).any()
+
+    # bilinear interp
+    x, coords = fetch_data(
+        r,
+        time,
+        variable,
+        lead_time,
+        device=device,
+        interp_to=target_coords,
+        interp_method="linear",
+    )
+
+    assert x.device == torch.device(device)
+    assert np.all(coords["time"] == time)
+    assert np.all(coords["lead_time"] == lead_time)
+    assert np.all(coords["variable"] == variable)
+    assert coords["lat"].shape == (256, 512)
+    assert coords["lon"].shape == (256, 512)
+    assert not torch.isnan(x).any()
+
+
+@pytest.mark.parametrize(
+    "time",
+    [
+        np.array([np.datetime64("1993-04-05T00:00")]),
+        np.array(
+            [
+                np.datetime64("1999-10-11T12:00"),
+                np.datetime64("2001-06-04T00:00"),
+            ]
+        ),
+    ],
+)
+@pytest.mark.parametrize(
+    "lead_time",
+    [
+        np.array([np.timedelta64(0, "h")]),
+        np.array([np.timedelta64(-6, "h"), np.timedelta64(0, "h")]),
+    ],
+)
 @pytest.mark.parametrize(
     "backend",
     ["netcdf", "zarr"],

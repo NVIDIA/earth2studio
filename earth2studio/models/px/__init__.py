@@ -22,3 +22,4 @@ from earth2studio.models.px.fuxi import FuXi
 from earth2studio.models.px.pangu import Pangu3, Pangu6, Pangu24
 from earth2studio.models.px.persistence import Persistence
 from earth2studio.models.px.sfno import SFNO
+from earth2studio.models.px.stormcast import StormCast

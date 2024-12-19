@@ -34,6 +34,7 @@ Thus are typically used to generate forecast predictions.
    models.px.Pangu3
    models.px.Persistence
    models.px.SFNO
+   models.px.StormCast
 
 .. _earth2studio.models.dx:
 

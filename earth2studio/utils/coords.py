@@ -111,6 +111,11 @@ def handshake_coords(
             f"Required dimension {required_dim} not found in target coordinates"
         )
 
+    if input_coords[required_dim].shape != target_coords[required_dim].shape:
+        raise ValueError(
+            f"Coordinate systems for required dim {required_dim} are not the same"
+        )
+
     if not np.all(input_coords[required_dim] == target_coords[required_dim]):
         raise ValueError(
             f"Coordinate systems for required dim {required_dim} are not the same"
@@ -170,7 +175,9 @@ def map_coords(
     """A basic interpolation util to map between coordinate systems with common
     dimensions. Namely, `output_coords` should consist of keys are present in
     `input_coords`. Note that `output_coords` do not need have all the dimensions of the
-    `input_coords`.
+    `input_coords`. Does not support more advanced interpolation, such as between a regular
+    and curvilinear grid. For such use-cases, use `fetch_data` or `prep_data_array` from
+    `data/utils`.
 
     Parameters
     ----------
@@ -194,6 +201,7 @@ def map_coords(
         If output coordinate has a dimension not in the input coordinate
     ValueError
         If value in non-numeric output coordinate is not in input coordinate
+        If asked to interpolate between 2D lat/lon (curvilinear) coordinates
     """
     mapped_coords = input_coords.copy()
 
@@ -216,6 +224,14 @@ def map_coords(
             if inc.shape[0] == outc.shape[0] and np.all(inc == outc):
                 # skip interpolation if input and output coords are identical
                 continue
+
+            if key in ["lat", "lon"] and len(inc.shape) > 1 or len(outc.shape) > 1:
+                # Guard against 2D lat/lon grids (curvilinear case)
+                raise ValueError(
+                    f"Coordinate dim {key} in input or mapped coords is \
+                        two-dimensional; please use fetch_data or \
+                        prep_data_array to regrid/interpolate first."
+                )
 
             indx = np.where(inc == outc[0])[0][0]
             inc_slice = inc[indx : indx + outc.shape[0]]
