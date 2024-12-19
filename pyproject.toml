@@ -22,7 +22,7 @@ dependencies = [
     "importlib_metadata",
     "loguru",
     "netCDF4>=1.6.4",
-    "ngcsdk>=3.48.0",
+    "ngcsdk>=3.48.0,<3.55.0",
     "numpy>=1.24.0",
     "nvidia-modulus@git+https://github.com/NVIDIA/modulus.git",
     "python-dotenv",
