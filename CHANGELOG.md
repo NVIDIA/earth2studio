@@ -10,12 +10,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Add StormCast model to prognostic models
 - Interpolation between arbitrary lat-lon grids
 - Added hybrid level support to HRRR data source
 
 ### Changed
 
 - Switched HRRR data source back to AWS grib
+- Make source an argument for IFS, default of aws
 
 ### Deprecated
 
@@ -26,6 +28,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Security
 
 ### Dependencies
+
+- Update NGC SDK dependency to fixed range due to internal API changes
 
 ## [0.4.0] - 2024-12-12
 

@@ -44,7 +44,8 @@ In this example you will learn:
 # %%
 # .. literalinclude:: ../../earth2studio/run.py
 #    :language: python
-#    :lines: 116-156
+#    :start-after: # sphinx - ensemble start
+#    :end-before: # sphinx - ensemble end
 
 # %%
 # We need the following:
@@ -83,6 +84,7 @@ data = GFS()
 # The perturbation method in :ref:`sphx_glr_examples_03_ensemble_workflow.py` is naive because it
 # applies the same noise amplitude to every variable. We can create a custom wrapper
 # that only applies the perturbation method to a particular variable instead.
+
 
 # %%
 class ApplyToVariable:
