@@ -55,3 +55,25 @@ def test_random(time, variable, lat, lon):
     assert shape[2] == len(coords["lat"])
     assert shape[3] == len(coords["lon"])
     assert not np.isnan(data.values).any()
+
+    # Curvilinear coordinates (2d lat/lon arrays)
+    lat, lon = np.meshgrid(lat, lon, indexing="ij")
+
+    coords = OrderedDict({"lat": lat, "lon": lon})
+
+    data_source = Random(coords)
+
+    data = data_source(time, variable)
+    shape = data.shape
+
+    if isinstance(variable, str):
+        variable = [variable]
+
+    if isinstance(time, datetime.datetime):
+        time = [time]
+
+    assert shape[0] == len(time)
+    assert shape[1] == len(variable)
+    assert shape[2] == coords["lat"].shape[0]
+    assert shape[3] == coords["lon"].shape[1]
+    assert not np.isnan(data.values).any()
