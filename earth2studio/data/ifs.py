@@ -47,6 +47,9 @@ class IFS:
 
     Parameters
     ----------
+    source : str, optional
+        Data source to fetch data from. For possible options refer to ECMWF's open data
+        Python SDK, by default "aws".
     cache : bool, optional
         Cache data source on local memory, by default True
     verbose : bool, optional
@@ -75,7 +78,7 @@ class IFS:
     IFS_LAT = np.linspace(90, -90, 721)
     IFS_LON = np.linspace(0, 359.75, 1440)
 
-    def __init__(self, cache: bool = True, verbose: bool = True):
+    def __init__(self, source: str = "aws", cache: bool = True, verbose: bool = True):
         # Optional import not installed error
         if opendata is None:
             raise ImportError(
@@ -84,7 +87,7 @@ class IFS:
 
         self._cache = cache
         self._verbose = verbose
-        self.client = opendata.Client(source="azure")
+        self.client = opendata.Client(source=source)
 
     def __call__(
         self,
