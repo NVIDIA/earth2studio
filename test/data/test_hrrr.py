@@ -37,7 +37,7 @@ from earth2studio.data import HRRR, HRRR_FX
         ],
     ],
 )
-@pytest.mark.parametrize("variable", ["t2m", ["u10m", "u100"]])
+@pytest.mark.parametrize("variable", ["t2m", ["u10m", "u100"], ["u1hl"]])
 def test_hrrr_fetch(time, variable):
 
     ds = HRRR(cache=False)
@@ -115,7 +115,7 @@ def test_hrrr_fx_fetch(time, lead_time):
         np.array([np.datetime64("2024-01-01T00:00")]),
     ],
 )
-@pytest.mark.parametrize("variable", [["t2m", "sp"]])
+@pytest.mark.parametrize("variable", [["t2m", "sp", "t10hl"]])
 @pytest.mark.parametrize("cache", [True, False])
 def test_hrrr_cache(time, variable, cache):
 
