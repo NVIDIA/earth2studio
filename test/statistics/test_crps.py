@@ -57,7 +57,7 @@ def test_crps(
         {
             "ensemble": np.arange(10),
             "time": np.array([np.datetime64("1993-04-05T00:00")]),
-            "variable": ["t2m", "tcwv"],
+            "variable": np.array(["t2m", "tcwv"]),
             "lat": np.linspace(-90.0, 90.0, 361),
             "lon": np.linspace(0.0, 360.0, 720, endpoint=False),
         }
@@ -96,7 +96,7 @@ def test_crps_failures(device: str) -> None:
         {
             "ensemble": np.arange(10),
             "time": np.array([np.datetime64("1993-04-05T00:00")]),
-            "variable": ["t2m", "tcwv"],
+            "variable": np.array(["t2m", "tcwv"]),
             "lat": np.linspace(-90.0, 90.0, 361),
             "lon": np.linspace(0.0, 360.0, 720, endpoint=False),
         }

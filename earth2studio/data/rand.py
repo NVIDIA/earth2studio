@@ -39,10 +39,18 @@ class Random:
     ):
         self.domain_coords = domain_coords
 
+        # Check for regular vs. curvilinear coordinates
+        _, value = list(self.domain_coords.items()).pop()
+        value = np.array(value)
+        self.curv = len(value.shape) > 1
+        if self.curv:
+            self.domain_coord_shape = value.shape
+
     def __call__(
         self,
         time: datetime | list[datetime] | TimeArray,
         variable: str | list[str] | VariableArray,
+        lead_time: np.array = None,
     ) -> xr.DataArray:
         """Retrieve random gaussian data.
 
@@ -63,12 +71,24 @@ class Random:
 
         shape = [len(time), len(variable)]
         coords = {"time": time, "variable": variable}
-        for key, value in self.domain_coords.items():
-            shape.append(len(value))
-            coords[key] = value
 
-        da = xr.DataArray(
-            data=np.random.randn(*shape), dims=list(coords), coords=coords
-        )
+        if self.curv:
+            shape.extend(self.domain_coord_shape)
+            dims = ["time", "variable", "y", "x"]
+            coords = coords | {
+                "lat": (("y", "x"), self.domain_coords["lat"]),
+                "lon": (("y", "x"), self.domain_coords["lon"]),
+            }
+            da = xr.DataArray(data=np.random.randn(*shape), dims=dims, coords=coords)
+
+        else:
+
+            for key, value in self.domain_coords.items():
+                shape.append(len(value))
+                coords[key] = value
+
+            da = xr.DataArray(
+                data=np.random.randn(*shape), dims=list(coords), coords=coords
+            )
 
         return da

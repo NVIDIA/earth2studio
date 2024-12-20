@@ -158,3 +158,12 @@ def test_map_errors():
 
     with pytest.raises(ValueError):
         map_coords(data, coords, OrderedDict([("variable", np.array(["d"]))]))
+
+    curv_coords = OrderedDict(
+        [
+            ("variable", np.array(["a", "b", "c"])),
+            ("lat", np.array([[1, 2, 3], [4, 5, 6]])),
+        ]
+    )
+    with pytest.raises(ValueError):
+        map_coords(data, coords, curv_coords)
