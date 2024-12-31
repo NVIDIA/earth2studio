@@ -26,6 +26,7 @@ import xarray as xr
 from modulus.models import Module
 from modulus.utils.generative import deterministic_sampler
 from omegaconf import OmegaConf
+from packaging.version import Version
 
 from earth2studio.data import DataSource, fetch_data
 from earth2studio.models.auto import AutoModelMixin, Package
@@ -220,8 +221,8 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         """Load StormCast model."""
 
         # Require appropriate modulus version
-        installed_version = modulus.__version__
-        if installed_version < "0.10.0a0":
+        installed_version = Version(modulus.__version__)
+        if installed_version < Version("0.10.0a0"):
             raise RuntimeError(
                 f"modulus version 0.10.0a0 or later is required "
                 f"to load the StormCast package from NGC, "
