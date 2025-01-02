@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add StormCast model to prognostic models
 - Interpolation between arbitrary lat-lon grids
 - Added hybrid level support to HRRR data source
+- Adding NCAR ERA5 data source
 
 ### Changed
 
