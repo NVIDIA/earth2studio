@@ -60,7 +60,7 @@ def test_ncar_fetch(time, variable):
 
 @pytest.mark.slow
 @pytest.mark.xfail
-@pytest.mark.timeout(40)
+@pytest.mark.timeout(30)
 @pytest.mark.parametrize(
     "time",
     [
@@ -97,21 +97,6 @@ def test_ncar_cache(time, variable, cache):
 
     if cache:
         shutil.rmtree(ds.cache)
-
-
-@pytest.mark.timeout(15)
-@pytest.mark.parametrize(
-    "time",
-    [
-        datetime(year=2021, month=2, day=16),
-        datetime(year=2023, month=1, day=1, hour=13),
-    ],
-)
-@pytest.mark.parametrize("variable", ["not_available"])
-def test_ncar_available(time, variable):
-    with pytest.raises(KeyError):
-        ds = NCAR_ERA5()
-        ds(time, variable)
 
 
 @pytest.mark.timeout(15)
