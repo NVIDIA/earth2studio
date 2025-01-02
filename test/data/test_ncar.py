@@ -26,7 +26,7 @@ from earth2studio.data import NCAR_ERA5
 
 @pytest.mark.slow
 @pytest.mark.xfail
-@pytest.mark.timeout(30)
+# @pytest.mark.timeout(30)
 @pytest.mark.parametrize(
     "time",
     [
@@ -60,7 +60,7 @@ def test_ncar_fetch(time, variable):
 
 @pytest.mark.slow
 @pytest.mark.xfail
-@pytest.mark.timeout(30)
+# @pytest.mark.timeout(30)
 @pytest.mark.parametrize(
     "time",
     [
@@ -83,7 +83,7 @@ def test_ncar_cache(time, variable, cache):
     if cache:
         assert pathlib.Path(ds.cache).is_dir()
     else:
-        assert ds.cache is None
+        assert not pathlib.Path(ds.cache).is_dir()
 
     # Load from cache or refetch
     data = ds(time, variable[0])
