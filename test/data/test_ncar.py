@@ -94,7 +94,7 @@ def test_ncar_cache(time, variable, cache):
     assert shape[2] == 721
     assert shape[3] == 1440
     assert not np.isnan(data.values).any()
-    
+
     if cache:
         shutil.rmtree(ds.cache)
 
