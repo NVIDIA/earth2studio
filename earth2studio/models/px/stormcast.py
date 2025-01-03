@@ -25,7 +25,10 @@ import torch
 import xarray as xr
 from modulus.models import Module
 from modulus.utils.generative import deterministic_sampler
-from omegaconf import OmegaConf
+try:
+    from omegaconf import OmegaConf
+except ImportError:
+    OmegaConf = None
 from packaging.version import Version
 
 from earth2studio.data import DataSource, fetch_data
