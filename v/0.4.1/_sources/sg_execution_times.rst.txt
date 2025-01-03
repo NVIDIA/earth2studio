@@ -6,7 +6,7 @@
 
 Computation times
 =================
-**07:03.778** total execution time for 11 files **from all galleries**:
+**29:47.910** total execution time for 11 files **from all galleries**:
 
 .. container::
 
@@ -33,35 +33,35 @@ Computation times
      - Time
      - Mem (MB)
    * - :ref:`sphx_glr_examples_07_seasonal_statistics.py` (``../examples/07_seasonal_statistics.py``)
-     - 01:26.095
-     - 0.0
-   * - :ref:`sphx_glr_examples_03_ensemble_workflow.py` (``../examples/03_ensemble_workflow.py``)
-     - 01:25.688
+     - 09:44.415
      - 0.0
    * - :ref:`sphx_glr_examples_01_deterministic_workflow.py` (``../examples/01_deterministic_workflow.py``)
-     - 00:57.212
-     - 0.0
-   * - :ref:`sphx_glr_examples_extend_03_custom_datasource.py` (``../examples/extend/03_custom_datasource.py``)
-     - 00:50.803
-     - 0.0
-   * - :ref:`sphx_glr_examples_extend_02_custom_diagnostic.py` (``../examples/extend/02_custom_diagnostic.py``)
-     - 00:44.817
-     - 0.0
-   * - :ref:`sphx_glr_examples_02_diagnostic_workflow.py` (``../examples/02_diagnostic_workflow.py``)
-     - 00:20.421
+     - 03:53.363
      - 0.0
    * - :ref:`sphx_glr_examples_08_distributed_manager.py` (``../examples/08_distributed_manager.py``)
-     - 00:20.330
+     - 03:29.811
      - 0.0
-   * - :ref:`sphx_glr_examples_06_model_perturbation_hook.py` (``../examples/06_model_perturbation_hook.py``)
-     - 00:19.993
+   * - :ref:`sphx_glr_examples_extend_03_custom_datasource.py` (``../examples/extend/03_custom_datasource.py``)
+     - 03:13.867
+     - 0.0
+   * - :ref:`sphx_glr_examples_02_diagnostic_workflow.py` (``../examples/02_diagnostic_workflow.py``)
+     - 02:29.216
      - 0.0
    * - :ref:`sphx_glr_examples_04_corrdiff_inference.py` (``../examples/04_corrdiff_inference.py``)
-     - 00:18.502
+     - 02:14.245
      - 0.0
    * - :ref:`sphx_glr_examples_05_ensemble_workflow_extend.py` (``../examples/05_ensemble_workflow_extend.py``)
-     - 00:15.548
+     - 01:24.524
+     - 0.0
+   * - :ref:`sphx_glr_examples_06_model_perturbation_hook.py` (``../examples/06_model_perturbation_hook.py``)
+     - 01:23.684
+     - 0.0
+   * - :ref:`sphx_glr_examples_03_ensemble_workflow.py` (``../examples/03_ensemble_workflow.py``)
+     - 01:13.203
+     - 0.0
+   * - :ref:`sphx_glr_examples_extend_02_custom_diagnostic.py` (``../examples/extend/02_custom_diagnostic.py``)
+     - 00:33.916
      - 0.0
    * - :ref:`sphx_glr_examples_extend_01_custom_prognostic.py` (``../examples/extend/01_custom_prognostic.py``)
-     - 00:04.371
+     - 00:07.666
      - 0.0

@@ -56,7 +56,7 @@
     <script>
         DOCUMENTATION_OPTIONS.theme_version = '0.15.2';
         DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'https://raw.githubusercontent.com/NVIDIA/earth2studio/gh-pages/_static/switcher.json';
-        DOCUMENTATION_OPTIONS.theme_switcher_version_match = '0.4.1';
+        DOCUMENTATION_OPTIONS.theme_switcher_version_match = 'main';
         DOCUMENTATION_OPTIONS.show_version_warning_banner = false;
         </script>
     <link rel="index" title="Index" href="../../genindex.html" />
@@ -565,6 +565,16 @@ pip<span class="w"> </span>install<span class="w"> </span>earth2studio<span clas
 </pre></div>
 </div>
 </div>
+<input id="sd-tab-item-5" name="sd-tab-set-0" type="radio">
+<label class="sd-tab-label" for="sd-tab-item-5">
+StormCast</label><div class="sd-tab-content docutils">
+<p>Notes: Requires <a class="reference external" href="https://github.com/NVIDIA/modulus">Modulus</a> main branch to be
+installed manually.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span><span class="s2">&quot;nvidia-modulus@git+https://github.com/NVIDIA/modulus.git@54ca6934daaf55455d9b662b66de81f0c957fbf3&quot;</span>
+pip<span class="w"> </span>install<span class="w"> </span>earth2studio<span class="o">[</span>stormcast<span class="o">]</span>
+</pre></div>
+</div>
+</div>
 </div>
 <p>Using <code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span> <span class="pre">earth2studio[all]</span></code> will install all optional functionality dependencies.</p>
 </section>
@@ -737,7 +747,7 @@ a model package file from a remote store such as NGC, Huggingface or S3.</p></li
 
   <p class="copyright">
     
-      © Copyright 2024, NVIDIA.
+      © Copyright 2025, NVIDIA.
       <br/>
     
   </p>

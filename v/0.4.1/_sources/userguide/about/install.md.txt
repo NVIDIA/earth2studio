@@ -115,6 +115,16 @@ pip install earth2studio[sfno]
 ```
 
 :::
+:::{tab-item} StormCast
+Notes: Requires [Modulus](https://github.com/NVIDIA/modulus) main branch to be
+installed manually.
+
+```bash
+pip install "nvidia-modulus@git+https://github.com/NVIDIA/modulus.git@54ca6934daaf55455d9b662b66de81f0c957fbf3"
+pip install earth2studio[stormcast]
+```
+
+:::
 ::::
 
 Using `pip install earth2studio[all]` will install all optional functionality dependencies.
