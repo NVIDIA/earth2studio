@@ -590,7 +590,9 @@ document.write(`
         <span class="c1"># TODO: Better typing for model object</span>
         <span class="nd">@functools</span><span class="o">.</span><span class="n">wraps</span><span class="p">(</span><span class="n">func</span><span class="p">)</span>
         <span class="k">def</span> <span class="nf">_wrapper</span><span class="p">(</span>
-            <span class="n">model</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">coords</span><span class="p">:</span> <span class="n">CoordSystem</span>
+            <span class="n">model</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+            <span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+            <span class="n">coords</span><span class="p">:</span> <span class="n">CoordSystem</span><span class="p">,</span>
         <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">CoordSystem</span><span class="p">]:</span>
 
             <span class="n">x</span><span class="p">,</span> <span class="n">flatten_coords</span><span class="p">,</span> <span class="n">batched_coords</span><span class="p">,</span> <span class="n">batched_shape</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_compress_batch</span><span class="p">(</span>

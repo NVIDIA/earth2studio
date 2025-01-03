@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
     <link href="../../../_static/favicon.ico" rel="icon" type="image/x-icon">
-    <title>earth2studio.data.GFS &#8212; Earth2Studio 0.5.0a0 documentation</title>
+    <title>earth2studio.data.NCAR_ERA5 &#8212; Earth2Studio 0.5.0a0 documentation</title>
   
   
   
@@ -52,7 +52,7 @@
     <script src="../../../_static/design-tabs.js?v=f930bc37"></script>
     <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
     <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
-    <script>DOCUMENTATION_OPTIONS.pagename = 'modules/generated/data/earth2studio.data.GFS';</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'modules/generated/data/earth2studio.data.NCAR_ERA5';</script>
     <script>
         DOCUMENTATION_OPTIONS.theme_version = '0.15.2';
         DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'https://raw.githubusercontent.com/NVIDIA/earth2studio/gh-pages/_static/switcher.json';
@@ -61,8 +61,8 @@
         </script>
     <link rel="index" title="Index" href="../../../genindex.html" />
     <link rel="search" title="Search" href="../../../search.html" />
-    <link rel="next" title="earth2studio.data.HRRR" href="earth2studio.data.HRRR.html" />
-    <link rel="prev" title="earth2studio.data.CDS" href="earth2studio.data.CDS.html" />
+    <link rel="next" title="earth2studio.data.Random" href="earth2studio.data.Random.html" />
+    <link rel="prev" title="earth2studio.data.IMERG" href="earth2studio.data.IMERG.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   </head>
@@ -402,11 +402,11 @@ document.write(`
 <li class="toctree-l1 current active has-children"><a class="reference internal" href="../../datasources.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>: Data Sources</a><input checked="" class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-2"><i class="fa-solid fa-chevron-down"></i></label><ul class="current">
 <li class="toctree-l2"><a class="reference internal" href="earth2studio.data.ARCO.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.ARCO</a></li>
 <li class="toctree-l2"><a class="reference internal" href="earth2studio.data.CDS.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.CDS</a></li>
-<li class="toctree-l2 current active"><a class="current reference internal" href="#"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.GFS</a></li>
+<li class="toctree-l2"><a class="reference internal" href="earth2studio.data.GFS.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.GFS</a></li>
 <li class="toctree-l2"><a class="reference internal" href="earth2studio.data.HRRR.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.HRRR</a></li>
 <li class="toctree-l2"><a class="reference internal" href="earth2studio.data.IFS.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.IFS</a></li>
 <li class="toctree-l2"><a class="reference internal" href="earth2studio.data.IMERG.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.IMERG</a></li>
-<li class="toctree-l2"><a class="reference internal" href="earth2studio.data.NCAR_ERA5.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.NCAR_ERA5</a></li>
+<li class="toctree-l2 current active"><a class="current reference internal" href="#"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.NCAR_ERA5</a></li>
 <li class="toctree-l2"><a class="reference internal" href="earth2studio.data.Random.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.Random</a></li>
 <li class="toctree-l2"><a class="reference internal" href="earth2studio.data.WB2ERA5.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.WB2ERA5</a></li>
 <li class="toctree-l2"><a class="reference internal" href="earth2studio.data.WB2ERA5_121x240.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.WB2ERA5_121x240</a></li>
@@ -528,19 +528,18 @@ document.write(`
 <div id="searchbox"></div>
                 <article class="bd-article">
                   
-  <section id="earth2studio-data-gfs">
-<h1><a class="reference internal" href="../../datasources.html#module-earth2studio.data" title="earth2studio.data"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code></a>.GFS<a class="headerlink" href="#earth2studio-data-gfs" title="Link to this heading">#</a></h1>
+  <section id="earth2studio-data-ncar-era5">
+<h1><a class="reference internal" href="../../datasources.html#module-earth2studio.data" title="earth2studio.data"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code></a>.NCAR_ERA5<a class="headerlink" href="#earth2studio-data-ncar-era5" title="Link to this heading">#</a></h1>
 <dl class="py class">
-<dt class="sig sig-object py" id="earth2studio.data.GFS">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">earth2studio.data.</span></span><span class="sig-name descname"><span class="pre">GFS</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">source</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'aws'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cache</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">verbose</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/earth2studio/data/gfs.html#GFS"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.data.GFS" title="Link to this definition">#</a></dt>
-<dd><p>The global forecast service (GFS) initial state data source provided on an
-equirectangular grid. GFS is a weather forecast model developed by NOAA. This data
-source is provided on a 0.25 degree lat lon grid at 6-hour intervals spanning from
-Feb 26th 2021 to present date.</p>
+<dt class="sig sig-object py" id="earth2studio.data.NCAR_ERA5">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">earth2studio.data.</span></span><span class="sig-name descname"><span class="pre">NCAR_ERA5</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">n_workers</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">8</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cache</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">verbose</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/earth2studio/data/ncar.html#NCAR_ERA5"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.data.NCAR_ERA5" title="Link to this definition">#</a></dt>
+<dd><p>ERA5 data provided by NSF NCAR via the AWS Open Data Sponsorship Program. ERA5
+is the fifth generation of the ECMWF global reanalysis and available on a 0.25
+degree WGS84 grid at hourly intervals spanning from 1940 to the present.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>source</strong> (<em>str</em><em>, </em><em>optional</em>) – Data store location to pull from. Options are [aws, ncep], by default aws</p></li>
+<li><p><strong>n_workers</strong> (<em>int</em><em>, </em><em>optional</em>) – Number of parallel workers, by default 8</p></li>
 <li><p><strong>cache</strong> (<em>bool</em><em>, </em><em>optional</em>) – Cache data source on local memory, by default True</p></li>
 <li><p><strong>verbose</strong> (<em>bool</em><em>, </em><em>optional</em>) – Print download progress, by default True</p></li>
 </ul>
@@ -553,33 +552,23 @@ to your local machine for large requests.</p>
 </div>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>This data source only fetches the initial state of GFS and does not fetch an
-predicted time steps. See <a class="reference internal" href="earth2studio.data.GFS_FX.html#earth2studio.data.GFS_FX" title="earth2studio.data.GFS_FX"><code class="xref py py-class docutils literal notranslate"><span class="pre">GFS_FX</span></code></a> for fetching predicted
-data from this forecast system.</p>
-</div>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>Additional information on the data repository can be referenced here:</p>
-<ul class="simple">
-<li><p><a class="reference external" href="https://registry.opendata.aws/noaa-gfs-bdp-pds/">https://registry.opendata.aws/noaa-gfs-bdp-pds/</a></p></li>
-<li><p><a class="reference external" href="https://www.emc.ncep.noaa.gov/emc/pages/numerical_forecast_systems/gfs.php">https://www.emc.ncep.noaa.gov/emc/pages/numerical_forecast_systems/gfs.php</a></p></li>
-</ul>
+<p>Additional resources:
+<a class="reference external" href="https://registry.opendata.aws/nsf-ncar-era5/">https://registry.opendata.aws/nsf-ncar-era5/</a></p>
 </div>
 <dl class="py method">
-<dt class="sig sig-object py" id="earth2studio.data.GFS.__call__">
-<span class="sig-name descname"><span class="pre">__call__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">time</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">variable</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/earth2studio/data/gfs.html#GFS.__call__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.data.GFS.__call__" title="Link to this definition">#</a></dt>
-<dd><p>Retrieve GFS initial data to be used for initial conditions for the given
-time, variable information, and optional history.</p>
+<dt class="sig sig-object py" id="earth2studio.data.NCAR_ERA5.__call__">
+<span class="sig-name descname"><span class="pre">__call__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">time</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">variable</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/earth2studio/data/ncar.html#NCAR_ERA5.__call__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.data.NCAR_ERA5.__call__" title="Link to this definition">#</a></dt>
+<dd><p>Retrieve ERA5 data.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>time</strong> (<em>datetime</em><em> | </em><em>list</em><em>[</em><em>datetime</em><em>] </em><em>| </em><em>TimeArray</em>) – Timestamps to return data for (UTC).</p></li>
 <li><p><strong>variable</strong> (<em>str</em><em> | </em><em>list</em><em>[</em><em>str</em><em>] </em><em>| </em><em>VariableArray</em>) – String, list of strings or array of strings that refer to variables to
-return. Must be in the GFS lexicon.</p></li>
+return. Must be in the NCAR_ERA5 lexicon.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p>GFS weather data array</p>
+<dd class="field-even"><p>ERA5 weather data array</p>
 </dd>
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>xr.DataArray</p>
@@ -587,59 +576,9 @@ return. Must be in the GFS lexicon.</p></li>
 </dl>
 </dd></dl>
 
-<dl class="py method">
-<dt class="sig sig-object py" id="earth2studio.data.GFS.available">
-<em class="property"><span class="pre">classmethod</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">available</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">time</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/earth2studio/data/gfs.html#GFS.available"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.data.GFS.available" title="Link to this definition">#</a></dt>
-<dd><p>Checks if given date time is avaliable in the GFS object store. Uses S3 store</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>time</strong> (<em>datetime</em><em> | </em><em>np.datetime64</em>) – Date time to access</p>
-</dd>
-<dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p>If date time is avaiable</p>
-</dd>
-<dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>bool</p>
-</dd>
-</dl>
 </dd></dl>
 
-</dd></dl>
-
-<section id="examples-using-earth2studio-data-gfs">
-<span id="sphx-glr-backref-earth2studio-data-gfs"></span><h2>Examples using <code class="docutils literal notranslate"><span class="pre">earth2studio.data.GFS</span></code><a class="headerlink" href="#examples-using-earth2studio-data-gfs" title="Link to this heading">#</a></h2>
-<div class="sphx-glr-thumbnails"><div class="sphx-glr-thumbcontainer" tooltip="Basic deterministic inference workflow."><img alt="" src="../../../_images/sphx_glr_01_deterministic_workflow_thumb.png" />
-<p><a class="reference internal" href="../../../examples/01_deterministic_workflow.html#sphx-glr-examples-01-deterministic-workflow-py"><span class="std std-ref">Running Deterministic Inference</span></a></p>
-  <div class="sphx-glr-thumbnail-title">Running Deterministic Inference</div>
-</div><div class="sphx-glr-thumbcontainer" tooltip="Basic prognostic + diagnostic inference workflow."><img alt="" src="../../../_images/sphx_glr_02_diagnostic_workflow_thumb.png" />
-<p><a class="reference internal" href="../../../examples/02_diagnostic_workflow.html#sphx-glr-examples-02-diagnostic-workflow-py"><span class="std std-ref">Running Diagnostic Inference</span></a></p>
-  <div class="sphx-glr-thumbnail-title">Running Diagnostic Inference</div>
-</div><div class="sphx-glr-thumbcontainer" tooltip="Simple ensemble inference workflow."><img alt="" src="../../../_images/sphx_glr_03_ensemble_workflow_thumb.png" />
-<p><a class="reference internal" href="../../../examples/03_ensemble_workflow.html#sphx-glr-examples-03-ensemble-workflow-py"><span class="std std-ref">Running Ensemble Inference</span></a></p>
-  <div class="sphx-glr-thumbnail-title">Running Ensemble Inference</div>
-</div><div class="sphx-glr-thumbcontainer" tooltip="Generative downscaling over Taiwan using CorrDiff diffusion model."><img alt="" src="../../../_images/sphx_glr_04_corrdiff_inference_thumb.png" />
-<p><a class="reference internal" href="../../../examples/04_corrdiff_inference.html#sphx-glr-examples-04-corrdiff-inference-py"><span class="std std-ref">Generative Downscaling</span></a></p>
-  <div class="sphx-glr-thumbnail-title">Generative Downscaling</div>
-</div><div class="sphx-glr-thumbcontainer" tooltip="Intermediate ensemble inference using a custom perturbation method."><img alt="" src="../../../_images/sphx_glr_05_ensemble_workflow_extend_thumb.png" />
-<p><a class="reference internal" href="../../../examples/05_ensemble_workflow_extend.html#sphx-glr-examples-05-ensemble-workflow-extend-py"><span class="std std-ref">Single Variable Perturbation Method</span></a></p>
-  <div class="sphx-glr-thumbnail-title">Single Variable Perturbation Method</div>
-</div><div class="sphx-glr-thumbcontainer" tooltip="Adding model noise by using custom hooks."><img alt="" src="../../../_images/sphx_glr_06_model_perturbation_hook_thumb.png" />
-<p><a class="reference internal" href="../../../examples/06_model_perturbation_hook.html#sphx-glr-examples-06-model-perturbation-hook-py"><span class="std std-ref">Model Hook Injection: Perturbation</span></a></p>
-  <div class="sphx-glr-thumbnail-title">Model Hook Injection: Perturbation</div>
-</div><div class="sphx-glr-thumbcontainer" tooltip="This example will demonstrate how to run a simple inference workflow to generate a forecast and then to save a statistic of that data. There are a handful of built-in statistics available in earth2studio.statistics, but here we will demonstrate how to define a custom statistic and run inference."><img alt="" src="../../../_images/sphx_glr_07_seasonal_statistics_thumb.png" />
-<p><a class="reference internal" href="../../../examples/07_seasonal_statistics.html#sphx-glr-examples-07-seasonal-statistics-py"><span class="std std-ref">Statistical Inference</span></a></p>
-  <div class="sphx-glr-thumbnail-title">Statistical Inference</div>
-</div><div class="sphx-glr-thumbcontainer" tooltip="Implementing a custom prognostic model"><img alt="" src="../../../_images/sphx_glr_01_custom_prognostic_thumb.png" />
-<p><a class="reference internal" href="../../../examples/extend/01_custom_prognostic.html#sphx-glr-examples-extend-01-custom-prognostic-py"><span class="std std-ref">Extending Prognostic Models</span></a></p>
-  <div class="sphx-glr-thumbnail-title">Extending Prognostic Models</div>
-</div><div class="sphx-glr-thumbcontainer" tooltip="Implementing a custom diagnostic model"><img alt="" src="../../../_images/sphx_glr_02_custom_diagnostic_thumb.png" />
-<p><a class="reference internal" href="../../../examples/extend/02_custom_diagnostic.html#sphx-glr-examples-extend-02-custom-diagnostic-py"><span class="std std-ref">Extending Diagnostic Models</span></a></p>
-  <div class="sphx-glr-thumbnail-title">Extending Diagnostic Models</div>
-</div><div class="sphx-glr-thumbcontainer" tooltip="Implementing a custom data source"><img alt="" src="../../../_images/sphx_glr_03_custom_datasource_thumb.png" />
-<p><a class="reference internal" href="../../../examples/extend/03_custom_datasource.html#sphx-glr-examples-extend-03-custom-datasource-py"><span class="std std-ref">Extending Data Sources</span></a></p>
-  <div class="sphx-glr-thumbnail-title">Extending Data Sources</div>
-</div></div><div class="clearer"></div></section>
-</section>
+<div class="clearer"></div></section>
 
 
                 </article>
@@ -652,20 +591,20 @@ return. Must be in the GFS lexicon.</p></li>
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="earth2studio.data.CDS.html"
+       href="earth2studio.data.IMERG.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.CDS</p>
+        <p class="prev-next-title"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.IMERG</p>
       </div>
     </a>
     <a class="right-next"
-       href="earth2studio.data.HRRR.html"
+       href="earth2studio.data.Random.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.HRRR</p>
+        <p class="prev-next-title"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.Random</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
@@ -687,19 +626,17 @@ return. Must be in the GFS lexicon.</p></li>
   </div>
   <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="visible nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.data.GFS"><code class="docutils literal notranslate"><span class="pre">GFS</span></code></a><ul class="nav section-nav flex-column">
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.data.GFS.__call__"><code class="docutils literal notranslate"><span class="pre">GFS.__call__()</span></code></a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.data.GFS.available"><code class="docutils literal notranslate"><span class="pre">GFS.available()</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.data.NCAR_ERA5"><code class="docutils literal notranslate"><span class="pre">NCAR_ERA5</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.data.NCAR_ERA5.__call__"><code class="docutils literal notranslate"><span class="pre">NCAR_ERA5.__call__()</span></code></a></li>
 </ul>
 </li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#examples-using-earth2studio-data-gfs">Examples using <code class="docutils literal notranslate"><span class="pre">earth2studio.data.GFS</span></code></a></li>
 </ul>
   </nav></div>
 
   <div class="sidebar-secondary-item">
 
   <div class="tocsection sourcelink">
-    <a href="../../../_sources/modules/generated/data/earth2studio.data.GFS.rst.txt">
+    <a href="../../../_sources/modules/generated/data/earth2studio.data.NCAR_ERA5.rst.txt">
       <i class="fa-solid fa-file-lines"></i> Show Source
     </a>
   </div>

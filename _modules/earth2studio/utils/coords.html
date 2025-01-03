@@ -540,6 +540,11 @@ document.write(`
             <span class="sa">f</span><span class="s2">&quot;Required dimension </span><span class="si">{</span><span class="n">required_dim</span><span class="si">}</span><span class="s2"> not found in target coordinates&quot;</span>
         <span class="p">)</span>
 
+    <span class="k">if</span> <span class="n">input_coords</span><span class="p">[</span><span class="n">required_dim</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span> <span class="o">!=</span> <span class="n">target_coords</span><span class="p">[</span><span class="n">required_dim</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;Coordinate systems for required dim </span><span class="si">{</span><span class="n">required_dim</span><span class="si">}</span><span class="s2"> are not the same&quot;</span>
+        <span class="p">)</span>
+
     <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="n">input_coords</span><span class="p">[</span><span class="n">required_dim</span><span class="p">]</span> <span class="o">==</span> <span class="n">target_coords</span><span class="p">[</span><span class="n">required_dim</span><span class="p">]):</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
             <span class="sa">f</span><span class="s2">&quot;Coordinate systems for required dim </span><span class="si">{</span><span class="n">required_dim</span><span class="si">}</span><span class="s2"> are not the same&quot;</span>
@@ -605,7 +610,9 @@ document.write(`
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;A basic interpolation util to map between coordinate systems with common</span>
 <span class="sd">    dimensions. Namely, `output_coords` should consist of keys are present in</span>
 <span class="sd">    `input_coords`. Note that `output_coords` do not need have all the dimensions of the</span>
-<span class="sd">    `input_coords`.</span>
+<span class="sd">    `input_coords`. Does not support more advanced interpolation, such as between a regular</span>
+<span class="sd">    and curvilinear grid. For such use-cases, use `fetch_data` or `prep_data_array` from</span>
+<span class="sd">    `data/utils`.</span>
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
@@ -629,6 +636,7 @@ document.write(`
 <span class="sd">        If output coordinate has a dimension not in the input coordinate</span>
 <span class="sd">    ValueError</span>
 <span class="sd">        If value in non-numeric output coordinate is not in input coordinate</span>
+<span class="sd">        If asked to interpolate between 2D lat/lon (curvilinear) coordinates</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">mapped_coords</span> <span class="o">=</span> <span class="n">input_coords</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
 
@@ -651,6 +659,14 @@ document.write(`
             <span class="k">if</span> <span class="n">inc</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="n">outc</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="ow">and</span> <span class="n">np</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="n">inc</span> <span class="o">==</span> <span class="n">outc</span><span class="p">):</span>
                 <span class="c1"># skip interpolation if input and output coords are identical</span>
                 <span class="k">continue</span>
+
+            <span class="k">if</span> <span class="n">key</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;lat&quot;</span><span class="p">,</span> <span class="s2">&quot;lon&quot;</span><span class="p">]</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">inc</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="ow">or</span> <span class="nb">len</span><span class="p">(</span><span class="n">outc</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="c1"># Guard against 2D lat/lon grids (curvilinear case)</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;Coordinate dim </span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s2"> in input or mapped coords is </span><span class="se">\</span>
+<span class="s2">                        two-dimensional; please use fetch_data or </span><span class="se">\</span>
+<span class="s2">                        prep_data_array to regrid/interpolate first.&quot;</span>
+                <span class="p">)</span>
 
             <span class="n">indx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">inc</span> <span class="o">==</span> <span class="n">outc</span><span class="p">[</span><span class="mi">0</span><span class="p">])[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
             <span class="n">inc_slice</span> <span class="o">=</span> <span class="n">inc</span><span class="p">[</span><span class="n">indx</span> <span class="p">:</span> <span class="n">indx</span> <span class="o">+</span> <span class="n">outc</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span>

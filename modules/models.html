@@ -390,6 +390,7 @@ document.write(`
 <li class="toctree-l2"><a class="reference internal" href="generated/models/px/earth2studio.models.px.Pangu3.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.Pangu3</a></li>
 <li class="toctree-l2"><a class="reference internal" href="generated/models/px/earth2studio.models.px.Persistence.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.Persistence</a></li>
 <li class="toctree-l2"><a class="reference internal" href="generated/models/px/earth2studio.models.px.SFNO.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.SFNO</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generated/models/px/earth2studio.models.px.StormCast.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.StormCast</a></li>
 <li class="toctree-l2"><a class="reference internal" href="generated/models/dx/earth2studio.models.dx.CorrDiffTaiwan.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.dx</span></code>.CorrDiffTaiwan</a></li>
 <li class="toctree-l2"><a class="reference internal" href="generated/models/dx/earth2studio.models.dx.ClimateNet.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.dx</span></code>.ClimateNet</a></li>
 <li class="toctree-l2"><a class="reference internal" href="generated/models/dx/earth2studio.models.dx.PrecipitationAFNO.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.dx</span></code>.PrecipitationAFNO</a></li>
@@ -405,6 +406,7 @@ document.write(`
 <li class="toctree-l2"><a class="reference internal" href="generated/data/earth2studio.data.HRRR.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.HRRR</a></li>
 <li class="toctree-l2"><a class="reference internal" href="generated/data/earth2studio.data.IFS.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.IFS</a></li>
 <li class="toctree-l2"><a class="reference internal" href="generated/data/earth2studio.data.IMERG.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.IMERG</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generated/data/earth2studio.data.NCAR_ERA5.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.NCAR_ERA5</a></li>
 <li class="toctree-l2"><a class="reference internal" href="generated/data/earth2studio.data.Random.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.Random</a></li>
 <li class="toctree-l2"><a class="reference internal" href="generated/data/earth2studio.data.WB2ERA5.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.WB2ERA5</a></li>
 <li class="toctree-l2"><a class="reference internal" href="generated/data/earth2studio.data.WB2ERA5_121x240.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.WB2ERA5_121x240</a></li>
@@ -563,6 +565,9 @@ prior to use.</p>
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="generated/models/px/earth2studio.models.px.SFNO.html#earth2studio.models.px.SFNO" title="earth2studio.models.px.SFNO"><code class="xref py py-obj docutils literal notranslate"><span class="pre">models.px.SFNO</span></code></a></p></td>
 <td><p>Spherical Fourier Operator Network global prognostic model. Consists of a single model with a time-step size of 6 hours. FourCastNet operates on 0.25 degree lat-lon grid (south-pole excluding) equirectangular grid with 73 variables. .. note::.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/models/px/earth2studio.models.px.StormCast.html#earth2studio.models.px.StormCast" title="earth2studio.models.px.StormCast"><code class="xref py py-obj docutils literal notranslate"><span class="pre">models.px.StormCast</span></code></a></p></td>
+<td><p>StormCast generative convection-allowing model for regional forecasts Consists of two core models, a regression and diffusion model This class implements StormCastV1, the model released in:  <a class="reference external" href="https://arxiv.org/abs/2408.10958">https://arxiv.org/abs/2408.10958</a> Model time step size is 1 hour, taking as input:     - High-resolution (3km) HRRR state over the central United States (99 vars)     - High-resolution land-sea mask and orography invariants     - Coarse resolution (25km) global state (26 vars) The high-resolution grid is the HRRR Lambert conformal projection Coarse-resolution inputs are regridded to the HRRR grid internally.</p></td>
 </tr>
 </tbody>
 </table>

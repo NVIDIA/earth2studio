@@ -453,6 +453,7 @@ document.write(`
 <span class="kn">from</span> <span class="nn">loguru</span> <span class="kn">import</span> <span class="n">logger</span>
 
 <span class="kn">from</span> <span class="nn">earth2studio.data.base</span> <span class="kn">import</span> <span class="n">DataSource</span>
+<span class="kn">from</span> <span class="nn">earth2studio.utils.interp</span> <span class="kn">import</span> <span class="n">LatLonInterpolation</span>
 <span class="kn">from</span> <span class="nn">earth2studio.utils.time</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">leadtimearray_to_timedelta</span><span class="p">,</span>
     <span class="n">timearray_to_datetime</span><span class="p">,</span>
@@ -469,8 +470,12 @@ document.write(`
     <span class="n">variable</span><span class="p">:</span> <span class="n">VariableArray</span><span class="p">,</span>
     <span class="n">lead_time</span><span class="p">:</span> <span class="n">LeadTimeArray</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">np</span><span class="o">.</span><span class="n">timedelta64</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;h&quot;</span><span class="p">)]),</span>
     <span class="n">device</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">device</span> <span class="o">=</span> <span class="s2">&quot;cpu&quot;</span><span class="p">,</span>
+    <span class="n">interp_to</span><span class="p">:</span> <span class="n">CoordSystem</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">interp_method</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;nearest&quot;</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">CoordSystem</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Utility function to fetch data for models and load data on the target device.</span>
+<span class="sd">    If desired, xarray interpolation/regridding in the spatial domain can be used</span>
+<span class="sd">    by passing a target coordinate system via the optional `interp_to` argument.</span>
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
@@ -485,6 +490,11 @@ document.write(`
 <span class="sd">        np.array(np.timedelta64(0, &quot;h&quot;))</span>
 <span class="sd">    device : torch.device, optional</span>
 <span class="sd">        Torch devive to load data tensor to, by default &quot;cpu&quot;</span>
+<span class="sd">    interp_to : CoordSystem, optional</span>
+<span class="sd">        If provided, the fetched data will be interpolated to the coordinates</span>
+<span class="sd">        specified by lat/lon arrays in this CoordSystem</span>
+<span class="sd">    interp_method : str</span>
+<span class="sd">        Interpolation method to use with xarray (by default &#39;nearest&#39;)</span>
 
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
@@ -501,7 +511,12 @@ document.write(`
         <span class="n">da0</span> <span class="o">=</span> <span class="n">da0</span><span class="o">.</span><span class="n">assign_coords</span><span class="p">(</span><span class="n">time</span><span class="o">=</span><span class="n">time</span><span class="p">)</span>
         <span class="n">da</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">da0</span><span class="p">)</span>
 
-    <span class="k">return</span> <span class="n">prep_data_array</span><span class="p">(</span><span class="n">xr</span><span class="o">.</span><span class="n">concat</span><span class="p">(</span><span class="n">da</span><span class="p">,</span> <span class="s2">&quot;lead_time&quot;</span><span class="p">),</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">)</span></div>
+    <span class="k">return</span> <span class="n">prep_data_array</span><span class="p">(</span>
+        <span class="n">xr</span><span class="o">.</span><span class="n">concat</span><span class="p">(</span><span class="n">da</span><span class="p">,</span> <span class="s2">&quot;lead_time&quot;</span><span class="p">),</span>
+        <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span>
+        <span class="n">interp_to</span><span class="o">=</span><span class="n">interp_to</span><span class="p">,</span>
+        <span class="n">interp_method</span><span class="o">=</span><span class="n">interp_method</span><span class="p">,</span>
+    <span class="p">)</span></div>
 
 
 
@@ -510,9 +525,14 @@ document.write(`
 <span class="k">def</span> <span class="nf">prep_data_array</span><span class="p">(</span>
     <span class="n">da</span><span class="p">:</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">,</span>
     <span class="n">device</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">device</span> <span class="o">=</span> <span class="s2">&quot;cpu&quot;</span><span class="p">,</span>
+    <span class="n">interp_to</span><span class="p">:</span> <span class="n">CoordSystem</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">interp_method</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;nearest&quot;</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">CoordSystem</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Prepares a data array from a data source for inference workflows by converting</span>
 <span class="sd">    the data array to a torch tensor and the coordinate system to an OrderedDict.</span>
+
+<span class="sd">    If desired, xarray interpolation/regridding in the spatial domain can be used</span>
+<span class="sd">    by passing a target coordinate system via the optional `interp_to` argument.</span>
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
@@ -520,6 +540,11 @@ document.write(`
 <span class="sd">        Input data array</span>
 <span class="sd">    device : torch.device, optional</span>
 <span class="sd">        Torch devive to load data tensor to, by default &quot;cpu&quot;</span>
+<span class="sd">    interp_to : CoordSystem, optional</span>
+<span class="sd">        If provided, the fetched data will be interpolated to the coordinates</span>
+<span class="sd">        specified by lat/lon arrays in this CoordSystem</span>
+<span class="sd">    interp_method : str</span>
+<span class="sd">        Interpolation method to use with xarray (by default &#39;nearest&#39;)</span>
 
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
@@ -527,11 +552,65 @@ document.write(`
 <span class="sd">        Tuple containing output tensor and coordinate OrderedDict</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="n">out</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">(</span><span class="n">da</span><span class="o">.</span><span class="n">values</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
-
+    <span class="c1"># Initialize the output CoordSystem</span>
     <span class="n">out_coords</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">()</span>
     <span class="k">for</span> <span class="n">dim</span> <span class="ow">in</span> <span class="n">da</span><span class="o">.</span><span class="n">coords</span><span class="o">.</span><span class="n">dims</span><span class="p">:</span>
-        <span class="n">out_coords</span><span class="p">[</span><span class="n">dim</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">da</span><span class="o">.</span><span class="n">coords</span><span class="p">[</span><span class="n">dim</span><span class="p">])</span>
+        <span class="k">if</span> <span class="n">dim</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;time&quot;</span><span class="p">,</span> <span class="s2">&quot;lead_time&quot;</span><span class="p">,</span> <span class="s2">&quot;variable&quot;</span><span class="p">]:</span>
+            <span class="n">out_coords</span><span class="p">[</span><span class="n">dim</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">da</span><span class="o">.</span><span class="n">coords</span><span class="p">[</span><span class="n">dim</span><span class="p">])</span>
+
+    <span class="c1"># Fetch data and regrid if necessary</span>
+    <span class="k">if</span> <span class="n">interp_to</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">interp_to</span><span class="p">[</span><span class="s2">&quot;lat&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">interp_to</span><span class="p">[</span><span class="s2">&quot;lon&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;Discrepancy in interpolation coordinates: latitude has different number of dims than longitude&quot;</span>
+            <span class="p">)</span>
+
+        <span class="k">if</span> <span class="s2">&quot;lat&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">da</span><span class="o">.</span><span class="n">dims</span><span class="p">:</span>
+            <span class="c1"># Data source uses curvilinear coordinates</span>
+            <span class="k">if</span> <span class="n">interp_method</span> <span class="o">!=</span> <span class="s2">&quot;linear&quot;</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="s2">&quot;fetch_data does not support interpolation methods other than linear when data source has a curvilinear grid&quot;</span>
+                <span class="p">)</span>
+            <span class="n">interp</span> <span class="o">=</span> <span class="n">LatLonInterpolation</span><span class="p">(</span>
+                <span class="n">lat_in</span><span class="o">=</span><span class="n">da</span><span class="p">[</span><span class="s2">&quot;lat&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span><span class="p">,</span>
+                <span class="n">lon_in</span><span class="o">=</span><span class="n">da</span><span class="p">[</span><span class="s2">&quot;lon&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span><span class="p">,</span>
+                <span class="n">lat_out</span><span class="o">=</span><span class="n">interp_to</span><span class="p">[</span><span class="s2">&quot;lat&quot;</span><span class="p">],</span>
+                <span class="n">lon_out</span><span class="o">=</span><span class="n">interp_to</span><span class="p">[</span><span class="s2">&quot;lon&quot;</span><span class="p">],</span>
+            <span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">(</span><span class="n">da</span><span class="o">.</span><span class="n">values</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
+            <span class="n">out</span> <span class="o">=</span> <span class="n">interp</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+
+        <span class="k">else</span><span class="p">:</span>
+
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">interp_to</span><span class="p">[</span><span class="s2">&quot;lat&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="ow">or</span> <span class="nb">len</span><span class="p">(</span><span class="n">interp_to</span><span class="p">[</span><span class="s2">&quot;lon&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="c1"># Target grid uses curvilinear coordinates: define internal dims y, x</span>
+                <span class="n">target_lat</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">(</span><span class="n">interp_to</span><span class="p">[</span><span class="s2">&quot;lat&quot;</span><span class="p">],</span> <span class="n">dims</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;y&quot;</span><span class="p">,</span> <span class="s2">&quot;x&quot;</span><span class="p">])</span>
+                <span class="n">target_lon</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">(</span><span class="n">interp_to</span><span class="p">[</span><span class="s2">&quot;lon&quot;</span><span class="p">],</span> <span class="n">dims</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;y&quot;</span><span class="p">,</span> <span class="s2">&quot;x&quot;</span><span class="p">])</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">target_lat</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">(</span><span class="n">interp_to</span><span class="p">[</span><span class="s2">&quot;lat&quot;</span><span class="p">],</span> <span class="n">dims</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;lat&quot;</span><span class="p">])</span>
+                <span class="n">target_lon</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">(</span><span class="n">interp_to</span><span class="p">[</span><span class="s2">&quot;lon&quot;</span><span class="p">],</span> <span class="n">dims</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;lon&quot;</span><span class="p">])</span>
+
+            <span class="n">da</span> <span class="o">=</span> <span class="n">da</span><span class="o">.</span><span class="n">interp</span><span class="p">(</span>
+                <span class="n">lat</span><span class="o">=</span><span class="n">target_lat</span><span class="p">,</span>
+                <span class="n">lon</span><span class="o">=</span><span class="n">target_lon</span><span class="p">,</span>
+                <span class="n">method</span><span class="o">=</span><span class="n">interp_method</span><span class="p">,</span>
+            <span class="p">)</span>
+
+            <span class="n">out</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">(</span><span class="n">da</span><span class="o">.</span><span class="n">values</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
+
+        <span class="n">out_coords</span><span class="p">[</span><span class="s2">&quot;lat&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">interp_to</span><span class="p">[</span><span class="s2">&quot;lat&quot;</span><span class="p">]</span>
+        <span class="n">out_coords</span><span class="p">[</span><span class="s2">&quot;lon&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">interp_to</span><span class="p">[</span><span class="s2">&quot;lon&quot;</span><span class="p">]</span>
+
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">out</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">(</span><span class="n">da</span><span class="o">.</span><span class="n">values</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
+        <span class="k">if</span> <span class="s2">&quot;lat&quot;</span> <span class="ow">in</span> <span class="n">da</span><span class="o">.</span><span class="n">coords</span> <span class="ow">and</span> <span class="s2">&quot;lat&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">da</span><span class="o">.</span><span class="n">coords</span><span class="o">.</span><span class="n">dims</span><span class="p">:</span>
+            <span class="c1"># Curvilinear grid case: lat/lon coords are 2D arrays, not in dims</span>
+            <span class="n">out_coords</span><span class="p">[</span><span class="s2">&quot;lat&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">da</span><span class="o">.</span><span class="n">coords</span><span class="p">[</span><span class="s2">&quot;lat&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span>
+            <span class="n">out_coords</span><span class="p">[</span><span class="s2">&quot;lon&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">da</span><span class="o">.</span><span class="n">coords</span><span class="p">[</span><span class="s2">&quot;lon&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">dim</span> <span class="ow">in</span> <span class="n">da</span><span class="o">.</span><span class="n">coords</span><span class="o">.</span><span class="n">dims</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">dim</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;time&quot;</span><span class="p">,</span> <span class="s2">&quot;lead_time&quot;</span><span class="p">,</span> <span class="s2">&quot;variable&quot;</span><span class="p">]:</span>
+                    <span class="n">out_coords</span><span class="p">[</span><span class="n">dim</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">da</span><span class="o">.</span><span class="n">coords</span><span class="p">[</span><span class="n">dim</span><span class="p">])</span>
 
     <span class="k">return</span> <span class="n">out</span><span class="p">,</span> <span class="n">out_coords</span></div>
 

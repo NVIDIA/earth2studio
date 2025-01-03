@@ -390,6 +390,7 @@ document.write(`
 <li class="toctree-l2"><a class="reference internal" href="generated/models/px/earth2studio.models.px.Pangu3.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.Pangu3</a></li>
 <li class="toctree-l2"><a class="reference internal" href="generated/models/px/earth2studio.models.px.Persistence.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.Persistence</a></li>
 <li class="toctree-l2"><a class="reference internal" href="generated/models/px/earth2studio.models.px.SFNO.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.SFNO</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generated/models/px/earth2studio.models.px.StormCast.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.StormCast</a></li>
 <li class="toctree-l2"><a class="reference internal" href="generated/models/dx/earth2studio.models.dx.CorrDiffTaiwan.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.dx</span></code>.CorrDiffTaiwan</a></li>
 <li class="toctree-l2"><a class="reference internal" href="generated/models/dx/earth2studio.models.dx.ClimateNet.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.dx</span></code>.ClimateNet</a></li>
 <li class="toctree-l2"><a class="reference internal" href="generated/models/dx/earth2studio.models.dx.PrecipitationAFNO.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.dx</span></code>.PrecipitationAFNO</a></li>
@@ -405,6 +406,7 @@ document.write(`
 <li class="toctree-l2"><a class="reference internal" href="generated/data/earth2studio.data.HRRR.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.HRRR</a></li>
 <li class="toctree-l2"><a class="reference internal" href="generated/data/earth2studio.data.IFS.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.IFS</a></li>
 <li class="toctree-l2"><a class="reference internal" href="generated/data/earth2studio.data.IMERG.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.IMERG</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generated/data/earth2studio.data.NCAR_ERA5.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.NCAR_ERA5</a></li>
 <li class="toctree-l2"><a class="reference internal" href="generated/data/earth2studio.data.Random.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.Random</a></li>
 <li class="toctree-l2"><a class="reference internal" href="generated/data/earth2studio.data.WB2ERA5.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.WB2ERA5</a></li>
 <li class="toctree-l2"><a class="reference internal" href="generated/data/earth2studio.data.WB2ERA5_121x240.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.WB2ERA5_121x240</a></li>
@@ -548,31 +550,34 @@ it may impose on their use case.</p>
 <tr class="row-even"><td><p><a class="reference internal" href="generated/data/earth2studio.data.HRRR.html#earth2studio.data.HRRR" title="earth2studio.data.HRRR"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data.HRRR</span></code></a>([cache, verbose])</p></td>
 <td><p>High-Resolution Rapid Refresh (HRRR) data source provides hourly North-American weather analysis data developed by NOAA (used to initialize the HRRR forecast model).</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="generated/data/earth2studio.data.IFS.html#earth2studio.data.IFS" title="earth2studio.data.IFS"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data.IFS</span></code></a>([cache, verbose])</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/data/earth2studio.data.IFS.html#earth2studio.data.IFS" title="earth2studio.data.IFS"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data.IFS</span></code></a>([source, cache, verbose])</p></td>
 <td><p>The integrated forecast system (IFS) initial state data source provided on an equirectangular grid.</p></td>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="generated/data/earth2studio.data.IMERG.html#earth2studio.data.IMERG" title="earth2studio.data.IMERG"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data.IMERG</span></code></a>([auth, cache, verbose])</p></td>
 <td><p>The Integrated Multi-satellitE Retrievals (IMERG) for GPM.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="generated/data/earth2studio.data.Random.html#earth2studio.data.Random" title="earth2studio.data.Random"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data.Random</span></code></a>(domain_coords)</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/data/earth2studio.data.NCAR_ERA5.html#earth2studio.data.NCAR_ERA5" title="earth2studio.data.NCAR_ERA5"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data.NCAR_ERA5</span></code></a>([n_workers, cache, verbose])</p></td>
+<td><p>ERA5 data provided by NSF NCAR via the AWS Open Data Sponsorship Program.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/data/earth2studio.data.Random.html#earth2studio.data.Random" title="earth2studio.data.Random"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data.Random</span></code></a>(domain_coords)</p></td>
 <td><p>A randomly generated normally distributed data.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="generated/data/earth2studio.data.WB2ERA5.html#earth2studio.data.WB2ERA5" title="earth2studio.data.WB2ERA5"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data.WB2ERA5</span></code></a>([cache, verbose])</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/data/earth2studio.data.WB2ERA5.html#earth2studio.data.WB2ERA5" title="earth2studio.data.WB2ERA5"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data.WB2ERA5</span></code></a>([cache, verbose])</p></td>
 <td><p>ERA5 reanalysis data with several derived variables on a 0.25 degree lat-lon grid from 1959 to 2023 (incl) to 6 hour intervals on 13 pressure levels.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="generated/data/earth2studio.data.WB2ERA5_121x240.html#earth2studio.data.WB2ERA5_121x240" title="earth2studio.data.WB2ERA5_121x240"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data.WB2ERA5_121x240</span></code></a>([cache, verbose])</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/data/earth2studio.data.WB2ERA5_121x240.html#earth2studio.data.WB2ERA5_121x240" title="earth2studio.data.WB2ERA5_121x240"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data.WB2ERA5_121x240</span></code></a>([cache, verbose])</p></td>
 <td><p>ERA5 reanalysis data with several derived variables down sampled to a 1.5 degree lat-lon grid from 1959 to 2023 (incl) to 6 hour intervals on 13 pressure levels.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="generated/data/earth2studio.data.WB2ERA5_32x64.html#earth2studio.data.WB2ERA5_32x64" title="earth2studio.data.WB2ERA5_32x64"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data.WB2ERA5_32x64</span></code></a>([cache, verbose])</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/data/earth2studio.data.WB2ERA5_32x64.html#earth2studio.data.WB2ERA5_32x64" title="earth2studio.data.WB2ERA5_32x64"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data.WB2ERA5_32x64</span></code></a>([cache, verbose])</p></td>
 <td><p>ERA5 reanalysis data with several derived variables down sampled to a 5.625 degree lat-lon grid from 1959 to 2023 (incl) to 6 hour intervals on 13 pressure levels.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="generated/data/earth2studio.data.WB2Climatology.html#earth2studio.data.WB2Climatology" title="earth2studio.data.WB2Climatology"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data.WB2Climatology</span></code></a>([...])</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/data/earth2studio.data.WB2Climatology.html#earth2studio.data.WB2Climatology" title="earth2studio.data.WB2Climatology"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data.WB2Climatology</span></code></a>([...])</p></td>
 <td><p>Climatology provided by WeatherBench2,</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="generated/data/earth2studio.data.DataArrayFile.html#earth2studio.data.DataArrayFile" title="earth2studio.data.DataArrayFile"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data.DataArrayFile</span></code></a>(file_path, **xr_args)</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/data/earth2studio.data.DataArrayFile.html#earth2studio.data.DataArrayFile" title="earth2studio.data.DataArrayFile"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data.DataArrayFile</span></code></a>(file_path, **xr_args)</p></td>
 <td><p>A local xarray dataarray file data source.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="generated/data/earth2studio.data.DataSetFile.html#earth2studio.data.DataSetFile" title="earth2studio.data.DataSetFile"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data.DataSetFile</span></code></a>(file_path, array_name, ...)</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/data/earth2studio.data.DataSetFile.html#earth2studio.data.DataSetFile" title="earth2studio.data.DataSetFile"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data.DataSetFile</span></code></a>(file_path, array_name, ...)</p></td>
 <td><p>A local xarray dataset file data source.</p></td>
 </tr>
 </tbody>
@@ -609,7 +614,7 @@ Typically used in intercomparison workflows.</p>
 <tr class="row-even"><td><p><a class="reference internal" href="generated/data/earth2studio.data.fetch_data.html#earth2studio.data.fetch_data" title="earth2studio.data.fetch_data"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data.fetch_data</span></code></a>(source, time, variable[, ...])</p></td>
 <td><p>Utility function to fetch data for models and load data on the target device.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="generated/data/earth2studio.data.prep_data_array.html#earth2studio.data.prep_data_array" title="earth2studio.data.prep_data_array"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data.prep_data_array</span></code></a>(da[, device])</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/data/earth2studio.data.prep_data_array.html#earth2studio.data.prep_data_array" title="earth2studio.data.prep_data_array"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data.prep_data_array</span></code></a>(da[, device, ...])</p></td>
 <td><p>Prepares a data array from a data source for inference workflows by converting the data array to a torch tensor and the coordinate system to an OrderedDict.</p></td>
 </tr>
 </tbody>
