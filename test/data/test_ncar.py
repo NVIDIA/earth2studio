@@ -83,7 +83,7 @@ def test_ncar_cache(time, variable, cache):
     if cache:
         assert pathlib.Path(ds.cache).is_dir()
     else:
-        assert not pathlib.Path(ds.cache).is_dir()
+        assert not any(pathlib.Path(ds.cache).iterdir())
 
     # Load from cache or refetch
     data = ds(time, variable[0])
