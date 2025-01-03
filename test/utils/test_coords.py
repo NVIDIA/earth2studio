@@ -185,7 +185,7 @@ def test_convert_multidim_to_singledim():
 
     dc = OrderedDict(dict(lat=LAT, lon=LON))
 
-    true_converted = OrderedDict(dict(x0=np.arange(20), x1=np.arange(40)))
+    true_converted = OrderedDict(dict(ilat=np.arange(20), ilon=np.arange(40)))
 
     # Test simple case
     c = dc
@@ -208,12 +208,26 @@ def test_convert_multidim_to_singledim():
 
     # Test with multiple multi-dim coordinates
     dc1 = OrderedDict(dict(lat1=LAT, lon1=LON))
-    true_converted2 = OrderedDict(dict(x2=np.arange(20), x3=np.arange(40)))
+    true_converted2 = OrderedDict(dict(ilat1=np.arange(20), ilon1=np.arange(40)))
     out = convert_multidim_to_singledim(dc | dc1)
     check_coord_equivalence(out, true_converted | true_converted2)
 
     out = convert_multidim_to_singledim(dc | c | dc1)
     check_coord_equivalence(out, true_converted | c | true_converted2)
+
+    # Test with 3 dims
+    ff = np.linspace(0, 1, 5)
+    LON, LAT, ff = np.meshgrid(lon, lat, ff)
+    dc = OrderedDict(dict(lat=LAT, lon=LON, ff=ff))
+    true_converted = OrderedDict(
+        dict(ilat=np.arange(20), ilon=np.arange(40), iff=np.arange(5))
+    )
+    out, mapping = convert_multidim_to_singledim(dc, return_mapping=True)
+    check_coord_equivalence(out, true_converted)
+
+    assert mapping["lat"] == ["ilat", "ilon", "iff"]
+    assert mapping["lon"] == ["ilat", "ilon", "iff"]
+    assert mapping["ff"] == ["ilat", "ilon", "iff"]
 
 
 def test_convert_multidim_to_singledim_error():

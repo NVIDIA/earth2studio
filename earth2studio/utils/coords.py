@@ -341,7 +341,9 @@ def split_coords(
     return xs, reduced_coords, values
 
 
-def convert_multidim_to_singledim(coords: CoordSystem) -> CoordSystem:
+def convert_multidim_to_singledim(
+    coords: CoordSystem, return_mapping: bool = False
+) -> CoordSystem:
     """Converts a set of coordinates from a complex coordinate system, which has some
     coordinates with multidimensional arrays, into a simple coordinate system
     containing only one-dimensional arrays.
@@ -374,6 +376,10 @@ def convert_multidim_to_singledim(coords: CoordSystem) -> CoordSystem:
     ----------
     coords : CoordSystem
         CoordSystem to convert.
+    return_mapping : bool, optional
+        Whether to return the mapping between the multidimensional entries and their
+        reduced entries in the converted coordinate system.
+        By default false.
 
     Returns
     -------
@@ -382,6 +388,7 @@ def convert_multidim_to_singledim(coords: CoordSystem) -> CoordSystem:
     """
 
     adjusted_coords = {}
+    mapping: dict[str, list[str]] = {}
 
     items = list(coords.items())
     i = 0
@@ -395,6 +402,7 @@ def convert_multidim_to_singledim(coords: CoordSystem) -> CoordSystem:
             i += 1
         else:
             s = v.shape
+            mapping[k] = []
 
             for j in range(ndim):
                 if i + j > len(items) - 1:
@@ -403,16 +411,21 @@ def convert_multidim_to_singledim(coords: CoordSystem) -> CoordSystem:
                         "then there will be exactly n coordinates with the same shape."
                     )
 
-                _, v1 = items[i + j]
+                k1, v1 = items[i + j]
                 if v1.shape != s:
                     raise ValueError(
                         "Assumed that if an n-dimensional coordinate exists, "
                         "then there will be exactly n coordinates with the same shape."
                     )
 
-                adjusted_coords["x" + str(dim_number)] = np.arange(s[j])
+                adjusted_coords["i" + k1] = np.arange(s[j])
+                mapping[k].append("i" + k1)
+                mapping[k1] = mapping[k]
                 dim_number += 1
 
             i += j + 1
 
-    return CoordSystem(adjusted_coords)
+    if return_mapping:
+        return CoordSystem(adjusted_coords), mapping
+    else:
+        return CoordSystem(adjusted_coords)
