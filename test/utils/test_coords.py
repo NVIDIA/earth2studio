@@ -20,7 +20,10 @@ import numpy as np
 import pytest
 import torch
 
-from earth2studio.utils import handshake_dim
+from earth2studio.utils import (
+    convert_multidim_to_singledim,
+    handshake_dim,
+)
 from earth2studio.utils.coords import map_coords
 
 
@@ -167,3 +170,68 @@ def test_map_errors():
     )
     with pytest.raises(ValueError):
         map_coords(data, coords, curv_coords)
+
+
+def check_coord_equivalence(a: OrderedDict, b: OrderedDict) -> None:
+    for ka, kb in zip(a, b):
+        assert np.allclose(a[ka], b[ka])
+
+
+def test_convert_multidim_to_singledim():
+    lat = np.linspace(0, 1, 20)
+    lon = np.linspace(0, 1, 40)
+
+    LON, LAT = np.meshgrid(lon, lat)
+
+    dc = OrderedDict(dict(lat=LAT, lon=LON))
+
+    true_converted = OrderedDict(dict(x0=np.arange(20), x1=np.arange(40)))
+
+    # Test simple case
+    c = dc
+    out = convert_multidim_to_singledim(c)
+    check_coord_equivalence(out, true_converted)
+
+    # Test with leading coordinates
+    c = OrderedDict(
+        {
+            "e": np.arange(1),
+            "d": np.arange(4),
+        }
+    )
+    out = convert_multidim_to_singledim(c | dc)
+    check_coord_equivalence(out, c | true_converted)
+
+    # Test with training coordinates
+    out = convert_multidim_to_singledim(dc | c)
+    check_coord_equivalence(out, true_converted | c)
+
+    # Test with multiple multi-dim coordinates
+    dc1 = OrderedDict(dict(lat1=LAT, lon1=LON))
+    true_converted2 = OrderedDict(dict(x2=np.arange(20), x3=np.arange(40)))
+    out = convert_multidim_to_singledim(dc | dc1)
+    check_coord_equivalence(out, true_converted | true_converted2)
+
+    out = convert_multidim_to_singledim(dc | c | dc1)
+    check_coord_equivalence(out, true_converted | c | true_converted2)
+
+
+def test_convert_multidim_to_singledim_error():
+    lat = np.linspace(0, 1, 20)
+    lon = np.linspace(0, 1, 40)
+
+    _, LAT = np.meshgrid(lon, lat)
+
+    dc = OrderedDict(
+        dict(
+            lat=LAT,
+        )
+    )
+
+    with pytest.raises(ValueError):
+        convert_multidim_to_singledim(dc)
+
+    dc = OrderedDict(dict(lat=LAT, e=np.arange(40)))
+
+    with pytest.raises(ValueError):
+        convert_multidim_to_singledim(dc)

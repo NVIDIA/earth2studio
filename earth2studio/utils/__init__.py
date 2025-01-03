@@ -15,6 +15,7 @@
 # limitations under the License.
 
 from .coords import (
+    convert_multidim_to_singledim,
     handshake_coords,
     handshake_dim,
     handshake_size,
