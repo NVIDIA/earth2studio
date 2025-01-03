@@ -76,6 +76,7 @@ sfno = [
     # makani needs to be installed manually
     # "makani[all] @ git+https://github.com/NickGeneva/modulus-makani.git@17c4a6d553b4932f0fa8b72880ad11da34fd086a",
     "jsbeautifier", # makani
+    "moviepy==1.0.3", # makani
     "numba", # makani
     "pynvml", # makani
     "ruamel.yaml", # makani
