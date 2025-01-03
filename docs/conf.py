@@ -49,7 +49,7 @@ sys.path.insert(0, os.path.dirname(__file__))
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 version = ".".join(release.split(".")[:2])
 project = "Earth2Studio"
-copyright = "2025, NVIDIA"
+copyright = "2024 - 2025, NVIDIA"
 author = "NVIDIA"
 
 # -- General configuration ---------------------------------------------------
