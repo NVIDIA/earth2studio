@@ -24,13 +24,12 @@ dependencies = [
     "netCDF4>=1.6.4",
     "ngcsdk>=3.48.0,<3.55.0",
     "numpy>=1.24.0",
-    "nvidia-modulus@git+https://github.com/NVIDIA/modulus.git",
-    "omegaconf",
+    "nvidia-modulus>=0.6.0",
     "python-dotenv",
     "s3fs>=2023.5.0",
     "setuptools>=67.6.0",
     "torch>=2.0.0",
-    "torch_harmonics==0.6.*",
+    "torch-harmonics>=0.7.3",
     "tqdm>=4.65.0",
     "xarray[parallel]>=2023.1.0",
     "zarr>=2.14.2",
@@ -61,8 +60,7 @@ Changelog = "https://github.com/NVIDIA/earth2studio/blob/main/CHANGELOG.md"
 [project.optional-dependencies]
 data = [
     "cdsapi >= 0.7.4",
-    'eccodes>=1.4.0; python_version<"3.12"',
-    "ecmwflibs>=0.5.2",
+    "eccodes>=2.38.0",
     "ecmwf-opendata>=0.3.3",
 ]
 fengwu = [
@@ -76,14 +74,19 @@ pangu = [
 ]
 sfno = [
     # makani needs to be installed manually
-    # "makani[all] @ git+https://github.com/NVIDIA/modulus-makani.git@v0.1.0",
+    # "makani[all] @ git+https://github.com/NickGeneva/modulus-makani.git@17c4a6d553b4932f0fa8b72880ad11da34fd086a",
     "jsbeautifier", # makani
     "numba", # makani
     "pynvml", # makani
     "ruamel.yaml", # makani
-    "torch-harmonics", # makani
+    "torch-harmonics>=0.7.3", # makani
     "tensorly", # makani
     "tensorly-torch" # makani
+]
+stormcast = [
+   # Modulus main needs to be installed manually
+   # "nvidia-modulus@git+https://github.com/NVIDIA/modulus.git@54ca6934daaf55455d9b662b66de81f0c957fbf3",
+   "omegaconf",
 ]
 corrdiff = [
     "einops>=0.7.0",
@@ -91,16 +94,15 @@ corrdiff = [
 all = [
     "cdsapi >= 0.7.4",
     "cfgrib >= 0.9.10.3",
-    'eccodes>=1.4.0; python_version<"3.12"',
-    "ecmwflibs>=0.5.2",
+    "eccodes>=2.38.0",
     "ecmwf-opendata>=0.3.3",
-    "herbie-data",
     "onnxruntime-gpu",
     "jsbeautifier",
-    "pynvml",
     "numba",
+    "omegaconf",
+    "pynvml",
     "ruamel.yaml",
-    "torch-harmonics",
+    "torch-harmonics>=0.7.3",
     "tensorly",
     "tensorly-torch",
     "einops>=0.7.0",
