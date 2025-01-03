@@ -25,6 +25,7 @@ import torch
 import xarray as xr
 from modulus.models import Module
 from modulus.utils.generative import deterministic_sampler
+
 try:
     from omegaconf import OmegaConf
 except ImportError:
