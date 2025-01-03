@@ -1,0 +1,1094 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="./" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Index &#8212; Earth2Studio 0.4.1 documentation</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "light";
+  </script>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="_static/styles/theme.css?digest=8d27b9dea8ad943066ae" rel="stylesheet" />
+<link href="_static/styles/bootstrap.css?digest=8d27b9dea8ad943066ae" rel="stylesheet" />
+<link href="_static/styles/pydata-sphinx-theme.css?digest=8d27b9dea8ad943066ae" rel="stylesheet" />
+
+  
+  <link href="_static/vendor/fontawesome/6.5.1/css/all.min.css?digest=8d27b9dea8ad943066ae" rel="stylesheet" />
+  <link rel="preload" as="font" type="font/woff2" crossorigin href="_static/vendor/fontawesome/6.5.1/webfonts/fa-solid-900.woff2" />
+<link rel="preload" as="font" type="font/woff2" crossorigin href="_static/vendor/fontawesome/6.5.1/webfonts/fa-brands-400.woff2" />
+<link rel="preload" as="font" type="font/woff2" crossorigin href="_static/vendor/fontawesome/6.5.1/webfonts/fa-regular-400.woff2" />
+
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=a746c00c" />
+    <link rel="stylesheet" type="text/css" href="_static/togglebutton.css?v=13237357" />
+    <link rel="stylesheet" type="text/css" href="_static/sg_gallery.css?v=d2d258e8" />
+    <link rel="stylesheet" type="text/css" href="_static/sg_gallery-binder.css?v=f4aeca0c" />
+    <link rel="stylesheet" type="text/css" href="_static/sg_gallery-dataframe.css?v=2082cf3c" />
+    <link rel="stylesheet" type="text/css" href="_static/sg_gallery-rendered-html.css?v=1277b6f3" />
+    <link rel="stylesheet" type="text/css" href="_static/sphinx-design.min.css?v=95c83b7e" />
+    <link rel="stylesheet" type="text/css" href="_static/css/custom.css?v=94338acd" />
+  
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="_static/scripts/bootstrap.js?digest=8d27b9dea8ad943066ae" />
+<link rel="preload" as="script" href="_static/scripts/pydata-sphinx-theme.js?digest=8d27b9dea8ad943066ae" />
+  <script src="_static/vendor/fontawesome/6.5.1/js/all.min.js?digest=8d27b9dea8ad943066ae"></script>
+
+    <script src="_static/documentation_options.js?v=c87aa342"></script>
+    <script src="_static/doctools.js?v=9bcbadda"></script>
+    <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script>let toggleHintShow = 'Click to show';</script>
+    <script>let toggleHintHide = 'Click to hide';</script>
+    <script>let toggleOpenOnPrint = 'true';</script>
+    <script src="_static/togglebutton.js?v=4a39c7ea"></script>
+    <script src="_static/design-tabs.js?v=f930bc37"></script>
+    <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
+    <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'genindex';</script>
+    <script>
+        DOCUMENTATION_OPTIONS.theme_version = '0.15.2';
+        DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'https://raw.githubusercontent.com/NVIDIA/earth2studio/gh-pages/_static/switcher.json';
+        DOCUMENTATION_OPTIONS.theme_switcher_version_match = '0.4.1';
+        DOCUMENTATION_OPTIONS.show_version_warning_banner = false;
+        </script>
+    <link rel="index" title="Index" href="#" />
+    <link rel="search" title="Search" href="search.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <a id="pst-skip-link" class="skip-link" href="#main-content">Skip to main content</a>
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>
+    Back to top
+  </button>
+
+  
+  <input type="checkbox"
+          class="sidebar-toggle"
+          name="__primary"
+          id="__primary"/>
+  <label class="overlay overlay-primary" for="__primary"></label>
+  
+  <input type="checkbox"
+          class="sidebar-toggle"
+          name="__secondary"
+          id="__secondary"/>
+  <label class="overlay overlay-secondary" for="__secondary"></label>
+  
+  <div class="search-button__wrapper">
+    <div class="search-button__overlay"></div>
+    <div class="search-button__search-container">
+<form class="bd-search d-flex align-items-center"
+      action="search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         id="search-input"
+         placeholder="Search the docs ..."
+         aria-label="Search the docs ..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form></div>
+  </div>
+  
+    <header class="bd-header navbar navbar-expand-lg bd-navbar">
+<div class="bd-header__inner bd-page-width">
+  <label class="sidebar-toggle primary-toggle" for="__primary">
+    <span class="fa-solid fa-bars"></span>
+  </label>
+  
+  
+  <div class="col-lg-3 navbar-header-items__start">
+    
+      <div class="navbar-item">
+
+  
+
+<a class="navbar-brand logo" href="index.html">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="_static/NVIDIA-Logo-V-ForScreen-ForLightBG.png" class="logo__image only-light" alt=""/>
+    <script>document.write(`<img src="_static/NVIDIA-Logo-V-ForScreen-ForDarkBG.png" class="logo__image only-dark" alt=""/>`);</script>
+  
+  
+    <p class="title logo__title">Earth2Studio</p>
+  
+</a></div>
+    
+      <div class="navbar-item">
+<script>
+document.write(`
+  <div class="version-switcher__container dropdown">
+    <button id="pst-version-switcher-button-2"
+      type="button"
+      class="version-switcher__button btn btn-sm navbar-btn dropdown-toggle"
+      data-bs-toggle="dropdown"
+      aria-haspopup="listbox"
+      aria-controls="pst-version-switcher-list-2"
+      aria-label="Version switcher list"
+    >
+      Choose version  <!-- this text may get changed later by javascript -->
+      <span class="caret"></span>
+    </button>
+    <div id="pst-version-switcher-list-2"
+      class="version-switcher__menu dropdown-menu list-group-flush py-0"
+      role="listbox" aria-labelledby="pst-version-switcher-button-2">
+      <!-- dropdown will be populated by javascript on page load -->
+    </div>
+  </div>
+`);
+</script></div>
+    
+  </div>
+  
+  <div class="col-lg-9 navbar-header-items">
+    
+    <div class="me-auto navbar-header-items__center">
+      
+        <div class="navbar-item">
+<nav class="navbar-nav">
+  <ul class="bd-navbar-elements navbar-nav">
+    
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="userguide/index.html">
+                        User Guide
+                      </a>
+                    </li>
+                
+
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="modules/index.html">
+                        API
+                      </a>
+                    </li>
+                
+
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="examples/index.html">
+                        Examples
+                      </a>
+                    </li>
+                
+
+                <li class="nav-item">
+                  <a class="nav-link nav-external" href="https://github.com/NVIDIA/earth2studio/blob/main/CHANGELOG.md">
+                    Changelog
+                  </a>
+                </li>
+                
+  </ul>
+</nav></div>
+      
+    </div>
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+ <script>
+ document.write(`
+   <button class="btn navbar-btn search-button-field search-button__button" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass"></i>
+    <span class="search-button__default-text">Search</span>
+    <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+   </button>
+ `);
+ </script>
+        </div>
+      
+      
+        <div class="navbar-item">
+
+<script>
+document.write(`
+  <button class="btn btn-sm navbar-btn theme-switch-button" title="light/dark" aria-label="light/dark" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <span class="theme-switch nav-link" data-mode="light"><i class="fa-solid fa-sun fa-lg"></i></span>
+    <span class="theme-switch nav-link" data-mode="dark"><i class="fa-solid fa-moon fa-lg"></i></span>
+    <span class="theme-switch nav-link" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg"></i></span>
+  </button>
+`);
+</script></div>
+      
+        <div class="navbar-item"><ul class="navbar-icon-links navbar-nav"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/NVIDIA/earth2studio" title="Github" class="nav-link" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><span><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i></span>
+            <span class="sr-only">Github</span></a>
+        </li>
+</ul></div>
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+
+ <script>
+ document.write(`
+   <button class="btn navbar-btn search-button-field search-button__button" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass"></i>
+    <span class="search-button__default-text">Search</span>
+    <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+   </button>
+ `);
+ </script>
+    </div>
+  
+
+  
+</div>
+
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+        
+      
+      <div class="bd-sidebar-primary bd-sidebar hide-on-wide">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+      <div class="sidebar-header-items__center">
+        
+          <div class="navbar-item">
+<nav class="navbar-nav">
+  <ul class="bd-navbar-elements navbar-nav">
+    
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="userguide/index.html">
+                        User Guide
+                      </a>
+                    </li>
+                
+
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="modules/index.html">
+                        API
+                      </a>
+                    </li>
+                
+
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="examples/index.html">
+                        Examples
+                      </a>
+                    </li>
+                
+
+                <li class="nav-item">
+                  <a class="nav-link nav-external" href="https://github.com/NVIDIA/earth2studio/blob/main/CHANGELOG.md">
+                    Changelog
+                  </a>
+                </li>
+                
+  </ul>
+</nav></div>
+        
+      </div>
+    
+    
+    
+      <div class="sidebar-header-items__end">
+        
+          <div class="navbar-item">
+
+<script>
+document.write(`
+  <button class="btn btn-sm navbar-btn theme-switch-button" title="light/dark" aria-label="light/dark" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <span class="theme-switch nav-link" data-mode="light"><i class="fa-solid fa-sun fa-lg"></i></span>
+    <span class="theme-switch nav-link" data-mode="dark"><i class="fa-solid fa-moon fa-lg"></i></span>
+    <span class="theme-switch nav-link" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg"></i></span>
+  </button>
+`);
+</script></div>
+        
+          <div class="navbar-item"><ul class="navbar-icon-links navbar-nav"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/NVIDIA/earth2studio" title="Github" class="nav-link" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><span><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i></span>
+            <span class="sr-only">Github</span></a>
+        </li>
+</ul></div>
+        
+      </div>
+    
+  </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+  </div>
+  
+  <div id="rtd-footer-container"></div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main">
+        
+        
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article"></div>
+              
+              
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+
+<h1 id="index">Index</h1>
+
+<div class="genindex-jumpbox">
+ <a href="#_"><strong>_</strong></a>
+ | <a href="#A"><strong>A</strong></a>
+ | <a href="#B"><strong>B</strong></a>
+ | <a href="#C"><strong>C</strong></a>
+ | <a href="#D"><strong>D</strong></a>
+ | <a href="#E"><strong>E</strong></a>
+ | <a href="#F"><strong>F</strong></a>
+ | <a href="#G"><strong>G</strong></a>
+ | <a href="#H"><strong>H</strong></a>
+ | <a href="#I"><strong>I</strong></a>
+ | <a href="#K"><strong>K</strong></a>
+ | <a href="#L"><strong>L</strong></a>
+ | <a href="#M"><strong>M</strong></a>
+ | <a href="#N"><strong>N</strong></a>
+ | <a href="#O"><strong>O</strong></a>
+ | <a href="#P"><strong>P</strong></a>
+ | <a href="#R"><strong>R</strong></a>
+ | <a href="#S"><strong>S</strong></a>
+ | <a href="#T"><strong>T</strong></a>
+ | <a href="#V"><strong>V</strong></a>
+ | <a href="#W"><strong>W</strong></a>
+ | <a href="#X"><strong>X</strong></a>
+ | <a href="#Z"><strong>Z</strong></a>
+ 
+</div>
+<h2 id="_">_</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="modules/generated/data/earth2studio.data.ARCO.html#earth2studio.data.ARCO.__call__">__call__() (earth2studio.data.ARCO method)</a>
+
+      <ul>
+        <li><a href="modules/generated/data/earth2studio.data.CDS.html#earth2studio.data.CDS.__call__">(earth2studio.data.CDS method)</a>
+</li>
+        <li><a href="modules/generated/data/earth2studio.data.DataArrayFile.html#earth2studio.data.DataArrayFile.__call__">(earth2studio.data.DataArrayFile method)</a>
+</li>
+        <li><a href="modules/generated/data/earth2studio.data.DataSetFile.html#earth2studio.data.DataSetFile.__call__">(earth2studio.data.DataSetFile method)</a>
+</li>
+        <li><a href="modules/generated/data/earth2studio.data.GEFS_FX.html#earth2studio.data.GEFS_FX.__call__">(earth2studio.data.GEFS_FX method)</a>
+</li>
+        <li><a href="modules/generated/data/earth2studio.data.GEFS_FX_721x1440.html#earth2studio.data.GEFS_FX_721x1440.__call__">(earth2studio.data.GEFS_FX_721x1440 method)</a>
+</li>
+        <li><a href="modules/generated/data/earth2studio.data.GFS.html#earth2studio.data.GFS.__call__">(earth2studio.data.GFS method)</a>
+</li>
+        <li><a href="modules/generated/data/earth2studio.data.GFS_FX.html#earth2studio.data.GFS_FX.__call__">(earth2studio.data.GFS_FX method)</a>
+</li>
+        <li><a href="modules/generated/data/earth2studio.data.HRRR.html#earth2studio.data.HRRR.__call__">(earth2studio.data.HRRR method)</a>
+</li>
+        <li><a href="modules/generated/data/earth2studio.data.HRRR_FX.html#earth2studio.data.HRRR_FX.__call__">(earth2studio.data.HRRR_FX method)</a>
+</li>
+        <li><a href="modules/generated/data/earth2studio.data.IFS.html#earth2studio.data.IFS.__call__">(earth2studio.data.IFS method)</a>
+</li>
+        <li><a href="modules/generated/data/earth2studio.data.IMERG.html#earth2studio.data.IMERG.__call__">(earth2studio.data.IMERG method)</a>
+</li>
+        <li><a href="modules/generated/data/earth2studio.data.NCAR_ERA5.html#earth2studio.data.NCAR_ERA5.__call__">(earth2studio.data.NCAR_ERA5 method)</a>
+</li>
+        <li><a href="modules/generated/data/earth2studio.data.Random.html#earth2studio.data.Random.__call__">(earth2studio.data.Random method)</a>
+</li>
+        <li><a href="modules/generated/data/earth2studio.data.WB2Climatology.html#earth2studio.data.WB2Climatology.__call__">(earth2studio.data.WB2Climatology method)</a>
+</li>
+        <li><a href="modules/generated/data/earth2studio.data.WB2ERA5.html#earth2studio.data.WB2ERA5.__call__">(earth2studio.data.WB2ERA5 method)</a>
+</li>
+        <li><a href="modules/generated/data/earth2studio.data.WB2ERA5_121x240.html#earth2studio.data.WB2ERA5_121x240.__call__">(earth2studio.data.WB2ERA5_121x240 method)</a>
+</li>
+        <li><a href="modules/generated/data/earth2studio.data.WB2ERA5_32x64.html#earth2studio.data.WB2ERA5_32x64.__call__">(earth2studio.data.WB2ERA5_32x64 method)</a>
+</li>
+        <li><a href="modules/generated/models/dx/earth2studio.models.dx.ClimateNet.html#earth2studio.models.dx.ClimateNet.__call__">(earth2studio.models.dx.ClimateNet method)</a>
+</li>
+        <li><a href="modules/generated/models/dx/earth2studio.models.dx.CorrDiffTaiwan.html#earth2studio.models.dx.CorrDiffTaiwan.__call__">(earth2studio.models.dx.CorrDiffTaiwan method)</a>
+</li>
+        <li><a href="modules/generated/models/dx/earth2studio.models.dx.Identity.html#earth2studio.models.dx.Identity.__call__">(earth2studio.models.dx.Identity method)</a>
+</li>
+        <li><a href="modules/generated/models/dx/earth2studio.models.dx.PrecipitationAFNO.html#earth2studio.models.dx.PrecipitationAFNO.__call__">(earth2studio.models.dx.PrecipitationAFNO method)</a>
+</li>
+        <li><a href="modules/generated/models/px/earth2studio.models.px.DLWP.html#earth2studio.models.px.DLWP.__call__">(earth2studio.models.px.DLWP method)</a>
+</li>
+        <li><a href="modules/generated/models/px/earth2studio.models.px.FCN.html#earth2studio.models.px.FCN.__call__">(earth2studio.models.px.FCN method)</a>
+</li>
+        <li><a href="modules/generated/models/px/earth2studio.models.px.FengWu.html#earth2studio.models.px.FengWu.__call__">(earth2studio.models.px.FengWu method)</a>
+</li>
+        <li><a href="modules/generated/models/px/earth2studio.models.px.FuXi.html#earth2studio.models.px.FuXi.__call__">(earth2studio.models.px.FuXi method)</a>
+</li>
+        <li><a href="modules/generated/models/px/earth2studio.models.px.Pangu24.html#earth2studio.models.px.Pangu24.__call__">(earth2studio.models.px.Pangu24 method)</a>
+</li>
+        <li><a href="modules/generated/models/px/earth2studio.models.px.Pangu3.html#earth2studio.models.px.Pangu3.__call__">(earth2studio.models.px.Pangu3 method)</a>
+</li>
+        <li><a href="modules/generated/models/px/earth2studio.models.px.Pangu6.html#earth2studio.models.px.Pangu6.__call__">(earth2studio.models.px.Pangu6 method)</a>
+</li>
+        <li><a href="modules/generated/models/px/earth2studio.models.px.Persistence.html#earth2studio.models.px.Persistence.__call__">(earth2studio.models.px.Persistence method)</a>
+</li>
+        <li><a href="modules/generated/models/px/earth2studio.models.px.SFNO.html#earth2studio.models.px.SFNO.__call__">(earth2studio.models.px.SFNO method)</a>
+</li>
+        <li><a href="modules/generated/models/px/earth2studio.models.px.StormCast.html#earth2studio.models.px.StormCast.__call__">(earth2studio.models.px.StormCast method)</a>
+</li>
+        <li><a href="modules/generated/perturbation/earth2studio.perturbation.BredVector.html#earth2studio.perturbation.BredVector.__call__">(earth2studio.perturbation.BredVector method)</a>
+</li>
+        <li><a href="modules/generated/perturbation/earth2studio.perturbation.Brown.html#earth2studio.perturbation.Brown.__call__">(earth2studio.perturbation.Brown method)</a>
+</li>
+        <li><a href="modules/generated/perturbation/earth2studio.perturbation.Gaussian.html#earth2studio.perturbation.Gaussian.__call__">(earth2studio.perturbation.Gaussian method)</a>
+</li>
+        <li><a href="modules/generated/perturbation/earth2studio.perturbation.LaggedEnsemble.html#earth2studio.perturbation.LaggedEnsemble.__call__">(earth2studio.perturbation.LaggedEnsemble method)</a>
+</li>
+        <li><a href="modules/generated/perturbation/earth2studio.perturbation.SphericalGaussian.html#earth2studio.perturbation.SphericalGaussian.__call__">(earth2studio.perturbation.SphericalGaussian method)</a>
+</li>
+        <li><a href="modules/generated/perturbation/earth2studio.perturbation.Zero.html#earth2studio.perturbation.Zero.__call__">(earth2studio.perturbation.Zero method)</a>
+</li>
+        <li><a href="modules/generated/statistics/earth2studio.statistics.acc.html#earth2studio.statistics.acc.__call__">(earth2studio.statistics.acc method)</a>
+</li>
+        <li><a href="modules/generated/statistics/earth2studio.statistics.crps.html#earth2studio.statistics.crps.__call__">(earth2studio.statistics.crps method)</a>
+</li>
+        <li><a href="modules/generated/statistics/earth2studio.statistics.mean.html#earth2studio.statistics.mean.__call__">(earth2studio.statistics.mean method)</a>
+</li>
+        <li><a href="modules/generated/statistics/earth2studio.statistics.rank_histogram.html#earth2studio.statistics.rank_histogram.__call__">(earth2studio.statistics.rank_histogram method)</a>
+</li>
+        <li><a href="modules/generated/statistics/earth2studio.statistics.rmse.html#earth2studio.statistics.rmse.__call__">(earth2studio.statistics.rmse method)</a>
+</li>
+        <li><a href="modules/generated/statistics/earth2studio.statistics.spread_skill_ratio.html#earth2studio.statistics.spread_skill_ratio.__call__">(earth2studio.statistics.spread_skill_ratio method)</a>
+</li>
+        <li><a href="modules/generated/statistics/earth2studio.statistics.std.html#earth2studio.statistics.std.__call__">(earth2studio.statistics.std method)</a>
+</li>
+        <li><a href="modules/generated/statistics/earth2studio.statistics.variance.html#earth2studio.statistics.variance.__call__">(earth2studio.statistics.variance method)</a>
+</li>
+      </ul></li>
+  </ul></td>
+</tr></table>
+
+<h2 id="A">A</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="modules/generated/statistics/earth2studio.statistics.acc.html#earth2studio.statistics.acc">acc (class in earth2studio.statistics)</a>
+</li>
+      <li><a href="modules/generated/io/earth2studio.io.KVBackend.html#earth2studio.io.KVBackend.add_array">add_array() (earth2studio.io.KVBackend method)</a>
+
+      <ul>
+        <li><a href="modules/generated/io/earth2studio.io.NetCDF4Backend.html#earth2studio.io.NetCDF4Backend.add_array">(earth2studio.io.NetCDF4Backend method)</a>
+</li>
+        <li><a href="modules/generated/io/earth2studio.io.XarrayBackend.html#earth2studio.io.XarrayBackend.add_array">(earth2studio.io.XarrayBackend method)</a>
+</li>
+        <li><a href="modules/generated/io/earth2studio.io.ZarrBackend.html#earth2studio.io.ZarrBackend.add_array">(earth2studio.io.ZarrBackend method)</a>
+</li>
+      </ul></li>
+      <li><a href="modules/generated/data/earth2studio.data.ARCO.html#earth2studio.data.ARCO">ARCO (class in earth2studio.data)</a>
+</li>
+      <li><a href="modules/generated/data/earth2studio.data.ARCO.html#earth2studio.data.ARCO.available">available() (earth2studio.data.ARCO class method)</a>
+
+      <ul>
+        <li><a href="modules/generated/data/earth2studio.data.GEFS_FX.html#earth2studio.data.GEFS_FX.available">(earth2studio.data.GEFS_FX class method)</a>
+</li>
+        <li><a href="modules/generated/data/earth2studio.data.GEFS_FX_721x1440.html#earth2studio.data.GEFS_FX_721x1440.available">(earth2studio.data.GEFS_FX_721x1440 class method)</a>
+</li>
+        <li><a href="modules/generated/data/earth2studio.data.GFS.html#earth2studio.data.GFS.available">(earth2studio.data.GFS class method)</a>
+</li>
+        <li><a href="modules/generated/data/earth2studio.data.GFS_FX.html#earth2studio.data.GFS_FX.available">(earth2studio.data.GFS_FX class method)</a>
+</li>
+        <li><a href="modules/generated/data/earth2studio.data.HRRR.html#earth2studio.data.HRRR.available">(earth2studio.data.HRRR class method)</a>
+</li>
+        <li><a href="modules/generated/data/earth2studio.data.HRRR_FX.html#earth2studio.data.HRRR_FX.available">(earth2studio.data.HRRR_FX class method)</a>
+</li>
+        <li><a href="modules/generated/data/earth2studio.data.IFS.html#earth2studio.data.IFS.available">(earth2studio.data.IFS class method)</a>
+</li>
+        <li><a href="modules/generated/data/earth2studio.data.IMERG.html#earth2studio.data.IMERG.available">(earth2studio.data.IMERG class method)</a>
+</li>
+      </ul></li>
+  </ul></td>
+</tr></table>
+
+<h2 id="B">B</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="modules/generated/models/earth2studio.models.batch.batch_func.html#earth2studio.models.batch.batch_func">batch_func (class in earth2studio.models.batch)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="modules/generated/perturbation/earth2studio.perturbation.BredVector.html#earth2studio.perturbation.BredVector">BredVector (class in earth2studio.perturbation)</a>
+</li>
+      <li><a href="modules/generated/perturbation/earth2studio.perturbation.Brown.html#earth2studio.perturbation.Brown">Brown (class in earth2studio.perturbation)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="C">C</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="modules/generated/models/earth2studio.models.auto.Package.html#earth2studio.models.auto.Package.cache">cache (earth2studio.models.auto.Package property)</a>
+</li>
+      <li><a href="modules/generated/data/earth2studio.data.CDS.html#earth2studio.data.CDS">CDS (class in earth2studio.data)</a>
+</li>
+      <li><a href="modules/generated/models/dx/earth2studio.models.dx.ClimateNet.html#earth2studio.models.dx.ClimateNet">ClimateNet (class in earth2studio.models.dx)</a>
+</li>
+      <li><a href="modules/generated/models/dx/earth2studio.models.dx.CorrDiffTaiwan.html#earth2studio.models.dx.CorrDiffTaiwan">CorrDiffTaiwan (class in earth2studio.models.dx)</a>
+</li>
+      <li><a href="modules/generated/models/px/earth2studio.models.px.DLWP.html#earth2studio.models.px.DLWP.create_iterator">create_iterator() (earth2studio.models.px.DLWP method)</a>
+
+      <ul>
+        <li><a href="modules/generated/models/px/earth2studio.models.px.FCN.html#earth2studio.models.px.FCN.create_iterator">(earth2studio.models.px.FCN method)</a>
+</li>
+        <li><a href="modules/generated/models/px/earth2studio.models.px.FengWu.html#earth2studio.models.px.FengWu.create_iterator">(earth2studio.models.px.FengWu method)</a>
+</li>
+        <li><a href="modules/generated/models/px/earth2studio.models.px.FuXi.html#earth2studio.models.px.FuXi.create_iterator">(earth2studio.models.px.FuXi method)</a>
+</li>
+        <li><a href="modules/generated/models/px/earth2studio.models.px.Pangu24.html#earth2studio.models.px.Pangu24.create_iterator">(earth2studio.models.px.Pangu24 method)</a>
+</li>
+        <li><a href="modules/generated/models/px/earth2studio.models.px.Pangu3.html#earth2studio.models.px.Pangu3.create_iterator">(earth2studio.models.px.Pangu3 method)</a>
+</li>
+        <li><a href="modules/generated/models/px/earth2studio.models.px.Pangu6.html#earth2studio.models.px.Pangu6.create_iterator">(earth2studio.models.px.Pangu6 method)</a>
+</li>
+        <li><a href="modules/generated/models/px/earth2studio.models.px.Persistence.html#earth2studio.models.px.Persistence.create_iterator">(earth2studio.models.px.Persistence method)</a>
+</li>
+        <li><a href="modules/generated/models/px/earth2studio.models.px.SFNO.html#earth2studio.models.px.SFNO.create_iterator">(earth2studio.models.px.SFNO method)</a>
+</li>
+        <li><a href="modules/generated/models/px/earth2studio.models.px.StormCast.html#earth2studio.models.px.StormCast.create_iterator">(earth2studio.models.px.StormCast method)</a>
+</li>
+      </ul></li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="modules/generated/statistics/earth2studio.statistics.crps.html#earth2studio.statistics.crps">crps (class in earth2studio.statistics)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="D">D</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="modules/generated/data/earth2studio.data.DataArrayFile.html#earth2studio.data.DataArrayFile">DataArrayFile (class in earth2studio.data)</a>
+</li>
+      <li><a href="modules/generated/data/earth2studio.data.DataSetFile.html#earth2studio.data.DataSetFile">DataSetFile (class in earth2studio.data)</a>
+</li>
+      <li><a href="modules/generated/data/earth2studio.data.datasource_to_file.html#earth2studio.data.datasource_to_file">datasource_to_file() (in module earth2studio.data)</a>
+</li>
+      <li><a href="modules/generated/models/earth2studio.models.auto.Package.html#earth2studio.models.auto.Package.default_blocksize">default_blocksize() (earth2studio.models.auto.Package class method)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="modules/generated/models/earth2studio.models.auto.Package.html#earth2studio.models.auto.Package.default_cache">default_cache() (earth2studio.models.auto.Package class method)</a>
+</li>
+      <li><a href="modules/generated/models/earth2studio.models.auto.Package.html#earth2studio.models.auto.Package.default_timeout">default_timeout() (earth2studio.models.auto.Package class method)</a>
+</li>
+      <li><a href="modules/generated/workflows/earth2studio.run.deterministic.html#earth2studio.run.deterministic">deterministic() (in module earth2studio.run)</a>
+</li>
+      <li><a href="modules/generated/workflows/earth2studio.run.diagnostic.html#earth2studio.run.diagnostic">diagnostic() (in module earth2studio.run)</a>
+</li>
+      <li><a href="modules/generated/models/px/earth2studio.models.px.DLWP.html#earth2studio.models.px.DLWP">DLWP (class in earth2studio.models.px)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="E">E</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li>
+    earth2studio.data
+
+      <ul>
+        <li><a href="modules/datasources.html#module-earth2studio.data">module</a>
+</li>
+      </ul></li>
+      <li>
+    earth2studio.io
+
+      <ul>
+        <li><a href="modules/io.html#module-earth2studio.io">module</a>
+</li>
+      </ul></li>
+      <li>
+    earth2studio.models
+
+      <ul>
+        <li><a href="modules/models.html#module-earth2studio.models">module</a>
+</li>
+      </ul></li>
+      <li>
+    earth2studio.perturbation
+
+      <ul>
+        <li><a href="modules/perturbation.html#module-earth2studio.perturbation">module</a>
+</li>
+      </ul></li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li>
+    earth2studio.run
+
+      <ul>
+        <li><a href="modules/workflows.html#module-earth2studio.run">module</a>
+</li>
+      </ul></li>
+      <li>
+    earth2studio.statistics
+
+      <ul>
+        <li><a href="modules/statistics.html#module-earth2studio.statistics">module</a>
+</li>
+      </ul></li>
+      <li>
+    earth2studio.utils
+
+      <ul>
+        <li><a href="modules/utils.html#module-earth2studio.utils">module</a>
+</li>
+      </ul></li>
+      <li><a href="modules/generated/workflows/earth2studio.run.ensemble.html#earth2studio.run.ensemble">ensemble() (in module earth2studio.run)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="F">F</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="modules/generated/models/px/earth2studio.models.px.FCN.html#earth2studio.models.px.FCN">FCN (class in earth2studio.models.px)</a>
+</li>
+      <li><a href="modules/generated/models/px/earth2studio.models.px.FengWu.html#earth2studio.models.px.FengWu">FengWu (class in earth2studio.models.px)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="modules/generated/data/earth2studio.data.fetch_data.html#earth2studio.data.fetch_data">fetch_data() (in module earth2studio.data)</a>
+</li>
+      <li><a href="modules/generated/utils/earth2studio.utils.interp.LatLonInterpolation.html#earth2studio.utils.interp.LatLonInterpolation.forward">forward() (earth2studio.utils.interp.LatLonInterpolation method)</a>
+</li>
+      <li><a href="modules/generated/models/px/earth2studio.models.px.FuXi.html#earth2studio.models.px.FuXi">FuXi (class in earth2studio.models.px)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="G">G</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="modules/generated/perturbation/earth2studio.perturbation.Gaussian.html#earth2studio.perturbation.Gaussian">Gaussian (class in earth2studio.perturbation)</a>
+</li>
+      <li><a href="modules/generated/data/earth2studio.data.GEFS_FX.html#earth2studio.data.GEFS_FX">GEFS_FX (class in earth2studio.data)</a>
+</li>
+      <li><a href="modules/generated/data/earth2studio.data.GEFS_FX_721x1440.html#earth2studio.data.GEFS_FX_721x1440">GEFS_FX_721x1440 (class in earth2studio.data)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="modules/generated/models/earth2studio.models.auto.Package.html#earth2studio.models.auto.Package.get">get() (earth2studio.models.auto.Package method)</a>
+</li>
+      <li><a href="modules/generated/data/earth2studio.data.GFS.html#earth2studio.data.GFS">GFS (class in earth2studio.data)</a>
+</li>
+      <li><a href="modules/generated/data/earth2studio.data.GFS_FX.html#earth2studio.data.GFS_FX">GFS_FX (class in earth2studio.data)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="H">H</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="modules/generated/utils/earth2studio.utils.coords.handshake_coords.html#earth2studio.utils.coords.handshake_coords">handshake_coords() (in module earth2studio.utils.coords)</a>
+</li>
+      <li><a href="modules/generated/utils/earth2studio.utils.coords.handshake_dim.html#earth2studio.utils.coords.handshake_dim">handshake_dim() (in module earth2studio.utils.coords)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="modules/generated/utils/earth2studio.utils.coords.handshake_size.html#earth2studio.utils.coords.handshake_size">handshake_size() (in module earth2studio.utils.coords)</a>
+</li>
+      <li><a href="modules/generated/data/earth2studio.data.HRRR.html#earth2studio.data.HRRR">HRRR (class in earth2studio.data)</a>
+</li>
+      <li><a href="modules/generated/data/earth2studio.data.HRRR_FX.html#earth2studio.data.HRRR_FX">HRRR_FX (class in earth2studio.data)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="I">I</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="modules/generated/models/dx/earth2studio.models.dx.Identity.html#earth2studio.models.dx.Identity">Identity (class in earth2studio.models.dx)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="modules/generated/data/earth2studio.data.IFS.html#earth2studio.data.IFS">IFS (class in earth2studio.data)</a>
+</li>
+      <li><a href="modules/generated/data/earth2studio.data.IMERG.html#earth2studio.data.IMERG">IMERG (class in earth2studio.data)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="K">K</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="modules/generated/io/earth2studio.io.KVBackend.html#earth2studio.io.KVBackend">KVBackend (class in earth2studio.io)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="L">L</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="modules/generated/perturbation/earth2studio.perturbation.LaggedEnsemble.html#earth2studio.perturbation.LaggedEnsemble">LaggedEnsemble (class in earth2studio.perturbation)</a>
+</li>
+      <li><a href="modules/generated/statistics/earth2studio.statistics.weights.lat_weight.html#earth2studio.statistics.weights.lat_weight">lat_weight() (in module earth2studio.statistics.weights)</a>
+</li>
+      <li><a href="modules/generated/utils/earth2studio.utils.interp.LatLonInterpolation.html#earth2studio.utils.interp.LatLonInterpolation">LatLonInterpolation (class in earth2studio.utils.interp)</a>
+</li>
+      <li><a href="modules/generated/models/dx/earth2studio.models.dx.ClimateNet.html#earth2studio.models.dx.ClimateNet.load_default_package">load_default_package() (earth2studio.models.dx.ClimateNet class method)</a>
+
+      <ul>
+        <li><a href="modules/generated/models/dx/earth2studio.models.dx.CorrDiffTaiwan.html#earth2studio.models.dx.CorrDiffTaiwan.load_default_package">(earth2studio.models.dx.CorrDiffTaiwan class method)</a>
+</li>
+        <li><a href="modules/generated/models/dx/earth2studio.models.dx.PrecipitationAFNO.html#earth2studio.models.dx.PrecipitationAFNO.load_default_package">(earth2studio.models.dx.PrecipitationAFNO class method)</a>
+</li>
+        <li><a href="modules/generated/models/px/earth2studio.models.px.DLWP.html#earth2studio.models.px.DLWP.load_default_package">(earth2studio.models.px.DLWP class method)</a>
+</li>
+        <li><a href="modules/generated/models/px/earth2studio.models.px.FCN.html#earth2studio.models.px.FCN.load_default_package">(earth2studio.models.px.FCN class method)</a>
+</li>
+        <li><a href="modules/generated/models/px/earth2studio.models.px.FengWu.html#earth2studio.models.px.FengWu.load_default_package">(earth2studio.models.px.FengWu class method)</a>
+</li>
+        <li><a href="modules/generated/models/px/earth2studio.models.px.FuXi.html#earth2studio.models.px.FuXi.load_default_package">(earth2studio.models.px.FuXi class method)</a>
+</li>
+        <li><a href="modules/generated/models/px/earth2studio.models.px.Pangu24.html#earth2studio.models.px.Pangu24.load_default_package">(earth2studio.models.px.Pangu24 class method)</a>
+</li>
+        <li><a href="modules/generated/models/px/earth2studio.models.px.Pangu3.html#earth2studio.models.px.Pangu3.load_default_package">(earth2studio.models.px.Pangu3 class method)</a>
+</li>
+        <li><a href="modules/generated/models/px/earth2studio.models.px.Pangu6.html#earth2studio.models.px.Pangu6.load_default_package">(earth2studio.models.px.Pangu6 class method)</a>
+</li>
+        <li><a href="modules/generated/models/px/earth2studio.models.px.SFNO.html#earth2studio.models.px.SFNO.load_default_package">(earth2studio.models.px.SFNO class method)</a>
+</li>
+        <li><a href="modules/generated/models/px/earth2studio.models.px.StormCast.html#earth2studio.models.px.StormCast.load_default_package">(earth2studio.models.px.StormCast class method)</a>
+</li>
+      </ul></li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="modules/generated/models/dx/earth2studio.models.dx.ClimateNet.html#earth2studio.models.dx.ClimateNet.load_model">load_model() (earth2studio.models.dx.ClimateNet class method)</a>
+
+      <ul>
+        <li><a href="modules/generated/models/dx/earth2studio.models.dx.CorrDiffTaiwan.html#earth2studio.models.dx.CorrDiffTaiwan.load_model">(earth2studio.models.dx.CorrDiffTaiwan class method)</a>
+</li>
+        <li><a href="modules/generated/models/dx/earth2studio.models.dx.PrecipitationAFNO.html#earth2studio.models.dx.PrecipitationAFNO.load_model">(earth2studio.models.dx.PrecipitationAFNO class method)</a>
+</li>
+        <li><a href="modules/generated/models/px/earth2studio.models.px.DLWP.html#earth2studio.models.px.DLWP.load_model">(earth2studio.models.px.DLWP class method)</a>
+</li>
+        <li><a href="modules/generated/models/px/earth2studio.models.px.FCN.html#earth2studio.models.px.FCN.load_model">(earth2studio.models.px.FCN class method)</a>
+</li>
+        <li><a href="modules/generated/models/px/earth2studio.models.px.FengWu.html#earth2studio.models.px.FengWu.load_model">(earth2studio.models.px.FengWu class method)</a>
+</li>
+        <li><a href="modules/generated/models/px/earth2studio.models.px.FuXi.html#earth2studio.models.px.FuXi.load_model">(earth2studio.models.px.FuXi class method)</a>
+</li>
+        <li><a href="modules/generated/models/px/earth2studio.models.px.Pangu24.html#earth2studio.models.px.Pangu24.load_model">(earth2studio.models.px.Pangu24 class method)</a>
+</li>
+        <li><a href="modules/generated/models/px/earth2studio.models.px.Pangu3.html#earth2studio.models.px.Pangu3.load_model">(earth2studio.models.px.Pangu3 class method)</a>
+</li>
+        <li><a href="modules/generated/models/px/earth2studio.models.px.Pangu6.html#earth2studio.models.px.Pangu6.load_model">(earth2studio.models.px.Pangu6 class method)</a>
+</li>
+        <li><a href="modules/generated/models/px/earth2studio.models.px.SFNO.html#earth2studio.models.px.SFNO.load_model">(earth2studio.models.px.SFNO class method)</a>
+</li>
+        <li><a href="modules/generated/models/px/earth2studio.models.px.StormCast.html#earth2studio.models.px.StormCast.load_model">(earth2studio.models.px.StormCast class method)</a>
+</li>
+      </ul></li>
+  </ul></td>
+</tr></table>
+
+<h2 id="M">M</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="modules/generated/utils/earth2studio.utils.coords.map_coords.html#earth2studio.utils.coords.map_coords">map_coords() (in module earth2studio.utils.coords)</a>
+</li>
+      <li><a href="modules/generated/statistics/earth2studio.statistics.mean.html#earth2studio.statistics.mean">mean (class in earth2studio.statistics)</a>
+</li>
+      <li>
+    module
+
+      <ul>
+        <li><a href="modules/datasources.html#module-earth2studio.data">earth2studio.data</a>
+</li>
+        <li><a href="modules/io.html#module-earth2studio.io">earth2studio.io</a>
+</li>
+        <li><a href="modules/models.html#module-earth2studio.models">earth2studio.models</a>
+</li>
+        <li><a href="modules/perturbation.html#module-earth2studio.perturbation">earth2studio.perturbation</a>
+</li>
+        <li><a href="modules/workflows.html#module-earth2studio.run">earth2studio.run</a>
+</li>
+        <li><a href="modules/statistics.html#module-earth2studio.statistics">earth2studio.statistics</a>
+</li>
+        <li><a href="modules/utils.html#module-earth2studio.utils">earth2studio.utils</a>
+</li>
+      </ul></li>
+  </ul></td>
+</tr></table>
+
+<h2 id="N">N</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="modules/generated/data/earth2studio.data.NCAR_ERA5.html#earth2studio.data.NCAR_ERA5">NCAR_ERA5 (class in earth2studio.data)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="modules/generated/io/earth2studio.io.NetCDF4Backend.html#earth2studio.io.NetCDF4Backend">NetCDF4Backend (class in earth2studio.io)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="O">O</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="modules/generated/models/earth2studio.models.auto.Package.html#earth2studio.models.auto.Package.open">open() (earth2studio.models.auto.Package method)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="P">P</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="modules/generated/models/earth2studio.models.auto.Package.html#earth2studio.models.auto.Package">Package (class in earth2studio.models.auto)</a>
+</li>
+      <li><a href="modules/generated/models/px/earth2studio.models.px.Pangu24.html#earth2studio.models.px.Pangu24">Pangu24 (class in earth2studio.models.px)</a>
+</li>
+      <li><a href="modules/generated/models/px/earth2studio.models.px.Pangu3.html#earth2studio.models.px.Pangu3">Pangu3 (class in earth2studio.models.px)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="modules/generated/models/px/earth2studio.models.px.Pangu6.html#earth2studio.models.px.Pangu6">Pangu6 (class in earth2studio.models.px)</a>
+</li>
+      <li><a href="modules/generated/models/px/earth2studio.models.px.Persistence.html#earth2studio.models.px.Persistence">Persistence (class in earth2studio.models.px)</a>
+</li>
+      <li><a href="modules/generated/models/dx/earth2studio.models.dx.PrecipitationAFNO.html#earth2studio.models.dx.PrecipitationAFNO">PrecipitationAFNO (class in earth2studio.models.dx)</a>
+</li>
+      <li><a href="modules/generated/data/earth2studio.data.prep_data_array.html#earth2studio.data.prep_data_array">prep_data_array() (in module earth2studio.data)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="R">R</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="modules/generated/data/earth2studio.data.Random.html#earth2studio.data.Random">Random (class in earth2studio.data)</a>
+</li>
+      <li><a href="modules/generated/statistics/earth2studio.statistics.rank_histogram.html#earth2studio.statistics.rank_histogram">rank_histogram (class in earth2studio.statistics)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="modules/generated/models/earth2studio.models.auto.Package.html#earth2studio.models.auto.Package.resolve">resolve() (earth2studio.models.auto.Package method)</a>
+</li>
+      <li><a href="modules/generated/statistics/earth2studio.statistics.rmse.html#earth2studio.statistics.rmse">rmse (class in earth2studio.statistics)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="S">S</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="modules/generated/models/px/earth2studio.models.px.SFNO.html#earth2studio.models.px.SFNO">SFNO (class in earth2studio.models.px)</a>
+</li>
+      <li><a href="modules/generated/perturbation/earth2studio.perturbation.SphericalGaussian.html#earth2studio.perturbation.SphericalGaussian">SphericalGaussian (class in earth2studio.perturbation)</a>
+</li>
+      <li><a href="modules/generated/utils/earth2studio.utils.coords.split_coords.html#earth2studio.utils.coords.split_coords">split_coords() (in module earth2studio.utils.coords)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="modules/generated/statistics/earth2studio.statistics.spread_skill_ratio.html#earth2studio.statistics.spread_skill_ratio">spread_skill_ratio (class in earth2studio.statistics)</a>
+</li>
+      <li><a href="modules/generated/statistics/earth2studio.statistics.std.html#earth2studio.statistics.std">std (class in earth2studio.statistics)</a>
+</li>
+      <li><a href="modules/generated/models/px/earth2studio.models.px.StormCast.html#earth2studio.models.px.StormCast">StormCast (class in earth2studio.models.px)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="T">T</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="modules/generated/utils/earth2studio.utils.time.timearray_to_datetime.html#earth2studio.utils.time.timearray_to_datetime">timearray_to_datetime() (in module earth2studio.utils.time)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="modules/generated/utils/earth2studio.utils.time.to_time_array.html#earth2studio.utils.time.to_time_array">to_time_array() (in module earth2studio.utils.time)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="V">V</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="modules/generated/statistics/earth2studio.statistics.variance.html#earth2studio.statistics.variance">variance (class in earth2studio.statistics)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="W">W</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="modules/generated/data/earth2studio.data.WB2Climatology.html#earth2studio.data.WB2Climatology">WB2Climatology (class in earth2studio.data)</a>
+</li>
+      <li><a href="modules/generated/data/earth2studio.data.WB2ERA5.html#earth2studio.data.WB2ERA5">WB2ERA5 (class in earth2studio.data)</a>
+</li>
+      <li><a href="modules/generated/data/earth2studio.data.WB2ERA5_121x240.html#earth2studio.data.WB2ERA5_121x240">WB2ERA5_121x240 (class in earth2studio.data)</a>
+</li>
+      <li><a href="modules/generated/data/earth2studio.data.WB2ERA5_32x64.html#earth2studio.data.WB2ERA5_32x64">WB2ERA5_32x64 (class in earth2studio.data)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="modules/generated/io/earth2studio.io.KVBackend.html#earth2studio.io.KVBackend.write">write() (earth2studio.io.KVBackend method)</a>
+
+      <ul>
+        <li><a href="modules/generated/io/earth2studio.io.NetCDF4Backend.html#earth2studio.io.NetCDF4Backend.write">(earth2studio.io.NetCDF4Backend method)</a>
+</li>
+        <li><a href="modules/generated/io/earth2studio.io.XarrayBackend.html#earth2studio.io.XarrayBackend.write">(earth2studio.io.XarrayBackend method)</a>
+</li>
+        <li><a href="modules/generated/io/earth2studio.io.ZarrBackend.html#earth2studio.io.ZarrBackend.write">(earth2studio.io.ZarrBackend method)</a>
+</li>
+      </ul></li>
+  </ul></td>
+</tr></table>
+
+<h2 id="X">X</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="modules/generated/io/earth2studio.io.XarrayBackend.html#earth2studio.io.XarrayBackend">XarrayBackend (class in earth2studio.io)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="Z">Z</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="modules/generated/io/earth2studio.io.ZarrBackend.html#earth2studio.io.ZarrBackend">ZarrBackend (class in earth2studio.io)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="modules/generated/perturbation/earth2studio.perturbation.Zero.html#earth2studio.perturbation.Zero">Zero (class in earth2studio.perturbation)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+
+
+                </article>
+              
+              
+              
+              
+              
+                <footer class="prev-next-footer">
+                  
+<div class="prev-next-area">
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+                <div class="bd-sidebar-secondary bd-toc"></div>
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+          </footer>
+        
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script src="_static/scripts/bootstrap.js?digest=8d27b9dea8ad943066ae"></script>
+<script src="_static/scripts/pydata-sphinx-theme.js?digest=8d27b9dea8ad943066ae"></script>
+
+  <footer class="bd-footer">
+<div class="bd-footer__inner bd-page-width">
+  
+    <div class="footer-items__start">
+      
+        <div class="footer-item">
+
+  <p class="copyright">
+    
+      © Copyright 2024, NVIDIA.
+      <br/>
+    
+  </p>
+</div>
+      
+        <div class="footer-item">
+
+  <p class="sphinx-version">
+    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 8.1.3.
+    <br/>
+  </p>
+</div>
+      
+    </div>
+  
+  
+  
+    <div class="footer-items__end">
+      
+        <div class="footer-item">
+<p class="theme-version">
+  Built with the <a href="https://pydata-sphinx-theme.readthedocs.io/en/stable/index.html">PyData Sphinx Theme</a> 0.15.2.
+</p></div>
+      
+    </div>
+  
+</div>
+
+  </footer>
+  </body>
+</html>
