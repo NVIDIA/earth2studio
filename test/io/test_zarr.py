@@ -24,7 +24,7 @@ import torch
 import zarr
 
 from earth2studio.io import ZarrBackend
-from earth2studio.utils.coords import split_coords
+from earth2studio.utils.coords import convert_multidim_to_singledim, split_coords
 
 
 @pytest.mark.parametrize(
@@ -382,3 +382,116 @@ def test_zarr_exceptions(
     # Try to write with too many array names
     with pytest.raises(ValueError):
         z.write([dummy, dummy], bad_coords, "dummy_1")
+
+
+@pytest.mark.parametrize(
+    "time",
+    [
+        [np.datetime64("1958-01-31")],
+        [np.datetime64("1971-06-01T06:00:00"), np.datetime64("2021-11-23T12:00:00")],
+    ],
+)
+@pytest.mark.parametrize(
+    "variable",
+    [["t2m"], ["t2m", "tcwv"]],
+)
+@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+def test_zarr_field_multidim(
+    time: list[np.datetime64], variable: list[str], device: str
+) -> None:
+
+    lat = np.linspace(-90, 90, 180)
+    lon = np.linspace(0, 360, 360, endpoint=False)
+    LON, LAT = np.meshgrid(lon, lat)
+
+    total_coords = OrderedDict(
+        {
+            "time": np.asarray(time),
+            "variable": np.asarray(variable),
+            "lat": LAT,
+            "lon": LON,
+        }
+    )
+
+    adjusted_coords = convert_multidim_to_singledim(total_coords)
+    chunks = OrderedDict({"time": 1, "variable": 1})
+
+    # Test Memory Store
+    z = ZarrBackend(chunks=chunks)
+    assert isinstance(z.store, zarr.storage.MemoryStore)
+    assert isinstance(z.root, zarr.hierarchy.Group)
+
+    # Instantiate
+    array_name = "fields"
+    z.add_array(total_coords, array_name)
+
+    # Check instantiation
+    for dim in adjusted_coords:
+        assert dim in z
+        assert dim in z.coords
+        assert z[dim].shape == adjusted_coords[dim].shape
+
+    # Test __contains__
+    assert array_name in z
+
+    # Test __getitem__
+    shape = tuple([len(dim) for dim in adjusted_coords.values()])
+    assert z[array_name].shape == shape
+
+    # Test __len__
+    assert len(z) == 7
+
+    # Test __iter__
+    for array in z:
+        assert array in ["fields", "time", "variable", "lat", "lon", "ilat", "ilon"]
+
+    # Test add_array with torch.Tensor
+    z.add_array(
+        total_coords,
+        "dummy_1",
+        data=torch.randn(shape, device=device, dtype=torch.float32),
+    )
+
+    assert "dummy_1" in z
+    assert z["dummy_1"].shape == shape
+
+    # Test add_array with kwarg (overwrite)
+    z.add_array(
+        total_coords,
+        "dummy_1",
+        data=torch.randn(shape, device=device, dtype=torch.float32),
+        overwrite=True,
+    )
+
+    assert "dummy_1" in z
+    assert z["dummy_1"].shape == shape
+
+    # Test add_array with list and kwarg (overwrite)
+    z.add_array(
+        total_coords,
+        "dummy_1",
+        data=[torch.randn(shape, device=device, dtype=torch.float32)],
+        overwrite=True,
+    )
+
+    assert "dummy_1" in z
+    assert z["dummy_1"].shape == shape
+
+    z.add_array(
+        total_coords,
+        ["dummy_1"],
+        data=[torch.randn(shape, device=device, dtype=torch.float32)],
+        overwrite=True,
+        fill_value=None,
+    )
+
+    assert "dummy_1" in z
+    assert z["dummy_1"].shape == shape
+
+    # Test writing
+
+    # Test full write
+    x = torch.randn(shape, device=device, dtype=torch.float32)
+    z.write(x, total_coords, "fields_1")
+    assert "fields_1" in z
+    assert z["fields_1"].shape == x.shape
