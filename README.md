@@ -77,7 +77,7 @@ Earth2Studio is provided under the Apache License 2.0, please see
 
 <!-- Badge links -->
 
-[e2studio_python_img]: https://img.shields.io/badge/Python-3.10%20|%203.11-blue?style=flat-square&logo=python
+[e2studio_python_img]: https://img.shields.io/badge/Python-3.10%20|%203.11%20|%203.12-blue?style=flat-square&logo=python
 [e2studio_license_img]: https://img.shields.io/badge/License-Apache%202.0-green?style=flat-square
 [e2studio_format_img]: https://img.shields.io/badge/Code%20Style-Black-black?style=flat-square
 [e2studio_cov_img]: https://img.shields.io/codecov/c/github/nickgeneva/earth2studio?style=flat-square&logo=codecov

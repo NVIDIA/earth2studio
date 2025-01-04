@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2024 - 2025 NVIDIA CORPORATION & AFFILIATES.
 # SPDX-FileCopyrightText: All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -25,7 +25,11 @@ import torch
 import xarray as xr
 from modulus.models import Module
 from modulus.utils.generative import deterministic_sampler
-from omegaconf import OmegaConf
+
+try:
+    from omegaconf import OmegaConf
+except ImportError:
+    OmegaConf = None
 from packaging.version import Version
 
 from earth2studio.data import DataSource, fetch_data
@@ -219,6 +223,12 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     @classmethod
     def load_model(cls, package: Package) -> DiagnosticModel:
         """Load StormCast model."""
+
+        if OmegaConf is None:
+            raise ImportError(
+                "StormCast optional installs are reuqired. See model install notes for details.\n"
+                + "https://nvidia.github.io/earth2studio/userguide/about/install.html#model-dependencies"
+            )
 
         # Require appropriate modulus version
         installed_version = Version(modulus.__version__)
