@@ -72,4 +72,4 @@ repos:
                 test |
                 docs |
                 earth2studio/models/nn)
-        additional_dependencies: ['types-requests']
+        additional_dependencies: ['types-requests', 'types-pytz']

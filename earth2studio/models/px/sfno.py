@@ -19,6 +19,7 @@ from collections import OrderedDict
 from collections.abc import Generator, Iterator
 
 import numpy as np
+import pytz
 import torch
 
 try:
@@ -265,7 +266,12 @@ class SFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         x = (x - self.center) / self.scale
         for j, _ in enumerate(coords["batch"]):
             for (i, t) in enumerate(coords["time"]):
-                t = timearray_to_datetime(t + coords["lead_time"])
+                # https://github.com/NVIDIA/modulus-makani/blob/933b17d5a1ebfdb0e16e2ebbd7ee78cfccfda9e1/makani/third_party/climt/zenith_angle.py#L197
+                # Requires time zone data
+                t = [
+                    dt.replace(tzinfo=pytz.UTC)
+                    for dt in timearray_to_datetime(t + coords["lead_time"])
+                ]
                 x[j, i : i + 1] = self.model(x[j, i : i + 1], t)
         x = self.scale * x + self.center
         x = x.unsqueeze(2)

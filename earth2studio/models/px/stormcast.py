@@ -224,6 +224,12 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def load_model(cls, package: Package) -> DiagnosticModel:
         """Load StormCast model."""
 
+        if OmegaConf is None:
+            raise ImportError(
+                "StormCast optional installs are reuqired. See model install notes for details.\n"
+                + "https://nvidia.github.io/earth2studio/userguide/about/install.html#model-dependencies"
+            )
+
         # Require appropriate modulus version
         installed_version = Version(modulus.__version__)
         if installed_version < Version("0.10.0a0"):
