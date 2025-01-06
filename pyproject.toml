@@ -74,9 +74,8 @@ pangu = [
 ]
 sfno = [
     # makani needs to be installed manually
-    # "makani[all] @ git+https://github.com/NickGeneva/modulus-makani.git@17c4a6d553b4932f0fa8b72880ad11da34fd086a",
+    # "makani[all] @ git+https://github.com/NVIDIA/modulus-makani.git@259c38d36b361001946273690a41388add2aaabd",
     "jsbeautifier", # makani
-    "moviepy==1.0.3", # makani
     "numba", # makani
     "pynvml", # makani
     "ruamel.yaml", # makani

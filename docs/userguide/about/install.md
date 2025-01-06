@@ -110,7 +110,7 @@ Notes: Requires [Modulus-Makani](https://github.com/NVIDIA/modulus-makani) to be
 installed manually.
 
 ```bash
-pip install "makani[all] @ git+https://github.com/NVIDIA/modulus-makani.git@v0.1.0"
+pip install "makani[all] @ git+https://github.com/NVIDIA/modulus-makani.git@259c38d36b361001946273690a41388add2aaabd""
 pip install earth2studio[sfno]
 ```
 
@@ -137,6 +137,7 @@ For the best experience we recommend creating a fresh environment whether that b
 a Docker container or a Conda environment.
 Below are some recipes for creating a handful of environments that we recommend for
 setting up Earth2Studio to run all build in models.
+Optional installs for individual models will still need to be performed.
 
 ## Modulus Docker Container
 
@@ -147,8 +148,6 @@ You can install Earth2Studio in a running container directly:
 ```bash
 docker run -i -t nvcr.io/nvidia/modulus/modulus:24.12
 
->>> pip install "makani[all] @ git+https://github.com/NVIDIA/modulus-makani.git@v0.1.0"
-
 >>> pip install earth2studio[all]
 ```
 
@@ -156,8 +155,6 @@ or build your own Earth2Studio container using a Dockerfile:
 
 ```dockerfile
 FROM nvcr.io/nvidia/modulus/modulus
-
-RUN pip install "makani[all] @ git+https://github.com/NVIDIA/modulus-makani.git@v0.1.0"
 
 RUN pip install earth2studio[all]
 ```
@@ -171,8 +168,6 @@ Note that for ONNX models to work we will need a [specific install](https://onnx
 
 ```bash
 docker run -i -t nvcr.io/nvidia/pytorch:24.11-py3
-
->>> pip install "makani[all] @ git+https://github.com/NVIDIA/modulus-makani.git@v0.1.0"
 
 >>> pip install earth2studio[all]
 ```
@@ -189,7 +184,6 @@ conda activate earth2studio
 
 conda install pytorch pytorch-cuda=12.1 -c pytorch -c nvidia
 conda install eccodes python-eccodes -c conda-forge
-pip install "makani[all] @ git+https://github.com/NVIDIA/modulus-makani.git@v0.1.0"
 
 pip install earth2studio[all]
 ```
