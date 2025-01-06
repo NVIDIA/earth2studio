@@ -23,6 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Dependencies
 
 - Update NGC SDK dependency to fixed range due to internal API changes
+- Updates to multiple dependencies for Python 3.12 support
 
 ## [0.4.0] - 2024-12-12
 
