@@ -22,6 +22,7 @@ import numpy as np
 import torch
 import xarray
 
+from earth2studio.utils.coords import convert_multidim_to_singledim
 from earth2studio.utils.type import CoordSystem
 
 
@@ -107,18 +108,29 @@ class KVBackend:
                 f"The number of input tensors and array names must be the same but got {len(data)} and {len(array_name)}."
             )
 
-        self.coords = self.coords | coords
+        adjusted_coords, mapping = convert_multidim_to_singledim(
+            coords, return_mapping=True
+        )
+
+        self.coords = self.coords | adjusted_coords
+
+        # Add any multidim coordinates that were expelled above
+        for k in mapping:
+            if k not in self.root:
+                values = coords[k]
+                self.dims[k] = mapping[k]
+                self.root[k] = torch.as_tensor(values, device="cpu")
 
         for name, di in zip(array_name, data):
             if name in self.root:
                 raise AssertionError(f"Warning! {name} is already in KV Store.")
 
-            self.dims[name] = list(coords)
+            self.dims[name] = list(adjusted_coords)
 
             if di is not None:
                 self.root[name] = di.to(self.device)
             else:
-                shape = [len(v) for v in coords.values()]
+                shape = [len(v) for v in adjusted_coords.values()]
                 self.root[name] = torch.zeros(
                     shape, dtype=torch.float32, device=self.device
                 )
@@ -152,9 +164,27 @@ class KVBackend:
                 f"The number of input tensors and array names must be the same but got {len(x)} and {len(array_name)}."
             )
 
-        for dim in coords:
+        # Reduce complex coordinates, if any multidimension coordinates exist
+        adjusted_coords, mapping = convert_multidim_to_singledim(
+            coords, return_mapping=True
+        )
+
+        for dim in adjusted_coords:
             if dim not in self.coords:
                 raise AssertionError("Coordinate dimension not in KV store.")
+
+        # Check to see if multidimensions are passed in full, otherwise error
+        for key in mapping:
+            if key not in self.root:
+                raise AssertionError(
+                    f"Multidimension coordinate {key} not in KV store."
+                )
+
+            if coords[key].shape != self.root[key].shape:
+                raise AssertionError(
+                    "Currently writing data with multidimension arrays is only supported when"
+                    + "the multidimension coordinates are passed in full."
+                )
 
         for xi, name in zip(x, array_name):
             if name not in self.root:
@@ -166,7 +196,7 @@ class KVBackend:
                     np.ix_(
                         *[
                             np.where(np.in1d(self.coords[dim], value))[0]
-                            for dim, value in coords.items()
+                            for dim, value in adjusted_coords.items()
                         ]
                     )
                 ] = xi.to(self.device)
@@ -213,11 +243,33 @@ class KVBackend:
             device to place the read data from, by default 'cpu'
         """
 
+        # Reduce complex coordinates, if any multidimension coordinates exist
+        adjusted_coords, mapping = convert_multidim_to_singledim(
+            coords, return_mapping=True
+        )
+
+        for dim in adjusted_coords:
+            if dim not in self.coords:
+                raise AssertionError(f"Coordinate dimension {dim} not in KV store.")
+
+        # Check to see if multidimensions are passed in full, otherwise error
+        for key in mapping:
+            if key not in self.root:
+                raise AssertionError(
+                    f"Multidimension coordinate {key} not in KV store."
+                )
+
+            if coords[key].shape != self.root[key].shape:
+                raise AssertionError(
+                    "Currently reading data with multidimension arrays is only supported when"
+                    + "the multidimension coordinates are passed in full."
+                )
+
         x = self.root[array_name][
             np.ix_(
                 *[
                     np.where(np.in1d(self.coords[dim], value))[0]
-                    for dim, value in coords.items()
+                    for dim, value in adjusted_coords.items()
                 ]
             )
         ]

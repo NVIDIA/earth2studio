@@ -492,6 +492,15 @@ def test_zarr_field_multidim(
 
     # Test full write
     x = torch.randn(shape, device=device, dtype=torch.float32)
+    z.write(x, adjusted_coords, array_name)
+
+    xx, _ = z.read(adjusted_coords, array_name, device=device)
+    assert torch.allclose(x, xx)
+
+    # Test separate write
     z.write(x, total_coords, "fields_1")
     assert "fields_1" in z
     assert z["fields_1"].shape == x.shape
+
+    xx, _ = z.read(total_coords, "fields_1", device=device)
+    assert torch.allclose(x, xx)
