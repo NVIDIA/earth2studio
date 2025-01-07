@@ -413,7 +413,7 @@ def test_netcdf4_fields_multidim(
         }
     )
 
-    adjusted_coords = convert_multidim_to_singledim(total_coords)
+    adjusted_coords, _ = convert_multidim_to_singledim(total_coords)
 
     # Test Memory Store
     nc = NetCDF4Backend(

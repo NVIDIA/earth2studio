@@ -343,7 +343,7 @@ def split_coords(
 
 def convert_multidim_to_singledim(
     coords: CoordSystem, return_mapping: bool = False
-) -> CoordSystem:
+) -> tuple[CoordSystem, dict[str, list[str]]]:
     """Converts a set of coordinates from a complex coordinate system, which has some
     coordinates with multidimensional arrays, into a simple coordinate system
     containing only one-dimensional arrays.
@@ -367,7 +367,7 @@ def convert_multidim_to_singledim(
     LON, LAT = np.meshgrid(lat, lon)
     c = CoordSystem({"lat": LAT, "lon": LON})
 
-    c1 = convert_multidim_to_singledim(c)
+    c1, m = convert_multidim_to_singledim(c)
     ```
 
     `c1` has 2 keys - `x1` and `x2`, with shapes `(10,)` and `(20,)` respectively.
@@ -376,15 +376,14 @@ def convert_multidim_to_singledim(
     ----------
     coords : CoordSystem
         CoordSystem to convert.
-    return_mapping : bool, optional
-        Whether to return the mapping between the multidimensional entries and their
-        reduced entries in the converted coordinate system.
-        By default false.
 
     Returns
     -------
     CoordSystem
         Converted coordinate system where each coordinate is 1-dimensional.
+    dict[str, list[str]]
+        Mapping of multidimensional coordinates to a list of their 1-dimensional
+        enumerations.
     """
 
     adjusted_coords = {}
@@ -392,7 +391,6 @@ def convert_multidim_to_singledim(
 
     items = list(coords.items())
     i = 0
-    dim_number = 0
     while i < len(items):
         item = items[i]
         k, v = item
@@ -421,11 +419,7 @@ def convert_multidim_to_singledim(
                 adjusted_coords["i" + k1] = np.arange(s[j])
                 mapping[k].append("i" + k1)
                 mapping[k1] = mapping[k]
-                dim_number += 1
 
             i += j + 1
 
-    if return_mapping:
-        return CoordSystem(adjusted_coords), mapping
-    else:
-        return CoordSystem(adjusted_coords)
+    return CoordSystem(adjusted_coords), mapping

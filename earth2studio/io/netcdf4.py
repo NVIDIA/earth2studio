@@ -178,9 +178,7 @@ class NetCDF4Backend:
                 f"The number of input tensors and array names must be the same but got {len(data)} and {len(array_name)}."
             )
 
-        adjusted_coords, mapping = convert_multidim_to_singledim(
-            coords, return_mapping=True
-        )
+        adjusted_coords, mapping = convert_multidim_to_singledim(coords)
 
         for c, v in adjusted_coords.items():
             if c not in self.coords:
@@ -240,9 +238,7 @@ class NetCDF4Backend:
             )
 
         # Reduce complex coordinates, if any multidimension coordinates exist
-        adjusted_coords, mapping = convert_multidim_to_singledim(
-            coords, return_mapping=True
-        )
+        adjusted_coords, mapping = convert_multidim_to_singledim(coords)
 
         for dim in adjusted_coords:
             if dim not in self.coords:
@@ -293,9 +289,7 @@ class NetCDF4Backend:
         """
 
         # Reduce complex coordinates, if any multidimension coordinates exist
-        adjusted_coords, mapping = convert_multidim_to_singledim(
-            coords, return_mapping=True
-        )
+        adjusted_coords, mapping = convert_multidim_to_singledim(coords)
 
         for dim in adjusted_coords:
             if dim not in self.coords:

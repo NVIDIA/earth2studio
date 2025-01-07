@@ -108,9 +108,7 @@ class KVBackend:
                 f"The number of input tensors and array names must be the same but got {len(data)} and {len(array_name)}."
             )
 
-        adjusted_coords, mapping = convert_multidim_to_singledim(
-            coords, return_mapping=True
-        )
+        adjusted_coords, mapping = convert_multidim_to_singledim(coords)
 
         self.coords = self.coords | adjusted_coords
 
@@ -165,9 +163,7 @@ class KVBackend:
             )
 
         # Reduce complex coordinates, if any multidimension coordinates exist
-        adjusted_coords, mapping = convert_multidim_to_singledim(
-            coords, return_mapping=True
-        )
+        adjusted_coords, mapping = convert_multidim_to_singledim(coords)
 
         for dim in adjusted_coords:
             if dim not in self.coords:
@@ -244,9 +240,7 @@ class KVBackend:
         """
 
         # Reduce complex coordinates, if any multidimension coordinates exist
-        adjusted_coords, mapping = convert_multidim_to_singledim(
-            coords, return_mapping=True
-        )
+        adjusted_coords, mapping = convert_multidim_to_singledim(coords)
 
         for dim in adjusted_coords:
             if dim not in self.coords:

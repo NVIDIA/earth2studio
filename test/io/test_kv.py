@@ -260,7 +260,7 @@ def test_kv_fields_multidim(
         }
     )
 
-    adjusted_coords = convert_multidim_to_singledim(total_coords)
+    adjusted_coords, _ = convert_multidim_to_singledim(total_coords)
 
     # Test Memory Store
     z = KVBackend(device=device)

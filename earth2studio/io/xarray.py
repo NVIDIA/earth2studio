@@ -41,11 +41,9 @@ class XarrayBackend:
     """
 
     def __init__(self, coords: CoordSystem = OrderedDict({}), **xr_kwargs: Any) -> None:
-        adjusted_coords, mapping = convert_multidim_to_singledim(
-            coords, return_mapping=True
-        )
+        adjusted_coords, mapping = convert_multidim_to_singledim(coords)
 
-        data_vars: dict[str, tuple[str, np.ndarray]] = {}
+        data_vars: dict[str, tuple[list[str], np.ndarray]] = {}
         if not mapping:
             self.root = xr.Dataset(
                 data_vars=data_vars, coords=adjusted_coords, **xr_kwargs
@@ -126,9 +124,7 @@ class XarrayBackend:
                 f"The number of input tensors and array names must be the same but got {len(data)} and {len(array_name)}."
             )
 
-        adjusted_coords, mapping = convert_multidim_to_singledim(
-            coords, return_mapping=True
-        )
+        adjusted_coords, mapping = convert_multidim_to_singledim(coords)
 
         self.coords = self.coords | adjusted_coords
 
@@ -187,9 +183,7 @@ class XarrayBackend:
             )
 
         # Reduce complex coordinates, if any multidimension coordinates exist
-        adjusted_coords, mapping = convert_multidim_to_singledim(
-            coords, return_mapping=True
-        )
+        adjusted_coords, mapping = convert_multidim_to_singledim(coords)
 
         for dim in adjusted_coords:
             if dim not in self.root:
@@ -244,9 +238,7 @@ class XarrayBackend:
         """
 
         # Reduce complex coordinates, if any multidimension coordinates exist
-        adjusted_coords, mapping = convert_multidim_to_singledim(
-            coords, return_mapping=True
-        )
+        adjusted_coords, mapping = convert_multidim_to_singledim(coords)
 
         for dim in adjusted_coords:
             if dim not in self.root:

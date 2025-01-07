@@ -189,7 +189,7 @@ def test_convert_multidim_to_singledim():
 
     # Test simple case
     c = dc
-    out = convert_multidim_to_singledim(c)
+    out, _ = convert_multidim_to_singledim(c)
     check_coord_equivalence(out, true_converted)
 
     # Test with leading coordinates
@@ -199,20 +199,20 @@ def test_convert_multidim_to_singledim():
             "d": np.arange(4),
         }
     )
-    out = convert_multidim_to_singledim(c | dc)
+    out, _ = convert_multidim_to_singledim(c | dc)
     check_coord_equivalence(out, c | true_converted)
 
     # Test with training coordinates
-    out = convert_multidim_to_singledim(dc | c)
+    out, _ = convert_multidim_to_singledim(dc | c)
     check_coord_equivalence(out, true_converted | c)
 
     # Test with multiple multi-dim coordinates
     dc1 = OrderedDict(dict(lat1=LAT, lon1=LON))
     true_converted2 = OrderedDict(dict(ilat1=np.arange(20), ilon1=np.arange(40)))
-    out = convert_multidim_to_singledim(dc | dc1)
+    out, _ = convert_multidim_to_singledim(dc | dc1)
     check_coord_equivalence(out, true_converted | true_converted2)
 
-    out = convert_multidim_to_singledim(dc | c | dc1)
+    out, _ = convert_multidim_to_singledim(dc | c | dc1)
     check_coord_equivalence(out, true_converted | c | true_converted2)
 
     # Test with 3 dims
@@ -222,7 +222,7 @@ def test_convert_multidim_to_singledim():
     true_converted = OrderedDict(
         dict(ilat=np.arange(20), ilon=np.arange(40), iff=np.arange(5))
     )
-    out, mapping = convert_multidim_to_singledim(dc, return_mapping=True)
+    out, mapping = convert_multidim_to_singledim(dc)
     check_coord_equivalence(out, true_converted)
 
     assert mapping["lat"] == ["ilat", "ilon", "iff"]

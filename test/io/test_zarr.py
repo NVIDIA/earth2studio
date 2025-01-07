@@ -413,7 +413,7 @@ def test_zarr_field_multidim(
         }
     )
 
-    adjusted_coords = convert_multidim_to_singledim(total_coords)
+    adjusted_coords, _ = convert_multidim_to_singledim(total_coords)
     chunks = OrderedDict({"time": 1, "variable": 1})
 
     # Test Memory Store

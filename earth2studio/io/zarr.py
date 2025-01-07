@@ -147,9 +147,8 @@ class ZarrBackend:
         if "fill_value" not in kwargs:
             kwargs["fill_value"] = None
 
-        adjusted_coords, mapping = convert_multidim_to_singledim(
-            coords, return_mapping=True
-        )
+        adjusted_coords, mapping = convert_multidim_to_singledim(coords)
+
         for dim, values in adjusted_coords.items():
             if dim not in self.coords:
                 self.root.create_dataset(
@@ -230,9 +229,7 @@ class ZarrBackend:
             )
 
         # Reduce complex coordinates, if any multidimension coordinates exist
-        adjusted_coords, mapping = convert_multidim_to_singledim(
-            coords, return_mapping=True
-        )
+        adjusted_coords, mapping = convert_multidim_to_singledim(coords)
 
         for dim in adjusted_coords:
             if dim not in self.root:
@@ -283,9 +280,7 @@ class ZarrBackend:
         """
 
         # Reduce complex coordinates, if any multidimension coordinates exist
-        adjusted_coords, mapping = convert_multidim_to_singledim(
-            coords, return_mapping=True
-        )
+        adjusted_coords, mapping = convert_multidim_to_singledim(coords)
 
         for dim in adjusted_coords:
             if dim not in self.root:
