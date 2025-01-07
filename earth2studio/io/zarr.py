@@ -174,7 +174,7 @@ class ZarrBackend:
                     **kwargs,
                 )
                 self.root[k][:] = values
-                self.root[dim].attrs["_ARRAY_DIMENSIONS"] = mapping[k]
+                self.root[k].attrs["_ARRAY_DIMENSIONS"] = mapping[k]
 
         self.coords = self.coords | adjusted_coords
 
