@@ -22,6 +22,7 @@ import numpy as np
 import torch
 import xarray as xr
 
+from earth2studio.utils.coords import convert_multidim_to_singledim
 from earth2studio.utils.type import CoordSystem
 
 
@@ -40,8 +41,22 @@ class XarrayBackend:
     """
 
     def __init__(self, coords: CoordSystem = OrderedDict({}), **xr_kwargs: Any) -> None:
-        self.root = xr.Dataset(data_vars={}, coords=coords, **xr_kwargs)
-        self.coords = coords
+        adjusted_coords, mapping = convert_multidim_to_singledim(coords)
+
+        data_vars: dict[str, tuple[list[str], np.ndarray]] = {}
+        if not mapping:
+            self.root = xr.Dataset(
+                data_vars=data_vars, coords=adjusted_coords, **xr_kwargs
+            )
+        else:
+            for k in mapping:
+                data_vars[k] = (mapping[k], coords[k])
+
+            self.root = xr.Dataset(
+                data_vars=data_vars, coords=adjusted_coords, **xr_kwargs
+            )
+
+        self.coords = adjusted_coords
 
     def __contains__(self, item: str) -> bool:
         """Checks if item in xarray Dataset.
@@ -109,18 +124,33 @@ class XarrayBackend:
                 f"The number of input tensors and array names must be the same but got {len(data)} and {len(array_name)}."
             )
 
-        self.coords = self.coords | coords
+        adjusted_coords, mapping = convert_multidim_to_singledim(coords)
+
+        self.coords = self.coords | adjusted_coords
+
+        for k in mapping:
+            if k not in self.root:
+                self.root[k] = xr.DataArray(
+                    data=coords[k],
+                    dims=mapping[k],
+                    coords={adjusted_coords[ki] for ki in mapping[k]},
+                    **xr_kwargs,
+                )
+
         for name, di in zip(array_name, data):
             if name in self.root:
                 raise AssertionError(f"Warning! {name} is already in xarray Dataset.")
 
             if di is not None:
                 self.root[name] = xr.DataArray(
-                    data=di.cpu().numpy(), coords=coords, dims=list(coords), **xr_kwargs
+                    data=di.cpu().numpy(),
+                    coords=adjusted_coords,
+                    dims=list(adjusted_coords),
+                    **xr_kwargs,
                 )
             else:
                 self.root[name] = xr.DataArray(
-                    coords=coords, dims=list(coords), **xr_kwargs
+                    coords=adjusted_coords, dims=list(adjusted_coords), **xr_kwargs
                 )
 
     def write(
@@ -152,13 +182,29 @@ class XarrayBackend:
                 f"The number of input tensors and array names must be the same but got {len(x)} and {len(array_name)}."
             )
 
-        for dim in coords:
+        # Reduce complex coordinates, if any multidimension coordinates exist
+        adjusted_coords, mapping = convert_multidim_to_singledim(coords)
+
+        for dim in adjusted_coords:
             if dim not in self.root:
                 raise AssertionError("Coordinate dimension not in xarray dataset.")
 
+        # Check to see if multidimensions are passed in full, otherwise error
+        for key in mapping:
+            if key not in self.root:
+                raise AssertionError(
+                    f"Multidimension coordinate {key} not in xarray store."
+                )
+
+            if coords[key].shape != self.root[key].shape:
+                raise AssertionError(
+                    "Currently writing data with multidimension arrays is only supported when"
+                    + "the multidimension coordinates are passed in full."
+                )
+
         for xi, name in zip(x, array_name):
             if name not in self.root:
-                self.add_array(coords, array_name, data=xi)
+                self.add_array(adjusted_coords, array_name, data=xi)
 
             else:
                 # Get indices as list of arrays and set torch tensor
@@ -166,7 +212,7 @@ class XarrayBackend:
                     tuple(
                         [
                             np.where(np.in1d(self.coords[dim], value))[0]
-                            for dim, value in coords.items()
+                            for dim, value in adjusted_coords.items()
                         ]
                     )
                 ] = xi.to("cpu").numpy()
@@ -191,11 +237,31 @@ class XarrayBackend:
             device to place the read data from, by default 'cpu'
         """
 
+        # Reduce complex coordinates, if any multidimension coordinates exist
+        adjusted_coords, mapping = convert_multidim_to_singledim(coords)
+
+        for dim in adjusted_coords:
+            if dim not in self.root:
+                raise AssertionError(f"Coordinate dimension {dim} not in xarray store.")
+
+        # Check to see if multidimensions are passed in full, otherwise error
+        for key in mapping:
+            if key not in self.root:
+                raise AssertionError(
+                    f"Multidimension coordinate {key} not in xarray store."
+                )
+
+            if coords[key].shape != self.root[key].shape:
+                raise AssertionError(
+                    "Currently reading data with multidimension arrays is only supported when"
+                    + "the multidimension coordinates are passed in full."
+                )
+
         x = self.root[array_name].values[
             np.ix_(
                 *[
                     np.where(np.in1d(self.coords[dim], value))[0]
-                    for dim, value in coords.items()
+                    for dim, value in adjusted_coords.items()
                 ]
             )
         ]

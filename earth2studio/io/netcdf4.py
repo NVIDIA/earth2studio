@@ -23,6 +23,7 @@ import torch
 from cftime import date2num, num2date
 from netCDF4 import Dataset, Variable
 
+from earth2studio.utils.coords import convert_multidim_to_singledim
 from earth2studio.utils.time import timearray_to_datetime
 from earth2studio.utils.type import CoordSystem
 
@@ -177,11 +178,20 @@ class NetCDF4Backend:
                 f"The number of input tensors and array names must be the same but got {len(data)} and {len(array_name)}."
             )
 
-        for c, v in coords.items():
+        adjusted_coords, mapping = convert_multidim_to_singledim(coords)
+
+        for c, v in adjusted_coords.items():
             if c not in self.coords:
                 self.add_dimension(c, v.shape, v)
 
-        self.coords = self.coords | coords
+        self.coords = self.coords | adjusted_coords
+
+        # Add multidimensional coords
+        for k in mapping:
+            if k not in self.root.variables:
+                dtype = coords[k].dtype
+                self.root.createVariable(k, dtype, list(mapping[k]))
+                self.root[k][:] = coords[k]
 
         for name, di in zip(array_name, data):
             if name in self.root.variables:
@@ -193,7 +203,7 @@ class NetCDF4Backend:
 
             di = di.cpu().numpy() if di is not None else None
             dtype = di.dtype if di is not None else "float32"
-            self.root.createVariable(name, dtype, list(coords))
+            self.root.createVariable(name, dtype, list(adjusted_coords))
 
             if di is not None:
                 self.root[name][:] = di
@@ -227,13 +237,29 @@ class NetCDF4Backend:
                 f"The number of input tensors and array names must be the same but got {len(x)} and {len(array_name)}."
             )
 
-        for dim in coords:
+        # Reduce complex coordinates, if any multidimension coordinates exist
+        adjusted_coords, mapping = convert_multidim_to_singledim(coords)
+
+        for dim in adjusted_coords:
             if dim not in self.coords:
                 raise AssertionError("Coordinate dimension not in NetCDF store.")
 
+        # Check to see if multidimensions are passed in full, otherwise error
+        for key in mapping:
+            if key not in self.root.variables:
+                raise AssertionError(
+                    f"Multidimension coordinate {key} not in NetCDF4 store."
+                )
+
+            if coords[key].shape != self.root[key].shape:
+                raise AssertionError(
+                    "Currently writing data with multidimension arrays is only supported when"
+                    + "the multidimension coordinates are passed in full."
+                )
+
         for xi, name in zip(x, array_name):
             if name not in self.root.variables:
-                self.add_array(coords, array_name, data=xi)
+                self.add_array(adjusted_coords, array_name, data=xi)
 
             else:
                 # Get indices as list of arrays and set torch tensor
@@ -241,7 +267,7 @@ class NetCDF4Backend:
                     tuple(
                         [
                             np.where(np.in1d(self.coords[dim], value))[0]
-                            for dim, value in coords.items()
+                            for dim, value in adjusted_coords.items()
                         ]
                     )
                 ] = xi.to("cpu").numpy()
@@ -262,11 +288,33 @@ class NetCDF4Backend:
             device to place the read data from, by default 'cpu'
         """
 
+        # Reduce complex coordinates, if any multidimension coordinates exist
+        adjusted_coords, mapping = convert_multidim_to_singledim(coords)
+
+        for dim in adjusted_coords:
+            if dim not in self.coords:
+                raise AssertionError(
+                    f"Coordinate dimension {dim} not in NetCDF4 store."
+                )
+
+        # Check to see if multidimensions are passed in full, otherwise error
+        for key in mapping:
+            if key not in self.root.variables:
+                raise AssertionError(
+                    f"Multidimension coordinate {key} not in NetCDF4 store."
+                )
+
+            if coords[key].shape != self.root[key].shape:
+                raise AssertionError(
+                    "Currently reading data with multidimension arrays is only supported when"
+                    + "the multidimension coordinates are passed in full."
+                )
+
         x = self.root[array_name][
             tuple(
                 [
                     np.where(np.in1d(self.coords[dim], value))[0]
-                    for dim, value in coords.items()
+                    for dim, value in adjusted_coords.items()
                 ]
             )
         ]
