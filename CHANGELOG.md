@@ -14,11 +14,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Interpolation between arbitrary lat-lon grids
 - Added hybrid level support to HRRR data source
 - Added NCAR ERA5 data source
+- Added multidim IO support.
+- Added forecast data source support to `fetch_data`.
+- Added stormcast example.
+- Added interpolation support to run functions.
 
 ### Changed
 
 - Switched HRRR data source back to AWS grib
 - Make source an argument for IFS, default of aws
+- Changed CorrDiff output coordinates to actual lat/lon instead of ilat/ilon.
 
 ### Deprecated
 

@@ -16,6 +16,7 @@
 
 import asyncio
 import os
+from inspect import signature
 import tempfile
 from collections import OrderedDict
 from collections.abc import AsyncGenerator, Awaitable, Iterator
@@ -76,17 +77,26 @@ def fetch_data(
         Tuple containing output tensor and coordinate OrderedDict
     """
 
-    da = []
-    for lead in lead_time:
-        adjust_times = np.array([t + lead for t in time], dtype="datetime64[ns]")
-        da0 = source(adjust_times, variable)
-        da0 = da0.expand_dims(dim={"lead_time": 1}, axis=1)
-        da0 = da0.assign_coords(lead_time=np.array([lead], dtype="timedelta64[ns]"))
-        da0 = da0.assign_coords(time=time)
-        da.append(da0)
-
+    sig = signature(source.__call__)
+    
+    if 'lead_time' in sig.parameters:
+        # Working with a Forecast Data Source
+        da = source(time, lead_time, variable)
+        
+    else:
+        da = []
+        for lead in lead_time:
+            adjust_times = np.array([t + lead for t in time], dtype="datetime64[ns]")
+            da0 = source(adjust_times, variable)
+            da0 = da0.expand_dims(dim={"lead_time": 1}, axis=1)
+            da0 = da0.assign_coords(lead_time=np.array([lead], dtype="timedelta64[ns]"))
+            da0 = da0.assign_coords(time=time)
+            da.append(da0)
+        
+        da = xr.concat(da, "lead_time")
+    
     return prep_data_array(
-        xr.concat(da, "lead_time"),
+        da,
         device=device,
         interp_to=interp_to,
         interp_method=interp_method,

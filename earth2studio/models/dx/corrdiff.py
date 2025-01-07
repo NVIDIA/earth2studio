@@ -173,8 +173,8 @@ class CorrDiffTaiwan(torch.nn.Module, AutoModelMixin):
                 "batch": np.empty(0),
                 "sample": np.arange(self.number_of_samples),
                 "variable": np.array(OUT_VARIABLES),
-                "ilat": np.arange(448),
-                "ilon": np.arange(448),
+                "lat": self.out_lat.cpu().numpy(),
+                "lon": self.out_lon.cpu().numpy(),
             }
         )
 
@@ -338,8 +338,8 @@ class CorrDiffTaiwan(torch.nn.Module, AutoModelMixin):
         rnd = StackedRandomGenerator(x.device, sample_seeds)
 
         coord = self.output_coords(self.input_coords())
-        img_resolution_x = len(coord["ilat"])
-        img_resolution_y = len(coord["ilon"])
+        img_resolution_x = coord['lat'].shape[0]
+        img_resolution_y = coord['lon'].shape[1]
         latents = rnd.randn(
             [
                 self.number_of_samples,
