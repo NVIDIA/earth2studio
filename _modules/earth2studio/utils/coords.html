@@ -778,6 +778,90 @@ document.write(`
     <span class="n">xs</span> <span class="o">=</span> <span class="p">[</span><span class="n">xi</span><span class="o">.</span><span class="n">squeeze</span><span class="p">(</span><span class="n">dim_index</span><span class="p">)</span> <span class="k">for</span> <span class="n">xi</span> <span class="ow">in</span> <span class="n">x</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="n">dim_index</span><span class="p">)]</span>
     <span class="k">return</span> <span class="n">xs</span><span class="p">,</span> <span class="n">reduced_coords</span><span class="p">,</span> <span class="n">values</span></div>
 
+
+
+<span class="k">def</span> <span class="nf">convert_multidim_to_singledim</span><span class="p">(</span>
+    <span class="n">coords</span><span class="p">:</span> <span class="n">CoordSystem</span><span class="p">,</span> <span class="n">return_mapping</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">CoordSystem</span><span class="p">,</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]]]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Converts a set of coordinates from a complex coordinate system, which has some</span>
+<span class="sd">    coordinates with multidimensional arrays, into a simple coordinate system</span>
+<span class="sd">    containing only one-dimensional arrays.</span>
+
+<span class="sd">    This conversion is done by creating individual indexes that are enumerations of</span>
+<span class="sd">    the complex coordinate.</span>
+
+<span class="sd">    Assumptions</span>
+<span class="sd">    -----------</span>
+<span class="sd">    This code assumes that if a coordinate entry is n-dimensional, then the following</span>
+<span class="sd">    (n-1) coordinate entries in the ordered dictionary have the same shape and represent</span>
+<span class="sd">    the same multidimensional grid.</span>
+
+<span class="sd">    Example</span>
+<span class="sd">    -------</span>
+
+<span class="sd">    Suppose we have lat/lon coordinates represented by 2-dimensional grids.</span>
+<span class="sd">    ```python</span>
+<span class="sd">    lat = np.linspace(0, 1, 10)</span>
+<span class="sd">    lon = np.linspace(0, 1, 20)</span>
+<span class="sd">    LON, LAT = np.meshgrid(lat, lon)</span>
+<span class="sd">    c = CoordSystem({&quot;lat&quot;: LAT, &quot;lon&quot;: LON})</span>
+
+<span class="sd">    c1, m = convert_multidim_to_singledim(c)</span>
+<span class="sd">    ```</span>
+
+<span class="sd">    `c1` has 2 keys - `x1` and `x2`, with shapes `(10,)` and `(20,)` respectively.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    coords : CoordSystem</span>
+<span class="sd">        CoordSystem to convert.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    CoordSystem</span>
+<span class="sd">        Converted coordinate system where each coordinate is 1-dimensional.</span>
+<span class="sd">    dict[str, list[str]]</span>
+<span class="sd">        Mapping of multidimensional coordinates to a list of their 1-dimensional</span>
+<span class="sd">        enumerations.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">adjusted_coords</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="n">mapping</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="p">{}</span>
+
+    <span class="n">items</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">coords</span><span class="o">.</span><span class="n">items</span><span class="p">())</span>
+    <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="k">while</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">items</span><span class="p">):</span>
+        <span class="n">item</span> <span class="o">=</span> <span class="n">items</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+        <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="o">=</span> <span class="n">item</span>
+        <span class="n">ndim</span> <span class="o">=</span> <span class="n">v</span><span class="o">.</span><span class="n">ndim</span>
+        <span class="k">if</span> <span class="n">v</span><span class="o">.</span><span class="n">ndim</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="n">adjusted_coords</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="n">v</span>
+            <span class="n">i</span> <span class="o">+=</span> <span class="mi">1</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">s</span> <span class="o">=</span> <span class="n">v</span><span class="o">.</span><span class="n">shape</span>
+            <span class="n">mapping</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+
+            <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">ndim</span><span class="p">):</span>
+                <span class="k">if</span> <span class="n">i</span> <span class="o">+</span> <span class="n">j</span> <span class="o">&gt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">items</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                        <span class="s2">&quot;Assumed that if an n-dimensional coordinate exists, &quot;</span>
+                        <span class="s2">&quot;then there will be exactly n coordinates with the same shape.&quot;</span>
+                    <span class="p">)</span>
+
+                <span class="n">k1</span><span class="p">,</span> <span class="n">v1</span> <span class="o">=</span> <span class="n">items</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="n">j</span><span class="p">]</span>
+                <span class="k">if</span> <span class="n">v1</span><span class="o">.</span><span class="n">shape</span> <span class="o">!=</span> <span class="n">s</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                        <span class="s2">&quot;Assumed that if an n-dimensional coordinate exists, &quot;</span>
+                        <span class="s2">&quot;then there will be exactly n coordinates with the same shape.&quot;</span>
+                    <span class="p">)</span>
+
+                <span class="n">adjusted_coords</span><span class="p">[</span><span class="s2">&quot;i&quot;</span> <span class="o">+</span> <span class="n">k1</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">s</span><span class="p">[</span><span class="n">j</span><span class="p">])</span>
+                <span class="n">mapping</span><span class="p">[</span><span class="n">k</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;i&quot;</span> <span class="o">+</span> <span class="n">k1</span><span class="p">)</span>
+                <span class="n">mapping</span><span class="p">[</span><span class="n">k1</span><span class="p">]</span> <span class="o">=</span> <span class="n">mapping</span><span class="p">[</span><span class="n">k</span><span class="p">]</span>
+
+            <span class="n">i</span> <span class="o">+=</span> <span class="n">j</span> <span class="o">+</span> <span class="mi">1</span>
+
+    <span class="k">return</span> <span class="n">CoordSystem</span><span class="p">(</span><span class="n">adjusted_coords</span><span class="p">),</span> <span class="n">mapping</span>
 </pre></div>
 
                 </article>
