@@ -22,6 +22,7 @@ import numpy as np
 import torch
 import zarr
 
+from earth2studio.utils.coords import convert_multidim_to_singledim
 from earth2studio.utils.type import CoordSystem
 
 
@@ -146,7 +147,9 @@ class ZarrBackend:
         if "fill_value" not in kwargs:
             kwargs["fill_value"] = None
 
-        for dim, values in coords.items():
+        adjusted_coords, mapping = convert_multidim_to_singledim(coords)
+
+        for dim, values in adjusted_coords.items():
             if dim not in self.coords:
                 self.root.create_dataset(
                     dim,
@@ -158,10 +161,26 @@ class ZarrBackend:
                 self.root[dim][:] = values
                 self.root[dim].attrs["_ARRAY_DIMENSIONS"] = [dim]
 
-        self.coords = self.coords | coords
+        # Add any multidim coordinates that were expelled above
+        for k in mapping:
+            if k not in self.root:
+                values = coords[k]
+                self.root.create_dataset(
+                    k,
+                    shape=values.shape,
+                    chunks=values.shape,
+                    dtype=values.dtype,
+                    **kwargs,
+                )
+                self.root[k][:] = values
+                self.root[k].attrs["_ARRAY_DIMENSIONS"] = mapping[k]
 
-        shape = [len(v) for v in coords.values()]
-        chunks = [self.chunks.get(dim, len(coords[dim])) for dim in coords]
+        self.coords = self.coords | adjusted_coords
+
+        shape = [len(v) for v in adjusted_coords.values()]
+        chunks = [
+            self.chunks.get(dim, len(adjusted_coords[dim])) for dim in adjusted_coords
+        ]
 
         for name, di in zip(array_name, data):
             if name in self.root and not kwargs.get("overwrite", False):
@@ -178,7 +197,7 @@ class ZarrBackend:
             if di is not None:
                 self.root[name][:] = di
 
-            self.root[name].attrs["_ARRAY_DIMENSIONS"] = list(coords)
+            self.root[name].attrs["_ARRAY_DIMENSIONS"] = list(adjusted_coords)
 
     def write(
         self,
@@ -209,13 +228,29 @@ class ZarrBackend:
                 f"The number of input tensors and array names must be the same but got {len(x)} and {len(array_name)}."
             )
 
-        for dim in coords:
+        # Reduce complex coordinates, if any multidimension coordinates exist
+        adjusted_coords, mapping = convert_multidim_to_singledim(coords)
+
+        for dim in adjusted_coords:
             if dim not in self.root:
-                raise AssertionError("Coordinate dimension not in zarr store.")
+                raise AssertionError(f"Coordinate dimension {dim} not in zarr store.")
+
+        # Check to see if multidimensions are passed in full, otherwise error
+        for key in mapping:
+            if key not in self.root:
+                raise AssertionError(
+                    f"Multidimension coordinate {key} not in zarr store."
+                )
+
+            if coords[key].shape != self.root[key].shape:
+                raise AssertionError(
+                    "Currently writing data with multidimension arrays is only supported when"
+                    + "the multidimension coordinates are passed in full."
+                )
 
         for xi, name in zip(x, array_name):
             if name not in self.root:
-                self.add_array(coords, array_name, data=xi)
+                self.add_array(adjusted_coords, array_name, data=xi)
 
             else:
                 # Get indices as list of arrays and set torch tensor
@@ -223,7 +258,7 @@ class ZarrBackend:
                     np.ix_(
                         *[
                             np.where(np.in1d(self.coords[dim], value))[0]
-                            for dim, value in coords.items()
+                            for dim, value in adjusted_coords.items()
                         ]
                     )
                 ] = xi.to("cpu", non_blocking=False).numpy()
@@ -244,11 +279,31 @@ class ZarrBackend:
             device to place the read data from, by default 'cpu'
         """
 
+        # Reduce complex coordinates, if any multidimension coordinates exist
+        adjusted_coords, mapping = convert_multidim_to_singledim(coords)
+
+        for dim in adjusted_coords:
+            if dim not in self.root:
+                raise AssertionError(f"Coordinate dimension {dim} not in zarr store.")
+
+        # Check to see if multidimensions are passed in full, otherwise error
+        for key in mapping:
+            if key not in self.root:
+                raise AssertionError(
+                    f"Multidimension coordinate {key} not in zarr store."
+                )
+
+            if coords[key].shape != self.root[key].shape:
+                raise AssertionError(
+                    "Currently reading data with multidimension arrays is only supported when"
+                    + "the multidimension coordinates are passed in full."
+                )
+
         x = self.root[array_name][
             np.ix_(
                 *[
                     np.where(np.in1d(self.coords[dim], value))[0]
-                    for dim, value in coords.items()
+                    for dim, value in adjusted_coords.items()
                 ]
             )
         ]

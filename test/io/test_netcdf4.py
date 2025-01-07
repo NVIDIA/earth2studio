@@ -24,7 +24,7 @@ import pytest
 import torch
 
 from earth2studio.io import NetCDF4Backend
-from earth2studio.utils.coords import split_coords
+from earth2studio.utils.coords import convert_multidim_to_singledim, split_coords
 
 
 @pytest.mark.parametrize(
@@ -366,5 +366,119 @@ def test_netcdf4_exceptions(
     # Try to write with too many array names
     with pytest.raises(ValueError):
         nc.write([dummy, dummy], bad_coords, "dummy_1")
+
+    nc.close()
+
+
+@pytest.mark.parametrize(
+    "time",
+    [
+        [np.datetime64("1958-01-31T00:00:00")],
+        [np.datetime64("1971-06-01T06:00:00"), np.datetime64("2021-11-23T12:00:00")],
+    ],
+)
+@pytest.mark.parametrize(
+    "lead_time",
+    [
+        np.array([np.timedelta64(0, "h")]),
+        np.array([np.timedelta64(-6, "h"), np.timedelta64(0, "h")]),
+    ],
+)
+@pytest.mark.parametrize(
+    "variable",
+    [
+        ["t2m"],
+        ["t2m", "tcwv"],
+    ],
+)
+@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+def test_netcdf4_fields_multidim(
+    time: list[np.datetime64],
+    lead_time: list[np.datetime64],
+    variable: list[str],
+    device: str,
+) -> None:
+
+    lat = np.linspace(-90, 90, 180)
+    lon = np.linspace(0, 360, 360, endpoint=False)
+    LON, LAT = np.meshgrid(lon, lat)
+
+    total_coords = OrderedDict(
+        {
+            "time": np.asarray(time),
+            "lead_time": lead_time,
+            "variable": np.asarray(variable),
+            "lat": LAT,
+            "lon": LON,
+        }
+    )
+
+    adjusted_coords, _ = convert_multidim_to_singledim(total_coords)
+
+    # Test Memory Store
+    nc = NetCDF4Backend(
+        "inmemory.nc", backend_kwargs={"mode": "w", "diskless": True, "persist": False}
+    )
+    assert isinstance(nc.root, netCDF4.Dataset)
+
+    # Instantiate
+    array_name = "fields"
+    nc.add_array(total_coords, array_name)
+
+    # Check instantiation
+    for dim in adjusted_coords:
+        assert dim in nc
+        assert dim in nc.coords
+        assert nc[dim].shape == adjusted_coords[dim].shape
+
+    # Test __contains__
+    assert array_name in nc
+
+    # Test __getitem__
+    shape = tuple([len(dim) for dim in adjusted_coords.values()])
+    assert nc[array_name].shape == shape
+
+    # Test __len__
+    assert len(nc) == 8
+
+    # Test __iter__
+    for array in nc:
+        assert array in [
+            "fields",
+            "time",
+            "lead_time",
+            "variable",
+            "ilat",
+            "ilon",
+            "lat",
+            "lon",
+        ]
+
+    # Test add_array with torch.Tensor
+    nc.add_array(
+        total_coords,
+        "dummy_1",
+        data=torch.randn(shape, device=device, dtype=torch.float32),
+    )
+
+    assert "dummy_1" in nc
+    assert nc["dummy_1"].shape == shape
+
+    # Test writing
+
+    # Test full write
+    x = torch.randn(shape, device=device, dtype=torch.float32)
+    nc.write(x, adjusted_coords, array_name)
+
+    xx, _ = nc.read(adjusted_coords, array_name, device=device)
+    assert torch.allclose(x, xx)
+
+    # Test separate write
+    nc.write(x, total_coords, "fields_1")
+    assert "fields_1" in nc
+    assert nc["fields_1"].shape == x.shape
+
+    xx, _ = nc.read(total_coords, "fields_1", device=device)
+    assert torch.allclose(x, xx)
 
     nc.close()
