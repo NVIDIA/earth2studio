@@ -338,8 +338,8 @@ class CorrDiffTaiwan(torch.nn.Module, AutoModelMixin):
         rnd = StackedRandomGenerator(x.device, sample_seeds)
 
         coord = self.output_coords(self.input_coords())
-        img_resolution_x = coord['lat'].shape[0]
-        img_resolution_y = coord['lon'].shape[1]
+        img_resolution_x = coord["lat"].shape[0]
+        img_resolution_y = coord["lon"].shape[1]
         latents = rnd.randn(
             [
                 self.number_of_samples,

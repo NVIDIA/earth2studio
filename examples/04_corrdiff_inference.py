@@ -134,18 +134,6 @@ def run(
     )
     io.add_array(total_coords, output_coords["variable"])
 
-    # # Add lat/lon grid metadata arrays
-    # io.add_array(
-    #     OrderedDict({"ilat": total_coords["ilat"], "ilon": total_coords["ilon"]}),
-    #     "lat",
-    #     data=corrdiff.out_lat,
-    # )
-    # io.add_array(
-    #     OrderedDict({"ilat": total_coords["ilat"], "ilon": total_coords["ilon"]}),
-    #     "lon",
-    #     data=corrdiff.out_lon,
-    # )
-
     logger.info("Inference starting!")
     x, coords = corrdiff(x, coords)
     io.write(*split_coords(x, coords))
@@ -179,7 +167,7 @@ corrdiff = CorrDiffTaiwan.load_model(package)
 data = GFS()
 
 # Create the IO handler, store in memory
-io = ZarrBackend('outputs/test_corrdiff.zarr')
+io = ZarrBackend()
 
 # %%
 # Execute the Workflow
