@@ -14,22 +14,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from collections import OrderedDict
-from datetime import datetime
-from math import ceil
-
 import numpy as np
-import torch
 from loguru import logger
 from tqdm import tqdm
-
-from earth2studio.data import DataSource, fetch_data
-from earth2studio.io import IOBackend
-from earth2studio.models.dx import DiagnosticModel
-from earth2studio.models.px import PrognosticModel
-from earth2studio.perturbation import Perturbation
-from earth2studio.utils.coords import CoordSystem, map_coords, split_coords
-from earth2studio.utils.time import to_time_array
 
 logger.remove()
 logger.add(lambda msg: tqdm.write(msg, end=""), colorize=True)
@@ -44,8 +31,8 @@ Running StormCast Ensemble Inference
 Ensemble StormCast inference workflow.
 
 This example will demonstrate how to run a simple inference workflow to generate a
-ensemble forecast using StormCast. For details about the stormcast model, 
-see 
+ensemble forecast using StormCast. For details about the stormcast model,
+see
 
  - https://arxiv.org/abs/2408.10958
 
@@ -74,7 +61,7 @@ see
 # - IO Backend: Let's save the outputs into a Zarr store :py:class:`earth2studio.io.ZarrBackend`.
 #
 # StormCast also requires a conditioning data source. We use a forecast data source here,
-# GFS_FX :py:class:`earth2studio.data.GFS_FX`, but a non-forecast data source such as ARCO 
+# GFS_FX :py:class:`earth2studio.data.GFS_FX`, but a non-forecast data source such as ARCO
 # could also be used with appropriate time stamps.
 
 # %%
@@ -90,12 +77,11 @@ from earth2studio.io import ZarrBackend
 from earth2studio.models.px import StormCast
 from earth2studio.perturbation import Zero
 
-
 # Load the default model package which downloads the check point from NGC
 package = StormCast.load_default_package()
 model = StormCast.load_model(package)
 
-# Instantiate the (Zero) perturbation method 
+# Instantiate the (Zero) perturbation method
 z = Zero()
 
 # Create the data source
@@ -116,27 +102,27 @@ io = ZarrBackend()
 # then post process. Some have additional APIs that can be handy for post-processing or
 # saving to file. Check the API docs for more information.
 #
-# For the forecast we will predict for 4 hours 
+# For the forecast we will predict for 4 hours
 
 # %%
 import earth2studio.run as run
 
 nsteps = 4
 nensemble = 8
-batch_size = 2 
+batch_size = 2
 
 
 date = "2022-11-04T21:00:00"
 io = run.ensemble(
-    [date], 
-    nsteps, 
+    [date],
+    nsteps,
     nensemble,
-    model, 
-    data, 
+    model,
+    data,
     io,
     z,
-    batch_size = batch_size,
-    output_coords = {"variable": np.array(["t2m", "refc"])}
+    batch_size=batch_size,
+    output_coords={"variable": np.array(["t2m", "refc"])},
 )
 
 print(io.root.tree())
@@ -160,7 +146,8 @@ step = 4  # lead time = 1 hr
 
 plt.close("all")
 
-def plot_(axi, data, title, cmap, vmin = None, vmax = None):
+
+def plot_(axi, data, title, cmap, vmin=None, vmax=None):
     """Convenience function for plotting pcolormesh."""
     # Plot the field using pcolormesh
     im = axi.pcolormesh(
@@ -169,8 +156,8 @@ def plot_(axi, data, title, cmap, vmin = None, vmax = None):
         data,
         transform=ccrs.PlateCarree(),
         cmap=cmap,
-        vmin = vmin,
-        vmax = vmax
+        vmin=vmin,
+        vmax=vmax,
     )
     plt.colorbar(im, ax=axi, shrink=0.6, pad=0.04)
     # Set title
@@ -182,21 +169,19 @@ def plot_(axi, data, title, cmap, vmin = None, vmax = None):
 
     # Set state lines
     axi.add_feature(
-        cartopy.feature.STATES.with_scale('50m'), 
-        linewidth=0.5, 
-        edgecolor='black', 
-        zorder=2
+        cartopy.feature.STATES.with_scale("50m"),
+        linewidth=0.5,
+        edgecolor="black",
+        zorder=2,
     )
+
 
 # Create a correct Lambert Conformal projection
 projection = ccrs.LambertConformal(
-    central_longitude=262.5, 
-    central_latitude=38.5, 
+    central_longitude=262.5,
+    central_latitude=38.5,
     standard_parallels=(38.5, 38.5),
-    globe=ccrs.Globe(
-        semimajor_axis=6371229, 
-        semiminor_axis=6371229
-    )
+    globe=ccrs.Globe(semimajor_axis=6371229, semiminor_axis=6371229),
 )
 
 # Plot 2-meter temperature
@@ -206,10 +191,7 @@ x = io[variable]
 
 plt.close("all")
 fig, (ax1, ax2, ax3) = plt.subplots(
-    nrows = 1,
-    ncols = 3,
-    subplot_kw={"projection": projection}, 
-    figsize=(20, 6)
+    nrows=1, ncols=3, subplot_kw={"projection": projection}, figsize=(20, 6)
 )
 plot_(
     ax1,
@@ -219,15 +201,15 @@ plot_(
 )
 
 plot_(
-    ax2, 
+    ax2,
     io[variable][1, 0, step],
     f"{forecast} - Lead time: {step}hrs - Member: {1}",
     cmap,
 )
 
 plot_(
-    ax3, 
-    x[:, 0, step].std(axis = 0),
+    ax3,
+    x[:, 0, step].std(axis=0),
     f"{forecast} - Lead time: {step}hrs - Std",
     cmap,
 )
@@ -237,40 +219,37 @@ plt.savefig(f"outputs/10_{date}_{variable}_{step}_ensemble.jpg")
 # Plot refc
 variable = "refc"
 cmap = "gist_ncar"
-x = io[variable] 
+x = io[variable]
 
 plt.close("all")
 fig, (ax1, ax2, ax3) = plt.subplots(
-    nrows = 1,
-    ncols = 3,
-    subplot_kw={"projection": projection}, 
-    figsize=(20, 6)
+    nrows=1, ncols=3, subplot_kw={"projection": projection}, figsize=(20, 6)
 )
 plot_(
     ax1,
     np.where(x[0, 0, step] > 0, x[0, 0, step], np.nan),
     f"{forecast} - Lead time: {step}hrs - Member: {0}",
     cmap,
-    vmin = 0,
-    vmax = 60
+    vmin=0,
+    vmax=60,
 )
 
 plot_(
-    ax2, 
+    ax2,
     np.where(x[1, 0, step] > 0, x[1, 0, step], np.nan),
     f"{forecast} - Lead time: {step}hrs - Member: {1}",
     cmap,
-    vmin = 0,
-    vmax = 60
+    vmin=0,
+    vmax=60,
 )
 
 plot_(
-    ax3, 
-    np.where(x[:, 0, step].mean(axis = 0) > 0, x[:, 0, step].std(axis = 0), np.nan),
+    ax3,
+    np.where(x[:, 0, step].mean(axis=0) > 0, x[:, 0, step].std(axis=0), np.nan),
     f"{forecast} - Lead time: {step}hrs - Std",
     cmap,
-    vmin = 0,
-    vmax = 60
+    vmin=0,
+    vmax=60,
 )
 
 plt.savefig(f"outputs/10_{date}_{variable}_{step}_ensemble.jpg")

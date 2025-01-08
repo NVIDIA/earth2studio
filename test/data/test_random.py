@@ -78,6 +78,7 @@ def test_random(time, variable, lat, lon):
     assert shape[3] == coords["lon"].shape[1]
     assert not np.isnan(data.values).any()
 
+
 @pytest.mark.parametrize(
     "time",
     [

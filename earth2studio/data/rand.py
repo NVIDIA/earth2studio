@@ -21,7 +21,7 @@ import numpy as np
 import xarray as xr
 
 from earth2studio.data.utils import prep_data_inputs, prep_forecast_inputs
-from earth2studio.utils.type import TimeArray, VariableArray, LeadTimeArray
+from earth2studio.utils.type import LeadTimeArray, TimeArray, VariableArray
 
 
 class Random:
@@ -91,6 +91,7 @@ class Random:
             )
 
         return da
+
 
 class Random_FX:
     """A randomly generated normally distributed data. Primarily useful for testing.
