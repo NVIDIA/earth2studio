@@ -463,7 +463,7 @@ class CorrDiffTaiwan(torch.nn.Module, AutoModelMixin):
 
         # Main sampling loop.
         x_hat = latents.to(torch.float64) * t_steps[0]
-        t_hat = torch.tensor(1.0).to(torch.float64).cuda()
+        t_hat = torch.tensor(1.0).to(torch.float64).to(latents.device)
 
         x_next = net(x_hat, x_lr, t_hat, class_labels).to(torch.float64)
 
