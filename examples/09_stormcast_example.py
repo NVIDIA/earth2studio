@@ -160,4 +160,4 @@ ax.set_title(f"{forecast} - Lead time: {step}hrs")
 # Add coastlines and gridlines
 ax.coastlines()
 ax.gridlines()
-plt.savefig(f"outputs/{date}_01_t2m_prediction.jpg")
+plt.savefig(f"outputs/09_{date}_t2m_prediction.jpg")

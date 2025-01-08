@@ -16,7 +16,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added NCAR ERA5 data source
 - Added multidim IO support.
 - Added forecast data source support to `fetch_data`.
-- Added stormcast example.
+- Added stormcast deterministic and ensemble examples.
+- Added Random_FX as a random forecast data source.
 - Added interpolation support to run functions.
 
 ### Changed
