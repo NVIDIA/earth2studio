@@ -22,7 +22,7 @@ logger.remove()
 logger.add(lambda msg: tqdm.write(msg, end=""), colorize=True)
 
 
-# sphinx - deterministic start
+# sphinx - ensemble start
 # %%
 """
 Running StormCast Ensemble Inference
@@ -42,14 +42,14 @@ see
 # Set Up
 # ------
 # All workflows inside Earth2Studio require constructed components to be
-# handed to them. In this example, let's take a look at the most basic:
-# :py:meth:`earth2studio.run.deterministic`.
+# handed to them. In this example, let's take a look at the most basic ensemble workflow:
+# :py:meth:`earth2studio.run.ensemble`.
 
 # %%
 # .. literalinclude:: ../../earth2studio/run.py
 #    :language: python
-#    :start-after: # sphinx - deterministic start
-#    :end-before: # sphinx - deterministic end
+#    :start-after: # sphinx - ensemble start
+#    :end-before: # sphinx - ensemble end
 
 # %%
 # Thus, we need the following:
@@ -61,7 +61,7 @@ see
 # - IO Backend: Let's save the outputs into a Zarr store :py:class:`earth2studio.io.ZarrBackend`.
 #
 # StormCast also requires a conditioning data source. We use a forecast data source here,
-# GFS_FX :py:class:`earth2studio.data.GFS_FX`, but a non-forecast data source such as ARCO
+# ARCO :py:class:`earth2studio.data.ARCO`, but a forecast data source such as GFS_FX
 # could also be used with appropriate time stamps.
 
 # %%
@@ -142,7 +142,7 @@ import cartopy.crs as ccrs
 import matplotlib.pyplot as plt
 
 forecast = f"{date}"
-step = 4  # lead time = 1 hr
+step = 4  # 4 hours, since lead_time = 1 hr
 
 plt.close("all")
 
