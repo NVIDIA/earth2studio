@@ -83,15 +83,26 @@ def deterministic(
     prognostic = prognostic.to(device)
     # sphinx - fetch data start
     # Fetch data from data source and load onto device
-    prognositc_ic = prognostic.input_coords()
+    prognostic_ic = prognostic.input_coords()
     time = to_time_array(time)
+
+    if hasattr(prognostic, "interp_method"):
+        interp_to = prognostic_ic
+        interp_method = prognostic.interp_method
+    else:
+        interp_to = None
+        interp_method = "nearest"
+
     x, coords = fetch_data(
         source=data,
         time=time,
-        variable=prognositc_ic["variable"],
-        lead_time=prognositc_ic["lead_time"],
+        variable=prognostic_ic["variable"],
+        lead_time=prognostic_ic["lead_time"],
         device=device,
+        interp_to=interp_to,
+        interp_method=interp_method,
     )
+
     logger.success(f"Fetched data from {data.__class__.__name__}")
     # sphinx - fetch data end
 
@@ -187,15 +198,24 @@ def diagnostic(
     prognostic = prognostic.to(device)
     diagnostic = diagnostic.to(device)
     # Fetch data from data source and load onto device
-    prognositc_ic = prognostic.input_coords()
+    prognostic_ic = prognostic.input_coords()
     diagnostic_ic = diagnostic.input_coords()
     time = to_time_array(time)
+    if hasattr(prognostic, "interp_method"):
+        interp_to = prognostic_ic
+        interp_method = prognostic.interp_method
+    else:
+        interp_to = None
+        interp_method = "nearest"
+
     x, coords = fetch_data(
         source=data,
         time=time,
-        variable=prognositc_ic["variable"],
-        lead_time=prognositc_ic["lead_time"],
+        variable=prognostic_ic["variable"],
+        lead_time=prognostic_ic["lead_time"],
         device=device,
+        interp_to=interp_to,
+        interp_method=interp_method,
     )
     logger.success(f"Fetched data from {data.__class__.__name__}")
 
@@ -224,7 +244,8 @@ def diagnostic(
     io.add_array(total_coords, var_names)
 
     # Map lat and lon if needed
-    x, coords = map_coords(x, coords, prognositc_ic)
+    x, coords = map_coords(x, coords, prognostic_ic)
+
     # Create prognostic iterator
     model = prognostic.create_iterator(x, coords)
 
@@ -303,14 +324,23 @@ def ensemble(
     prognostic = prognostic.to(device)
 
     # Fetch data from data source and load onto device
-    prognositc_ic = prognostic.input_coords()
+    prognostic_ic = prognostic.input_coords()
     time = to_time_array(time)
+    if hasattr(prognostic, "interp_method"):
+        interp_to = prognostic_ic
+        interp_method = prognostic.interp_method
+    else:
+        interp_to = None
+        interp_method = "nearest"
+
     x0, coords0 = fetch_data(
         source=data,
         time=time,
-        variable=prognositc_ic["variable"],
-        lead_time=prognositc_ic["lead_time"],
-        device="cpu",
+        variable=prognostic_ic["variable"],
+        lead_time=prognostic_ic["lead_time"],
+        device=device,
+        interp_to=interp_to,
+        interp_method=interp_method,
     )
     logger.success(f"Fetched data from {data.__class__.__name__}")
 
@@ -358,7 +388,7 @@ def ensemble(
         x = x.unsqueeze(0).repeat(mini_batch_size, *([1] * x.ndim))
 
         # Map lat and lon if needed
-        x, coords = map_coords(x, coords, prognositc_ic)
+        x, coords = map_coords(x, coords, prognostic_ic)
 
         # Perturb ensemble
         x, coords = perturbation(x, coords)

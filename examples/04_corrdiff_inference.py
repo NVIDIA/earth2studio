@@ -128,23 +128,11 @@ def run(
         {
             "time": coords["time"],
             "sample": output_coords["sample"],
-            "ilat": output_coords["ilat"],
-            "ilon": output_coords["ilon"],
+            "lat": output_coords["lat"],
+            "lon": output_coords["lon"],
         }
     )
     io.add_array(total_coords, output_coords["variable"])
-
-    # Add lat/lon grid metadata arrays
-    io.add_array(
-        OrderedDict({"ilat": total_coords["ilat"], "ilon": total_coords["ilon"]}),
-        "lat",
-        data=corrdiff.out_lat,
-    )
-    io.add_array(
-        OrderedDict({"ilat": total_coords["ilat"], "ilon": total_coords["ilon"]}),
-        "lon",
-        data=corrdiff.out_lon,
-    )
 
     logger.info("Inference starting!")
     x, coords = corrdiff(x, coords)
