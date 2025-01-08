@@ -94,7 +94,7 @@ def fetch_data(
             da.append(da0)
         
         da = xr.concat(da, "lead_time")
-    
+
     return prep_data_array(
         da,
         device=device,

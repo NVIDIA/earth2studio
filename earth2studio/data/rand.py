@@ -15,13 +15,13 @@
 # limitations under the License.
 
 from collections import OrderedDict
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import numpy as np
 import xarray as xr
 
-from earth2studio.data.utils import prep_data_inputs
-from earth2studio.utils.type import TimeArray, VariableArray
+from earth2studio.data.utils import prep_data_inputs, prep_forecast_inputs
+from earth2studio.utils.type import TimeArray, VariableArray, LeadTimeArray
 
 
 class Random:
@@ -50,7 +50,6 @@ class Random:
         self,
         time: datetime | list[datetime] | TimeArray,
         variable: str | list[str] | VariableArray,
-        lead_time: np.array = None,
     ) -> xr.DataArray:
         """Retrieve random gaussian data.
 
@@ -75,6 +74,75 @@ class Random:
         if self.curv:
             shape.extend(self.domain_coord_shape)
             dims = ["time", "variable", "y", "x"]
+            coords = coords | {
+                "lat": (("y", "x"), self.domain_coords["lat"]),
+                "lon": (("y", "x"), self.domain_coords["lon"]),
+            }
+            da = xr.DataArray(data=np.random.randn(*shape), dims=dims, coords=coords)
+
+        else:
+
+            for key, value in self.domain_coords.items():
+                shape.append(len(value))
+                coords[key] = value
+
+            da = xr.DataArray(
+                data=np.random.randn(*shape), dims=list(coords), coords=coords
+            )
+
+        return da
+
+class Random_FX:
+    """A randomly generated normally distributed data. Primarily useful for testing.
+
+    Parameters
+    ----------
+    domain_coords: OrderedDict[str, np.ndarray]
+        Domain coordinates that the random data will assume (such as lat, lon).
+    """
+
+    def __init__(
+        self,
+        domain_coords: OrderedDict[str, np.ndarray],
+    ):
+        self.domain_coords = domain_coords
+
+        # Check for regular vs. curvilinear coordinates
+        _, value = list(self.domain_coords.items()).pop()
+        value = np.array(value)
+        self.curv = len(value.shape) > 1
+        if self.curv:
+            self.domain_coord_shape = value.shape
+
+    def __call__(  # type: ignore[override]
+        self,
+        time: datetime | list[datetime] | TimeArray,
+        lead_time: timedelta | list[timedelta] | LeadTimeArray,
+        variable: str | list[str] | VariableArray,
+    ) -> xr.DataArray:
+        """Retrieve random gaussian data.
+
+        Parameters
+        ----------
+        time : datetime | list[datetime] | TimeArray
+            Timestamps to return data for.
+        variable : str | list[str] | VariableArray
+            Strings or list of strings that refer to variables to return.
+
+        Returns
+        -------
+        xr.DataArray
+            Random data array
+        """
+
+        time, lead_time, variable = prep_forecast_inputs(time, lead_time, variable)
+
+        shape = [len(time), len(lead_time), len(variable)]
+        coords = {"time": time, "lead_time": lead_time, "variable": variable}
+
+        if self.curv:
+            shape.extend(self.domain_coord_shape)
+            dims = ["time", "lead_time", "variable", "y", "x"]
             coords = coords | {
                 "lat": (("y", "x"), self.domain_coords["lat"]),
                 "lon": (("y", "x"), self.domain_coords["lon"]),
