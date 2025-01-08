@@ -99,8 +99,8 @@ def deterministic(
         variable=prognostic_ic["variable"],
         lead_time=prognostic_ic["lead_time"],
         device=device,
-        interp_to = interp_to,
-        interp_method = interp_method
+        interp_to=interp_to,
+        interp_method=interp_method,
     )
 
     logger.success(f"Fetched data from {data.__class__.__name__}")
@@ -214,8 +214,8 @@ def diagnostic(
         variable=prognostic_ic["variable"],
         lead_time=prognostic_ic["lead_time"],
         device=device,
-        interp_to = interp_to,
-        interp_method = interp_method
+        interp_to=interp_to,
+        interp_method=interp_method,
     )
     logger.success(f"Fetched data from {data.__class__.__name__}")
 
@@ -244,7 +244,8 @@ def diagnostic(
     io.add_array(total_coords, var_names)
 
     # Map lat and lon if needed
-    x, coords = map_coords(x, coords, prognositc_ic)
+    x, coords = map_coords(x, coords, prognostic_ic)
+
     # Create prognostic iterator
     model = prognostic.create_iterator(x, coords)
 
@@ -332,14 +333,14 @@ def ensemble(
         interp_to = None
         interp_method = "nearest"
 
-    x, coords = fetch_data(
+    x0, coords0 = fetch_data(
         source=data,
         time=time,
         variable=prognostic_ic["variable"],
         lead_time=prognostic_ic["lead_time"],
         device=device,
-        interp_to = interp_to,
-        interp_method = interp_method
+        interp_to=interp_to,
+        interp_method=interp_method,
     )
     logger.success(f"Fetched data from {data.__class__.__name__}")
 
@@ -387,7 +388,7 @@ def ensemble(
         x = x.unsqueeze(0).repeat(mini_batch_size, *([1] * x.ndim))
 
         # Map lat and lon if needed
-        x, coords = map_coords(x, coords, prognositc_ic)
+        x, coords = map_coords(x, coords, prognostic_ic)
 
         # Perturb ensemble
         x, coords = perturbation(x, coords)

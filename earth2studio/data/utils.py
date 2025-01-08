@@ -16,11 +16,11 @@
 
 import asyncio
 import os
-from inspect import signature
 import tempfile
 from collections import OrderedDict
 from collections.abc import AsyncGenerator, Awaitable, Iterator
 from datetime import datetime, timedelta
+from inspect import signature
 from pathlib import Path
 from typing import Any, Literal, TypeVar
 
@@ -29,7 +29,7 @@ import torch
 import xarray as xr
 from loguru import logger
 
-from earth2studio.data.base import DataSource
+from earth2studio.data.base import DataSource, ForecastSource
 from earth2studio.utils.interp import LatLonInterpolation
 from earth2studio.utils.time import (
     leadtimearray_to_timedelta,
@@ -40,7 +40,7 @@ from earth2studio.utils.type import CoordSystem, LeadTimeArray, TimeArray, Varia
 
 
 def fetch_data(
-    source: DataSource,
+    source: DataSource | ForecastSource,
     time: TimeArray,
     variable: VariableArray,
     lead_time: LeadTimeArray = np.array([np.timedelta64(0, "h")]),
@@ -78,21 +78,21 @@ def fetch_data(
     """
 
     sig = signature(source.__call__)
-    
-    if 'lead_time' in sig.parameters:
+
+    if "lead_time" in sig.parameters:
         # Working with a Forecast Data Source
-        da = source(time, lead_time, variable)
-        
+        da = source(time, lead_time, variable)  # type: ignore
+
     else:
         da = []
         for lead in lead_time:
             adjust_times = np.array([t + lead for t in time], dtype="datetime64[ns]")
-            da0 = source(adjust_times, variable)
+            da0 = source(adjust_times, variable)  # type: ignore
             da0 = da0.expand_dims(dim={"lead_time": 1}, axis=1)
             da0 = da0.assign_coords(lead_time=np.array([lead], dtype="timedelta64[ns]"))
             da0 = da0.assign_coords(time=time)
             da.append(da0)
-        
+
         da = xr.concat(da, "lead_time")
 
     return prep_data_array(

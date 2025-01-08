@@ -14,22 +14,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from collections import OrderedDict
 from datetime import datetime
-from math import ceil
 
-import numpy as np
-import torch
 from loguru import logger
 from tqdm import tqdm
-
-from earth2studio.data import DataSource, fetch_data
-from earth2studio.io import IOBackend
-from earth2studio.models.dx import DiagnosticModel
-from earth2studio.models.px import PrognosticModel
-from earth2studio.perturbation import Perturbation
-from earth2studio.utils.coords import CoordSystem, map_coords, split_coords
-from earth2studio.utils.time import to_time_array
 
 logger.remove()
 logger.add(lambda msg: tqdm.write(msg, end=""), colorize=True)
@@ -44,8 +32,8 @@ Running StormCast Inference
 Basic StormCast inference workflow.
 
 This example will demonstrate how to run a simple inference workflow to generate a
-basic determinstic forecast using StormCast. For details about the stormcast model, 
-see 
+basic determinstic forecast using StormCast. For details about the stormcast model,
+see
 
  - https://arxiv.org/abs/2408.10958
 
@@ -72,7 +60,7 @@ see
 # - IO Backend: Let's save the outputs into a Zarr store :py:class:`earth2studio.io.ZarrBackend`.
 #
 # StormCast also requires a conditioning data source. We use a forecast data source here,
-# GFS_FX :py:class:`earth2studio.data.GFS_FX`, but a non-forecast data source such as ARCO 
+# GFS_FX :py:class:`earth2studio.data.GFS_FX`, but a non-forecast data source such as ARCO
 # could also be used with appropriate time stamps.
 
 # %%
@@ -109,7 +97,7 @@ io = ZarrBackend()
 # then post process. Some have additional APIs that can be handy for post-processing or
 # saving to file. Check the API docs for more information.
 #
-# For the forecast we will predict for 4 hours 
+# For the forecast we will predict for 4 hours
 
 # %%
 import earth2studio.run as run
@@ -143,13 +131,10 @@ plt.close("all")
 
 # Create a correct Lambert Conformal projection
 projection = ccrs.LambertConformal(
-    central_longitude=262.5, 
-    central_latitude=38.5, 
+    central_longitude=262.5,
+    central_latitude=38.5,
     standard_parallels=(38.5, 38.5),
-    globe=ccrs.Globe(
-        semimajor_axis=6371229, 
-        semiminor_axis=6371229
-    )
+    globe=ccrs.Globe(semimajor_axis=6371229, semiminor_axis=6371229),
 )
 
 # Create a figure and axes with the specified projection
@@ -165,7 +150,9 @@ im = ax.pcolormesh(
 )
 
 # Set state lines
-ax.add_feature(cartopy.feature.STATES.with_scale('50m'), linewidth=0.5, edgecolor='black', zorder=2)
+ax.add_feature(
+    cartopy.feature.STATES.with_scale("50m"), linewidth=0.5, edgecolor="black", zorder=2
+)
 
 # Set title
 ax.set_title(f"{forecast} - Lead time: {step}hrs")
