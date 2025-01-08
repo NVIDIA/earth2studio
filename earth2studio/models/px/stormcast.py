@@ -340,6 +340,7 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             interp_to=coords,
             interp_method=self.interp_method,
         )
+
         # Add a batch dim
         conditioning = conditioning.repeat(x.shape[0], 1, 1, 1, 1, 1)
         conditioning_coords.update({"batch": np.empty(0)})
