@@ -497,33 +497,51 @@ document.write(`
 <div class="viewcode-block" id="StormCast">
 <a class="viewcode-back" href="../../../../modules/generated/models/px/earth2studio.models.px.StormCast.html#earth2studio.models.px.StormCast">[docs]</a>
 <span class="k">class</span> <span class="nc">StormCast</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">,</span> <span class="n">AutoModelMixin</span><span class="p">,</span> <span class="n">PrognosticMixin</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;StormCast generative convection-allowing model for regional forecasts</span>
-<span class="sd">    Consists of two core models, a regression and diffusion model</span>
-<span class="sd">    This class implements StormCastV1, the model released in:</span>
-<span class="sd">     https://arxiv.org/abs/2408.10958</span>
-<span class="sd">    Model time step size is 1 hour, taking as input:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;StormCast generative convection-allowing model for regional forecasts consists of</span>
+<span class="sd">    two core models: a regression and diffusion model. Model time step size is 1 hour,</span>
+<span class="sd">    taking as input:</span>
 <span class="sd">        - High-resolution (3km) HRRR state over the central United States (99 vars)</span>
 <span class="sd">        - High-resolution land-sea mask and orography invariants</span>
 <span class="sd">        - Coarse resolution (25km) global state (26 vars)</span>
 <span class="sd">    The high-resolution grid is the HRRR Lambert conformal projection</span>
 <span class="sd">    Coarse-resolution inputs are regridded to the HRRR grid internally.</span>
 
+<span class="sd">    Note</span>
+<span class="sd">    ----</span>
+<span class="sd">    For more information see the following references:</span>
+
+<span class="sd">    - https://arxiv.org/abs/2408.10958</span>
+
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
-<span class="sd">    regression_model (torch.nn.Module): Deterministic model used to make an initial prediction</span>
-<span class="sd">    diffusion_model (torch.nn.Module): Generative model correcting the deterministic prediciton</span>
-<span class="sd">    lat (np.array): Latitude array (2D) of the domain</span>
-<span class="sd">    lon (np.array): Latitude array (2D) of the domain</span>
-<span class="sd">    means (torch.Tensor): Mean value of each input high-resolution variable</span>
-<span class="sd">    stds (torch.Tensor): Standard deviation of each input high-resolution variable</span>
-<span class="sd">    invariants (torch.Tensor): Static invariant  quantities</span>
-<span class="sd">    variables (np.array, optional): High-resolution variables Defaults to np.array(VARIABLES).</span>
-<span class="sd">    conditioning_means (torch.Tensor | None, optional): Means to normalize conditioning data. Defaults to None.</span>
-<span class="sd">    conditioning_stds (torch.Tensor | None, optional): Stds to normalize conditioning data Defaults to None.</span>
-<span class="sd">    conditioning_variables (np.array, optional): Global variables for conditioning. Defaults to np.array(CONDITIONING_VARIABLES).</span>
-<span class="sd">    conditioning_data_source (DataSource | None, optional): Data Source to use for global conditoining. Defaults to None. Required for running in iterator mode</span>
-<span class="sd">    sampler_args (dict[str, float  |  int], optional): Arguments to pass to the diffusion sampler. Defaults to {}.</span>
-<span class="sd">    interp_method (str, optional): Interpolation method to use when regridding coarse conditoining data. Defaults to &quot;linear&quot;.</span>
+<span class="sd">    regression_model : torch.nn.Module</span>
+<span class="sd">        Deterministic model used to make an initial prediction</span>
+<span class="sd">    diffusion_model : torch.nn.Module</span>
+<span class="sd">        Generative model correcting the deterministic prediciton</span>
+<span class="sd">    lat : np.array</span>
+<span class="sd">        Latitude array (2D) of the domain</span>
+<span class="sd">    lon : np.array</span>
+<span class="sd">        Longitude array (2D) of the domain</span>
+<span class="sd">    means : torch.Tensor</span>
+<span class="sd">        Mean value of each input high-resolution variable</span>
+<span class="sd">    stds : torch.Tensor</span>
+<span class="sd">        Standard deviation of each input high-resolution variable</span>
+<span class="sd">    invariants : torch.Tensor</span>
+<span class="sd">        Static invariant  quantities</span>
+<span class="sd">    variables : np.array, optional</span>
+<span class="sd">        High-resolution variables, by default np.array(VARIABLES)</span>
+<span class="sd">    conditioning_means : torch.Tensor | None, optional</span>
+<span class="sd">        Means to normalize conditioning data, by default None</span>
+<span class="sd">    conditioning_stds : torch.Tensor | None, optional</span>
+<span class="sd">        Standard deviations to normalize conditioning data, by default None</span>
+<span class="sd">    conditioning_variables : np.array, optional</span>
+<span class="sd">        Global variables for conditioning, by default np.array(CONDITIONING_VARIABLES)</span>
+<span class="sd">    conditioning_data_source : DataSource | None, optional</span>
+<span class="sd">        Data Source to use for global conditoining. Required for running in iterator mode, by default None</span>
+<span class="sd">    sampler_args : dict[str, float  |  int], optional</span>
+<span class="sd">        Arguments to pass to the diffusion sampler, by default {}</span>
+<span class="sd">    interp_method : str, optional</span>
+<span class="sd">        Interpolation method to use when regridding coarse conditoining data, by default &quot;linear&quot;</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
