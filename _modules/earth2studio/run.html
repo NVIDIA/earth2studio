@@ -509,15 +509,26 @@ document.write(`
     <span class="n">prognostic</span> <span class="o">=</span> <span class="n">prognostic</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
     <span class="c1"># sphinx - fetch data start</span>
     <span class="c1"># Fetch data from data source and load onto device</span>
-    <span class="n">prognositc_ic</span> <span class="o">=</span> <span class="n">prognostic</span><span class="o">.</span><span class="n">input_coords</span><span class="p">()</span>
+    <span class="n">prognostic_ic</span> <span class="o">=</span> <span class="n">prognostic</span><span class="o">.</span><span class="n">input_coords</span><span class="p">()</span>
     <span class="n">time</span> <span class="o">=</span> <span class="n">to_time_array</span><span class="p">(</span><span class="n">time</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">prognostic</span><span class="p">,</span> <span class="s2">&quot;interp_method&quot;</span><span class="p">):</span>
+        <span class="n">interp_to</span> <span class="o">=</span> <span class="n">prognostic_ic</span>
+        <span class="n">interp_method</span> <span class="o">=</span> <span class="n">prognostic</span><span class="o">.</span><span class="n">interp_method</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">interp_to</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">interp_method</span> <span class="o">=</span> <span class="s2">&quot;nearest&quot;</span>
+
     <span class="n">x</span><span class="p">,</span> <span class="n">coords</span> <span class="o">=</span> <span class="n">fetch_data</span><span class="p">(</span>
         <span class="n">source</span><span class="o">=</span><span class="n">data</span><span class="p">,</span>
         <span class="n">time</span><span class="o">=</span><span class="n">time</span><span class="p">,</span>
-        <span class="n">variable</span><span class="o">=</span><span class="n">prognositc_ic</span><span class="p">[</span><span class="s2">&quot;variable&quot;</span><span class="p">],</span>
-        <span class="n">lead_time</span><span class="o">=</span><span class="n">prognositc_ic</span><span class="p">[</span><span class="s2">&quot;lead_time&quot;</span><span class="p">],</span>
+        <span class="n">variable</span><span class="o">=</span><span class="n">prognostic_ic</span><span class="p">[</span><span class="s2">&quot;variable&quot;</span><span class="p">],</span>
+        <span class="n">lead_time</span><span class="o">=</span><span class="n">prognostic_ic</span><span class="p">[</span><span class="s2">&quot;lead_time&quot;</span><span class="p">],</span>
         <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span>
+        <span class="n">interp_to</span><span class="o">=</span><span class="n">interp_to</span><span class="p">,</span>
+        <span class="n">interp_method</span><span class="o">=</span><span class="n">interp_method</span><span class="p">,</span>
     <span class="p">)</span>
+
     <span class="n">logger</span><span class="o">.</span><span class="n">success</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Fetched data from </span><span class="si">{</span><span class="n">data</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
     <span class="c1"># sphinx - fetch data end</span>
 
@@ -616,15 +627,24 @@ document.write(`
     <span class="n">prognostic</span> <span class="o">=</span> <span class="n">prognostic</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
     <span class="n">diagnostic</span> <span class="o">=</span> <span class="n">diagnostic</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
     <span class="c1"># Fetch data from data source and load onto device</span>
-    <span class="n">prognositc_ic</span> <span class="o">=</span> <span class="n">prognostic</span><span class="o">.</span><span class="n">input_coords</span><span class="p">()</span>
+    <span class="n">prognostic_ic</span> <span class="o">=</span> <span class="n">prognostic</span><span class="o">.</span><span class="n">input_coords</span><span class="p">()</span>
     <span class="n">diagnostic_ic</span> <span class="o">=</span> <span class="n">diagnostic</span><span class="o">.</span><span class="n">input_coords</span><span class="p">()</span>
     <span class="n">time</span> <span class="o">=</span> <span class="n">to_time_array</span><span class="p">(</span><span class="n">time</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">prognostic</span><span class="p">,</span> <span class="s2">&quot;interp_method&quot;</span><span class="p">):</span>
+        <span class="n">interp_to</span> <span class="o">=</span> <span class="n">prognostic_ic</span>
+        <span class="n">interp_method</span> <span class="o">=</span> <span class="n">prognostic</span><span class="o">.</span><span class="n">interp_method</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">interp_to</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">interp_method</span> <span class="o">=</span> <span class="s2">&quot;nearest&quot;</span>
+
     <span class="n">x</span><span class="p">,</span> <span class="n">coords</span> <span class="o">=</span> <span class="n">fetch_data</span><span class="p">(</span>
         <span class="n">source</span><span class="o">=</span><span class="n">data</span><span class="p">,</span>
         <span class="n">time</span><span class="o">=</span><span class="n">time</span><span class="p">,</span>
-        <span class="n">variable</span><span class="o">=</span><span class="n">prognositc_ic</span><span class="p">[</span><span class="s2">&quot;variable&quot;</span><span class="p">],</span>
-        <span class="n">lead_time</span><span class="o">=</span><span class="n">prognositc_ic</span><span class="p">[</span><span class="s2">&quot;lead_time&quot;</span><span class="p">],</span>
+        <span class="n">variable</span><span class="o">=</span><span class="n">prognostic_ic</span><span class="p">[</span><span class="s2">&quot;variable&quot;</span><span class="p">],</span>
+        <span class="n">lead_time</span><span class="o">=</span><span class="n">prognostic_ic</span><span class="p">[</span><span class="s2">&quot;lead_time&quot;</span><span class="p">],</span>
         <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span>
+        <span class="n">interp_to</span><span class="o">=</span><span class="n">interp_to</span><span class="p">,</span>
+        <span class="n">interp_method</span><span class="o">=</span><span class="n">interp_method</span><span class="p">,</span>
     <span class="p">)</span>
     <span class="n">logger</span><span class="o">.</span><span class="n">success</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Fetched data from </span><span class="si">{</span><span class="n">data</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 
@@ -653,7 +673,8 @@ document.write(`
     <span class="n">io</span><span class="o">.</span><span class="n">add_array</span><span class="p">(</span><span class="n">total_coords</span><span class="p">,</span> <span class="n">var_names</span><span class="p">)</span>
 
     <span class="c1"># Map lat and lon if needed</span>
-    <span class="n">x</span><span class="p">,</span> <span class="n">coords</span> <span class="o">=</span> <span class="n">map_coords</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="p">,</span> <span class="n">prognositc_ic</span><span class="p">)</span>
+    <span class="n">x</span><span class="p">,</span> <span class="n">coords</span> <span class="o">=</span> <span class="n">map_coords</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="p">,</span> <span class="n">prognostic_ic</span><span class="p">)</span>
+
     <span class="c1"># Create prognostic iterator</span>
     <span class="n">model</span> <span class="o">=</span> <span class="n">prognostic</span><span class="o">.</span><span class="n">create_iterator</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="p">)</span>
 
@@ -735,14 +756,23 @@ document.write(`
     <span class="n">prognostic</span> <span class="o">=</span> <span class="n">prognostic</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
 
     <span class="c1"># Fetch data from data source and load onto device</span>
-    <span class="n">prognositc_ic</span> <span class="o">=</span> <span class="n">prognostic</span><span class="o">.</span><span class="n">input_coords</span><span class="p">()</span>
+    <span class="n">prognostic_ic</span> <span class="o">=</span> <span class="n">prognostic</span><span class="o">.</span><span class="n">input_coords</span><span class="p">()</span>
     <span class="n">time</span> <span class="o">=</span> <span class="n">to_time_array</span><span class="p">(</span><span class="n">time</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">prognostic</span><span class="p">,</span> <span class="s2">&quot;interp_method&quot;</span><span class="p">):</span>
+        <span class="n">interp_to</span> <span class="o">=</span> <span class="n">prognostic_ic</span>
+        <span class="n">interp_method</span> <span class="o">=</span> <span class="n">prognostic</span><span class="o">.</span><span class="n">interp_method</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">interp_to</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">interp_method</span> <span class="o">=</span> <span class="s2">&quot;nearest&quot;</span>
+
     <span class="n">x0</span><span class="p">,</span> <span class="n">coords0</span> <span class="o">=</span> <span class="n">fetch_data</span><span class="p">(</span>
         <span class="n">source</span><span class="o">=</span><span class="n">data</span><span class="p">,</span>
         <span class="n">time</span><span class="o">=</span><span class="n">time</span><span class="p">,</span>
-        <span class="n">variable</span><span class="o">=</span><span class="n">prognositc_ic</span><span class="p">[</span><span class="s2">&quot;variable&quot;</span><span class="p">],</span>
-        <span class="n">lead_time</span><span class="o">=</span><span class="n">prognositc_ic</span><span class="p">[</span><span class="s2">&quot;lead_time&quot;</span><span class="p">],</span>
-        <span class="n">device</span><span class="o">=</span><span class="s2">&quot;cpu&quot;</span><span class="p">,</span>
+        <span class="n">variable</span><span class="o">=</span><span class="n">prognostic_ic</span><span class="p">[</span><span class="s2">&quot;variable&quot;</span><span class="p">],</span>
+        <span class="n">lead_time</span><span class="o">=</span><span class="n">prognostic_ic</span><span class="p">[</span><span class="s2">&quot;lead_time&quot;</span><span class="p">],</span>
+        <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span>
+        <span class="n">interp_to</span><span class="o">=</span><span class="n">interp_to</span><span class="p">,</span>
+        <span class="n">interp_method</span><span class="o">=</span><span class="n">interp_method</span><span class="p">,</span>
     <span class="p">)</span>
     <span class="n">logger</span><span class="o">.</span><span class="n">success</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Fetched data from </span><span class="si">{</span><span class="n">data</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 
@@ -790,7 +820,7 @@ document.write(`
         <span class="n">x</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">repeat</span><span class="p">(</span><span class="n">mini_batch_size</span><span class="p">,</span> <span class="o">*</span><span class="p">([</span><span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="n">x</span><span class="o">.</span><span class="n">ndim</span><span class="p">))</span>
 
         <span class="c1"># Map lat and lon if needed</span>
-        <span class="n">x</span><span class="p">,</span> <span class="n">coords</span> <span class="o">=</span> <span class="n">map_coords</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="p">,</span> <span class="n">prognositc_ic</span><span class="p">)</span>
+        <span class="n">x</span><span class="p">,</span> <span class="n">coords</span> <span class="o">=</span> <span class="n">map_coords</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="p">,</span> <span class="n">prognostic_ic</span><span class="p">)</span>
 
         <span class="c1"># Perturb ensemble</span>
         <span class="n">x</span><span class="p">,</span> <span class="n">coords</span> <span class="o">=</span> <span class="n">perturbation</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="p">)</span>

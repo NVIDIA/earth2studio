@@ -44,7 +44,8 @@ In this example you will learn:
 # %%
 # .. literalinclude:: ../../earth2studio/run.py
 #    :language: python
-#    :lines: 116-156
+#    :start-after: # sphinx - ensemble start
+#    :end-before: # sphinx - ensemble end
 
 # %%
 # We need the following:
@@ -84,6 +85,7 @@ data = GFS()
 # applies the same noise amplitude to every variable. We can create a custom wrapper
 # that only applies the perturbation method to a particular variable instead.
 
+
 # %%
 class ApplyToVariable:
     """Apply a perturbation to only a particular variable."""
@@ -112,8 +114,12 @@ class ApplyToVariable:
 avsg = ApplyToVariable(SphericalGaussian(noise_amplitude=1.0), "t2m")
 
 # Create the IO handler, store in memory
-chunks = {"ensemble": 1, "time": 1}
-io = ZarrBackend(file_name="outputs/05_ensemble_avsg.zarr", chunks=chunks)
+chunks = {"ensemble": 1, "time": 1, "lead_time": 1}
+io = ZarrBackend(
+    file_name="outputs/05_ensemble_avsg.zarr",
+    chunks=chunks,
+    backend_kwargs={"overwrite": True},
+)
 
 # %%
 # Execute the Workflow

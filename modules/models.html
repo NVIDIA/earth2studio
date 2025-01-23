@@ -564,10 +564,10 @@ prior to use.</p>
 <td><p>Persistence model that generates a forecast by applying the identity operator on the initial condition and indexing the lead time by 6 hours.</p></td>
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="generated/models/px/earth2studio.models.px.SFNO.html#earth2studio.models.px.SFNO" title="earth2studio.models.px.SFNO"><code class="xref py py-obj docutils literal notranslate"><span class="pre">models.px.SFNO</span></code></a></p></td>
-<td><p>Spherical Fourier Operator Network global prognostic model. Consists of a single model with a time-step size of 6 hours. FourCastNet operates on 0.25 degree lat-lon grid (south-pole excluding) equirectangular grid with 73 variables. .. note::.</p></td>
+<td><p>Spherical Fourier Operator Network global prognostic model.</p></td>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="generated/models/px/earth2studio.models.px.StormCast.html#earth2studio.models.px.StormCast" title="earth2studio.models.px.StormCast"><code class="xref py py-obj docutils literal notranslate"><span class="pre">models.px.StormCast</span></code></a></p></td>
-<td><p>StormCast generative convection-allowing model for regional forecasts Consists of two core models, a regression and diffusion model This class implements StormCastV1, the model released in:  <a class="reference external" href="https://arxiv.org/abs/2408.10958">https://arxiv.org/abs/2408.10958</a> Model time step size is 1 hour, taking as input:     - High-resolution (3km) HRRR state over the central United States (99 vars)     - High-resolution land-sea mask and orography invariants     - Coarse resolution (25km) global state (26 vars) The high-resolution grid is the HRRR Lambert conformal projection Coarse-resolution inputs are regridded to the HRRR grid internally.</p></td>
+<td><p>StormCast generative convection-allowing model for regional forecasts consists of two core models: a regression and diffusion model. Model time step size is 1 hour, taking as input:     - High-resolution (3km) HRRR state over the central United States (99 vars)     - High-resolution land-sea mask and orography invariants     - Coarse resolution (25km) global state (26 vars) The high-resolution grid is the HRRR Lambert conformal projection Coarse-resolution inputs are regridded to the HRRR grid internally.</p></td>
 </tr>
 </tbody>
 </table>

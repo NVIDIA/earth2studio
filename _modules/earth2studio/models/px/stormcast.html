@@ -662,7 +662,11 @@ document.write(`
                 <span class="sa">f</span><span class="s2">&quot;nvidia-modulus @ git+https://github.com/NVIDIA/modulus.git&quot;</span>
             <span class="p">)</span>
 
-        <span class="n">OmegaConf</span><span class="o">.</span><span class="n">register_new_resolver</span><span class="p">(</span><span class="s2">&quot;eval&quot;</span><span class="p">,</span> <span class="nb">eval</span><span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">OmegaConf</span><span class="o">.</span><span class="n">register_new_resolver</span><span class="p">(</span><span class="s2">&quot;eval&quot;</span><span class="p">,</span> <span class="nb">eval</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
+            <span class="c1"># Likely already registered so skip</span>
+            <span class="k">pass</span>
 
         <span class="c1"># load model registry:</span>
         <span class="n">config</span> <span class="o">=</span> <span class="n">OmegaConf</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">package</span><span class="o">.</span><span class="n">resolve</span><span class="p">(</span><span class="s2">&quot;model.yaml&quot;</span><span class="p">))</span>
@@ -774,6 +778,7 @@ document.write(`
             <span class="n">interp_to</span><span class="o">=</span><span class="n">coords</span><span class="p">,</span>
             <span class="n">interp_method</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">interp_method</span><span class="p">,</span>
         <span class="p">)</span>
+
         <span class="c1"># Add a batch dim</span>
         <span class="n">conditioning</span> <span class="o">=</span> <span class="n">conditioning</span><span class="o">.</span><span class="n">repeat</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
         <span class="n">conditioning_coords</span><span class="o">.</span><span class="n">update</span><span class="p">({</span><span class="s2">&quot;batch&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">0</span><span class="p">)})</span>

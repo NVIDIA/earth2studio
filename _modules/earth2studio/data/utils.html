@@ -444,6 +444,7 @@ document.write(`
 <span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">OrderedDict</span>
 <span class="kn">from</span> <span class="nn">collections.abc</span> <span class="kn">import</span> <span class="n">AsyncGenerator</span><span class="p">,</span> <span class="n">Awaitable</span><span class="p">,</span> <span class="n">Iterator</span>
 <span class="kn">from</span> <span class="nn">datetime</span> <span class="kn">import</span> <span class="n">datetime</span><span class="p">,</span> <span class="n">timedelta</span>
+<span class="kn">from</span> <span class="nn">inspect</span> <span class="kn">import</span> <span class="n">signature</span>
 <span class="kn">from</span> <span class="nn">pathlib</span> <span class="kn">import</span> <span class="n">Path</span>
 <span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Literal</span><span class="p">,</span> <span class="n">TypeVar</span>
 
@@ -452,7 +453,7 @@ document.write(`
 <span class="kn">import</span> <span class="nn">xarray</span> <span class="k">as</span> <span class="nn">xr</span>
 <span class="kn">from</span> <span class="nn">loguru</span> <span class="kn">import</span> <span class="n">logger</span>
 
-<span class="kn">from</span> <span class="nn">earth2studio.data.base</span> <span class="kn">import</span> <span class="n">DataSource</span>
+<span class="kn">from</span> <span class="nn">earth2studio.data.base</span> <span class="kn">import</span> <span class="n">DataSource</span><span class="p">,</span> <span class="n">ForecastSource</span>
 <span class="kn">from</span> <span class="nn">earth2studio.utils.interp</span> <span class="kn">import</span> <span class="n">LatLonInterpolation</span>
 <span class="kn">from</span> <span class="nn">earth2studio.utils.time</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">leadtimearray_to_timedelta</span><span class="p">,</span>
@@ -465,7 +466,7 @@ document.write(`
 <div class="viewcode-block" id="fetch_data">
 <a class="viewcode-back" href="../../../modules/generated/data/earth2studio.data.fetch_data.html#earth2studio.data.fetch_data">[docs]</a>
 <span class="k">def</span> <span class="nf">fetch_data</span><span class="p">(</span>
-    <span class="n">source</span><span class="p">:</span> <span class="n">DataSource</span><span class="p">,</span>
+    <span class="n">source</span><span class="p">:</span> <span class="n">DataSource</span> <span class="o">|</span> <span class="n">ForecastSource</span><span class="p">,</span>
     <span class="n">time</span><span class="p">:</span> <span class="n">TimeArray</span><span class="p">,</span>
     <span class="n">variable</span><span class="p">:</span> <span class="n">VariableArray</span><span class="p">,</span>
     <span class="n">lead_time</span><span class="p">:</span> <span class="n">LeadTimeArray</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">np</span><span class="o">.</span><span class="n">timedelta64</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;h&quot;</span><span class="p">)]),</span>
@@ -502,17 +503,26 @@ document.write(`
 <span class="sd">        Tuple containing output tensor and coordinate OrderedDict</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="n">da</span> <span class="o">=</span> <span class="p">[]</span>
-    <span class="k">for</span> <span class="n">lead</span> <span class="ow">in</span> <span class="n">lead_time</span><span class="p">:</span>
-        <span class="n">adjust_times</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">t</span> <span class="o">+</span> <span class="n">lead</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">time</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="s2">&quot;datetime64[ns]&quot;</span><span class="p">)</span>
-        <span class="n">da0</span> <span class="o">=</span> <span class="n">source</span><span class="p">(</span><span class="n">adjust_times</span><span class="p">,</span> <span class="n">variable</span><span class="p">)</span>
-        <span class="n">da0</span> <span class="o">=</span> <span class="n">da0</span><span class="o">.</span><span class="n">expand_dims</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;lead_time&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">},</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
-        <span class="n">da0</span> <span class="o">=</span> <span class="n">da0</span><span class="o">.</span><span class="n">assign_coords</span><span class="p">(</span><span class="n">lead_time</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">lead</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="s2">&quot;timedelta64[ns]&quot;</span><span class="p">))</span>
-        <span class="n">da0</span> <span class="o">=</span> <span class="n">da0</span><span class="o">.</span><span class="n">assign_coords</span><span class="p">(</span><span class="n">time</span><span class="o">=</span><span class="n">time</span><span class="p">)</span>
-        <span class="n">da</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">da0</span><span class="p">)</span>
+    <span class="n">sig</span> <span class="o">=</span> <span class="n">signature</span><span class="p">(</span><span class="n">source</span><span class="o">.</span><span class="fm">__call__</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="s2">&quot;lead_time&quot;</span> <span class="ow">in</span> <span class="n">sig</span><span class="o">.</span><span class="n">parameters</span><span class="p">:</span>
+        <span class="c1"># Working with a Forecast Data Source</span>
+        <span class="n">da</span> <span class="o">=</span> <span class="n">source</span><span class="p">(</span><span class="n">time</span><span class="p">,</span> <span class="n">lead_time</span><span class="p">,</span> <span class="n">variable</span><span class="p">)</span>  <span class="c1"># type: ignore</span>
+
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">da</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">lead</span> <span class="ow">in</span> <span class="n">lead_time</span><span class="p">:</span>
+            <span class="n">adjust_times</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">t</span> <span class="o">+</span> <span class="n">lead</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">time</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="s2">&quot;datetime64[ns]&quot;</span><span class="p">)</span>
+            <span class="n">da0</span> <span class="o">=</span> <span class="n">source</span><span class="p">(</span><span class="n">adjust_times</span><span class="p">,</span> <span class="n">variable</span><span class="p">)</span>  <span class="c1"># type: ignore</span>
+            <span class="n">da0</span> <span class="o">=</span> <span class="n">da0</span><span class="o">.</span><span class="n">expand_dims</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;lead_time&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">},</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+            <span class="n">da0</span> <span class="o">=</span> <span class="n">da0</span><span class="o">.</span><span class="n">assign_coords</span><span class="p">(</span><span class="n">lead_time</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">lead</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="s2">&quot;timedelta64[ns]&quot;</span><span class="p">))</span>
+            <span class="n">da0</span> <span class="o">=</span> <span class="n">da0</span><span class="o">.</span><span class="n">assign_coords</span><span class="p">(</span><span class="n">time</span><span class="o">=</span><span class="n">time</span><span class="p">)</span>
+            <span class="n">da</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">da0</span><span class="p">)</span>
+
+        <span class="n">da</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">concat</span><span class="p">(</span><span class="n">da</span><span class="p">,</span> <span class="s2">&quot;lead_time&quot;</span><span class="p">)</span>
 
     <span class="k">return</span> <span class="n">prep_data_array</span><span class="p">(</span>
-        <span class="n">xr</span><span class="o">.</span><span class="n">concat</span><span class="p">(</span><span class="n">da</span><span class="p">,</span> <span class="s2">&quot;lead_time&quot;</span><span class="p">),</span>
+        <span class="n">da</span><span class="p">,</span>
         <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span>
         <span class="n">interp_to</span><span class="o">=</span><span class="n">interp_to</span><span class="p">,</span>
         <span class="n">interp_method</span><span class="o">=</span><span class="n">interp_method</span><span class="p">,</span>

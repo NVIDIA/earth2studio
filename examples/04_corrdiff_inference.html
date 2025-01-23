@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
     <link href="../_static/favicon.ico" rel="icon" type="image/x-icon">
-    <title>Generative Downscaling &#8212; Earth2Studio 0.3.0a0 documentation</title>
+    <title>Generative Downscaling &#8212; Earth2Studio 0.5.0a0 documentation</title>
   
   
   
@@ -30,11 +30,11 @@
 
     <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=a746c00c" />
     <link rel="stylesheet" type="text/css" href="../_static/togglebutton.css?v=13237357" />
-    <link rel="stylesheet" type="text/css" href="../_static/sg_gallery.css?v=61a4c737" />
+    <link rel="stylesheet" type="text/css" href="../_static/sg_gallery.css?v=d2d258e8" />
     <link rel="stylesheet" type="text/css" href="../_static/sg_gallery-binder.css?v=f4aeca0c" />
     <link rel="stylesheet" type="text/css" href="../_static/sg_gallery-dataframe.css?v=2082cf3c" />
     <link rel="stylesheet" type="text/css" href="../_static/sg_gallery-rendered-html.css?v=1277b6f3" />
-    <link rel="stylesheet" type="text/css" href="../_static/sphinx-design.min.css?v=87e54e7c" />
+    <link rel="stylesheet" type="text/css" href="../_static/sphinx-design.min.css?v=95c83b7e" />
     <link rel="stylesheet" type="text/css" href="../_static/css/custom.css?v=94338acd" />
   
   <!-- Pre-loaded scripts that we'll load fully later -->
@@ -42,8 +42,8 @@
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=8d27b9dea8ad943066ae" />
   <script src="../_static/vendor/fontawesome/6.5.1/js/all.min.js?digest=8d27b9dea8ad943066ae"></script>
 
-    <script src="../_static/documentation_options.js?v=cc5c1b6c"></script>
-    <script src="../_static/doctools.js?v=9a2dae69"></script>
+    <script src="../_static/documentation_options.js?v=aeef923b"></script>
+    <script src="../_static/doctools.js?v=9bcbadda"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script>let toggleHintShow = 'Click to show';</script>
     <script>let toggleHintHide = 'Click to hide';</script>
@@ -114,12 +114,6 @@
   <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
 </form></div>
   </div>
-
-
-  <div class="bd-header-announcement container-fluid bd-header-announcement">
-    <div class="bd-header-announcement__content">Earth2Studio is now OSS!</div>
-  </div>
-
   
     <header class="bd-header navbar navbar-expand-lg bd-navbar">
 <div class="bd-header__inner bd-page-width">
@@ -394,6 +388,8 @@ document.write(`
 <li class="toctree-l1"><a class="reference internal" href="06_model_perturbation_hook.html">Model Hook Injection: Perturbation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="07_seasonal_statistics.html">Statistical Inference</a></li>
 <li class="toctree-l1"><a class="reference internal" href="08_distributed_manager.html">Distributed Manager Inference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="09_stormcast_example.html">Running StormCast Inference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="10_stormcast_ensemble_example.html">Running StormCast Ensemble Inference</a></li>
 </ul>
 <ul class="nav bd-sidenav">
 <li class="toctree-l1 has-children"><a class="reference internal" href="extend/index.html">Extending Earth2Studio</a><input class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-1"><i class="fa-solid fa-chevron-down"></i></label><ul>
@@ -566,23 +562,11 @@ workflow won’t predict a time-series, rather just an instantaneous prediction.
         <span class="p">{</span>
             <span class="s2">&quot;time&quot;</span><span class="p">:</span> <span class="n">coords</span><span class="p">[</span><span class="s2">&quot;time&quot;</span><span class="p">],</span>
             <span class="s2">&quot;sample&quot;</span><span class="p">:</span> <span class="n">output_coords</span><span class="p">[</span><span class="s2">&quot;sample&quot;</span><span class="p">],</span>
-            <span class="s2">&quot;ilat&quot;</span><span class="p">:</span> <span class="n">output_coords</span><span class="p">[</span><span class="s2">&quot;ilat&quot;</span><span class="p">],</span>
-            <span class="s2">&quot;ilon&quot;</span><span class="p">:</span> <span class="n">output_coords</span><span class="p">[</span><span class="s2">&quot;ilon&quot;</span><span class="p">],</span>
+            <span class="s2">&quot;lat&quot;</span><span class="p">:</span> <span class="n">output_coords</span><span class="p">[</span><span class="s2">&quot;lat&quot;</span><span class="p">],</span>
+            <span class="s2">&quot;lon&quot;</span><span class="p">:</span> <span class="n">output_coords</span><span class="p">[</span><span class="s2">&quot;lon&quot;</span><span class="p">],</span>
         <span class="p">}</span>
     <span class="p">)</span>
     <span class="n">io</span><span class="o">.</span><span class="n">add_array</span><span class="p">(</span><span class="n">total_coords</span><span class="p">,</span> <span class="n">output_coords</span><span class="p">[</span><span class="s2">&quot;variable&quot;</span><span class="p">])</span>
-
-    <span class="c1"># Add lat/lon grid metadata arrays</span>
-    <span class="n">io</span><span class="o">.</span><span class="n">add_array</span><span class="p">(</span>
-        <span class="n">OrderedDict</span><span class="p">({</span><span class="s2">&quot;ilat&quot;</span><span class="p">:</span> <span class="n">total_coords</span><span class="p">[</span><span class="s2">&quot;ilat&quot;</span><span class="p">],</span> <span class="s2">&quot;ilon&quot;</span><span class="p">:</span> <span class="n">total_coords</span><span class="p">[</span><span class="s2">&quot;ilon&quot;</span><span class="p">]}),</span>
-        <span class="s2">&quot;lat&quot;</span><span class="p">,</span>
-        <span class="n">data</span><span class="o">=</span><span class="n">corrdiff</span><span class="o">.</span><span class="n">out_lat</span><span class="p">,</span>
-    <span class="p">)</span>
-    <span class="n">io</span><span class="o">.</span><span class="n">add_array</span><span class="p">(</span>
-        <span class="n">OrderedDict</span><span class="p">({</span><span class="s2">&quot;ilat&quot;</span><span class="p">:</span> <span class="n">total_coords</span><span class="p">[</span><span class="s2">&quot;ilat&quot;</span><span class="p">],</span> <span class="s2">&quot;ilon&quot;</span><span class="p">:</span> <span class="n">total_coords</span><span class="p">[</span><span class="s2">&quot;ilon&quot;</span><span class="p">]}),</span>
-        <span class="s2">&quot;lon&quot;</span><span class="p">,</span>
-        <span class="n">data</span><span class="o">=</span><span class="n">corrdiff</span><span class="o">.</span><span class="n">out_lon</span><span class="p">,</span>
-    <span class="p">)</span>
 
     <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Inference starting!&quot;</span><span class="p">)</span>
     <span class="n">x</span><span class="p">,</span> <span class="n">coords</span> <span class="o">=</span> <span class="n">corrdiff</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="p">)</span>
@@ -617,6 +601,10 @@ Earth-2 studio</p>
 <span class="n">io</span> <span class="o">=</span> <span class="n">ZarrBackend</span><span class="p">()</span>
 </pre></div>
 </div>
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>/usr/local/lib/python3.10/dist-packages/modulus/models/module.py:360: FutureWarning: You are using `torch.load` with `weights_only=False` (the current default value), which uses the default pickle module implicitly. It is possible to construct malicious pickle data which will execute arbitrary code during unpickling (See https://github.com/pytorch/pytorch/blob/main/SECURITY.md#untrusted-models for more details). In a future release, the default value for `weights_only` will be flipped to `True`. This limits the functions that could be executed during unpickling. Arbitrary objects will no longer be allowed to be loaded via this mode unless they are explicitly allowlisted by the user via `torch.serialization.add_safe_globals`. We recommend you start setting `weights_only=True` for any use case where you don&#39;t have full control of the loaded file. Please open an issue on GitHub for any issues related to this experimental feature.
+  model_dict = torch.load(
+</pre></div>
+</div>
 </section>
 <section id="execute-the-workflow">
 <h2>Execute the Workflow<a class="headerlink" href="#execute-the-workflow" title="Link to this heading">#</a></h2>
@@ -629,75 +617,66 @@ Typhoon Koinu.</p>
 <div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="n">io</span> <span class="o">=</span> <span class="n">run</span><span class="p">([</span><span class="s2">&quot;2023-10-04T18:00:00&quot;</span><span class="p">],</span> <span class="n">corrdiff</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">io</span><span class="p">,</span> <span class="n">number_of_samples</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
 </pre></div>
 </div>
-<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>2024-06-25 13:58:34.056 | INFO     | __main__:run:108 - Running corrdiff inference!
-2024-06-25 13:58:34.057 | INFO     | __main__:run:110 - Inference device: cuda
-2024-06-25 13:58:34.137 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:149 - Fetching GFS index file: 2023-10-04 18:00:00
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>2025-01-23 04:41:03.381 | INFO     | __main__:run:108 - Running corrdiff inference!
+2025-01-23 04:41:03.382 | INFO     | __main__:run:110 - Inference device: cuda
+2025-01-23 04:41:03.491 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:209 - Fetching GFS index file: 2023-10-04 18:00:00 lead 0:00:00
 
 Fetching GFS for 2023-10-04 18:00:00:   0%|          | 0/12 [00:00&lt;?, ?it/s]
 
-2024-06-25 13:58:34.460 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:196 - Fetching GFS grib file for variable: tcwv at 2023-10-04 18:00:00
+2025-01-23 04:41:03.495 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:255 - Fetching GFS grib file for variable: tcwv at 2023-10-04 18:00:00_0:00:00
 
 Fetching GFS for 2023-10-04 18:00:00:   0%|          | 0/12 [00:00&lt;?, ?it/s]
-Fetching GFS for 2023-10-04 18:00:00:   8%|▊         | 1/12 [00:05&lt;00:58,  5.28s/it]
 
-2024-06-25 13:58:39.739 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:196 - Fetching GFS grib file for variable: z500 at 2023-10-04 18:00:00
+2025-01-23 04:41:03.522 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:255 - Fetching GFS grib file for variable: z500 at 2023-10-04 18:00:00_0:00:00
 
-Fetching GFS for 2023-10-04 18:00:00:   8%|▊         | 1/12 [00:05&lt;00:58,  5.28s/it]
-Fetching GFS for 2023-10-04 18:00:00:  17%|█▋        | 2/12 [00:08&lt;00:41,  4.19s/it]
+Fetching GFS for 2023-10-04 18:00:00:   0%|          | 0/12 [00:00&lt;?, ?it/s]
 
-2024-06-25 13:58:43.174 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:196 - Fetching GFS grib file for variable: t500 at 2023-10-04 18:00:00
+2025-01-23 04:41:03.548 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:255 - Fetching GFS grib file for variable: t500 at 2023-10-04 18:00:00_0:00:00
 
-Fetching GFS for 2023-10-04 18:00:00:  17%|█▋        | 2/12 [00:08&lt;00:41,  4.19s/it]
-Fetching GFS for 2023-10-04 18:00:00:  25%|██▌       | 3/12 [00:11&lt;00:30,  3.34s/it]
+Fetching GFS for 2023-10-04 18:00:00:   0%|          | 0/12 [00:00&lt;?, ?it/s]
 
-2024-06-25 13:58:45.506 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:196 - Fetching GFS grib file for variable: u500 at 2023-10-04 18:00:00
+2025-01-23 04:41:03.573 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:255 - Fetching GFS grib file for variable: u500 at 2023-10-04 18:00:00_0:00:00
 
-Fetching GFS for 2023-10-04 18:00:00:  25%|██▌       | 3/12 [00:11&lt;00:30,  3.34s/it]
-Fetching GFS for 2023-10-04 18:00:00:  33%|███▎      | 4/12 [00:12&lt;00:21,  2.64s/it]
+Fetching GFS for 2023-10-04 18:00:00:   0%|          | 0/12 [00:00&lt;?, ?it/s]
+Fetching GFS for 2023-10-04 18:00:00:  33%|███▎      | 4/12 [00:00&lt;00:00, 38.70it/s]
 
-2024-06-25 13:58:47.062 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:196 - Fetching GFS grib file for variable: v500 at 2023-10-04 18:00:00
+2025-01-23 04:41:03.599 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:255 - Fetching GFS grib file for variable: v500 at 2023-10-04 18:00:00_0:00:00
 
-Fetching GFS for 2023-10-04 18:00:00:  33%|███▎      | 4/12 [00:12&lt;00:21,  2.64s/it]
-Fetching GFS for 2023-10-04 18:00:00:  42%|████▏     | 5/12 [00:13&lt;00:14,  2.08s/it]
+Fetching GFS for 2023-10-04 18:00:00:  33%|███▎      | 4/12 [00:00&lt;00:00, 38.70it/s]
 
-2024-06-25 13:58:48.152 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:196 - Fetching GFS grib file for variable: z850 at 2023-10-04 18:00:00
+2025-01-23 04:41:03.625 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:255 - Fetching GFS grib file for variable: z850 at 2023-10-04 18:00:00_0:00:00
 
-Fetching GFS for 2023-10-04 18:00:00:  42%|████▏     | 5/12 [00:13&lt;00:14,  2.08s/it]
-Fetching GFS for 2023-10-04 18:00:00:  50%|█████     | 6/12 [00:14&lt;00:10,  1.72s/it]
+Fetching GFS for 2023-10-04 18:00:00:  33%|███▎      | 4/12 [00:00&lt;00:00, 38.70it/s]
 
-2024-06-25 13:58:49.169 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:196 - Fetching GFS grib file for variable: t850 at 2023-10-04 18:00:00
+2025-01-23 04:41:03.651 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:255 - Fetching GFS grib file for variable: t850 at 2023-10-04 18:00:00_0:00:00
 
-Fetching GFS for 2023-10-04 18:00:00:  50%|█████     | 6/12 [00:14&lt;00:10,  1.72s/it]
-Fetching GFS for 2023-10-04 18:00:00:  58%|█████▊    | 7/12 [00:15&lt;00:07,  1.43s/it]
+Fetching GFS for 2023-10-04 18:00:00:  33%|███▎      | 4/12 [00:00&lt;00:00, 38.70it/s]
 
-2024-06-25 13:58:50.010 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:196 - Fetching GFS grib file for variable: u850 at 2023-10-04 18:00:00
+2025-01-23 04:41:03.677 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:255 - Fetching GFS grib file for variable: u850 at 2023-10-04 18:00:00_0:00:00
 
-Fetching GFS for 2023-10-04 18:00:00:  58%|█████▊    | 7/12 [00:15&lt;00:07,  1.43s/it]
-Fetching GFS for 2023-10-04 18:00:00:  67%|██████▋   | 8/12 [00:16&lt;00:04,  1.20s/it]
+Fetching GFS for 2023-10-04 18:00:00:  33%|███▎      | 4/12 [00:00&lt;00:00, 38.70it/s]
+Fetching GFS for 2023-10-04 18:00:00:  67%|██████▋   | 8/12 [00:00&lt;00:00, 38.60it/s]
 
-2024-06-25 13:58:50.712 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:196 - Fetching GFS grib file for variable: v850 at 2023-10-04 18:00:00
+2025-01-23 04:41:03.703 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:255 - Fetching GFS grib file for variable: v850 at 2023-10-04 18:00:00_0:00:00
 
-Fetching GFS for 2023-10-04 18:00:00:  67%|██████▋   | 8/12 [00:16&lt;00:04,  1.20s/it]
-Fetching GFS for 2023-10-04 18:00:00:  75%|███████▌  | 9/12 [00:16&lt;00:03,  1.03s/it]
+Fetching GFS for 2023-10-04 18:00:00:  67%|██████▋   | 8/12 [00:00&lt;00:00, 38.60it/s]
 
-2024-06-25 13:58:51.383 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:196 - Fetching GFS grib file for variable: t2m at 2023-10-04 18:00:00
+2025-01-23 04:41:03.728 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:255 - Fetching GFS grib file for variable: t2m at 2023-10-04 18:00:00_0:00:00
 
-Fetching GFS for 2023-10-04 18:00:00:  75%|███████▌  | 9/12 [00:16&lt;00:03,  1.03s/it]
-Fetching GFS for 2023-10-04 18:00:00:  83%|████████▎ | 10/12 [00:17&lt;00:01,  1.11it/s]
+Fetching GFS for 2023-10-04 18:00:00:  67%|██████▋   | 8/12 [00:00&lt;00:00, 38.60it/s]
 
-2024-06-25 13:58:51.991 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:196 - Fetching GFS grib file for variable: u10m at 2023-10-04 18:00:00
+2025-01-23 04:41:03.753 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:255 - Fetching GFS grib file for variable: u10m at 2023-10-04 18:00:00_0:00:00
 
-Fetching GFS for 2023-10-04 18:00:00:  83%|████████▎ | 10/12 [00:17&lt;00:01,  1.11it/s]
-Fetching GFS for 2023-10-04 18:00:00:  92%|█████████▏| 11/12 [00:18&lt;00:00,  1.17it/s]
+Fetching GFS for 2023-10-04 18:00:00:  67%|██████▋   | 8/12 [00:00&lt;00:00, 38.60it/s]
 
-2024-06-25 13:58:52.728 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:196 - Fetching GFS grib file for variable: v10m at 2023-10-04 18:00:00
+2025-01-23 04:41:03.779 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:255 - Fetching GFS grib file for variable: v10m at 2023-10-04 18:00:00_0:00:00
 
-Fetching GFS for 2023-10-04 18:00:00:  92%|█████████▏| 11/12 [00:18&lt;00:00,  1.17it/s]
-Fetching GFS for 2023-10-04 18:00:00: 100%|██████████| 12/12 [00:18&lt;00:00,  1.24it/s]
-Fetching GFS for 2023-10-04 18:00:00: 100%|██████████| 12/12 [00:18&lt;00:00,  1.58s/it]
-2024-06-25 13:58:53.457 | SUCCESS  | __main__:run:123 - Fetched data from GFS
-2024-06-25 13:58:53.462 | INFO     | __main__:run:149 - Inference starting!
-2024-06-25 13:58:54.700 | SUCCESS  | __main__:run:153 - Inference complete
+Fetching GFS for 2023-10-04 18:00:00:  67%|██████▋   | 8/12 [00:00&lt;00:00, 38.60it/s]
+Fetching GFS for 2023-10-04 18:00:00: 100%|██████████| 12/12 [00:00&lt;00:00, 38.91it/s]
+Fetching GFS for 2023-10-04 18:00:00: 100%|██████████| 12/12 [00:00&lt;00:00, 38.79it/s]
+2025-01-23 04:41:03.823 | SUCCESS  | __main__:run:123 - Fetched data from GFS
+2025-01-23 04:41:03.829 | INFO     | __main__:run:137 - Inference starting!
+2025-01-23 04:41:06.752 | SUCCESS  | __main__:run:141 - Inference complete
 </pre></div>
 </div>
 </section>
@@ -757,17 +736,16 @@ fields on projections of a sphere.</p>
 <span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="s2">&quot;outputs/04_corr_diff_prediction.jpg&quot;</span><span class="p">)</span>
 </pre></div>
 </div>
-<img src="../_images/sphx_glr_04_corrdiff_inference_001.png" srcset="../_images/sphx_glr_04_corrdiff_inference_001.png, ../_images/sphx_glr_04_corrdiff_inference_001_2_00x.png 2.00x" alt="Radar Reflectivity, 2-meter Temperature, 10-meter Wind Speed" class = "sphx-glr-single-img"/><div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>/usr/local/lib/python3.10/dist-packages/cartopy/io/__init__.py:241: DownloadWarning: Downloading: https://naturalearth.s3.amazonaws.com/10m_physical/ne_10m_coastline.zip
-  warnings.warn(f&#39;Downloading: {url}&#39;, DownloadWarning)
-</pre></div>
-</div>
-<p class="sphx-glr-timing"><strong>Total running time of the script:</strong> (0 minutes 38.621 seconds)</p>
+<img src="../_images/sphx_glr_04_corrdiff_inference_001.png" srcset="../_images/sphx_glr_04_corrdiff_inference_001.png, ../_images/sphx_glr_04_corrdiff_inference_001_2_00x.png 2.00x" alt="Radar Reflectivity, 2-meter Temperature, 10-meter Wind Speed" class = "sphx-glr-single-img"/><p class="sphx-glr-timing"><strong>Total running time of the script:</strong> (0 minutes 18.774 seconds)</p>
 <div class="sphx-glr-footer sphx-glr-footer-example docutils container" id="sphx-glr-download-examples-04-corrdiff-inference-py">
 <div class="sphx-glr-download sphx-glr-download-jupyter docutils container">
 <p><a class="reference download internal" download="" href="../_downloads/b51eda1a0f4fa88ff0d60a618e4fc3db/04_corrdiff_inference.ipynb"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">Jupyter</span> <span class="pre">notebook:</span> <span class="pre">04_corrdiff_inference.ipynb</span></code></a></p>
 </div>
 <div class="sphx-glr-download sphx-glr-download-python docutils container">
 <p><a class="reference download internal" download="" href="../_downloads/96f48221f071a3ca756e276ce3abdd6e/04_corrdiff_inference.py"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">Python</span> <span class="pre">source</span> <span class="pre">code:</span> <span class="pre">04_corrdiff_inference.py</span></code></a></p>
+</div>
+<div class="sphx-glr-download sphx-glr-download-zip docutils container">
+<p><a class="reference download internal" download="" href="../_downloads/e6f9b9ffe079f0cd750b23293437b250/04_corrdiff_inference.zip"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">zipped:</span> <span class="pre">04_corrdiff_inference.zip</span></code></a></p>
 </div>
 </div>
 <p class="sphx-glr-signature"><a class="reference external" href="https://sphinx-gallery.github.io">Gallery generated by Sphinx-Gallery</a></p>
@@ -870,7 +848,7 @@ fields on projections of a sphere.</p>
         <div class="footer-item">
 
   <p class="sphinx-version">
-    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 7.3.7.
+    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 8.1.3.
     <br/>
   </p>
 </div>

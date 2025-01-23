@@ -17,7 +17,7 @@
 # %%
 """
 Model Hook Injection: Perturbation
-==========================
+==================================
 
 Adding model noise by using custom hooks.
 
@@ -100,7 +100,7 @@ model = DLWP.load_model(package)
 data = GFS()
 
 # Create the IO handler, store in memory
-chunks = {"ensemble": 1, "time": 1}
+chunks = {"ensemble": 1, "time": 1, "lead_time": 1}
 io_unperturbed = ZarrBackend(file_name="outputs/05_ensemble.zarr", chunks=chunks)
 
 
@@ -158,7 +158,9 @@ model.front_hook = lambda x, coords: (
 # Also could use model.rear_hook = ...
 
 io_perturbed = ZarrBackend(
-    file_name="outputs/05_ensemble_model_perturbation.zarr", chunks=chunks
+    file_name="outputs/05_ensemble_model_perturbation.zarr",
+    chunks=chunks,
+    backend_kwargs={"overwrite": True},
 )
 io_perturbed = ensemble(
     [forecast_date],

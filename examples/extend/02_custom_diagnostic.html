@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
     <link href="../../_static/favicon.ico" rel="icon" type="image/x-icon">
-    <title>Extending Diagnostic Models &#8212; Earth2Studio 0.3.0a0 documentation</title>
+    <title>Extending Diagnostic Models &#8212; Earth2Studio 0.5.0a0 documentation</title>
   
   
   
@@ -30,11 +30,11 @@
 
     <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=a746c00c" />
     <link rel="stylesheet" type="text/css" href="../../_static/togglebutton.css?v=13237357" />
-    <link rel="stylesheet" type="text/css" href="../../_static/sg_gallery.css?v=61a4c737" />
+    <link rel="stylesheet" type="text/css" href="../../_static/sg_gallery.css?v=d2d258e8" />
     <link rel="stylesheet" type="text/css" href="../../_static/sg_gallery-binder.css?v=f4aeca0c" />
     <link rel="stylesheet" type="text/css" href="../../_static/sg_gallery-dataframe.css?v=2082cf3c" />
     <link rel="stylesheet" type="text/css" href="../../_static/sg_gallery-rendered-html.css?v=1277b6f3" />
-    <link rel="stylesheet" type="text/css" href="../../_static/sphinx-design.min.css?v=87e54e7c" />
+    <link rel="stylesheet" type="text/css" href="../../_static/sphinx-design.min.css?v=95c83b7e" />
     <link rel="stylesheet" type="text/css" href="../../_static/css/custom.css?v=94338acd" />
   
   <!-- Pre-loaded scripts that we'll load fully later -->
@@ -42,8 +42,8 @@
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=8d27b9dea8ad943066ae" />
   <script src="../../_static/vendor/fontawesome/6.5.1/js/all.min.js?digest=8d27b9dea8ad943066ae"></script>
 
-    <script src="../../_static/documentation_options.js?v=cc5c1b6c"></script>
-    <script src="../../_static/doctools.js?v=9a2dae69"></script>
+    <script src="../../_static/documentation_options.js?v=aeef923b"></script>
+    <script src="../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script>let toggleHintShow = 'Click to show';</script>
     <script>let toggleHintHide = 'Click to hide';</script>
@@ -114,12 +114,6 @@
   <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
 </form></div>
   </div>
-
-
-  <div class="bd-header-announcement container-fluid bd-header-announcement">
-    <div class="bd-header-announcement__content">Earth2Studio is now OSS!</div>
-  </div>
-
   
     <header class="bd-header navbar navbar-expand-lg bd-navbar">
 <div class="bd-header__inner bd-page-width">
@@ -394,6 +388,8 @@ document.write(`
 <li class="toctree-l1"><a class="reference internal" href="../06_model_perturbation_hook.html">Model Hook Injection: Perturbation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../07_seasonal_statistics.html">Statistical Inference</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../08_distributed_manager.html">Distributed Manager Inference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../09_stormcast_example.html">Running StormCast Inference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../10_stormcast_ensemble_example.html">Running StormCast Ensemble Inference</a></li>
 </ul>
 <ul class="current nav bd-sidenav">
 <li class="toctree-l1 current active has-children"><a class="reference internal" href="index.html">Extending Earth2Studio</a><input checked="" class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-1"><i class="fa-solid fa-chevron-down"></i></label><ul class="current">
@@ -588,8 +584,8 @@ the model expects. This requires the definition of  <code class="xref py py-func
 <code class="xref py py-func docutils literal notranslate"><span class="pre">output_coords()</span></code>. Have a look at <a class="reference internal" href="../../userguide/about/data.html#coordinates-userguide"><span class="std std-ref">Coordinate Systems</span></a> for details on
 coordinate system.</p>
 <p>For this diagnostic model, we simply define the input coordinates
-to be the global surface temperature specified in <a href="#id1"><span class="problematic" id="id2">:py:file:`earth2studio.lexicon.base.py`</span></a>.
-The output is a custom variable <a href="#id3"><span class="problematic" id="id4">:py:var:`t2m_c`</span></a> that represents the temperature in
+to be the global surface temperature specified in <code class="file docutils literal notranslate"><span class="pre">earth2studio.lexicon.base.py</span></code>.
+The output is a custom variable <code class="code docutils literal notranslate"><span class="pre">t2m_c</span></code> that represents the temperature in
 Celsius.</p>
 </section>
 <section id="call-api">
@@ -652,90 +648,90 @@ same as running a built in diagnostic.</p>
 <span class="nb">print</span><span class="p">(</span><span class="n">io</span><span class="o">.</span><span class="n">root</span><span class="o">.</span><span class="n">tree</span><span class="p">())</span>
 </pre></div>
 </div>
-<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>2024-06-25 14:04:54.529 | INFO     | earth2studio.run:diagnostic:179 - Running diagnostic workflow!
-2024-06-25 14:04:54.529 | INFO     | earth2studio.run:diagnostic:186 - Inference device: cuda
-2024-06-25 14:04:54.536 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:149 - Fetching GFS index file: 2023-12-31 18:00:00
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>2025-01-23 05:02:11.113 | INFO     | earth2studio.run:diagnostic:190 - Running diagnostic workflow!
+2025-01-23 05:02:11.113 | INFO     | earth2studio.run:diagnostic:197 - Inference device: cuda
+2025-01-23 05:02:11.123 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:209 - Fetching GFS index file: 2023-12-31 18:00:00 lead 0:00:00
 
 Fetching GFS for 2023-12-31 18:00:00:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 
-2024-06-25 14:04:54.863 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:196 - Fetching GFS grib file for variable: t850 at 2023-12-31 18:00:00
+2025-01-23 05:02:11.127 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:255 - Fetching GFS grib file for variable: t850 at 2023-12-31 18:00:00_0:00:00
 
 Fetching GFS for 2023-12-31 18:00:00:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 
-2024-06-25 14:04:54.885 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:196 - Fetching GFS grib file for variable: z1000 at 2023-12-31 18:00:00
+2025-01-23 05:02:11.154 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:255 - Fetching GFS grib file for variable: z1000 at 2023-12-31 18:00:00_0:00:00
 
 Fetching GFS for 2023-12-31 18:00:00:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 
-2024-06-25 14:04:54.904 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:196 - Fetching GFS grib file for variable: z700 at 2023-12-31 18:00:00
+2025-01-23 05:02:11.180 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:255 - Fetching GFS grib file for variable: z700 at 2023-12-31 18:00:00_0:00:00
 
 Fetching GFS for 2023-12-31 18:00:00:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 
-2024-06-25 14:04:54.922 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:196 - Fetching GFS grib file for variable: z500 at 2023-12-31 18:00:00
+2025-01-23 05:02:11.207 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:255 - Fetching GFS grib file for variable: z500 at 2023-12-31 18:00:00_0:00:00
 
 Fetching GFS for 2023-12-31 18:00:00:   0%|          | 0/7 [00:00&lt;?, ?it/s]
+Fetching GFS for 2023-12-31 18:00:00:  57%|█████▋    | 4/7 [00:00&lt;00:00, 37.65it/s]
 
-2024-06-25 14:04:54.941 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:196 - Fetching GFS grib file for variable: z300 at 2023-12-31 18:00:00
+2025-01-23 05:02:11.234 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:255 - Fetching GFS grib file for variable: z300 at 2023-12-31 18:00:00_0:00:00
 
-Fetching GFS for 2023-12-31 18:00:00:   0%|          | 0/7 [00:00&lt;?, ?it/s]
+Fetching GFS for 2023-12-31 18:00:00:  57%|█████▋    | 4/7 [00:00&lt;00:00, 37.65it/s]
 
-2024-06-25 14:04:54.959 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:196 - Fetching GFS grib file for variable: tcwv at 2023-12-31 18:00:00
+2025-01-23 05:02:11.260 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:255 - Fetching GFS grib file for variable: tcwv at 2023-12-31 18:00:00_0:00:00
 
-Fetching GFS for 2023-12-31 18:00:00:   0%|          | 0/7 [00:00&lt;?, ?it/s]
-Fetching GFS for 2023-12-31 18:00:00:  86%|████████▌ | 6/7 [00:00&lt;00:00, 52.64it/s]
+Fetching GFS for 2023-12-31 18:00:00:  57%|█████▋    | 4/7 [00:00&lt;00:00, 37.65it/s]
 
-2024-06-25 14:04:54.977 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:196 - Fetching GFS grib file for variable: t2m at 2023-12-31 18:00:00
+2025-01-23 05:02:11.286 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:255 - Fetching GFS grib file for variable: t2m at 2023-12-31 18:00:00_0:00:00
 
-Fetching GFS for 2023-12-31 18:00:00:  86%|████████▌ | 6/7 [00:00&lt;00:00, 52.64it/s]
-Fetching GFS for 2023-12-31 18:00:00: 100%|██████████| 7/7 [00:00&lt;00:00, 53.04it/s]
-2024-06-25 14:04:55.019 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:149 - Fetching GFS index file: 2024-01-01 00:00:00
-
-Fetching GFS for 2024-01-01 00:00:00:   0%|          | 0/7 [00:00&lt;?, ?it/s]
-
-2024-06-25 14:04:55.105 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:196 - Fetching GFS grib file for variable: t850 at 2024-01-01 00:00:00
+Fetching GFS for 2023-12-31 18:00:00:  57%|█████▋    | 4/7 [00:00&lt;00:00, 37.65it/s]
+Fetching GFS for 2023-12-31 18:00:00: 100%|██████████| 7/7 [00:00&lt;00:00, 37.62it/s]
+2025-01-23 05:02:11.323 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:209 - Fetching GFS index file: 2024-01-01 00:00:00 lead 0:00:00
 
 Fetching GFS for 2024-01-01 00:00:00:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 
-2024-06-25 14:04:55.124 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:196 - Fetching GFS grib file for variable: z1000 at 2024-01-01 00:00:00
+2025-01-23 05:02:11.326 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:255 - Fetching GFS grib file for variable: t850 at 2024-01-01 00:00:00_0:00:00
 
 Fetching GFS for 2024-01-01 00:00:00:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 
-2024-06-25 14:04:55.142 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:196 - Fetching GFS grib file for variable: z700 at 2024-01-01 00:00:00
+2025-01-23 05:02:11.352 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:255 - Fetching GFS grib file for variable: z1000 at 2024-01-01 00:00:00_0:00:00
 
 Fetching GFS for 2024-01-01 00:00:00:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 
-2024-06-25 14:04:55.160 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:196 - Fetching GFS grib file for variable: z500 at 2024-01-01 00:00:00
+2025-01-23 05:02:11.379 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:255 - Fetching GFS grib file for variable: z700 at 2024-01-01 00:00:00_0:00:00
 
 Fetching GFS for 2024-01-01 00:00:00:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 
-2024-06-25 14:04:55.178 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:196 - Fetching GFS grib file for variable: z300 at 2024-01-01 00:00:00
+2025-01-23 05:02:11.406 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:255 - Fetching GFS grib file for variable: z500 at 2024-01-01 00:00:00_0:00:00
 
 Fetching GFS for 2024-01-01 00:00:00:   0%|          | 0/7 [00:00&lt;?, ?it/s]
+Fetching GFS for 2024-01-01 00:00:00:  57%|█████▋    | 4/7 [00:00&lt;00:00, 37.65it/s]
 
-2024-06-25 14:04:55.195 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:196 - Fetching GFS grib file for variable: tcwv at 2024-01-01 00:00:00
+2025-01-23 05:02:11.432 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:255 - Fetching GFS grib file for variable: z300 at 2024-01-01 00:00:00_0:00:00
 
-Fetching GFS for 2024-01-01 00:00:00:   0%|          | 0/7 [00:00&lt;?, ?it/s]
-Fetching GFS for 2024-01-01 00:00:00:  86%|████████▌ | 6/7 [00:00&lt;00:00, 55.43it/s]
+Fetching GFS for 2024-01-01 00:00:00:  57%|█████▋    | 4/7 [00:00&lt;00:00, 37.65it/s]
 
-2024-06-25 14:04:55.213 | DEBUG    | earth2studio.data.gfs:fetch_gfs_dataarray:196 - Fetching GFS grib file for variable: t2m at 2024-01-01 00:00:00
+2025-01-23 05:02:11.458 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:255 - Fetching GFS grib file for variable: tcwv at 2024-01-01 00:00:00_0:00:00
 
-Fetching GFS for 2024-01-01 00:00:00:  86%|████████▌ | 6/7 [00:00&lt;00:00, 55.43it/s]
-Fetching GFS for 2024-01-01 00:00:00: 100%|██████████| 7/7 [00:00&lt;00:00, 55.21it/s]
-2024-06-25 14:04:55.279 | SUCCESS  | earth2studio.run:diagnostic:200 - Fetched data from GFS
-2024-06-25 14:04:55.300 | INFO     | earth2studio.run:diagnostic:231 - Inference starting!
+Fetching GFS for 2024-01-01 00:00:00:  57%|█████▋    | 4/7 [00:00&lt;00:00, 37.65it/s]
+
+2025-01-23 05:02:11.485 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:255 - Fetching GFS grib file for variable: t2m at 2024-01-01 00:00:00_0:00:00
+
+Fetching GFS for 2024-01-01 00:00:00:  57%|█████▋    | 4/7 [00:00&lt;00:00, 37.65it/s]
+Fetching GFS for 2024-01-01 00:00:00: 100%|██████████| 7/7 [00:00&lt;00:00, 37.81it/s]
+2025-01-23 05:02:11.541 | SUCCESS  | earth2studio.run:diagnostic:220 - Fetched data from GFS
+2025-01-23 05:02:11.550 | INFO     | earth2studio.run:diagnostic:252 - Inference starting!
 
 Running inference:   0%|          | 0/21 [00:00&lt;?, ?it/s]
-Running inference:  10%|▉         | 2/21 [00:00&lt;00:01, 14.15it/s]
-Running inference:  19%|█▉        | 4/21 [00:00&lt;00:01, 13.15it/s]
-Running inference:  29%|██▊       | 6/21 [00:00&lt;00:01, 12.77it/s]
-Running inference:  38%|███▊      | 8/21 [00:00&lt;00:01, 12.17it/s]
-Running inference:  48%|████▊     | 10/21 [00:00&lt;00:00, 11.95it/s]
-Running inference:  57%|█████▋    | 12/21 [00:01&lt;00:00, 11.42it/s]
-Running inference:  67%|██████▋   | 14/21 [00:01&lt;00:00, 11.32it/s]
-Running inference:  76%|███████▌  | 16/21 [00:01&lt;00:00, 11.15it/s]
-Running inference:  86%|████████▌ | 18/21 [00:01&lt;00:00, 11.01it/s]
-Running inference:  95%|█████████▌| 20/21 [00:01&lt;00:00, 10.75it/s]
-Running inference: 100%|██████████| 21/21 [00:01&lt;00:00, 11.41it/s]
-2024-06-25 14:04:57.141 | SUCCESS  | earth2studio.run:diagnostic:245 - Inference complete
+Running inference:  10%|▉         | 2/21 [00:00&lt;00:01, 15.23it/s]
+Running inference:  19%|█▉        | 4/21 [00:00&lt;00:01, 15.52it/s]
+Running inference:  29%|██▊       | 6/21 [00:00&lt;00:01, 14.97it/s]
+Running inference:  38%|███▊      | 8/21 [00:00&lt;00:00, 14.50it/s]
+Running inference:  48%|████▊     | 10/21 [00:00&lt;00:00, 14.06it/s]
+Running inference:  57%|█████▋    | 12/21 [00:00&lt;00:00, 14.12it/s]
+Running inference:  67%|██████▋   | 14/21 [00:00&lt;00:00, 14.22it/s]
+Running inference:  76%|███████▌  | 16/21 [00:01&lt;00:00, 14.05it/s]
+Running inference:  86%|████████▌ | 18/21 [00:01&lt;00:00, 13.57it/s]
+Running inference:  95%|█████████▌| 20/21 [00:01&lt;00:00, 13.11it/s]
+Running inference: 100%|██████████| 21/21 [00:01&lt;00:00, 13.81it/s]
+2025-01-23 05:02:13.071 | SUCCESS  | earth2studio.run:diagnostic:266 - Inference complete
 /
  ├── lat (721,) float64
  ├── lead_time (21,) timedelta64[h]
@@ -794,13 +790,16 @@ Running inference: 100%|██████████| 21/21 [00:01&lt;00:00, 1
 <span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="s2">&quot;outputs/custom_diagnostic_dlwp_prediction.jpg&quot;</span><span class="p">)</span>
 </pre></div>
 </div>
-<img src="../../_images/sphx_glr_02_custom_diagnostic_001.png" srcset="../../_images/sphx_glr_02_custom_diagnostic_001.png, ../../_images/sphx_glr_02_custom_diagnostic_001_2_00x.png 2.00x" alt="t2m_c - 2024-01-01, 0hrs, 24hrs, 48hrs, 72hrs, 96hrs" class = "sphx-glr-single-img"/><p class="sphx-glr-timing"><strong>Total running time of the script:</strong> (0 minutes 44.295 seconds)</p>
+<img src="../../_images/sphx_glr_02_custom_diagnostic_001.png" srcset="../../_images/sphx_glr_02_custom_diagnostic_001.png, ../../_images/sphx_glr_02_custom_diagnostic_001_2_00x.png 2.00x" alt="t2m_c - 2024-01-01, 0hrs, 24hrs, 48hrs, 72hrs, 96hrs" class = "sphx-glr-single-img"/><p class="sphx-glr-timing"><strong>Total running time of the script:</strong> (0 minutes 57.934 seconds)</p>
 <div class="sphx-glr-footer sphx-glr-footer-example docutils container" id="sphx-glr-download-examples-extend-02-custom-diagnostic-py">
 <div class="sphx-glr-download sphx-glr-download-jupyter docutils container">
 <p><a class="reference download internal" download="" href="../../_downloads/6f0367f9a872ea000c53f249d88e3153/02_custom_diagnostic.ipynb"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">Jupyter</span> <span class="pre">notebook:</span> <span class="pre">02_custom_diagnostic.ipynb</span></code></a></p>
 </div>
 <div class="sphx-glr-download sphx-glr-download-python docutils container">
 <p><a class="reference download internal" download="" href="../../_downloads/9870251076ba6e59e9850520931cb11c/02_custom_diagnostic.py"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">Python</span> <span class="pre">source</span> <span class="pre">code:</span> <span class="pre">02_custom_diagnostic.py</span></code></a></p>
+</div>
+<div class="sphx-glr-download sphx-glr-download-zip docutils container">
+<p><a class="reference download internal" download="" href="../../_downloads/690d0ca201030dc83e46681daac0dc17/02_custom_diagnostic.zip"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">zipped:</span> <span class="pre">02_custom_diagnostic.zip</span></code></a></p>
 </div>
 </div>
 <p class="sphx-glr-signature"><a class="reference external" href="https://sphinx-gallery.github.io">Gallery generated by Sphinx-Gallery</a></p>
@@ -907,7 +906,7 @@ Running inference: 100%|██████████| 21/21 [00:01&lt;00:00, 1
         <div class="footer-item">
 
   <p class="sphinx-version">
-    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 7.3.7.
+    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 8.1.3.
     <br/>
   </p>
 </div>

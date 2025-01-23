@@ -533,61 +533,42 @@ document.write(`
 <dl class="py class">
 <dt class="sig sig-object py" id="earth2studio.models.px.StormCast">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">earth2studio.models.px.</span></span><span class="sig-name descname"><span class="pre">StormCast</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">regression_model</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">diffusion_model</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">lat</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">lon</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">means</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">stds</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">invariants</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">variables</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">array(['u10m',</span> <span class="pre">'v10m',</span> <span class="pre">'t2m',</span> <span class="pre">'mslp',</span> <span class="pre">'u1hl',</span> <span class="pre">'u2hl',</span> <span class="pre">'u3hl',</span> <span class="pre">'u4hl',</span> <span class="pre">'u5hl',</span> <span class="pre">'u6hl',</span> <span class="pre">'u7hl',</span> <span class="pre">'u8hl',</span> <span class="pre">'u9hl',</span> <span class="pre">'u10hl',</span> <span class="pre">'u11hl',</span> <span class="pre">'u13hl',</span> <span class="pre">'u15hl',</span> <span class="pre">'u20hl',</span> <span class="pre">'u25hl',</span> <span class="pre">'u30hl',</span> <span class="pre">'v1hl',</span> <span class="pre">'v2hl',</span> <span class="pre">'v3hl',</span> <span class="pre">'v4hl',</span> <span class="pre">'v5hl',</span> <span class="pre">'v6hl',</span> <span class="pre">'v7hl',</span> <span class="pre">'v8hl',</span> <span class="pre">'v9hl',</span> <span class="pre">'v10hl',</span> <span class="pre">'v11hl',</span> <span class="pre">'v13hl',</span> <span class="pre">'v15hl',</span> <span class="pre">'v20hl',</span> <span class="pre">'v25hl',</span> <span class="pre">'v30hl',</span> <span class="pre">'t1hl',</span> <span class="pre">'t2hl',</span> <span class="pre">'t3hl',</span> <span class="pre">'t4hl',</span> <span class="pre">'t5hl',</span> <span class="pre">'t6hl',</span> <span class="pre">'t7hl',</span> <span class="pre">'t8hl',</span> <span class="pre">'t9hl',</span> <span class="pre">'t10hl',</span> <span class="pre">'t11hl',</span> <span class="pre">'t13hl',</span> <span class="pre">'t15hl',</span> <span class="pre">'t20hl',</span> <span class="pre">'t25hl',</span> <span class="pre">'t30hl',</span> <span class="pre">'q1hl',</span> <span class="pre">'q2hl',</span> <span class="pre">'q3hl',</span> <span class="pre">'q4hl',</span> <span class="pre">'q5hl',</span> <span class="pre">'q6hl',</span> <span class="pre">'q7hl',</span> <span class="pre">'q8hl',</span> <span class="pre">'q9hl',</span> <span class="pre">'q10hl',</span> <span class="pre">'q11hl',</span> <span class="pre">'q13hl',</span> <span class="pre">'q15hl',</span> <span class="pre">'q20hl',</span> <span class="pre">'q25hl',</span> <span class="pre">'q30hl',</span> <span class="pre">'Z1hl',</span> <span class="pre">'Z2hl',</span> <span class="pre">'Z3hl',</span> <span class="pre">'Z4hl',</span> <span class="pre">'Z5hl',</span> <span class="pre">'Z6hl',</span> <span class="pre">'Z7hl',</span> <span class="pre">'Z8hl',</span> <span class="pre">'Z9hl',</span> <span class="pre">'Z10hl',</span> <span class="pre">'Z11hl',</span> <span class="pre">'Z13hl',</span> <span class="pre">'Z15hl',</span> <span class="pre">'Z20hl',</span> <span class="pre">'Z25hl',</span> <span class="pre">'Z30hl',</span> <span class="pre">'p1hl',</span> <span class="pre">'p2hl',</span> <span class="pre">'p3hl',</span> <span class="pre">'p4hl',</span> <span class="pre">'p5hl',</span> <span class="pre">'p6hl',</span> <span class="pre">'p7hl',</span> <span class="pre">'p8hl',</span> <span class="pre">'p9hl',</span> <span class="pre">'p10hl',</span> <span class="pre">'p11hl',</span> <span class="pre">'p13hl',</span> <span class="pre">'p15hl',</span> <span class="pre">'p20hl',</span> <span class="pre">'refc'],</span> <span class="pre">dtype='&lt;U5')</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">conditioning_means</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">conditioning_stds</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">conditioning_variables</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">array(['u10m',</span> <span class="pre">'v10m',</span> <span class="pre">'t2m',</span> <span class="pre">'tcwv',</span> <span class="pre">'mslp',</span> <span class="pre">'sp',</span> <span class="pre">'u1000',</span> <span class="pre">'u850',</span> <span class="pre">'u500',</span> <span class="pre">'u250',</span> <span class="pre">'v1000',</span> <span class="pre">'v850',</span> <span class="pre">'v500',</span> <span class="pre">'v250',</span> <span class="pre">'z1000',</span> <span class="pre">'z850',</span> <span class="pre">'z500',</span> <span class="pre">'z250',</span> <span class="pre">'t1000',</span> <span class="pre">'t850',</span> <span class="pre">'t500',</span> <span class="pre">'t250',</span> <span class="pre">'q1000',</span> <span class="pre">'q850',</span> <span class="pre">'q500',</span> <span class="pre">'q250'],</span> <span class="pre">dtype='&lt;U5')</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">conditioning_data_source</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sampler_args</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">{}</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">interp_method</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'linear'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/earth2studio/models/px/stormcast.html#StormCast"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.px.StormCast" title="Link to this definition">#</a></dt>
-<dd><p>StormCast generative convection-allowing model for regional forecasts
-Consists of two core models, a regression and diffusion model
-This class implements StormCastV1, the model released in:</p>
+<dd><p>StormCast generative convection-allowing model for regional forecasts consists of
+two core models: a regression and diffusion model. Model time step size is 1 hour,
+taking as input:</p>
 <blockquote>
-<div><p><a class="reference external" href="https://arxiv.org/abs/2408.10958">https://arxiv.org/abs/2408.10958</a></p>
-</div></blockquote>
-<dl class="simple">
-<dt>Model time step size is 1 hour, taking as input:</dt><dd><ul class="simple">
+<div><ul class="simple">
 <li><p>High-resolution (3km) HRRR state over the central United States (99 vars)</p></li>
 <li><p>High-resolution land-sea mask and orography invariants</p></li>
 <li><p>Coarse resolution (25km) global state (26 vars)</p></li>
 </ul>
-</dd>
-</dl>
+</div></blockquote>
 <p>The high-resolution grid is the HRRR Lambert conformal projection
 Coarse-resolution inputs are regridded to the HRRR grid internally.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>For more information see the following references:</p>
+<ul class="simple">
+<li><p><a class="reference external" href="https://arxiv.org/abs/2408.10958">https://arxiv.org/abs/2408.10958</a></p></li>
+</ul>
+</div>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>(</strong><strong>torch.nn.Module</strong><strong>)</strong> (<em>diffusion_model</em>)</p></li>
-<li><p><strong>(</strong><strong>torch.nn.Module</strong><strong>)</strong></p></li>
-<li><p><strong>(</strong><strong>np.array</strong><strong>)</strong> (<em>lon</em>)</p></li>
-<li><p><strong>(</strong><strong>np.array</strong><strong>)</strong></p></li>
-<li><p><strong>(</strong><strong>torch.Tensor</strong><strong>)</strong> (<em>invariants</em>)</p></li>
-<li><p><strong>(</strong><strong>torch.Tensor</strong><strong>)</strong></p></li>
-<li><p><strong>(</strong><strong>torch.Tensor</strong><strong>)</strong></p></li>
-<li><p><strong>(</strong><strong>np.array</strong> (<em>conditioning_variables</em>)</p></li>
-<li><p><strong>optional</strong><strong>)</strong> (<em>Interpolation method to use when regridding coarse conditoining data. Defaults to &quot;linear&quot;.</em>)</p></li>
-<li><p><strong>None</strong> (<em>conditioning_data_source</em><em> (</em><em>DataSource</em><em> |</em>)</p></li>
-<li><p><strong>optional</strong><strong>)</strong></p></li>
-<li><p><strong>None</strong></p></li>
-<li><p><strong>optional</strong><strong>)</strong></p></li>
-<li><p><strong>(</strong><strong>np.array</strong></p></li>
-<li><p><strong>optional</strong><strong>)</strong></p></li>
-<li><p><strong>None</strong></p></li>
-<li><p><strong>optional</strong><strong>)</strong></p></li>
-<li><p><strong>(</strong><strong>dict</strong><strong>[</strong><strong>str</strong> (<em>sampler_args</em>)</p></li>
-<li><p><strong>int</strong><strong>]</strong> (<em>float</em><em>  |</em>)</p></li>
-<li><p><strong>optional</strong><strong>)</strong></p></li>
-<li><p><strong>(</strong><strong>str</strong> (<em>interp_method</em>)</p></li>
-<li><p><strong>optional</strong><strong>)</strong></p></li>
-<li><p><strong>regression_model</strong> (<em>Module</em>)</p></li>
-<li><p><strong>diffusion_model</strong> (<em>Module</em>)</p></li>
-<li><p><strong>lat</strong> (<em>array</em>)</p></li>
-<li><p><strong>lon</strong> (<em>array</em>)</p></li>
-<li><p><strong>means</strong> (<em>Tensor</em>)</p></li>
-<li><p><strong>stds</strong> (<em>Tensor</em>)</p></li>
-<li><p><strong>invariants</strong> (<em>Tensor</em>)</p></li>
-<li><p><strong>variables</strong> (<em>array</em>)</p></li>
-<li><p><strong>conditioning_means</strong> (<em>Tensor</em><em> | </em><em>None</em>)</p></li>
-<li><p><strong>conditioning_stds</strong> (<em>Tensor</em><em> | </em><em>None</em>)</p></li>
-<li><p><strong>conditioning_variables</strong> (<em>array</em>)</p></li>
-<li><p><strong>conditioning_data_source</strong> (<em>DataSource</em><em> | </em><em>None</em>)</p></li>
-<li><p><strong>sampler_args</strong> (<em>dict</em><em>[</em><em>str</em><em>, </em><em>float</em><em> | </em><em>int</em><em>]</em>)</p></li>
-<li><p><strong>interp_method</strong> (<em>str</em>)</p></li>
+<li><p><strong>regression_model</strong> (<em>torch.nn.Module</em>) – Deterministic model used to make an initial prediction</p></li>
+<li><p><strong>diffusion_model</strong> (<em>torch.nn.Module</em>) – Generative model correcting the deterministic prediciton</p></li>
+<li><p><strong>lat</strong> (<em>np.array</em>) – Latitude array (2D) of the domain</p></li>
+<li><p><strong>lon</strong> (<em>np.array</em>) – Longitude array (2D) of the domain</p></li>
+<li><p><strong>means</strong> (<em>torch.Tensor</em>) – Mean value of each input high-resolution variable</p></li>
+<li><p><strong>stds</strong> (<em>torch.Tensor</em>) – Standard deviation of each input high-resolution variable</p></li>
+<li><p><strong>invariants</strong> (<em>torch.Tensor</em>) – Static invariant  quantities</p></li>
+<li><p><strong>variables</strong> (<em>np.array</em><em>, </em><em>optional</em>) – High-resolution variables, by default np.array(VARIABLES)</p></li>
+<li><p><strong>conditioning_means</strong> (<em>torch.Tensor</em><em> | </em><em>None</em><em>, </em><em>optional</em>) – Means to normalize conditioning data, by default None</p></li>
+<li><p><strong>conditioning_stds</strong> (<em>torch.Tensor</em><em> | </em><em>None</em><em>, </em><em>optional</em>) – Standard deviations to normalize conditioning data, by default None</p></li>
+<li><p><strong>conditioning_variables</strong> (<em>np.array</em><em>, </em><em>optional</em>) – Global variables for conditioning, by default np.array(CONDITIONING_VARIABLES)</p></li>
+<li><p><strong>conditioning_data_source</strong> (<em>DataSource</em><em> | </em><em>None</em><em>, </em><em>optional</em>) – Data Source to use for global conditoining. Required for running in iterator mode, by default None</p></li>
+<li><p><strong>sampler_args</strong> (<em>dict</em><em>[</em><em>str</em><em>, </em><em>float</em><em>  |  </em><em>int</em><em>]</em><em>, </em><em>optional</em>) – Arguments to pass to the diffusion sampler, by default {}</p></li>
+<li><p><strong>interp_method</strong> (<em>str</em><em>, </em><em>optional</em>) – Interpolation method to use when regridding coarse conditoining data, by default “linear”</p></li>
 </ul>
 </dd>
 </dl>
@@ -661,7 +642,16 @@ output data tensor and coordinate system dictionary.</p>
 
 </dd></dl>
 
-<div class="clearer"></div></section>
+<section id="examples-using-earth2studio-models-px-stormcast">
+<span id="sphx-glr-backref-earth2studio-models-px-stormcast"></span><h2>Examples using <code class="docutils literal notranslate"><span class="pre">earth2studio.models.px.StormCast</span></code><a class="headerlink" href="#examples-using-earth2studio-models-px-stormcast" title="Link to this heading">#</a></h2>
+<div class="sphx-glr-thumbnails"><div class="sphx-glr-thumbcontainer" tooltip="Basic StormCast inference workflow."><img alt="" src="../../../../_images/sphx_glr_09_stormcast_example_thumb.png" />
+<p><a class="reference internal" href="../../../../examples/09_stormcast_example.html#sphx-glr-examples-09-stormcast-example-py"><span class="std std-ref">Running StormCast Inference</span></a></p>
+  <div class="sphx-glr-thumbnail-title">Running StormCast Inference</div>
+</div><div class="sphx-glr-thumbcontainer" tooltip="Ensemble StormCast inference workflow."><img alt="" src="../../../../_images/sphx_glr_10_stormcast_ensemble_example_thumb.png" />
+<p><a class="reference internal" href="../../../../examples/10_stormcast_ensemble_example.html#sphx-glr-examples-10-stormcast-ensemble-example-py"><span class="std std-ref">Running StormCast Ensemble Inference</span></a></p>
+  <div class="sphx-glr-thumbnail-title">Running StormCast Ensemble Inference</div>
+</div></div><div class="clearer"></div></section>
+</section>
 
 
                 </article>
@@ -716,6 +706,7 @@ output data tensor and coordinate system dictionary.</p>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.models.px.StormCast.load_model"><code class="docutils literal notranslate"><span class="pre">StormCast.load_model()</span></code></a></li>
 </ul>
 </li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#examples-using-earth2studio-models-px-stormcast">Examples using <code class="docutils literal notranslate"><span class="pre">earth2studio.models.px.StormCast</span></code></a></li>
 </ul>
   </nav></div>
 

@@ -6,7 +6,7 @@
 
 Computation times
 =================
-**03:57.234** total execution time for 10 files **from all galleries**:
+**26:43.431** total execution time for 13 files **from all galleries**:
 
 .. container::
 
@@ -32,33 +32,42 @@ Computation times
    * - Example
      - Time
      - Mem (MB)
-   * - :ref:`sphx_glr_examples_03_ensemble_workflow.py` (``../examples/03_ensemble_workflow.py``)
-     - 03:57.234
-     - 0.0
-   * - :ref:`sphx_glr_examples_01_deterministic_workflow.py` (``../examples/01_deterministic_workflow.py``)
-     - 00:00.000
-     - 0.0
-   * - :ref:`sphx_glr_examples_02_diagnostic_workflow.py` (``../examples/02_diagnostic_workflow.py``)
-     - 00:00.000
-     - 0.0
-   * - :ref:`sphx_glr_examples_04_corrdiff_inference.py` (``../examples/04_corrdiff_inference.py``)
-     - 00:00.000
-     - 0.0
-   * - :ref:`sphx_glr_examples_05_ensemble_workflow_extend.py` (``../examples/05_ensemble_workflow_extend.py``)
-     - 00:00.000
-     - 0.0
-   * - :ref:`sphx_glr_examples_06_model_perturbation_hook.py` (``../examples/06_model_perturbation_hook.py``)
-     - 00:00.000
+   * - :ref:`sphx_glr_examples_10_stormcast_ensemble_example.py` (``../examples/10_stormcast_ensemble_example.py``)
+     - 13:56.655
      - 0.0
    * - :ref:`sphx_glr_examples_07_seasonal_statistics.py` (``../examples/07_seasonal_statistics.py``)
-     - 00:00.000
+     - 03:12.410
      - 0.0
-   * - :ref:`sphx_glr_examples_extend_01_custom_prognostic.py` (``../examples/extend/01_custom_prognostic.py``)
-     - 00:00.000
+   * - :ref:`sphx_glr_examples_09_stormcast_example.py` (``../examples/09_stormcast_example.py``)
+     - 02:35.466
+     - 0.0
+   * - :ref:`sphx_glr_examples_03_ensemble_workflow.py` (``../examples/03_ensemble_workflow.py``)
+     - 02:09.081
+     - 0.0
+   * - :ref:`sphx_glr_examples_01_deterministic_workflow.py` (``../examples/01_deterministic_workflow.py``)
+     - 01:18.549
      - 0.0
    * - :ref:`sphx_glr_examples_extend_02_custom_diagnostic.py` (``../examples/extend/02_custom_diagnostic.py``)
-     - 00:00.000
+     - 00:57.934
      - 0.0
    * - :ref:`sphx_glr_examples_extend_03_custom_datasource.py` (``../examples/extend/03_custom_datasource.py``)
-     - 00:00.000
+     - 00:43.443
+     - 0.0
+   * - :ref:`sphx_glr_examples_06_model_perturbation_hook.py` (``../examples/06_model_perturbation_hook.py``)
+     - 00:27.013
+     - 0.0
+   * - :ref:`sphx_glr_examples_05_ensemble_workflow_extend.py` (``../examples/05_ensemble_workflow_extend.py``)
+     - 00:23.301
+     - 0.0
+   * - :ref:`sphx_glr_examples_02_diagnostic_workflow.py` (``../examples/02_diagnostic_workflow.py``)
+     - 00:23.284
+     - 0.0
+   * - :ref:`sphx_glr_examples_04_corrdiff_inference.py` (``../examples/04_corrdiff_inference.py``)
+     - 00:18.774
+     - 0.0
+   * - :ref:`sphx_glr_examples_08_distributed_manager.py` (``../examples/08_distributed_manager.py``)
+     - 00:13.242
+     - 0.0
+   * - :ref:`sphx_glr_examples_extend_01_custom_prognostic.py` (``../examples/extend/01_custom_prognostic.py``)
+     - 00:04.277
      - 0.0

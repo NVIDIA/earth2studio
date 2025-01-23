@@ -87,7 +87,7 @@ logger.info(
 # taken to ensure safe parallel inference.
 
 # %%
-from earth2studio.data import ARCO
+from earth2studio.data import WB2ERA5
 from earth2studio.io import ZarrBackend
 from earth2studio.models.px import DLWP
 
@@ -112,7 +112,7 @@ if dist.rank != 0:
 # %%
 
 # Create the data source
-data = ARCO()
+data = WB2ERA5()
 
 # %%
 # The remote date store will place cached data into separate caches for each process.
@@ -120,8 +120,12 @@ data = ARCO()
 # means that multiple jobs will download the same date-time if needed.
 
 # %%
-chunks = {"time": 1}
-io = ZarrBackend(file_name=f"outputs/08_output_{dist.rank}.zarr", chunks=chunks)
+chunks = {"time": 1, "lead_time": 1}
+io = ZarrBackend(
+    file_name=f"outputs/08_output_{dist.rank}.zarr",
+    chunks=chunks,
+    backend_kwargs={"overwrite": True},
+)
 
 # %%
 # Earth2Studio does not provide distributed IO support. The recommendation is to always

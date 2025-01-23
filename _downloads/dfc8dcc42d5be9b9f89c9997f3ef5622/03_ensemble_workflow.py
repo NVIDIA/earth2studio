@@ -82,8 +82,12 @@ sg = SphericalGaussian(noise_amplitude=0.15)
 data = GFS()
 
 # Create the IO handler, store in memory
-chunks = {"ensemble": 1, "time": 1}
-io = ZarrBackend(file_name="outputs/02_ensemble_sg.zarr", chunks=chunks)
+chunks = {"ensemble": 1, "time": 1, "lead_time": 1}
+io = ZarrBackend(
+    file_name="outputs/03_ensemble_sg.zarr",
+    chunks=chunks,
+    backend_kwargs={"overwrite": True},
+)
 
 # %%
 # Execute the Workflow
