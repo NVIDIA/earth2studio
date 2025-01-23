@@ -116,13 +116,16 @@ class SFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     Consists of a single model with a time-step size of 6 hours.
     FourCastNet operates on 0.25 degree lat-lon grid (south-pole excluding)
     equirectangular grid with 73 variables.
+    
     Note
     ----
     This model and checkpoint are trained using Modulus-Makani. For more information
     see the following references:
+    
     - https://arxiv.org/abs/2306.03838
     - https://github.com/NVIDIA/modulus-makani
     - https://catalog.ngc.nvidia.com/orgs/nvidia/teams/modulus/models/sfno_73ch_small
+    
     Parameters
     ----------
     core_model : torch.nn.Module
