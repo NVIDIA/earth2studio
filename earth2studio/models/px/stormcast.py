@@ -71,33 +71,51 @@ Y_START, Y_END = 273, 785
 
 
 class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
-    """StormCast generative convection-allowing model for regional forecasts
-    Consists of two core models, a regression and diffusion model
-    This class implements StormCastV1, the model released in:
-     https://arxiv.org/abs/2408.10958
-    Model time step size is 1 hour, taking as input:
+    """StormCast generative convection-allowing model for regional forecasts consists of
+    two core models: a regression and diffusion model. Model time step size is 1 hour,
+    taking as input:
         - High-resolution (3km) HRRR state over the central United States (99 vars)
         - High-resolution land-sea mask and orography invariants
         - Coarse resolution (25km) global state (26 vars)
     The high-resolution grid is the HRRR Lambert conformal projection
     Coarse-resolution inputs are regridded to the HRRR grid internally.
 
+    Note
+    ----
+    For more information see the following references:
+
+    - https://arxiv.org/abs/2408.10958
+
     Parameters
     ----------
-    regression_model (torch.nn.Module): Deterministic model used to make an initial prediction
-    diffusion_model (torch.nn.Module): Generative model correcting the deterministic prediciton
-    lat (np.array): Latitude array (2D) of the domain
-    lon (np.array): Latitude array (2D) of the domain
-    means (torch.Tensor): Mean value of each input high-resolution variable
-    stds (torch.Tensor): Standard deviation of each input high-resolution variable
-    invariants (torch.Tensor): Static invariant  quantities
-    variables (np.array, optional): High-resolution variables Defaults to np.array(VARIABLES).
-    conditioning_means (torch.Tensor | None, optional): Means to normalize conditioning data. Defaults to None.
-    conditioning_stds (torch.Tensor | None, optional): Stds to normalize conditioning data Defaults to None.
-    conditioning_variables (np.array, optional): Global variables for conditioning. Defaults to np.array(CONDITIONING_VARIABLES).
-    conditioning_data_source (DataSource | None, optional): Data Source to use for global conditoining. Defaults to None. Required for running in iterator mode
-    sampler_args (dict[str, float  |  int], optional): Arguments to pass to the diffusion sampler. Defaults to {}.
-    interp_method (str, optional): Interpolation method to use when regridding coarse conditoining data. Defaults to "linear".
+    regression_model : torch.nn.Module
+        Deterministic model used to make an initial prediction
+    diffusion_model : torch.nn.Module
+        Generative model correcting the deterministic prediciton
+    lat : np.array
+        Latitude array (2D) of the domain
+    lon : np.array
+        Longitude array (2D) of the domain
+    means : torch.Tensor
+        Mean value of each input high-resolution variable
+    stds : torch.Tensor
+        Standard deviation of each input high-resolution variable
+    invariants : torch.Tensor
+        Static invariant  quantities
+    variables : np.array, optional
+        High-resolution variables, by default np.array(VARIABLES)
+    conditioning_means : torch.Tensor | None, optional
+        Means to normalize conditioning data, by default None
+    conditioning_stds : torch.Tensor | None, optional
+        Standard deviations to normalize conditioning data, by default None
+    conditioning_variables : np.array, optional
+        Global variables for conditioning, by default np.array(CONDITIONING_VARIABLES)
+    conditioning_data_source : DataSource | None, optional
+        Data Source to use for global conditoining. Required for running in iterator mode, by default None
+    sampler_args : dict[str, float  |  int], optional
+        Arguments to pass to the diffusion sampler, by default {}
+    interp_method : str, optional
+        Interpolation method to use when regridding coarse conditoining data, by default "linear"
     """
 
     def __init__(
@@ -231,7 +249,11 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 f"nvidia-modulus @ git+https://github.com/NVIDIA/modulus.git"
             )
 
-        OmegaConf.register_new_resolver("eval", eval)
+        try:
+            OmegaConf.register_new_resolver("eval", eval)
+        except ValueError:
+            # Likely already registered so skip
+            pass
 
         # load model registry:
         config = OmegaConf.load(package.resolve("model.yaml"))

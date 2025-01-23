@@ -14,15 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import numpy as np
-from loguru import logger
-from tqdm import tqdm
-
-logger.remove()
-logger.add(lambda msg: tqdm.write(msg, end=""), colorize=True)
-
-
-# sphinx - ensemble start
 # %%
 """
 Running StormCast Ensemble Inference
@@ -37,7 +28,6 @@ see
  - https://arxiv.org/abs/2408.10958
 
 """
-
 # %%
 # Set Up
 # ------
@@ -65,6 +55,13 @@ see
 # could also be used with appropriate time stamps.
 
 # %%
+import numpy as np
+from loguru import logger
+from tqdm import tqdm
+
+logger.remove()
+logger.add(lambda msg: tqdm.write(msg, end=""), colorize=True)
+
 import os
 
 os.makedirs("outputs", exist_ok=True)
