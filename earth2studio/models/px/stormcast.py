@@ -134,41 +134,7 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         conditioning_data_source: DataSource | None = None,
         sampler_args: dict[str, float | int] = {},
         interp_method: str = "linear",
-    ): 
-        """_summary_
-
-        Parameters
-        ----------
-        regression_model : torch.nn.Module
-            _description_
-        diffusion_model : torch.nn.Module
-            _description_
-        lat : np.array
-            _description_
-        lon : np.array
-            _description_
-        means : torch.Tensor
-            _description_
-        stds : torch.Tensor
-            _description_
-        invariants : torch.Tensor
-            _description_
-        variables : np.array, optional
-            _description_, by default np.array(VARIABLES)
-        conditioning_means : torch.Tensor | None, optional
-            _description_, by default None
-        conditioning_stds : torch.Tensor | None, optional
-            _description_, by default None
-        conditioning_variables : np.array, optional
-            _description_, by default np.array(CONDITIONING_VARIABLES)
-        conditioning_data_source : DataSource | None, optional
-            _description_, by default None
-        sampler_args : dict[str, float  |  int], optional
-            _description_, by default {}
-        interp_method : str, optional
-            _description_, by default "linear"
-        """
-
+    ):
         super().__init__()
         self.regression_model = regression_model
         self.diffusion_model = diffusion_model
