@@ -27,6 +27,15 @@ from earth2studio.utils.coords import convert_multidim_to_singledim
 from earth2studio.utils.time import timearray_to_datetime
 from earth2studio.utils.type import CoordSystem
 
+units_map = {
+    "h": "hour",
+    "D": "day",
+    "s": "second",
+    "m": "minute",
+    "Y": "year",
+}
+rev_units_map = {v: k for k, v in units_map.items()}
+
 
 class NetCDF4Backend:
     """A backend that supports the NetCDF4 format.
@@ -66,7 +75,10 @@ class NetCDF4Backend:
             elif dim == "lead_time":
                 nums = self.root[dim][:]
                 self.coords[dim] = np.array(
-                    [np.timedelta64(n, self.root[dim].units) for n in nums]
+                    [
+                        np.timedelta64(n, rev_units_map[self.root[dim].units])
+                        for n in nums
+                    ]
                 )
             else:
                 self.coords[dim] = self.root[dim][:]
@@ -130,9 +142,10 @@ class NetCDF4Backend:
 
             elif np.issubdtype(data.dtype, np.timedelta64):
                 units, _ = np.datetime_data(data[0])
+                out_units = units_map[units]
                 data = data / np.timedelta64(1, units)
                 var = self.root.createVariable(name, "i8", (name,))
-                var.units = units
+                var.units = out_units
                 var.calendar = "gregorian"
             else:
                 var = self.root.createVariable(name, data.dtype, (name,))
