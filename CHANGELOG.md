@@ -19,18 +19,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added stormcast deterministic and ensemble examples.
 - Added Random_FX as a random forecast data source.
 - Added interpolation support to run functions.
+- Added fair CRPS metric.
 
 ### Changed
 
 - Switched HRRR data source back to AWS grib
 - Make source an argument for IFS, default of aws
 - Changed CorrDiff output coordinates to actual lat/lon instead of ilat/ilon.
+- Changed spread/skill ratio to actually return spread/skill instead of skill/spread.
+- Changed the NetCDF4Backend to use proleptic gregorian calendar for time.
+- Changed the units assigned from the NetCDF4Backend to hours instead of h.
 
 ### Deprecated
 
 ### Removed
 
 ### Fixed
+
+- Fixed bug in prep_data_array that implicitly assumed order of coordinates.
+- Fixed bug in rank_histogram that assumed broadcastable ensemble dimension.
 
 ### Security
 
