@@ -136,7 +136,7 @@ class NetCDF4Backend:
 
                 var = self.root.createVariable(name, "f8", (name,))
                 var.units = "hours since 0001-01-01 00:00:00.0"
-                var.calendar = "gregorian"
+                var.calendar = "proleptic_gregorian"
                 data = timearray_to_datetime(data)
                 data = date2num(data, units=var.units, calendar=var.calendar)
 
