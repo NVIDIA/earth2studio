@@ -29,7 +29,6 @@ class rank_histogram:
     Compute the Rank Histogram for a given set of ensemble forecasts.
 
 
-
     This statistic reduces over a single dimension, where the presumed ensemble dimension
     does not appear in the truth/observation tensor.
 
@@ -151,9 +150,14 @@ class rank_histogram:
                 handshake_coords(y_coords, x_coords, c)
                 coord_count += 1
 
+        # Get the dimension index of the ensemble dimension
         dim = list(x_coords).index(self.ensemble_dimension)
 
-        _ranks = torch.mean(1.0 * torch.ge(y, x), dim=dim)
+        # Move the ensemble dimension to the first dimension
+        x = torch.movedim(x, dim, 0)
+
+        # Compute the ranks over the ensemble dimension
+        _ranks = torch.mean(1.0 * torch.ge(y, x), dim=0)
 
         # Reshape ranks using reduction dimensions
         dims = [list(y_coords).index(rd) for rd in self._reduction_dimensions]

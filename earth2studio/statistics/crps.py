@@ -15,6 +15,7 @@
 # limitations under the License.
 
 import torch
+from modulus.metrics.general.crps import kcrps
 
 from earth2studio.statistics.moments import mean
 from earth2studio.utils.coords import handshake_coords, handshake_dim
@@ -49,6 +50,9 @@ class crps:
         Example: if reduction_dimensions = ['lat', 'lon'] then
         assert weights.ndim == 2.
         By default None.
+    fair: bool, optional
+        If true, the CRPS is calculated using the fair CRPS formula.
+        By default False.
     """
 
     def __init__(
@@ -56,6 +60,7 @@ class crps:
         ensemble_dimension: str,
         reduction_dimensions: list[str] | None = None,
         weights: torch.Tensor = None,
+        fair: bool = False,
     ):
         if not isinstance(ensemble_dimension, str):
             raise ValueError(
@@ -66,6 +71,7 @@ class crps:
         self._reduction_dimensions = reduction_dimensions
         if reduction_dimensions is not None:
             self.mean = mean(reduction_dimensions, weights=weights, batch_update=False)
+        self.fair = fair
 
     def __str__(self) -> str:
         return "_".join(self.reduction_dimensions + ["crps"])
@@ -153,8 +159,10 @@ class crps:
                 coord_count += 1
 
         dim = list(x_coords).index(self.ensemble_dimension)
-
-        out = _crps_from_empirical_cdf(x, y, dim=dim)
+        if self.fair:
+            out = kcrps(x, y, dim=dim, biased=False)
+        else:
+            out = _crps_from_empirical_cdf(x, y, dim=dim)
         out_coords = y_coords.copy()
 
         if self._reduction_dimensions is not None:
