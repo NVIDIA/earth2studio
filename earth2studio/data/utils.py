@@ -94,7 +94,7 @@ def fetch_data(
             da.append(da0)
 
         da = xr.concat(da, "lead_time")
-
+    print(da)
     return prep_data_array(
         da,
         device=device,
@@ -136,7 +136,8 @@ def prep_data_array(
     # Initialize the output CoordSystem
     out_coords = OrderedDict()
     for dim in da.coords.dims:
-        out_coords[dim] = np.array(da.coords[dim])
+        if dim in da.coords:
+            out_coords[dim] = np.array(da.coords[dim])
 
     # Fetch data and regrid if necessary
     if interp_to is not None:
