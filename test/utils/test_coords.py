@@ -249,3 +249,87 @@ def test_convert_multidim_to_singledim_error():
 
     with pytest.raises(ValueError):
         convert_multidim_to_singledim(dc)
+
+
+@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+def test_longitude_mapping_forward(device):
+    lat_values = np.arange(-90, 90, 0.25)
+    lon_values = np.arange(0, 360, 0.25)
+    lon_values_out = np.arange(-180, 180, 0.25)
+    variable_values = np.array(["a", "b", "c"])
+    coords_in = OrderedDict(
+        [("variable", variable_values), ("lat", lat_values), ("lon", lon_values)]
+    )
+    coords_out = OrderedDict(
+        [("variable", variable_values), ("lat", lat_values), ("lon", lon_values_out)]
+    )
+    data = torch.arange(0, 360, 0.25).repeat(3, len(lat_values), 1).to(device)
+    out, outc = map_coords(data, coords_in, coords_out)
+    assert out[:, :, 0].unique() == torch.tensor(180.0)
+    assert out[:, :, -1].unique() == torch.tensor(179.75)
+    assert out[:, :, 720].unique() == torch.tensor(0)
+    assert out[:, :, 719].unique() == torch.tensor(359.75)
+    assert outc["lon"][0] == -180.0
+    assert outc["lon"][-1] == 179.75
+    assert outc["lon"][719] == -0.25
+    assert outc["lon"][720] == 0.0
+
+
+@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+@pytest.mark.parametrize("lon_range", [(10, 20), (-10, 10), (-180, -170)])
+def test_longitude_mapping_forward_subregion(lon_range, device):
+    lon_min, lon_max = lon_range
+    lat_values = np.arange(-90, 90, 0.25)
+    lon_values = np.arange(0, 360, 0.25)
+    lon_values_out = np.arange(lon_min, lon_max, 0.25)
+    variable_values = np.array(["a", "b", "c"])
+    coords_in = OrderedDict(
+        [("variable", variable_values), ("lat", lat_values), ("lon", lon_values)]
+    )
+    coords_out = OrderedDict(
+        [("variable", variable_values), ("lat", lat_values), ("lon", lon_values_out)]
+    )
+    data = torch.arange(0, 360, 0.25).repeat(3, len(lat_values), 1).to(device)
+    out, outc = map_coords(data, coords_in, coords_out)
+    if lon_range == (10, 20):
+        assert out.shape == torch.Size((3, 720, 40))
+        assert out[:, :, 0].unique() == torch.tensor(10.0)
+        assert out[:, :, -1].unique() == torch.tensor(19.75)
+        assert outc["lon"][0] == 10.0
+        assert outc["lon"][-1] == 19.75
+    elif lon_range == (-10, 10):
+        assert out.shape == torch.Size((3, 720, 80))
+        assert out[:, :, 0].unique() == torch.tensor(350.0)
+        assert out[:, :, -1].unique() == torch.tensor(9.75)
+        assert outc["lon"][0] == -10.0
+        assert outc["lon"][-1] == 9.75
+    elif lon_range == (-180, -170):
+        assert out.shape == torch.Size((3, 720, 40))
+        assert out[:, :, 0].unique() == torch.tensor(180.0)
+        assert out[:, :, -1].unique() == torch.tensor(189.75)
+        assert outc["lon"][0] == -180.0
+        assert outc["lon"][-1] == -170.25
+
+
+@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+def test_longitude_mapping_backward(device):
+    lat_values = np.arange(-90, 90, 0.25)
+    lon_values_out = np.arange(0, 360, 0.25)
+    lon_values = np.arange(-180, 180, 0.25)
+    variable_values = np.array(["a", "b", "c"])
+    coords_in = OrderedDict(
+        [("variable", variable_values), ("lat", lat_values), ("lon", lon_values)]
+    )
+    coords_out = OrderedDict(
+        [("variable", variable_values), ("lat", lat_values), ("lon", lon_values_out)]
+    )
+    data = torch.arange(-180, 180, 0.25).repeat(3, len(lat_values), 1).to(device)
+    out, outc = map_coords(data, coords_in, coords_out)
+    assert out[:, :, 0].unique() == torch.tensor(0.0)
+    assert out[:, :, -1].unique() == torch.tensor(-0.25)
+    assert out[:, :, 720].unique() == torch.tensor(-180.0)
+    assert out[:, :, 719].unique() == torch.tensor(179.75)
+    assert outc["lon"][0] == 0.0
+    assert outc["lon"][-1] == 359.75
+    assert outc["lon"][719] == 179.75
+    assert outc["lon"][720] == 180.0

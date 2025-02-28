@@ -273,6 +273,43 @@ def map_coords(
                 + f"Some elements of {outc} are not in {inc}."
             )
 
+        if key == "lon":
+            lon_max_in = inc.max()
+            lon_min_in = inc.min()
+            lon_max_out = outc.max()
+            lon_min_out = outc.min()
+
+            # determine longitude ranges of input and output
+            lon_range_in = 360 if ((lon_max_in > 180) and (lon_min_in >= 0)) else 180
+            lon_range_out = 360 if ((lon_max_out > 180) and (lon_min_out >= 0)) else 180
+
+            if lon_range_in != lon_range_out:
+                # determine where to split for conversion
+                if lon_range_in == 180 and lon_range_out == 360:
+                    split_longitude = 0
+                elif lon_range_in == 360 and lon_range_out == 180:
+                    split_longitude = 180
+
+                # split and recombine data and adjust longitude coordinate
+                ind_below = torch.tensor(
+                    (inc < split_longitude).nonzero()[0], device=x.device
+                )
+                ind_above = torch.tensor(
+                    (inc >= split_longitude).nonzero()[0], device=x.device
+                )
+                value_below = torch.index_select(x, dim, ind_below)
+                value_above = torch.index_select(x, dim, ind_above)
+                if lon_range_in == 180 and lon_range_out == 360:
+                    x = torch.cat([value_above, value_below], dim=dim)
+                    inc = np.concatenate(
+                        [inc[ind_above.cpu()], inc[ind_below.cpu()] + 360]
+                    )
+                elif lon_range_in == 360 and lon_range_out == 180:
+                    x = torch.cat([value_above, value_below], dim=dim)
+                    inc = np.concatenate(
+                        [inc[ind_above.cpu()] - 360, inc[ind_below.cpu()]]
+                    )
+
         if method == "nearest":
             # Method = nearest
             c1 = np.repeat(inc[:, np.newaxis], outc.shape[0], axis=1)
