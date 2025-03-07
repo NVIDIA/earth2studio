@@ -129,7 +129,7 @@ class ClimateNet(torch.nn.Module, AutoModelMixin):
     def load_default_package(cls) -> Package:
         """Default pre-trained climatenet model package from Nvidia model registry"""
         return Package(
-            "ngc://models/nvidia/modulus/modulus_diagnostics@v0.1",
+            "ngc://models/nvidia/physicsnemo/physicsnemo_diagnostics@v0.1",
             cache_options={
                 "cache_storage": Package.default_cache("climatenet"),
                 "same_names": True,

@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "earth2studio"
 authors = [
-  { name="NVIDIA Modulus Team"},
+  { name="NVIDIA PhysicsNemo Team"},
 ]
 description = "Open-source deep-learning framework for exploring, building and deploying AI weather/climate workflows."
 readme = "README.md"
@@ -24,7 +24,7 @@ dependencies = [
     "netCDF4>=1.6.4",
     "ngcsdk>=3.48.0,<3.55.0",
     "numpy>=1.24.0",
-    "nvidia-modulus@git+https://github.com/NVIDIA/modulus.git",
+    "nvidia-physicsnemo@git+https://gitlab-master.nvidia.com/modulus/modulus.git@1.0.0-rc",
     "omegaconf",
     "python-dotenv",
     "s3fs>=2023.5.0",

@@ -128,14 +128,14 @@ a Docker container or a Conda environment.
 Below are some recipes for creating a handful of environments that we recommend for
 setting up Earth2Studio to run all build in models.
 
-## Modulus Docker Container
+## PhysicsNemo Docker Container
 
-The recommended environment to run Earth2Studio in is the [Modulus docker container](https://catalog.ngc.nvidia.com/orgs/nvidia/teams/modulus/containers/modulus).
+The recommended environment to run Earth2Studio in is the [PhysicsNemo docker container](gitlab-master.nvidia.com:5005/modulus/modulus-release-build-guide/development/physicsnemo:25.02.5).
 This is the environment the team develops with and is the primary test bed.
 You can install Earth2Studio in a running container directly:
 
 ```bash
-docker run -i -t nvcr.io/nvidia/modulus/modulus:24.12
+docker run -i -t gitlab-master.nvidia.com:5005/modulus/modulus-release-build-guide/development/physicsnemo:25.02.5
 
 >>> pip install "makani[all] @ git+https://github.com/NVIDIA/modulus-makani.git@v0.1.0"
 
@@ -145,7 +145,7 @@ docker run -i -t nvcr.io/nvidia/modulus/modulus:24.12
 or build your own Earth2Studio container using a Dockerfile:
 
 ```dockerfile
-FROM nvcr.io/nvidia/modulus/modulus
+FROM gitlab-master.nvidia.com:5005/modulus/modulus-release-build-guide/development/physicsnemo:25.02.5
 
 RUN pip install "makani[all] @ git+https://github.com/NVIDIA/modulus-makani.git@v0.1.0"
 
@@ -154,7 +154,7 @@ RUN pip install earth2studio[all]
 
 ## PyTorch Docker Container
 
-Modulus docker container is shipped with some packages that are not directly needed by
+PhysicsNemo docker container is shipped with some packages that are not directly needed by
 Earth2Studio.
 Thus, some may prefer to install from the [PyTorch container](https://catalog.ngc.nvidia.com/orgs/nvidia/containers/pytorch).
 Note that for ONNX models to work we will need a [specific install](https://onnxruntime.ai/docs/install/#install-onnx-runtime-ort-1):

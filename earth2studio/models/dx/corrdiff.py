@@ -23,13 +23,13 @@ from typing import Literal
 import numpy as np
 import torch
 import zarr
-from modulus.models import Module
-from modulus.utils.generative import StackedRandomGenerator
+from physicsnemo.models import Module
+from physicsnemo.utils.generative import StackedRandomGenerator
 
-try:  # Modulus version < 0.8.0
-    from modulus.utils.generative import ablation_sampler
+try:  # PhysicsNemo version < 0.8.0
+    from physicsnemo.utils.generative import ablation_sampler
 except ImportError:
-    from modulus.utils.generative import deterministic_sampler as ablation_sampler
+    from physicsnemo.utils.generative import deterministic_sampler as ablation_sampler
 
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_coords, batch_func
@@ -73,7 +73,7 @@ class CorrDiffTaiwan(torch.nn.Module, AutoModelMixin):
     information see the following references:
 
     - https://arxiv.org/html/2309.15214v
-    - https://catalog.ngc.nvidia.com/orgs/nvidia/teams/modulus/models/corrdiff_inference_package
+    - https://catalog.ngc.nvidia.com/orgs/nvidia/teams/physicsnemo/models/corrdiff_inference_package
 
     Parameters
     ----------
@@ -193,7 +193,7 @@ class CorrDiffTaiwan(torch.nn.Module, AutoModelMixin):
     def load_default_package(cls) -> Package:
         """Default pre-trained corrdiff model package from Nvidia model registry"""
         return Package(
-            "ngc://models/nvidia/modulus/corrdiff_inference_package@1",
+            "ngc://models/nvidia/physicsnemo/corrdiff_inference_package@1",
             cache_options={
                 "cache_storage": Package.default_cache("corrdiff_taiwan"),
                 "same_names": True,

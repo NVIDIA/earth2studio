@@ -19,12 +19,12 @@ from collections import OrderedDict
 from collections.abc import Generator, Iterator
 from itertools import product
 
-import modulus
+import physicsnemo
 import numpy as np
 import torch
 import xarray as xr
-from modulus.models import Module
-from modulus.utils.generative import deterministic_sampler
+from physicsnemo.models import Module
+from physicsnemo.utils.generative import deterministic_sampler
 from omegaconf import OmegaConf
 from packaging.version import Version
 
@@ -226,7 +226,7 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def load_default_package(cls) -> Package:
         """Load prognostic package"""
         package = Package(
-            "ngc://models/nvidia/modulus/stormcast-v1-era5-hrrr@1.0.1",
+            "ngc://models/nvidia/physicsnemo/stormcast-v1-era5-hrrr@1.0.1",
             cache_options={
                 "cache_storage": Package.default_cache("stormcast"),
                 "same_names": True,
@@ -238,15 +238,15 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def load_model(cls, package: Package) -> DiagnosticModel:
         """Load StormCast model."""
 
-        # Require appropriate modulus version
-        installed_version = Version(modulus.__version__)
+        # Require appropriate physicsnemo version
+        installed_version = Version(physicsnemo.__version__)
         if installed_version < Version("0.10.0a0"):
             raise RuntimeError(
-                f"modulus version 0.10.0a0 or later is required "
+                f"physicsnemo version 0.10.0a0 or later is required "
                 f"to load the StormCast package from NGC, "
                 f"but version {installed_version} is installed. "
                 f"Please pip install "
-                f"nvidia-modulus @ git+https://github.com/NVIDIA/modulus.git"
+                f"nvidia-physicsnemo @ git+https://github.com/NVIDIA/physicsnemo.git"
             )
 
         try:

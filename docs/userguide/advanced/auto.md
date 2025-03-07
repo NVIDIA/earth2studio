@@ -15,7 +15,7 @@ When contributing a model, reach out with an issue to discuss the storage of suc
 Providing all checkpoint files is a *requirement* for any pre-trained model.
 The following are the suggested locations in order of preference:
 
-- *NGC Model Registry* - If a model is supported/developed by Nvidia Modulus team, the
+- *NGC Model Registry* - If a model is supported/developed by Nvidia PhysicsNemo team, the
 checkpoint can be uploaded on the [NGC model registry](https://catalog.ngc.nvidia.com/models).
 This is the preferred location for Nvidia supported models that have gone under a more
 rigorous internal evaluation. Private registries are also supported.
@@ -79,7 +79,7 @@ follows:
 from earth2studio.models.auto import Package
 
 # Instantiate package by pointing it to a remote folder
-package = Package("ngc://models/nvidia/modulus/modulus_fcn@v0.2")
+package = Package("ngc://models/nvidia/physicsnemo/physicsnemo_fcn@v0.2")
 
 # Fetch a file from the remote store using the get method
 cached_path_to_file = package.resolve("fcn.zip")
@@ -88,7 +88,7 @@ cached_path_to_file = package.resolve("fcn.zip")
 opened_file = package.open("fcn.zip")
 ```
 
-In this example, when calling open, the asset at `ngc://models/nvidia/modulus/modulus_fcn@v0.2\fcn.zip`
+In this example, when calling open, the asset at `ngc://models/nvidia/physicsnemo/physicsnemo_fcn@v0.2\fcn.zip`
 will be fetched and caches on the local machine.
 A file buffer will then be returned pointing to the cached version of the file.
 The cached path is a directory on the local file system which can be configured via

@@ -20,11 +20,11 @@ from collections.abc import Generator, Iterator
 from datetime import timedelta
 from pathlib import Path
 
-import modulus
+import physicsnemo
 import numpy as np
 import torch
 import xarray
-from modulus.utils.zenith_angle import cos_zenith_angle
+from physicsnemo.utils.zenith_angle import cos_zenith_angle
 
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_coords, batch_func
@@ -52,7 +52,7 @@ class DLWP(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     For more information about this model see:
 
     - https://agupubs.onlinelibrary.wiley.com/doi/epdf/10.1029/2021MS002502
-    - https://catalog.ngc.nvidia.com/orgs/nvidia/teams/modulus/models/modulus_dlwp_cubesphere
+    - https://catalog.ngc.nvidia.com/orgs/nvidia/teams/physicsnemo/models/physicsnemo_dlwp_cubesphere
 
     Parameters
     ----------
@@ -176,7 +176,7 @@ class DLWP(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def load_default_package(cls) -> Package:
         """Default DLWP model package on NGC"""
         return Package(
-            "ngc://models/nvidia/modulus/modulus_dlwp_cubesphere@v0.2",
+            "ngc://models/nvidia/physicsnemo/physicsnemo_dlwp_cubesphere@v0.2",
             cache_options={
                 "cache_storage": Package.default_cache("dlwp"),
                 "same_names": True,
@@ -234,7 +234,7 @@ class DLWP(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             np.array((i, j)), data, dtype=torch.float
         )
 
-        core_model = modulus.Module.from_checkpoint(
+        core_model = physicsnemo.Module.from_checkpoint(
             str(dlwp_zip.parent / Path("dlwp/dlwp.mdlus"))
         )
 

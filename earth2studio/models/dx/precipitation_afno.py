@@ -140,7 +140,7 @@ class PrecipitationAFNO(torch.nn.Module, AutoModelMixin):
     def load_default_package(cls) -> Package:
         """Default pre-trained precipation model package from Nvidia model registry"""
         return Package(
-            "ngc://models/nvidia/modulus/modulus_diagnostics@v0.1",
+            "ngc://models/nvidia/physicsnemo/physicsnemo_diagnostics@v0.1",
             cache_options={
                 "cache_storage": Package.default_cache("precip_afno"),
                 "same_names": True,

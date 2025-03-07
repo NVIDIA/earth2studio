@@ -21,7 +21,7 @@ from pathlib import Path
 
 import numpy as np
 import torch
-from modulus.models.afno import AFNO
+from physicsnemo.models.afno import AFNO
 
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_coords, batch_func
@@ -71,7 +71,7 @@ class FCN(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     paper. For additional information see the following resources:
 
     - https://arxiv.org/abs/2202.11214
-    - https://catalog.ngc.nvidia.com/orgs/nvidia/teams/modulus/models/modulus_fcn
+    - https://catalog.ngc.nvidia.com/orgs/nvidia/teams/physicsnemo/models/physicsnemo_fcn
 
     Parameters
     ----------
@@ -167,7 +167,7 @@ class FCN(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def load_default_package(cls) -> Package:
         """Load prognostic package"""
         return Package(
-            "ngc://models/nvidia/modulus/modulus_fcn@v0.2",
+            "ngc://models/nvidia/physicsnemo/physicsnemo_fcn@v0.2",
             cache_options={
                 "cache_storage": Package.default_cache("fcn"),
                 "same_names": True,

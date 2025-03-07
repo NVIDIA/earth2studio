@@ -47,7 +47,7 @@ class NGCModelFileSystem(HTTPFileSystem):
     `ngc://models/<org_id/model_id>@<version>/<path/in/repo>`
 
     For example:
-    `ngc://models/nvidia/modulus/sfno_73ch_small@0.1.0/sfno_73ch_small/config.json`
+    `ngc://models/nvidia/physicsnemo/sfno_73ch_small@0.1.0/sfno_73ch_small/config.json`
 
     Note
     ----
@@ -282,7 +282,7 @@ class NGCModelFileSystem(HTTPFileSystem):
         # get -> expand_path -> ``glob`` or ``find``, which may in turn call ``ls``
         # To find possible files one needs to hit the /file/ root and pull out
         # possible URLS from the response
-        # E.g. https://api.ngc.nvidia.com/v2/models/nvidia/modulus/sfno_73ch_small/versions/0.1.0/files/
+        # E.g. https://api.ngc.nvidia.com/v2/models/nvidia/physicsnemo/sfno_73ch_small/versions/0.1.0/files/
         # could add pages via apps/ngc-cli/-/blob/main/ngcbpc/ngcbpc/transfer/async_download.py?ref_type=heads#L817
         # response['modelFiles'] lists possible files
         raise NotImplementedError("Glob / recursive patterns not supported yet")
