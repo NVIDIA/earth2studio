@@ -260,10 +260,21 @@ class spread_skill_ratio:
         em, output_coords = self.ensemble_mean(x, x_coords)
         skill, output_coords = self.reduced_rmse(em, output_coords, y, y_coords)
         spread, output_coords = self.reduced_mean(*self.ensemble_var(x, x_coords))
-        return skill / torch.sqrt(spread), output_coords
+        return torch.sqrt(spread) / skill, output_coords
 
 
 class skill_spread(spread_skill_ratio):
+    """
+    Metric for calculating the skill/spread ratio of an ensemble forecast.
+
+    Specifically, the spread is defined as the standard deviation of the ensemble
+    forecast. The skill is defined as the rmse of the ensemble mean prediction. The
+    ratio of these two quantities is defined as the spread/skill ratio.
+
+    This method, instead of returning the ratio, returns the individual components
+    of the ratio, i.e. the spread and the skill.
+    """
+
     def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
         """Output coordinate system of the computed statistic, corresponding to the given input coordinates
 
