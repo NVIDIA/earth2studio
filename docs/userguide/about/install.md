@@ -130,12 +130,12 @@ setting up Earth2Studio to run all build in models.
 
 ## PhysicsNemo Docker Container
 
-The recommended environment to run Earth2Studio in is the [PhysicsNemo docker container](gitlab-master.nvidia.com:5005/modulus/modulus-release-build-guide/development/physicsnemo:25.02.5).
+The recommended environment to run Earth2Studio in is the [PhysicsNemo docker container](https://catalog.ngc.nvidia.com/orgs/nvidia/teams/modulus/containers/physicsnemo).
 This is the environment the team develops with and is the primary test bed.
 You can install Earth2Studio in a running container directly:
 
 ```bash
-docker run -i -t gitlab-master.nvidia.com:5005/modulus/modulus-release-build-guide/development/physicsnemo:25.02.5
+docker run -i -t nvcr.io/nvidia/physicsnemo/physicsnemo:25.03
 
 >>> pip install "makani[all] @ git+https://github.com/NVIDIA/modulus-makani.git@v0.1.0"
 
@@ -145,7 +145,7 @@ docker run -i -t gitlab-master.nvidia.com:5005/modulus/modulus-release-build-gui
 or build your own Earth2Studio container using a Dockerfile:
 
 ```dockerfile
-FROM gitlab-master.nvidia.com:5005/modulus/modulus-release-build-guide/development/physicsnemo:25.02.5
+FROM nvcr.io/nvidia/physicsnemo/physicsnemo:25.03
 
 RUN pip install "makani[all] @ git+https://github.com/NVIDIA/modulus-makani.git@v0.1.0"
 

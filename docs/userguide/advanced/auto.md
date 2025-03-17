@@ -79,7 +79,7 @@ follows:
 from earth2studio.models.auto import Package
 
 # Instantiate package by pointing it to a remote folder
-package = Package("ngc://models/nvidia/physicsnemo/physicsnemo_fcn@v0.2")
+package = Package("ngc://models/nvidia/modulus/modulus_fcn@v0.2")
 
 # Fetch a file from the remote store using the get method
 cached_path_to_file = package.resolve("fcn.zip")
@@ -88,7 +88,7 @@ cached_path_to_file = package.resolve("fcn.zip")
 opened_file = package.open("fcn.zip")
 ```
 
-In this example, when calling open, the asset at `ngc://models/nvidia/physicsnemo/physicsnemo_fcn@v0.2\fcn.zip`
+In this example, when calling open, the asset at `ngc://models/nvidia/modulus/modulus_fcn@v0.2\fcn.zip`
 will be fetched and caches on the local machine.
 A file buffer will then be returned pointing to the cached version of the file.
 The cached path is a directory on the local file system which can be configured via

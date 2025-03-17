@@ -73,7 +73,7 @@ class CorrDiffTaiwan(torch.nn.Module, AutoModelMixin):
     information see the following references:
 
     - https://arxiv.org/html/2309.15214v
-    - https://catalog.ngc.nvidia.com/orgs/nvidia/teams/physicsnemo/models/corrdiff_inference_package
+    - https://catalog.ngc.nvidia.com/orgs/nvidia/teams/modulus/models/corrdiff_inference_package
 
     Parameters
     ----------
@@ -193,7 +193,7 @@ class CorrDiffTaiwan(torch.nn.Module, AutoModelMixin):
     def load_default_package(cls) -> Package:
         """Default pre-trained corrdiff model package from Nvidia model registry"""
         return Package(
-            "ngc://models/nvidia/physicsnemo/corrdiff_inference_package@1",
+            "ngc://models/nvidia/modulus/corrdiff_inference_package@1",
             cache_options={
                 "cache_storage": Package.default_cache("corrdiff_taiwan"),
                 "same_names": True,

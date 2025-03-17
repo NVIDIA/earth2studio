@@ -96,7 +96,7 @@ def cache_folder(tmp_path_factory):
         (None, "temp.txt"),
         ("hf://NickGeneva/earth_ai", "README.md"),
         (
-            "ngc://models/nvidia/physicsnemo/sfno_73ch_small@0.1.0",
+            "ngc://models/nvidia/modulus/sfno_73ch_small@0.1.0",
             "sfno_73ch_small/metadata.json",
         ),
         ("s3://noaa-swpc-pds", "text/3-day-geomag-forecast.txt"),
@@ -121,7 +121,7 @@ def test_package(url, file, cache_folder, model_cache_context):
     "url,file",
     [
         (
-            "ngc://models/nvidia/physicsnemo/sfno_73ch_small@0.1.0",  # Public
+            "ngc://models/nvidia/modulus/sfno_73ch_small@0.1.0",  # Public
             "sfno_73ch_small/metadata.json",
         ),
         (
@@ -225,7 +225,7 @@ def test_ngc_filesystem():
     "url,file",
     [
         (
-            "ngc://models/nvidia/physicsnemo/sfno_73ch_small@0.1.0",  # Public
+            "ngc://models/nvidia/modulus/sfno_73ch_small@0.1.0",  # Public
             "sfno_73ch_small/wrong-metadata.json",
         ),
         (

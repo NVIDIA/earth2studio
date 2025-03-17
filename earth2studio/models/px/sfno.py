@@ -219,7 +219,7 @@ class SFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def load_default_package(cls) -> Package:
         """Load prognostic package"""
         package = Package(
-            "ngc://models/nvidia/physicsnemo/sfno_73ch_small@0.1.0",
+            "ngc://models/nvidia/modulus/sfno_73ch_small@0.1.0",
             cache_options={
                 "cache_storage": Package.default_cache("sfno"),
                 "same_names": True,

@@ -226,7 +226,7 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def load_default_package(cls) -> Package:
         """Load prognostic package"""
         package = Package(
-            "ngc://models/nvidia/physicsnemo/stormcast-v1-era5-hrrr@1.0.1",
+            "ngc://models/nvidia/modulus/stormcast-v1-era5-hrrr@1.0.1",
             cache_options={
                 "cache_storage": Package.default_cache("stormcast"),
                 "same_names": True,
@@ -239,6 +239,8 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         """Load StormCast model."""
 
         # Require appropriate physicsnemo version
+        # TODO (@saikrishnanc): How should we handle this?
+        # We're importing just physicsnemo, so technically we don't need this version check?
         installed_version = Version(physicsnemo.__version__)
         if installed_version < Version("0.10.0a0"):
             raise RuntimeError(

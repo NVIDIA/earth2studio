@@ -52,7 +52,7 @@ class DLWP(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     For more information about this model see:
 
     - https://agupubs.onlinelibrary.wiley.com/doi/epdf/10.1029/2021MS002502
-    - https://catalog.ngc.nvidia.com/orgs/nvidia/teams/physicsnemo/models/physicsnemo_dlwp_cubesphere
+    - https://catalog.ngc.nvidia.com/orgs/nvidia/teams/modulus/models/modulus_dlwp_cubesphere
 
     Parameters
     ----------
@@ -176,7 +176,7 @@ class DLWP(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def load_default_package(cls) -> Package:
         """Default DLWP model package on NGC"""
         return Package(
-            "ngc://models/nvidia/physicsnemo/physicsnemo_dlwp_cubesphere@v0.2",
+            "ngc://models/nvidia/modulus/modulus_dlwp_cubesphere@v0.2",
             cache_options={
                 "cache_storage": Package.default_cache("dlwp"),
                 "same_names": True,
