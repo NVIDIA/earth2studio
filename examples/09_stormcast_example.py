@@ -14,16 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from datetime import datetime
-
-from loguru import logger
-from tqdm import tqdm
-
-logger.remove()
-logger.add(lambda msg: tqdm.write(msg, end=""), colorize=True)
-
-
-# sphinx - deterministic start
 # %%
 """
 Running StormCast Inference
@@ -64,6 +54,14 @@ see
 # could also be used with appropriate time stamps.
 
 # %%
+from datetime import datetime
+
+from loguru import logger
+from tqdm import tqdm
+
+logger.remove()
+logger.add(lambda msg: tqdm.write(msg, end=""), colorize=True)
+
 import os
 
 os.makedirs("outputs", exist_ok=True)

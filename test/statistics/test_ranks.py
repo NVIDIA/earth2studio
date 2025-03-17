@@ -67,6 +67,32 @@ def test_rank_histogram(ensemble_dimension: str, device: str) -> None:
 
 
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+def test_rank_histogram_broadcasting(device: str) -> None:
+    x = torch.randn((1, 2, 10, 361, 720), device=device)
+
+    x_coords = OrderedDict(
+        {
+            "time": np.array([np.datetime64("1993-04-05T00:00")]),
+            "variable": np.array(["t2m", "tcwv"]),
+            "ensemble": np.arange(10),
+            "lat": np.linspace(-90.0, 90.0, 361),
+            "lon": np.linspace(0.0, 360.0, 720, endpoint=False),
+        }
+    )
+
+    y_coords = copy.deepcopy(x_coords)
+    y_coords.pop("ensemble")
+    y_shape = [len(y_coords[c]) for c in y_coords]
+    y = torch.randn(y_shape, device=device)
+
+    print(x.shape, y.shape)
+
+    RH = rank_histogram("ensemble", ["lat", "lon"])
+    z, c = RH(x, x_coords, y, y_coords)
+    assert z.shape == (2, 10, 1, 2)
+
+
+@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
 def test_rank_histogram_failures(device: str) -> None:
     reduction_dimension = "ensemble"
     x = torch.randn((10, 1, 2, 361, 720), device=device)
