@@ -130,7 +130,7 @@ setting up Earth2Studio to run all build in models.
 
 ## PhysicsNemo Docker Container
 
-The recommended environment to run Earth2Studio in is the [PhysicsNemo docker container](https://catalog.ngc.nvidia.com/orgs/nvidia/teams/modulus/containers/physicsnemo).
+The recommended environment to run Earth2Studio in is the [PhysicsNemo docker container](https://catalog.ngc.nvidia.com/orgs/nvidia/teams/physicsnemo/containers/physicsnemo).
 This is the environment the team develops with and is the primary test bed.
 You can install Earth2Studio in a running container directly:
 
