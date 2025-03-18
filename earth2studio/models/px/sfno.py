@@ -124,7 +124,7 @@ class SFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     - https://arxiv.org/abs/2306.03838
     - https://github.com/NVIDIA/modulus-makani
-    - https://catalog.ngc.nvidia.com/orgs/nvidia/teams/physicsnemo/models/sfno_73ch_small
+    - https://catalog.ngc.nvidia.com/orgs/nvidia/teams/modulus/models/sfno_73ch_small
 
     Parameters
     ----------
