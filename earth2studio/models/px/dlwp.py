@@ -20,8 +20,8 @@ from collections.abc import Generator, Iterator
 from datetime import timedelta
 from pathlib import Path
 
-import physicsnemo
 import numpy as np
+import physicsnemo
 import torch
 import xarray
 from physicsnemo.utils.zenith_angle import cos_zenith_angle
