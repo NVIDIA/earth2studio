@@ -95,7 +95,7 @@ class NGCModelFileSystem(HTTPFileSystem):
         loop=None,
         client_kwargs=None,
         get_client=get_client,
-        encoded=False,
+        encoded=True,
         **storage_options,
     ):
         config = Configuration()
