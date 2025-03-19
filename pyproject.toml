@@ -29,7 +29,7 @@ dependencies = [
     "python-dotenv",
     "s3fs>=2023.5.0",
     "setuptools>=67.6.0",
-    "torch>=2.0.0",
+    "torch>=2.5.0",
     "torch_harmonics==0.6.*",
     "tqdm>=4.65.0",
     "xarray[parallel]>=2023.1.0",
