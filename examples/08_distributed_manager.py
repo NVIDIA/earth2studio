@@ -23,7 +23,7 @@ Setting up distributed manager for parallel inference
 
 Many inference workflows are embarrassingly parallel and can be easily sharded across
 multiple devices.
-This example demonstrates how one can use the PhysicsNemo distributed manager to distribute
+This example demonstrates how one can use the PhysicsNeMo distributed manager to distribute
 inference across mutliple GPUs.
 The `distributed manager <https://github.com/NVIDIA/physicsnemo/blob/main/physicsnemo/distributed/manager.py>`_
 is a utility that provides a useful set of properties that pertain to a parallel

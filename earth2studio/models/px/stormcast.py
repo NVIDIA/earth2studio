@@ -238,19 +238,6 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def load_model(cls, package: Package) -> DiagnosticModel:
         """Load StormCast model."""
 
-        # Require appropriate physicsnemo version
-        # TODO (@saikrishnanc): How should we handle this?
-        # We're importing just physicsnemo, so technically we don't need this version check?
-        installed_version = Version(physicsnemo.__version__)
-        if installed_version < Version("0.10.0a0"):
-            raise RuntimeError(
-                f"physicsnemo version 0.10.0a0 or later is required "
-                f"to load the StormCast package from NGC, "
-                f"but version {installed_version} is installed. "
-                f"Please pip install "
-                f"nvidia-physicsnemo @ git+https://github.com/NVIDIA/physicsnemo.git"
-            )
-
         try:
             OmegaConf.register_new_resolver("eval", eval)
         except ValueError:

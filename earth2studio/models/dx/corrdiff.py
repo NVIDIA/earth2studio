@@ -24,12 +24,10 @@ import numpy as np
 import torch
 import zarr
 from physicsnemo.models import Module
-from physicsnemo.utils.generative import StackedRandomGenerator
-
-try:  # PhysicsNemo version < 0.8.0
-    from physicsnemo.utils.generative import ablation_sampler
-except ImportError:
-    from physicsnemo.utils.generative import deterministic_sampler as ablation_sampler
+from physicsnemo.utils.generative import (
+    StackedRandomGenerator,
+    deterministic_sampler as ablation_sampler,
+)
 
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_coords, batch_func
