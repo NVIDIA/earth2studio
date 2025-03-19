@@ -19,14 +19,12 @@ from collections import OrderedDict
 from collections.abc import Generator, Iterator
 from itertools import product
 
-import physicsnemo
 import numpy as np
 import torch
 import xarray as xr
 from physicsnemo.models import Module
 from physicsnemo.utils.generative import deterministic_sampler
 from omegaconf import OmegaConf
-from packaging.version import Version
 
 from earth2studio.data import DataSource, fetch_data
 from earth2studio.models.auto import AutoModelMixin, Package
