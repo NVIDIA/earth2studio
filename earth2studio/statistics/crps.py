@@ -15,7 +15,7 @@
 # limitations under the License.
 
 import torch
-from modulus.metrics.general.crps import kcrps
+from physicsnemo.metrics.general.crps import kcrps
 
 from earth2studio.statistics.moments import mean
 from earth2studio.utils.coords import handshake_coords, handshake_dim
@@ -177,7 +177,7 @@ def _crps_from_empirical_cdf(
 
     Warning
     -------
-    This method is being upstreamed to https://github.com/NVIDIA/modulus in the next release.
+    This method is being upstreamed to https://github.com/NVIDIA/physicsnemo in the next release.
 
     Compute the exact CRPS using the CDF method
 

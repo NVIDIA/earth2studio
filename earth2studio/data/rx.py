@@ -24,8 +24,8 @@ import numpy as np
 import xarray as xr
 import zarr
 from fsspec.implementations.cached import CachingFileSystem
-from modulus.distributed.manager import DistributedManager
-from modulus.utils.zenith_angle import cos_zenith_angle_from_timestamp
+from physicsnemo.distributed.manager import DistributedManager
+from physicsnemo.utils.zenith_angle import cos_zenith_angle_from_timestamp
 
 from earth2studio.data.utils import datasource_cache_root, prep_data_inputs
 from earth2studio.utils import handshake_dim
@@ -274,7 +274,7 @@ class CosineSolarZenith:
             Cosine zenith angle data array
         """
         time, variable = prep_data_inputs(time, variable)
-        # For some reason modulus function only works with float values
+        # For some reason physicsnemo function only works with float values
         # Hope this is correct
         data = cos_zenith_angle_from_timestamp(
             # https://docs.python.org/3/library/datetime.html#datetime.datetime.timestamp
