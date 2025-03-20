@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2024-2025 NVIDIA CORPORATION & AFFILIATES.
 # SPDX-FileCopyrightText: All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -95,7 +95,7 @@ class NGCModelFileSystem(HTTPFileSystem):
         loop=None,
         client_kwargs=None,
         get_client=get_client,
-        encoded=False,
+        encoded=True,
         **storage_options,
     ):
         config = Configuration()

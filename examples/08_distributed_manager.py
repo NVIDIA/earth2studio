@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2024-2025 NVIDIA CORPORATION & AFFILIATES.
 # SPDX-FileCopyrightText: All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -23,9 +23,9 @@ Setting up distributed manager for parallel inference
 
 Many inference workflows are embarrassingly parallel and can be easily sharded across
 multiple devices.
-This example demonstrates how one can use the Modulus distributed manager to distribute
+This example demonstrates how one can use the PhysicsNeMo distributed manager to distribute
 inference across mutliple GPUs.
-The `distributed manager <https://github.com/NVIDIA/modulus/blob/main/modulus/distributed/manager.py>`_
+The `distributed manager <https://github.com/NVIDIA/physicsnemo/blob/main/physicsnemo/distributed/manager.py>`_
 is a utility that provides a useful set of properties that pertain to a parallel
 environment.
 
@@ -69,7 +69,7 @@ load_dotenv()  # TODO: make common example prep function
 import numpy as np
 import torch
 from loguru import logger
-from modulus.distributed import DistributedManager
+from physicsnemo.distributed import DistributedManager
 
 DistributedManager.initialize()  # Only call this once in the entire script!
 dist = DistributedManager()

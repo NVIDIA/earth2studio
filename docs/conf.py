@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2024-2025 NVIDIA CORPORATION & AFFILIATES.
 # SPDX-FileCopyrightText: All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -38,7 +38,7 @@ filename_pattern = os.getenv("FILENAME_PATTERN", r"/[0-9]+.*\.py")
 logging.info(doc_version, plot_gallery, run_stale_examples)
 
 root = pathlib.Path(__file__).parent
-modulus = root.parent / "third_party" / "modulus"
+physicsnemo = root.parent / "third_party" / "physicsnemo"
 release = version("earth2studio")
 
 sys.path.insert(0, root.parent.as_posix())

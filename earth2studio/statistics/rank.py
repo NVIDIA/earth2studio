@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2024-2025 NVIDIA CORPORATION & AFFILIATES.
 # SPDX-FileCopyrightText: All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -18,7 +18,7 @@ from collections import OrderedDict
 
 import numpy as np
 import torch
-from modulus.metrics.general.histogram import _count_bins, linspace
+from physicsnemo.metrics.general.histogram import _count_bins, linspace
 
 from earth2studio.utils.coords import handshake_coords, handshake_dim
 from earth2studio.utils.type import CoordSystem

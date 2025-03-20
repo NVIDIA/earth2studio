@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2024-2025 NVIDIA CORPORATION & AFFILIATES.
 # SPDX-FileCopyrightText: All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -23,13 +23,13 @@ from typing import Literal
 import numpy as np
 import torch
 import zarr
-from modulus.models import Module
-from modulus.utils.generative import StackedRandomGenerator
-
-try:  # Modulus version < 0.8.0
-    from modulus.utils.generative import ablation_sampler
-except ImportError:
-    from modulus.utils.generative import deterministic_sampler as ablation_sampler
+from physicsnemo.models import Module
+from physicsnemo.utils.generative import (
+    StackedRandomGenerator,
+)
+from physicsnemo.utils.generative import (
+    deterministic_sampler as ablation_sampler,
+)
 
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_coords, batch_func
