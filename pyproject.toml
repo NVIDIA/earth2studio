@@ -30,7 +30,7 @@ dependencies = [
     "s3fs>=2023.5.0",
     "setuptools>=67.6.0",
     "torch>=2.5.0",
-    "torch_harmonics==0.6.*",
+    "torch-harmonics>=0.7.3",
     "tqdm>=4.65.0",
     "xarray[parallel]>=2023.1.0",
     "zarr>=2.14.2",
@@ -61,7 +61,7 @@ Changelog = "https://github.com/NVIDIA/earth2studio/blob/main/CHANGELOG.md"
 [project.optional-dependencies]
 data = [
     "cdsapi >= 0.7.4",
-    'eccodes>=1.4.0; python_version<"3.12"',
+    "eccodes>=2.38.0",
     "ecmwflibs>=0.5.2",
     "ecmwf-opendata>=0.3.3",
 ]
@@ -76,12 +76,12 @@ pangu = [
 ]
 sfno = [
     # makani needs to be installed manually
-    # "makani[all] @ git+https://github.com/NVIDIA/modulus-makani.git@v0.1.0",
+    # "makani[all] @ git+https://github.com/NVIDIA/modulus-makani.git@259c38d36b361001946273690a41388add2aaabd",
     "jsbeautifier", # makani
     "numba", # makani
     "pynvml", # makani
     "ruamel.yaml", # makani
-    "torch-harmonics", # makani
+    "torch-harmonics>=0.7.3", # makani
     "tensorly", # makani
     "tensorly-torch" # makani
 ]
@@ -91,7 +91,7 @@ corrdiff = [
 all = [
     "cdsapi >= 0.7.4",
     "cfgrib >= 0.9.10.3",
-    'eccodes>=1.4.0; python_version<"3.12"',
+    "eccodes>=2.38.0",
     "ecmwflibs>=0.5.2",
     "ecmwf-opendata>=0.3.3",
     "herbie-data",
@@ -100,7 +100,7 @@ all = [
     "pynvml",
     "numba",
     "ruamel.yaml",
-    "torch-harmonics",
+    "torch-harmonics>=0.7.3",
     "tensorly",
     "tensorly-torch",
     "einops>=0.7.0",

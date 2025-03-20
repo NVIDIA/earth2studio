@@ -137,7 +137,7 @@ You can install Earth2Studio in a running container directly:
 ```bash
 docker run -i -t nvcr.io/nvidia/physicsnemo/physicsnemo:25.03
 
->>> pip install "makani[all] @ git+https://github.com/NVIDIA/modulus-makani.git@v0.1.0"
+>>> pip install "makani[all] @ git+https://github.com/NVIDIA/modulus-makani.git@259c38d36b361001946273690a41388add2aaabd"
 
 >>> pip install earth2studio[all]
 ```
@@ -147,7 +147,7 @@ or build your own Earth2Studio container using a Dockerfile:
 ```dockerfile
 FROM nvcr.io/nvidia/physicsnemo/physicsnemo:25.03
 
-RUN pip install "makani[all] @ git+https://github.com/NVIDIA/modulus-makani.git@v0.1.0"
+RUN pip install "makani[all] @ git+https://github.com/NVIDIA/modulus-makani.git@259c38d36b361001946273690a41388add2aaabd"
 
 RUN pip install earth2studio[all]
 ```
@@ -160,9 +160,9 @@ Thus, some may prefer to install from the [PyTorch container](https://catalog.ng
 Note that for ONNX models to work we will need a [specific install](https://onnxruntime.ai/docs/install/#install-onnx-runtime-ort-1):
 
 ```bash
-docker run -i -t nvcr.io/nvidia/pytorch:24.11-py3
+docker run -i -t nvcr.io/nvidia/pytorch:25.02-py3
 
->>> pip install "makani[all] @ git+https://github.com/NVIDIA/modulus-makani.git@v0.1.0"
+>>> pip install "makani[all] @ git+https://github.com/NVIDIA/modulus-makani.git@259c38d36b361001946273690a41388add2aaabd"
 
 >>> pip install earth2studio[all]
 ```
@@ -174,12 +174,12 @@ Ensuring the PyTorch is running on your GPU is essential, make sure you are [ins
 the correct PyTorch for your hardware and CUDA is accessible.
 
 ```bash
-conda create -n earth2studio python=3.11
+conda create -n earth2studio python=3.12
 conda activate earth2studio
 
-conda install pytorch pytorch-cuda=12.1 -c pytorch -c nvidia
+pip install torch
 conda install eccodes python-eccodes -c conda-forge
-pip install "makani[all] @ git+https://github.com/NVIDIA/modulus-makani.git@v0.1.0"
+pip install "makani[all] @ git+https://github.com/NVIDIA/modulus-makani.git@259c38d36b361001946273690a41388add2aaabd"
 
 pip install earth2studio[all]
 ```
