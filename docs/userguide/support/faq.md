@@ -25,10 +25,3 @@ use of modern Python and packages.
 This helps improve matainance of the package and security posture.
 This does not imply a strict requirement for all functionality and does not apply to
 optional packages.
-
-## Install AttributeError: module 'pkgutil' with Python 3.12
-
-Python 3.12 is presently broken due to core dependencies of Earth2Studio blocking the
-install.
-We are working on resolving this as soon as we can, we suggest downgrading to 3.11 in
-the mean time.

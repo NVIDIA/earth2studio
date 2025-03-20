@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2024-2025 NVIDIA CORPORATION & AFFILIATES.
 # SPDX-FileCopyrightText: All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -20,11 +20,11 @@ from collections.abc import Generator, Iterator
 from datetime import timedelta
 from pathlib import Path
 
-import modulus
 import numpy as np
+import physicsnemo
 import torch
 import xarray
-from modulus.utils.zenith_angle import cos_zenith_angle
+from physicsnemo.utils.zenith_angle import cos_zenith_angle
 
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_coords, batch_func
@@ -234,7 +234,7 @@ class DLWP(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             np.array((i, j)), data, dtype=torch.float
         )
 
-        core_model = modulus.Module.from_checkpoint(
+        core_model = physicsnemo.Module.from_checkpoint(
             str(dlwp_zip.parent / Path("dlwp/dlwp.mdlus"))
         )
 

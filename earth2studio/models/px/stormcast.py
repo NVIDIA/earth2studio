@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2024-2025 NVIDIA CORPORATION & AFFILIATES.
 # SPDX-FileCopyrightText: All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -19,14 +19,12 @@ from collections import OrderedDict
 from collections.abc import Generator, Iterator
 from itertools import product
 
-import modulus
 import numpy as np
 import torch
 import xarray as xr
-from modulus.models import Module
-from modulus.utils.generative import deterministic_sampler
 from omegaconf import OmegaConf
-from packaging.version import Version
+from physicsnemo.models import Module
+from physicsnemo.utils.generative import deterministic_sampler
 
 from earth2studio.data import DataSource, fetch_data
 from earth2studio.models.auto import AutoModelMixin, Package
@@ -237,17 +235,6 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     @classmethod
     def load_model(cls, package: Package) -> DiagnosticModel:
         """Load StormCast model."""
-
-        # Require appropriate modulus version
-        installed_version = Version(modulus.__version__)
-        if installed_version < Version("0.10.0a0"):
-            raise RuntimeError(
-                f"modulus version 0.10.0a0 or later is required "
-                f"to load the StormCast package from NGC, "
-                f"but version {installed_version} is installed. "
-                f"Please pip install "
-                f"nvidia-modulus @ git+https://github.com/NVIDIA/modulus.git"
-            )
 
         try:
             OmegaConf.register_new_resolver("eval", eval)

@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2024-2025 NVIDIA CORPORATION & AFFILIATES.
 # SPDX-FileCopyrightText: All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -223,7 +223,7 @@ class SOI:
         self,
     ):
         # Read in Tahiti and Darwin SLP data
-        from modulus.utils.filesystem import _download_cached
+        from physicsnemo.utils.filesystem import _download_cached
 
         file_path = _download_cached(
             "http://data.longpaddock.qld.gov.au/SeasonalClimateOutlook/SouthernOscillationIndex/SOIDataFiles/DailySOI1933-1992Base.txt"

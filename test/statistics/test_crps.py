@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2024-2025 NVIDIA CORPORATION & AFFILIATES.
 # SPDX-FileCopyrightText: All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -28,6 +28,7 @@ from earth2studio.utils.coords import handshake_coords, handshake_dim
 lat_weights = lat_weight(torch.as_tensor(np.linspace(-90.0, 90.0, 361)))
 
 
+@pytest.mark.parametrize("fair", [True, False])
 @pytest.mark.parametrize(
     "ensemble_dimension",
     [
@@ -49,6 +50,7 @@ def test_crps(
     ensemble_dimension: str,
     reduction_weights: tuple[list[str], np.ndarray],
     device: str,
+    fair: bool,
 ) -> None:
 
     x = torch.randn((10, 1, 2, 361, 720), device=device)
@@ -72,7 +74,10 @@ def test_crps(
     if weights is not None:
         weights = weights.to(device)
     CRPS = crps(
-        ensemble_dimension, reduction_dimensions=reduction_dimensions, weights=weights
+        ensemble_dimension,
+        reduction_dimensions=reduction_dimensions,
+        weights=weights,
+        fair=fair,
     )
 
     z, c = CRPS(x, x_coords, y, y_coords)

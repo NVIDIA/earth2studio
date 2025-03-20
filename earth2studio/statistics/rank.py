@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2024-2025 NVIDIA CORPORATION & AFFILIATES.
 # SPDX-FileCopyrightText: All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -18,7 +18,7 @@ from collections import OrderedDict
 
 import numpy as np
 import torch
-from modulus.metrics.general.histogram import _count_bins, linspace
+from physicsnemo.metrics.general.histogram import _count_bins, linspace
 
 from earth2studio.utils.coords import handshake_coords, handshake_dim
 from earth2studio.utils.type import CoordSystem
@@ -27,7 +27,6 @@ from earth2studio.utils.type import CoordSystem
 class rank_histogram:
     """
     Compute the Rank Histogram for a given set of ensemble forecasts.
-
 
 
     This statistic reduces over a single dimension, where the presumed ensemble dimension
@@ -151,9 +150,14 @@ class rank_histogram:
                 handshake_coords(y_coords, x_coords, c)
                 coord_count += 1
 
+        # Get the dimension index of the ensemble dimension
         dim = list(x_coords).index(self.ensemble_dimension)
 
-        _ranks = torch.mean(1.0 * torch.ge(y, x), dim=dim)
+        # Move the ensemble dimension to the first dimension
+        x = torch.movedim(x, dim, 0)
+
+        # Compute the ranks over the ensemble dimension
+        _ranks = torch.mean(1.0 * torch.ge(y, x), dim=0)
 
         # Reshape ranks using reduction dimensions
         dims = [list(y_coords).index(rd) for rd in self._reduction_dimensions]

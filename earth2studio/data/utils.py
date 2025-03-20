@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2024-2025 NVIDIA CORPORATION & AFFILIATES.
 # SPDX-FileCopyrightText: All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -136,7 +136,7 @@ def prep_data_array(
     # Initialize the output CoordSystem
     out_coords = OrderedDict()
     for dim in da.coords.dims:
-        if dim in ["time", "lead_time", "variable"]:
+        if dim in da.coords:
             out_coords[dim] = np.array(da.coords[dim])
 
     # Fetch data and regrid if necessary
