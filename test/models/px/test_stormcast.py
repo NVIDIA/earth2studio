@@ -275,7 +275,7 @@ def model(model_cache_context) -> StormCast:
         return p
 
 
-# @pytest.mark.ci_cache
+@pytest.mark.ci_cache
 @pytest.mark.timeout(360)
 @pytest.mark.parametrize("device", ["cuda:0"])
 def test_stormcast_package(device, model):
