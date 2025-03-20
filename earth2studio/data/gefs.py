@@ -25,7 +25,7 @@ import s3fs
 import xarray as xr
 from fsspec.implementations.cached import WholeFileCacheFileSystem
 from loguru import logger
-from modulus.distributed.manager import DistributedManager
+from physicsnemo.distributed.manager import DistributedManager
 from s3fs.core import S3FileSystem
 from tqdm import tqdm
 

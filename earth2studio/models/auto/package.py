@@ -171,7 +171,7 @@ class Package:
         if fs is not None:
             self.fs = fs
         elif root.startswith("ngc://models/"):
-            # Taken from Modulus file utils
+            # Taken from PhysicsNeMo file utils
             # Strip ngc model url prefix
             suffix = "ngc://models/"
             # The regex check
@@ -316,7 +316,7 @@ class Package:
         return local_file_path
 
     def get(self, file_path: str) -> str:
-        """Modulus / backwards compatibility
+        """PhysicsNeMo / backwards compatibility
 
         Parameters
         ----------
