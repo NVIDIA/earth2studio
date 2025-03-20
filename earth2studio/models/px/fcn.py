@@ -21,7 +21,7 @@ from pathlib import Path
 
 import numpy as np
 import torch
-from modulus.models.afno import AFNO
+from physicsnemo.models.afno import AFNO
 
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_coords, batch_func

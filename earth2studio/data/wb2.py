@@ -27,7 +27,7 @@ import xarray as xr
 import zarr
 from fsspec.implementations.cached import WholeFileCacheFileSystem
 from loguru import logger
-from modulus.distributed.manager import DistributedManager
+from physicsnemo.distributed.manager import DistributedManager
 from tqdm import tqdm
 
 from earth2studio.data.utils import datasource_cache_root, prep_data_inputs

@@ -18,7 +18,7 @@ from collections import OrderedDict
 
 import numpy as np
 import torch
-from modulus.metrics.general.histogram import _count_bins, linspace
+from physicsnemo.metrics.general.histogram import _count_bins, linspace
 
 from earth2studio.utils.coords import handshake_coords, handshake_dim
 from earth2studio.utils.type import CoordSystem

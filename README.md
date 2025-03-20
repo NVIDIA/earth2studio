@@ -59,7 +59,7 @@ workflows, pipelines, APIs, packages, etc. via modular components including:
 - IO utilities for exporting predicted data to user friendly formats
 - Suite of perturbation methods for building ensemble predictions
 - Sample workflows and examples for common tasks / use cases
-- Seamless integration into other Nvidia packages including [Modulus][modulus_repo_url]
+- Seamless integration into other Nvidia packages including [PhysicsNeMo][physicsnemo_repo_url]
 
 For a more complete list of feature set, be sure to view the [documentation][e2studio_docs_url].
 Don't see what you need?
@@ -96,4 +96,4 @@ Earth2Studio is provided under the Apache License 2.0, please see
 [e2studio_customization_url]: https://nvidia.github.io/earth2studio/examples/extend/index.html
 
 <!-- Misc links -->
-[modulus_repo_url]: https://github.com/NVIDIA/modulus
+[physicsnemo_repo_url]: https://github.com/NVIDIA/physicsnemo
