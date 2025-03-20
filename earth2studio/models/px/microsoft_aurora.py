@@ -17,19 +17,12 @@
 from collections import OrderedDict
 from collections.abc import Generator, Iterator
 from datetime import datetime
-from typing import TypeVar
 
 import numpy as np
-import xarray as xr
-
-try:
-    import onnxruntime as ort
-    from onnxruntime import InferenceSession
-except ImportError:
-    ort = None
-    InferenceSession = TypeVar("InferenceSession")  # type: ignore
 import torch
-from aurora import Aurora, Batch, Metadata
+import xarray as xr
+from aurora import Aurora as Aurora_model
+from aurora import Batch, Metadata
 
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_coords, batch_func
@@ -114,7 +107,7 @@ ATMOS_LEVELS = [1000, 925, 850, 700, 600, 500, 400, 300, 250, 200, 150, 100, 50]
 
 
 # adapted from https://microsoft.github.io/aurora/example_era5.html
-class Aurora_cls(torch.nn.Module, AutoModelMixin, PrognosticMixin):
+class Aurora(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     """Aurora class"""
 
     def __init__(
@@ -209,7 +202,7 @@ class Aurora_cls(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def load_default_package(cls) -> Package:
         """Load prognostic package"""
         return Package(
-            "/ivan/earth2studio/earth_ai_aurora",
+            "/lustre/fsw/coreai_climate_earth2/iauyeung/earth2_aurora",
             cache_options={
                 "cache_storage": Package.default_cache("aurora"),
                 "same_names": True,
@@ -233,7 +226,7 @@ class Aurora_cls(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         # Load 0.25 degrees resolution Aurora pretrained model
         aurora_model = package.resolve("aurora-0.25-pretrained.ckpt")
         # The pretrained version does not use LoRA.
-        model = Aurora(use_lora=False)
+        model = Aurora_model(use_lora=False)
         model.load_checkpoint_local(aurora_model)
         model.eval()
 

@@ -85,6 +85,9 @@ sfno = [
     "tensorly", # makani
     "tensorly-torch" # makani
 ]
+aurora = [
+    "microsoft-aurora@git+https://github.com/ivanauyeung/aurora@timm_update",
+]
 corrdiff = [
     "einops>=0.7.0",
 ]
