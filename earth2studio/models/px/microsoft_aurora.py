@@ -108,7 +108,36 @@ ATMOS_LEVELS = [1000, 925, 850, 700, 600, 500, 400, 300, 250, 200, 150, 100, 50]
 
 # adapted from https://microsoft.github.io/aurora/example_era5.html
 class Aurora(torch.nn.Module, AutoModelMixin, PrognosticMixin):
-    """Aurora class"""
+    """Aurora 0.25degree Pretrained model. This model consists of single
+    auto-regressive model with a time-step size of 6 hours. This model operates on
+    0.25 degree lat-lon grid (720, 1440) equirectangular grid with 4 surface-level
+    variables, 5 atmospheric variables with 13 pressure levels and 3 static variables.
+
+    Note
+    ----
+    This model uses the checkpoints from the original publication.
+    For additional information see the following resources:
+
+    - https://arxiv.org/abs/2405.13063
+    - https://github.com/microsoft/aurora
+    - https://huggingface.co/microsoft/aurora
+
+    Warning
+    -------
+    We encourage users to familiarize themselves with the license restrictions of this
+    model's checkpoints.
+
+    Parameters
+    ----------
+    core_model : torch.nn.Module
+        Core Aurora model
+    z : torch.Tensor
+        Geopotential
+    slt : torch.Tensor
+        Soil type
+    lsm : torch.Tensor
+        Land sea mask
+    """
 
     def __init__(
         self,
