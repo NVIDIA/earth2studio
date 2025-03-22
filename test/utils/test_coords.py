@@ -150,6 +150,51 @@ def test_map_nearest(device):
     assert torch.allclose(out, data[:, :2])
 
 
+def test_map_roll_condition():
+    input_coords = OrderedDict({"lon": np.array([0, 90, 180, 270])})
+    output_coords = OrderedDict({"lon": np.array([180, 270, 0, 90])})
+    x = torch.arange(4).float()
+
+    mapped_x, mapped_coords = map_coords(x, input_coords, output_coords)
+    expected_x = torch.tensor([2, 3, 0, 1], dtype=torch.float32)
+    expected_coords = OrderedDict({"lon": np.array([180, 270, 0, 90])})
+
+    assert torch.equal(mapped_x, expected_x)
+    assert np.all(mapped_coords["lon"] == expected_coords["lon"])
+
+    input_coords = OrderedDict({"lat": np.array([0, 30, 60, 90])})
+    output_coords = OrderedDict({"lat": np.array([60, 90, 0, 30])})
+    x = torch.arange(4).float()
+
+    mapped_x, mapped_coords = map_coords(x, input_coords, output_coords)
+    expected_x = torch.tensor([2, 3, 0, 1], dtype=torch.float32)
+    expected_coords = OrderedDict({"lat": np.array([60, 90, 0, 30])})
+
+    assert torch.equal(mapped_x, expected_x)
+    assert np.all(mapped_coords["lat"] == expected_coords["lat"])
+
+    input_coords = OrderedDict(
+        {"lon": np.array([0, 90, 180, 270]), "lat": np.array([0, 30, 60, 90])}
+    )
+    output_coords = OrderedDict(
+        {"lon": np.array([180, 270, 0, 90]), "lat": np.array([60, 90, 0, 30])}
+    )
+    x = torch.arange(16).reshape(4, 4).float()
+
+    mapped_x, mapped_coords = map_coords(x, input_coords, output_coords)
+    expected_x = torch.tensor(
+        [[10, 11, 8, 9], [14, 15, 12, 13], [2, 3, 0, 1], [6, 7, 4, 5]],
+        dtype=torch.float32,
+    )
+    expected_coords = OrderedDict(
+        {"lon": np.array([180, 270, 0, 90]), "lat": np.array([60, 90, 0, 30])}
+    )
+
+    assert torch.equal(mapped_x, expected_x)
+    assert np.all(mapped_coords["lon"] == expected_coords["lon"])
+    assert np.all(mapped_coords["lat"] == expected_coords["lat"])
+
+
 def test_map_errors():
     coords = OrderedDict(
         [("variable", np.array(["a", "b", "c"])), ("lat", np.array([1, 2, 3]))]
