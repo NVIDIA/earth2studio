@@ -23,9 +23,10 @@ import numpy as np
 import torch
 import xarray as xr
 from physicsnemo.models import Module
+
 try:
-    from physicsnemo.utils.generative import deterministic_sampler
     from omegaconf import OmegaConf
+    from physicsnemo.utils.generative import deterministic_sampler
 except ImportError:
     OmegaConf = None
     deterministic_sampler = None
@@ -241,11 +242,13 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         """Load StormCast model."""
 
         if OmegaConf is None or deterministic_sampler is None:
-            raise ImportError("Additional StormCast model dependencies are not installed. See install documentation for details.")
+            raise ImportError(
+                "Additional StormCast model dependencies are not installed. See install documentation for details."
+            )
 
         try:
             OmegaConf.register_new_resolver("eval", eval)
-        except ValueError:               
+        except ValueError:
             # Likely already registered so skip
             pass
 
