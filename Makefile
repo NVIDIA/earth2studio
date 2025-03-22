@@ -1,6 +1,6 @@
 install:
 	pip install --upgrade pip
-	pip install "makani[all] @ git+https://github.com/NickGeneva/modulus-makani.git@8ff1105d9b45270f24ba0e646fd2891e173cc719"
+	pip install "makani[all] @ git+https://github.com/NickGeneva/modulus-makani.git@3da09f9e52a6393839d73d44262779ac7279bc2f"
 	pip install -e .[all]
 
 .PHONY: setup-ci
