@@ -195,6 +195,11 @@ def map_coords(
     tuple[torch.Tensor, CoordSystem]
         Mapped data and coordinate system.
 
+    Warning
+    -------
+    Use this function with caution. Only certain coordinate systems are supported /
+    tested. Consider doing complex transforms manually in the inference pipeline.
+
     Raises
     ------
     KeyError:
@@ -233,9 +238,17 @@ def map_coords(
                         prep_data_array to regrid/interpolate first."
                 )
 
+            # Roll condition
+            first_element = outc[0]
+            shift_amount = np.where(inc == first_element)[0][0]
+            if np.array_equal(np.roll(inc, shift_amount), outc):
+                x = torch.roll(x, shifts=shift_amount, dims=dim)
+                mapped_coords[key] = outc
+                continue
+
+            # Slice condition
             indx = np.where(inc == outc[0])[0][0]
             inc_slice = inc[indx : indx + outc.shape[0]]
-            # Slice condition
             if inc_slice.shape[0] == outc.shape[0] and np.all(inc_slice == outc):
                 x_slice = [slice(None)] * len(input_coords)
                 x_slice[dim] = slice(indx, indx + outc.shape[0])
@@ -245,12 +258,12 @@ def map_coords(
 
             # Generic fall back
             if True:
-                # sort inputs and outputs before np.in1d
+                # sort inputs and outputs before np.isin
                 indx_inc = inc.argsort()
                 indx_outc = outc.argsort()
                 indx_rev_outc = indx_outc.argsort()
                 indx = np.where(
-                    np.in1d(inc[indx_inc], outc[indx_outc], assume_unique=True)
+                    np.isin(inc[indx_inc], outc[indx_outc], assume_unique=True)
                 )[0]
 
                 # undo sorting
