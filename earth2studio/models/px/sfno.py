@@ -268,7 +268,7 @@ class SFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         x = x.squeeze(2)
         x = (x - self.center) / self.scale
         for j, _ in enumerate(coords["batch"]):
-            for (i, t) in enumerate(coords["time"]):
+            for i, t in enumerate(coords["time"]):
                 # https://github.com/NVIDIA/modulus-makani/blob/933b17d5a1ebfdb0e16e2ebbd7ee78cfccfda9e1/makani/third_party/climt/zenith_angle.py#L197
                 # Requires time zone data
                 t = [

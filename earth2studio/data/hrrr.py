@@ -126,7 +126,7 @@ class _HRRRBase:
             total=len(args), desc="Fetching HRRR data", disable=(not self._verbose)
         )
 
-        for (t, i, ld, j, v, k) in args:
+        for t, i, ld, j, v, k in args:
             logger.debug(
                 f"Fetching HRRR data for variable: {v} at {t.isoformat()} lead time {ld}"
             )

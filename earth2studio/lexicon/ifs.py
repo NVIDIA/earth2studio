@@ -66,7 +66,7 @@ class IFSLexicon(metaclass=LexiconType):
         prs_names = ["u", "v", "gh", "t", "r", "q"]
         e2s_id = ["u", "v", "z", "t", "r", "q"]
         prs_variables = {}
-        for (id, variable) in zip(e2s_id, prs_names):
+        for id, variable in zip(e2s_id, prs_names):
             for level in prs_levels:
                 prs_variables[f"{id}{level:d}"] = f"{variable}::pl::{level}"
 

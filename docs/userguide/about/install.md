@@ -115,6 +115,16 @@ pip install earth2studio[sfno]
 ```
 
 :::
+
+:::{tab-item} StormCast
+
+Notes: Additional dependencies for StormCast models.
+
+```bash
+pip install earth2studio[stormcast]
+```
+
+:::
 ::::
 
 Using `pip install earth2studio[all]` will install all optional functionality dependencies.
