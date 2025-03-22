@@ -107,6 +107,9 @@ all = [
     "tensorly",
     "tensorly-torch",
     "einops>=0.7.0",
+    "omegaconf",
+    "nvtx",
+    "scipy",
 ]
 dev = [
     "black==22.10.0",
