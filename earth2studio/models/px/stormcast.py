@@ -22,9 +22,13 @@ from itertools import product
 import numpy as np
 import torch
 import xarray as xr
-from omegaconf import OmegaConf
 from physicsnemo.models import Module
-from physicsnemo.utils.generative import deterministic_sampler
+try:
+    from physicsnemo.utils.generative import deterministic_sampler
+    from omegaconf import OmegaConf
+except ImportError:
+    OmegaConf = None
+    deterministic_sampler = None
 
 from earth2studio.data import DataSource, fetch_data
 from earth2studio.models.auto import AutoModelMixin, Package
@@ -236,9 +240,12 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def load_model(cls, package: Package) -> DiagnosticModel:
         """Load StormCast model."""
 
+        if OmegaConf is None or deterministic_sampler is None:
+            raise ImportError("Additional StormCast model dependencies are not installed. See install documentation for details.")
+
         try:
             OmegaConf.register_new_resolver("eval", eval)
-        except ValueError:
+        except ValueError:               
             # Likely already registered so skip
             pass
 
