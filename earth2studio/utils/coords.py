@@ -197,8 +197,9 @@ def map_coords(
 
     Warning
     -------
-    Use this function with caution. Only certain coordinate systems are supported /
-    tested. Consider doing complex transforms manually in the inference pipeline.
+    Use this function with caution. Only certain coordinate transformations are
+    supported / tested. Consider doing complex transforms manually in the inference
+    pipeline.
 
     Raises
     ------
