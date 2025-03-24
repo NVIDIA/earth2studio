@@ -18,13 +18,13 @@ import http.client
 import os
 import re
 import urllib.parse
-import warnings
 from typing import Any
 
 import aiohttp
 from fsspec.asyn import sync_wrapper
 from fsspec.callbacks import DEFAULT_CALLBACK
 from fsspec.implementations.http import HTTPFileSystem
+from loguru import logger
 from ngcbase.api import utils as rest_utils
 from ngcbase.api.configuration import Configuration
 from ngcsdk import Client
@@ -102,13 +102,13 @@ class NGCModelFileSystem(HTTPFileSystem):
         self.client = Client()
         # If no org, then get the first org of this API key and use that
         if not Configuration(self.client).is_guest_mode:
-
             org_names = Configuration(self.client).get_org_names()
             org_default = org_names.get(list(org_names.keys())[-1])
             self.client.configure(org_name=org_default["org_name"])
         else:
-            warnings.warn(
-                "Using NGC guest mode, this will likely fail. Please create a valid NGC API key as discxribed in the API documentation."
+            logger.warning(
+                "Using NGC guest mode, which may fail due to unauthorized access. "
+                + "Consider using a valid NGC API key."
             )
         self.model_api = ModelAPI(self.client)
 
@@ -192,10 +192,10 @@ class NGCModelFileSystem(HTTPFileSystem):
                 relative_urls += [org]
             if team:
                 relative_urls += [team]
-            relative_urls += [name, "versions", version, "files/"]
+            relative_urls += [name, "versions", version, "files"]
             url = urllib.parse.urljoin(url, os.path.join(*relative_urls))
             if filepath:
-                url = urllib.parse.urljoin(url, filepath)
+                url = f"{url}?path={filepath}"
         return url
 
     async def _get_ngc(
