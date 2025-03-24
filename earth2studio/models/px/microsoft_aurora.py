@@ -264,8 +264,9 @@ class Aurora(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def _prepare_input(self, input: torch.Tensor, coords: CoordSystem) -> Batch:
         """Prepares input Batch"""
         len_atmos_levels = len(ATMOS_LEVELS)
+        # Only len 1 time array is supported by Auroral model
         ts = (
-            (coords["time"][-1] + coords["lead_time"][-1]).astype("datetime64[s]")
+            (coords["time"][0] + coords["lead_time"][-1]).astype("datetime64[s]")
             - np.datetime64("1970-01-01T00:00:00Z")
         ) / np.timedelta64(1, "s")
         time = datetime.utcfromtimestamp(ts)
@@ -274,10 +275,10 @@ class Aurora(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         batch = Batch(
             surf_vars={
                 # select time points `i` and `i - 1`
-                "2t": input[:, -2:, len_atmos_levels * 5 + 3],
-                "10u": input[:, -2:, len_atmos_levels * 5 + 1],
-                "10v": input[:, -2:, len_atmos_levels * 5 + 2],
-                "msl": input[:, -2:, len_atmos_levels * 5],
+                "2t": input[:, 0, -2:, len_atmos_levels * 5 + 3],
+                "10u": input[:, 0, -2:, len_atmos_levels * 5 + 1],
+                "10v": input[:, 0, -2:, len_atmos_levels * 5 + 2],
+                "msl": input[:, 0, -2:, len_atmos_levels * 5],
             },
             static_vars={
                 "z": self.z,
@@ -285,11 +286,11 @@ class Aurora(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 "lsm": self.lsm,
             },
             atmos_vars={
-                "t": input[:, -2:, len_atmos_levels * 2 : len_atmos_levels * 3],
-                "u": input[:, -2:, len_atmos_levels * 3 : len_atmos_levels * 4],
-                "v": input[:, -2:, len_atmos_levels * 4 : len_atmos_levels * 5],
-                "q": input[:, -2:, len_atmos_levels : len_atmos_levels * 2],
-                "z": input[:, -2:, :len_atmos_levels],
+                "t": input[:, 0, -2:, len_atmos_levels * 2 : len_atmos_levels * 3],
+                "u": input[:, 0, -2:, len_atmos_levels * 3 : len_atmos_levels * 4],
+                "v": input[:, 0, -2:, len_atmos_levels * 4 : len_atmos_levels * 5],
+                "q": input[:, 0, -2:, len_atmos_levels : len_atmos_levels * 2],
+                "z": input[:, 0, -2:, :len_atmos_levels],
             },
             metadata=Metadata(
                 lat=torch.from_numpy(coords["lat"]),
@@ -318,6 +319,7 @@ class Aurora(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             ],
             dim=2,
         )
+        x = x.view(-1, 1, *x.shape[1:])
         # According to https://github.com/microsoft/aurora/blob/main/aurora/rollout.py, the static variables of next step are from the previous step.
         self.z = output.static_vars["z"]
         self.slt = output.static_vars["slt"]
@@ -368,6 +370,7 @@ class Aurora(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         return x, output_coords
 
+    @batch_func()
     def _default_generator(
         self, x: torch.Tensor, coords: CoordSystem
     ) -> Generator[tuple[torch.Tensor, CoordSystem], None, None]:
@@ -375,12 +378,12 @@ class Aurora(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         self.output_coords(coords)
 
-        yield x[:, 1:], coords
+        yield x[:, :, 1:], coords
 
         while True:
             # Front hook
             x, coords = self.front_hook(x, coords)
-            init_x = x[:, 1:].clone()
+            init_x = x[:, :, 1:].clone()
 
             # Forward pass
             x = self._forward(x, coords)
@@ -392,15 +395,15 @@ class Aurora(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 + self.output_coords(self.input_coords())["lead_time"]
             )
             # Concat the step now and prediction for next step
-            x = torch.cat([init_x, x], dim=1)
+            x = torch.cat([init_x, x], dim=2)
             x = x.clone()
 
             # Rear hook for first predicted step
             coords_out = coords.copy()
             coords_out["lead_time"] = coords["lead_time"][-1]
-            x[:, 1:], coords_out = self.rear_hook(x[:, 1:], coords_out)
+            x[:, :, 1:], coords_out = self.rear_hook(x[:, :, 1:], coords_out)
 
-            yield x[:, 1:], coords_out
+            yield x[:, :, 1:], coords_out
 
     def create_iterator(
         self, x: torch.Tensor, coords: CoordSystem
