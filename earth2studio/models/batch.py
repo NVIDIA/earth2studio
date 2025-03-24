@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2024-2025 NVIDIA CORPORATION & AFFILIATES.
 # SPDX-FileCopyrightText: All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -161,6 +161,7 @@ class batch_func:
 
     def _batch_wrap(self, func: Callable) -> Callable:
         """Standard batch function decorator"""
+
         # TODO: Better typing for model object
         @functools.wraps(func)
         def _wrapper(
@@ -184,6 +185,7 @@ class batch_func:
 
     def _batch_wrap_generator(self, func: Callable) -> Callable:
         """Wrapper generator functions, for each output we need to decompress batches"""
+
         # Based on Pytorch: # https://github.com/pytorch/pytorch/pull/68617/files
         # TODO: Better typing for model object
         @functools.wraps(func)
@@ -323,6 +325,7 @@ class batch_coords:
 
     def _batch_wrap(self, func: Callable) -> Callable:
         """Standard batch function decorator"""
+
         # TODO: Better typing for model object
         @functools.wraps(func)
         def _wrapper(model: Any, input_coords: CoordSystem) -> CoordSystem:

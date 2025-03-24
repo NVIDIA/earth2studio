@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2024-2025 NVIDIA CORPORATION & AFFILIATES.
 # SPDX-FileCopyrightText: All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -182,7 +182,7 @@ class ARCO:
         )
 
         async def fetch_wrapper(
-            e: tuple[datetime, int, str, int]
+            e: tuple[datetime, int, str, int],
         ) -> tuple[int, int, np.ndarray]:
             """Small wrapper that is awaitable for async generator"""
             return e[1], e[3], self.fetch_array(e[0], e[2])

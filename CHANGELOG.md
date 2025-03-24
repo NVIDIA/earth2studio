@@ -15,21 +15,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Interpolation between arbitrary lat-lon grids
 - Added hybrid level support to HRRR data source
 - Added NCAR ERA5 data source
-- Added multidim IO support.
-- Added forecast data source support to `fetch_data`.
-- Added stormcast deterministic and ensemble examples.
-- Added Random_FX as a random forecast data source.
-- Added interpolation support to run functions.
-- Added fair CRPS metric.
+- Added multidim IO support
+- Added forecast data source support to `fetch_data`
+- Added stormcast deterministic and ensemble examples
+- Added Random_FX as a random forecast data source
+- Added interpolation support to run functions
+- Added fair CRPS metric
+- Added basic coordinate roll support in map_coords
 
 ### Changed
 
 - Switched HRRR data source back to AWS grib
 - Make source an argument for IFS, default of aws
-- Changed CorrDiff output coordinates to actual lat/lon instead of ilat/ilon.
-- Changed spread/skill ratio to actually return spread/skill instead of skill/spread.
-- Changed the NetCDF4Backend to use proleptic gregorian calendar for time.
-- Changed the units assigned from the NetCDF4Backend to hours instead of h.
+- Changed CorrDiff output coordinates to actual lat/lon instead of ilat/ilon
+- Changed the NetCDF4Backend to use proleptic gregorian calendar for time
+- Changed the units assigned from the NetCDF4Backend to hours instead of h
 
 ### Deprecated
 
@@ -37,14 +37,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- Fixed bug in prep_data_array that implicitly assumed order of coordinates.
-- Fixed bug in rank_histogram that assumed broadcastable ensemble dimension.
+- Fixed bug in prep_data_array that implicitly assumed order of coordinates
+- Fixed bug in rank_histogram that assumed broadcastable ensemble dimension
+- Fixed spread/skill ratio to actually return spread/skill instead of skill/spread
 
 ### Security
 
 ### Dependencies
 
 - Update NGC SDK dependency to fixed range due to internal API changes
+- Updates to multiple dependencies for Python 3.12 support
+- Added StormCast to optional dependencies
 
 ## [0.4.0] - 2024-12-12
 

@@ -94,10 +94,10 @@ Inference Studio when possible and the packages we interface with.
   for more more details.
   - `np.ndarray[str]` (`VariableArray`)
 * - `lat`
-  - Lattitude coordinate array
+  - Lattitude coordinate array, [-90, 90] is standard
   - `np.ndarray[float]`
 * - `lon`
-  - Longitude coordinate array
+  - Longitude coordinate array, [0, 360) is standard
   - `np.ndarray[float]`
 ```
 

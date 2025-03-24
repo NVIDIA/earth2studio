@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2024-2025 NVIDIA CORPORATION & AFFILIATES.
 # SPDX-FileCopyrightText: All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -94,7 +94,7 @@ def fetch_data(
             da.append(da0)
 
         da = xr.concat(da, "lead_time")
-    print(da)
+
     return prep_data_array(
         da,
         device=device,

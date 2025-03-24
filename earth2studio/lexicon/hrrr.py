@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2024-2025 NVIDIA CORPORATION & AFFILIATES.
 # SPDX-FileCopyrightText: All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -96,7 +96,7 @@ class HRRRLexicon(metaclass=LexiconType):
         prs_names = ["UGRD", "VGRD", "HGT", "TMP", "RH", "SPFH", "HGT"]
         e2s_id = ["u", "v", "z", "t", "r", "q", "Z"]
         prs_variables = {}
-        for (id, variable) in zip(e2s_id, prs_names):
+        for id, variable in zip(e2s_id, prs_names):
             for level in prs_levels:
                 prs_variables[f"{id}{level:d}"] = f"prs::anl::{level} mb::{variable}"
 
@@ -104,7 +104,7 @@ class HRRRLexicon(metaclass=LexiconType):
         hybrid_names = ["UGRD", "VGRD", "HGT", "TMP", "SPFH", "PRES", "HGT"]
         e2s_id = ["u", "v", "z", "t", "q", "p", "Z"]
         hybrid_variables = {}
-        for (id, variable) in zip(e2s_id, hybrid_names):
+        for id, variable in zip(e2s_id, hybrid_names):
             for level in hybrid_levels:
                 hybrid_variables[
                     f"{id}{level:d}hl"
@@ -183,7 +183,7 @@ class HRRRFXLexicon(metaclass=LexiconType):
         prs_names = ["UGRD", "VGRD"]
         e2s_id = ["u", "v"]
         prs_variables = {}
-        for (id, variable) in zip(e2s_id, prs_names):
+        for id, variable in zip(e2s_id, prs_names):
             for level in prs_levels:
                 prs_variables[f"{id}{level:d}"] = f"sfc::fcst::{level} mb::{variable}"
 
@@ -191,7 +191,7 @@ class HRRRFXLexicon(metaclass=LexiconType):
         hybrid_names = ["UGRD", "VGRD", "HGT", "TMP", "SPFH", "PRES", "HGT"]
         e2s_id = ["u", "v", "z", "t", "q", "p", "Z"]
         hybrid_variables = {}
-        for (id, variable) in zip(e2s_id, hybrid_names):
+        for id, variable in zip(e2s_id, hybrid_names):
             for level in hybrid_levels:
                 hybrid_variables[
                     f"{id}{level:d}hl"

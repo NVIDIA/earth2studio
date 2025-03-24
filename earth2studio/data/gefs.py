@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2024-2025 NVIDIA CORPORATION & AFFILIATES.
 # SPDX-FileCopyrightText: All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -147,7 +147,7 @@ class _GEFSBase:
         pbar = tqdm(
             total=len(args), desc="Fetching GEFS data", disable=(not self._verbose)
         )
-        for (t, i, l, j, v, k) in args:  # noqa
+        for t, i, l, j, v, k in args:  # noqa
             data = self.fetch_array(t, l, v)
             xr_array[i, j, k] = data
             pbar.update(1)

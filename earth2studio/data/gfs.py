@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2024-2025 NVIDIA CORPORATION & AFFILIATES.
 # SPDX-FileCopyrightText: All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -88,6 +88,7 @@ class GFS:
         if source == "aws":
             self.uri_prefix = "noaa-gfs-bdp-pds"
             self.fs = s3fs.S3FileSystem(anon=True, client_kwargs={})
+
             # To update search "gfs." at https://noaa-gfs-bdp-pds.s3.amazonaws.com/index.html
             # They are slowly adding more data
             def _range(time: datetime) -> None:
