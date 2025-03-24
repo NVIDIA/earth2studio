@@ -39,12 +39,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed bug in prep_data_array that implicitly assumed order of coordinates
 - Fixed bug in rank_histogram that assumed broadcastable ensemble dimension
 - Fixed spread/skill ratio to actually return spread/skill instead of skill/spread
+- Fixed NGC download APIs and public API fetching for model files
 
 ### Security
 
 ### Dependencies
 
-- Update NGC SDK dependency to fixed range due to internal API changes
 - Updates to multiple dependencies for Python 3.12 support
 - Added StormCast to optional dependencies
 
