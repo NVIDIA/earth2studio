@@ -22,7 +22,7 @@ dependencies = [
     "importlib_metadata",
     "loguru",
     "netCDF4>=1.6.4",
-    "ngcsdk>=3.48.0,<3.55.0",
+    "ngcsdk>=3.55.0",
     "numpy>=1.24.0",
     "nvidia-physicsnemo>=1.0.0",
     "python-dotenv",
@@ -43,6 +43,7 @@ classifiers = [
     'Programming Language :: Python :: 3',
     'Programming Language :: Python :: 3.10',
     'Programming Language :: Python :: 3.11',
+    'Programming Language :: Python :: 3.12',
     'Programming Language :: Python :: 3 :: Only',
     "Intended Audience :: Science/Research",
     "Environment :: GPU",
@@ -91,6 +92,8 @@ stormcast = [
 ]
 corrdiff = [
     "einops>=0.7.0",
+    "nvtx",
+    "scipy",
 ]
 all = [
     "cdsapi >= 0.7.4",
