@@ -83,6 +83,10 @@ sfno = [
     "tensorly", # makani
     "tensorly-torch" # makani
 ]
+aurora = [
+    "microsoft-aurora",
+    "timm==0.6.13",
+]
 stormcast = [
     "omegaconf",
     "nvtx",
