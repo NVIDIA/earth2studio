@@ -17,7 +17,11 @@
 import numpy as np
 import torch
 from numpy.typing import ArrayLike
-from scipy.interpolate import LinearNDInterpolator
+
+try:
+    from scipy.interpolate import LinearNDInterpolator
+except ImportError:
+    LinearNDInterpolator = None
 from torch import Tensor, nn
 
 

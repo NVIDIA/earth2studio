@@ -24,12 +24,17 @@ import numpy as np
 import torch
 import zarr
 from physicsnemo.models import Module
-from physicsnemo.utils.generative import (
-    StackedRandomGenerator,
-)
-from physicsnemo.utils.generative import (
-    deterministic_sampler as ablation_sampler,
-)
+
+try:
+    from physicsnemo.utils.generative import (
+        StackedRandomGenerator,
+    )
+    from physicsnemo.utils.generative import (
+        deterministic_sampler as ablation_sampler,
+    )
+except ImportError:
+    StackedRandomGenerator = None
+    ablation_sampler = None
 
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_coords, batch_func
@@ -203,6 +208,12 @@ class CorrDiffTaiwan(torch.nn.Module, AutoModelMixin):
     @classmethod
     def load_model(cls, package: Package) -> DiagnosticModel:
         """Load diagnostic from package"""
+
+        if StackedRandomGenerator is None or ablation_sampler is None:
+            raise ImportError(
+                "Additional CorrDiff model dependencies are not installed. See install documentation for details."
+            )
+
         checkpoint_zip = Path(package.resolve("corrdiff_inference_package.zip"))
         # Have to manually unzip here. Should not zip checkpoints in the future
         with zipfile.ZipFile(checkpoint_zip, "r") as zip_ref:
