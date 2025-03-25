@@ -40,7 +40,7 @@ from earth2studio.data import HRRR, HRRR_FX
 @pytest.mark.parametrize("variable", ["t2m", ["u10m", "u100"], ["u1hl"]])
 def test_hrrr_fetch(time, variable):
 
-    ds = HRRR(cache=False)
+    ds = HRRR(max_workers=1, cache=False)
     data = ds(time, variable)
     shape = data.shape
 
@@ -84,7 +84,7 @@ def test_hrrr_fetch(time, variable):
 def test_hrrr_fx_fetch(time, lead_time):
     time = datetime(year=2022, month=12, day=25)
     variable = "t2m"
-    ds = HRRR_FX(cache=False)
+    ds = HRRR_FX(max_workers=2, cache=False)
     data = ds(time, lead_time, variable)
     shape = data.shape
 

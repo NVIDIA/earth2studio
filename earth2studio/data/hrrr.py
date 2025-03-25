@@ -440,14 +440,14 @@ class HRRR(_HRRRBase):
 
     Parameters
     ----------
+    source : str, optional
+        Data source to use ('aws', 'google', 'azure', 'nomads'), by default 'aws'
+    max_workers : int, optional
+        Maximum number of concurrent downloads, by default 4
     cache : bool, optional
         Cache data source on local memory, by default True
     verbose : bool, optional
         Print download progress, by default True
-    source : str, optional
-        Data source to use ('aws', 'google', 'azure', 'nomads'), by default 'aws'
-    max_workers : int, optional
-        Maximum number of concurrent downloads, by default 1
 
     Warning
     -------
@@ -466,10 +466,10 @@ class HRRR(_HRRRBase):
 
     def __init__(
         self,
+        source: str = "aws",
+        max_workers: int = 4,
         cache: bool = True,
         verbose: bool = True,
-        source: str = "aws",
-        max_workers: int = 1,
     ):
         super().__init__(cache, verbose, source, max_workers)
 
@@ -514,14 +514,14 @@ class HRRR_FX(_HRRRBase):
 
     Parameters
     ----------
+    source : str, optional
+        Data source to use ('aws', 'google', 'azure', 'nomads'), by default 'aws'
+    max_workers : int, optional
+        Maximum number of concurrent downloads, by default 4
     cache : bool, optional
         Cache data source on local memory, by default True
     verbose : bool, optional
         Print download progress, by default True
-    source : str, optional
-        Data source to use ('aws', 'google', 'azure', 'nomads'), by default 'aws'
-    max_workers : int, optional
-        Maximum number of concurrent downloads, by default 1
 
     Warning
     -------
@@ -544,10 +544,10 @@ class HRRR_FX(_HRRRBase):
 
     def __init__(
         self,
+        source: str = "aws",
+        max_workers: int = 4,
         cache: bool = True,
         verbose: bool = True,
-        source: str = "aws",
-        max_workers: int = 1,
     ):
         super().__init__(cache, verbose, source, max_workers)
 
@@ -582,7 +582,7 @@ class HRRR_FX(_HRRRBase):
         # Make sure input time is valid
         self._validate_time(time)
         self._validate_leadtime(lead_time)
-        self.fetch(time, lead_time, variable)
+        return self.fetch(time, lead_time, variable)
 
     @classmethod
     def _validate_leadtime(cls, lead_times: list[timedelta]) -> None:
