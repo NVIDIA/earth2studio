@@ -189,10 +189,10 @@ class NGCModelFileSystem(HTTPFileSystem):
             url = "https://api.ngc.nvidia.com/v2/models/"
             relative_urls = []
             if org:
-                relative_urls += [org]
+                relative_urls += ["org", org]
             if team:
-                relative_urls += [team]
-            relative_urls += [name, "versions", version, "files"]
+                relative_urls += ["team", team]
+            relative_urls += [name, version, "files"]
             url = urllib.parse.urljoin(url, os.path.join(*relative_urls))
             if filepath:
                 url = f"{url}?path={filepath}"
@@ -254,25 +254,20 @@ class NGCModelFileSystem(HTTPFileSystem):
                 )
                 headers = rest_utils.default_headers(auth_header)
                 status, response = await self._get_ngc(url, headers)
-
-            if status == http.client.OK and response is not None:
-                direct_url = response["urls"][0]
         # No API headers created, so fall back to public access method
         else:
             api_type = "public"
             # Check to see if asset is there on NGC at all
-            url = self._get_ngc_model_url(name, version, org, team, None, False)
+            url = self._get_ngc_model_url(name, version, org, team, filepath, False)
             status, response = await self._get_ngc(url)
-            if status == http.client.OK and response is not None:
-                paths = [
-                    file["path"] for file in response["modelFiles"]
-                ]  # List of all model files
-                if filepath in paths:
-                    direct_url = self._get_ngc_model_url(
-                        name, version, org, team, filepath, False
-                    )
-                else:
-                    status = 404
+
+        # NGC will sent us a specific download URL for the file, extract this
+        if status == http.client.OK and response is not None:
+            if "urls" not in response or len(response["urls"]) == 0:
+                raise http.client.HTTPException(
+                    "NGC did not return a valid download URL in response"
+                )
+            direct_url = response["urls"][0]
 
         #  Do some graceful error catching down here...
         if status == http.client.UNAUTHORIZED:
