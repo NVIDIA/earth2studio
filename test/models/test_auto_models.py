@@ -199,14 +199,14 @@ def test_ngc_filesystem():
         fs._parse_ngc_uri("models/a/b/c@1.0/file")
 
     url = fs._get_ngc_model_url("name", "1.0", authenticated_api=False)
-    assert url == "https://api.ngc.nvidia.com/v2/models/name/versions/1.0/files"
+    assert url == "https://api.ngc.nvidia.com/v2/models/name/1.0/files"
 
     url = fs._get_ngc_model_url(
         "name", "1.0", "org", "team", "file.txt", authenticated_api=False
     )
     assert (
         url
-        == "https://api.ngc.nvidia.com/v2/models/org/team/name/versions/1.0/files?path=file.txt"
+        == "https://api.ngc.nvidia.com/v2/models/org/org/team/team/name/1.0/files?path=file.txt"
     )
 
     url = fs._get_ngc_model_url(
@@ -214,7 +214,7 @@ def test_ngc_filesystem():
     )
     assert (
         url
-        == "https://api.ngc.nvidia.com/v2/models/org/name/versions/1.0/files?path=file.txt"
+        == "https://api.ngc.nvidia.com/v2/models/org/org/name/1.0/files?path=file.txt"
     )
 
     url = fs._get_ngc_model_url("name", "1.0", authenticated_api=True)
