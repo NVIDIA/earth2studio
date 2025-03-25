@@ -47,8 +47,8 @@ class NCAR_ERA5:
 
     Parameters
     ----------
-    n_workers : int, optional
-        Number of parallel workers, by default 8
+    max_workers : int, optional
+        Number of parallel workers, by default 4
     cache : bool, optional
         Cache data source on local memory, by default True
     verbose : bool, optional
@@ -66,10 +66,10 @@ class NCAR_ERA5:
     https://registry.opendata.aws/nsf-ncar-era5/
     """
 
-    def __init__(self, n_workers: int = 8, cache: bool = True, verbose: bool = False):
+    def __init__(self, max_workers: int = 4, cache: bool = True, verbose: bool = False):
         self._cache = cache
         self._verbose = verbose
-        self._n_workers = n_workers
+        self._max_workers = max_workers
 
     def __call__(
         self,
@@ -100,7 +100,7 @@ class NCAR_ERA5:
 
         ctx = multiprocessing.get_context("spawn")  # s3fs requires spawn or forkserver
         fn = partial(self._fetch_dataarray, cache_path=self.cache, cache=self._cache)
-        with ctx.Pool(self._n_workers) as p:
+        with ctx.Pool(self._max_workers) as p:
             for ename, arr in tqdm(
                 p.imap_unordered(fn, tasks),
                 "Step",
