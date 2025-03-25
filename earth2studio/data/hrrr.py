@@ -174,18 +174,14 @@ class _HRRRBase:
 
             # Process completed futures as they finish
             for future in concurrent.futures.as_completed([f[0] for f in futures]):
-                try:
-                    data, coords, indices = future.result()
-                    hrrr_da[*indices] = data
+                data, coords, indices = future.result()
+                hrrr_da[*indices] = data
 
-                    # Add lat/lon coordinates if not present
-                    if "lat" not in hrrr_da.coords:
-                        hrrr_da.coords["lat"] = coords["lat"]
-                        hrrr_da.coords["lon"] = coords["lon"]
-                    pbar.update(1)
-                except Exception as e:  # noqa: PERF203
-                    logger.error(f"Failed to fetch HRRR data: {str(e)}")
-                    raise
+                # Add lat/lon coordinates if not present
+                if "lat" not in hrrr_da.coords:
+                    hrrr_da.coords["lat"] = coords["lat"]
+                    hrrr_da.coords["lon"] = coords["lon"]
+                pbar.update(1)
 
         # Delete cache if needed
         if not self._cache:
@@ -208,7 +204,7 @@ class _HRRRBase:
         H = self.Herbie(
             date=time,
             model="hrrr",
-            product="sfc" if hrrr_class == "sfc" else "prs",
+            product=hrrr_class,
             fxx=int(lead_time.total_seconds() // 3600),
             priority=[self._source],
             verbose=False,
