@@ -532,7 +532,7 @@ document.write(`
 <h1><a class="reference internal" href="../../statistics.html#module-earth2studio.statistics" title="earth2studio.statistics"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code></a>.crps<a class="headerlink" href="#earth2studio-statistics-crps" title="Link to this heading">#</a></h1>
 <dl class="py class">
 <dt class="sig sig-object py" id="earth2studio.statistics.crps">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">earth2studio.statistics.</span></span><span class="sig-name descname"><span class="pre">crps</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ensemble_dimension</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reduction_dimensions</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">weights</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/earth2studio/statistics/crps.html#crps"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.statistics.crps" title="Link to this definition">#</a></dt>
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">earth2studio.statistics.</span></span><span class="sig-name descname"><span class="pre">crps</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ensemble_dimension</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reduction_dimensions</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">weights</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fair</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/earth2studio/statistics/crps.html#crps"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.statistics.crps" title="Link to this definition">#</a></dt>
 <dd><p>Compute the Continuous Ranked Probably Score (CRPS).</p>
 <dl class="simple">
 <dt>Uses this formula</dt><dd><p># int [F(x) - 1(x-y)]^2 dx</p>
@@ -554,6 +554,8 @@ as passed in reduction_dimensions.
 Example: if reduction_dimensions = [‘lat’, ‘lon’] then
 assert weights.ndim == 2.
 By default None.</p></li>
+<li><p><strong>fair</strong> (<em>bool</em><em>, </em><em>optional</em>) – If true, the CRPS is calculated using the fair CRPS formula.
+By default False.</p></li>
 </ul>
 </dd>
 </dl>

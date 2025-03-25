@@ -565,6 +565,14 @@ pip<span class="w"> </span>install<span class="w"> </span>earth2studio<span clas
 </pre></div>
 </div>
 </div>
+<input id="sd-tab-item-5" name="sd-tab-set-0" type="radio">
+<label class="sd-tab-label" for="sd-tab-item-5">
+StormCast</label><div class="sd-tab-content docutils">
+<p>Notes: Additional dependencies for StormCast models.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>earth2studio<span class="o">[</span>stormcast<span class="o">]</span>
+</pre></div>
+</div>
+</div>
 </div>
 <p>Using <code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span> <span class="pre">earth2studio[all]</span></code> will install all optional functionality dependencies.</p>
 </section>
@@ -575,22 +583,22 @@ pip<span class="w"> </span>install<span class="w"> </span>earth2studio<span clas
 a Docker container or a Conda environment.
 Below are some recipes for creating a handful of environments that we recommend for
 setting up Earth2Studio to run all build in models.</p>
-<section id="modulus-docker-container">
-<h2>Modulus Docker Container<a class="headerlink" href="#modulus-docker-container" title="Link to this heading">#</a></h2>
-<p>The recommended environment to run Earth2Studio in is the <a class="reference external" href="https://catalog.ngc.nvidia.com/orgs/nvidia/teams/modulus/containers/modulus">Modulus docker container</a>.
+<section id="physicsnemo-docker-container">
+<h2>PhysicsNeMo Docker Container<a class="headerlink" href="#physicsnemo-docker-container" title="Link to this heading">#</a></h2>
+<p>The recommended environment to run Earth2Studio in is the <a class="reference external" href="https://catalog.ngc.nvidia.com/orgs/nvidia/teams/physicsnemo/containers/physicsnemo">PhysicsNeMo docker container</a>.
 This is the environment the team develops with and is the primary test bed.
 You can install Earth2Studio in a running container directly:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>docker<span class="w"> </span>run<span class="w"> </span>-i<span class="w"> </span>-t<span class="w"> </span>nvcr.io/nvidia/modulus/modulus:24.12
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>docker<span class="w"> </span>run<span class="w"> </span>-i<span class="w"> </span>-t<span class="w"> </span>nvcr.io/nvidia/physicsnemo/physicsnemo:25.03
 
-&gt;&gt;&gt;<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span><span class="s2">&quot;makani[all] @ git+https://github.com/NVIDIA/modulus-makani.git@v0.1.0&quot;</span>
+&gt;&gt;&gt;<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span><span class="s2">&quot;makani[all] @ git+https://github.com/NickGeneva/modulus-makani.git@3da09f9e52a6393839d73d44262779ac7279bc2f&quot;</span>
 
 &gt;&gt;&gt;<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>earth2studio<span class="o">[</span>all<span class="o">]</span>
 </pre></div>
 </div>
 <p>or build your own Earth2Studio container using a Dockerfile:</p>
-<div class="highlight-dockerfile notranslate"><div class="highlight"><pre><span></span><span class="k">FROM</span><span class="w"> </span><span class="s">nvcr.io/nvidia/modulus/modulus</span>
+<div class="highlight-dockerfile notranslate"><div class="highlight"><pre><span></span><span class="k">FROM</span><span class="w"> </span><span class="s">nvcr.io/nvidia/physicsnemo/physicsnemo:25.03</span>
 
-<span class="k">RUN</span><span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span><span class="s2">&quot;makani[all] @ git+https://github.com/NVIDIA/modulus-makani.git@v0.1.0&quot;</span>
+<span class="k">RUN</span><span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span><span class="s2">&quot;makani[all] @ git+https://github.com/NickGeneva/modulus-makani.git@3da09f9e52a6393839d73d44262779ac7279bc2f&quot;</span>
 
 <span class="k">RUN</span><span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>earth2studio<span class="o">[</span>all<span class="o">]</span>
 </pre></div>
@@ -598,13 +606,13 @@ You can install Earth2Studio in a running container directly:</p>
 </section>
 <section id="pytorch-docker-container">
 <h2>PyTorch Docker Container<a class="headerlink" href="#pytorch-docker-container" title="Link to this heading">#</a></h2>
-<p>Modulus docker container is shipped with some packages that are not directly needed by
+<p>PhysicsNeMo docker container is shipped with some packages that are not directly needed by
 Earth2Studio.
 Thus, some may prefer to install from the <a class="reference external" href="https://catalog.ngc.nvidia.com/orgs/nvidia/containers/pytorch">PyTorch container</a>.
 Note that for ONNX models to work we will need a <a class="reference external" href="https://onnxruntime.ai/docs/install/#install-onnx-runtime-ort-1">specific install</a>:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>docker<span class="w"> </span>run<span class="w"> </span>-i<span class="w"> </span>-t<span class="w"> </span>nvcr.io/nvidia/pytorch:24.11-py3
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>docker<span class="w"> </span>run<span class="w"> </span>-i<span class="w"> </span>-t<span class="w"> </span>nvcr.io/nvidia/pytorch:25.02-py3
 
-&gt;&gt;&gt;<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span><span class="s2">&quot;makani[all] @ git+https://github.com/NVIDIA/modulus-makani.git@v0.1.0&quot;</span>
+&gt;&gt;&gt;<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span><span class="s2">&quot;makani[all] @ git+https://github.com/NickGeneva/modulus-makani.git@3da09f9e52a6393839d73d44262779ac7279bc2f&quot;</span>
 
 &gt;&gt;&gt;<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>earth2studio<span class="o">[</span>all<span class="o">]</span>
 </pre></div>
@@ -615,12 +623,12 @@ Note that for ONNX models to work we will need a <a class="reference external" h
 <p>For instances where Docker is not an option, we recommend creating a Conda environment.
 Ensuring the PyTorch is running on your GPU is essential, make sure you are <a class="reference external" href="https://pytorch.org/get-started/locally/">installing</a>
 the correct PyTorch for your hardware and CUDA is accessible.</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>conda<span class="w"> </span>create<span class="w"> </span>-n<span class="w"> </span>earth2studio<span class="w"> </span><span class="nv">python</span><span class="o">=</span><span class="m">3</span>.11
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>conda<span class="w"> </span>create<span class="w"> </span>-n<span class="w"> </span>earth2studio<span class="w"> </span><span class="nv">python</span><span class="o">=</span><span class="m">3</span>.12
 conda<span class="w"> </span>activate<span class="w"> </span>earth2studio
 
-conda<span class="w"> </span>install<span class="w"> </span>pytorch<span class="w"> </span>pytorch-cuda<span class="o">=</span><span class="m">12</span>.1<span class="w"> </span>-c<span class="w"> </span>pytorch<span class="w"> </span>-c<span class="w"> </span>nvidia
+pip<span class="w"> </span>install<span class="w"> </span>torch
 conda<span class="w"> </span>install<span class="w"> </span>eccodes<span class="w"> </span>python-eccodes<span class="w"> </span>-c<span class="w"> </span>conda-forge
-pip<span class="w"> </span>install<span class="w"> </span><span class="s2">&quot;makani[all] @ git+https://github.com/NVIDIA/modulus-makani.git@v0.1.0&quot;</span>
+pip<span class="w"> </span>install<span class="w"> </span><span class="s2">&quot;makani[all] @ git+https://github.com/NickGeneva/modulus-makani.git@3da09f9e52a6393839d73d44262779ac7279bc2f&quot;</span>
 
 pip<span class="w"> </span>install<span class="w"> </span>earth2studio<span class="o">[</span>all<span class="o">]</span>
 </pre></div>
@@ -693,7 +701,7 @@ a model package file from a remote store such as NGC, Huggingface or S3.</p></li
 </ul>
 </li>
 <li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#environments">Environments</a><ul class="visible nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#modulus-docker-container">Modulus Docker Container</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#physicsnemo-docker-container">PhysicsNeMo Docker Container</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#pytorch-docker-container">PyTorch Docker Container</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#conda-environment">Conda Environment</a></li>
 </ul>

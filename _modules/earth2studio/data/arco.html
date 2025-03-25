@@ -422,7 +422,7 @@ document.write(`
                 <article class="bd-article">
                   
   <h1>Source code for earth2studio.data.arco</h1><div class="highlight"><pre>
-<span></span><span class="c1"># SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION &amp; AFFILIATES.</span>
+<span></span><span class="c1"># SPDX-FileCopyrightText: Copyright (c) 2024-2025 NVIDIA CORPORATION &amp; AFFILIATES.</span>
 <span class="c1"># SPDX-FileCopyrightText: All rights reserved.</span>
 <span class="c1"># SPDX-License-Identifier: Apache-2.0</span>
 <span class="c1">#</span>
@@ -452,7 +452,7 @@ document.write(`
 <span class="kn">import</span> <span class="nn">zarr</span>
 <span class="kn">from</span> <span class="nn">fsspec.implementations.cached</span> <span class="kn">import</span> <span class="n">WholeFileCacheFileSystem</span>
 <span class="kn">from</span> <span class="nn">loguru</span> <span class="kn">import</span> <span class="n">logger</span>
-<span class="kn">from</span> <span class="nn">modulus.distributed.manager</span> <span class="kn">import</span> <span class="n">DistributedManager</span>
+<span class="kn">from</span> <span class="nn">physicsnemo.distributed.manager</span> <span class="kn">import</span> <span class="n">DistributedManager</span>
 <span class="kn">from</span> <span class="nn">tqdm</span> <span class="kn">import</span> <span class="n">tqdm</span>
 
 <span class="kn">from</span> <span class="nn">earth2studio.data.utils</span> <span class="kn">import</span> <span class="p">(</span>
@@ -611,7 +611,7 @@ document.write(`
         <span class="p">)</span>
 
         <span class="k">async</span> <span class="k">def</span> <span class="nf">fetch_wrapper</span><span class="p">(</span>
-            <span class="n">e</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">datetime</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="nb">str</span><span class="p">,</span> <span class="nb">int</span><span class="p">]</span>
+            <span class="n">e</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">datetime</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="nb">str</span><span class="p">,</span> <span class="nb">int</span><span class="p">],</span>
         <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
 <span class="w">            </span><span class="sd">&quot;&quot;&quot;Small wrapper that is awaitable for async generator&quot;&quot;&quot;</span>
             <span class="k">return</span> <span class="n">e</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">e</span><span class="p">[</span><span class="mi">3</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">fetch_array</span><span class="p">(</span><span class="n">e</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">e</span><span class="p">[</span><span class="mi">2</span><span class="p">])</span>

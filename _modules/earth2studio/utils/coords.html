@@ -422,7 +422,7 @@ document.write(`
                 <article class="bd-article">
                   
   <h1>Source code for earth2studio.utils.coords</h1><div class="highlight"><pre>
-<span></span><span class="c1"># SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION &amp; AFFILIATES.</span>
+<span></span><span class="c1"># SPDX-FileCopyrightText: Copyright (c) 2024-2025 NVIDIA CORPORATION &amp; AFFILIATES.</span>
 <span class="c1"># SPDX-FileCopyrightText: All rights reserved.</span>
 <span class="c1"># SPDX-License-Identifier: Apache-2.0</span>
 <span class="c1">#</span>
@@ -630,6 +630,12 @@ document.write(`
 <span class="sd">    tuple[torch.Tensor, CoordSystem]</span>
 <span class="sd">        Mapped data and coordinate system.</span>
 
+<span class="sd">    Warning</span>
+<span class="sd">    -------</span>
+<span class="sd">    Use this function with caution. Only certain coordinate transformations are</span>
+<span class="sd">    supported / tested. Consider doing complex transforms manually in the inference</span>
+<span class="sd">    pipeline.</span>
+
 <span class="sd">    Raises</span>
 <span class="sd">    ------</span>
 <span class="sd">    KeyError:</span>
@@ -668,9 +674,17 @@ document.write(`
 <span class="s2">                        prep_data_array to regrid/interpolate first.&quot;</span>
                 <span class="p">)</span>
 
+            <span class="c1"># Roll condition</span>
+            <span class="n">first_element</span> <span class="o">=</span> <span class="n">outc</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">shift_amount</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">inc</span> <span class="o">==</span> <span class="n">first_element</span><span class="p">)[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+            <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">array_equal</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">roll</span><span class="p">(</span><span class="n">inc</span><span class="p">,</span> <span class="n">shift_amount</span><span class="p">),</span> <span class="n">outc</span><span class="p">):</span>
+                <span class="n">x</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">roll</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">shifts</span><span class="o">=</span><span class="n">shift_amount</span><span class="p">,</span> <span class="n">dims</span><span class="o">=</span><span class="n">dim</span><span class="p">)</span>
+                <span class="n">mapped_coords</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">outc</span>
+                <span class="k">continue</span>
+
+            <span class="c1"># Slice condition</span>
             <span class="n">indx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">inc</span> <span class="o">==</span> <span class="n">outc</span><span class="p">[</span><span class="mi">0</span><span class="p">])[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
             <span class="n">inc_slice</span> <span class="o">=</span> <span class="n">inc</span><span class="p">[</span><span class="n">indx</span> <span class="p">:</span> <span class="n">indx</span> <span class="o">+</span> <span class="n">outc</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span>
-            <span class="c1"># Slice condition</span>
             <span class="k">if</span> <span class="n">inc_slice</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="n">outc</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="ow">and</span> <span class="n">np</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="n">inc_slice</span> <span class="o">==</span> <span class="n">outc</span><span class="p">):</span>
                 <span class="n">x_slice</span> <span class="o">=</span> <span class="p">[</span><span class="nb">slice</span><span class="p">(</span><span class="kc">None</span><span class="p">)]</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="n">input_coords</span><span class="p">)</span>
                 <span class="n">x_slice</span><span class="p">[</span><span class="n">dim</span><span class="p">]</span> <span class="o">=</span> <span class="nb">slice</span><span class="p">(</span><span class="n">indx</span><span class="p">,</span> <span class="n">indx</span> <span class="o">+</span> <span class="n">outc</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
@@ -680,12 +694,12 @@ document.write(`
 
             <span class="c1"># Generic fall back</span>
             <span class="k">if</span> <span class="kc">True</span><span class="p">:</span>
-                <span class="c1"># sort inputs and outputs before np.in1d</span>
+                <span class="c1"># sort inputs and outputs before np.isin</span>
                 <span class="n">indx_inc</span> <span class="o">=</span> <span class="n">inc</span><span class="o">.</span><span class="n">argsort</span><span class="p">()</span>
                 <span class="n">indx_outc</span> <span class="o">=</span> <span class="n">outc</span><span class="o">.</span><span class="n">argsort</span><span class="p">()</span>
                 <span class="n">indx_rev_outc</span> <span class="o">=</span> <span class="n">indx_outc</span><span class="o">.</span><span class="n">argsort</span><span class="p">()</span>
                 <span class="n">indx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span>
-                    <span class="n">np</span><span class="o">.</span><span class="n">in1d</span><span class="p">(</span><span class="n">inc</span><span class="p">[</span><span class="n">indx_inc</span><span class="p">],</span> <span class="n">outc</span><span class="p">[</span><span class="n">indx_outc</span><span class="p">],</span> <span class="n">assume_unique</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+                    <span class="n">np</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="n">inc</span><span class="p">[</span><span class="n">indx_inc</span><span class="p">],</span> <span class="n">outc</span><span class="p">[</span><span class="n">indx_outc</span><span class="p">],</span> <span class="n">assume_unique</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
                 <span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
 
                 <span class="c1"># undo sorting</span>

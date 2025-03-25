@@ -422,7 +422,7 @@ document.write(`
                 <article class="bd-article">
                   
   <h1>Source code for earth2studio.models.batch</h1><div class="highlight"><pre>
-<span></span><span class="c1"># SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION &amp; AFFILIATES.</span>
+<span></span><span class="c1"># SPDX-FileCopyrightText: Copyright (c) 2024-2025 NVIDIA CORPORATION &amp; AFFILIATES.</span>
 <span class="c1"># SPDX-FileCopyrightText: All rights reserved.</span>
 <span class="c1"># SPDX-License-Identifier: Apache-2.0</span>
 <span class="c1">#</span>
@@ -587,6 +587,7 @@ document.write(`
 
     <span class="k">def</span> <span class="nf">_batch_wrap</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">func</span><span class="p">:</span> <span class="n">Callable</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Callable</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Standard batch function decorator&quot;&quot;&quot;</span>
+
         <span class="c1"># TODO: Better typing for model object</span>
         <span class="nd">@functools</span><span class="o">.</span><span class="n">wraps</span><span class="p">(</span><span class="n">func</span><span class="p">)</span>
         <span class="k">def</span> <span class="nf">_wrapper</span><span class="p">(</span>
@@ -610,6 +611,7 @@ document.write(`
 
     <span class="k">def</span> <span class="nf">_batch_wrap_generator</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">func</span><span class="p">:</span> <span class="n">Callable</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Callable</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Wrapper generator functions, for each output we need to decompress batches&quot;&quot;&quot;</span>
+
         <span class="c1"># Based on Pytorch: # https://github.com/pytorch/pytorch/pull/68617/files</span>
         <span class="c1"># TODO: Better typing for model object</span>
         <span class="nd">@functools</span><span class="o">.</span><span class="n">wraps</span><span class="p">(</span><span class="n">func</span><span class="p">)</span>
@@ -750,6 +752,7 @@ document.write(`
 
     <span class="k">def</span> <span class="nf">_batch_wrap</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">func</span><span class="p">:</span> <span class="n">Callable</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Callable</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Standard batch function decorator&quot;&quot;&quot;</span>
+
         <span class="c1"># TODO: Better typing for model object</span>
         <span class="nd">@functools</span><span class="o">.</span><span class="n">wraps</span><span class="p">(</span><span class="n">func</span><span class="p">)</span>
         <span class="k">def</span> <span class="nf">_wrapper</span><span class="p">(</span><span class="n">model</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">input_coords</span><span class="p">:</span> <span class="n">CoordSystem</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">CoordSystem</span><span class="p">:</span>

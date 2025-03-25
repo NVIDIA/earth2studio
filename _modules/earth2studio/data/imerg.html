@@ -422,7 +422,7 @@ document.write(`
                 <article class="bd-article">
                   
   <h1>Source code for earth2studio.data.imerg</h1><div class="highlight"><pre>
-<span></span><span class="c1"># SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION &amp; AFFILIATES.</span>
+<span></span><span class="c1"># SPDX-FileCopyrightText: Copyright (c) 2024-2025 NVIDIA CORPORATION &amp; AFFILIATES.</span>
 <span class="c1"># SPDX-FileCopyrightText: All rights reserved.</span>
 <span class="c1"># SPDX-License-Identifier: Apache-2.0</span>
 <span class="c1">#</span>
@@ -450,7 +450,7 @@ document.write(`
 <span class="kn">from</span> <span class="nn">fsspec.implementations.cached</span> <span class="kn">import</span> <span class="n">WholeFileCacheFileSystem</span>
 <span class="kn">from</span> <span class="nn">fsspec.implementations.http</span> <span class="kn">import</span> <span class="n">HTTPFileSystem</span>
 <span class="kn">from</span> <span class="nn">loguru</span> <span class="kn">import</span> <span class="n">logger</span>
-<span class="kn">from</span> <span class="nn">modulus.distributed.manager</span> <span class="kn">import</span> <span class="n">DistributedManager</span>
+<span class="kn">from</span> <span class="nn">physicsnemo.distributed.manager</span> <span class="kn">import</span> <span class="n">DistributedManager</span>
 <span class="kn">from</span> <span class="nn">tqdm</span> <span class="kn">import</span> <span class="n">tqdm</span>
 
 <span class="kn">from</span> <span class="nn">earth2studio.data.utils</span> <span class="kn">import</span> <span class="n">datasource_cache_root</span><span class="p">,</span> <span class="n">prep_data_inputs</span>

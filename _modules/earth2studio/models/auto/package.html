@@ -422,7 +422,7 @@ document.write(`
                 <article class="bd-article">
                   
   <h1>Source code for earth2studio.models.auto.package</h1><div class="highlight"><pre>
-<span></span><span class="c1"># SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION &amp; AFFILIATES.</span>
+<span></span><span class="c1"># SPDX-FileCopyrightText: Copyright (c) 2024-2025 NVIDIA CORPORATION &amp; AFFILIATES.</span>
 <span class="c1"># SPDX-FileCopyrightText: All rights reserved.</span>
 <span class="c1"># SPDX-License-Identifier: Apache-2.0</span>
 <span class="c1">#</span>
@@ -597,7 +597,7 @@ document.write(`
         <span class="k">if</span> <span class="n">fs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">fs</span> <span class="o">=</span> <span class="n">fs</span>
         <span class="k">elif</span> <span class="n">root</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;ngc://models/&quot;</span><span class="p">):</span>
-            <span class="c1"># Taken from Modulus file utils</span>
+            <span class="c1"># Taken from PhysicsNeMo file utils</span>
             <span class="c1"># Strip ngc model url prefix</span>
             <span class="n">suffix</span> <span class="o">=</span> <span class="s2">&quot;ngc://models/&quot;</span>
             <span class="c1"># The regex check</span>
@@ -759,7 +759,7 @@ document.write(`
 <div class="viewcode-block" id="Package.get">
 <a class="viewcode-back" href="../../../../modules/generated/models/earth2studio.models.auto.Package.html#earth2studio.models.auto.Package.get">[docs]</a>
     <span class="k">def</span> <span class="nf">get</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">file_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Modulus / backwards compatibility</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;PhysicsNeMo / backwards compatibility</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>

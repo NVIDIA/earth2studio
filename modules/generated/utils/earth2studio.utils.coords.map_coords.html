@@ -554,12 +554,31 @@ and curvilinear grid. For such use-cases, use <cite>fetch_data</cite> or <cite>p
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>tuple[torch.Tensor, CoordSystem]</p>
 </dd>
-<dt class="field-even">Raises<span class="colon">:</span></dt>
-<dd class="field-even"><ul class="simple">
+</dl>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>Use this function with caution. Only certain coordinate transformations are
+supported / tested. Consider doing complex transforms manually in the inference
+pipeline.</p>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Raises<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
 <li><p><strong>KeyError:</strong> – If output coordinate has a dimension not in the input coordinate</p></li>
 <li><p><strong>ValueError</strong> – If value in non-numeric output coordinate is not in input coordinate
     If asked to interpolate between 2D lat/lon (curvilinear) coordinates</p></li>
 </ul>
+</dd>
+<dt class="field-even">Parameters<span class="colon">:</span></dt>
+<dd class="field-even"><ul class="simple">
+<li><p><strong>x</strong> (<em>Tensor</em>)</p></li>
+<li><p><strong>input_coords</strong> (<em>OrderedDict</em><em>[</em><em>str</em><em>, </em><em>ndarray</em><em>]</em>)</p></li>
+<li><p><strong>output_coords</strong> (<em>OrderedDict</em><em>[</em><em>str</em><em>, </em><em>ndarray</em><em>]</em>)</p></li>
+<li><p><strong>method</strong> (<em>Literal</em><em>[</em><em>'nearest'</em><em>]</em>)</p></li>
+</ul>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>tuple[<em>Tensor</em>, <em>OrderedDict</em>[str, <em>ndarray</em>]]</p>
 </dd>
 </dl>
 </dd></dl>

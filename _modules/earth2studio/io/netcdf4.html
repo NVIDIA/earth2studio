@@ -422,7 +422,7 @@ document.write(`
                 <article class="bd-article">
                   
   <h1>Source code for earth2studio.io.netcdf4</h1><div class="highlight"><pre>
-<span></span><span class="c1"># SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION &amp; AFFILIATES.</span>
+<span></span><span class="c1"># SPDX-FileCopyrightText: Copyright (c) 2024-2025 NVIDIA CORPORATION &amp; AFFILIATES.</span>
 <span class="c1"># SPDX-FileCopyrightText: All rights reserved.</span>
 <span class="c1"># SPDX-License-Identifier: Apache-2.0</span>
 <span class="c1">#</span>
@@ -450,6 +450,15 @@ document.write(`
 <span class="kn">from</span> <span class="nn">earth2studio.utils.coords</span> <span class="kn">import</span> <span class="n">convert_multidim_to_singledim</span>
 <span class="kn">from</span> <span class="nn">earth2studio.utils.time</span> <span class="kn">import</span> <span class="n">timearray_to_datetime</span>
 <span class="kn">from</span> <span class="nn">earth2studio.utils.type</span> <span class="kn">import</span> <span class="n">CoordSystem</span>
+
+<span class="n">units_map</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;h&quot;</span><span class="p">:</span> <span class="s2">&quot;hour&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;D&quot;</span><span class="p">:</span> <span class="s2">&quot;day&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;s&quot;</span><span class="p">:</span> <span class="s2">&quot;second&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;m&quot;</span><span class="p">:</span> <span class="s2">&quot;minute&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;Y&quot;</span><span class="p">:</span> <span class="s2">&quot;year&quot;</span><span class="p">,</span>
+<span class="p">}</span>
+<span class="n">rev_units_map</span> <span class="o">=</span> <span class="p">{</span><span class="n">v</span><span class="p">:</span> <span class="n">k</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">units_map</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
 
 
 <div class="viewcode-block" id="NetCDF4Backend">
@@ -492,7 +501,10 @@ document.write(`
             <span class="k">elif</span> <span class="n">dim</span> <span class="o">==</span> <span class="s2">&quot;lead_time&quot;</span><span class="p">:</span>
                 <span class="n">nums</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">root</span><span class="p">[</span><span class="n">dim</span><span class="p">][:]</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">coords</span><span class="p">[</span><span class="n">dim</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span>
-                    <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">timedelta64</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">root</span><span class="p">[</span><span class="n">dim</span><span class="p">]</span><span class="o">.</span><span class="n">units</span><span class="p">)</span> <span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="n">nums</span><span class="p">]</span>
+                    <span class="p">[</span>
+                        <span class="n">np</span><span class="o">.</span><span class="n">timedelta64</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">rev_units_map</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">root</span><span class="p">[</span><span class="n">dim</span><span class="p">]</span><span class="o">.</span><span class="n">units</span><span class="p">])</span>
+                        <span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="n">nums</span>
+                    <span class="p">]</span>
                 <span class="p">)</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">coords</span><span class="p">[</span><span class="n">dim</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">root</span><span class="p">[</span><span class="n">dim</span><span class="p">][:]</span>
@@ -550,15 +562,16 @@ document.write(`
 
                 <span class="n">var</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">root</span><span class="o">.</span><span class="n">createVariable</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="s2">&quot;f8&quot;</span><span class="p">,</span> <span class="p">(</span><span class="n">name</span><span class="p">,))</span>
                 <span class="n">var</span><span class="o">.</span><span class="n">units</span> <span class="o">=</span> <span class="s2">&quot;hours since 0001-01-01 00:00:00.0&quot;</span>
-                <span class="n">var</span><span class="o">.</span><span class="n">calendar</span> <span class="o">=</span> <span class="s2">&quot;gregorian&quot;</span>
+                <span class="n">var</span><span class="o">.</span><span class="n">calendar</span> <span class="o">=</span> <span class="s2">&quot;proleptic_gregorian&quot;</span>
                 <span class="n">data</span> <span class="o">=</span> <span class="n">timearray_to_datetime</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
                 <span class="n">data</span> <span class="o">=</span> <span class="n">date2num</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">units</span><span class="o">=</span><span class="n">var</span><span class="o">.</span><span class="n">units</span><span class="p">,</span> <span class="n">calendar</span><span class="o">=</span><span class="n">var</span><span class="o">.</span><span class="n">calendar</span><span class="p">)</span>
 
             <span class="k">elif</span> <span class="n">np</span><span class="o">.</span><span class="n">issubdtype</span><span class="p">(</span><span class="n">data</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">timedelta64</span><span class="p">):</span>
                 <span class="n">units</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">datetime_data</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+                <span class="n">out_units</span> <span class="o">=</span> <span class="n">units_map</span><span class="p">[</span><span class="n">units</span><span class="p">]</span>
                 <span class="n">data</span> <span class="o">=</span> <span class="n">data</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">timedelta64</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">units</span><span class="p">)</span>
                 <span class="n">var</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">root</span><span class="o">.</span><span class="n">createVariable</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="s2">&quot;i8&quot;</span><span class="p">,</span> <span class="p">(</span><span class="n">name</span><span class="p">,))</span>
-                <span class="n">var</span><span class="o">.</span><span class="n">units</span> <span class="o">=</span> <span class="n">units</span>
+                <span class="n">var</span><span class="o">.</span><span class="n">units</span> <span class="o">=</span> <span class="n">out_units</span>
                 <span class="n">var</span><span class="o">.</span><span class="n">calendar</span> <span class="o">=</span> <span class="s2">&quot;gregorian&quot;</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="n">var</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">root</span><span class="o">.</span><span class="n">createVariable</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">data</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span> <span class="p">(</span><span class="n">name</span><span class="p">,))</span>

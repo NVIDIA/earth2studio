@@ -422,7 +422,7 @@ document.write(`
                 <article class="bd-article">
                   
   <h1>Source code for earth2studio.statistics.crps</h1><div class="highlight"><pre>
-<span></span><span class="c1"># SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION &amp; AFFILIATES.</span>
+<span></span><span class="c1"># SPDX-FileCopyrightText: Copyright (c) 2024-2025 NVIDIA CORPORATION &amp; AFFILIATES.</span>
 <span class="c1"># SPDX-FileCopyrightText: All rights reserved.</span>
 <span class="c1"># SPDX-License-Identifier: Apache-2.0</span>
 <span class="c1">#</span>
@@ -439,6 +439,7 @@ document.write(`
 <span class="c1"># limitations under the License.</span>
 
 <span class="kn">import</span> <span class="nn">torch</span>
+<span class="kn">from</span> <span class="nn">physicsnemo.metrics.general.crps</span> <span class="kn">import</span> <span class="n">kcrps</span>
 
 <span class="kn">from</span> <span class="nn">earth2studio.statistics.moments</span> <span class="kn">import</span> <span class="n">mean</span>
 <span class="kn">from</span> <span class="nn">earth2studio.utils.coords</span> <span class="kn">import</span> <span class="n">handshake_coords</span><span class="p">,</span> <span class="n">handshake_dim</span>
@@ -475,6 +476,9 @@ document.write(`
 <span class="sd">        Example: if reduction_dimensions = [&#39;lat&#39;, &#39;lon&#39;] then</span>
 <span class="sd">        assert weights.ndim == 2.</span>
 <span class="sd">        By default None.</span>
+<span class="sd">    fair: bool, optional</span>
+<span class="sd">        If true, the CRPS is calculated using the fair CRPS formula.</span>
+<span class="sd">        By default False.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
@@ -482,6 +486,7 @@ document.write(`
         <span class="n">ensemble_dimension</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
         <span class="n">reduction_dimensions</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">weights</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">fair</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
     <span class="p">):</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">ensemble_dimension</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
@@ -492,6 +497,7 @@ document.write(`
         <span class="bp">self</span><span class="o">.</span><span class="n">_reduction_dimensions</span> <span class="o">=</span> <span class="n">reduction_dimensions</span>
         <span class="k">if</span> <span class="n">reduction_dimensions</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">mean</span> <span class="o">=</span> <span class="n">mean</span><span class="p">(</span><span class="n">reduction_dimensions</span><span class="p">,</span> <span class="n">weights</span><span class="o">=</span><span class="n">weights</span><span class="p">,</span> <span class="n">batch_update</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">fair</span> <span class="o">=</span> <span class="n">fair</span>
 
     <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
         <span class="k">return</span> <span class="s2">&quot;_&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">reduction_dimensions</span> <span class="o">+</span> <span class="p">[</span><span class="s2">&quot;crps&quot;</span><span class="p">])</span>
@@ -581,8 +587,10 @@ document.write(`
                 <span class="n">coord_count</span> <span class="o">+=</span> <span class="mi">1</span>
 
         <span class="n">dim</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">x_coords</span><span class="p">)</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ensemble_dimension</span><span class="p">)</span>
-
-        <span class="n">out</span> <span class="o">=</span> <span class="n">_crps_from_empirical_cdf</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="n">dim</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">fair</span><span class="p">:</span>
+            <span class="n">out</span> <span class="o">=</span> <span class="n">kcrps</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="n">dim</span><span class="p">,</span> <span class="n">biased</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">out</span> <span class="o">=</span> <span class="n">_crps_from_empirical_cdf</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="n">dim</span><span class="p">)</span>
         <span class="n">out_coords</span> <span class="o">=</span> <span class="n">y_coords</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
 
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_reduction_dimensions</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
@@ -599,7 +607,7 @@ document.write(`
 
 <span class="sd">    Warning</span>
 <span class="sd">    -------</span>
-<span class="sd">    This method is being upstreamed to https://github.com/NVIDIA/modulus in the next release.</span>
+<span class="sd">    This method is being upstreamed to https://github.com/NVIDIA/physicsnemo in the next release.</span>
 
 <span class="sd">    Compute the exact CRPS using the CDF method</span>
 

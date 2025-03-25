@@ -422,7 +422,7 @@ document.write(`
                 <article class="bd-article">
                   
   <h1>Source code for earth2studio.data.hrrr</h1><div class="highlight"><pre>
-<span></span><span class="c1"># SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION &amp; AFFILIATES.</span>
+<span></span><span class="c1"># SPDX-FileCopyrightText: Copyright (c) 2024-2025 NVIDIA CORPORATION &amp; AFFILIATES.</span>
 <span class="c1"># SPDX-FileCopyrightText: All rights reserved.</span>
 <span class="c1"># SPDX-License-Identifier: Apache-2.0</span>
 <span class="c1">#</span>
@@ -453,7 +453,7 @@ document.write(`
 <span class="kn">import</span> <span class="nn">zarr</span>
 <span class="kn">from</span> <span class="nn">fsspec.implementations.cached</span> <span class="kn">import</span> <span class="n">WholeFileCacheFileSystem</span>
 <span class="kn">from</span> <span class="nn">loguru</span> <span class="kn">import</span> <span class="n">logger</span>
-<span class="kn">from</span> <span class="nn">modulus.distributed.manager</span> <span class="kn">import</span> <span class="n">DistributedManager</span>
+<span class="kn">from</span> <span class="nn">physicsnemo.distributed.manager</span> <span class="kn">import</span> <span class="n">DistributedManager</span>
 <span class="kn">from</span> <span class="nn">tqdm</span> <span class="kn">import</span> <span class="n">tqdm</span>
 
 <span class="kn">from</span> <span class="nn">earth2studio.data.utils</span> <span class="kn">import</span> <span class="p">(</span>
@@ -550,7 +550,7 @@ document.write(`
             <span class="n">total</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">args</span><span class="p">),</span> <span class="n">desc</span><span class="o">=</span><span class="s2">&quot;Fetching HRRR data&quot;</span><span class="p">,</span> <span class="n">disable</span><span class="o">=</span><span class="p">(</span><span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_verbose</span><span class="p">)</span>
         <span class="p">)</span>
 
-        <span class="k">for</span> <span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">ld</span><span class="p">,</span> <span class="n">j</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">k</span><span class="p">)</span> <span class="ow">in</span> <span class="n">args</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">t</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">ld</span><span class="p">,</span> <span class="n">j</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">args</span><span class="p">:</span>
             <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
                 <span class="sa">f</span><span class="s2">&quot;Fetching HRRR data for variable: </span><span class="si">{</span><span class="n">v</span><span class="si">}</span><span class="s2"> at </span><span class="si">{</span><span class="n">t</span><span class="o">.</span><span class="n">isoformat</span><span class="p">()</span><span class="si">}</span><span class="s2"> lead time </span><span class="si">{</span><span class="n">ld</span><span class="si">}</span><span class="s2">&quot;</span>
             <span class="p">)</span>

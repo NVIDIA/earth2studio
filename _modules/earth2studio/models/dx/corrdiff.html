@@ -422,7 +422,7 @@ document.write(`
                 <article class="bd-article">
                   
   <h1>Source code for earth2studio.models.dx.corrdiff</h1><div class="highlight"><pre>
-<span></span><span class="c1"># SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION &amp; AFFILIATES.</span>
+<span></span><span class="c1"># SPDX-FileCopyrightText: Copyright (c) 2024-2025 NVIDIA CORPORATION &amp; AFFILIATES.</span>
 <span class="c1"># SPDX-FileCopyrightText: All rights reserved.</span>
 <span class="c1"># SPDX-License-Identifier: Apache-2.0</span>
 <span class="c1">#</span>
@@ -447,13 +447,18 @@ document.write(`
 <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 <span class="kn">import</span> <span class="nn">torch</span>
 <span class="kn">import</span> <span class="nn">zarr</span>
-<span class="kn">from</span> <span class="nn">modulus.models</span> <span class="kn">import</span> <span class="n">Module</span>
-<span class="kn">from</span> <span class="nn">modulus.utils.generative</span> <span class="kn">import</span> <span class="n">StackedRandomGenerator</span>
+<span class="kn">from</span> <span class="nn">physicsnemo.models</span> <span class="kn">import</span> <span class="n">Module</span>
 
-<span class="k">try</span><span class="p">:</span>  <span class="c1"># Modulus version &lt; 0.8.0</span>
-    <span class="kn">from</span> <span class="nn">modulus.utils.generative</span> <span class="kn">import</span> <span class="n">ablation_sampler</span>
+<span class="k">try</span><span class="p">:</span>
+    <span class="kn">from</span> <span class="nn">physicsnemo.utils.generative</span> <span class="kn">import</span> <span class="p">(</span>
+        <span class="n">StackedRandomGenerator</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="kn">from</span> <span class="nn">physicsnemo.utils.generative</span> <span class="kn">import</span> <span class="p">(</span>
+        <span class="n">deterministic_sampler</span> <span class="k">as</span> <span class="n">ablation_sampler</span><span class="p">,</span>
+    <span class="p">)</span>
 <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
-    <span class="kn">from</span> <span class="nn">modulus.utils.generative</span> <span class="kn">import</span> <span class="n">deterministic_sampler</span> <span class="k">as</span> <span class="n">ablation_sampler</span>
+    <span class="n">StackedRandomGenerator</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">ablation_sampler</span> <span class="o">=</span> <span class="kc">None</span>
 
 <span class="kn">from</span> <span class="nn">earth2studio.models.auto</span> <span class="kn">import</span> <span class="n">AutoModelMixin</span><span class="p">,</span> <span class="n">Package</span>
 <span class="kn">from</span> <span class="nn">earth2studio.models.batch</span> <span class="kn">import</span> <span class="n">batch_coords</span><span class="p">,</span> <span class="n">batch_func</span>
@@ -634,6 +639,12 @@ document.write(`
     <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">load_model</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">package</span><span class="p">:</span> <span class="n">Package</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">DiagnosticModel</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Load diagnostic from package&quot;&quot;&quot;</span>
+
+        <span class="k">if</span> <span class="n">StackedRandomGenerator</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">ablation_sampler</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ImportError</span><span class="p">(</span>
+                <span class="s2">&quot;Additional CorrDiff model dependencies are not installed. See install documentation for details.&quot;</span>
+            <span class="p">)</span>
+
         <span class="n">checkpoint_zip</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">package</span><span class="o">.</span><span class="n">resolve</span><span class="p">(</span><span class="s2">&quot;corrdiff_inference_package.zip&quot;</span><span class="p">))</span>
         <span class="c1"># Have to manually unzip here. Should not zip checkpoints in the future</span>
         <span class="k">with</span> <span class="n">zipfile</span><span class="o">.</span><span class="n">ZipFile</span><span class="p">(</span><span class="n">checkpoint_zip</span><span class="p">,</span> <span class="s2">&quot;r&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">zip_ref</span><span class="p">:</span>

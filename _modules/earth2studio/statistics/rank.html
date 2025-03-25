@@ -422,7 +422,7 @@ document.write(`
                 <article class="bd-article">
                   
   <h1>Source code for earth2studio.statistics.rank</h1><div class="highlight"><pre>
-<span></span><span class="c1"># SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION &amp; AFFILIATES.</span>
+<span></span><span class="c1"># SPDX-FileCopyrightText: Copyright (c) 2024-2025 NVIDIA CORPORATION &amp; AFFILIATES.</span>
 <span class="c1"># SPDX-FileCopyrightText: All rights reserved.</span>
 <span class="c1"># SPDX-License-Identifier: Apache-2.0</span>
 <span class="c1">#</span>
@@ -442,7 +442,7 @@ document.write(`
 
 <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 <span class="kn">import</span> <span class="nn">torch</span>
-<span class="kn">from</span> <span class="nn">modulus.metrics.general.histogram</span> <span class="kn">import</span> <span class="n">_count_bins</span><span class="p">,</span> <span class="n">linspace</span>
+<span class="kn">from</span> <span class="nn">physicsnemo.metrics.general.histogram</span> <span class="kn">import</span> <span class="n">_count_bins</span><span class="p">,</span> <span class="n">linspace</span>
 
 <span class="kn">from</span> <span class="nn">earth2studio.utils.coords</span> <span class="kn">import</span> <span class="n">handshake_coords</span><span class="p">,</span> <span class="n">handshake_dim</span>
 <span class="kn">from</span> <span class="nn">earth2studio.utils.type</span> <span class="kn">import</span> <span class="n">CoordSystem</span>
@@ -453,7 +453,6 @@ document.write(`
 <span class="k">class</span> <span class="nc">rank_histogram</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Compute the Rank Histogram for a given set of ensemble forecasts.</span>
-
 
 
 <span class="sd">    This statistic reduces over a single dimension, where the presumed ensemble dimension</span>
@@ -579,9 +578,14 @@ document.write(`
                 <span class="n">handshake_coords</span><span class="p">(</span><span class="n">y_coords</span><span class="p">,</span> <span class="n">x_coords</span><span class="p">,</span> <span class="n">c</span><span class="p">)</span>
                 <span class="n">coord_count</span> <span class="o">+=</span> <span class="mi">1</span>
 
+        <span class="c1"># Get the dimension index of the ensemble dimension</span>
         <span class="n">dim</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">x_coords</span><span class="p">)</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ensemble_dimension</span><span class="p">)</span>
 
-        <span class="n">_ranks</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="mf">1.0</span> <span class="o">*</span> <span class="n">torch</span><span class="o">.</span><span class="n">ge</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="n">x</span><span class="p">),</span> <span class="n">dim</span><span class="o">=</span><span class="n">dim</span><span class="p">)</span>
+        <span class="c1"># Move the ensemble dimension to the first dimension</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">movedim</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">dim</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+
+        <span class="c1"># Compute the ranks over the ensemble dimension</span>
+        <span class="n">_ranks</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="mf">1.0</span> <span class="o">*</span> <span class="n">torch</span><span class="o">.</span><span class="n">ge</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="n">x</span><span class="p">),</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
 
         <span class="c1"># Reshape ranks using reduction dimensions</span>
         <span class="n">dims</span> <span class="o">=</span> <span class="p">[</span><span class="nb">list</span><span class="p">(</span><span class="n">y_coords</span><span class="p">)</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">rd</span><span class="p">)</span> <span class="k">for</span> <span class="n">rd</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_reduction_dimensions</span><span class="p">]</span>
