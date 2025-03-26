@@ -18,6 +18,7 @@ import os
 import pathlib
 import shutil
 from datetime import datetime
+from importlib.metadata import version
 from typing import Literal
 
 import fsspec
@@ -64,8 +65,25 @@ class _WB2Base:
             }
             fs = WholeFileCacheFileSystem(fs=fs, **cache_options)
 
-        fs_map = fsspec.FSMap(f"weatherbench2/datasets/era5/{wb2_zarr_store}", fs)
-        self.zarr_group = zarr.open(fs_map, mode="r")
+        # Check Zarr version and use appropriate method
+        try:
+            zarr_version = version("zarr")
+            zarr_major_version = int(zarr_version.split(".")[0])
+        except Exception:
+            # Fallback to older method if version check fails
+            zarr_major_version = 2  # Assume older version if we can't determine
+
+        if zarr_major_version >= 3:
+            # Zarr 3.0+ method
+            zstore = zarr.storage.FsspecStore(
+                fs,
+                path=f"/weatherbench2/datasets/era5/{wb2_zarr_store}",
+            )
+            self.zarr_group = zarr.open(zstore, mode="r")
+        else:
+            # Legacy method for Zarr < 3.0
+            fs_map = fsspec.FSMap(f"weatherbench2/datasets/era5/{wb2_zarr_store}", fs)
+            self.zarr_group = zarr.open(fs_map, mode="r")
 
     def __call__(
         self,

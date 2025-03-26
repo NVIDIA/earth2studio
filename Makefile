@@ -56,7 +56,7 @@ docs:
 
 .PHONY: docs-full
 docs-full:
-	pip install .[docs]
+	pip install .[docs,all]
 	rm -rf docs/examples
 	rm -rf docs/modules/generated
 	rm -rf docs/modules/backreferences

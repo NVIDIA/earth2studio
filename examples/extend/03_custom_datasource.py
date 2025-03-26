@@ -300,7 +300,7 @@ ax[1, 1].imshow(io[variable][0, 3], vmin=0, vmax=80, cmap="magma")
 
 # Set title
 plt.suptitle(f"{variable} - {forecast}")
-times = io["lead_time"].astype("timedelta64[h]").astype(int)
+times = io["lead_time"].astype("timedelta64[ns]").astype("timedelta64[h]").astype(int)
 ax[0, 0].set_title(f"Lead time: {times[0]}hrs")
 ax[0, 1].set_title(f"Lead time: {times[1]}hrs")
 ax[1, 0].set_title(f"Lead time: {times[2]}hrs")

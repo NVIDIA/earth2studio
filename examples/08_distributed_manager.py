@@ -183,7 +183,7 @@ if dist.rank == 0:
     ncols = 3
     fig, ax = plt.subplots(2, ncols, figsize=(12, 6))
 
-    time = timearray_to_datetime(ds.coords["time"].values)
+    time = timearray_to_datetime(ds.coords["time"].values.astype("datetime64[ns]"))
     for i in range(6):
         ax[i // ncols, i % ncols].imshow(
             ds["tcwv"].isel(time=i, lead_time=-1).values,
@@ -193,6 +193,6 @@ if dist.rank == 0:
         )
         ax[i // ncols, i % ncols].set_title(time[i].strftime("%m/%d/%Y"))
     plt.suptitle(
-        f'TCWV Forecast Lead Time - {ds.coords["lead_time"].values[-1].astype("timedelta64[D]").astype(int)} days'
+        f'TCWV Forecast Lead Time - {ds.coords["lead_time"].values[-1].astype("timedelta64[ns]").astype("timedelta64[D]").astype(int)} days'
     )
     plt.savefig("outputs/08_tcwv_distributed_manager.jpg")
