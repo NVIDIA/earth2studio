@@ -18,6 +18,7 @@ import concurrent.futures
 import os
 import pathlib
 import shutil
+import warnings
 from collections.abc import Callable
 from datetime import datetime, timedelta
 
@@ -77,6 +78,8 @@ class _HRRRBase:
         try:
             from herbie import Herbie
 
+            # Silence cfgrib warning
+            warnings.simplefilter(action="ignore", category=FutureWarning)
             self.Herbie = Herbie
         except ImportError:
             raise ImportError(
