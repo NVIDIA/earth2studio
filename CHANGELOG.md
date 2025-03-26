@@ -40,6 +40,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed bug in rank_histogram that assumed broadcastable ensemble dimension
 - Fixed spread/skill ratio to actually return spread/skill instead of skill/spread
 - Fixed NGC download APIs and public API fetching for model files
+- Fixed bug when using HRRR datasource in Jupyter notebooks
 
 ### Security
 

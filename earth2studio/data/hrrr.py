@@ -14,19 +14,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import asyncio
-import hashlib
+import concurrent.futures
 import os
 import pathlib
-import re
 import shutil
+from collections.abc import Callable
 from datetime import datetime, timedelta
 
-import fsspec
 import numpy as np
 import s3fs
 import xarray as xr
-import zarr
 from fsspec.implementations.cached import WholeFileCacheFileSystem
 from loguru import logger
 from physicsnemo.distributed.manager import DistributedManager
@@ -55,9 +52,13 @@ class _HRRRBase:
         self,
         cache: bool = True,
         verbose: bool = True,
+        source: str = "aws",
+        max_workers: int = 1,
     ):
         self._cache = cache
         self._verbose = verbose
+        self._source = source
+        self._max_workers = max_workers
 
         self.fs = s3fs.S3FileSystem(
             anon=True,
@@ -72,13 +73,23 @@ class _HRRRBase:
         }
         self.fsc = WholeFileCacheFileSystem(fs=self.fs, **cache_options)
 
-    async def async_fetch(
+        # Initialize Herbie client
+        try:
+            from herbie import Herbie
+
+            self.Herbie = Herbie
+        except ImportError:
+            raise ImportError(
+                "Some data dependencies are missing (Herbie). Please install them using 'pip install earth2studio[data]'"
+            )
+
+    def fetch(
         self,
         time: list[datetime],
         lead_time: list[timedelta],
         variable: list[str],
     ) -> xr.DataArray:
-        """Async function to retrieve HRRR forecast data into a single Xarray data array
+        """Function to retrieve HRRR forecast data into a single Xarray data array
 
         Parameters
         ----------
@@ -119,100 +130,103 @@ class _HRRRBase:
         args = [
             (t, i, ld, j, v, k)
             for k, v in enumerate(variable)
-            for j, ld in enumerate(lead_time)  # noqa
+            for j, ld in enumerate(lead_time)
             for i, t in enumerate(time)
         ]
         pbar = tqdm(
             total=len(args), desc="Fetching HRRR data", disable=(not self._verbose)
         )
 
-        for t, i, ld, j, v, k in args:
-            logger.debug(
-                f"Fetching HRRR data for variable: {v} at {t.isoformat()} lead time {ld}"
-            )
-            try:
-                # Set lexicon based on lead
-                lexicon: type[HRRRLexicon] | type[HRRRFXLexicon] = HRRRLexicon
-                if ld.total_seconds() != 0:
-                    lexicon = HRRRFXLexicon
-                hrrr_str, modifier = lexicon[v]
-                hrrr_class, hrrr_product, hrrr_level, hrrr_var = hrrr_str.split("::")
-                hrrr_regex = lexicon.index_regex(v, t, ld)
-            except KeyError as e:
-                logger.error(f"variable id {v} not found in HRRR lexicon")
-                raise e
+        # Use ThreadPoolExecutor to parallelize Herbie calls
+        with concurrent.futures.ThreadPoolExecutor(
+            max_workers=self._max_workers
+        ) as executor:
+            futures = []
 
-            date_group = t.strftime("%Y%m%d")
-            forcast_hour = t.strftime("%H")
-            lead_index = int(ld.total_seconds() // 3600)
-            s3_grib_uri = f"{self.HRRR_BUCKET_NAME}/hrrr.{date_group}/conus/hrrr.t{forcast_hour}z.wrf{hrrr_class}f{lead_index:02}.grib2"
+            for t, i, ld, j, v, k in args:
+                try:
+                    # Set lexicon based on lead
+                    lexicon: type[HRRRLexicon] | type[HRRRFXLexicon] = HRRRLexicon
+                    if ld.total_seconds() != 0:
+                        lexicon = HRRRFXLexicon
+                    hrrr_str, modifier = lexicon[v]
+                    hrrr_class, hrrr_product, hrrr_level, hrrr_var = hrrr_str.split(
+                        "::"
+                    )
+                except KeyError as e:
+                    logger.error(f"variable id {v} not found in HRRR lexicon")
+                    raise e
 
-            # Download the grib index file and parse
-            with self.fsc.open(f"{s3_grib_uri}.idx") as file:
-                index_lines = [line.decode("utf-8").rstrip() for line in file]
-            # Add dummy variable at end of file with max offset
-            index_lines.append(
-                f"xx:{self.fsc.size(s3_grib_uri)}:d=xx:NULL:NULL:NULL:NULL"
-            )
-
-            byte_offset = None
-            byte_length = None
-            for line_index, line in enumerate(index_lines[:-1]):
-                lsplit = line.split(":")
-                if len(lsplit) < 7:
-                    continue
-                # If match get in byte offset and length
-                if bool(re.search(hrrr_regex, line)):
-                    nlsplit = index_lines[line_index + 1].split(":")
-                    byte_length = int(nlsplit[1]) - int(lsplit[1])
-                    byte_offset = int(lsplit[1])
-                    key = f"{lsplit[3]}::{lsplit[4]}"
-                    if byte_length > self.MAX_BYTE_SIZE:
-                        raise ValueError(
-                            f"Byte length, {byte_length}, of variable {key} larger than safe threshold of {self.MAX_BYTE_SIZE}"
-                        )
-            # If byte offset is not raise error
-            if byte_offset is None or byte_length is None:
-                raise KeyError(
-                    f"Could not find variable {hrrr_var} level {hrrr_level} in index file"
+                # Submit the Herbie task to the thread pool
+                future = executor.submit(
+                    self._fetch_herbie_data,
+                    t,
+                    ld,
+                    hrrr_class,
+                    hrrr_level,
+                    hrrr_var,
+                    modifier,
+                    (i, j, k),
                 )
-            # Read grib block into cache location
-            sha = hashlib.sha256(
-                (s3_grib_uri + str(byte_offset) + str(byte_length)).encode()
-            )
-            filename = sha.hexdigest()
-            cache_path = os.path.join(self.cache, filename)
-            if not pathlib.Path(cache_path).is_file():
-                grib_buffer = self.fs.read_block(
-                    s3_grib_uri, offset=byte_offset, length=byte_length
-                )
-                with open(cache_path, "wb") as file:
-                    file.write(grib_buffer)
+                futures.append((future, i, j, k))
 
-            da = xr.open_dataarray(
-                cache_path,
-                engine="cfgrib",
-                backend_kwargs={"indexpath": ""},
-            )
-            hrrr_da[i, j, k] = modifier(da.values)
-            # Add lat lon coords if not present
-            if "lat" not in hrrr_da.coords:
-                hrrr_da.coords["lat"] = (
-                    ["hrrr_y", "hrrr_x"],
-                    da.coords["latitude"].values,
-                )
-                hrrr_da.coords["lon"] = (
-                    ["hrrr_y", "hrrr_x"],
-                    da.coords["longitude"].values,
-                )
+            # Process completed futures as they finish
+            for future in concurrent.futures.as_completed([f[0] for f in futures]):
+                data, coords, indices = future.result()
+                hrrr_da[*indices] = data
 
-            pbar.update(1)
+                # Add lat/lon coordinates if not present
+                if "lat" not in hrrr_da.coords:
+                    hrrr_da.coords["lat"] = coords["lat"]
+                    hrrr_da.coords["lon"] = coords["lon"]
+                pbar.update(1)
 
         # Delete cache if needed
         if not self._cache:
             shutil.rmtree(self.cache)
 
         return hrrr_da
+
+    def _fetch_herbie_data(
+        self,
+        time: datetime,
+        lead_time: timedelta,
+        hrrr_class: str,
+        hrrr_level: str,
+        hrrr_var: str,
+        modifier: Callable,
+        indices: tuple[int, int, int],
+    ) -> tuple[np.ndarray, dict, tuple[int, int, int]]:
+        """Helper method to fetch data using Herbie"""
+        # Create Herbie object for this timestamp and forecast
+        H = self.Herbie(
+            date=time,
+            model="hrrr",
+            product=hrrr_class,
+            fxx=int(lead_time.total_seconds() // 3600),
+            priority=[self._source],
+            verbose=False,
+            save_dir=self.cache,
+        )
+
+        # Construct search string for the variable
+        if hrrr_level == "surface":
+            search_term = f"{hrrr_var}:surface"
+        else:
+            search_term = f"{hrrr_var}:{hrrr_level}"
+
+        # Read the data using Herbie
+        # Keep grib files cached
+        data = H.xarray(search_term, remove_grib=False)
+        data = list(data.values())[0]
+
+        # Return both the modified data and the coordinates
+        coords = {
+            "lat": (["hrrr_y", "hrrr_x"], data.coords["latitude"].values),
+            "lon": (["hrrr_y", "hrrr_x"], data.coords["longitude"].values),
+        }
+
+        return modifier(data.values), coords, indices
 
     @classmethod
     def _validate_time(cls, times: list[datetime]) -> None:
@@ -285,130 +299,131 @@ class _HRRRBase:
         return fs.exists(s3_uri)
 
 
-class _HRRRZarrBase(_HRRRBase):
-    # Not used but keeping here for now for future reference
-    HRRR_BUCKET_NAME = "hrrrzarr"
-    HRRR_X = np.arange(1799)
-    HRRR_Y = np.arange(1059)
+# Leaving in here to dream, no natural levels in this data source
+# class _HRRRZarrBase(_HRRRBase):
+#     # Not used but keeping here for now for future reference
+#     HRRR_BUCKET_NAME = "hrrrzarr"
+#     HRRR_X = np.arange(1799)
+#     HRRR_Y = np.arange(1059)
 
-    def __init__(
-        self,
-        lexicon: HRRRLexicon | HRRRFXLexicon,
-        cache: bool = True,
-        verbose: bool = True,
-    ):
-        self._cache = cache
-        self._lexicon = lexicon
-        self._verbose = verbose
+#     def __init__(
+#         self,
+#         lexicon: HRRRLexicon | HRRRFXLexicon,
+#         cache: bool = True,
+#         verbose: bool = True,
+#     ):
+#         self._cache = cache
+#         self._lexicon = lexicon
+#         self._verbose = verbose
 
-        fs = s3fs.S3FileSystem(
-            anon=True,
-            default_block_size=2**20,
-            client_kwargs={},
-        )
+#         fs = s3fs.S3FileSystem(
+#             anon=True,
+#             default_block_size=2**20,
+#             client_kwargs={},
+#         )
 
-        if self._cache:
-            cache_options = {
-                "cache_storage": self.cache,
-                "expiry_time": 31622400,  # 1 year
-            }
-            fs = WholeFileCacheFileSystem(fs=fs, **cache_options)
+#         if self._cache:
+#             cache_options = {
+#                 "cache_storage": self.cache,
+#                 "expiry_time": 31622400,  # 1 year
+#             }
+#             fs = WholeFileCacheFileSystem(fs=fs, **cache_options)
 
-        fs_map = fsspec.FSMap(f"s3://{self.HRRR_BUCKET_NAME}", fs)
-        self.zarr_group = zarr.open(fs_map, mode="r")
+#         fs_map = fsspec.FSMap(f"s3://{self.HRRR_BUCKET_NAME}", fs)
+#         self.zarr_group = zarr.open(fs_map, mode="r")
 
-    async def async_fetch(
-        self,
-        time: list[datetime],
-        lead_time: list[timedelta],
-        variable: list[str],
-    ) -> xr.DataArray:
-        """Async function to retrieve HRRR forecast data into a single Xarray data array
+#     async def async_fetch(
+#         self,
+#         time: list[datetime],
+#         lead_time: list[timedelta],
+#         variable: list[str],
+#     ) -> xr.DataArray:
+#         """Async function to retrieve HRRR forecast data into a single Xarray data array
 
-        Parameters
-        ----------
-        time : list[datetime]
-            Timestamps to return data for (UTC).
-        lead_time: list[timedelta]
-            List of forecast lead times to fetch
-        variable : str | list[str] | VariableArray
-            String, list of strings or array of strings that refer to variables to
-            return. Must be in the HRRR lexicon.
+#         Parameters
+#         ----------
+#         time : list[datetime]
+#             Timestamps to return data for (UTC).
+#         lead_time: list[timedelta]
+#             List of forecast lead times to fetch
+#         variable : str | list[str] | VariableArray
+#             String, list of strings or array of strings that refer to variables to
+#             return. Must be in the HRRR lexicon.
 
-        Returns
-        -------
-        xr.DataArray
-            HRRR weather data array
-        """
+#         Returns
+#         -------
+#         xr.DataArray
+#             HRRR weather data array
+#         """
 
-        hrrr_da = xr.DataArray(
-            data=np.empty(
-                (
-                    len(time),
-                    len(lead_time),
-                    len(variable),
-                    len(self.HRRR_Y),
-                    len(self.HRRR_X),
-                )
-            ),
-            dims=["time", "lead_time", "variable", "hrrr_y", "hrrr_x"],
-            coords={
-                "time": time,
-                "lead_time": lead_time,
-                "variable": variable,
-                "hrrr_x": self.HRRR_X,
-                "hrrr_y": self.HRRR_Y,
-                "lat": (
-                    ["hrrr_y", "hrrr_x"],
-                    self.zarr_group["grid"]["HRRR_chunk_index.zarr"]["latitude"][:],
-                ),
-                "lon": (
-                    ["hrrr_y", "hrrr_x"],
-                    self.zarr_group["grid"]["HRRR_chunk_index.zarr"]["longitude"][:]
-                    + 360,
-                ),  # Change to [0,360]
-            },
-        )
-        # Banking on async calls in zarr 3.0
-        for i, t in enumerate(time):
-            for j, ld in enumerate(lead_time):
-                # Set lexicon based on lead
-                lexicon: type[HRRRLexicon] | type[HRRRFXLexicon] = HRRRLexicon
-                if ld.total_seconds() != 0:
-                    lexicon = HRRRFXLexicon
-                for k, v in enumerate(variable):
-                    try:
-                        hrrr_str, modifier = lexicon[v]
-                        hrrr_class, hrrr_product, hrrr_level, hrrr_var = hrrr_str.split(
-                            "::"
-                        )
-                    except KeyError as e:
-                        logger.error(f"variable id {v} not found in HRRR lexicon")
-                        raise e
+#         hrrr_da = xr.DataArray(
+#             data=np.empty(
+#                 (
+#                     len(time),
+#                     len(lead_time),
+#                     len(variable),
+#                     len(self.HRRR_Y),
+#                     len(self.HRRR_X),
+#                 )
+#             ),
+#             dims=["time", "lead_time", "variable", "hrrr_y", "hrrr_x"],
+#             coords={
+#                 "time": time,
+#                 "lead_time": lead_time,
+#                 "variable": variable,
+#                 "hrrr_x": self.HRRR_X,
+#                 "hrrr_y": self.HRRR_Y,
+#                 "lat": (
+#                     ["hrrr_y", "hrrr_x"],
+#                     self.zarr_group["grid"]["HRRR_chunk_index.zarr"]["latitude"][:],
+#                 ),
+#                 "lon": (
+#                     ["hrrr_y", "hrrr_x"],
+#                     self.zarr_group["grid"]["HRRR_chunk_index.zarr"]["longitude"][:]
+#                     + 360,
+#                 ),  # Change to [0,360]
+#             },
+#         )
+#         # Banking on async calls in zarr 3.0
+#         for i, t in enumerate(time):
+#             for j, ld in enumerate(lead_time):
+#                 # Set lexicon based on lead
+#                 lexicon: type[HRRRLexicon] | type[HRRRFXLexicon] = HRRRLexicon
+#                 if ld.total_seconds() != 0:
+#                     lexicon = HRRRFXLexicon
+#                 for k, v in enumerate(variable):
+#                     try:
+#                         hrrr_str, modifier = lexicon[v]
+#                         hrrr_class, hrrr_product, hrrr_level, hrrr_var = hrrr_str.split(
+#                             "::"
+#                         )
+#                     except KeyError as e:
+#                         logger.error(f"variable id {v} not found in HRRR lexicon")
+#                         raise e
 
-                    date_group = t.strftime("%Y%m%d")
-                    time_group = t.strftime(f"%Y%m%d_%Hz_{hrrr_product}.zarr")
+#                     date_group = t.strftime("%Y%m%d")
+#                     time_group = t.strftime(f"%Y%m%d_%Hz_{hrrr_product}.zarr")
 
-                    logger.debug(
-                        f"Fetching HRRR {hrrr_product} variable {v} at {t.isoformat()}"
-                    )
+#                     logger.debug(
+#                         f"Fetching HRRR {hrrr_product} variable {v} at {t.isoformat()}"
+#                     )
 
-                    data = self.zarr_group[hrrr_class][date_group][time_group][
-                        hrrr_level
-                    ][hrrr_var][hrrr_level][hrrr_var]
-                    if hrrr_product == "fcst":
-                        # Minus 1 here because index 0 is forecast with leadtime 1hr
-                        # forecast_period coordinate system tells what the lead times are in hours
-                        lead_index = int(ld.total_seconds() // 3600) - 1
-                        data = data[lead_index]
+#                     data = self.zarr_group[hrrr_class][date_group][time_group][
+#                         hrrr_level
+#                     ][hrrr_var][hrrr_level][hrrr_var]
+#                     if hrrr_product == "fcst":
+#                         # Minus 1 here because index 0 is forecast with leadtime 1hr
+#                         # forecast_period coordinate system tells what the lead times are in hours
+#                         lead_index = int(ld.total_seconds() // 3600) - 1
+#                         data = data[lead_index]
 
-                    hrrr_da[i, j, k] = modifier(data)
+#                     hrrr_da[i, j, k] = modifier(data)
 
-        # Delete cache if needed
-        if not self._cache:
-            shutil.rmtree(self.cache)
+#         # Delete cache if needed
+#         if not self._cache:
+#             shutil.rmtree(self.cache)
 
-        return hrrr_da
+#         return hrrr_da
 
 
 class HRRR(_HRRRBase):
@@ -420,6 +435,10 @@ class HRRR(_HRRRBase):
 
     Parameters
     ----------
+    source : str, optional
+        Data source to use ('aws', 'google', 'azure', 'nomads'), by default 'aws'
+    max_workers : int, optional
+        Maximum number of concurrent downloads, by default 4
     cache : bool, optional
         Cache data source on local memory, by default True
     verbose : bool, optional
@@ -440,8 +459,14 @@ class HRRR(_HRRRBase):
     - https://console.cloud.google.com/marketplace/product/noaa-public/hrrr
     """
 
-    def __init__(self, cache: bool = True, verbose: bool = True):
-        super().__init__(cache, verbose)
+    def __init__(
+        self,
+        source: str = "aws",
+        max_workers: int = 4,
+        cache: bool = True,
+        verbose: bool = True,
+    ):
+        super().__init__(cache, verbose, source, max_workers)
 
     def __call__(
         self,
@@ -471,10 +496,7 @@ class HRRR(_HRRRBase):
 
         # Make sure input time is valid
         self._validate_time(time)
-
-        data_array = asyncio.get_event_loop().run_until_complete(
-            self.async_fetch(time, [timedelta(hours=0)], variable)
-        )
+        data_array = self.fetch(time, [timedelta(hours=0)], variable)
         return data_array.isel(lead_time=0).drop_vars("lead_time")
 
 
@@ -487,6 +509,10 @@ class HRRR_FX(_HRRRBase):
 
     Parameters
     ----------
+    source : str, optional
+        Data source to use ('aws', 'google', 'azure', 'nomads'), by default 'aws'
+    max_workers : int, optional
+        Maximum number of concurrent downloads, by default 4
     cache : bool, optional
         Cache data source on local memory, by default True
     verbose : bool, optional
@@ -511,8 +537,14 @@ class HRRR_FX(_HRRRBase):
     - https://console.cloud.google.com/marketplace/product/noaa-public/hrrr
     """
 
-    def __init__(self, cache: bool = True, verbose: bool = True):
-        super().__init__(cache, verbose)
+    def __init__(
+        self,
+        source: str = "aws",
+        max_workers: int = 4,
+        cache: bool = True,
+        verbose: bool = True,
+    ):
+        super().__init__(cache, verbose, source, max_workers)
 
     def __call__(
         self,
@@ -545,10 +577,7 @@ class HRRR_FX(_HRRRBase):
         # Make sure input time is valid
         self._validate_time(time)
         self._validate_leadtime(lead_time)
-
-        return asyncio.get_event_loop().run_until_complete(
-            self.async_fetch(time, lead_time, variable)
-        )
+        return self.fetch(time, lead_time, variable)
 
     @classmethod
     def _validate_leadtime(cls, lead_times: list[timedelta]) -> None:
