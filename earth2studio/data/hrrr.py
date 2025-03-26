@@ -21,11 +21,9 @@ import shutil
 from collections.abc import Callable
 from datetime import datetime, timedelta
 
-import fsspec
 import numpy as np
 import s3fs
 import xarray as xr
-import zarr
 from fsspec.implementations.cached import WholeFileCacheFileSystem
 from loguru import logger
 from physicsnemo.distributed.manager import DistributedManager
@@ -301,130 +299,131 @@ class _HRRRBase:
         return fs.exists(s3_uri)
 
 
-class _HRRRZarrBase(_HRRRBase):
-    # Not used but keeping here for now for future reference
-    HRRR_BUCKET_NAME = "hrrrzarr"
-    HRRR_X = np.arange(1799)
-    HRRR_Y = np.arange(1059)
+# Leaving in here to dream, no natural levels in this data source
+# class _HRRRZarrBase(_HRRRBase):
+#     # Not used but keeping here for now for future reference
+#     HRRR_BUCKET_NAME = "hrrrzarr"
+#     HRRR_X = np.arange(1799)
+#     HRRR_Y = np.arange(1059)
 
-    def __init__(
-        self,
-        lexicon: HRRRLexicon | HRRRFXLexicon,
-        cache: bool = True,
-        verbose: bool = True,
-    ):
-        self._cache = cache
-        self._lexicon = lexicon
-        self._verbose = verbose
+#     def __init__(
+#         self,
+#         lexicon: HRRRLexicon | HRRRFXLexicon,
+#         cache: bool = True,
+#         verbose: bool = True,
+#     ):
+#         self._cache = cache
+#         self._lexicon = lexicon
+#         self._verbose = verbose
 
-        fs = s3fs.S3FileSystem(
-            anon=True,
-            default_block_size=2**20,
-            client_kwargs={},
-        )
+#         fs = s3fs.S3FileSystem(
+#             anon=True,
+#             default_block_size=2**20,
+#             client_kwargs={},
+#         )
 
-        if self._cache:
-            cache_options = {
-                "cache_storage": self.cache,
-                "expiry_time": 31622400,  # 1 year
-            }
-            fs = WholeFileCacheFileSystem(fs=fs, **cache_options)
+#         if self._cache:
+#             cache_options = {
+#                 "cache_storage": self.cache,
+#                 "expiry_time": 31622400,  # 1 year
+#             }
+#             fs = WholeFileCacheFileSystem(fs=fs, **cache_options)
 
-        fs_map = fsspec.FSMap(f"s3://{self.HRRR_BUCKET_NAME}", fs)
-        self.zarr_group = zarr.open(fs_map, mode="r")
+#         fs_map = fsspec.FSMap(f"s3://{self.HRRR_BUCKET_NAME}", fs)
+#         self.zarr_group = zarr.open(fs_map, mode="r")
 
-    async def async_fetch(
-        self,
-        time: list[datetime],
-        lead_time: list[timedelta],
-        variable: list[str],
-    ) -> xr.DataArray:
-        """Async function to retrieve HRRR forecast data into a single Xarray data array
+#     async def async_fetch(
+#         self,
+#         time: list[datetime],
+#         lead_time: list[timedelta],
+#         variable: list[str],
+#     ) -> xr.DataArray:
+#         """Async function to retrieve HRRR forecast data into a single Xarray data array
 
-        Parameters
-        ----------
-        time : list[datetime]
-            Timestamps to return data for (UTC).
-        lead_time: list[timedelta]
-            List of forecast lead times to fetch
-        variable : str | list[str] | VariableArray
-            String, list of strings or array of strings that refer to variables to
-            return. Must be in the HRRR lexicon.
+#         Parameters
+#         ----------
+#         time : list[datetime]
+#             Timestamps to return data for (UTC).
+#         lead_time: list[timedelta]
+#             List of forecast lead times to fetch
+#         variable : str | list[str] | VariableArray
+#             String, list of strings or array of strings that refer to variables to
+#             return. Must be in the HRRR lexicon.
 
-        Returns
-        -------
-        xr.DataArray
-            HRRR weather data array
-        """
+#         Returns
+#         -------
+#         xr.DataArray
+#             HRRR weather data array
+#         """
 
-        hrrr_da = xr.DataArray(
-            data=np.empty(
-                (
-                    len(time),
-                    len(lead_time),
-                    len(variable),
-                    len(self.HRRR_Y),
-                    len(self.HRRR_X),
-                )
-            ),
-            dims=["time", "lead_time", "variable", "hrrr_y", "hrrr_x"],
-            coords={
-                "time": time,
-                "lead_time": lead_time,
-                "variable": variable,
-                "hrrr_x": self.HRRR_X,
-                "hrrr_y": self.HRRR_Y,
-                "lat": (
-                    ["hrrr_y", "hrrr_x"],
-                    self.zarr_group["grid"]["HRRR_chunk_index.zarr"]["latitude"][:],
-                ),
-                "lon": (
-                    ["hrrr_y", "hrrr_x"],
-                    self.zarr_group["grid"]["HRRR_chunk_index.zarr"]["longitude"][:]
-                    + 360,
-                ),  # Change to [0,360]
-            },
-        )
-        # Banking on async calls in zarr 3.0
-        for i, t in enumerate(time):
-            for j, ld in enumerate(lead_time):
-                # Set lexicon based on lead
-                lexicon: type[HRRRLexicon] | type[HRRRFXLexicon] = HRRRLexicon
-                if ld.total_seconds() != 0:
-                    lexicon = HRRRFXLexicon
-                for k, v in enumerate(variable):
-                    try:
-                        hrrr_str, modifier = lexicon[v]
-                        hrrr_class, hrrr_product, hrrr_level, hrrr_var = hrrr_str.split(
-                            "::"
-                        )
-                    except KeyError as e:
-                        logger.error(f"variable id {v} not found in HRRR lexicon")
-                        raise e
+#         hrrr_da = xr.DataArray(
+#             data=np.empty(
+#                 (
+#                     len(time),
+#                     len(lead_time),
+#                     len(variable),
+#                     len(self.HRRR_Y),
+#                     len(self.HRRR_X),
+#                 )
+#             ),
+#             dims=["time", "lead_time", "variable", "hrrr_y", "hrrr_x"],
+#             coords={
+#                 "time": time,
+#                 "lead_time": lead_time,
+#                 "variable": variable,
+#                 "hrrr_x": self.HRRR_X,
+#                 "hrrr_y": self.HRRR_Y,
+#                 "lat": (
+#                     ["hrrr_y", "hrrr_x"],
+#                     self.zarr_group["grid"]["HRRR_chunk_index.zarr"]["latitude"][:],
+#                 ),
+#                 "lon": (
+#                     ["hrrr_y", "hrrr_x"],
+#                     self.zarr_group["grid"]["HRRR_chunk_index.zarr"]["longitude"][:]
+#                     + 360,
+#                 ),  # Change to [0,360]
+#             },
+#         )
+#         # Banking on async calls in zarr 3.0
+#         for i, t in enumerate(time):
+#             for j, ld in enumerate(lead_time):
+#                 # Set lexicon based on lead
+#                 lexicon: type[HRRRLexicon] | type[HRRRFXLexicon] = HRRRLexicon
+#                 if ld.total_seconds() != 0:
+#                     lexicon = HRRRFXLexicon
+#                 for k, v in enumerate(variable):
+#                     try:
+#                         hrrr_str, modifier = lexicon[v]
+#                         hrrr_class, hrrr_product, hrrr_level, hrrr_var = hrrr_str.split(
+#                             "::"
+#                         )
+#                     except KeyError as e:
+#                         logger.error(f"variable id {v} not found in HRRR lexicon")
+#                         raise e
 
-                    date_group = t.strftime("%Y%m%d")
-                    time_group = t.strftime(f"%Y%m%d_%Hz_{hrrr_product}.zarr")
+#                     date_group = t.strftime("%Y%m%d")
+#                     time_group = t.strftime(f"%Y%m%d_%Hz_{hrrr_product}.zarr")
 
-                    logger.debug(
-                        f"Fetching HRRR {hrrr_product} variable {v} at {t.isoformat()}"
-                    )
+#                     logger.debug(
+#                         f"Fetching HRRR {hrrr_product} variable {v} at {t.isoformat()}"
+#                     )
 
-                    data = self.zarr_group[hrrr_class][date_group][time_group][
-                        hrrr_level
-                    ][hrrr_var][hrrr_level][hrrr_var]
-                    if hrrr_product == "fcst":
-                        # Minus 1 here because index 0 is forecast with leadtime 1hr
-                        # forecast_period coordinate system tells what the lead times are in hours
-                        lead_index = int(ld.total_seconds() // 3600) - 1
-                        data = data[lead_index]
+#                     data = self.zarr_group[hrrr_class][date_group][time_group][
+#                         hrrr_level
+#                     ][hrrr_var][hrrr_level][hrrr_var]
+#                     if hrrr_product == "fcst":
+#                         # Minus 1 here because index 0 is forecast with leadtime 1hr
+#                         # forecast_period coordinate system tells what the lead times are in hours
+#                         lead_index = int(ld.total_seconds() // 3600) - 1
+#                         data = data[lead_index]
 
-                    hrrr_da[i, j, k] = modifier(data)
+#                     hrrr_da[i, j, k] = modifier(data)
 
-        # Delete cache if needed
-        if not self._cache:
-            shutil.rmtree(self.cache)
+#         # Delete cache if needed
+#         if not self._cache:
+#             shutil.rmtree(self.cache)
 
-        return hrrr_da
+#         return hrrr_da
 
 
 class HRRR(_HRRRBase):
