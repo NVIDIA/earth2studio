@@ -82,7 +82,7 @@ class ARCO:
             token="anon",  # noqa: S106 # nosec B106
             access="read_only",
             block_size=8**20,
-            asynchronous=True,
+            # asynchronous=True, # TODO: Enable this when above zarr 3.0
         )
 
         if self._cache:
@@ -362,10 +362,24 @@ class ARCO:
             return False
 
         gcs = gcsfs.GCSFileSystem(cache_timeout=-1)
-        gcstore = gcsfs.GCSMap(
-            "gs://gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3",
-            gcs=gcs,
-        )
+
+        try:
+            zarr_version = version("zarr")
+            zarr_major_version = int(zarr_version.split(".")[0])
+        except Exception:
+            zarr_major_version = 2
+
+        if zarr_major_version >= 3:
+            gcstore = zarr.storage.FsspecStore(
+                gcs,
+                path="/gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3",
+            )
+        else:
+            gcstore = gcsfs.GCSMap(
+                "gs://gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3",
+                gcs=gcs,
+            )
+
         zarr_group = zarr.open(gcstore, mode="r")
         # Load time coordinate system from Zarr store and check
         time_index = cls._get_time_index(time)
