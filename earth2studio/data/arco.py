@@ -82,6 +82,7 @@ class ARCO:
             token="anon",  # noqa: S106 # nosec B106
             access="read_only",
             block_size=8**20,
+            asynchronous=True,
         )
 
         if self._cache:
