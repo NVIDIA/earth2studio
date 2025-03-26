@@ -320,4 +320,4 @@ ax[0, 1].set_title(f"Lead time: {times[6]}hrs")
 ax[1, 0].set_title(f"Lead time: {times[12]}hrs")
 ax[1, 1].set_title(f"Lead time: {times[18]}hrs")
 
-plt.savefig("outputs/custom_prognostic_prediction.jpg", bbox_inches="tight")
+plt.savefig("outputs/01_custom_prognostic_prediction.jpg", bbox_inches="tight")

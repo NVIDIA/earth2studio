@@ -238,7 +238,7 @@ cbar.set_array(da_custom.sel(variable="r500")[0])
 cbar.set_clim(0, 100)
 cbar = fig.colorbar(cbar, ax=ax[-1], orientation="vertical", shrink=0.8)
 
-plt.savefig("outputs/custom_datasource_gfs_versus_custom.jpg")
+plt.savefig("outputs/03_custom_datasource_gfs_versus_custom.jpg")
 
 
 # %%
@@ -308,4 +308,4 @@ ax[0, 1].set_title(f"Lead time: {times[1]}hrs")
 ax[1, 0].set_title(f"Lead time: {times[2]}hrs")
 ax[1, 1].set_title(f"Lead time: {times[3]}hrs")
 
-plt.savefig("outputs/custom_datasource_prediction.jpg", bbox_inches="tight")
+plt.savefig("outputs/03_custom_datasource_prediction.jpg", bbox_inches="tight")

@@ -266,4 +266,4 @@ cbar.set_clim(-10.0, 30)
 cbar = fig.colorbar(cbar, ax=ax[-1], orientation="vertical", label="C", shrink=0.8)
 
 
-plt.savefig("outputs/custom_diagnostic_dlwp_prediction.jpg")
+plt.savefig("outputs/02_custom_diagnostic_dlwp_prediction.jpg")
