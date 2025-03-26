@@ -15,12 +15,11 @@
 # limitations under the License.
 
 import calendar
+import concurrent.futures
 import hashlib
-import multiprocessing
 import os
 import shutil
 from datetime import date, datetime
-from functools import partial
 
 import numpy as np
 import pandas as pd
@@ -98,15 +97,28 @@ class NCAR_ERA5:
         tasks = self._create_tasks(time, variable)
         logger.debug("Download tasks: {}", str(tasks))
 
-        ctx = multiprocessing.get_context("spawn")  # s3fs requires spawn or forkserver
-        fn = partial(self._fetch_dataarray, cache_path=self.cache, cache=self._cache)
-        with ctx.Pool(self._max_workers) as p:
-            for ename, arr in tqdm(
-                p.imap_unordered(fn, tasks),
-                "Step",
-                len(tasks),
+        with concurrent.futures.ThreadPoolExecutor(
+            max_workers=self._max_workers
+        ) as executor:
+            futures = []
+            # Submit all tasks
+            for task in tasks:
+                future = executor.submit(
+                    self._fetch_dataarray,
+                    task,
+                    cache_path=self.cache,
+                    cache=self._cache,
+                )
+                futures.append(future)
+
+            # Process results as they complete
+            for future in tqdm(
+                concurrent.futures.as_completed(futures),
+                desc="Step",
+                total=len(futures),
                 disable=(not self._verbose),
             ):
+                ename, arr = future.result()
                 data_arrays.setdefault(ename, []).append(arr)
 
         # Concat time and variable dims
