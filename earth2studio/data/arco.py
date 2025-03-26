@@ -18,8 +18,8 @@ import asyncio
 import os
 import pathlib
 import shutil
-import threading
 from datetime import datetime
+from importlib.metadata import version
 
 import fsspec
 import gcsfs
@@ -81,7 +81,7 @@ class ARCO:
             cache_timeout=-1,
             token="anon",  # noqa: S106 # nosec B106
             access="read_only",
-            block_size=2**20,
+            block_size=8**20,
         )
 
         if self._cache:
@@ -91,10 +91,32 @@ class ARCO:
             }
             fs = WholeFileCacheFileSystem(fs=fs, **cache_options)
 
-        fs_map = fsspec.FSMap(
-            "gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3", fs
-        )
-        self.zarr_group = zarr.open(fs_map, mode="r")
+        # Check Zarr version and use appropriate method
+        try:
+            zarr_version = version("zarr")
+            zarr_major_version = int(zarr_version.split(".")[0])
+        except Exception:
+            # Fallback to older method if version check fails
+            zarr_major_version = 2  # Assume older version if we can't determine
+
+        if zarr_major_version >= 3:
+            # Zarr 3.0+ method
+            zstore = zarr.storage.FsspecStore(
+                fs,
+                path="/gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3",
+            )
+            self.zarr_group = zarr.open(zstore, mode="r")
+        else:
+            # Legacy method for Zarr < 3.0
+            # TODO: Remove this option eventually
+            logger.warning(
+                "Using Zarr 2.0 method for ARCO, this can be extremely slow with caching!"
+            )
+            fs_map = fsspec.FSMap(
+                "gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3", fs
+            )
+            self.zarr_group = zarr.open(fs_map, mode="r")
+
         self.async_timeout = async_timeout
         self.async_process_limit = 4
 
@@ -125,23 +147,27 @@ class ARCO:
         # Make sure input time is valid
         self._validate_time(time)
 
-        # This makes this function safe in existing async io loops
-        # I.e. runnable in Jupyter notebooks
-        xr_array = None
+        try:
+            import nest_asyncio
 
-        def thread_func() -> None:
-            """Function to call in seperate thread"""
-            nonlocal xr_array
-            loop = asyncio.new_event_loop()
-            xr_array = loop.run_until_complete(
-                asyncio.wait_for(
-                    self.create_data_array(time, variable), timeout=self.async_timeout
-                )
+            nest_asyncio.apply()  # Patch asyncio to work in notebooks
+        except ImportError:
+            raise ImportError(
+                "Some data dependencies are missing (nest_asyncio). Please install them using 'pip install earth2studio[data]'"
             )
 
-        thread = threading.Thread(target=thread_func)
-        thread.start()
-        thread.join()
+        try:
+            loop = asyncio.get_event_loop()
+        except RuntimeError:
+            # If no event loop exists, create one
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+
+        xr_array = loop.run_until_complete(
+            asyncio.wait_for(
+                self.create_data_array(time, variable), timeout=self.async_timeout
+            )
+        )
 
         # Delete cache if needed
         if not self._cache:
