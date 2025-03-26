@@ -364,5 +364,5 @@ ax.plot(times, io["soi"][:].flatten())
 ax.set_title("Southern Oscillation Index")
 ax.grid("on")
 
-plt.savefig("outputs/southern_oscillation_index_prediction_2022.png")
+plt.savefig("outputs/07_southern_oscillation_index_prediction_2022.png")
 io.close()
