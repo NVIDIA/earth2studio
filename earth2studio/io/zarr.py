@@ -16,11 +16,32 @@
 
 from collections import OrderedDict
 from collections.abc import Iterator
-from typing import Any
+from importlib.metadata import version
+from typing import TYPE_CHECKING, Any, Union
 
 import numpy as np
 import torch
 import zarr
+
+# Dealing with zarr 3.0 API breaks and type checking
+try:
+    zarr_version = version("zarr")
+    zarr_major_version = int(zarr_version.split(".")[0])
+except Exception:
+    zarr_major_version = 2
+
+if TYPE_CHECKING:
+    from typing import TypeAlias
+
+    from zarr.core import Array
+    from zarr.core.array import Array as Array3
+
+    ZarrArray: TypeAlias = Union[Array, Array3]
+else:
+    if zarr_major_version >= 3:
+        ZarrArray = zarr.core.array.Array
+    else:
+        ZarrArray = zarr.core.Array
 
 from earth2studio.utils.coords import convert_multidim_to_singledim
 from earth2studio.utils.type import CoordSystem
@@ -85,7 +106,7 @@ class ZarrBackend:
         """
         return self.root.__contains__(item)
 
-    def __getitem__(self, item: str) -> zarr.core.array.Array:
+    def __getitem__(self, item: str) -> "ZarrArray":
         """Gets item in Zarr Group.
 
         Parameters
