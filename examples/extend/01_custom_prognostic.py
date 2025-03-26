@@ -312,7 +312,12 @@ ax[1, 1].imshow(io[variable][0, 18], vmin=-20, vmax=20)
 
 # Set title
 plt.suptitle(f"{variable} - {forecast}")
-times = io["lead_time"].astype("timedelta64[ns]").astype("timedelta64[h]").astype(int)
+times = (
+    io["lead_time"]
+    .values.astype("timedelta64[ns]")
+    .astype("timedelta64[h]")
+    .astype(int)
+)
 ax[0, 0].set_title(f"Lead time: {times[0]}hrs")
 ax[0, 1].set_title(f"Lead time: {times[6]}hrs")
 ax[1, 0].set_title(f"Lead time: {times[12]}hrs")
