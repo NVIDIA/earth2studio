@@ -38,6 +38,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed NGC download APIs and public API fetching for model files
 - Fixed bug when using HRRR datasource in Jupyter notebooks
 - Fixed ARCO for Zarr 3.0 and made proper async running with notebook support
+- Fixed WB2 data source for Zarr 3.0 support
+- Fixed Zarr IO for Zarr 3.0, for Zarr 3.0 datetime and timedeltas stored as int64
+- Fixed CorrDiff for Zarr 3.0 support
+- Fixed examples for Zarr 3.0 support updates
 
 ### Dependencies
 
