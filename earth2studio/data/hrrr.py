@@ -173,7 +173,7 @@ class _HRRRBase:
             # Process completed futures as they finish
             for future in concurrent.futures.as_completed([f[0] for f in futures]):
                 data, coords, indices = future.result()
-                hrrr_da[*indices] = data
+                hrrr_da[tuple(indices)] = data
 
                 # Add lat/lon coordinates if not present
                 if "lat" not in hrrr_da.coords:
