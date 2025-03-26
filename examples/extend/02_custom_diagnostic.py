@@ -239,10 +239,7 @@ fig, ax = plt.subplots(
 )
 
 times = (
-    io["lead_time"]
-    .values.astype("timedelta64[ns]")
-    .astype("timedelta64[h]")
-    .astype(int)
+    io["lead_time"][:].astype("timedelta64[ns]").astype("timedelta64[h]").astype(int)
 )
 step = 4  # 24hrs
 for i, t in enumerate(range(0, 20, step)):

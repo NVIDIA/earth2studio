@@ -219,7 +219,7 @@ class ZarrBackend:
                 self.root[dim][:] = values
                 if zarr_major_version < 3:
                     # https://github.com/pydata/xarray/pull/9669
-                    self.root[dim].attrs["_ARRAY_DIMENSIONS"] = [mapping[dim]]
+                    self.root[dim].attrs["_ARRAY_DIMENSIONS"] = [dim]
 
         # Add any multidim coordinates that were expelled above
         for k in mapping:
