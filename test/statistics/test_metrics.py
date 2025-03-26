@@ -131,7 +131,7 @@ def test_spread_skill(
     reduction_weights: tuple[list[str], np.ndarray], device: str
 ) -> None:
 
-    n_ensemble = 400
+    n_ensemble = 800
     x = 3.0 + 2.0 * torch.randn((n_ensemble, 2, 2, 361, 720), device=device)
 
     x_coords = OrderedDict(
