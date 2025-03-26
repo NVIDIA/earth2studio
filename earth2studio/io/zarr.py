@@ -85,7 +85,7 @@ class ZarrBackend:
         """
         return self.root.__contains__(item)
 
-    def __getitem__(self, item: str) -> zarr.core.Array:
+    def __getitem__(self, item: str) -> zarr.core.array.Array:
         """Gets item in Zarr Group.
 
         Parameters
