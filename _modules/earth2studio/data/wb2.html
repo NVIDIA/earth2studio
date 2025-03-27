@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>earth2studio.data.wb2 &#8212; Earth2Studio 0.5.0a0 documentation</title>
+    <title>earth2studio.data.wb2 &#8212; Earth2Studio 0.6.0a0 documentation</title>
   
   
   
@@ -41,7 +41,7 @@
 <link rel="preload" as="script" href="../../../_static/scripts/pydata-sphinx-theme.js?digest=8d27b9dea8ad943066ae" />
   <script src="../../../_static/vendor/fontawesome/6.5.1/js/all.min.js?digest=8d27b9dea8ad943066ae"></script>
 
-    <script src="../../../_static/documentation_options.js?v=aeef923b"></script>
+    <script src="../../../_static/documentation_options.js?v=720ed5b0"></script>
     <script src="../../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script>let toggleHintShow = 'Click to show';</script>
@@ -49,7 +49,6 @@
     <script>let toggleOpenOnPrint = 'true';</script>
     <script src="../../../_static/togglebutton.js?v=4a39c7ea"></script>
     <script src="../../../_static/design-tabs.js?v=f930bc37"></script>
-    <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
     <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
     <script>DOCUMENTATION_OPTIONS.pagename = '_modules/earth2studio/data/wb2';</script>
     <script>
@@ -442,6 +441,7 @@ document.write(`
 <span class="kn">import</span> <span class="nn">pathlib</span>
 <span class="kn">import</span> <span class="nn">shutil</span>
 <span class="kn">from</span> <span class="nn">datetime</span> <span class="kn">import</span> <span class="n">datetime</span>
+<span class="kn">from</span> <span class="nn">importlib.metadata</span> <span class="kn">import</span> <span class="n">version</span>
 <span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Literal</span>
 
 <span class="kn">import</span> <span class="nn">fsspec</span>
@@ -488,8 +488,25 @@ document.write(`
             <span class="p">}</span>
             <span class="n">fs</span> <span class="o">=</span> <span class="n">WholeFileCacheFileSystem</span><span class="p">(</span><span class="n">fs</span><span class="o">=</span><span class="n">fs</span><span class="p">,</span> <span class="o">**</span><span class="n">cache_options</span><span class="p">)</span>
 
-        <span class="n">fs_map</span> <span class="o">=</span> <span class="n">fsspec</span><span class="o">.</span><span class="n">FSMap</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;weatherbench2/datasets/era5/</span><span class="si">{</span><span class="n">wb2_zarr_store</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">fs</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">zarr_group</span> <span class="o">=</span> <span class="n">zarr</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="n">fs_map</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;r&quot;</span><span class="p">)</span>
+        <span class="c1"># Check Zarr version and use appropriate method</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">zarr_version</span> <span class="o">=</span> <span class="n">version</span><span class="p">(</span><span class="s2">&quot;zarr&quot;</span><span class="p">)</span>
+            <span class="n">zarr_major_version</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">zarr_version</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;.&quot;</span><span class="p">)[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+            <span class="c1"># Fallback to older method if version check fails</span>
+            <span class="n">zarr_major_version</span> <span class="o">=</span> <span class="mi">2</span>  <span class="c1"># Assume older version if we can&#39;t determine</span>
+
+        <span class="k">if</span> <span class="n">zarr_major_version</span> <span class="o">&gt;=</span> <span class="mi">3</span><span class="p">:</span>
+            <span class="c1"># Zarr 3.0+ method</span>
+            <span class="n">zstore</span> <span class="o">=</span> <span class="n">zarr</span><span class="o">.</span><span class="n">storage</span><span class="o">.</span><span class="n">FsspecStore</span><span class="p">(</span>
+                <span class="n">fs</span><span class="p">,</span>
+                <span class="n">path</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;/weatherbench2/datasets/era5/</span><span class="si">{</span><span class="n">wb2_zarr_store</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">zarr_group</span> <span class="o">=</span> <span class="n">zarr</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="n">zstore</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;r&quot;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># Legacy method for Zarr &lt; 3.0</span>
+            <span class="n">fs_map</span> <span class="o">=</span> <span class="n">fsspec</span><span class="o">.</span><span class="n">FSMap</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;weatherbench2/datasets/era5/</span><span class="si">{</span><span class="n">wb2_zarr_store</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">fs</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">zarr_group</span> <span class="o">=</span> <span class="n">zarr</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="n">fs_map</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;r&quot;</span><span class="p">)</span>
 
     <span class="k">def</span> <span class="fm">__call__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
@@ -1084,7 +1101,7 @@ document.write(`
         <div class="footer-item">
 
   <p class="sphinx-version">
-    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 8.1.3.
+    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 8.2.3.
     <br/>
   </p>
 </div>

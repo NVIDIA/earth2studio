@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>earth2studio.models.px.stormcast &#8212; Earth2Studio 0.5.0a0 documentation</title>
+    <title>earth2studio.models.px.stormcast &#8212; Earth2Studio 0.6.0a0 documentation</title>
   
   
   
@@ -41,7 +41,7 @@
 <link rel="preload" as="script" href="../../../../_static/scripts/pydata-sphinx-theme.js?digest=8d27b9dea8ad943066ae" />
   <script src="../../../../_static/vendor/fontawesome/6.5.1/js/all.min.js?digest=8d27b9dea8ad943066ae"></script>
 
-    <script src="../../../../_static/documentation_options.js?v=aeef923b"></script>
+    <script src="../../../../_static/documentation_options.js?v=720ed5b0"></script>
     <script src="../../../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script>let toggleHintShow = 'Click to show';</script>
@@ -49,7 +49,6 @@
     <script>let toggleOpenOnPrint = 'true';</script>
     <script src="../../../../_static/togglebutton.js?v=4a39c7ea"></script>
     <script src="../../../../_static/design-tabs.js?v=f930bc37"></script>
-    <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
     <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
     <script>DOCUMENTATION_OPTIONS.pagename = '_modules/earth2studio/models/px/stormcast';</script>
     <script>
@@ -446,6 +445,7 @@ document.write(`
 <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 <span class="kn">import</span> <span class="nn">torch</span>
 <span class="kn">import</span> <span class="nn">xarray</span> <span class="k">as</span> <span class="nn">xr</span>
+<span class="kn">import</span> <span class="nn">zarr</span>
 <span class="kn">from</span> <span class="nn">physicsnemo.models</span> <span class="kn">import</span> <span class="n">Module</span>
 
 <span class="k">try</span><span class="p">:</span>
@@ -690,7 +690,8 @@ document.write(`
         <span class="n">diffusion</span> <span class="o">=</span> <span class="n">Module</span><span class="o">.</span><span class="n">from_checkpoint</span><span class="p">(</span><span class="n">package</span><span class="o">.</span><span class="n">resolve</span><span class="p">(</span><span class="s2">&quot;EDMPrecond.0.0.mdlus&quot;</span><span class="p">))</span>
 
         <span class="c1"># Load metadata: means, stds, grid</span>
-        <span class="n">metadata</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">open_zarr</span><span class="p">(</span><span class="n">package</span><span class="o">.</span><span class="n">resolve</span><span class="p">(</span><span class="s2">&quot;metadata.zarr.zip&quot;</span><span class="p">))</span>
+        <span class="n">store</span> <span class="o">=</span> <span class="n">zarr</span><span class="o">.</span><span class="n">storage</span><span class="o">.</span><span class="n">ZipStore</span><span class="p">(</span><span class="n">package</span><span class="o">.</span><span class="n">resolve</span><span class="p">(</span><span class="s2">&quot;metadata.zarr.zip&quot;</span><span class="p">),</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;r&quot;</span><span class="p">)</span>
+        <span class="n">metadata</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">open_zarr</span><span class="p">(</span><span class="n">store</span><span class="p">,</span> <span class="n">zarr_format</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
 
         <span class="n">variables</span> <span class="o">=</span> <span class="n">metadata</span><span class="p">[</span><span class="s2">&quot;variable&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span>
         <span class="n">lat</span> <span class="o">=</span> <span class="n">metadata</span><span class="o">.</span><span class="n">coords</span><span class="p">[</span><span class="s2">&quot;lat&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span>
@@ -917,7 +918,7 @@ document.write(`
         <div class="footer-item">
 
   <p class="sphinx-version">
-    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 8.1.3.
+    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 8.2.3.
     <br/>
   </p>
 </div>

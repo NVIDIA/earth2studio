@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
     <link href="../_static/favicon.ico" rel="icon" type="image/x-icon">
-    <title>User Guide &#8212; Earth2Studio 0.5.0 documentation</title>
+    <title>User Guide &#8212; Earth2Studio 0.6.0a0 documentation</title>
   
   
   
@@ -28,7 +28,7 @@
 <link rel="preload" as="font" type="font/woff2" crossorigin href="../_static/vendor/fontawesome/6.5.1/webfonts/fa-brands-400.woff2" />
 <link rel="preload" as="font" type="font/woff2" crossorigin href="../_static/vendor/fontawesome/6.5.1/webfonts/fa-regular-400.woff2" />
 
-    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=a746c00c" />
     <link rel="stylesheet" type="text/css" href="../_static/togglebutton.css?v=13237357" />
     <link rel="stylesheet" type="text/css" href="../_static/sg_gallery.css?v=d2d258e8" />
     <link rel="stylesheet" type="text/css" href="../_static/sg_gallery-binder.css?v=f4aeca0c" />
@@ -42,7 +42,7 @@
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=8d27b9dea8ad943066ae" />
   <script src="../_static/vendor/fontawesome/6.5.1/js/all.min.js?digest=8d27b9dea8ad943066ae"></script>
 
-    <script src="../_static/documentation_options.js?v=1dd76d02"></script>
+    <script src="../_static/documentation_options.js?v=720ed5b0"></script>
     <script src="../_static/doctools.js?v=9bcbadda"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script>let toggleHintShow = 'Click to show';</script>
@@ -487,10 +487,10 @@ and resources necessary to leverage the full potential of Earth2Studio.</p>
 </pre></div>
 </div>
 <p>Run a deterministic weather prediction in just a few lines of code:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.models.px</span><span class="w"> </span><span class="kn">import</span> <span class="n">DLWP</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.data</span><span class="w"> </span><span class="kn">import</span> <span class="n">GFS</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.io</span><span class="w"> </span><span class="kn">import</span> <span class="n">NetCDF4Backend</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.run</span><span class="w"> </span><span class="kn">import</span> <span class="n">deterministic</span> <span class="k">as</span> <span class="n">run</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">earth2studio.models.px</span> <span class="kn">import</span> <span class="n">DLWP</span>
+<span class="kn">from</span> <span class="nn">earth2studio.data</span> <span class="kn">import</span> <span class="n">GFS</span>
+<span class="kn">from</span> <span class="nn">earth2studio.io</span> <span class="kn">import</span> <span class="n">NetCDF4Backend</span>
+<span class="kn">from</span> <span class="nn">earth2studio.run</span> <span class="kn">import</span> <span class="n">deterministic</span> <span class="k">as</span> <span class="n">run</span>
 
 <span class="n">model</span> <span class="o">=</span> <span class="n">DLWP</span><span class="o">.</span><span class="n">load_model</span><span class="p">(</span><span class="n">DLWP</span><span class="o">.</span><span class="n">load_default_package</span><span class="p">())</span>
 <span class="n">ds</span> <span class="o">=</span> <span class="n">GFS</span><span class="p">()</span>

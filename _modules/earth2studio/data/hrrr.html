@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>earth2studio.data.hrrr &#8212; Earth2Studio 0.5.0a0 documentation</title>
+    <title>earth2studio.data.hrrr &#8212; Earth2Studio 0.6.0a0 documentation</title>
   
   
   
@@ -41,7 +41,7 @@
 <link rel="preload" as="script" href="../../../_static/scripts/pydata-sphinx-theme.js?digest=8d27b9dea8ad943066ae" />
   <script src="../../../_static/vendor/fontawesome/6.5.1/js/all.min.js?digest=8d27b9dea8ad943066ae"></script>
 
-    <script src="../../../_static/documentation_options.js?v=aeef923b"></script>
+    <script src="../../../_static/documentation_options.js?v=720ed5b0"></script>
     <script src="../../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script>let toggleHintShow = 'Click to show';</script>
@@ -49,7 +49,6 @@
     <script>let toggleOpenOnPrint = 'true';</script>
     <script src="../../../_static/togglebutton.js?v=4a39c7ea"></script>
     <script src="../../../_static/design-tabs.js?v=f930bc37"></script>
-    <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
     <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
     <script>DOCUMENTATION_OPTIONS.pagename = '_modules/earth2studio/data/hrrr';</script>
     <script>
@@ -438,19 +437,17 @@ document.write(`
 <span class="c1"># See the License for the specific language governing permissions and</span>
 <span class="c1"># limitations under the License.</span>
 
-<span class="kn">import</span> <span class="nn">asyncio</span>
-<span class="kn">import</span> <span class="nn">hashlib</span>
+<span class="kn">import</span> <span class="nn">concurrent.futures</span>
 <span class="kn">import</span> <span class="nn">os</span>
 <span class="kn">import</span> <span class="nn">pathlib</span>
-<span class="kn">import</span> <span class="nn">re</span>
 <span class="kn">import</span> <span class="nn">shutil</span>
+<span class="kn">import</span> <span class="nn">warnings</span>
+<span class="kn">from</span> <span class="nn">collections.abc</span> <span class="kn">import</span> <span class="n">Callable</span>
 <span class="kn">from</span> <span class="nn">datetime</span> <span class="kn">import</span> <span class="n">datetime</span><span class="p">,</span> <span class="n">timedelta</span>
 
-<span class="kn">import</span> <span class="nn">fsspec</span>
 <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 <span class="kn">import</span> <span class="nn">s3fs</span>
 <span class="kn">import</span> <span class="nn">xarray</span> <span class="k">as</span> <span class="nn">xr</span>
-<span class="kn">import</span> <span class="nn">zarr</span>
 <span class="kn">from</span> <span class="nn">fsspec.implementations.cached</span> <span class="kn">import</span> <span class="n">WholeFileCacheFileSystem</span>
 <span class="kn">from</span> <span class="nn">loguru</span> <span class="kn">import</span> <span class="n">logger</span>
 <span class="kn">from</span> <span class="nn">physicsnemo.distributed.manager</span> <span class="kn">import</span> <span class="n">DistributedManager</span>
@@ -479,9 +476,13 @@ document.write(`
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">cache</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
         <span class="n">verbose</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="n">source</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;aws&quot;</span><span class="p">,</span>
+        <span class="n">max_workers</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
     <span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span> <span class="o">=</span> <span class="n">cache</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_verbose</span> <span class="o">=</span> <span class="n">verbose</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_source</span> <span class="o">=</span> <span class="n">source</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_max_workers</span> <span class="o">=</span> <span class="n">max_workers</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">fs</span> <span class="o">=</span> <span class="n">s3fs</span><span class="o">.</span><span class="n">S3FileSystem</span><span class="p">(</span>
             <span class="n">anon</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
@@ -496,13 +497,25 @@ document.write(`
         <span class="p">}</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">fsc</span> <span class="o">=</span> <span class="n">WholeFileCacheFileSystem</span><span class="p">(</span><span class="n">fs</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">fs</span><span class="p">,</span> <span class="o">**</span><span class="n">cache_options</span><span class="p">)</span>
 
-    <span class="k">async</span> <span class="k">def</span> <span class="nf">async_fetch</span><span class="p">(</span>
+        <span class="c1"># Initialize Herbie client</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="kn">from</span> <span class="nn">herbie</span> <span class="kn">import</span> <span class="n">Herbie</span>
+
+            <span class="c1"># Silence cfgrib warning</span>
+            <span class="n">warnings</span><span class="o">.</span><span class="n">simplefilter</span><span class="p">(</span><span class="n">action</span><span class="o">=</span><span class="s2">&quot;ignore&quot;</span><span class="p">,</span> <span class="n">category</span><span class="o">=</span><span class="ne">FutureWarning</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">Herbie</span> <span class="o">=</span> <span class="n">Herbie</span>
+        <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ImportError</span><span class="p">(</span>
+                <span class="s2">&quot;Some data dependencies are missing (Herbie). Please install them using &#39;pip install earth2studio[data]&#39;&quot;</span>
+            <span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">fetch</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">time</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">datetime</span><span class="p">],</span>
         <span class="n">lead_time</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">timedelta</span><span class="p">],</span>
         <span class="n">variable</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Async function to retrieve HRRR forecast data into a single Xarray data array</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Function to retrieve HRRR forecast data into a single Xarray data array</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
@@ -543,100 +556,103 @@ document.write(`
         <span class="n">args</span> <span class="o">=</span> <span class="p">[</span>
             <span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">ld</span><span class="p">,</span> <span class="n">j</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">k</span><span class="p">)</span>
             <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">variable</span><span class="p">)</span>
-            <span class="k">for</span> <span class="n">j</span><span class="p">,</span> <span class="n">ld</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">lead_time</span><span class="p">)</span>  <span class="c1"># noqa</span>
+            <span class="k">for</span> <span class="n">j</span><span class="p">,</span> <span class="n">ld</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">lead_time</span><span class="p">)</span>
             <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">t</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">time</span><span class="p">)</span>
         <span class="p">]</span>
         <span class="n">pbar</span> <span class="o">=</span> <span class="n">tqdm</span><span class="p">(</span>
             <span class="n">total</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">args</span><span class="p">),</span> <span class="n">desc</span><span class="o">=</span><span class="s2">&quot;Fetching HRRR data&quot;</span><span class="p">,</span> <span class="n">disable</span><span class="o">=</span><span class="p">(</span><span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_verbose</span><span class="p">)</span>
         <span class="p">)</span>
 
-        <span class="k">for</span> <span class="n">t</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">ld</span><span class="p">,</span> <span class="n">j</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">args</span><span class="p">:</span>
-            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;Fetching HRRR data for variable: </span><span class="si">{</span><span class="n">v</span><span class="si">}</span><span class="s2"> at </span><span class="si">{</span><span class="n">t</span><span class="o">.</span><span class="n">isoformat</span><span class="p">()</span><span class="si">}</span><span class="s2"> lead time </span><span class="si">{</span><span class="n">ld</span><span class="si">}</span><span class="s2">&quot;</span>
-            <span class="p">)</span>
-            <span class="k">try</span><span class="p">:</span>
-                <span class="c1"># Set lexicon based on lead</span>
-                <span class="n">lexicon</span><span class="p">:</span> <span class="nb">type</span><span class="p">[</span><span class="n">HRRRLexicon</span><span class="p">]</span> <span class="o">|</span> <span class="nb">type</span><span class="p">[</span><span class="n">HRRRFXLexicon</span><span class="p">]</span> <span class="o">=</span> <span class="n">HRRRLexicon</span>
-                <span class="k">if</span> <span class="n">ld</span><span class="o">.</span><span class="n">total_seconds</span><span class="p">()</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
-                    <span class="n">lexicon</span> <span class="o">=</span> <span class="n">HRRRFXLexicon</span>
-                <span class="n">hrrr_str</span><span class="p">,</span> <span class="n">modifier</span> <span class="o">=</span> <span class="n">lexicon</span><span class="p">[</span><span class="n">v</span><span class="p">]</span>
-                <span class="n">hrrr_class</span><span class="p">,</span> <span class="n">hrrr_product</span><span class="p">,</span> <span class="n">hrrr_level</span><span class="p">,</span> <span class="n">hrrr_var</span> <span class="o">=</span> <span class="n">hrrr_str</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;::&quot;</span><span class="p">)</span>
-                <span class="n">hrrr_regex</span> <span class="o">=</span> <span class="n">lexicon</span><span class="o">.</span><span class="n">index_regex</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">ld</span><span class="p">)</span>
-            <span class="k">except</span> <span class="ne">KeyError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-                <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;variable id </span><span class="si">{</span><span class="n">v</span><span class="si">}</span><span class="s2"> not found in HRRR lexicon&quot;</span><span class="p">)</span>
-                <span class="k">raise</span> <span class="n">e</span>
+        <span class="c1"># Use ThreadPoolExecutor to parallelize Herbie calls</span>
+        <span class="k">with</span> <span class="n">concurrent</span><span class="o">.</span><span class="n">futures</span><span class="o">.</span><span class="n">ThreadPoolExecutor</span><span class="p">(</span>
+            <span class="n">max_workers</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_max_workers</span>
+        <span class="p">)</span> <span class="k">as</span> <span class="n">executor</span><span class="p">:</span>
+            <span class="n">futures</span> <span class="o">=</span> <span class="p">[]</span>
 
-            <span class="n">date_group</span> <span class="o">=</span> <span class="n">t</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="s2">&quot;%Y%m</span><span class="si">%d</span><span class="s2">&quot;</span><span class="p">)</span>
-            <span class="n">forcast_hour</span> <span class="o">=</span> <span class="n">t</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="s2">&quot;%H&quot;</span><span class="p">)</span>
-            <span class="n">lead_index</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">ld</span><span class="o">.</span><span class="n">total_seconds</span><span class="p">()</span> <span class="o">//</span> <span class="mi">3600</span><span class="p">)</span>
-            <span class="n">s3_grib_uri</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">HRRR_BUCKET_NAME</span><span class="si">}</span><span class="s2">/hrrr.</span><span class="si">{</span><span class="n">date_group</span><span class="si">}</span><span class="s2">/conus/hrrr.t</span><span class="si">{</span><span class="n">forcast_hour</span><span class="si">}</span><span class="s2">z.wrf</span><span class="si">{</span><span class="n">hrrr_class</span><span class="si">}</span><span class="s2">f</span><span class="si">{</span><span class="n">lead_index</span><span class="si">:</span><span class="s2">02</span><span class="si">}</span><span class="s2">.grib2&quot;</span>
+            <span class="k">for</span> <span class="n">t</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">ld</span><span class="p">,</span> <span class="n">j</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">args</span><span class="p">:</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="c1"># Set lexicon based on lead</span>
+                    <span class="n">lexicon</span><span class="p">:</span> <span class="nb">type</span><span class="p">[</span><span class="n">HRRRLexicon</span><span class="p">]</span> <span class="o">|</span> <span class="nb">type</span><span class="p">[</span><span class="n">HRRRFXLexicon</span><span class="p">]</span> <span class="o">=</span> <span class="n">HRRRLexicon</span>
+                    <span class="k">if</span> <span class="n">ld</span><span class="o">.</span><span class="n">total_seconds</span><span class="p">()</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+                        <span class="n">lexicon</span> <span class="o">=</span> <span class="n">HRRRFXLexicon</span>
+                    <span class="n">hrrr_str</span><span class="p">,</span> <span class="n">modifier</span> <span class="o">=</span> <span class="n">lexicon</span><span class="p">[</span><span class="n">v</span><span class="p">]</span>
+                    <span class="n">hrrr_class</span><span class="p">,</span> <span class="n">hrrr_product</span><span class="p">,</span> <span class="n">hrrr_level</span><span class="p">,</span> <span class="n">hrrr_var</span> <span class="o">=</span> <span class="n">hrrr_str</span><span class="o">.</span><span class="n">split</span><span class="p">(</span>
+                        <span class="s2">&quot;::&quot;</span>
+                    <span class="p">)</span>
+                <span class="k">except</span> <span class="ne">KeyError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                    <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;variable id </span><span class="si">{</span><span class="n">v</span><span class="si">}</span><span class="s2"> not found in HRRR lexicon&quot;</span><span class="p">)</span>
+                    <span class="k">raise</span> <span class="n">e</span>
 
-            <span class="c1"># Download the grib index file and parse</span>
-            <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">fsc</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">s3_grib_uri</span><span class="si">}</span><span class="s2">.idx&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">file</span><span class="p">:</span>
-                <span class="n">index_lines</span> <span class="o">=</span> <span class="p">[</span><span class="n">line</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">rstrip</span><span class="p">()</span> <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">file</span><span class="p">]</span>
-            <span class="c1"># Add dummy variable at end of file with max offset</span>
-            <span class="n">index_lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;xx:</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">fsc</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="n">s3_grib_uri</span><span class="p">)</span><span class="si">}</span><span class="s2">:d=xx:NULL:NULL:NULL:NULL&quot;</span>
-            <span class="p">)</span>
-
-            <span class="n">byte_offset</span> <span class="o">=</span> <span class="kc">None</span>
-            <span class="n">byte_length</span> <span class="o">=</span> <span class="kc">None</span>
-            <span class="k">for</span> <span class="n">line_index</span><span class="p">,</span> <span class="n">line</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">index_lines</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]):</span>
-                <span class="n">lsplit</span> <span class="o">=</span> <span class="n">line</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;:&quot;</span><span class="p">)</span>
-                <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">lsplit</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">7</span><span class="p">:</span>
-                    <span class="k">continue</span>
-                <span class="c1"># If match get in byte offset and length</span>
-                <span class="k">if</span> <span class="nb">bool</span><span class="p">(</span><span class="n">re</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="n">hrrr_regex</span><span class="p">,</span> <span class="n">line</span><span class="p">)):</span>
-                    <span class="n">nlsplit</span> <span class="o">=</span> <span class="n">index_lines</span><span class="p">[</span><span class="n">line_index</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;:&quot;</span><span class="p">)</span>
-                    <span class="n">byte_length</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">nlsplit</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span> <span class="o">-</span> <span class="nb">int</span><span class="p">(</span><span class="n">lsplit</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
-                    <span class="n">byte_offset</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">lsplit</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
-                    <span class="n">key</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">lsplit</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span><span class="si">}</span><span class="s2">::</span><span class="si">{</span><span class="n">lsplit</span><span class="p">[</span><span class="mi">4</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span>
-                    <span class="k">if</span> <span class="n">byte_length</span> <span class="o">&gt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">MAX_BYTE_SIZE</span><span class="p">:</span>
-                        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                            <span class="sa">f</span><span class="s2">&quot;Byte length, </span><span class="si">{</span><span class="n">byte_length</span><span class="si">}</span><span class="s2">, of variable </span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s2"> larger than safe threshold of </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">MAX_BYTE_SIZE</span><span class="si">}</span><span class="s2">&quot;</span>
-                        <span class="p">)</span>
-            <span class="c1"># If byte offset is not raise error</span>
-            <span class="k">if</span> <span class="n">byte_offset</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">byte_length</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="ne">KeyError</span><span class="p">(</span>
-                    <span class="sa">f</span><span class="s2">&quot;Could not find variable </span><span class="si">{</span><span class="n">hrrr_var</span><span class="si">}</span><span class="s2"> level </span><span class="si">{</span><span class="n">hrrr_level</span><span class="si">}</span><span class="s2"> in index file&quot;</span>
+                <span class="c1"># Submit the Herbie task to the thread pool</span>
+                <span class="n">future</span> <span class="o">=</span> <span class="n">executor</span><span class="o">.</span><span class="n">submit</span><span class="p">(</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_fetch_herbie_data</span><span class="p">,</span>
+                    <span class="n">t</span><span class="p">,</span>
+                    <span class="n">ld</span><span class="p">,</span>
+                    <span class="n">hrrr_class</span><span class="p">,</span>
+                    <span class="n">hrrr_level</span><span class="p">,</span>
+                    <span class="n">hrrr_var</span><span class="p">,</span>
+                    <span class="n">modifier</span><span class="p">,</span>
+                    <span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">,</span> <span class="n">k</span><span class="p">),</span>
                 <span class="p">)</span>
-            <span class="c1"># Read grib block into cache location</span>
-            <span class="n">sha</span> <span class="o">=</span> <span class="n">hashlib</span><span class="o">.</span><span class="n">sha256</span><span class="p">(</span>
-                <span class="p">(</span><span class="n">s3_grib_uri</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">byte_offset</span><span class="p">)</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">byte_length</span><span class="p">))</span><span class="o">.</span><span class="n">encode</span><span class="p">()</span>
-            <span class="p">)</span>
-            <span class="n">filename</span> <span class="o">=</span> <span class="n">sha</span><span class="o">.</span><span class="n">hexdigest</span><span class="p">()</span>
-            <span class="n">cache_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cache</span><span class="p">,</span> <span class="n">filename</span><span class="p">)</span>
-            <span class="k">if</span> <span class="ow">not</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">(</span><span class="n">cache_path</span><span class="p">)</span><span class="o">.</span><span class="n">is_file</span><span class="p">():</span>
-                <span class="n">grib_buffer</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fs</span><span class="o">.</span><span class="n">read_block</span><span class="p">(</span>
-                    <span class="n">s3_grib_uri</span><span class="p">,</span> <span class="n">offset</span><span class="o">=</span><span class="n">byte_offset</span><span class="p">,</span> <span class="n">length</span><span class="o">=</span><span class="n">byte_length</span>
-                <span class="p">)</span>
-                <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">cache_path</span><span class="p">,</span> <span class="s2">&quot;wb&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">file</span><span class="p">:</span>
-                    <span class="n">file</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">grib_buffer</span><span class="p">)</span>
+                <span class="n">futures</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">future</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">,</span> <span class="n">k</span><span class="p">))</span>
 
-            <span class="n">da</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">open_dataarray</span><span class="p">(</span>
-                <span class="n">cache_path</span><span class="p">,</span>
-                <span class="n">engine</span><span class="o">=</span><span class="s2">&quot;cfgrib&quot;</span><span class="p">,</span>
-                <span class="n">backend_kwargs</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;indexpath&quot;</span><span class="p">:</span> <span class="s2">&quot;&quot;</span><span class="p">},</span>
-            <span class="p">)</span>
-            <span class="n">hrrr_da</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">,</span> <span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="n">modifier</span><span class="p">(</span><span class="n">da</span><span class="o">.</span><span class="n">values</span><span class="p">)</span>
-            <span class="c1"># Add lat lon coords if not present</span>
-            <span class="k">if</span> <span class="s2">&quot;lat&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">hrrr_da</span><span class="o">.</span><span class="n">coords</span><span class="p">:</span>
-                <span class="n">hrrr_da</span><span class="o">.</span><span class="n">coords</span><span class="p">[</span><span class="s2">&quot;lat&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
-                    <span class="p">[</span><span class="s2">&quot;hrrr_y&quot;</span><span class="p">,</span> <span class="s2">&quot;hrrr_x&quot;</span><span class="p">],</span>
-                    <span class="n">da</span><span class="o">.</span><span class="n">coords</span><span class="p">[</span><span class="s2">&quot;latitude&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span><span class="p">,</span>
-                <span class="p">)</span>
-                <span class="n">hrrr_da</span><span class="o">.</span><span class="n">coords</span><span class="p">[</span><span class="s2">&quot;lon&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
-                    <span class="p">[</span><span class="s2">&quot;hrrr_y&quot;</span><span class="p">,</span> <span class="s2">&quot;hrrr_x&quot;</span><span class="p">],</span>
-                    <span class="n">da</span><span class="o">.</span><span class="n">coords</span><span class="p">[</span><span class="s2">&quot;longitude&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span><span class="p">,</span>
-                <span class="p">)</span>
+            <span class="c1"># Process completed futures as they finish</span>
+            <span class="k">for</span> <span class="n">future</span> <span class="ow">in</span> <span class="n">concurrent</span><span class="o">.</span><span class="n">futures</span><span class="o">.</span><span class="n">as_completed</span><span class="p">([</span><span class="n">f</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">futures</span><span class="p">]):</span>
+                <span class="n">data</span><span class="p">,</span> <span class="n">coords</span><span class="p">,</span> <span class="n">indices</span> <span class="o">=</span> <span class="n">future</span><span class="o">.</span><span class="n">result</span><span class="p">()</span>
+                <span class="n">hrrr_da</span><span class="p">[</span><span class="nb">tuple</span><span class="p">(</span><span class="n">indices</span><span class="p">)]</span> <span class="o">=</span> <span class="n">data</span>
 
-            <span class="n">pbar</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+                <span class="c1"># Add lat/lon coordinates if not present</span>
+                <span class="k">if</span> <span class="s2">&quot;lat&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">hrrr_da</span><span class="o">.</span><span class="n">coords</span><span class="p">:</span>
+                    <span class="n">hrrr_da</span><span class="o">.</span><span class="n">coords</span><span class="p">[</span><span class="s2">&quot;lat&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">coords</span><span class="p">[</span><span class="s2">&quot;lat&quot;</span><span class="p">]</span>
+                    <span class="n">hrrr_da</span><span class="o">.</span><span class="n">coords</span><span class="p">[</span><span class="s2">&quot;lon&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">coords</span><span class="p">[</span><span class="s2">&quot;lon&quot;</span><span class="p">]</span>
+                <span class="n">pbar</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
 
         <span class="c1"># Delete cache if needed</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span><span class="p">:</span>
             <span class="n">shutil</span><span class="o">.</span><span class="n">rmtree</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cache</span><span class="p">)</span>
 
         <span class="k">return</span> <span class="n">hrrr_da</span>
+
+    <span class="k">def</span> <span class="nf">_fetch_herbie_data</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">time</span><span class="p">:</span> <span class="n">datetime</span><span class="p">,</span>
+        <span class="n">lead_time</span><span class="p">:</span> <span class="n">timedelta</span><span class="p">,</span>
+        <span class="n">hrrr_class</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">hrrr_level</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">hrrr_var</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">modifier</span><span class="p">:</span> <span class="n">Callable</span><span class="p">,</span>
+        <span class="n">indices</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">],</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="nb">dict</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Helper method to fetch data using Herbie&quot;&quot;&quot;</span>
+        <span class="c1"># Create Herbie object for this timestamp and forecast</span>
+        <span class="n">H</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">Herbie</span><span class="p">(</span>
+            <span class="n">date</span><span class="o">=</span><span class="n">time</span><span class="p">,</span>
+            <span class="n">model</span><span class="o">=</span><span class="s2">&quot;hrrr&quot;</span><span class="p">,</span>
+            <span class="n">product</span><span class="o">=</span><span class="n">hrrr_class</span><span class="p">,</span>
+            <span class="n">fxx</span><span class="o">=</span><span class="nb">int</span><span class="p">(</span><span class="n">lead_time</span><span class="o">.</span><span class="n">total_seconds</span><span class="p">()</span> <span class="o">//</span> <span class="mi">3600</span><span class="p">),</span>
+            <span class="n">priority</span><span class="o">=</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_source</span><span class="p">],</span>
+            <span class="n">verbose</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+            <span class="n">save_dir</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">cache</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="c1"># Construct search string for the variable</span>
+        <span class="k">if</span> <span class="n">hrrr_level</span> <span class="o">==</span> <span class="s2">&quot;surface&quot;</span><span class="p">:</span>
+            <span class="n">search_term</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">hrrr_var</span><span class="si">}</span><span class="s2">:surface&quot;</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">search_term</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">hrrr_var</span><span class="si">}</span><span class="s2">:</span><span class="si">{</span><span class="n">hrrr_level</span><span class="si">}</span><span class="s2">&quot;</span>
+
+        <span class="c1"># Read the data using Herbie</span>
+        <span class="c1"># Keep grib files cached</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="n">H</span><span class="o">.</span><span class="n">xarray</span><span class="p">(</span><span class="n">search_term</span><span class="p">,</span> <span class="n">remove_grib</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">data</span><span class="o">.</span><span class="n">values</span><span class="p">())[</span><span class="mi">0</span><span class="p">]</span>
+
+        <span class="c1"># Return both the modified data and the coordinates</span>
+        <span class="n">coords</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">&quot;lat&quot;</span><span class="p">:</span> <span class="p">([</span><span class="s2">&quot;hrrr_y&quot;</span><span class="p">,</span> <span class="s2">&quot;hrrr_x&quot;</span><span class="p">],</span> <span class="n">data</span><span class="o">.</span><span class="n">coords</span><span class="p">[</span><span class="s2">&quot;latitude&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span><span class="p">),</span>
+            <span class="s2">&quot;lon&quot;</span><span class="p">:</span> <span class="p">([</span><span class="s2">&quot;hrrr_y&quot;</span><span class="p">,</span> <span class="s2">&quot;hrrr_x&quot;</span><span class="p">],</span> <span class="n">data</span><span class="o">.</span><span class="n">coords</span><span class="p">[</span><span class="s2">&quot;longitude&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span><span class="p">),</span>
+        <span class="p">}</span>
+
+        <span class="k">return</span> <span class="n">modifier</span><span class="p">(</span><span class="n">data</span><span class="o">.</span><span class="n">values</span><span class="p">),</span> <span class="n">coords</span><span class="p">,</span> <span class="n">indices</span>
 
     <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">_validate_time</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">times</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">datetime</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
@@ -709,130 +725,131 @@ document.write(`
         <span class="k">return</span> <span class="n">fs</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">s3_uri</span><span class="p">)</span>
 
 
-<span class="k">class</span> <span class="nc">_HRRRZarrBase</span><span class="p">(</span><span class="n">_HRRRBase</span><span class="p">):</span>
-    <span class="c1"># Not used but keeping here for now for future reference</span>
-    <span class="n">HRRR_BUCKET_NAME</span> <span class="o">=</span> <span class="s2">&quot;hrrrzarr&quot;</span>
-    <span class="n">HRRR_X</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">1799</span><span class="p">)</span>
-    <span class="n">HRRR_Y</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">1059</span><span class="p">)</span>
+<span class="c1"># Leaving in here to dream, no natural levels in this data source</span>
+<span class="c1"># class _HRRRZarrBase(_HRRRBase):</span>
+<span class="c1">#     # Not used but keeping here for now for future reference</span>
+<span class="c1">#     HRRR_BUCKET_NAME = &quot;hrrrzarr&quot;</span>
+<span class="c1">#     HRRR_X = np.arange(1799)</span>
+<span class="c1">#     HRRR_Y = np.arange(1059)</span>
 
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span>
-        <span class="n">lexicon</span><span class="p">:</span> <span class="n">HRRRLexicon</span> <span class="o">|</span> <span class="n">HRRRFXLexicon</span><span class="p">,</span>
-        <span class="n">cache</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
-        <span class="n">verbose</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
-    <span class="p">):</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span> <span class="o">=</span> <span class="n">cache</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_lexicon</span> <span class="o">=</span> <span class="n">lexicon</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_verbose</span> <span class="o">=</span> <span class="n">verbose</span>
+<span class="c1">#     def __init__(</span>
+<span class="c1">#         self,</span>
+<span class="c1">#         lexicon: HRRRLexicon | HRRRFXLexicon,</span>
+<span class="c1">#         cache: bool = True,</span>
+<span class="c1">#         verbose: bool = True,</span>
+<span class="c1">#     ):</span>
+<span class="c1">#         self._cache = cache</span>
+<span class="c1">#         self._lexicon = lexicon</span>
+<span class="c1">#         self._verbose = verbose</span>
 
-        <span class="n">fs</span> <span class="o">=</span> <span class="n">s3fs</span><span class="o">.</span><span class="n">S3FileSystem</span><span class="p">(</span>
-            <span class="n">anon</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-            <span class="n">default_block_size</span><span class="o">=</span><span class="mi">2</span><span class="o">**</span><span class="mi">20</span><span class="p">,</span>
-            <span class="n">client_kwargs</span><span class="o">=</span><span class="p">{},</span>
-        <span class="p">)</span>
+<span class="c1">#         fs = s3fs.S3FileSystem(</span>
+<span class="c1">#             anon=True,</span>
+<span class="c1">#             default_block_size=2**20,</span>
+<span class="c1">#             client_kwargs={},</span>
+<span class="c1">#         )</span>
 
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span><span class="p">:</span>
-            <span class="n">cache_options</span> <span class="o">=</span> <span class="p">{</span>
-                <span class="s2">&quot;cache_storage&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">cache</span><span class="p">,</span>
-                <span class="s2">&quot;expiry_time&quot;</span><span class="p">:</span> <span class="mi">31622400</span><span class="p">,</span>  <span class="c1"># 1 year</span>
-            <span class="p">}</span>
-            <span class="n">fs</span> <span class="o">=</span> <span class="n">WholeFileCacheFileSystem</span><span class="p">(</span><span class="n">fs</span><span class="o">=</span><span class="n">fs</span><span class="p">,</span> <span class="o">**</span><span class="n">cache_options</span><span class="p">)</span>
+<span class="c1">#         if self._cache:</span>
+<span class="c1">#             cache_options = {</span>
+<span class="c1">#                 &quot;cache_storage&quot;: self.cache,</span>
+<span class="c1">#                 &quot;expiry_time&quot;: 31622400,  # 1 year</span>
+<span class="c1">#             }</span>
+<span class="c1">#             fs = WholeFileCacheFileSystem(fs=fs, **cache_options)</span>
 
-        <span class="n">fs_map</span> <span class="o">=</span> <span class="n">fsspec</span><span class="o">.</span><span class="n">FSMap</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;s3://</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">HRRR_BUCKET_NAME</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">fs</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">zarr_group</span> <span class="o">=</span> <span class="n">zarr</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="n">fs_map</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;r&quot;</span><span class="p">)</span>
+<span class="c1">#         fs_map = fsspec.FSMap(f&quot;s3://{self.HRRR_BUCKET_NAME}&quot;, fs)</span>
+<span class="c1">#         self.zarr_group = zarr.open(fs_map, mode=&quot;r&quot;)</span>
 
-    <span class="k">async</span> <span class="k">def</span> <span class="nf">async_fetch</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span>
-        <span class="n">time</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">datetime</span><span class="p">],</span>
-        <span class="n">lead_time</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">timedelta</span><span class="p">],</span>
-        <span class="n">variable</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Async function to retrieve HRRR forecast data into a single Xarray data array</span>
+<span class="c1">#     async def async_fetch(</span>
+<span class="c1">#         self,</span>
+<span class="c1">#         time: list[datetime],</span>
+<span class="c1">#         lead_time: list[timedelta],</span>
+<span class="c1">#         variable: list[str],</span>
+<span class="c1">#     ) -&gt; xr.DataArray:</span>
+<span class="c1">#         &quot;&quot;&quot;Async function to retrieve HRRR forecast data into a single Xarray data array</span>
 
-<span class="sd">        Parameters</span>
-<span class="sd">        ----------</span>
-<span class="sd">        time : list[datetime]</span>
-<span class="sd">            Timestamps to return data for (UTC).</span>
-<span class="sd">        lead_time: list[timedelta]</span>
-<span class="sd">            List of forecast lead times to fetch</span>
-<span class="sd">        variable : str | list[str] | VariableArray</span>
-<span class="sd">            String, list of strings or array of strings that refer to variables to</span>
-<span class="sd">            return. Must be in the HRRR lexicon.</span>
+<span class="c1">#         Parameters</span>
+<span class="c1">#         ----------</span>
+<span class="c1">#         time : list[datetime]</span>
+<span class="c1">#             Timestamps to return data for (UTC).</span>
+<span class="c1">#         lead_time: list[timedelta]</span>
+<span class="c1">#             List of forecast lead times to fetch</span>
+<span class="c1">#         variable : str | list[str] | VariableArray</span>
+<span class="c1">#             String, list of strings or array of strings that refer to variables to</span>
+<span class="c1">#             return. Must be in the HRRR lexicon.</span>
 
-<span class="sd">        Returns</span>
-<span class="sd">        -------</span>
-<span class="sd">        xr.DataArray</span>
-<span class="sd">            HRRR weather data array</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="c1">#         Returns</span>
+<span class="c1">#         -------</span>
+<span class="c1">#         xr.DataArray</span>
+<span class="c1">#             HRRR weather data array</span>
+<span class="c1">#         &quot;&quot;&quot;</span>
 
-        <span class="n">hrrr_da</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">(</span>
-            <span class="n">data</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span>
-                <span class="p">(</span>
-                    <span class="nb">len</span><span class="p">(</span><span class="n">time</span><span class="p">),</span>
-                    <span class="nb">len</span><span class="p">(</span><span class="n">lead_time</span><span class="p">),</span>
-                    <span class="nb">len</span><span class="p">(</span><span class="n">variable</span><span class="p">),</span>
-                    <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">HRRR_Y</span><span class="p">),</span>
-                    <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">HRRR_X</span><span class="p">),</span>
-                <span class="p">)</span>
-            <span class="p">),</span>
-            <span class="n">dims</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;time&quot;</span><span class="p">,</span> <span class="s2">&quot;lead_time&quot;</span><span class="p">,</span> <span class="s2">&quot;variable&quot;</span><span class="p">,</span> <span class="s2">&quot;hrrr_y&quot;</span><span class="p">,</span> <span class="s2">&quot;hrrr_x&quot;</span><span class="p">],</span>
-            <span class="n">coords</span><span class="o">=</span><span class="p">{</span>
-                <span class="s2">&quot;time&quot;</span><span class="p">:</span> <span class="n">time</span><span class="p">,</span>
-                <span class="s2">&quot;lead_time&quot;</span><span class="p">:</span> <span class="n">lead_time</span><span class="p">,</span>
-                <span class="s2">&quot;variable&quot;</span><span class="p">:</span> <span class="n">variable</span><span class="p">,</span>
-                <span class="s2">&quot;hrrr_x&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">HRRR_X</span><span class="p">,</span>
-                <span class="s2">&quot;hrrr_y&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">HRRR_Y</span><span class="p">,</span>
-                <span class="s2">&quot;lat&quot;</span><span class="p">:</span> <span class="p">(</span>
-                    <span class="p">[</span><span class="s2">&quot;hrrr_y&quot;</span><span class="p">,</span> <span class="s2">&quot;hrrr_x&quot;</span><span class="p">],</span>
-                    <span class="bp">self</span><span class="o">.</span><span class="n">zarr_group</span><span class="p">[</span><span class="s2">&quot;grid&quot;</span><span class="p">][</span><span class="s2">&quot;HRRR_chunk_index.zarr&quot;</span><span class="p">][</span><span class="s2">&quot;latitude&quot;</span><span class="p">][:],</span>
-                <span class="p">),</span>
-                <span class="s2">&quot;lon&quot;</span><span class="p">:</span> <span class="p">(</span>
-                    <span class="p">[</span><span class="s2">&quot;hrrr_y&quot;</span><span class="p">,</span> <span class="s2">&quot;hrrr_x&quot;</span><span class="p">],</span>
-                    <span class="bp">self</span><span class="o">.</span><span class="n">zarr_group</span><span class="p">[</span><span class="s2">&quot;grid&quot;</span><span class="p">][</span><span class="s2">&quot;HRRR_chunk_index.zarr&quot;</span><span class="p">][</span><span class="s2">&quot;longitude&quot;</span><span class="p">][:]</span>
-                    <span class="o">+</span> <span class="mi">360</span><span class="p">,</span>
-                <span class="p">),</span>  <span class="c1"># Change to [0,360]</span>
-            <span class="p">},</span>
-        <span class="p">)</span>
-        <span class="c1"># Banking on async calls in zarr 3.0</span>
-        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">t</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">time</span><span class="p">):</span>
-            <span class="k">for</span> <span class="n">j</span><span class="p">,</span> <span class="n">ld</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">lead_time</span><span class="p">):</span>
-                <span class="c1"># Set lexicon based on lead</span>
-                <span class="n">lexicon</span><span class="p">:</span> <span class="nb">type</span><span class="p">[</span><span class="n">HRRRLexicon</span><span class="p">]</span> <span class="o">|</span> <span class="nb">type</span><span class="p">[</span><span class="n">HRRRFXLexicon</span><span class="p">]</span> <span class="o">=</span> <span class="n">HRRRLexicon</span>
-                <span class="k">if</span> <span class="n">ld</span><span class="o">.</span><span class="n">total_seconds</span><span class="p">()</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
-                    <span class="n">lexicon</span> <span class="o">=</span> <span class="n">HRRRFXLexicon</span>
-                <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">variable</span><span class="p">):</span>
-                    <span class="k">try</span><span class="p">:</span>
-                        <span class="n">hrrr_str</span><span class="p">,</span> <span class="n">modifier</span> <span class="o">=</span> <span class="n">lexicon</span><span class="p">[</span><span class="n">v</span><span class="p">]</span>
-                        <span class="n">hrrr_class</span><span class="p">,</span> <span class="n">hrrr_product</span><span class="p">,</span> <span class="n">hrrr_level</span><span class="p">,</span> <span class="n">hrrr_var</span> <span class="o">=</span> <span class="n">hrrr_str</span><span class="o">.</span><span class="n">split</span><span class="p">(</span>
-                            <span class="s2">&quot;::&quot;</span>
-                        <span class="p">)</span>
-                    <span class="k">except</span> <span class="ne">KeyError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-                        <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;variable id </span><span class="si">{</span><span class="n">v</span><span class="si">}</span><span class="s2"> not found in HRRR lexicon&quot;</span><span class="p">)</span>
-                        <span class="k">raise</span> <span class="n">e</span>
+<span class="c1">#         hrrr_da = xr.DataArray(</span>
+<span class="c1">#             data=np.empty(</span>
+<span class="c1">#                 (</span>
+<span class="c1">#                     len(time),</span>
+<span class="c1">#                     len(lead_time),</span>
+<span class="c1">#                     len(variable),</span>
+<span class="c1">#                     len(self.HRRR_Y),</span>
+<span class="c1">#                     len(self.HRRR_X),</span>
+<span class="c1">#                 )</span>
+<span class="c1">#             ),</span>
+<span class="c1">#             dims=[&quot;time&quot;, &quot;lead_time&quot;, &quot;variable&quot;, &quot;hrrr_y&quot;, &quot;hrrr_x&quot;],</span>
+<span class="c1">#             coords={</span>
+<span class="c1">#                 &quot;time&quot;: time,</span>
+<span class="c1">#                 &quot;lead_time&quot;: lead_time,</span>
+<span class="c1">#                 &quot;variable&quot;: variable,</span>
+<span class="c1">#                 &quot;hrrr_x&quot;: self.HRRR_X,</span>
+<span class="c1">#                 &quot;hrrr_y&quot;: self.HRRR_Y,</span>
+<span class="c1">#                 &quot;lat&quot;: (</span>
+<span class="c1">#                     [&quot;hrrr_y&quot;, &quot;hrrr_x&quot;],</span>
+<span class="c1">#                     self.zarr_group[&quot;grid&quot;][&quot;HRRR_chunk_index.zarr&quot;][&quot;latitude&quot;][:],</span>
+<span class="c1">#                 ),</span>
+<span class="c1">#                 &quot;lon&quot;: (</span>
+<span class="c1">#                     [&quot;hrrr_y&quot;, &quot;hrrr_x&quot;],</span>
+<span class="c1">#                     self.zarr_group[&quot;grid&quot;][&quot;HRRR_chunk_index.zarr&quot;][&quot;longitude&quot;][:]</span>
+<span class="c1">#                     + 360,</span>
+<span class="c1">#                 ),  # Change to [0,360]</span>
+<span class="c1">#             },</span>
+<span class="c1">#         )</span>
+<span class="c1">#         # Banking on async calls in zarr 3.0</span>
+<span class="c1">#         for i, t in enumerate(time):</span>
+<span class="c1">#             for j, ld in enumerate(lead_time):</span>
+<span class="c1">#                 # Set lexicon based on lead</span>
+<span class="c1">#                 lexicon: type[HRRRLexicon] | type[HRRRFXLexicon] = HRRRLexicon</span>
+<span class="c1">#                 if ld.total_seconds() != 0:</span>
+<span class="c1">#                     lexicon = HRRRFXLexicon</span>
+<span class="c1">#                 for k, v in enumerate(variable):</span>
+<span class="c1">#                     try:</span>
+<span class="c1">#                         hrrr_str, modifier = lexicon[v]</span>
+<span class="c1">#                         hrrr_class, hrrr_product, hrrr_level, hrrr_var = hrrr_str.split(</span>
+<span class="c1">#                             &quot;::&quot;</span>
+<span class="c1">#                         )</span>
+<span class="c1">#                     except KeyError as e:</span>
+<span class="c1">#                         logger.error(f&quot;variable id {v} not found in HRRR lexicon&quot;)</span>
+<span class="c1">#                         raise e</span>
 
-                    <span class="n">date_group</span> <span class="o">=</span> <span class="n">t</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="s2">&quot;%Y%m</span><span class="si">%d</span><span class="s2">&quot;</span><span class="p">)</span>
-                    <span class="n">time_group</span> <span class="o">=</span> <span class="n">t</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;%Y%m%d_%Hz_</span><span class="si">{</span><span class="n">hrrr_product</span><span class="si">}</span><span class="s2">.zarr&quot;</span><span class="p">)</span>
+<span class="c1">#                     date_group = t.strftime(&quot;%Y%m%d&quot;)</span>
+<span class="c1">#                     time_group = t.strftime(f&quot;%Y%m%d_%Hz_{hrrr_product}.zarr&quot;)</span>
 
-                    <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
-                        <span class="sa">f</span><span class="s2">&quot;Fetching HRRR </span><span class="si">{</span><span class="n">hrrr_product</span><span class="si">}</span><span class="s2"> variable </span><span class="si">{</span><span class="n">v</span><span class="si">}</span><span class="s2"> at </span><span class="si">{</span><span class="n">t</span><span class="o">.</span><span class="n">isoformat</span><span class="p">()</span><span class="si">}</span><span class="s2">&quot;</span>
-                    <span class="p">)</span>
+<span class="c1">#                     logger.debug(</span>
+<span class="c1">#                         f&quot;Fetching HRRR {hrrr_product} variable {v} at {t.isoformat()}&quot;</span>
+<span class="c1">#                     )</span>
 
-                    <span class="n">data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">zarr_group</span><span class="p">[</span><span class="n">hrrr_class</span><span class="p">][</span><span class="n">date_group</span><span class="p">][</span><span class="n">time_group</span><span class="p">][</span>
-                        <span class="n">hrrr_level</span>
-                    <span class="p">][</span><span class="n">hrrr_var</span><span class="p">][</span><span class="n">hrrr_level</span><span class="p">][</span><span class="n">hrrr_var</span><span class="p">]</span>
-                    <span class="k">if</span> <span class="n">hrrr_product</span> <span class="o">==</span> <span class="s2">&quot;fcst&quot;</span><span class="p">:</span>
-                        <span class="c1"># Minus 1 here because index 0 is forecast with leadtime 1hr</span>
-                        <span class="c1"># forecast_period coordinate system tells what the lead times are in hours</span>
-                        <span class="n">lead_index</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">ld</span><span class="o">.</span><span class="n">total_seconds</span><span class="p">()</span> <span class="o">//</span> <span class="mi">3600</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span>
-                        <span class="n">data</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="n">lead_index</span><span class="p">]</span>
+<span class="c1">#                     data = self.zarr_group[hrrr_class][date_group][time_group][</span>
+<span class="c1">#                         hrrr_level</span>
+<span class="c1">#                     ][hrrr_var][hrrr_level][hrrr_var]</span>
+<span class="c1">#                     if hrrr_product == &quot;fcst&quot;:</span>
+<span class="c1">#                         # Minus 1 here because index 0 is forecast with leadtime 1hr</span>
+<span class="c1">#                         # forecast_period coordinate system tells what the lead times are in hours</span>
+<span class="c1">#                         lead_index = int(ld.total_seconds() // 3600) - 1</span>
+<span class="c1">#                         data = data[lead_index]</span>
 
-                    <span class="n">hrrr_da</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">,</span> <span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="n">modifier</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+<span class="c1">#                     hrrr_da[i, j, k] = modifier(data)</span>
 
-        <span class="c1"># Delete cache if needed</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span><span class="p">:</span>
-            <span class="n">shutil</span><span class="o">.</span><span class="n">rmtree</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cache</span><span class="p">)</span>
+<span class="c1">#         # Delete cache if needed</span>
+<span class="c1">#         if not self._cache:</span>
+<span class="c1">#             shutil.rmtree(self.cache)</span>
 
-        <span class="k">return</span> <span class="n">hrrr_da</span>
+<span class="c1">#         return hrrr_da</span>
 
 
 <div class="viewcode-block" id="HRRR">
@@ -846,6 +863,11 @@ document.write(`
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
+<span class="sd">    source : str, optional</span>
+<span class="sd">        Data source to use (&#39;aws&#39;, &#39;google&#39;, &#39;azure&#39;, &#39;nomads&#39;), by default &#39;aws&#39;</span>
+<span class="sd">    max_workers : int, optional</span>
+<span class="sd">        Maximum number of concurrent downloads, potentially not thread safe with Herbie,</span>
+<span class="sd">        by default 1</span>
 <span class="sd">    cache : bool, optional</span>
 <span class="sd">        Cache data source on local memory, by default True</span>
 <span class="sd">    verbose : bool, optional</span>
@@ -866,8 +888,14 @@ document.write(`
 <span class="sd">    - https://console.cloud.google.com/marketplace/product/noaa-public/hrrr</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cache</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span> <span class="n">verbose</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">):</span>
-        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">cache</span><span class="p">,</span> <span class="n">verbose</span><span class="p">)</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">source</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;aws&quot;</span><span class="p">,</span>
+        <span class="n">max_workers</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
+        <span class="n">cache</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="n">verbose</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">cache</span><span class="p">,</span> <span class="n">verbose</span><span class="p">,</span> <span class="n">source</span><span class="p">,</span> <span class="n">max_workers</span><span class="p">)</span>
 
 <div class="viewcode-block" id="HRRR.__call__">
 <a class="viewcode-back" href="../../../modules/generated/data/earth2studio.data.HRRR.html#earth2studio.data.HRRR.__call__">[docs]</a>
@@ -899,10 +927,7 @@ document.write(`
 
         <span class="c1"># Make sure input time is valid</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_validate_time</span><span class="p">(</span><span class="n">time</span><span class="p">)</span>
-
-        <span class="n">data_array</span> <span class="o">=</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">get_event_loop</span><span class="p">()</span><span class="o">.</span><span class="n">run_until_complete</span><span class="p">(</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">async_fetch</span><span class="p">(</span><span class="n">time</span><span class="p">,</span> <span class="p">[</span><span class="n">timedelta</span><span class="p">(</span><span class="n">hours</span><span class="o">=</span><span class="mi">0</span><span class="p">)],</span> <span class="n">variable</span><span class="p">)</span>
-        <span class="p">)</span>
+        <span class="n">data_array</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fetch</span><span class="p">(</span><span class="n">time</span><span class="p">,</span> <span class="p">[</span><span class="n">timedelta</span><span class="p">(</span><span class="n">hours</span><span class="o">=</span><span class="mi">0</span><span class="p">)],</span> <span class="n">variable</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">data_array</span><span class="o">.</span><span class="n">isel</span><span class="p">(</span><span class="n">lead_time</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">drop_vars</span><span class="p">(</span><span class="s2">&quot;lead_time&quot;</span><span class="p">)</span></div>
 </div>
 
@@ -919,6 +944,10 @@ document.write(`
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
+<span class="sd">    source : str, optional</span>
+<span class="sd">        Data source to use (&#39;aws&#39;, &#39;google&#39;, &#39;azure&#39;, &#39;nomads&#39;), by default &#39;aws&#39;</span>
+<span class="sd">    max_workers : int, optional</span>
+<span class="sd">        Maximum number of concurrent downloads, by default 4</span>
 <span class="sd">    cache : bool, optional</span>
 <span class="sd">        Cache data source on local memory, by default True</span>
 <span class="sd">    verbose : bool, optional</span>
@@ -943,8 +972,14 @@ document.write(`
 <span class="sd">    - https://console.cloud.google.com/marketplace/product/noaa-public/hrrr</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cache</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span> <span class="n">verbose</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">):</span>
-        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">cache</span><span class="p">,</span> <span class="n">verbose</span><span class="p">)</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">source</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;aws&quot;</span><span class="p">,</span>
+        <span class="n">max_workers</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">4</span><span class="p">,</span>
+        <span class="n">cache</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="n">verbose</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">cache</span><span class="p">,</span> <span class="n">verbose</span><span class="p">,</span> <span class="n">source</span><span class="p">,</span> <span class="n">max_workers</span><span class="p">)</span>
 
 <div class="viewcode-block" id="HRRR_FX.__call__">
 <a class="viewcode-back" href="../../../modules/generated/data/earth2studio.data.HRRR_FX.html#earth2studio.data.HRRR_FX.__call__">[docs]</a>
@@ -979,10 +1014,7 @@ document.write(`
         <span class="c1"># Make sure input time is valid</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_validate_time</span><span class="p">(</span><span class="n">time</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_validate_leadtime</span><span class="p">(</span><span class="n">lead_time</span><span class="p">)</span>
-
-        <span class="k">return</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">get_event_loop</span><span class="p">()</span><span class="o">.</span><span class="n">run_until_complete</span><span class="p">(</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">async_fetch</span><span class="p">(</span><span class="n">time</span><span class="p">,</span> <span class="n">lead_time</span><span class="p">,</span> <span class="n">variable</span><span class="p">)</span>
-        <span class="p">)</span></div>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">fetch</span><span class="p">(</span><span class="n">time</span><span class="p">,</span> <span class="n">lead_time</span><span class="p">,</span> <span class="n">variable</span><span class="p">)</span></div>
 
 
     <span class="nd">@classmethod</span>
@@ -1058,7 +1090,7 @@ document.write(`
         <div class="footer-item">
 
   <p class="sphinx-version">
-    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 8.1.3.
+    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 8.2.3.
     <br/>
   </p>
 </div>
