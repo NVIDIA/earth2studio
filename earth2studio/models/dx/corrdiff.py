@@ -260,49 +260,49 @@ class CorrDiffTaiwan(torch.nn.Module, AutoModelMixin):
                     )
                 )
             )
-        with zarr.group(store) as root:
-            # Get output lat/lon grid
-            out_lat = torch.as_tensor(root["XLAT"][:], dtype=torch.float32)
-            out_lon = torch.as_tensor(root["XLONG"][:], dtype=torch.float32)
+        root = zarr.group(store)
+        # Get output lat/lon grid
+        out_lat = torch.as_tensor(root["XLAT"][:], dtype=torch.float32)
+        out_lon = torch.as_tensor(root["XLONG"][:], dtype=torch.float32)
 
-            # get normalization info
-            in_inds = [0, 1, 2, 3, 4, 9, 10, 11, 12, 17, 18, 19]
-            in_center = (
-                torch.as_tensor(
-                    root["era5_center"][in_inds],
-                    dtype=torch.float32,
-                )
-                .unsqueeze(1)
-                .unsqueeze(1)
+        # get normalization info
+        in_inds = [0, 1, 2, 3, 4, 9, 10, 11, 12, 17, 18, 19]
+        in_center = (
+            torch.as_tensor(
+                root["era5_center"][in_inds],
+                dtype=torch.float32,
             )
+            .unsqueeze(1)
+            .unsqueeze(1)
+        )
 
-            in_scale = (
-                torch.as_tensor(
-                    root["era5_scale"][in_inds],
-                    dtype=torch.float32,
-                )
-                .unsqueeze(1)
-                .unsqueeze(1)
+        in_scale = (
+            torch.as_tensor(
+                root["era5_scale"][in_inds],
+                dtype=torch.float32,
             )
+            .unsqueeze(1)
+            .unsqueeze(1)
+        )
 
-            out_inds = [0, 17, 18, 19]
-            out_center = (
-                torch.as_tensor(
-                    root["cwb_center"][out_inds],
-                    dtype=torch.float32,
-                )
-                .unsqueeze(1)
-                .unsqueeze(1)
+        out_inds = [0, 17, 18, 19]
+        out_center = (
+            torch.as_tensor(
+                root["cwb_center"][out_inds],
+                dtype=torch.float32,
             )
+            .unsqueeze(1)
+            .unsqueeze(1)
+        )
 
-            out_scale = (
-                torch.as_tensor(
-                    root["cwb_scale"][out_inds],
-                    dtype=torch.float32,
-                )
-                .unsqueeze(1)
-                .unsqueeze(1)
+        out_scale = (
+            torch.as_tensor(
+                root["cwb_scale"][out_inds],
+                dtype=torch.float32,
             )
+            .unsqueeze(1)
+            .unsqueeze(1)
+        )
 
         return cls(
             residual,

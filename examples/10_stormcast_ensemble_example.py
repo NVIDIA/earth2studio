@@ -140,8 +140,6 @@ import matplotlib.pyplot as plt
 forecast = f"{date}"
 step = nsteps  # 4 hours, since lead_time = 1 hr
 
-plt.close("all")
-
 
 def plot_(axi, data, title, cmap, vmin=None, vmax=None):
     """Convenience function for plotting pcolormesh."""
@@ -195,21 +193,18 @@ plot_(
     f"{forecast} - Lead time: {step}hrs - Member: {0}",
     cmap,
 )
-
 plot_(
     ax2,
     io[variable][1, 0, step],
     f"{forecast} - Lead time: {step}hrs - Member: {1}",
     cmap,
 )
-
 plot_(
     ax3,
     x[:, 0, step].std(axis=0),
     f"{forecast} - Lead time: {step}hrs - Std",
     cmap,
 )
-
 plt.savefig(f"outputs/10_{date}_{variable}_{step}_ensemble.jpg")
 
 # Plot refc
@@ -229,7 +224,6 @@ plot_(
     vmin=0,
     vmax=60,
 )
-
 plot_(
     ax2,
     np.where(x[1, 0, step] > 0, x[1, 0, step], np.nan),
@@ -238,7 +232,6 @@ plot_(
     vmin=0,
     vmax=60,
 )
-
 plot_(
     ax3,
     np.where(x[:, 0, step].mean(axis=0) > 0, x[:, 0, step].std(axis=0), np.nan),
@@ -247,5 +240,4 @@ plot_(
     vmin=0,
     vmax=60,
 )
-
 plt.savefig(f"outputs/10_{date}_{variable}_{step}_ensemble.jpg")

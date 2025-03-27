@@ -18,6 +18,7 @@ import hashlib
 import os
 import pathlib
 import shutil
+import warnings
 from datetime import datetime, timedelta
 
 import numpy as np
@@ -84,6 +85,9 @@ class GFS:
     def __init__(self, source: str = "aws", cache: bool = True, verbose: bool = True):
         self._cache = cache
         self._verbose = verbose
+
+        # Silence cfgrib warning, TODO Remove this
+        warnings.simplefilter(action="ignore", category=FutureWarning)
 
         if source == "aws":
             self.uri_prefix = "noaa-gfs-bdp-pds"
