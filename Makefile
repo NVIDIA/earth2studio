@@ -62,9 +62,9 @@ docs-full:
 	rm -rf docs/modules/backreferences
 	$(MAKE) -C docs clean
 	rm -rf examples/outputs
-	PLOT_GALLERY=True RUN_STALE_EXAMPLES=True $(MAKE) -C docs html
+	PLOT_GALLERY=True RUN_STALE_EXAMPLES=True $(MAKE) -j 8 -C docs html
 
 .PHONY: docs-dev
 docs-dev:
 	rm -rf examples/outputs
-	PLOT_GALLERY=True RUN_STALE_EXAMPLES=True FILENAME_PATTERN=$(FILENAME) $(MAKE) -C docs html
+	PLOT_GALLERY=True RUN_STALE_EXAMPLES=True FILENAME_PATTERN=$(FILENAME) $(MAKE) -j 4 -C docs html
