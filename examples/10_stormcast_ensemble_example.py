@@ -108,7 +108,6 @@ nsteps = 4
 nensemble = 8
 batch_size = 2
 
-
 date = "2022-11-04T21:00:00"
 io = run.ensemble(
     [date],
@@ -139,7 +138,7 @@ import cartopy.crs as ccrs
 import matplotlib.pyplot as plt
 
 forecast = f"{date}"
-step = 4  # 4 hours, since lead_time = 1 hr
+step = nsteps  # 4 hours, since lead_time = 1 hr
 
 plt.close("all")
 
