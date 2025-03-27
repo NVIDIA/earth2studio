@@ -441,7 +441,8 @@ class HRRR(_HRRRBase):
     source : str, optional
         Data source to use ('aws', 'google', 'azure', 'nomads'), by default 'aws'
     max_workers : int, optional
-        Maximum number of concurrent downloads, by default 4
+        Maximum number of concurrent downloads, potentially not thread safe with Herbie,
+        by default 1
     cache : bool, optional
         Cache data source on local memory, by default True
     verbose : bool, optional
@@ -465,7 +466,7 @@ class HRRR(_HRRRBase):
     def __init__(
         self,
         source: str = "aws",
-        max_workers: int = 4,
+        max_workers: int = 1,
         cache: bool = True,
         verbose: bool = True,
     ):
