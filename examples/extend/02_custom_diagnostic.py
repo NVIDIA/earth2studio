@@ -238,7 +238,9 @@ fig, ax = plt.subplots(
     constrained_layout=True,
 )
 
-times = io["lead_time"].astype("timedelta64[h]").astype(int)
+times = (
+    io["lead_time"][:].astype("timedelta64[ns]").astype("timedelta64[h]").astype(int)
+)
 step = 4  # 24hrs
 for i, t in enumerate(range(0, 20, step)):
 
@@ -264,4 +266,4 @@ cbar.set_clim(-10.0, 30)
 cbar = fig.colorbar(cbar, ax=ax[-1], orientation="vertical", label="C", shrink=0.8)
 
 
-plt.savefig("outputs/custom_diagnostic_dlwp_prediction.jpg")
+plt.savefig("outputs/02_custom_diagnostic_dlwp_prediction.jpg")
