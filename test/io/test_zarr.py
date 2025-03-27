@@ -17,11 +17,18 @@
 import os
 import tempfile
 from collections import OrderedDict
+from importlib.metadata import version
 
 import numpy as np
 import pytest
 import torch
 import zarr
+
+try:
+    zarr_version = version("zarr")
+    zarr_major_version = int(zarr_version.split(".")[0])
+except Exception:
+    zarr_major_version = 2
 
 from earth2studio.io import ZarrBackend
 from earth2studio.utils.coords import convert_multidim_to_singledim, split_coords
@@ -57,7 +64,7 @@ def test_zarr_field(
     # Test Memory Store
     z = ZarrBackend(chunks=chunks)
     assert isinstance(z.store, zarr.storage.MemoryStore)
-    assert isinstance(z.root, zarr.hierarchy.Group)
+    assert isinstance(z.root, zarr.Group)
 
     # Instantiate
     array_name = "fields"
@@ -155,8 +162,11 @@ def test_zarr_field(
 
         z = ZarrBackend(file_name=file_name)
         assert os.path.exists(file_name)
-        assert isinstance(z.store, zarr.storage.DirectoryStore)
-        assert isinstance(z.root, zarr.hierarchy.Group)
+        if zarr_major_version >= 3:
+            assert isinstance(z.store, zarr.storage.LocalStore)
+        else:
+            assert isinstance(z.store, zarr.storage.DirectoryStore)
+        assert isinstance(z.root, zarr.Group)
 
         # Check instantiation
         z.add_array(total_coords, array_name)
@@ -218,7 +228,7 @@ def test_zarr_variable(
     # Test Memory Store
     z = ZarrBackend(chunks=chunks)
     assert isinstance(z.store, zarr.storage.MemoryStore)
-    assert isinstance(z.root, zarr.hierarchy.Group)
+    assert isinstance(z.root, zarr.Group)
 
     z.add_array(coords, var_names)
     # Check instantiation
@@ -248,8 +258,11 @@ def test_zarr_variable(
         file_name = os.path.join(td, "temp_zarr.zarr")
         z = ZarrBackend(file_name=file_name, chunks=chunks)
         assert os.path.exists(file_name)
-        assert isinstance(z.store, zarr.storage.DirectoryStore)
-        assert isinstance(z.root, zarr.hierarchy.Group)
+        if zarr_major_version >= 3:
+            assert isinstance(z.store, zarr.storage.LocalStore)
+        else:
+            assert isinstance(z.store, zarr.storage.DirectoryStore)
+        assert isinstance(z.root, zarr.Group)
 
         z.add_array(coords, var_names)
         # Check instantiation
@@ -348,7 +361,7 @@ def test_zarr_exceptions(
     # Test Memory Store
     z = ZarrBackend(chunks=chunks)
     assert isinstance(z.store, zarr.storage.MemoryStore)
-    assert isinstance(z.root, zarr.hierarchy.Group)
+    assert isinstance(z.root, zarr.Group)
 
     # Test mismatch between len(array_names) and len(data)
     shape = tuple([len(values) for values in total_coords.values()])
@@ -419,7 +432,7 @@ def test_zarr_field_multidim(
     # Test Memory Store
     z = ZarrBackend(chunks=chunks)
     assert isinstance(z.store, zarr.storage.MemoryStore)
-    assert isinstance(z.root, zarr.hierarchy.Group)
+    assert isinstance(z.root, zarr.Group)
 
     # Instantiate
     array_name = "fields"
