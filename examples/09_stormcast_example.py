@@ -17,7 +17,7 @@
 # %%
 """
 Running StormCast Inference
-===============================
+===========================
 
 Basic StormCast inference workflow.
 
@@ -54,7 +54,7 @@ see
 # could also be used with appropriate time stamps.
 
 # %%
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from loguru import logger
 from tqdm import tqdm
@@ -101,7 +101,7 @@ io = ZarrBackend()
 import earth2studio.run as run
 
 nsteps = 4
-today = datetime.today()
+today = datetime.today() - timedelta(days=1)
 date = today.isoformat().split("T")[0]
 io = run.deterministic([date], nsteps, model, data, io)
 
