@@ -22,6 +22,7 @@ from itertools import product
 import numpy as np
 import torch
 import xarray as xr
+import zarr
 from physicsnemo.models import Module
 
 try:
@@ -259,7 +260,8 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         diffusion = Module.from_checkpoint(package.resolve("EDMPrecond.0.0.mdlus"))
 
         # Load metadata: means, stds, grid
-        metadata = xr.open_zarr(package.resolve("metadata.zarr.zip"))
+        store = zarr.storage.ZipStore(package.resolve("metadata.zarr.zip"), mode="r")
+        metadata = xr.open_zarr(store, zarr_format=2)
 
         variables = metadata["variable"].values
         lat = metadata.coords["lat"].values

@@ -238,7 +238,7 @@ cbar.set_array(da_custom.sel(variable="r500")[0])
 cbar.set_clim(0, 100)
 cbar = fig.colorbar(cbar, ax=ax[-1], orientation="vertical", shrink=0.8)
 
-plt.savefig("outputs/custom_datasource_gfs_versus_custom.jpg")
+plt.savefig("outputs/03_custom_datasource_gfs_versus_custom.jpg")
 
 
 # %%
@@ -300,10 +300,12 @@ ax[1, 1].imshow(io[variable][0, 3], vmin=0, vmax=80, cmap="magma")
 
 # Set title
 plt.suptitle(f"{variable} - {forecast}")
-times = io["lead_time"].astype("timedelta64[h]").astype(int)
+times = (
+    io["lead_time"][:].astype("timedelta64[ns]").astype("timedelta64[h]").astype(int)
+)
 ax[0, 0].set_title(f"Lead time: {times[0]}hrs")
 ax[0, 1].set_title(f"Lead time: {times[1]}hrs")
 ax[1, 0].set_title(f"Lead time: {times[2]}hrs")
 ax[1, 1].set_title(f"Lead time: {times[3]}hrs")
 
-plt.savefig("outputs/custom_datasource_prediction.jpg", bbox_inches="tight")
+plt.savefig("outputs/03_custom_datasource_prediction.jpg", bbox_inches="tight")

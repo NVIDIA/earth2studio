@@ -18,6 +18,7 @@ import concurrent.futures
 import os
 import pathlib
 import shutil
+import warnings
 from collections.abc import Callable
 from datetime import datetime, timedelta
 
@@ -77,6 +78,8 @@ class _HRRRBase:
         try:
             from herbie import Herbie
 
+            # Silence cfgrib warning
+            warnings.simplefilter(action="ignore", category=FutureWarning)
             self.Herbie = Herbie
         except ImportError:
             raise ImportError(
@@ -173,7 +176,7 @@ class _HRRRBase:
             # Process completed futures as they finish
             for future in concurrent.futures.as_completed([f[0] for f in futures]):
                 data, coords, indices = future.result()
-                hrrr_da[*indices] = data
+                hrrr_da[tuple(indices)] = data
 
                 # Add lat/lon coordinates if not present
                 if "lat" not in hrrr_da.coords:
@@ -438,7 +441,8 @@ class HRRR(_HRRRBase):
     source : str, optional
         Data source to use ('aws', 'google', 'azure', 'nomads'), by default 'aws'
     max_workers : int, optional
-        Maximum number of concurrent downloads, by default 4
+        Maximum number of concurrent downloads, potentially not thread safe with Herbie,
+        by default 1
     cache : bool, optional
         Cache data source on local memory, by default True
     verbose : bool, optional
@@ -462,7 +466,7 @@ class HRRR(_HRRRBase):
     def __init__(
         self,
         source: str = "aws",
-        max_workers: int = 4,
+        max_workers: int = 1,
         cache: bool = True,
         verbose: bool = True,
     ):
