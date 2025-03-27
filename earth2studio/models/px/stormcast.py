@@ -260,7 +260,6 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         diffusion = Module.from_checkpoint(package.resolve("EDMPrecond.0.0.mdlus"))
 
         # Load metadata: means, stds, grid
-        print(package.resolve("metadata.zarr.zip"))
         store = zarr.storage.ZipStore(package.resolve("metadata.zarr.zip"), mode="r")
         metadata = xr.open_zarr(store, zarr_format=2)
 
