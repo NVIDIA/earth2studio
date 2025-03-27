@@ -18,12 +18,14 @@ import os
 import pathlib
 import shutil
 from datetime import datetime, timezone
+from importlib.metadata import version
 
+import fsspec
 import gcsfs
 import numpy as np
 import xarray as xr
 import zarr
-from fsspec.implementations.cached import CachingFileSystem
+from fsspec.implementations.cached import WholeFileCacheFileSystem
 from physicsnemo.distributed.manager import DistributedManager
 from physicsnemo.utils.zenith_angle import cos_zenith_angle_from_timestamp
 
@@ -41,8 +43,6 @@ class ARCORxBase:
         Earth-2 studio variable ID
     arco_id : str
         ARCO name of variable array in Zarr store
-    arco_url : str, optional
-        ARCO dataset , by default "gs://gcp-public-data-arco-era5/ar/1959-2022-full_37-1h-0p25deg-chunk-1.zarr-v2"
     cache : bool, optional
         Cache data source on local memory, by default True
     verbose : bool, optional
@@ -56,7 +56,6 @@ class ARCORxBase:
         self,
         id: str,
         arco_id: str,
-        arco_url: str = "gs://gcp-public-data-arco-era5/ar/1959-2022-full_37-1h-0p25deg-chunk-1.zarr-v2",
         cache: bool = True,
         verbose: bool = True,
     ):
@@ -65,17 +64,43 @@ class ARCORxBase:
         self._cache = cache
         self._verbose = verbose
 
-        if self._cache:
-            gcs = CachingFileSystem(
-                target_protocol="gs",
-                cache_storage=self.cache,
-            )
-        else:
-            gcs = gcsfs.GCSFileSystem(cache_timeout=-1)
+        fs = gcsfs.GCSFileSystem(
+            cache_timeout=-1,
+            token="anon",  # noqa: S106 # nosec B106
+            access="read_only",
+            block_size=2**20,
+        )
 
-        # Use v2 over v3 if possible for faster loading
-        gcstore = gcsfs.GCSMap(arco_url, gcs=gcs)
-        self.zarr_group = zarr.open(gcstore, mode="r")
+        if self._cache:
+            cache_options = {
+                "cache_storage": self.cache,
+                "expiry_time": 31622400,  # 1 year
+            }
+            fs = WholeFileCacheFileSystem(fs=fs, **cache_options)
+
+        # Check Zarr version and use appropriate method
+        try:
+            zarr_version = version("zarr")
+            zarr_major_version = int(zarr_version.split(".")[0])
+        except Exception:
+            # Fallback to older method if version check fails
+            zarr_major_version = 2  # Assume older version if we can't determine
+
+        if zarr_major_version >= 3:
+            # Zarr 3.0+ method
+            zstore = zarr.storage.FsspecStore(
+                fs,
+                path="/gcp-public-data-arco-era5/ar/1959-2022-full_37-1h-0p25deg-chunk-1.zarr-v2",
+            )
+            self.zarr_group = zarr.open(zstore, mode="r")
+        else:
+            # Legacy method for Zarr < 3.0
+            # Use ARCO v2 over v3 if possible for faster loading (I think chunking is better in v2)
+            fs_map = fsspec.FSMap(
+                "gcp-public-data-arco-era5/ar/1959-2022-full_37-1h-0p25deg-chunk-1.zarr-v2",
+                fs,
+            )
+            self.zarr_group = zarr.open(fs_map, mode="r")
 
     def __call__(
         self,

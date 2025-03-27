@@ -17,6 +17,7 @@
 import zipfile
 from collections import OrderedDict
 from collections.abc import Callable
+from importlib.metadata import version
 from pathlib import Path
 from typing import Literal
 
@@ -233,58 +234,75 @@ class CorrDiffTaiwan(torch.nn.Module, AutoModelMixin):
             )
         ).eval()
 
-        # Get dataset for lat/lon grid info and centers/stds
-        store = zarr.DirectoryStore(
-            str(
-                checkpoint_zip.parent
-                / Path(
-                    "corrdiff_inference_package/dataset/2023-01-24-cwb-4years_5times.zarr"
+        # Get dataset for lat/lon grid info and centers/stds'
+        try:
+            zarr_version = version("zarr")
+            zarr_major_version = int(zarr_version.split(".")[0])
+        except Exception:
+            # Fallback to older method if version check fails
+            zarr_major_version = 2  # Assume older version if we can't determine
+
+        if zarr_major_version >= 3:
+            store = zarr.storage.LocalStore(
+                str(
+                    checkpoint_zip.parent
+                    / Path(
+                        "corrdiff_inference_package/dataset/2023-01-24-cwb-4years_5times.zarr"
+                    )
                 )
             )
+        else:
+            store = zarr.storage.DirectoryStore(
+                str(
+                    checkpoint_zip.parent
+                    / Path(
+                        "corrdiff_inference_package/dataset/2023-01-24-cwb-4years_5times.zarr"
+                    )
+                )
+            )
+        root = zarr.group(store)
+        # Get output lat/lon grid
+        out_lat = torch.as_tensor(root["XLAT"][:], dtype=torch.float32)
+        out_lon = torch.as_tensor(root["XLONG"][:], dtype=torch.float32)
+
+        # get normalization info
+        in_inds = [0, 1, 2, 3, 4, 9, 10, 11, 12, 17, 18, 19]
+        in_center = (
+            torch.as_tensor(
+                root["era5_center"][in_inds],
+                dtype=torch.float32,
+            )
+            .unsqueeze(1)
+            .unsqueeze(1)
         )
-        with zarr.group(store) as root:
-            # Get output lat/lon grid
-            out_lat = torch.as_tensor(root["XLAT"][:], dtype=torch.float32)
-            out_lon = torch.as_tensor(root["XLONG"][:], dtype=torch.float32)
 
-            # get normalization info
-            in_inds = [0, 1, 2, 3, 4, 9, 10, 11, 12, 17, 18, 19]
-            in_center = (
-                torch.as_tensor(
-                    root["era5_center"][in_inds],
-                    dtype=torch.float32,
-                )
-                .unsqueeze(1)
-                .unsqueeze(1)
+        in_scale = (
+            torch.as_tensor(
+                root["era5_scale"][in_inds],
+                dtype=torch.float32,
             )
+            .unsqueeze(1)
+            .unsqueeze(1)
+        )
 
-            in_scale = (
-                torch.as_tensor(
-                    root["era5_scale"][in_inds],
-                    dtype=torch.float32,
-                )
-                .unsqueeze(1)
-                .unsqueeze(1)
+        out_inds = [0, 17, 18, 19]
+        out_center = (
+            torch.as_tensor(
+                root["cwb_center"][out_inds],
+                dtype=torch.float32,
             )
+            .unsqueeze(1)
+            .unsqueeze(1)
+        )
 
-            out_inds = [0, 17, 18, 19]
-            out_center = (
-                torch.as_tensor(
-                    root["cwb_center"][out_inds],
-                    dtype=torch.float32,
-                )
-                .unsqueeze(1)
-                .unsqueeze(1)
+        out_scale = (
+            torch.as_tensor(
+                root["cwb_scale"][out_inds],
+                dtype=torch.float32,
             )
-
-            out_scale = (
-                torch.as_tensor(
-                    root["cwb_scale"][out_inds],
-                    dtype=torch.float32,
-                )
-                .unsqueeze(1)
-                .unsqueeze(1)
-            )
+            .unsqueeze(1)
+            .unsqueeze(1)
+        )
 
         return cls(
             residual,

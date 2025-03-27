@@ -26,11 +26,11 @@ from earth2studio.perturbation import Gaussian
     "x, coords",
     [
         [
-            torch.randn(2, 16, 16, 16),
+            torch.randn(4, 16, 16, 16),
             OrderedDict([("a", []), ("variable", []), ("lat", []), ("lon", [])]),
         ],
         [
-            torch.randn(2, 32, 16),
+            torch.randn(4, 32, 16),
             OrderedDict([("variable", []), ("lat", []), ("lon", [])]),
         ],
     ],

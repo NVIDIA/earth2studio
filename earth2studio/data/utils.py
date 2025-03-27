@@ -161,6 +161,12 @@ def prep_data_array(
             data = torch.Tensor(da.values).to(device)
             out = interp(data)
 
+            # HARD CODE FOR STORMCAST
+            # TODO: FIX THIS BY CORRECTING STORMCAST COORDINATES
+            if "hrrr_y" in out_coords:
+                del out_coords["hrrr_y"]
+            if "hrrr_x" in out_coords:
+                del out_coords["hrrr_x"]
         else:
 
             if len(interp_to["lat"].shape) > 1 or len(interp_to["lon"].shape) > 1:
