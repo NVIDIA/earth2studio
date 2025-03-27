@@ -1,0 +1,85 @@
+
+
+.. _sphx_glr_examples_extend:
+
+.. _extension_examples:
+
+Extending Earth2Studio
+----------------------
+
+Examples focused on demonstrating how to extend Earth2Studio with user-defined
+components.
+
+
+
+.. raw:: html
+
+    <div class="sphx-glr-thumbnails">
+
+.. thumbnail-parent-div-open
+
+.. raw:: html
+
+    <div class="sphx-glr-thumbcontainer" tooltip="Implementing a custom prognostic model">
+
+.. only:: html
+
+  .. image:: /examples/extend/images/thumb/sphx_glr_01_custom_prognostic_thumb.png
+    :alt:
+
+  :ref:`sphx_glr_examples_extend_01_custom_prognostic.py`
+
+.. raw:: html
+
+      <div class="sphx-glr-thumbnail-title">Extending Prognostic Models</div>
+    </div>
+
+
+.. raw:: html
+
+    <div class="sphx-glr-thumbcontainer" tooltip="Implementing a custom diagnostic model">
+
+.. only:: html
+
+  .. image:: /examples/extend/images/thumb/sphx_glr_02_custom_diagnostic_thumb.png
+    :alt:
+
+  :ref:`sphx_glr_examples_extend_02_custom_diagnostic.py`
+
+.. raw:: html
+
+      <div class="sphx-glr-thumbnail-title">Extending Diagnostic Models</div>
+    </div>
+
+
+.. raw:: html
+
+    <div class="sphx-glr-thumbcontainer" tooltip="Implementing a custom data source">
+
+.. only:: html
+
+  .. image:: /examples/extend/images/thumb/sphx_glr_03_custom_datasource_thumb.png
+    :alt:
+
+  :ref:`sphx_glr_examples_extend_03_custom_datasource.py`
+
+.. raw:: html
+
+      <div class="sphx-glr-thumbnail-title">Extending Data Sources</div>
+    </div>
+
+
+.. thumbnail-parent-div-close
+
+.. raw:: html
+
+    </div>
+
+
+.. toctree::
+   :hidden:
+
+   /examples/extend/01_custom_prognostic
+   /examples/extend/02_custom_diagnostic
+   /examples/extend/03_custom_datasource
+

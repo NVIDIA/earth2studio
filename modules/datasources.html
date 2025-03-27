@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
     <link href="../_static/favicon.ico" rel="icon" type="image/x-icon">
-    <title>earth2studio.data: Data Sources &#8212; Earth2Studio 0.5.0a0 documentation</title>
+    <title>earth2studio.data: Data Sources &#8212; Earth2Studio 0.5.0 documentation</title>
   
   
   
@@ -28,7 +28,7 @@
 <link rel="preload" as="font" type="font/woff2" crossorigin href="../_static/vendor/fontawesome/6.5.1/webfonts/fa-brands-400.woff2" />
 <link rel="preload" as="font" type="font/woff2" crossorigin href="../_static/vendor/fontawesome/6.5.1/webfonts/fa-regular-400.woff2" />
 
-    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=a746c00c" />
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=8f2a1f02" />
     <link rel="stylesheet" type="text/css" href="../_static/togglebutton.css?v=13237357" />
     <link rel="stylesheet" type="text/css" href="../_static/sg_gallery.css?v=d2d258e8" />
     <link rel="stylesheet" type="text/css" href="../_static/sg_gallery-binder.css?v=f4aeca0c" />
@@ -42,7 +42,7 @@
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=8d27b9dea8ad943066ae" />
   <script src="../_static/vendor/fontawesome/6.5.1/js/all.min.js?digest=8d27b9dea8ad943066ae"></script>
 
-    <script src="../_static/documentation_options.js?v=aeef923b"></script>
+    <script src="../_static/documentation_options.js?v=1dd76d02"></script>
     <script src="../_static/doctools.js?v=9bcbadda"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script>let toggleHintShow = 'Click to show';</script>
@@ -50,7 +50,6 @@
     <script>let toggleOpenOnPrint = 'true';</script>
     <script src="../_static/togglebutton.js?v=4a39c7ea"></script>
     <script src="../_static/design-tabs.js?v=f930bc37"></script>
-    <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
     <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
     <script>DOCUMENTATION_OPTIONS.pagename = 'modules/datasources';</script>
     <script>
@@ -536,7 +535,7 @@ Used for fetching initial conditions for inference and validation data for scori
 license. We encourage users to familiarize themselves with each and the limitations
 it may impose on their use case.</p>
 </div>
-<table class="autosummary longtable table autosummary">
+<table class="autosummary longtable table">
 <tbody>
 <tr class="row-odd"><td><p><a class="reference internal" href="generated/data/earth2studio.data.ARCO.html#earth2studio.data.ARCO" title="earth2studio.data.ARCO"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data.ARCO</span></code></a>([cache, verbose, async_timeout])</p></td>
 <td><p>Analysis-Ready, Cloud Optimized (ARCO) is a data store of ERA5 re-analysis data currated by Google.</p></td>
@@ -547,7 +546,7 @@ it may impose on their use case.</p>
 <tr class="row-odd"><td><p><a class="reference internal" href="generated/data/earth2studio.data.GFS.html#earth2studio.data.GFS" title="earth2studio.data.GFS"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data.GFS</span></code></a>([source, cache, verbose])</p></td>
 <td><p>The global forecast service (GFS) initial state data source provided on an equirectangular grid.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="generated/data/earth2studio.data.HRRR.html#earth2studio.data.HRRR" title="earth2studio.data.HRRR"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data.HRRR</span></code></a>([cache, verbose])</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/data/earth2studio.data.HRRR.html#earth2studio.data.HRRR" title="earth2studio.data.HRRR"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data.HRRR</span></code></a>([source, max_workers, cache, verbose])</p></td>
 <td><p>High-Resolution Rapid Refresh (HRRR) data source provides hourly North-American weather analysis data developed by NOAA (used to initialize the HRRR forecast model).</p></td>
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="generated/data/earth2studio.data.IFS.html#earth2studio.data.IFS" title="earth2studio.data.IFS"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data.IFS</span></code></a>([source, cache, verbose])</p></td>
@@ -587,7 +586,7 @@ it may impose on their use case.</p>
 <p>Extended data sources that allow users to download forecast data, these are not
 interchangable with standard data sources.
 Typically used in intercomparison workflows.</p>
-<table class="autosummary longtable table autosummary">
+<table class="autosummary longtable table">
 <tbody>
 <tr class="row-odd"><td><p><a class="reference internal" href="generated/data/earth2studio.data.GFS_FX.html#earth2studio.data.GFS_FX" title="earth2studio.data.GFS_FX"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data.GFS_FX</span></code></a>([source, cache, verbose])</p></td>
 <td><p>The global forecast service (GFS) forecast source provided on an equirectangular grid.</p></td>
@@ -598,7 +597,7 @@ Typically used in intercomparison workflows.</p>
 <tr class="row-odd"><td><p><a class="reference internal" href="generated/data/earth2studio.data.GEFS_FX_721x1440.html#earth2studio.data.GEFS_FX_721x1440" title="earth2studio.data.GEFS_FX_721x1440"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data.GEFS_FX_721x1440</span></code></a>([product, cache, verbose])</p></td>
 <td><p>The Global Ensemble Forecast System (GEFS) forecast source is a 30 member ensemble forecast provided on an 0.25 degree equirectangular grid.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="generated/data/earth2studio.data.HRRR_FX.html#earth2studio.data.HRRR_FX" title="earth2studio.data.HRRR_FX"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data.HRRR_FX</span></code></a>([cache, verbose])</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/data/earth2studio.data.HRRR_FX.html#earth2studio.data.HRRR_FX" title="earth2studio.data.HRRR_FX"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data.HRRR_FX</span></code></a>([source, max_workers, cache, ...])</p></td>
 <td><p>High-Resolution Rapid Refresh (HRRR) forecast source provides a North-American weather forecasts with hourly forecast runs developed by NOAA.</p></td>
 </tr>
 </tbody>
@@ -606,7 +605,7 @@ Typically used in intercomparison workflows.</p>
 </section>
 <section id="functions">
 <h2>Functions<a class="headerlink" href="#functions" title="Link to this heading">#</a></h2>
-<table class="autosummary longtable table autosummary">
+<table class="autosummary longtable table">
 <tbody>
 <tr class="row-odd"><td><p><a class="reference internal" href="generated/data/earth2studio.data.datasource_to_file.html#earth2studio.data.datasource_to_file" title="earth2studio.data.datasource_to_file"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data.datasource_to_file</span></code></a>(file_name, source, ...)</p></td>
 <td><p>Utility function that can be used for building a local data store needed for an inference request.</p></td>
@@ -716,7 +715,7 @@ Typically used in intercomparison workflows.</p>
         <div class="footer-item">
 
   <p class="sphinx-version">
-    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 8.1.3.
+    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 8.2.3.
     <br/>
   </p>
 </div>

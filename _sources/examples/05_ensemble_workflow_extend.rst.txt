@@ -88,6 +88,12 @@ We need the following:
     data = GFS()
 
 
+
+
+
+
+
+
 .. GENERATED FROM PYTHON SOURCE LINES 84-87
 
 The perturbation method in :ref:`sphx_glr_examples_03_ensemble_workflow.py` is naive because it
@@ -133,6 +139,12 @@ that only applies the perturbation method to a particular variable instead.
     )
 
 
+
+
+
+
+
+
 .. GENERATED FROM PYTHON SOURCE LINES 125-134
 
 Execute the Workflow
@@ -163,6 +175,133 @@ members which will be ran in 2 batches with batch size 4.
         batch_size=batch_size,
         output_coords={"variable": np.array(["t2m", "tcwv"])},
     )
+
+
+
+
+
+.. rst-class:: sphx-glr-script-out
+
+ .. code-block:: none
+
+    2025-03-27 01:56:49.448 | INFO     | earth2studio.run:ensemble:315 - Running ensemble inference!
+    2025-03-27 01:56:49.448 | INFO     | earth2studio.run:ensemble:323 - Inference device: cuda
+    2025-03-27 01:56:49.459 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:214 - Fetching GFS index file: 2023-12-31 18:00:00 lead 0:00:00
+    Fetching GFS for 2023-12-31 18:00:00:   0%|          | 0/7 [00:00<?, ?it/s]                                                                               2025-03-27 01:56:49.463 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:260 - Fetching GFS grib file for variable: t850 at 2023-12-31 18:00:00_0:00:00
+    Fetching GFS for 2023-12-31 18:00:00:   0%|          | 0/7 [00:00<?, ?it/s]                                                                               2025-03-27 01:56:49.494 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:260 - Fetching GFS grib file for variable: z1000 at 2023-12-31 18:00:00_0:00:00
+    Fetching GFS for 2023-12-31 18:00:00:   0%|          | 0/7 [00:00<?, ?it/s]                                                                               2025-03-27 01:56:49.526 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:260 - Fetching GFS grib file for variable: z700 at 2023-12-31 18:00:00_0:00:00
+    Fetching GFS for 2023-12-31 18:00:00:   0%|          | 0/7 [00:00<?, ?it/s]                                                                               2025-03-27 01:56:49.558 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:260 - Fetching GFS grib file for variable: z500 at 2023-12-31 18:00:00_0:00:00
+    Fetching GFS for 2023-12-31 18:00:00:   0%|          | 0/7 [00:00<?, ?it/s]    Fetching GFS for 2023-12-31 18:00:00:  57%|█████▋    | 4/7 [00:00<00:00, 31.44it/s]                                                                                       2025-03-27 01:56:49.590 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:260 - Fetching GFS grib file for variable: z300 at 2023-12-31 18:00:00_0:00:00
+    Fetching GFS for 2023-12-31 18:00:00:  57%|█████▋    | 4/7 [00:00<00:00, 31.44it/s]                                                                                       2025-03-27 01:56:49.623 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:260 - Fetching GFS grib file for variable: tcwv at 2023-12-31 18:00:00_0:00:00
+    Fetching GFS for 2023-12-31 18:00:00:  57%|█████▋    | 4/7 [00:00<00:00, 31.44it/s]                                                                                       2025-03-27 01:56:49.657 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:260 - Fetching GFS grib file for variable: t2m at 2023-12-31 18:00:00_0:00:00
+    Fetching GFS for 2023-12-31 18:00:00:  57%|█████▋    | 4/7 [00:00<00:00, 31.44it/s]    Fetching GFS for 2023-12-31 18:00:00: 100%|██████████| 7/7 [00:00<00:00, 30.50it/s]
+    2025-03-27 01:56:49.707 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:214 - Fetching GFS index file: 2024-01-01 00:00:00 lead 0:00:00
+    Fetching GFS for 2024-01-01 00:00:00:   0%|          | 0/7 [00:00<?, ?it/s]                                                                               2025-03-27 01:56:49.710 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:260 - Fetching GFS grib file for variable: t850 at 2024-01-01 00:00:00_0:00:00
+    Fetching GFS for 2024-01-01 00:00:00:   0%|          | 0/7 [00:00<?, ?it/s]                                                                               2025-03-27 01:56:49.746 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:260 - Fetching GFS grib file for variable: z1000 at 2024-01-01 00:00:00_0:00:00
+    Fetching GFS for 2024-01-01 00:00:00:   0%|          | 0/7 [00:00<?, ?it/s]                                                                               2025-03-27 01:56:49.782 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:260 - Fetching GFS grib file for variable: z700 at 2024-01-01 00:00:00_0:00:00
+    Fetching GFS for 2024-01-01 00:00:00:   0%|          | 0/7 [00:00<?, ?it/s]    Fetching GFS for 2024-01-01 00:00:00:  43%|████▎     | 3/7 [00:00<00:00, 27.94it/s]                                                                                       2025-03-27 01:56:49.818 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:260 - Fetching GFS grib file for variable: z500 at 2024-01-01 00:00:00_0:00:00
+    Fetching GFS for 2024-01-01 00:00:00:  43%|████▎     | 3/7 [00:00<00:00, 27.94it/s]                                                                                       2025-03-27 01:56:49.854 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:260 - Fetching GFS grib file for variable: z300 at 2024-01-01 00:00:00_0:00:00
+    Fetching GFS for 2024-01-01 00:00:00:  43%|████▎     | 3/7 [00:00<00:00, 27.94it/s]                                                                                       2025-03-27 01:56:49.889 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:260 - Fetching GFS grib file for variable: tcwv at 2024-01-01 00:00:00_0:00:00
+    Fetching GFS for 2024-01-01 00:00:00:  43%|████▎     | 3/7 [00:00<00:00, 27.94it/s]    Fetching GFS for 2024-01-01 00:00:00:  86%|████████▌ | 6/7 [00:00<00:00, 27.92it/s]                                                                                       2025-03-27 01:56:49.925 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:260 - Fetching GFS grib file for variable: t2m at 2024-01-01 00:00:00_0:00:00
+    Fetching GFS for 2024-01-01 00:00:00:  86%|████████▌ | 6/7 [00:00<00:00, 27.92it/s]    Fetching GFS for 2024-01-01 00:00:00: 100%|██████████| 7/7 [00:00<00:00, 28.00it/s]
+    2025-03-27 01:56:50.053 | SUCCESS  | earth2studio.run:ensemble:345 - Fetched data from GFS
+    2025-03-27 01:56:50.062 | WARNING  | earth2studio.io.zarr:add_array:192 - Datetime64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch
+    2025-03-27 01:56:50.069 | WARNING  | earth2studio.io.zarr:add_array:198 - Timedelta64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch
+    2025-03-27 01:56:50.093 | INFO     | earth2studio.run:ensemble:367 - Starting 8 Member Ensemble Inference with             2 number of batches.
+    Total Ensemble Batches:   0%|          | 0/2 [00:00<?, ?it/s]/localhome/local-ngeneva/earth2studio/examples/05_ensemble_workflow_extend.py:108: DeprecationWarning: `in1d` is deprecated. Use `np.isin` instead.
+      ind = np.in1d(coords["variable"], self.variable)
+
+    Running batch 0 inference:   0%|          | 0/11 [00:00<?, ?it/s]
+    Running batch 0 inference:   9%|▉         | 1/11 [00:00<00:06,  1.58it/s]/localhome/local-ngeneva/miniconda3/envs/e2sdocs/lib/python3.11/site-packages/physicsnemo/utils/zenith_angle.py:76: DeprecationWarning: __array_wrap__ must accept context and return_scalar arguments (positionally) in the future. (Deprecated NumPy 2.0)
+      lon_rad = np.deg2rad(lon, dtype=dtype)
+    /localhome/local-ngeneva/miniconda3/envs/e2sdocs/lib/python3.11/site-packages/physicsnemo/utils/zenith_angle.py:77: DeprecationWarning: __array_wrap__ must accept context and return_scalar arguments (positionally) in the future. (Deprecated NumPy 2.0)
+      lat_rad = np.deg2rad(lat, dtype=dtype)
+    /localhome/local-ngeneva/miniconda3/envs/e2sdocs/lib/python3.11/site-packages/physicsnemo/utils/zenith_angle.py:505: DeprecationWarning: __array_wrap__ must accept context and return_scalar arguments (positionally) in the future. (Deprecated NumPy 2.0)
+      cosine_zenith = np.sin(lat) * np.sin(dec) + np.cos(lat) * np.cos(dec) * np.cos(
+
+    Running batch 0 inference:  18%|█▊        | 2/11 [00:01<00:05,  1.62it/s]
+    Running batch 0 inference:  27%|██▋       | 3/11 [00:01<00:04,  1.60it/s]/localhome/local-ngeneva/miniconda3/envs/e2sdocs/lib/python3.11/site-packages/physicsnemo/utils/zenith_angle.py:76: DeprecationWarning: __array_wrap__ must accept context and return_scalar arguments (positionally) in the future. (Deprecated NumPy 2.0)
+      lon_rad = np.deg2rad(lon, dtype=dtype)
+    /localhome/local-ngeneva/miniconda3/envs/e2sdocs/lib/python3.11/site-packages/physicsnemo/utils/zenith_angle.py:77: DeprecationWarning: __array_wrap__ must accept context and return_scalar arguments (positionally) in the future. (Deprecated NumPy 2.0)
+      lat_rad = np.deg2rad(lat, dtype=dtype)
+    /localhome/local-ngeneva/miniconda3/envs/e2sdocs/lib/python3.11/site-packages/physicsnemo/utils/zenith_angle.py:505: DeprecationWarning: __array_wrap__ must accept context and return_scalar arguments (positionally) in the future. (Deprecated NumPy 2.0)
+      cosine_zenith = np.sin(lat) * np.sin(dec) + np.cos(lat) * np.cos(dec) * np.cos(
+
+    Running batch 0 inference:  36%|███▋      | 4/11 [00:02<00:04,  1.58it/s]
+    Running batch 0 inference:  45%|████▌     | 5/11 [00:03<00:03,  1.60it/s]/localhome/local-ngeneva/miniconda3/envs/e2sdocs/lib/python3.11/site-packages/physicsnemo/utils/zenith_angle.py:76: DeprecationWarning: __array_wrap__ must accept context and return_scalar arguments (positionally) in the future. (Deprecated NumPy 2.0)
+      lon_rad = np.deg2rad(lon, dtype=dtype)
+    /localhome/local-ngeneva/miniconda3/envs/e2sdocs/lib/python3.11/site-packages/physicsnemo/utils/zenith_angle.py:77: DeprecationWarning: __array_wrap__ must accept context and return_scalar arguments (positionally) in the future. (Deprecated NumPy 2.0)
+      lat_rad = np.deg2rad(lat, dtype=dtype)
+    /localhome/local-ngeneva/miniconda3/envs/e2sdocs/lib/python3.11/site-packages/physicsnemo/utils/zenith_angle.py:505: DeprecationWarning: __array_wrap__ must accept context and return_scalar arguments (positionally) in the future. (Deprecated NumPy 2.0)
+      cosine_zenith = np.sin(lat) * np.sin(dec) + np.cos(lat) * np.cos(dec) * np.cos(
+
+    Running batch 0 inference:  55%|█████▍    | 6/11 [00:03<00:03,  1.58it/s]
+    Running batch 0 inference:  64%|██████▎   | 7/11 [00:04<00:02,  1.59it/s]/localhome/local-ngeneva/miniconda3/envs/e2sdocs/lib/python3.11/site-packages/physicsnemo/utils/zenith_angle.py:76: DeprecationWarning: __array_wrap__ must accept context and return_scalar arguments (positionally) in the future. (Deprecated NumPy 2.0)
+      lon_rad = np.deg2rad(lon, dtype=dtype)
+    /localhome/local-ngeneva/miniconda3/envs/e2sdocs/lib/python3.11/site-packages/physicsnemo/utils/zenith_angle.py:77: DeprecationWarning: __array_wrap__ must accept context and return_scalar arguments (positionally) in the future. (Deprecated NumPy 2.0)
+      lat_rad = np.deg2rad(lat, dtype=dtype)
+    /localhome/local-ngeneva/miniconda3/envs/e2sdocs/lib/python3.11/site-packages/physicsnemo/utils/zenith_angle.py:505: DeprecationWarning: __array_wrap__ must accept context and return_scalar arguments (positionally) in the future. (Deprecated NumPy 2.0)
+      cosine_zenith = np.sin(lat) * np.sin(dec) + np.cos(lat) * np.cos(dec) * np.cos(
+
+    Running batch 0 inference:  73%|███████▎  | 8/11 [00:05<00:01,  1.57it/s]
+    Running batch 0 inference:  82%|████████▏ | 9/11 [00:05<00:01,  1.59it/s]/localhome/local-ngeneva/miniconda3/envs/e2sdocs/lib/python3.11/site-packages/physicsnemo/utils/zenith_angle.py:76: DeprecationWarning: __array_wrap__ must accept context and return_scalar arguments (positionally) in the future. (Deprecated NumPy 2.0)
+      lon_rad = np.deg2rad(lon, dtype=dtype)
+    /localhome/local-ngeneva/miniconda3/envs/e2sdocs/lib/python3.11/site-packages/physicsnemo/utils/zenith_angle.py:77: DeprecationWarning: __array_wrap__ must accept context and return_scalar arguments (positionally) in the future. (Deprecated NumPy 2.0)
+      lat_rad = np.deg2rad(lat, dtype=dtype)
+    /localhome/local-ngeneva/miniconda3/envs/e2sdocs/lib/python3.11/site-packages/physicsnemo/utils/zenith_angle.py:505: DeprecationWarning: __array_wrap__ must accept context and return_scalar arguments (positionally) in the future. (Deprecated NumPy 2.0)
+      cosine_zenith = np.sin(lat) * np.sin(dec) + np.cos(lat) * np.cos(dec) * np.cos(
+
+    Running batch 0 inference:  91%|█████████ | 10/11 [00:06<00:00,  1.59it/s]
+    Running batch 0 inference: 100%|██████████| 11/11 [00:06<00:00,  1.60it/s]
+                                                                                  Total Ensemble Batches:  50%|█████     | 1/2 [00:09<00:09, 10.00s/it]/localhome/local-ngeneva/earth2studio/examples/05_ensemble_workflow_extend.py:108: DeprecationWarning: `in1d` is deprecated. Use `np.isin` instead.
+      ind = np.in1d(coords["variable"], self.variable)
+
+    Running batch 4 inference:   0%|          | 0/11 [00:00<?, ?it/s]
+    Running batch 4 inference:   9%|▉         | 1/11 [00:00<00:06,  1.61it/s]/localhome/local-ngeneva/miniconda3/envs/e2sdocs/lib/python3.11/site-packages/physicsnemo/utils/zenith_angle.py:76: DeprecationWarning: __array_wrap__ must accept context and return_scalar arguments (positionally) in the future. (Deprecated NumPy 2.0)
+      lon_rad = np.deg2rad(lon, dtype=dtype)
+    /localhome/local-ngeneva/miniconda3/envs/e2sdocs/lib/python3.11/site-packages/physicsnemo/utils/zenith_angle.py:77: DeprecationWarning: __array_wrap__ must accept context and return_scalar arguments (positionally) in the future. (Deprecated NumPy 2.0)
+      lat_rad = np.deg2rad(lat, dtype=dtype)
+    /localhome/local-ngeneva/miniconda3/envs/e2sdocs/lib/python3.11/site-packages/physicsnemo/utils/zenith_angle.py:505: DeprecationWarning: __array_wrap__ must accept context and return_scalar arguments (positionally) in the future. (Deprecated NumPy 2.0)
+      cosine_zenith = np.sin(lat) * np.sin(dec) + np.cos(lat) * np.cos(dec) * np.cos(
+
+    Running batch 4 inference:  18%|█▊        | 2/11 [00:01<00:05,  1.65it/s]
+    Running batch 4 inference:  27%|██▋       | 3/11 [00:01<00:04,  1.65it/s]/localhome/local-ngeneva/miniconda3/envs/e2sdocs/lib/python3.11/site-packages/physicsnemo/utils/zenith_angle.py:76: DeprecationWarning: __array_wrap__ must accept context and return_scalar arguments (positionally) in the future. (Deprecated NumPy 2.0)
+      lon_rad = np.deg2rad(lon, dtype=dtype)
+    /localhome/local-ngeneva/miniconda3/envs/e2sdocs/lib/python3.11/site-packages/physicsnemo/utils/zenith_angle.py:77: DeprecationWarning: __array_wrap__ must accept context and return_scalar arguments (positionally) in the future. (Deprecated NumPy 2.0)
+      lat_rad = np.deg2rad(lat, dtype=dtype)
+    /localhome/local-ngeneva/miniconda3/envs/e2sdocs/lib/python3.11/site-packages/physicsnemo/utils/zenith_angle.py:505: DeprecationWarning: __array_wrap__ must accept context and return_scalar arguments (positionally) in the future. (Deprecated NumPy 2.0)
+      cosine_zenith = np.sin(lat) * np.sin(dec) + np.cos(lat) * np.cos(dec) * np.cos(
+
+    Running batch 4 inference:  36%|███▋      | 4/11 [00:02<00:04,  1.69it/s]
+    Running batch 4 inference:  45%|████▌     | 5/11 [00:02<00:03,  1.72it/s]/localhome/local-ngeneva/miniconda3/envs/e2sdocs/lib/python3.11/site-packages/physicsnemo/utils/zenith_angle.py:76: DeprecationWarning: __array_wrap__ must accept context and return_scalar arguments (positionally) in the future. (Deprecated NumPy 2.0)
+      lon_rad = np.deg2rad(lon, dtype=dtype)
+    /localhome/local-ngeneva/miniconda3/envs/e2sdocs/lib/python3.11/site-packages/physicsnemo/utils/zenith_angle.py:77: DeprecationWarning: __array_wrap__ must accept context and return_scalar arguments (positionally) in the future. (Deprecated NumPy 2.0)
+      lat_rad = np.deg2rad(lat, dtype=dtype)
+    /localhome/local-ngeneva/miniconda3/envs/e2sdocs/lib/python3.11/site-packages/physicsnemo/utils/zenith_angle.py:505: DeprecationWarning: __array_wrap__ must accept context and return_scalar arguments (positionally) in the future. (Deprecated NumPy 2.0)
+      cosine_zenith = np.sin(lat) * np.sin(dec) + np.cos(lat) * np.cos(dec) * np.cos(
+
+    Running batch 4 inference:  55%|█████▍    | 6/11 [00:03<00:02,  1.71it/s]
+    Running batch 4 inference:  64%|██████▎   | 7/11 [00:04<00:02,  1.68it/s]/localhome/local-ngeneva/miniconda3/envs/e2sdocs/lib/python3.11/site-packages/physicsnemo/utils/zenith_angle.py:76: DeprecationWarning: __array_wrap__ must accept context and return_scalar arguments (positionally) in the future. (Deprecated NumPy 2.0)
+      lon_rad = np.deg2rad(lon, dtype=dtype)
+    /localhome/local-ngeneva/miniconda3/envs/e2sdocs/lib/python3.11/site-packages/physicsnemo/utils/zenith_angle.py:77: DeprecationWarning: __array_wrap__ must accept context and return_scalar arguments (positionally) in the future. (Deprecated NumPy 2.0)
+      lat_rad = np.deg2rad(lat, dtype=dtype)
+    /localhome/local-ngeneva/miniconda3/envs/e2sdocs/lib/python3.11/site-packages/physicsnemo/utils/zenith_angle.py:505: DeprecationWarning: __array_wrap__ must accept context and return_scalar arguments (positionally) in the future. (Deprecated NumPy 2.0)
+      cosine_zenith = np.sin(lat) * np.sin(dec) + np.cos(lat) * np.cos(dec) * np.cos(
+
+    Running batch 4 inference:  73%|███████▎  | 8/11 [00:04<00:01,  1.65it/s]
+    Running batch 4 inference:  82%|████████▏ | 9/11 [00:05<00:01,  1.63it/s]/localhome/local-ngeneva/miniconda3/envs/e2sdocs/lib/python3.11/site-packages/physicsnemo/utils/zenith_angle.py:76: DeprecationWarning: __array_wrap__ must accept context and return_scalar arguments (positionally) in the future. (Deprecated NumPy 2.0)
+      lon_rad = np.deg2rad(lon, dtype=dtype)
+    /localhome/local-ngeneva/miniconda3/envs/e2sdocs/lib/python3.11/site-packages/physicsnemo/utils/zenith_angle.py:77: DeprecationWarning: __array_wrap__ must accept context and return_scalar arguments (positionally) in the future. (Deprecated NumPy 2.0)
+      lat_rad = np.deg2rad(lat, dtype=dtype)
+    /localhome/local-ngeneva/miniconda3/envs/e2sdocs/lib/python3.11/site-packages/physicsnemo/utils/zenith_angle.py:505: DeprecationWarning: __array_wrap__ must accept context and return_scalar arguments (positionally) in the future. (Deprecated NumPy 2.0)
+      cosine_zenith = np.sin(lat) * np.sin(dec) + np.cos(lat) * np.cos(dec) * np.cos(
+
+    Running batch 4 inference:  91%|█████████ | 10/11 [00:06<00:00,  1.61it/s]
+    Running batch 4 inference: 100%|██████████| 11/11 [00:06<00:00,  1.60it/s]
+                                                                                  Total Ensemble Batches: 100%|██████████| 2/2 [00:21<00:00, 10.60s/it]    Total Ensemble Batches: 100%|██████████| 2/2 [00:21<00:00, 10.51s/it]
+    2025-03-27 01:57:11.109 | SUCCESS  | earth2studio.run:ensemble:412 - Inference complete
+
+
 
 
 .. GENERATED FROM PYTHON SOURCE LINES 152-159
@@ -224,6 +363,17 @@ Notice that the Zarr IO function has additional APIs to interact with the stored
     plt.savefig(f"outputs/05_{forecast}_{step}_ensemble.jpg")
 
 
+
+
+.. image-sg:: /examples/images/sphx_glr_05_ensemble_workflow_extend_001.png
+   :alt: 2024-01-01 - t2m - Lead time: 0hrs - Mean, 2024-01-01 - t2m - Lead time: 0hrs - Std, 2024-01-01 - tcwv - Lead time: 0hrs - Mean, 2024-01-01 - tcwv - Lead time: 0hrs - Std
+   :srcset: /examples/images/sphx_glr_05_ensemble_workflow_extend_001.png, /examples/images/sphx_glr_05_ensemble_workflow_extend_001_2_00x.png 2.00x
+   :class: sphx-glr-single-img
+
+
+
+
+
 .. GENERATED FROM PYTHON SOURCE LINES 206-210
 
 Due to the intrinsic coupling between all fields, we should expect all variables to
@@ -255,7 +405,21 @@ perturbing the temperature field.
 
     plt.savefig(f"outputs/05_{forecast}_{step}_ensemble.jpg")
 
-**Estimated memory usage:**  0 MB
+
+
+.. image-sg:: /examples/images/sphx_glr_05_ensemble_workflow_extend_002.png
+   :alt: 2024-01-01 - tcwv - Lead time: 24hrs - Mean, 2024-01-01 - tcwv - Lead time: 24hrs - Std
+   :srcset: /examples/images/sphx_glr_05_ensemble_workflow_extend_002.png, /examples/images/sphx_glr_05_ensemble_workflow_extend_002_2_00x.png 2.00x
+   :class: sphx-glr-single-img
+
+
+
+
+
+
+.. rst-class:: sphx-glr-timing
+
+   **Total running time of the script:** (0 minutes 26.306 seconds)
 
 
 .. _sphx_glr_download_examples_05_ensemble_workflow_extend.py:

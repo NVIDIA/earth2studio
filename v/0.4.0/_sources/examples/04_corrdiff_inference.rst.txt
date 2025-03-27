@@ -205,7 +205,7 @@ It's clear we need the following:
 
  .. code-block:: none
 
-    /localhome/local-ngeneva/miniconda3/envs/studio/lib/python3.11/site-packages/modulus/models/module.py:360: FutureWarning: You are using `torch.load` with `weights_only=False` (the current default value), which uses the default pickle module implicitly. It is possible to construct malicious pickle data which will execute arbitrary code during unpickling (See https://github.com/pytorch/pytorch/blob/main/SECURITY.md#untrusted-models for more details). In a future release, the default value for `weights_only` will be flipped to `True`. This limits the functions that could be executed during unpickling. Arbitrary objects will no longer be allowed to be loaded via this mode unless they are explicitly allowlisted by the user via `torch.serialization.add_safe_globals`. We recommend you start setting `weights_only=True` for any use case where you don't have full control of the loaded file. Please open an issue on GitHub for any issues related to this experimental feature.
+    /localhome/user/miniconda3/envs/studio/lib/python3.11/site-packages/modulus/models/module.py:360: FutureWarning: You are using `torch.load` with `weights_only=False` (the current default value), which uses the default pickle module implicitly. It is possible to construct malicious pickle data which will execute arbitrary code during unpickling (See https://github.com/pytorch/pytorch/blob/main/SECURITY.md#untrusted-models for more details). In a future release, the default value for `weights_only` will be flipped to `True`. This limits the functions that could be executed during unpickling. Arbitrary objects will no longer be allowed to be loaded via this mode unless they are explicitly allowlisted by the user via `torch.serialization.add_safe_globals`. We recommend you start setting `weights_only=True` for any use case where you don't have full control of the loaded file. Please open an issue on GitHub for any issues related to this experimental feature.
       model_dict = torch.load(
 
 
@@ -240,19 +240,59 @@ Typhoon Koinu.
     2024-12-13 05:41:41.994 | INFO     | __main__:run:108 - Running corrdiff inference!
     2024-12-13 05:41:41.994 | INFO     | __main__:run:110 - Inference device: cuda
     2024-12-13 05:41:42.112 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:209 - Fetching GFS index file: 2023-10-04 18:00:00 lead 0:00:00
-    Fetching GFS for 2023-10-04 18:00:00:   0%|          | 0/12 [00:00<?, ?it/s]                                                                                2024-12-13 05:41:42.115 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:255 - Fetching GFS grib file for variable: tcwv at 2023-10-04 18:00:00_0:00:00
-    Fetching GFS for 2023-10-04 18:00:00:   0%|          | 0/12 [00:00<?, ?it/s]                                                                                2024-12-13 05:41:42.136 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:255 - Fetching GFS grib file for variable: z500 at 2023-10-04 18:00:00_0:00:00
-    Fetching GFS for 2023-10-04 18:00:00:   0%|          | 0/12 [00:00<?, ?it/s]                                                                                2024-12-13 05:41:42.157 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:255 - Fetching GFS grib file for variable: t500 at 2023-10-04 18:00:00_0:00:00
-    Fetching GFS for 2023-10-04 18:00:00:   0%|          | 0/12 [00:00<?, ?it/s]                                                                                2024-12-13 05:41:42.177 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:255 - Fetching GFS grib file for variable: u500 at 2023-10-04 18:00:00_0:00:00
-    Fetching GFS for 2023-10-04 18:00:00:   0%|          | 0/12 [00:00<?, ?it/s]                                                                                2024-12-13 05:41:42.197 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:255 - Fetching GFS grib file for variable: v500 at 2023-10-04 18:00:00_0:00:00
-    Fetching GFS for 2023-10-04 18:00:00:   0%|          | 0/12 [00:00<?, ?it/s]    Fetching GFS for 2023-10-04 18:00:00:  42%|████▏     | 5/12 [00:00<00:00, 48.54it/s]                                                                                        2024-12-13 05:41:42.218 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:255 - Fetching GFS grib file for variable: z850 at 2023-10-04 18:00:00_0:00:00
-    Fetching GFS for 2023-10-04 18:00:00:  42%|████▏     | 5/12 [00:00<00:00, 48.54it/s]                                                                                        2024-12-13 05:41:42.239 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:255 - Fetching GFS grib file for variable: t850 at 2023-10-04 18:00:00_0:00:00
-    Fetching GFS for 2023-10-04 18:00:00:  42%|████▏     | 5/12 [00:00<00:00, 48.54it/s]                                                                                        2024-12-13 05:41:42.259 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:255 - Fetching GFS grib file for variable: u850 at 2023-10-04 18:00:00_0:00:00
-    Fetching GFS for 2023-10-04 18:00:00:  42%|████▏     | 5/12 [00:00<00:00, 48.54it/s]                                                                                        2024-12-13 05:41:42.280 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:255 - Fetching GFS grib file for variable: v850 at 2023-10-04 18:00:00_0:00:00
-    Fetching GFS for 2023-10-04 18:00:00:  42%|████▏     | 5/12 [00:00<00:00, 48.54it/s]                                                                                        2024-12-13 05:41:42.300 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:255 - Fetching GFS grib file for variable: t2m at 2023-10-04 18:00:00_0:00:00
-    Fetching GFS for 2023-10-04 18:00:00:  42%|████▏     | 5/12 [00:00<00:00, 48.54it/s]    Fetching GFS for 2023-10-04 18:00:00:  83%|████████▎ | 10/12 [00:00<00:00, 48.67it/s]                                                                                         2024-12-13 05:41:42.320 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:255 - Fetching GFS grib file for variable: u10m at 2023-10-04 18:00:00_0:00:00
-    Fetching GFS for 2023-10-04 18:00:00:  83%|████████▎ | 10/12 [00:00<00:00, 48.67it/s]                                                                                         2024-12-13 05:41:42.341 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:255 - Fetching GFS grib file for variable: v10m at 2023-10-04 18:00:00_0:00:00
-    Fetching GFS for 2023-10-04 18:00:00:  83%|████████▎ | 10/12 [00:00<00:00, 48.67it/s]    Fetching GFS for 2023-10-04 18:00:00: 100%|██████████| 12/12 [00:00<00:00, 48.67it/s]
+
+    Fetching GFS for 2023-10-04 18:00:00:   0%|          | 0/12 [00:00<?, ?it/s]
+                                                                            
+    2024-12-13 05:41:42.115 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:255 - Fetching GFS grib file for variable: tcwv at 2023-10-04 18:00:00_0:00:00
+
+    Fetching GFS for 2023-10-04 18:00:00:   0%|          | 0/12 [00:00<?, ?it/s]
+                                                                            
+    2024-12-13 05:41:42.136 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:255 - Fetching GFS grib file for variable: z500 at 2023-10-04 18:00:00_0:00:00
+
+    Fetching GFS for 2023-10-04 18:00:00:   0%|          | 0/12 [00:00<?, ?it/s]
+                                                                            
+    2024-12-13 05:41:42.157 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:255 - Fetching GFS grib file for variable: t500 at 2023-10-04 18:00:00_0:00:00
+
+    Fetching GFS for 2023-10-04 18:00:00:   0%|          | 0/12 [00:00<?, ?it/s]
+                                                                            
+    2024-12-13 05:41:42.177 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:255 - Fetching GFS grib file for variable: u500 at 2023-10-04 18:00:00_0:00:00
+
+    Fetching GFS for 2023-10-04 18:00:00:   0%|          | 0/12 [00:00<?, ?it/s]
+                                                                            
+    2024-12-13 05:41:42.197 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:255 - Fetching GFS grib file for variable: v500 at 2023-10-04 18:00:00_0:00:00
+
+    Fetching GFS for 2023-10-04 18:00:00:   0%|          | 0/12 [00:00<?, ?it/s]
+    Fetching GFS for 2023-10-04 18:00:00:  42%|████▏     | 5/12 [00:00<00:00, 48.54it/s]
+                                                                                    
+    2024-12-13 05:41:42.218 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:255 - Fetching GFS grib file for variable: z850 at 2023-10-04 18:00:00_0:00:00
+
+    Fetching GFS for 2023-10-04 18:00:00:  42%|████▏     | 5/12 [00:00<00:00, 48.54it/s]
+                                                                                    
+    2024-12-13 05:41:42.239 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:255 - Fetching GFS grib file for variable: t850 at 2023-10-04 18:00:00_0:00:00
+
+    Fetching GFS for 2023-10-04 18:00:00:  42%|████▏     | 5/12 [00:00<00:00, 48.54it/s]
+                                                                                    
+    2024-12-13 05:41:42.259 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:255 - Fetching GFS grib file for variable: u850 at 2023-10-04 18:00:00_0:00:00
+
+    Fetching GFS for 2023-10-04 18:00:00:  42%|████▏     | 5/12 [00:00<00:00, 48.54it/s]
+                                                                                    
+    2024-12-13 05:41:42.280 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:255 - Fetching GFS grib file for variable: v850 at 2023-10-04 18:00:00_0:00:00
+
+    Fetching GFS for 2023-10-04 18:00:00:  42%|████▏     | 5/12 [00:00<00:00, 48.54it/s]
+                                                                                    
+    2024-12-13 05:41:42.300 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:255 - Fetching GFS grib file for variable: t2m at 2023-10-04 18:00:00_0:00:00
+
+    Fetching GFS for 2023-10-04 18:00:00:  42%|████▏     | 5/12 [00:00<00:00, 48.54it/s]
+    Fetching GFS for 2023-10-04 18:00:00:  83%|████████▎ | 10/12 [00:00<00:00, 48.67it/s]
+                                                                                     
+    2024-12-13 05:41:42.320 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:255 - Fetching GFS grib file for variable: u10m at 2023-10-04 18:00:00_0:00:00
+
+    Fetching GFS for 2023-10-04 18:00:00:  83%|████████▎ | 10/12 [00:00<00:00, 48.67it/s]
+                                                                                     
+    2024-12-13 05:41:42.341 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:255 - Fetching GFS grib file for variable: v10m at 2023-10-04 18:00:00_0:00:00
+
+    Fetching GFS for 2023-10-04 18:00:00:  83%|████████▎ | 10/12 [00:00<00:00, 48.67it/s]
+    Fetching GFS for 2023-10-04 18:00:00: 100%|██████████| 12/12 [00:00<00:00, 48.67it/s]
     2024-12-13 05:41:42.385 | SUCCESS  | __main__:run:123 - Fetched data from GFS
     2024-12-13 05:41:42.390 | INFO     | __main__:run:149 - Inference starting!
     2024-12-13 05:41:43.734 | SUCCESS  | __main__:run:153 - Inference complete

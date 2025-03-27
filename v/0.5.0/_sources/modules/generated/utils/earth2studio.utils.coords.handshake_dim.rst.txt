@@ -1,0 +1,21 @@
+﻿..
+    The empty line below should not be removed. It is added such that the `rst_prolog`
+    is added before the :mod: directive. Otherwise, the rendering will show as a
+    paragraph instead of a header.
+
+:mod:`earth2studio.utils.coords`.handshake_dim
+===========================================================
+
+.. currentmodule:: earth2studio.utils.coords
+
+.. autofunction:: handshake_dim
+
+.. _sphx_glr_backref_earth2studio.utils.coords.handshake_dim:
+
+.. minigallery:: earth2studio.utils.coords.handshake_dim
+      :add-heading:
+      :heading-level: ^
+
+.. raw:: html
+
+    <div class="clearer"></div>

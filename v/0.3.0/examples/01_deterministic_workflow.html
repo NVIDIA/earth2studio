@@ -541,7 +541,7 @@ handed to them. In this example, let’s take a look at the most basic:
 <span class="n">io</span> <span class="o">=</span> <span class="n">ZarrBackend</span><span class="p">()</span>
 </pre></div>
 </div>
-<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>/localhome/local-ngeneva/miniconda3/envs/e2studio/lib/python3.10/site-packages/modulus/models/module.py:360: FutureWarning: You are using `torch.load` with `weights_only=False` (the current default value), which uses the default pickle module implicitly. It is possible to construct malicious pickle data which will execute arbitrary code during unpickling (See https://github.com/pytorch/pytorch/blob/main/SECURITY.md#untrusted-models for more details). In a future release, the default value for `weights_only` will be flipped to `True`. This limits the functions that could be executed during unpickling. Arbitrary objects will no longer be allowed to be loaded via this mode unless they are explicitly allowlisted by the user via `torch.serialization.add_safe_globals`. We recommend you start setting `weights_only=True` for any use case where you don&#39;t have full control of the loaded file. Please open an issue on GitHub for any issues related to this experimental feature.
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>/localhome/user/miniconda3/envs/e2studio/lib/python3.10/site-packages/modulus/models/module.py:360: FutureWarning: You are using `torch.load` with `weights_only=False` (the current default value), which uses the default pickle module implicitly. It is possible to construct malicious pickle data which will execute arbitrary code during unpickling (See https://github.com/pytorch/pytorch/blob/main/SECURITY.md#untrusted-models for more details). In a future release, the default value for `weights_only` will be flipped to `True`. This limits the functions that could be executed during unpickling. Arbitrary objects will no longer be allowed to be loaded via this mode unless they are explicitly allowlisted by the user via `torch.serialization.add_safe_globals`. We recommend you start setting `weights_only=True` for any use case where you don&#39;t have full control of the loaded file. Please open an issue on GitHub for any issues related to this experimental feature.
   model_dict = torch.load(
 </pre></div>
 </div>
@@ -570,9 +570,9 @@ Fetching GFS for 2024-01-01 00:00:00:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
 2024-09-20 15:57:58.194 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:226 - Fetching GFS grib file for variable: u10m at 2024-01-01 00:00:00_0
 
-Fetching GFS for 2024-01-01 00:00:00:   0%|          | 0/26 [00:00&lt;?, ?it/s]/localhome/local-ngeneva/miniconda3/envs/e2studio/lib/python3.10/site-packages/numpy/core/getlimits.py:518: UserWarning: The value of the smallest subnormal for &lt;class &#39;numpy.float32&#39;&gt; type is zero.
+Fetching GFS for 2024-01-01 00:00:00:   0%|          | 0/26 [00:00&lt;?, ?it/s]/localhome/user/miniconda3/envs/e2studio/lib/python3.10/site-packages/numpy/core/getlimits.py:518: UserWarning: The value of the smallest subnormal for &lt;class &#39;numpy.float32&#39;&gt; type is zero.
   setattr(self, word, getattr(machar, word).flat[0])
-/localhome/local-ngeneva/miniconda3/envs/e2studio/lib/python3.10/site-packages/numpy/core/getlimits.py:89: UserWarning: The value of the smallest subnormal for &lt;class &#39;numpy.float32&#39;&gt; type is zero.
+/localhome/user/miniconda3/envs/e2studio/lib/python3.10/site-packages/numpy/core/getlimits.py:89: UserWarning: The value of the smallest subnormal for &lt;class &#39;numpy.float32&#39;&gt; type is zero.
   return self._float_to_str(self.smallest_subnormal)
 
 Fetching GFS for 2024-01-01 00:00:00:   4%|▍         | 1/26 [00:00&lt;00:14,  1.69it/s]
@@ -780,9 +780,9 @@ fields on projections of a sphere. Here we will just plot the temperature at 2 m
 <span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="s2">&quot;outputs/01_t2m_prediction.jpg&quot;</span><span class="p">)</span>
 </pre></div>
 </div>
-<img src="../_images/sphx_glr_01_deterministic_workflow_001.png" srcset="../_images/sphx_glr_01_deterministic_workflow_001.png, ../_images/sphx_glr_01_deterministic_workflow_001_2_00x.png 2.00x" alt="2024-01-01 - Lead time: 24hrs" class = "sphx-glr-single-img"/><div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>/localhome/local-ngeneva/miniconda3/envs/e2studio/lib/python3.10/site-packages/numpy/core/getlimits.py:518: UserWarning: The value of the smallest subnormal for &lt;class &#39;numpy.float64&#39;&gt; type is zero.
+<img src="../_images/sphx_glr_01_deterministic_workflow_001.png" srcset="../_images/sphx_glr_01_deterministic_workflow_001.png, ../_images/sphx_glr_01_deterministic_workflow_001_2_00x.png 2.00x" alt="2024-01-01 - Lead time: 24hrs" class = "sphx-glr-single-img"/><div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>/localhome/user/miniconda3/envs/e2studio/lib/python3.10/site-packages/numpy/core/getlimits.py:518: UserWarning: The value of the smallest subnormal for &lt;class &#39;numpy.float64&#39;&gt; type is zero.
   setattr(self, word, getattr(machar, word).flat[0])
-/localhome/local-ngeneva/miniconda3/envs/e2studio/lib/python3.10/site-packages/numpy/core/getlimits.py:89: UserWarning: The value of the smallest subnormal for &lt;class &#39;numpy.float64&#39;&gt; type is zero.
+/localhome/user/miniconda3/envs/e2studio/lib/python3.10/site-packages/numpy/core/getlimits.py:89: UserWarning: The value of the smallest subnormal for &lt;class &#39;numpy.float64&#39;&gt; type is zero.
   return self._float_to_str(self.smallest_subnormal)
 </pre></div>
 </div>

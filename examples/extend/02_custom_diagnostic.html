@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
     <link href="../../_static/favicon.ico" rel="icon" type="image/x-icon">
-    <title>Extending Diagnostic Models &#8212; Earth2Studio 0.5.0a0 documentation</title>
+    <title>Extending Diagnostic Models &#8212; Earth2Studio 0.5.0 documentation</title>
   
   
   
@@ -28,7 +28,7 @@
 <link rel="preload" as="font" type="font/woff2" crossorigin href="../../_static/vendor/fontawesome/6.5.1/webfonts/fa-brands-400.woff2" />
 <link rel="preload" as="font" type="font/woff2" crossorigin href="../../_static/vendor/fontawesome/6.5.1/webfonts/fa-regular-400.woff2" />
 
-    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=a746c00c" />
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=8f2a1f02" />
     <link rel="stylesheet" type="text/css" href="../../_static/togglebutton.css?v=13237357" />
     <link rel="stylesheet" type="text/css" href="../../_static/sg_gallery.css?v=d2d258e8" />
     <link rel="stylesheet" type="text/css" href="../../_static/sg_gallery-binder.css?v=f4aeca0c" />
@@ -42,7 +42,7 @@
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=8d27b9dea8ad943066ae" />
   <script src="../../_static/vendor/fontawesome/6.5.1/js/all.min.js?digest=8d27b9dea8ad943066ae"></script>
 
-    <script src="../../_static/documentation_options.js?v=aeef923b"></script>
+    <script src="../../_static/documentation_options.js?v=1dd76d02"></script>
     <script src="../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script>let toggleHintShow = 'Click to show';</script>
@@ -50,7 +50,6 @@
     <script>let toggleOpenOnPrint = 'true';</script>
     <script src="../../_static/togglebutton.js?v=4a39c7ea"></script>
     <script src="../../_static/design-tabs.js?v=f930bc37"></script>
-    <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
     <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
     <script>DOCUMENTATION_OPTIONS.pagename = 'examples/extend/02_custom_diagnostic';</script>
     <script>
@@ -484,30 +483,30 @@ guide the required APIs needed to successfully create our own model.</p>
 temperature in Kelvin to Celsius to make it more readable for the average person.</p>
 <p>Our diagnostic model has a base class of <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.nn.Module</span></code> which allows us
 to get the required <code class="xref py py-obj docutils literal notranslate"><span class="pre">to(device)</span></code> method for free.</p>
-<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">os</span>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
 
 <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="s2">&quot;outputs&quot;</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-<span class="kn">from</span> <span class="nn">dotenv</span> <span class="kn">import</span> <span class="n">load_dotenv</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">dotenv</span><span class="w"> </span><span class="kn">import</span> <span class="n">load_dotenv</span>
 
 <span class="n">load_dotenv</span><span class="p">()</span>  <span class="c1"># TODO: make common example prep function</span>
 
-<span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">OrderedDict</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">collections</span><span class="w"> </span><span class="kn">import</span> <span class="n">OrderedDict</span>
 
-<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
-<span class="kn">import</span> <span class="nn">torch</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
 
-<span class="kn">from</span> <span class="nn">earth2studio.models.batch</span> <span class="kn">import</span> <span class="n">batch_coords</span><span class="p">,</span> <span class="n">batch_func</span>
-<span class="kn">from</span> <span class="nn">earth2studio.utils</span> <span class="kn">import</span> <span class="n">handshake_coords</span><span class="p">,</span> <span class="n">handshake_dim</span>
-<span class="kn">from</span> <span class="nn">earth2studio.utils.type</span> <span class="kn">import</span> <span class="n">CoordSystem</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.models.batch</span><span class="w"> </span><span class="kn">import</span> <span class="n">batch_coords</span><span class="p">,</span> <span class="n">batch_func</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">handshake_coords</span><span class="p">,</span> <span class="n">handshake_dim</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.utils.type</span><span class="w"> </span><span class="kn">import</span> <span class="n">CoordSystem</span>
 
 
-<span class="k">class</span> <span class="nc">CustomDiagnostic</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">CustomDiagnostic</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Custom dianostic model&quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
 
-    <span class="k">def</span> <span class="nf">input_coords</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">CoordSystem</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">input_coords</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">CoordSystem</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Input coordinate system of the prognostic model</span>
 
 <span class="sd">        Returns</span>
@@ -525,7 +524,7 @@ to get the required <code class="xref py py-obj docutils literal notranslate"><s
         <span class="p">)</span>
 
     <span class="nd">@batch_coords</span><span class="p">()</span>
-    <span class="k">def</span> <span class="nf">output_coords</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_coords</span><span class="p">:</span> <span class="n">CoordSystem</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">CoordSystem</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">output_coords</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_coords</span><span class="p">:</span> <span class="n">CoordSystem</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">CoordSystem</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Output coordinate system of the prognostic model</span>
 
 <span class="sd">        Parameters</span>
@@ -557,7 +556,7 @@ to get the required <code class="xref py py-obj docutils literal notranslate"><s
         <span class="k">return</span> <span class="n">output_coords</span>
 
     <span class="nd">@batch_func</span><span class="p">()</span>
-    <span class="k">def</span> <span class="fm">__call__</span><span class="p">(</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__call__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
         <span class="n">coords</span><span class="p">:</span> <span class="n">CoordSystem</span><span class="p">,</span>
@@ -613,13 +612,13 @@ workflow. We will use the built in workflow <a class="reference internal" href="
 <li><p>Datasource: Pull data from the GFS data api <a class="reference internal" href="../../modules/generated/data/earth2studio.data.GFS.html#earth2studio.data.GFS" title="earth2studio.data.GFS"><code class="xref py py-class docutils literal notranslate"><span class="pre">earth2studio.data.GFS</span></code></a>.</p></li>
 <li><p>IO Backend: Save the outputs into a Zarr store <a class="reference internal" href="../../modules/generated/io/earth2studio.io.ZarrBackend.html#earth2studio.io.ZarrBackend" title="earth2studio.io.ZarrBackend"><code class="xref py py-class docutils literal notranslate"><span class="pre">earth2studio.io.ZarrBackend</span></code></a>.</p></li>
 </ul>
-<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">dotenv</span> <span class="kn">import</span> <span class="n">load_dotenv</span>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">dotenv</span><span class="w"> </span><span class="kn">import</span> <span class="n">load_dotenv</span>
 
 <span class="n">load_dotenv</span><span class="p">()</span>  <span class="c1"># TODO: make common example prep function</span>
 
-<span class="kn">from</span> <span class="nn">earth2studio.data</span> <span class="kn">import</span> <span class="n">GFS</span>
-<span class="kn">from</span> <span class="nn">earth2studio.io</span> <span class="kn">import</span> <span class="n">ZarrBackend</span>
-<span class="kn">from</span> <span class="nn">earth2studio.models.px</span> <span class="kn">import</span> <span class="n">DLWP</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.data</span><span class="w"> </span><span class="kn">import</span> <span class="n">GFS</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.io</span><span class="w"> </span><span class="kn">import</span> <span class="n">ZarrBackend</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.models.px</span><span class="w"> </span><span class="kn">import</span> <span class="n">DLWP</span>
 
 <span class="c1"># Load the default model package which downloads the check point from NGC</span>
 <span class="n">package</span> <span class="o">=</span> <span class="n">DLWP</span><span class="o">.</span><span class="n">load_default_package</span><span class="p">()</span>
@@ -640,7 +639,7 @@ workflow. We will use the built in workflow <a class="reference internal" href="
 <h2>Execute the Workflow<a class="headerlink" href="#execute-the-workflow" title="Link to this heading">#</a></h2>
 <p>Running our workflow with a build in prognostic model and a custom diagnostic is the
 same as running a built in diagnostic.</p>
-<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">earth2studio.run</span> <span class="k">as</span> <span class="nn">run</span>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">earth2studio.run</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">run</span>
 
 <span class="n">nsteps</span> <span class="o">=</span> <span class="mi">20</span>
 <span class="n">io</span> <span class="o">=</span> <span class="n">run</span><span class="o">.</span><span class="n">diagnostic</span><span class="p">([</span><span class="s2">&quot;2024-01-01&quot;</span><span class="p">],</span> <span class="n">nsteps</span><span class="p">,</span> <span class="n">model</span><span class="p">,</span> <span class="n">diagnostic</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">io</span><span class="p">)</span>
@@ -648,104 +647,117 @@ same as running a built in diagnostic.</p>
 <span class="nb">print</span><span class="p">(</span><span class="n">io</span><span class="o">.</span><span class="n">root</span><span class="o">.</span><span class="n">tree</span><span class="p">())</span>
 </pre></div>
 </div>
-<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>2025-01-23 05:02:11.113 | INFO     | earth2studio.run:diagnostic:190 - Running diagnostic workflow!
-2025-01-23 05:02:11.113 | INFO     | earth2studio.run:diagnostic:197 - Inference device: cuda
-2025-01-23 05:02:11.123 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:209 - Fetching GFS index file: 2023-12-31 18:00:00 lead 0:00:00
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>2025-03-27 02:28:34.744 | INFO     | earth2studio.run:diagnostic:190 - Running diagnostic workflow!
+2025-03-27 02:28:34.744 | INFO     | earth2studio.run:diagnostic:197 - Inference device: cuda
+2025-03-27 02:28:34.756 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:214 - Fetching GFS index file: 2023-12-31 18:00:00 lead 0:00:00
 
 Fetching GFS for 2023-12-31 18:00:00:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 
-2025-01-23 05:02:11.127 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:255 - Fetching GFS grib file for variable: t850 at 2023-12-31 18:00:00_0:00:00
+2025-03-27 02:28:34.758 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:260 - Fetching GFS grib file for variable: t850 at 2023-12-31 18:00:00_0:00:00
 
 Fetching GFS for 2023-12-31 18:00:00:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 
-2025-01-23 05:02:11.154 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:255 - Fetching GFS grib file for variable: z1000 at 2023-12-31 18:00:00_0:00:00
+2025-03-27 02:28:34.783 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:260 - Fetching GFS grib file for variable: z1000 at 2023-12-31 18:00:00_0:00:00
 
 Fetching GFS for 2023-12-31 18:00:00:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 
-2025-01-23 05:02:11.180 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:255 - Fetching GFS grib file for variable: z700 at 2023-12-31 18:00:00_0:00:00
+2025-03-27 02:28:34.808 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:260 - Fetching GFS grib file for variable: z700 at 2023-12-31 18:00:00_0:00:00
 
 Fetching GFS for 2023-12-31 18:00:00:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 
-2025-01-23 05:02:11.207 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:255 - Fetching GFS grib file for variable: z500 at 2023-12-31 18:00:00_0:00:00
+2025-03-27 02:28:34.834 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:260 - Fetching GFS grib file for variable: z500 at 2023-12-31 18:00:00_0:00:00
 
 Fetching GFS for 2023-12-31 18:00:00:   0%|          | 0/7 [00:00&lt;?, ?it/s]
-Fetching GFS for 2023-12-31 18:00:00:  57%|█████▋    | 4/7 [00:00&lt;00:00, 37.65it/s]
+Fetching GFS for 2023-12-31 18:00:00:  57%|█████▋    | 4/7 [00:00&lt;00:00, 39.64it/s]
 
-2025-01-23 05:02:11.234 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:255 - Fetching GFS grib file for variable: z300 at 2023-12-31 18:00:00_0:00:00
+2025-03-27 02:28:34.859 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:260 - Fetching GFS grib file for variable: z300 at 2023-12-31 18:00:00_0:00:00
 
-Fetching GFS for 2023-12-31 18:00:00:  57%|█████▋    | 4/7 [00:00&lt;00:00, 37.65it/s]
+Fetching GFS for 2023-12-31 18:00:00:  57%|█████▋    | 4/7 [00:00&lt;00:00, 39.64it/s]
 
-2025-01-23 05:02:11.260 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:255 - Fetching GFS grib file for variable: tcwv at 2023-12-31 18:00:00_0:00:00
+2025-03-27 02:28:34.884 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:260 - Fetching GFS grib file for variable: tcwv at 2023-12-31 18:00:00_0:00:00
 
-Fetching GFS for 2023-12-31 18:00:00:  57%|█████▋    | 4/7 [00:00&lt;00:00, 37.65it/s]
+Fetching GFS for 2023-12-31 18:00:00:  57%|█████▋    | 4/7 [00:00&lt;00:00, 39.64it/s]
 
-2025-01-23 05:02:11.286 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:255 - Fetching GFS grib file for variable: t2m at 2023-12-31 18:00:00_0:00:00
+2025-03-27 02:28:34.910 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:260 - Fetching GFS grib file for variable: t2m at 2023-12-31 18:00:00_0:00:00
 
-Fetching GFS for 2023-12-31 18:00:00:  57%|█████▋    | 4/7 [00:00&lt;00:00, 37.65it/s]
-Fetching GFS for 2023-12-31 18:00:00: 100%|██████████| 7/7 [00:00&lt;00:00, 37.62it/s]
-2025-01-23 05:02:11.323 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:209 - Fetching GFS index file: 2024-01-01 00:00:00 lead 0:00:00
-
-Fetching GFS for 2024-01-01 00:00:00:   0%|          | 0/7 [00:00&lt;?, ?it/s]
-
-2025-01-23 05:02:11.326 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:255 - Fetching GFS grib file for variable: t850 at 2024-01-01 00:00:00_0:00:00
+Fetching GFS for 2023-12-31 18:00:00:  57%|█████▋    | 4/7 [00:00&lt;00:00, 39.64it/s]
+Fetching GFS for 2023-12-31 18:00:00: 100%|██████████| 7/7 [00:00&lt;00:00, 39.93it/s]
+2025-03-27 02:28:34.943 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:214 - Fetching GFS index file: 2024-01-01 00:00:00 lead 0:00:00
 
 Fetching GFS for 2024-01-01 00:00:00:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 
-2025-01-23 05:02:11.352 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:255 - Fetching GFS grib file for variable: z1000 at 2024-01-01 00:00:00_0:00:00
+2025-03-27 02:28:34.945 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:260 - Fetching GFS grib file for variable: t850 at 2024-01-01 00:00:00_0:00:00
 
 Fetching GFS for 2024-01-01 00:00:00:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 
-2025-01-23 05:02:11.379 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:255 - Fetching GFS grib file for variable: z700 at 2024-01-01 00:00:00_0:00:00
+2025-03-27 02:28:34.970 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:260 - Fetching GFS grib file for variable: z1000 at 2024-01-01 00:00:00_0:00:00
 
 Fetching GFS for 2024-01-01 00:00:00:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 
-2025-01-23 05:02:11.406 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:255 - Fetching GFS grib file for variable: z500 at 2024-01-01 00:00:00_0:00:00
+2025-03-27 02:28:34.995 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:260 - Fetching GFS grib file for variable: z700 at 2024-01-01 00:00:00_0:00:00
 
 Fetching GFS for 2024-01-01 00:00:00:   0%|          | 0/7 [00:00&lt;?, ?it/s]
-Fetching GFS for 2024-01-01 00:00:00:  57%|█████▋    | 4/7 [00:00&lt;00:00, 37.65it/s]
 
-2025-01-23 05:02:11.432 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:255 - Fetching GFS grib file for variable: z300 at 2024-01-01 00:00:00_0:00:00
+2025-03-27 02:28:35.020 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:260 - Fetching GFS grib file for variable: z500 at 2024-01-01 00:00:00_0:00:00
 
-Fetching GFS for 2024-01-01 00:00:00:  57%|█████▋    | 4/7 [00:00&lt;00:00, 37.65it/s]
+Fetching GFS for 2024-01-01 00:00:00:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 
-2025-01-23 05:02:11.458 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:255 - Fetching GFS grib file for variable: tcwv at 2024-01-01 00:00:00_0:00:00
+2025-03-27 02:28:35.045 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:260 - Fetching GFS grib file for variable: z300 at 2024-01-01 00:00:00_0:00:00
 
-Fetching GFS for 2024-01-01 00:00:00:  57%|█████▋    | 4/7 [00:00&lt;00:00, 37.65it/s]
+Fetching GFS for 2024-01-01 00:00:00:   0%|          | 0/7 [00:00&lt;?, ?it/s]
+Fetching GFS for 2024-01-01 00:00:00:  71%|███████▏  | 5/7 [00:00&lt;00:00, 40.07it/s]
 
-2025-01-23 05:02:11.485 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:255 - Fetching GFS grib file for variable: t2m at 2024-01-01 00:00:00_0:00:00
+2025-03-27 02:28:35.070 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:260 - Fetching GFS grib file for variable: tcwv at 2024-01-01 00:00:00_0:00:00
 
-Fetching GFS for 2024-01-01 00:00:00:  57%|█████▋    | 4/7 [00:00&lt;00:00, 37.65it/s]
-Fetching GFS for 2024-01-01 00:00:00: 100%|██████████| 7/7 [00:00&lt;00:00, 37.81it/s]
-2025-01-23 05:02:11.541 | SUCCESS  | earth2studio.run:diagnostic:220 - Fetched data from GFS
-2025-01-23 05:02:11.550 | INFO     | earth2studio.run:diagnostic:252 - Inference starting!
+Fetching GFS for 2024-01-01 00:00:00:  71%|███████▏  | 5/7 [00:00&lt;00:00, 40.07it/s]
+
+2025-03-27 02:28:35.095 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:260 - Fetching GFS grib file for variable: t2m at 2024-01-01 00:00:00_0:00:00
+
+Fetching GFS for 2024-01-01 00:00:00:  71%|███████▏  | 5/7 [00:00&lt;00:00, 40.07it/s]
+Fetching GFS for 2024-01-01 00:00:00: 100%|██████████| 7/7 [00:00&lt;00:00, 40.15it/s]
+2025-03-27 02:28:35.180 | SUCCESS  | earth2studio.run:diagnostic:220 - Fetched data from GFS
+2025-03-27 02:28:35.185 | WARNING  | earth2studio.io.zarr:add_array:192 - Datetime64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch
+2025-03-27 02:28:35.191 | WARNING  | earth2studio.io.zarr:add_array:198 - Timedelta64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch
+2025-03-27 02:28:35.211 | INFO     | earth2studio.run:diagnostic:252 - Inference starting!
 
 Running inference:   0%|          | 0/21 [00:00&lt;?, ?it/s]
-Running inference:  10%|▉         | 2/21 [00:00&lt;00:01, 15.23it/s]
-Running inference:  19%|█▉        | 4/21 [00:00&lt;00:01, 15.52it/s]
-Running inference:  29%|██▊       | 6/21 [00:00&lt;00:01, 14.97it/s]
-Running inference:  38%|███▊      | 8/21 [00:00&lt;00:00, 14.50it/s]
-Running inference:  48%|████▊     | 10/21 [00:00&lt;00:00, 14.06it/s]
-Running inference:  57%|█████▋    | 12/21 [00:00&lt;00:00, 14.12it/s]
-Running inference:  67%|██████▋   | 14/21 [00:00&lt;00:00, 14.22it/s]
-Running inference:  76%|███████▌  | 16/21 [00:01&lt;00:00, 14.05it/s]
-Running inference:  86%|████████▌ | 18/21 [00:01&lt;00:00, 13.57it/s]
-Running inference:  95%|█████████▌| 20/21 [00:01&lt;00:00, 13.11it/s]
-Running inference: 100%|██████████| 21/21 [00:01&lt;00:00, 13.81it/s]
-2025-01-23 05:02:13.071 | SUCCESS  | earth2studio.run:diagnostic:266 - Inference complete
+Running inference:   5%|▍         | 1/21 [00:00&lt;00:04,  4.18it/s]
+Running inference:  10%|▉         | 2/21 [00:00&lt;00:05,  3.46it/s]
+Running inference:  14%|█▍        | 3/21 [00:00&lt;00:05,  3.12it/s]
+Running inference:  19%|█▉        | 4/21 [00:01&lt;00:06,  2.73it/s]
+Running inference:  24%|██▍       | 5/21 [00:01&lt;00:05,  2.69it/s]
+Running inference:  29%|██▊       | 6/21 [00:02&lt;00:05,  2.59it/s]
+Running inference:  33%|███▎      | 7/21 [00:02&lt;00:05,  2.48it/s]
+Running inference:  38%|███▊      | 8/21 [00:03&lt;00:05,  2.41it/s]
+Running inference:  43%|████▎     | 9/21 [00:03&lt;00:05,  2.36it/s]
+Running inference:  48%|████▊     | 10/21 [00:04&lt;00:05,  2.14it/s]
+Running inference:  52%|█████▏    | 11/21 [00:04&lt;00:04,  2.11it/s]
+Running inference:  57%|█████▋    | 12/21 [00:05&lt;00:04,  2.07it/s]
+Running inference:  62%|██████▏   | 13/21 [00:05&lt;00:03,  2.08it/s]
+Running inference:  67%|██████▋   | 14/21 [00:06&lt;00:03,  2.00it/s]
+Running inference:  71%|███████▏  | 15/21 [00:06&lt;00:03,  1.98it/s]
+Running inference:  76%|███████▌  | 16/21 [00:07&lt;00:02,  1.92it/s]
+Running inference:  81%|████████  | 17/21 [00:07&lt;00:02,  1.89it/s]
+Running inference:  86%|████████▌ | 18/21 [00:08&lt;00:01,  1.83it/s]
+Running inference:  90%|█████████ | 19/21 [00:08&lt;00:01,  1.83it/s]
+Running inference:  95%|█████████▌| 20/21 [00:09&lt;00:00,  1.77it/s]
+Running inference: 100%|██████████| 21/21 [00:10&lt;00:00,  1.74it/s]
+Running inference: 100%|██████████| 21/21 [00:10&lt;00:00,  2.10it/s]
+2025-03-27 02:28:45.229 | SUCCESS  | earth2studio.run:diagnostic:266 - Inference complete
 /
- ├── lat (721,) float64
- ├── lead_time (21,) timedelta64[h]
- ├── lon (1440,) float64
- ├── t2m_c (1, 21, 721, 1440) float32
- └── time (1,) datetime64[ns]
+├── lat (721,) float64
+├── lead_time (21,) int64
+├── lon (1440,) float64
+├── t2m_c (1, 21, 721, 1440) float32
+└── time (1,) int64
 </pre></div>
 </div>
 </section>
 <section id="post-processing">
 <h2>Post Processing<a class="headerlink" href="#post-processing" title="Link to this heading">#</a></h2>
 <p>Let’s plot the Celsius temperature field from our custom diagnostic model.</p>
-<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">cartopy.crs</span> <span class="k">as</span> <span class="nn">ccrs</span>
-<span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="k">as</span> <span class="nn">plt</span>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">cartopy.crs</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">ccrs</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
 
 <span class="n">forecast</span> <span class="o">=</span> <span class="s2">&quot;2024-01-01&quot;</span>
 <span class="n">variable</span> <span class="o">=</span> <span class="s2">&quot;t2m_c&quot;</span>
@@ -761,7 +773,9 @@ Running inference: 100%|██████████| 21/21 [00:01&lt;00:00, 1
     <span class="n">constrained_layout</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
 <span class="p">)</span>
 
-<span class="n">times</span> <span class="o">=</span> <span class="n">io</span><span class="p">[</span><span class="s2">&quot;lead_time&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="s2">&quot;timedelta64[h]&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">)</span>
+<span class="n">times</span> <span class="o">=</span> <span class="p">(</span>
+    <span class="n">io</span><span class="p">[</span><span class="s2">&quot;lead_time&quot;</span><span class="p">][:]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="s2">&quot;timedelta64[ns]&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="s2">&quot;timedelta64[h]&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">)</span>
+<span class="p">)</span>
 <span class="n">step</span> <span class="o">=</span> <span class="mi">4</span>  <span class="c1"># 24hrs</span>
 <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">t</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">20</span><span class="p">,</span> <span class="n">step</span><span class="p">)):</span>
 
@@ -787,10 +801,10 @@ Running inference: 100%|██████████| 21/21 [00:01&lt;00:00, 1
 <span class="n">cbar</span> <span class="o">=</span> <span class="n">fig</span><span class="o">.</span><span class="n">colorbar</span><span class="p">(</span><span class="n">cbar</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="n">ax</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">orientation</span><span class="o">=</span><span class="s2">&quot;vertical&quot;</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s2">&quot;C&quot;</span><span class="p">,</span> <span class="n">shrink</span><span class="o">=</span><span class="mf">0.8</span><span class="p">)</span>
 
 
-<span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="s2">&quot;outputs/custom_diagnostic_dlwp_prediction.jpg&quot;</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="s2">&quot;outputs/02_custom_diagnostic_dlwp_prediction.jpg&quot;</span><span class="p">)</span>
 </pre></div>
 </div>
-<img src="../../_images/sphx_glr_02_custom_diagnostic_001.png" srcset="../../_images/sphx_glr_02_custom_diagnostic_001.png, ../../_images/sphx_glr_02_custom_diagnostic_001_2_00x.png 2.00x" alt="t2m_c - 2024-01-01, 0hrs, 24hrs, 48hrs, 72hrs, 96hrs" class = "sphx-glr-single-img"/><p class="sphx-glr-timing"><strong>Total running time of the script:</strong> (0 minutes 57.934 seconds)</p>
+<img src="../../_images/sphx_glr_02_custom_diagnostic_001.png" srcset="../../_images/sphx_glr_02_custom_diagnostic_001.png, ../../_images/sphx_glr_02_custom_diagnostic_001_2_00x.png 2.00x" alt="t2m_c - 2024-01-01, 0hrs, 24hrs, 48hrs, 72hrs, 96hrs" class = "sphx-glr-single-img"/><p class="sphx-glr-timing"><strong>Total running time of the script:</strong> (0 minutes 52.887 seconds)</p>
 <div class="sphx-glr-footer sphx-glr-footer-example docutils container" id="sphx-glr-download-examples-extend-02-custom-diagnostic-py">
 <div class="sphx-glr-download sphx-glr-download-jupyter docutils container">
 <p><a class="reference download internal" download="" href="../../_downloads/6f0367f9a872ea000c53f249d88e3153/02_custom_diagnostic.ipynb"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">Jupyter</span> <span class="pre">notebook:</span> <span class="pre">02_custom_diagnostic.ipynb</span></code></a></p>
@@ -906,7 +920,7 @@ Running inference: 100%|██████████| 21/21 [00:01&lt;00:00, 1
         <div class="footer-item">
 
   <p class="sphinx-version">
-    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 8.1.3.
+    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 8.2.3.
     <br/>
   </p>
 </div>
