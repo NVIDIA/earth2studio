@@ -27,7 +27,7 @@
 <link rel="preload" as="font" type="font/woff2" crossorigin href="../../../_static/vendor/fontawesome/6.5.1/webfonts/fa-brands-400.woff2" />
 <link rel="preload" as="font" type="font/woff2" crossorigin href="../../../_static/vendor/fontawesome/6.5.1/webfonts/fa-regular-400.woff2" />
 
-    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=a746c00c" />
     <link rel="stylesheet" type="text/css" href="../../../_static/togglebutton.css?v=13237357" />
     <link rel="stylesheet" type="text/css" href="../../../_static/sg_gallery.css?v=d2d258e8" />
     <link rel="stylesheet" type="text/css" href="../../../_static/sg_gallery-binder.css?v=f4aeca0c" />
@@ -436,18 +436,18 @@ document.write(`
 <span class="c1"># WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.</span>
 <span class="c1"># See the License for the specific language governing permissions and</span>
 <span class="c1"># limitations under the License.</span>
-<span class="kn">import</span><span class="w"> </span><span class="nn">functools</span>
-<span class="kn">import</span><span class="w"> </span><span class="nn">inspect</span>
-<span class="kn">import</span><span class="w"> </span><span class="nn">sys</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">collections</span><span class="w"> </span><span class="kn">import</span> <span class="n">OrderedDict</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Iterator</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">itertools</span><span class="w"> </span><span class="kn">import</span> <span class="n">chain</span><span class="p">,</span> <span class="n">islice</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">TypeVar</span>
+<span class="kn">import</span> <span class="nn">functools</span>
+<span class="kn">import</span> <span class="nn">inspect</span>
+<span class="kn">import</span> <span class="nn">sys</span>
+<span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">OrderedDict</span>
+<span class="kn">from</span> <span class="nn">collections.abc</span> <span class="kn">import</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Iterator</span>
+<span class="kn">from</span> <span class="nn">itertools</span> <span class="kn">import</span> <span class="n">chain</span><span class="p">,</span> <span class="n">islice</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">TypeVar</span>
 
-<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
-<span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">torch</span>
 
-<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.utils.type</span><span class="w"> </span><span class="kn">import</span> <span class="n">CoordSystem</span>
+<span class="kn">from</span> <span class="nn">earth2studio.utils.type</span> <span class="kn">import</span> <span class="n">CoordSystem</span>
 
 <span class="n">FuncType</span> <span class="o">=</span> <span class="n">Callable</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span>
 <span class="n">F</span> <span class="o">=</span> <span class="n">TypeVar</span><span class="p">(</span><span class="s2">&quot;F&quot;</span><span class="p">,</span> <span class="n">bound</span><span class="o">=</span><span class="n">FuncType</span><span class="p">)</span>
@@ -455,7 +455,7 @@ document.write(`
 
 <div class="viewcode-block" id="batch_func">
 <a class="viewcode-back" href="../../../modules/generated/models/earth2studio.models.batch.batch_func.html#earth2studio.models.batch.batch_func">[docs]</a>
-<span class="k">class</span><span class="w"> </span><span class="nc">batch_func</span><span class="p">:</span>
+<span class="k">class</span> <span class="nc">batch_func</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Batch utility decorator which can be added to prognostic and diagnostic models</span>
 <span class="sd">    to help enable support for automatic batching of data. This class contains a</span>
 <span class="sd">    decorator function which should be added to calls where this functionality is</span>
@@ -485,12 +485,12 @@ document.write(`
 <span class="sd">                ...</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="fm">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">func</span><span class="p">:</span> <span class="n">F</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Callable</span><span class="p">:</span>
+    <span class="k">def</span> <span class="fm">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">func</span><span class="p">:</span> <span class="n">F</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Callable</span><span class="p">:</span>
         <span class="k">if</span> <span class="n">inspect</span><span class="o">.</span><span class="n">isgeneratorfunction</span><span class="p">(</span><span class="n">func</span><span class="p">):</span>
             <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_batch_wrap_generator</span><span class="p">(</span><span class="n">func</span><span class="p">)</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_batch_wrap</span><span class="p">(</span><span class="n">func</span><span class="p">)</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">_compress_batch</span><span class="p">(</span>
+    <span class="k">def</span> <span class="nf">_compress_batch</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">model</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">coords</span><span class="p">:</span> <span class="n">CoordSystem</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">CoordSystem</span><span class="p">,</span> <span class="n">CoordSystem</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Size</span><span class="p">]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Compresses dimensions into the models batch dimension</span>
@@ -551,7 +551,7 @@ document.write(`
 
         <span class="k">return</span> <span class="n">x</span><span class="p">,</span> <span class="n">flatten_coords</span><span class="p">,</span> <span class="n">batched_coords</span><span class="p">,</span> <span class="n">batched_shape</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">_decompress_batch</span><span class="p">(</span>
+    <span class="k">def</span> <span class="nf">_decompress_batch</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">out</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
         <span class="n">out_coords</span><span class="p">:</span> <span class="n">CoordSystem</span><span class="p">,</span>
@@ -584,12 +584,12 @@ document.write(`
         <span class="n">out_coords</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">(</span><span class="n">chain</span><span class="p">(</span><span class="n">batched_coords</span><span class="o">.</span><span class="n">items</span><span class="p">(),</span> <span class="n">out_coords</span><span class="o">.</span><span class="n">items</span><span class="p">()))</span>
         <span class="k">return</span> <span class="n">out</span><span class="p">,</span> <span class="n">out_coords</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">_batch_wrap</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">func</span><span class="p">:</span> <span class="n">Callable</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Callable</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">_batch_wrap</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">func</span><span class="p">:</span> <span class="n">Callable</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Callable</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Standard batch function decorator&quot;&quot;&quot;</span>
 
         <span class="c1"># TODO: Better typing for model object</span>
         <span class="nd">@functools</span><span class="o">.</span><span class="n">wraps</span><span class="p">(</span><span class="n">func</span><span class="p">)</span>
-        <span class="k">def</span><span class="w"> </span><span class="nf">_wrapper</span><span class="p">(</span>
+        <span class="k">def</span> <span class="nf">_wrapper</span><span class="p">(</span>
             <span class="n">model</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
             <span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
             <span class="n">coords</span><span class="p">:</span> <span class="n">CoordSystem</span><span class="p">,</span>
@@ -608,13 +608,13 @@ document.write(`
 
         <span class="k">return</span> <span class="n">_wrapper</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">_batch_wrap_generator</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">func</span><span class="p">:</span> <span class="n">Callable</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Callable</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">_batch_wrap_generator</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">func</span><span class="p">:</span> <span class="n">Callable</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Callable</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Wrapper generator functions, for each output we need to decompress batches&quot;&quot;&quot;</span>
 
         <span class="c1"># Based on Pytorch: # https://github.com/pytorch/pytorch/pull/68617/files</span>
         <span class="c1"># TODO: Better typing for model object</span>
         <span class="nd">@functools</span><span class="o">.</span><span class="n">wraps</span><span class="p">(</span><span class="n">func</span><span class="p">)</span>
-        <span class="k">def</span><span class="w"> </span><span class="nf">_wrapper</span><span class="p">(</span>
+        <span class="k">def</span> <span class="nf">_wrapper</span><span class="p">(</span>
             <span class="n">model</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">coords</span><span class="p">:</span> <span class="n">CoordSystem</span>
         <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Iterator</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">CoordSystem</span><span class="p">]]:</span>
 
@@ -659,7 +659,7 @@ document.write(`
 
 
 
-<span class="k">class</span><span class="w"> </span><span class="nc">batch_coords</span><span class="p">:</span>
+<span class="k">class</span> <span class="nc">batch_coords</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Batch utility decorator which can be added to prognostic and diagnostic</span>
 <span class="sd">    output_coords methods to help enable support for automatic batching of data.</span>
 <span class="sd">    This class contains a decorator function which should be added to output_coord</span>
@@ -671,10 +671,10 @@ document.write(`
 <span class="sd">    coordinate system of the first dimensions. I.e. first key entry needs to be &quot;batch&quot;.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="fm">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">func</span><span class="p">:</span> <span class="n">F</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Callable</span><span class="p">:</span>
+    <span class="k">def</span> <span class="fm">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">func</span><span class="p">:</span> <span class="n">F</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Callable</span><span class="p">:</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_batch_wrap</span><span class="p">(</span><span class="n">func</span><span class="p">)</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">_compress_batch</span><span class="p">(</span>
+    <span class="k">def</span> <span class="nf">_compress_batch</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">model</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">coords</span><span class="p">:</span> <span class="n">CoordSystem</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">CoordSystem</span><span class="p">,</span> <span class="n">CoordSystem</span><span class="p">]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Compresses dimensions into the models batch dimension</span>
@@ -723,7 +723,7 @@ document.write(`
 
         <span class="k">return</span> <span class="n">flatten_coords</span><span class="p">,</span> <span class="n">batched_coords</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">_decompress_batch</span><span class="p">(</span>
+    <span class="k">def</span> <span class="nf">_decompress_batch</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">out_coords</span><span class="p">:</span> <span class="n">CoordSystem</span><span class="p">,</span>
         <span class="n">batched_coords</span><span class="p">:</span> <span class="n">CoordSystem</span><span class="p">,</span>
@@ -749,12 +749,12 @@ document.write(`
         <span class="n">out_coords</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">(</span><span class="n">chain</span><span class="p">(</span><span class="n">batched_coords</span><span class="o">.</span><span class="n">items</span><span class="p">(),</span> <span class="n">out_coords</span><span class="o">.</span><span class="n">items</span><span class="p">()))</span>
         <span class="k">return</span> <span class="n">out_coords</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">_batch_wrap</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">func</span><span class="p">:</span> <span class="n">Callable</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Callable</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">_batch_wrap</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">func</span><span class="p">:</span> <span class="n">Callable</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Callable</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Standard batch function decorator&quot;&quot;&quot;</span>
 
         <span class="c1"># TODO: Better typing for model object</span>
         <span class="nd">@functools</span><span class="o">.</span><span class="n">wraps</span><span class="p">(</span><span class="n">func</span><span class="p">)</span>
-        <span class="k">def</span><span class="w"> </span><span class="nf">_wrapper</span><span class="p">(</span><span class="n">model</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">input_coords</span><span class="p">:</span> <span class="n">CoordSystem</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">CoordSystem</span><span class="p">:</span>
+        <span class="k">def</span> <span class="nf">_wrapper</span><span class="p">(</span><span class="n">model</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">input_coords</span><span class="p">:</span> <span class="n">CoordSystem</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">CoordSystem</span><span class="p">:</span>
 
             <span class="n">flatten_coords</span><span class="p">,</span> <span class="n">batched_coords</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_compress_batch</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">input_coords</span><span class="p">)</span>
 

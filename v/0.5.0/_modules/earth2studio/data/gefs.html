@@ -27,7 +27,7 @@
 <link rel="preload" as="font" type="font/woff2" crossorigin href="../../../_static/vendor/fontawesome/6.5.1/webfonts/fa-brands-400.woff2" />
 <link rel="preload" as="font" type="font/woff2" crossorigin href="../../../_static/vendor/fontawesome/6.5.1/webfonts/fa-regular-400.woff2" />
 
-    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=a746c00c" />
     <link rel="stylesheet" type="text/css" href="../../../_static/togglebutton.css?v=13237357" />
     <link rel="stylesheet" type="text/css" href="../../../_static/sg_gallery.css?v=d2d258e8" />
     <link rel="stylesheet" type="text/css" href="../../../_static/sg_gallery-binder.css?v=f4aeca0c" />
@@ -437,35 +437,35 @@ document.write(`
 <span class="c1"># See the License for the specific language governing permissions and</span>
 <span class="c1"># limitations under the License.</span>
 
-<span class="kn">import</span><span class="w"> </span><span class="nn">hashlib</span>
-<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
-<span class="kn">import</span><span class="w"> </span><span class="nn">pathlib</span>
-<span class="kn">import</span><span class="w"> </span><span class="nn">shutil</span>
-<span class="kn">import</span><span class="w"> </span><span class="nn">warnings</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">datetime</span><span class="w"> </span><span class="kn">import</span> <span class="n">datetime</span><span class="p">,</span> <span class="n">timedelta</span>
+<span class="kn">import</span> <span class="nn">hashlib</span>
+<span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">pathlib</span>
+<span class="kn">import</span> <span class="nn">shutil</span>
+<span class="kn">import</span> <span class="nn">warnings</span>
+<span class="kn">from</span> <span class="nn">datetime</span> <span class="kn">import</span> <span class="n">datetime</span><span class="p">,</span> <span class="n">timedelta</span>
 
-<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
-<span class="kn">import</span><span class="w"> </span><span class="nn">s3fs</span>
-<span class="kn">import</span><span class="w"> </span><span class="nn">xarray</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">xr</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">fsspec.implementations.cached</span><span class="w"> </span><span class="kn">import</span> <span class="n">WholeFileCacheFileSystem</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">loguru</span><span class="w"> </span><span class="kn">import</span> <span class="n">logger</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">physicsnemo.distributed.manager</span><span class="w"> </span><span class="kn">import</span> <span class="n">DistributedManager</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">s3fs.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">S3FileSystem</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">tqdm</span><span class="w"> </span><span class="kn">import</span> <span class="n">tqdm</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">s3fs</span>
+<span class="kn">import</span> <span class="nn">xarray</span> <span class="k">as</span> <span class="nn">xr</span>
+<span class="kn">from</span> <span class="nn">fsspec.implementations.cached</span> <span class="kn">import</span> <span class="n">WholeFileCacheFileSystem</span>
+<span class="kn">from</span> <span class="nn">loguru</span> <span class="kn">import</span> <span class="n">logger</span>
+<span class="kn">from</span> <span class="nn">physicsnemo.distributed.manager</span> <span class="kn">import</span> <span class="n">DistributedManager</span>
+<span class="kn">from</span> <span class="nn">s3fs.core</span> <span class="kn">import</span> <span class="n">S3FileSystem</span>
+<span class="kn">from</span> <span class="nn">tqdm</span> <span class="kn">import</span> <span class="n">tqdm</span>
 
-<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.data.utils</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">earth2studio.data.utils</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">datasource_cache_root</span><span class="p">,</span>
     <span class="n">prep_forecast_inputs</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.lexicon</span><span class="w"> </span><span class="kn">import</span> <span class="n">GEFSLexicon</span><span class="p">,</span> <span class="n">GEFSLexiconSel</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.lexicon.base</span><span class="w"> </span><span class="kn">import</span> <span class="n">LexiconType</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.utils.type</span><span class="w"> </span><span class="kn">import</span> <span class="n">LeadTimeArray</span><span class="p">,</span> <span class="n">TimeArray</span><span class="p">,</span> <span class="n">VariableArray</span>
+<span class="kn">from</span> <span class="nn">earth2studio.lexicon</span> <span class="kn">import</span> <span class="n">GEFSLexicon</span><span class="p">,</span> <span class="n">GEFSLexiconSel</span>
+<span class="kn">from</span> <span class="nn">earth2studio.lexicon.base</span> <span class="kn">import</span> <span class="n">LexiconType</span>
+<span class="kn">from</span> <span class="nn">earth2studio.utils.type</span> <span class="kn">import</span> <span class="n">LeadTimeArray</span><span class="p">,</span> <span class="n">TimeArray</span><span class="p">,</span> <span class="n">VariableArray</span>
 
 <span class="n">logger</span><span class="o">.</span><span class="n">remove</span><span class="p">()</span>
 <span class="n">logger</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="k">lambda</span> <span class="n">msg</span><span class="p">:</span> <span class="n">tqdm</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">msg</span><span class="p">,</span> <span class="n">end</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">),</span> <span class="n">colorize</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
 
-<span class="k">class</span><span class="w"> </span><span class="nc">_GEFSBase</span><span class="p">:</span>
+<span class="k">class</span> <span class="nc">_GEFSBase</span><span class="p">:</span>
 
     <span class="n">GEFS_BUCKET_NAME</span><span class="p">:</span> <span class="nb">str</span>
     <span class="n">GEFS_CHECK_CLASS</span><span class="p">:</span> <span class="nb">str</span>
@@ -480,7 +480,7 @@ document.write(`
     <span class="n">fs</span><span class="p">:</span> <span class="n">s3fs</span><span class="o">.</span><span class="n">S3FileSystem</span>
     <span class="n">s3fs</span><span class="p">:</span> <span class="n">s3fs</span><span class="o">.</span><span class="n">S3FileSystem</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="fm">__call__</span><span class="p">(</span>
+    <span class="k">def</span> <span class="fm">__call__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">time</span><span class="p">:</span> <span class="n">datetime</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="n">datetime</span><span class="p">]</span> <span class="o">|</span> <span class="n">TimeArray</span><span class="p">,</span>
         <span class="n">lead_time</span><span class="p">:</span> <span class="n">timedelta</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="n">timedelta</span><span class="p">]</span> <span class="o">|</span> <span class="n">LeadTimeArray</span><span class="p">,</span>
@@ -521,7 +521,7 @@ document.write(`
 
         <span class="k">return</span> <span class="n">xr_array</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">create_data_array</span><span class="p">(</span>
+    <span class="k">def</span> <span class="nf">create_data_array</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">time</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">datetime</span><span class="p">],</span> <span class="n">lead_time</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">timedelta</span><span class="p">],</span> <span class="n">variable</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Function that creates and populates an xarray data array with requested</span>
@@ -578,7 +578,7 @@ document.write(`
 
         <span class="k">return</span> <span class="n">xr_array</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">fetch_array</span><span class="p">(</span>
+    <span class="k">def</span> <span class="nf">fetch_array</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">time</span><span class="p">:</span> <span class="n">datetime</span><span class="p">,</span> <span class="n">lead_time</span><span class="p">:</span> <span class="n">timedelta</span><span class="p">,</span> <span class="n">variable</span><span class="p">:</span> <span class="nb">str</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Fetches requested array from remote store</span>
@@ -663,7 +663,7 @@ document.write(`
         <span class="p">)</span>
         <span class="k">return</span> <span class="n">modifier</span><span class="p">(</span><span class="n">da</span><span class="o">.</span><span class="n">values</span><span class="p">)</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">_get_grid_name</span><span class="p">(</span>
+    <span class="k">def</span> <span class="nf">_get_grid_name</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">time</span><span class="p">:</span> <span class="n">datetime</span><span class="p">,</span> <span class="n">lead_time</span><span class="p">:</span> <span class="n">timedelta</span><span class="p">,</span> <span class="n">grid_class</span><span class="p">:</span> <span class="nb">str</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Returns gribfile name to fetch, should override in child</span>
@@ -685,7 +685,7 @@ document.write(`
         <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;Child class needs to implement this&quot;</span><span class="p">)</span>
 
     <span class="nd">@classmethod</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">_validate_time</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">times</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">datetime</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">_validate_time</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">times</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">datetime</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Verify if date time is valid for GEFS based on offline knowledge</span>
 
 <span class="sd">        Parameters</span>
@@ -705,7 +705,7 @@ document.write(`
                 <span class="p">)</span>
 
     <span class="nd">@classmethod</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">_validate_leadtime</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">lead_times</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">timedelta</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">_validate_leadtime</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">lead_times</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">timedelta</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Verify if lead time is valid for GEFS based on offline knowledge</span>
 
 <span class="sd">        Parameters</span>
@@ -716,7 +716,7 @@ document.write(`
         <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;Child class needs to implement this&quot;</span><span class="p">)</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">cache</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">cache</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Return appropriate cache location.&quot;&quot;&quot;</span>
         <span class="n">cache_location</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">datasource_cache_root</span><span class="p">(),</span> <span class="s2">&quot;gfs&quot;</span><span class="p">)</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span><span class="p">:</span>
@@ -728,7 +728,7 @@ document.write(`
         <span class="k">return</span> <span class="n">cache_location</span>
 
     <span class="nd">@classmethod</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">available</span><span class="p">(</span>
+    <span class="k">def</span> <span class="nf">available</span><span class="p">(</span>
         <span class="bp">cls</span><span class="p">,</span>
         <span class="n">time</span><span class="p">:</span> <span class="n">datetime</span> <span class="o">|</span> <span class="n">np</span><span class="o">.</span><span class="n">datetime64</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
@@ -768,7 +768,7 @@ document.write(`
 
 <div class="viewcode-block" id="GEFS_FX">
 <a class="viewcode-back" href="../../../modules/generated/data/earth2studio.data.GEFS_FX.html#earth2studio.data.GEFS_FX">[docs]</a>
-<span class="k">class</span><span class="w"> </span><span class="nc">GEFS_FX</span><span class="p">(</span><span class="n">_GEFSBase</span><span class="p">):</span>
+<span class="k">class</span> <span class="nc">GEFS_FX</span><span class="p">(</span><span class="n">_GEFSBase</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;The Global Ensemble Forecast System (GEFS) forecast source is a 30 member</span>
 <span class="sd">    ensemble forecast provided on an 0.5 degree equirectangular grid.  GEFS is a weather</span>
 <span class="sd">    forecast model developed by  National Centers for Environmental Prediction (NCEP).</span>
@@ -814,7 +814,7 @@ document.write(`
     <span class="n">GEFS_PRODUCTS</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;gec00&quot;</span><span class="p">]</span> <span class="o">+</span> <span class="p">[</span><span class="sa">f</span><span class="s2">&quot;gep</span><span class="si">{</span><span class="n">i</span><span class="si">:</span><span class="s2">02d</span><span class="si">}</span><span class="s2">&quot;</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">31</span><span class="p">)]</span>
     <span class="n">GEFS_CHECK_CLASS</span> <span class="o">=</span> <span class="s2">&quot;pgrb2bp5&quot;</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">product</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;gec00&quot;</span><span class="p">,</span>
         <span class="n">cache</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
@@ -844,7 +844,7 @@ document.write(`
         <span class="bp">self</span><span class="o">.</span><span class="n">fs</span> <span class="o">=</span> <span class="n">WholeFileCacheFileSystem</span><span class="p">(</span><span class="n">fs</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">s3fs</span><span class="p">,</span> <span class="o">**</span><span class="n">cache_options</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">lexicon</span> <span class="o">=</span> <span class="n">GEFSLexicon</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">_get_grid_name</span><span class="p">(</span>
+    <span class="k">def</span> <span class="nf">_get_grid_name</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">time</span><span class="p">:</span> <span class="n">datetime</span><span class="p">,</span> <span class="n">lead_time</span><span class="p">:</span> <span class="n">timedelta</span><span class="p">,</span> <span class="n">grid_class</span><span class="p">:</span> <span class="nb">str</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Return grib file name&quot;&quot;&quot;</span>
@@ -856,7 +856,7 @@ document.write(`
         <span class="p">)</span>
 
     <span class="nd">@classmethod</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">_validate_leadtime</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">lead_times</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">timedelta</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">_validate_leadtime</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">lead_times</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">timedelta</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Verify if lead time is valid for GEFS based on offline knowledge&quot;&quot;&quot;</span>
         <span class="k">for</span> <span class="n">delta</span> <span class="ow">in</span> <span class="n">lead_times</span><span class="p">:</span>
             <span class="c1"># To update search &quot;gefs.&quot; at https://noaa-gefs-pds.s3.amazonaws.com/index.html</span>
@@ -883,7 +883,7 @@ document.write(`
 
 <div class="viewcode-block" id="GEFS_FX_721x1440">
 <a class="viewcode-back" href="../../../modules/generated/data/earth2studio.data.GEFS_FX_721x1440.html#earth2studio.data.GEFS_FX_721x1440">[docs]</a>
-<span class="k">class</span><span class="w"> </span><span class="nc">GEFS_FX_721x1440</span><span class="p">(</span><span class="n">_GEFSBase</span><span class="p">):</span>
+<span class="k">class</span> <span class="nc">GEFS_FX_721x1440</span><span class="p">(</span><span class="n">_GEFSBase</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;The Global Ensemble Forecast System (GEFS) forecast source is a 30 member</span>
 <span class="sd">    ensemble forecast provided on an 0.25 degree equirectangular grid. GEFS is a</span>
 <span class="sd">    weather forecast model developed by  National Centers for Environmental Prediction</span>
@@ -935,7 +935,7 @@ document.write(`
     <span class="n">GEFS_PRODUCTS</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;gec00&quot;</span><span class="p">]</span> <span class="o">+</span> <span class="p">[</span><span class="sa">f</span><span class="s2">&quot;gep</span><span class="si">{</span><span class="n">i</span><span class="si">:</span><span class="s2">02d</span><span class="si">}</span><span class="s2">&quot;</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">31</span><span class="p">)]</span>
     <span class="n">GEFS_CHECK_CLASS</span> <span class="o">=</span> <span class="s2">&quot;pgrb2sp25&quot;</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">product</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;gec00&quot;</span><span class="p">,</span>
         <span class="n">cache</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
@@ -965,7 +965,7 @@ document.write(`
         <span class="bp">self</span><span class="o">.</span><span class="n">fs</span> <span class="o">=</span> <span class="n">WholeFileCacheFileSystem</span><span class="p">(</span><span class="n">fs</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">s3fs</span><span class="p">,</span> <span class="o">**</span><span class="n">cache_options</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">lexicon</span> <span class="o">=</span> <span class="n">GEFSLexiconSel</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">_get_grid_name</span><span class="p">(</span>
+    <span class="k">def</span> <span class="nf">_get_grid_name</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">time</span><span class="p">:</span> <span class="n">datetime</span><span class="p">,</span> <span class="n">lead_time</span><span class="p">:</span> <span class="n">timedelta</span><span class="p">,</span> <span class="n">grid_class</span><span class="p">:</span> <span class="nb">str</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Return grib file name&quot;&quot;&quot;</span>
@@ -977,7 +977,7 @@ document.write(`
         <span class="p">)</span>
 
     <span class="nd">@classmethod</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">_validate_leadtime</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">lead_times</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">timedelta</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">_validate_leadtime</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">lead_times</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">timedelta</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Verify if lead time is valid for GEFS based on offline knowledge&quot;&quot;&quot;</span>
         <span class="k">for</span> <span class="n">delta</span> <span class="ow">in</span> <span class="n">lead_times</span><span class="p">:</span>
             <span class="c1"># To update search &quot;gefs.&quot; at https://noaa-gefs-pds.s3.amazonaws.com/index.html</span>

@@ -28,7 +28,7 @@
 <link rel="preload" as="font" type="font/woff2" crossorigin href="../_static/vendor/fontawesome/6.5.1/webfonts/fa-brands-400.woff2" />
 <link rel="preload" as="font" type="font/woff2" crossorigin href="../_static/vendor/fontawesome/6.5.1/webfonts/fa-regular-400.woff2" />
 
-    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=a746c00c" />
     <link rel="stylesheet" type="text/css" href="../_static/togglebutton.css?v=13237357" />
     <link rel="stylesheet" type="text/css" href="../_static/sg_gallery.css?v=d2d258e8" />
     <link rel="stylesheet" type="text/css" href="../_static/sg_gallery-binder.css?v=f4aeca0c" />
@@ -478,7 +478,7 @@ with a custom perturbation method that only applies noise to a specific variable
 <p>All workflows inside Earth2Studio require constructed components to be
 handed to them. In this example, we will use the built in ensemble workflow
 <a class="reference internal" href="../modules/generated/workflows/earth2studio.run.ensemble.html#earth2studio.run.ensemble" title="earth2studio.run.ensemble"><code class="xref py py-meth docutils literal notranslate"><span class="pre">earth2studio.run.ensemble()</span></code></a>.</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">ensemble</span><span class="p">(</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">ensemble</span><span class="p">(</span>
     <span class="n">time</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="n">datetime</span><span class="p">]</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">datetime64</span><span class="p">],</span>
     <span class="n">nsteps</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
     <span class="n">nensemble</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
@@ -530,22 +530,22 @@ handed to them. In this example, we will use the built in ensemble workflow
 <li><p>Datasource: Pull data from the GFS data api <a class="reference internal" href="../modules/generated/data/earth2studio.data.GFS.html#earth2studio.data.GFS" title="earth2studio.data.GFS"><code class="xref py py-class docutils literal notranslate"><span class="pre">earth2studio.data.GFS</span></code></a>.</p></li>
 <li><p>IO Backend: Save the outputs into a Zarr store <a class="reference internal" href="../modules/generated/io/earth2studio.io.ZarrBackend.html#earth2studio.io.ZarrBackend" title="earth2studio.io.ZarrBackend"><code class="xref py py-class docutils literal notranslate"><span class="pre">earth2studio.io.ZarrBackend</span></code></a>.</p></li>
 </ul>
-<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">os</span>
 
 <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="s2">&quot;outputs&quot;</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">dotenv</span><span class="w"> </span><span class="kn">import</span> <span class="n">load_dotenv</span>
+<span class="kn">from</span> <span class="nn">dotenv</span> <span class="kn">import</span> <span class="n">load_dotenv</span>
 
 <span class="n">load_dotenv</span><span class="p">()</span>  <span class="c1"># TODO: make common example prep function</span>
 
-<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
-<span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">torch</span>
 
-<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.data</span><span class="w"> </span><span class="kn">import</span> <span class="n">GFS</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.io</span><span class="w"> </span><span class="kn">import</span> <span class="n">ZarrBackend</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.models.px</span><span class="w"> </span><span class="kn">import</span> <span class="n">DLWP</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.perturbation</span><span class="w"> </span><span class="kn">import</span> <span class="n">Perturbation</span><span class="p">,</span> <span class="n">SphericalGaussian</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.run</span><span class="w"> </span><span class="kn">import</span> <span class="n">ensemble</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.utils.type</span><span class="w"> </span><span class="kn">import</span> <span class="n">CoordSystem</span>
+<span class="kn">from</span> <span class="nn">earth2studio.data</span> <span class="kn">import</span> <span class="n">GFS</span>
+<span class="kn">from</span> <span class="nn">earth2studio.io</span> <span class="kn">import</span> <span class="n">ZarrBackend</span>
+<span class="kn">from</span> <span class="nn">earth2studio.models.px</span> <span class="kn">import</span> <span class="n">DLWP</span>
+<span class="kn">from</span> <span class="nn">earth2studio.perturbation</span> <span class="kn">import</span> <span class="n">Perturbation</span><span class="p">,</span> <span class="n">SphericalGaussian</span>
+<span class="kn">from</span> <span class="nn">earth2studio.run</span> <span class="kn">import</span> <span class="n">ensemble</span>
+<span class="kn">from</span> <span class="nn">earth2studio.utils.type</span> <span class="kn">import</span> <span class="n">CoordSystem</span>
 
 <span class="c1"># Load the default model package which downloads the check point from NGC</span>
 <span class="n">package</span> <span class="o">=</span> <span class="n">DLWP</span><span class="o">.</span><span class="n">load_default_package</span><span class="p">()</span>
@@ -555,20 +555,24 @@ handed to them. In this example, we will use the built in ensemble workflow
 <span class="n">data</span> <span class="o">=</span> <span class="n">GFS</span><span class="p">()</span>
 </pre></div>
 </div>
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>/usr/lib/python3.12/tarfile.py:2254: DeprecationWarning: Python 3.14 will, by default, filter extracted tar archives and reject files or modify their metadata. Use the filter argument to control this behavior.
+  warnings.warn(
+</pre></div>
+</div>
 <p>The perturbation method in <a class="reference internal" href="03_ensemble_workflow.html#sphx-glr-examples-03-ensemble-workflow-py"><span class="std std-ref">Running Ensemble Inference</span></a> is naive because it
 applies the same noise amplitude to every variable. We can create a custom wrapper
 that only applies the perturbation method to a particular variable instead.</p>
-<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="k">class</span><span class="w"> </span><span class="nc">ApplyToVariable</span><span class="p">:</span>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="k">class</span> <span class="nc">ApplyToVariable</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Apply a perturbation to only a particular variable.&quot;&quot;&quot;</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">pm</span><span class="p">:</span> <span class="n">Perturbation</span><span class="p">,</span> <span class="n">variable</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">pm</span><span class="p">:</span> <span class="n">Perturbation</span><span class="p">,</span> <span class="n">variable</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">pm</span> <span class="o">=</span> <span class="n">pm</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">variable</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
             <span class="n">variable</span> <span class="o">=</span> <span class="p">[</span><span class="n">variable</span><span class="p">]</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">variable</span> <span class="o">=</span> <span class="n">variable</span>
 
     <span class="nd">@torch</span><span class="o">.</span><span class="n">inference_mode</span><span class="p">()</span>
-    <span class="k">def</span><span class="w"> </span><span class="fm">__call__</span><span class="p">(</span>
+    <span class="k">def</span> <span class="fm">__call__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
         <span class="n">coords</span><span class="p">:</span> <span class="n">CoordSystem</span><span class="p">,</span>
@@ -618,201 +622,141 @@ members which will be ran in 2 batches with batch size 4.</p>
 <span class="p">)</span>
 </pre></div>
 </div>
-<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>2025-03-27 01:56:49.448 | INFO     | earth2studio.run:ensemble:315 - Running ensemble inference!
-2025-03-27 01:56:49.448 | INFO     | earth2studio.run:ensemble:323 - Inference device: cuda
-2025-03-27 01:56:49.459 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:214 - Fetching GFS index file: 2023-12-31 18:00:00 lead 0:00:00
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>2025-03-27 04:26:38.584 | INFO     | earth2studio.run:ensemble:315 - Running ensemble inference!
+2025-03-27 04:26:38.584 | INFO     | earth2studio.run:ensemble:323 - Inference device: cuda
+/home/jenkins/agent/workspace/Studio-Build-Docs/repo/earth2studio/utils/time.py:38: DeprecationWarning: datetime.datetime.utcfromtimestamp() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.fromtimestamp(timestamp, datetime.UTC).
+  time = [datetime.utcfromtimestamp((date - _unix) / _ds) for date in time]
+2025-03-27 04:26:38.593 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:214 - Fetching GFS index file: 2023-12-31 18:00:00 lead 0:00:00
 
 Fetching GFS for 2023-12-31 18:00:00:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 
-2025-03-27 01:56:49.463 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:260 - Fetching GFS grib file for variable: t850 at 2023-12-31 18:00:00_0:00:00
+2025-03-27 04:26:38.598 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:260 - Fetching GFS grib file for variable: t850 at 2023-12-31 18:00:00_0:00:00
 
 Fetching GFS for 2023-12-31 18:00:00:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 
-2025-03-27 01:56:49.494 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:260 - Fetching GFS grib file for variable: z1000 at 2023-12-31 18:00:00_0:00:00
+2025-03-27 04:26:38.629 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:260 - Fetching GFS grib file for variable: z1000 at 2023-12-31 18:00:00_0:00:00
 
 Fetching GFS for 2023-12-31 18:00:00:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 
-2025-03-27 01:56:49.526 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:260 - Fetching GFS grib file for variable: z700 at 2023-12-31 18:00:00_0:00:00
+2025-03-27 04:26:38.676 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:260 - Fetching GFS grib file for variable: z700 at 2023-12-31 18:00:00_0:00:00
 
 Fetching GFS for 2023-12-31 18:00:00:   0%|          | 0/7 [00:00&lt;?, ?it/s]
+Fetching GFS for 2023-12-31 18:00:00:  43%|████▎     | 3/7 [00:00&lt;00:00, 25.35it/s]
 
-2025-03-27 01:56:49.558 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:260 - Fetching GFS grib file for variable: z500 at 2023-12-31 18:00:00_0:00:00
+2025-03-27 04:26:38.717 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:260 - Fetching GFS grib file for variable: z500 at 2023-12-31 18:00:00_0:00:00
 
-Fetching GFS for 2023-12-31 18:00:00:   0%|          | 0/7 [00:00&lt;?, ?it/s]
-Fetching GFS for 2023-12-31 18:00:00:  57%|█████▋    | 4/7 [00:00&lt;00:00, 31.44it/s]
+Fetching GFS for 2023-12-31 18:00:00:  43%|████▎     | 3/7 [00:00&lt;00:00, 25.35it/s]
 
-2025-03-27 01:56:49.590 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:260 - Fetching GFS grib file for variable: z300 at 2023-12-31 18:00:00_0:00:00
+2025-03-27 04:26:38.760 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:260 - Fetching GFS grib file for variable: z300 at 2023-12-31 18:00:00_0:00:00
 
-Fetching GFS for 2023-12-31 18:00:00:  57%|█████▋    | 4/7 [00:00&lt;00:00, 31.44it/s]
+Fetching GFS for 2023-12-31 18:00:00:  43%|████▎     | 3/7 [00:00&lt;00:00, 25.35it/s]
 
-2025-03-27 01:56:49.623 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:260 - Fetching GFS grib file for variable: tcwv at 2023-12-31 18:00:00_0:00:00
+2025-03-27 04:26:38.799 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:260 - Fetching GFS grib file for variable: tcwv at 2023-12-31 18:00:00_0:00:00
 
-Fetching GFS for 2023-12-31 18:00:00:  57%|█████▋    | 4/7 [00:00&lt;00:00, 31.44it/s]
+Fetching GFS for 2023-12-31 18:00:00:  43%|████▎     | 3/7 [00:00&lt;00:00, 25.35it/s]
+Fetching GFS for 2023-12-31 18:00:00:  86%|████████▌ | 6/7 [00:00&lt;00:00, 26.09it/s]
 
-2025-03-27 01:56:49.657 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:260 - Fetching GFS grib file for variable: t2m at 2023-12-31 18:00:00_0:00:00
+2025-03-27 04:26:38.830 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:260 - Fetching GFS grib file for variable: t2m at 2023-12-31 18:00:00_0:00:00
 
-Fetching GFS for 2023-12-31 18:00:00:  57%|█████▋    | 4/7 [00:00&lt;00:00, 31.44it/s]
-Fetching GFS for 2023-12-31 18:00:00: 100%|██████████| 7/7 [00:00&lt;00:00, 30.50it/s]
-2025-03-27 01:56:49.707 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:214 - Fetching GFS index file: 2024-01-01 00:00:00 lead 0:00:00
+Fetching GFS for 2023-12-31 18:00:00:  86%|████████▌ | 6/7 [00:00&lt;00:00, 26.09it/s]
+Fetching GFS for 2023-12-31 18:00:00: 100%|██████████| 7/7 [00:00&lt;00:00, 26.74it/s]
+/home/jenkins/agent/workspace/Studio-Build-Docs/repo/earth2studio/utils/time.py:38: DeprecationWarning: datetime.datetime.utcfromtimestamp() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.fromtimestamp(timestamp, datetime.UTC).
+  time = [datetime.utcfromtimestamp((date - _unix) / _ds) for date in time]
+2025-03-27 04:26:38.868 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:214 - Fetching GFS index file: 2024-01-01 00:00:00 lead 0:00:00
 
 Fetching GFS for 2024-01-01 00:00:00:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 
-2025-03-27 01:56:49.710 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:260 - Fetching GFS grib file for variable: t850 at 2024-01-01 00:00:00_0:00:00
+2025-03-27 04:26:38.873 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:260 - Fetching GFS grib file for variable: t850 at 2024-01-01 00:00:00_0:00:00
 
 Fetching GFS for 2024-01-01 00:00:00:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 
-2025-03-27 01:56:49.746 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:260 - Fetching GFS grib file for variable: z1000 at 2024-01-01 00:00:00_0:00:00
+2025-03-27 04:26:38.895 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:260 - Fetching GFS grib file for variable: z1000 at 2024-01-01 00:00:00_0:00:00
 
 Fetching GFS for 2024-01-01 00:00:00:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 
-2025-03-27 01:56:49.782 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:260 - Fetching GFS grib file for variable: z700 at 2024-01-01 00:00:00_0:00:00
+2025-03-27 04:26:38.917 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:260 - Fetching GFS grib file for variable: z700 at 2024-01-01 00:00:00_0:00:00
 
 Fetching GFS for 2024-01-01 00:00:00:   0%|          | 0/7 [00:00&lt;?, ?it/s]
-Fetching GFS for 2024-01-01 00:00:00:  43%|████▎     | 3/7 [00:00&lt;00:00, 27.94it/s]
 
-2025-03-27 01:56:49.818 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:260 - Fetching GFS grib file for variable: z500 at 2024-01-01 00:00:00_0:00:00
+2025-03-27 04:26:38.965 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:260 - Fetching GFS grib file for variable: z500 at 2024-01-01 00:00:00_0:00:00
 
-Fetching GFS for 2024-01-01 00:00:00:  43%|████▎     | 3/7 [00:00&lt;00:00, 27.94it/s]
+Fetching GFS for 2024-01-01 00:00:00:   0%|          | 0/7 [00:00&lt;?, ?it/s]
+Fetching GFS for 2024-01-01 00:00:00:  57%|█████▋    | 4/7 [00:00&lt;00:00, 35.45it/s]
 
-2025-03-27 01:56:49.854 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:260 - Fetching GFS grib file for variable: z300 at 2024-01-01 00:00:00_0:00:00
+2025-03-27 04:26:38.986 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:260 - Fetching GFS grib file for variable: z300 at 2024-01-01 00:00:00_0:00:00
 
-Fetching GFS for 2024-01-01 00:00:00:  43%|████▎     | 3/7 [00:00&lt;00:00, 27.94it/s]
+Fetching GFS for 2024-01-01 00:00:00:  57%|█████▋    | 4/7 [00:00&lt;00:00, 35.45it/s]
 
-2025-03-27 01:56:49.889 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:260 - Fetching GFS grib file for variable: tcwv at 2024-01-01 00:00:00_0:00:00
+2025-03-27 04:26:39.024 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:260 - Fetching GFS grib file for variable: tcwv at 2024-01-01 00:00:00_0:00:00
 
-Fetching GFS for 2024-01-01 00:00:00:  43%|████▎     | 3/7 [00:00&lt;00:00, 27.94it/s]
-Fetching GFS for 2024-01-01 00:00:00:  86%|████████▌ | 6/7 [00:00&lt;00:00, 27.92it/s]
+Fetching GFS for 2024-01-01 00:00:00:  57%|█████▋    | 4/7 [00:00&lt;00:00, 35.45it/s]
 
-2025-03-27 01:56:49.925 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:260 - Fetching GFS grib file for variable: t2m at 2024-01-01 00:00:00_0:00:00
+2025-03-27 04:26:39.045 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:260 - Fetching GFS grib file for variable: t2m at 2024-01-01 00:00:00_0:00:00
 
-Fetching GFS for 2024-01-01 00:00:00:  86%|████████▌ | 6/7 [00:00&lt;00:00, 27.92it/s]
-Fetching GFS for 2024-01-01 00:00:00: 100%|██████████| 7/7 [00:00&lt;00:00, 28.00it/s]
-2025-03-27 01:56:50.053 | SUCCESS  | earth2studio.run:ensemble:345 - Fetched data from GFS
-2025-03-27 01:56:50.062 | WARNING  | earth2studio.io.zarr:add_array:192 - Datetime64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch
-2025-03-27 01:56:50.069 | WARNING  | earth2studio.io.zarr:add_array:198 - Timedelta64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch
-2025-03-27 01:56:50.093 | INFO     | earth2studio.run:ensemble:367 - Starting 8 Member Ensemble Inference with             2 number of batches.
+Fetching GFS for 2024-01-01 00:00:00:  57%|█████▋    | 4/7 [00:00&lt;00:00, 35.45it/s]
+Fetching GFS for 2024-01-01 00:00:00: 100%|██████████| 7/7 [00:00&lt;00:00, 36.25it/s]
+2025-03-27 04:26:39.087 | SUCCESS  | earth2studio.run:ensemble:345 - Fetched data from GFS
+2025-03-27 04:26:39.092 | INFO     | earth2studio.run:ensemble:367 - Starting 8 Member Ensemble Inference with             2 number of batches.
 
-Total Ensemble Batches:   0%|          | 0/2 [00:00&lt;?, ?it/s]/localhome/user/earth2studio/examples/05_ensemble_workflow_extend.py:108: DeprecationWarning: `in1d` is deprecated. Use `np.isin` instead.
-  ind = np.in1d(coords[&quot;variable&quot;], self.variable)
-
+Total Ensemble Batches:   0%|          | 0/2 [00:00&lt;?, ?it/s]
 
 Running batch 0 inference:   0%|          | 0/11 [00:00&lt;?, ?it/s]
 
-Running batch 0 inference:   9%|▉         | 1/11 [00:00&lt;00:06,  1.58it/s]/localhome/user/miniconda3/envs/e2sdocs/lib/python3.11/site-packages/physicsnemo/utils/zenith_angle.py:76: DeprecationWarning: __array_wrap__ must accept context and return_scalar arguments (positionally) in the future. (Deprecated NumPy 2.0)
-  lon_rad = np.deg2rad(lon, dtype=dtype)
-/localhome/user/miniconda3/envs/e2sdocs/lib/python3.11/site-packages/physicsnemo/utils/zenith_angle.py:77: DeprecationWarning: __array_wrap__ must accept context and return_scalar arguments (positionally) in the future. (Deprecated NumPy 2.0)
-  lat_rad = np.deg2rad(lat, dtype=dtype)
-/localhome/user/miniconda3/envs/e2sdocs/lib/python3.11/site-packages/physicsnemo/utils/zenith_angle.py:505: DeprecationWarning: __array_wrap__ must accept context and return_scalar arguments (positionally) in the future. (Deprecated NumPy 2.0)
-  cosine_zenith = np.sin(lat) * np.sin(dec) + np.cos(lat) * np.cos(dec) * np.cos(
+Running batch 0 inference:   9%|▉         | 1/11 [00:00&lt;00:02,  4.76it/s]/home/jenkins/agent/workspace/Studio-Build-Docs/repo/earth2studio/utils/time.py:38: DeprecationWarning: datetime.datetime.utcfromtimestamp() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.fromtimestamp(timestamp, datetime.UTC).
+  time = [datetime.utcfromtimestamp((date - _unix) / _ds) for date in time]
 
 
-Running batch 0 inference:  18%|█▊        | 2/11 [00:01&lt;00:05,  1.62it/s]
+Running batch 0 inference:  18%|█▊        | 2/11 [00:00&lt;00:02,  4.10it/s]
 
-Running batch 0 inference:  27%|██▋       | 3/11 [00:01&lt;00:04,  1.60it/s]/localhome/user/miniconda3/envs/e2sdocs/lib/python3.11/site-packages/physicsnemo/utils/zenith_angle.py:76: DeprecationWarning: __array_wrap__ must accept context and return_scalar arguments (positionally) in the future. (Deprecated NumPy 2.0)
-  lon_rad = np.deg2rad(lon, dtype=dtype)
-/localhome/user/miniconda3/envs/e2sdocs/lib/python3.11/site-packages/physicsnemo/utils/zenith_angle.py:77: DeprecationWarning: __array_wrap__ must accept context and return_scalar arguments (positionally) in the future. (Deprecated NumPy 2.0)
-  lat_rad = np.deg2rad(lat, dtype=dtype)
-/localhome/user/miniconda3/envs/e2sdocs/lib/python3.11/site-packages/physicsnemo/utils/zenith_angle.py:505: DeprecationWarning: __array_wrap__ must accept context and return_scalar arguments (positionally) in the future. (Deprecated NumPy 2.0)
-  cosine_zenith = np.sin(lat) * np.sin(dec) + np.cos(lat) * np.cos(dec) * np.cos(
+Running batch 0 inference:  27%|██▋       | 3/11 [00:00&lt;00:01,  4.31it/s]
 
+Running batch 0 inference:  36%|███▋      | 4/11 [00:00&lt;00:01,  4.32it/s]
 
-Running batch 0 inference:  36%|███▋      | 4/11 [00:02&lt;00:04,  1.58it/s]
+Running batch 0 inference:  45%|████▌     | 5/11 [00:01&lt;00:01,  4.42it/s]
 
-Running batch 0 inference:  45%|████▌     | 5/11 [00:03&lt;00:03,  1.60it/s]/localhome/user/miniconda3/envs/e2sdocs/lib/python3.11/site-packages/physicsnemo/utils/zenith_angle.py:76: DeprecationWarning: __array_wrap__ must accept context and return_scalar arguments (positionally) in the future. (Deprecated NumPy 2.0)
-  lon_rad = np.deg2rad(lon, dtype=dtype)
-/localhome/user/miniconda3/envs/e2sdocs/lib/python3.11/site-packages/physicsnemo/utils/zenith_angle.py:77: DeprecationWarning: __array_wrap__ must accept context and return_scalar arguments (positionally) in the future. (Deprecated NumPy 2.0)
-  lat_rad = np.deg2rad(lat, dtype=dtype)
-/localhome/user/miniconda3/envs/e2sdocs/lib/python3.11/site-packages/physicsnemo/utils/zenith_angle.py:505: DeprecationWarning: __array_wrap__ must accept context and return_scalar arguments (positionally) in the future. (Deprecated NumPy 2.0)
-  cosine_zenith = np.sin(lat) * np.sin(dec) + np.cos(lat) * np.cos(dec) * np.cos(
+Running batch 0 inference:  55%|█████▍    | 6/11 [00:01&lt;00:01,  4.40it/s]
 
+Running batch 0 inference:  64%|██████▎   | 7/11 [00:01&lt;00:00,  4.47it/s]
 
-Running batch 0 inference:  55%|█████▍    | 6/11 [00:03&lt;00:03,  1.58it/s]
+Running batch 0 inference:  73%|███████▎  | 8/11 [00:01&lt;00:00,  4.39it/s]
 
-Running batch 0 inference:  64%|██████▎   | 7/11 [00:04&lt;00:02,  1.59it/s]/localhome/user/miniconda3/envs/e2sdocs/lib/python3.11/site-packages/physicsnemo/utils/zenith_angle.py:76: DeprecationWarning: __array_wrap__ must accept context and return_scalar arguments (positionally) in the future. (Deprecated NumPy 2.0)
-  lon_rad = np.deg2rad(lon, dtype=dtype)
-/localhome/user/miniconda3/envs/e2sdocs/lib/python3.11/site-packages/physicsnemo/utils/zenith_angle.py:77: DeprecationWarning: __array_wrap__ must accept context and return_scalar arguments (positionally) in the future. (Deprecated NumPy 2.0)
-  lat_rad = np.deg2rad(lat, dtype=dtype)
-/localhome/user/miniconda3/envs/e2sdocs/lib/python3.11/site-packages/physicsnemo/utils/zenith_angle.py:505: DeprecationWarning: __array_wrap__ must accept context and return_scalar arguments (positionally) in the future. (Deprecated NumPy 2.0)
-  cosine_zenith = np.sin(lat) * np.sin(dec) + np.cos(lat) * np.cos(dec) * np.cos(
+Running batch 0 inference:  82%|████████▏ | 9/11 [00:02&lt;00:00,  4.44it/s]
+
+Running batch 0 inference:  91%|█████████ | 10/11 [00:02&lt;00:00,  4.41it/s]
+
+Running batch 0 inference: 100%|██████████| 11/11 [00:02&lt;00:00,  4.48it/s]
 
 
-Running batch 0 inference:  73%|███████▎  | 8/11 [00:05&lt;00:01,  1.57it/s]
-
-Running batch 0 inference:  82%|████████▏ | 9/11 [00:05&lt;00:01,  1.59it/s]/localhome/user/miniconda3/envs/e2sdocs/lib/python3.11/site-packages/physicsnemo/utils/zenith_angle.py:76: DeprecationWarning: __array_wrap__ must accept context and return_scalar arguments (positionally) in the future. (Deprecated NumPy 2.0)
-  lon_rad = np.deg2rad(lon, dtype=dtype)
-/localhome/user/miniconda3/envs/e2sdocs/lib/python3.11/site-packages/physicsnemo/utils/zenith_angle.py:77: DeprecationWarning: __array_wrap__ must accept context and return_scalar arguments (positionally) in the future. (Deprecated NumPy 2.0)
-  lat_rad = np.deg2rad(lat, dtype=dtype)
-/localhome/user/miniconda3/envs/e2sdocs/lib/python3.11/site-packages/physicsnemo/utils/zenith_angle.py:505: DeprecationWarning: __array_wrap__ must accept context and return_scalar arguments (positionally) in the future. (Deprecated NumPy 2.0)
-  cosine_zenith = np.sin(lat) * np.sin(dec) + np.cos(lat) * np.cos(dec) * np.cos(
-
-
-Running batch 0 inference:  91%|█████████ | 10/11 [00:06&lt;00:00,  1.59it/s]
-
-Running batch 0 inference: 100%|██████████| 11/11 [00:06&lt;00:00,  1.60it/s]
-
-
-Total Ensemble Batches:  50%|█████     | 1/2 [00:09&lt;00:09, 10.00s/it]/localhome/user/earth2studio/examples/05_ensemble_workflow_extend.py:108: DeprecationWarning: `in1d` is deprecated. Use `np.isin` instead.
-  ind = np.in1d(coords[&quot;variable&quot;], self.variable)
-
+Total Ensemble Batches:  50%|█████     | 1/2 [00:05&lt;00:05,  5.44s/it]
 
 Running batch 4 inference:   0%|          | 0/11 [00:00&lt;?, ?it/s]
 
-Running batch 4 inference:   9%|▉         | 1/11 [00:00&lt;00:06,  1.61it/s]/localhome/user/miniconda3/envs/e2sdocs/lib/python3.11/site-packages/physicsnemo/utils/zenith_angle.py:76: DeprecationWarning: __array_wrap__ must accept context and return_scalar arguments (positionally) in the future. (Deprecated NumPy 2.0)
-  lon_rad = np.deg2rad(lon, dtype=dtype)
-/localhome/user/miniconda3/envs/e2sdocs/lib/python3.11/site-packages/physicsnemo/utils/zenith_angle.py:77: DeprecationWarning: __array_wrap__ must accept context and return_scalar arguments (positionally) in the future. (Deprecated NumPy 2.0)
-  lat_rad = np.deg2rad(lat, dtype=dtype)
-/localhome/user/miniconda3/envs/e2sdocs/lib/python3.11/site-packages/physicsnemo/utils/zenith_angle.py:505: DeprecationWarning: __array_wrap__ must accept context and return_scalar arguments (positionally) in the future. (Deprecated NumPy 2.0)
-  cosine_zenith = np.sin(lat) * np.sin(dec) + np.cos(lat) * np.cos(dec) * np.cos(
+Running batch 4 inference:   9%|▉         | 1/11 [00:00&lt;00:02,  4.78it/s]
+
+Running batch 4 inference:  18%|█▊        | 2/11 [00:00&lt;00:01,  4.53it/s]
+
+Running batch 4 inference:  27%|██▋       | 3/11 [00:00&lt;00:01,  4.57it/s]
+
+Running batch 4 inference:  36%|███▋      | 4/11 [00:00&lt;00:01,  4.48it/s]
+
+Running batch 4 inference:  45%|████▌     | 5/11 [00:01&lt;00:01,  4.53it/s]
+
+Running batch 4 inference:  55%|█████▍    | 6/11 [00:01&lt;00:01,  4.49it/s]
+
+Running batch 4 inference:  64%|██████▎   | 7/11 [00:01&lt;00:00,  4.55it/s]
+
+Running batch 4 inference:  73%|███████▎  | 8/11 [00:01&lt;00:00,  4.48it/s]
+
+Running batch 4 inference:  82%|████████▏ | 9/11 [00:01&lt;00:00,  4.55it/s]
+
+Running batch 4 inference:  91%|█████████ | 10/11 [00:02&lt;00:00,  4.51it/s]
+
+Running batch 4 inference: 100%|██████████| 11/11 [00:02&lt;00:00,  4.56it/s]
 
 
-Running batch 4 inference:  18%|█▊        | 2/11 [00:01&lt;00:05,  1.65it/s]
-
-Running batch 4 inference:  27%|██▋       | 3/11 [00:01&lt;00:04,  1.65it/s]/localhome/user/miniconda3/envs/e2sdocs/lib/python3.11/site-packages/physicsnemo/utils/zenith_angle.py:76: DeprecationWarning: __array_wrap__ must accept context and return_scalar arguments (positionally) in the future. (Deprecated NumPy 2.0)
-  lon_rad = np.deg2rad(lon, dtype=dtype)
-/localhome/user/miniconda3/envs/e2sdocs/lib/python3.11/site-packages/physicsnemo/utils/zenith_angle.py:77: DeprecationWarning: __array_wrap__ must accept context and return_scalar arguments (positionally) in the future. (Deprecated NumPy 2.0)
-  lat_rad = np.deg2rad(lat, dtype=dtype)
-/localhome/user/miniconda3/envs/e2sdocs/lib/python3.11/site-packages/physicsnemo/utils/zenith_angle.py:505: DeprecationWarning: __array_wrap__ must accept context and return_scalar arguments (positionally) in the future. (Deprecated NumPy 2.0)
-  cosine_zenith = np.sin(lat) * np.sin(dec) + np.cos(lat) * np.cos(dec) * np.cos(
-
-
-Running batch 4 inference:  36%|███▋      | 4/11 [00:02&lt;00:04,  1.69it/s]
-
-Running batch 4 inference:  45%|████▌     | 5/11 [00:02&lt;00:03,  1.72it/s]/localhome/user/miniconda3/envs/e2sdocs/lib/python3.11/site-packages/physicsnemo/utils/zenith_angle.py:76: DeprecationWarning: __array_wrap__ must accept context and return_scalar arguments (positionally) in the future. (Deprecated NumPy 2.0)
-  lon_rad = np.deg2rad(lon, dtype=dtype)
-/localhome/user/miniconda3/envs/e2sdocs/lib/python3.11/site-packages/physicsnemo/utils/zenith_angle.py:77: DeprecationWarning: __array_wrap__ must accept context and return_scalar arguments (positionally) in the future. (Deprecated NumPy 2.0)
-  lat_rad = np.deg2rad(lat, dtype=dtype)
-/localhome/user/miniconda3/envs/e2sdocs/lib/python3.11/site-packages/physicsnemo/utils/zenith_angle.py:505: DeprecationWarning: __array_wrap__ must accept context and return_scalar arguments (positionally) in the future. (Deprecated NumPy 2.0)
-  cosine_zenith = np.sin(lat) * np.sin(dec) + np.cos(lat) * np.cos(dec) * np.cos(
-
-
-Running batch 4 inference:  55%|█████▍    | 6/11 [00:03&lt;00:02,  1.71it/s]
-
-Running batch 4 inference:  64%|██████▎   | 7/11 [00:04&lt;00:02,  1.68it/s]/localhome/user/miniconda3/envs/e2sdocs/lib/python3.11/site-packages/physicsnemo/utils/zenith_angle.py:76: DeprecationWarning: __array_wrap__ must accept context and return_scalar arguments (positionally) in the future. (Deprecated NumPy 2.0)
-  lon_rad = np.deg2rad(lon, dtype=dtype)
-/localhome/user/miniconda3/envs/e2sdocs/lib/python3.11/site-packages/physicsnemo/utils/zenith_angle.py:77: DeprecationWarning: __array_wrap__ must accept context and return_scalar arguments (positionally) in the future. (Deprecated NumPy 2.0)
-  lat_rad = np.deg2rad(lat, dtype=dtype)
-/localhome/user/miniconda3/envs/e2sdocs/lib/python3.11/site-packages/physicsnemo/utils/zenith_angle.py:505: DeprecationWarning: __array_wrap__ must accept context and return_scalar arguments (positionally) in the future. (Deprecated NumPy 2.0)
-  cosine_zenith = np.sin(lat) * np.sin(dec) + np.cos(lat) * np.cos(dec) * np.cos(
-
-
-Running batch 4 inference:  73%|███████▎  | 8/11 [00:04&lt;00:01,  1.65it/s]
-
-Running batch 4 inference:  82%|████████▏ | 9/11 [00:05&lt;00:01,  1.63it/s]/localhome/user/miniconda3/envs/e2sdocs/lib/python3.11/site-packages/physicsnemo/utils/zenith_angle.py:76: DeprecationWarning: __array_wrap__ must accept context and return_scalar arguments (positionally) in the future. (Deprecated NumPy 2.0)
-  lon_rad = np.deg2rad(lon, dtype=dtype)
-/localhome/user/miniconda3/envs/e2sdocs/lib/python3.11/site-packages/physicsnemo/utils/zenith_angle.py:77: DeprecationWarning: __array_wrap__ must accept context and return_scalar arguments (positionally) in the future. (Deprecated NumPy 2.0)
-  lat_rad = np.deg2rad(lat, dtype=dtype)
-/localhome/user/miniconda3/envs/e2sdocs/lib/python3.11/site-packages/physicsnemo/utils/zenith_angle.py:505: DeprecationWarning: __array_wrap__ must accept context and return_scalar arguments (positionally) in the future. (Deprecated NumPy 2.0)
-  cosine_zenith = np.sin(lat) * np.sin(dec) + np.cos(lat) * np.cos(dec) * np.cos(
-
-
-Running batch 4 inference:  91%|█████████ | 10/11 [00:06&lt;00:00,  1.61it/s]
-
-Running batch 4 inference: 100%|██████████| 11/11 [00:06&lt;00:00,  1.60it/s]
-
-
-Total Ensemble Batches: 100%|██████████| 2/2 [00:21&lt;00:00, 10.60s/it]
-Total Ensemble Batches: 100%|██████████| 2/2 [00:21&lt;00:00, 10.51s/it]
-2025-03-27 01:57:11.109 | SUCCESS  | earth2studio.run:ensemble:412 - Inference complete
+Total Ensemble Batches: 100%|██████████| 2/2 [00:10&lt;00:00,  5.27s/it]
+Total Ensemble Batches: 100%|██████████| 2/2 [00:10&lt;00:00,  5.30s/it]
+2025-03-27 04:26:49.685 | SUCCESS  | earth2studio.run:ensemble:412 - Inference complete
 </pre></div>
 </div>
 </section>
@@ -822,12 +766,12 @@ Total Ensemble Batches: 100%|██████████| 2/2 [00:21&lt;00:00
 and also the unperturbed tcwv field. First to confirm the perturbation method works as
 expect, the initial state is plotted.</p>
 <p>Notice that the Zarr IO function has additional APIs to interact with the stored data.</p>
-<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="k">as</span> <span class="nn">plt</span>
 
 <span class="n">forecast</span> <span class="o">=</span> <span class="s2">&quot;2024-01-01&quot;</span>
 
 
-<span class="k">def</span><span class="w"> </span><span class="nf">plot_</span><span class="p">(</span><span class="n">axi</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">title</span><span class="p">,</span> <span class="n">cmap</span><span class="p">):</span>
+<span class="k">def</span> <span class="nf">plot_</span><span class="p">(</span><span class="n">axi</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">title</span><span class="p">,</span> <span class="n">cmap</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Simple plot util function&quot;&quot;&quot;</span>
     <span class="n">im</span> <span class="o">=</span> <span class="n">axi</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">cmap</span><span class="o">=</span><span class="n">cmap</span><span class="p">)</span>
     <span class="n">plt</span><span class="o">.</span><span class="n">colorbar</span><span class="p">(</span><span class="n">im</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="n">axi</span><span class="p">,</span> <span class="n">shrink</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span> <span class="n">pad</span><span class="o">=</span><span class="mf">0.04</span><span class="p">)</span>
@@ -892,7 +836,7 @@ perturbing the temperature field.</p>
 <span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;outputs/05_</span><span class="si">{</span><span class="n">forecast</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">step</span><span class="si">}</span><span class="s2">_ensemble.jpg&quot;</span><span class="p">)</span>
 </pre></div>
 </div>
-<img src="../_images/sphx_glr_05_ensemble_workflow_extend_002.png" srcset="../_images/sphx_glr_05_ensemble_workflow_extend_002.png, ../_images/sphx_glr_05_ensemble_workflow_extend_002_2_00x.png 2.00x" alt="2024-01-01 - tcwv - Lead time: 24hrs - Mean, 2024-01-01 - tcwv - Lead time: 24hrs - Std" class = "sphx-glr-single-img"/><p class="sphx-glr-timing"><strong>Total running time of the script:</strong> (0 minutes 26.306 seconds)</p>
+<img src="../_images/sphx_glr_05_ensemble_workflow_extend_002.png" srcset="../_images/sphx_glr_05_ensemble_workflow_extend_002.png, ../_images/sphx_glr_05_ensemble_workflow_extend_002_2_00x.png 2.00x" alt="2024-01-01 - tcwv - Lead time: 24hrs - Mean, 2024-01-01 - tcwv - Lead time: 24hrs - Std" class = "sphx-glr-single-img"/><p class="sphx-glr-timing"><strong>Total running time of the script:</strong> (0 minutes 14.874 seconds)</p>
 <div class="sphx-glr-footer sphx-glr-footer-example docutils container" id="sphx-glr-download-examples-05-ensemble-workflow-extend-py">
 <div class="sphx-glr-download sphx-glr-download-jupyter docutils container">
 <p><a class="reference download internal" download="" href="../_downloads/2378c87289a3578422b539cf3ed00001/05_ensemble_workflow_extend.ipynb"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">Jupyter</span> <span class="pre">notebook:</span> <span class="pre">05_ensemble_workflow_extend.ipynb</span></code></a></p>

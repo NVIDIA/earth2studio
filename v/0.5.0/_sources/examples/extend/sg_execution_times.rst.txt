@@ -6,7 +6,7 @@
 
 Computation times
 =================
-**03:13.593** total execution time for 3 files **from examples/extend**:
+**01:27.280** total execution time for 3 files **from examples/extend**:
 
 .. container::
 
@@ -32,12 +32,12 @@ Computation times
    * - Example
      - Time
      - Mem (MB)
-   * - :ref:`sphx_glr_examples_extend_03_custom_datasource.py` (``03_custom_datasource.py``)
-     - 01:53.913
-     - 0.0
    * - :ref:`sphx_glr_examples_extend_02_custom_diagnostic.py` (``02_custom_diagnostic.py``)
-     - 00:52.887
+     - 00:46.088
+     - 0.0
+   * - :ref:`sphx_glr_examples_extend_03_custom_datasource.py` (``03_custom_datasource.py``)
+     - 00:37.479
      - 0.0
    * - :ref:`sphx_glr_examples_extend_01_custom_prognostic.py` (``01_custom_prognostic.py``)
-     - 00:26.793
+     - 00:03.713
      - 0.0

@@ -27,7 +27,7 @@
 <link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../_static/vendor/fontawesome/6.5.1/webfonts/fa-brands-400.woff2" />
 <link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../_static/vendor/fontawesome/6.5.1/webfonts/fa-regular-400.woff2" />
 
-    <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=a746c00c" />
     <link rel="stylesheet" type="text/css" href="../../../../_static/togglebutton.css?v=13237357" />
     <link rel="stylesheet" type="text/css" href="../../../../_static/sg_gallery.css?v=d2d258e8" />
     <link rel="stylesheet" type="text/css" href="../../../../_static/sg_gallery-binder.css?v=f4aeca0c" />
@@ -437,39 +437,39 @@ document.write(`
 <span class="c1"># See the License for the specific language governing permissions and</span>
 <span class="c1"># limitations under the License.</span>
 
-<span class="kn">import</span><span class="w"> </span><span class="nn">io</span>
-<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
-<span class="kn">import</span><span class="w"> </span><span class="nn">re</span>
-<span class="kn">import</span><span class="w"> </span><span class="nn">warnings</span>
+<span class="kn">import</span> <span class="nn">io</span>
+<span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">re</span>
+<span class="kn">import</span> <span class="nn">warnings</span>
 
-<span class="kn">import</span><span class="w"> </span><span class="nn">aiohttp</span>
-<span class="kn">import</span><span class="w"> </span><span class="nn">fsspec</span>
-<span class="kn">import</span><span class="w"> </span><span class="nn">s3fs</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">fsspec.callbacks</span><span class="w"> </span><span class="kn">import</span> <span class="n">Callback</span><span class="p">,</span> <span class="n">TqdmCallback</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">fsspec.compression</span><span class="w"> </span><span class="kn">import</span> <span class="n">compr</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">fsspec.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">BaseCache</span><span class="p">,</span> <span class="n">split_protocol</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">fsspec.implementations.cached</span><span class="w"> </span><span class="kn">import</span> <span class="n">LocalTempFile</span><span class="p">,</span> <span class="n">WholeFileCacheFileSystem</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">fsspec.spec</span><span class="w"> </span><span class="kn">import</span> <span class="n">AbstractBufferedFile</span><span class="p">,</span> <span class="n">AbstractFileSystem</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">fsspec.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">infer_compression</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">huggingface_hub</span><span class="w"> </span><span class="kn">import</span> <span class="n">HfFileSystem</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">loguru</span><span class="w"> </span><span class="kn">import</span> <span class="n">logger</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">tqdm</span><span class="w"> </span><span class="kn">import</span> <span class="n">tqdm</span>
+<span class="kn">import</span> <span class="nn">aiohttp</span>
+<span class="kn">import</span> <span class="nn">fsspec</span>
+<span class="kn">import</span> <span class="nn">s3fs</span>
+<span class="kn">from</span> <span class="nn">fsspec.callbacks</span> <span class="kn">import</span> <span class="n">Callback</span><span class="p">,</span> <span class="n">TqdmCallback</span>
+<span class="kn">from</span> <span class="nn">fsspec.compression</span> <span class="kn">import</span> <span class="n">compr</span>
+<span class="kn">from</span> <span class="nn">fsspec.core</span> <span class="kn">import</span> <span class="n">BaseCache</span><span class="p">,</span> <span class="n">split_protocol</span>
+<span class="kn">from</span> <span class="nn">fsspec.implementations.cached</span> <span class="kn">import</span> <span class="n">LocalTempFile</span><span class="p">,</span> <span class="n">WholeFileCacheFileSystem</span>
+<span class="kn">from</span> <span class="nn">fsspec.spec</span> <span class="kn">import</span> <span class="n">AbstractBufferedFile</span><span class="p">,</span> <span class="n">AbstractFileSystem</span>
+<span class="kn">from</span> <span class="nn">fsspec.utils</span> <span class="kn">import</span> <span class="n">infer_compression</span>
+<span class="kn">from</span> <span class="nn">huggingface_hub</span> <span class="kn">import</span> <span class="n">HfFileSystem</span>
+<span class="kn">from</span> <span class="nn">loguru</span> <span class="kn">import</span> <span class="n">logger</span>
+<span class="kn">from</span> <span class="nn">tqdm</span> <span class="kn">import</span> <span class="n">tqdm</span>
 
-<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.models.auto.ngc</span><span class="w"> </span><span class="kn">import</span> <span class="n">NGCModelFileSystem</span>
+<span class="kn">from</span> <span class="nn">earth2studio.models.auto.ngc</span> <span class="kn">import</span> <span class="n">NGCModelFileSystem</span>
 
 <span class="c1"># TODO: Make this package wide? Same as in run.py</span>
 <span class="n">logger</span><span class="o">.</span><span class="n">remove</span><span class="p">()</span>
 <span class="n">logger</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="k">lambda</span> <span class="n">msg</span><span class="p">:</span> <span class="n">tqdm</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">msg</span><span class="p">,</span> <span class="n">end</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">),</span> <span class="n">colorize</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
 
-<span class="k">class</span><span class="w"> </span><span class="nc">CallbackWholeFileCacheFileSystem</span><span class="p">(</span><span class="n">WholeFileCacheFileSystem</span><span class="p">):</span>
+<span class="k">class</span> <span class="nc">CallbackWholeFileCacheFileSystem</span><span class="p">(</span><span class="n">WholeFileCacheFileSystem</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Extension of Fsspec WholeFileCacheFileSystem to include callback function when</span>
 <span class="sd">    downloading files to cache (progress bar).</span>
 
 <span class="sd">    See: https://github.com/fsspec/filesystem_spec/blob/8be9763e5f895073a9f46c8147aebbc64933e013/fsspec/implementations/cached.py#L651</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">_open</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;rb&quot;</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>  <span class="c1"># type: ignore</span>
+    <span class="k">def</span> <span class="nf">_open</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;rb&quot;</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>  <span class="c1"># type: ignore</span>
         <span class="n">path</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_strip_protocol</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
         <span class="k">if</span> <span class="s2">&quot;r&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">mode</span><span class="p">:</span>
             <span class="nb">hash</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_mapper</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
@@ -525,21 +525,21 @@ document.write(`
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_open</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">mode</span><span class="p">)</span>  <span class="c1"># type: ignore</span>
 
 
-<span class="k">class</span><span class="w"> </span><span class="nc">TqdmFormat</span><span class="p">(</span><span class="n">tqdm</span><span class="p">):</span>
+<span class="k">class</span> <span class="nc">TqdmFormat</span><span class="p">(</span><span class="n">tqdm</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Provides a `total_time` format parameter. Not used.</span>
 <span class="sd">    See: https://filesystem-spec.readthedocs.io/en/stable/api.html#fsspec.callbacks.TqdmCallback</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">format_dict</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">format_dict</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
         <span class="n">d</span> <span class="o">=</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">format_dict</span>
         <span class="k">return</span> <span class="n">d</span>
 
 
-<span class="k">class</span><span class="w"> </span><span class="nc">TqdmCallbackRelative</span><span class="p">(</span><span class="n">TqdmCallback</span><span class="p">):</span>
+<span class="k">class</span> <span class="nc">TqdmCallbackRelative</span><span class="p">(</span><span class="n">TqdmCallback</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Simple extention of Tqdm callback to support progress bar on recurrive gets&quot;&quot;&quot;</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">branched</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path_1</span><span class="p">,</span> <span class="n">path_2</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Callback</span><span class="p">:</span>  <span class="c1"># type: ignore</span>
+    <span class="k">def</span> <span class="nf">branched</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path_1</span><span class="p">,</span> <span class="n">path_2</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Callback</span><span class="p">:</span>  <span class="c1"># type: ignore</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Child callback for recursive get&quot;&quot;&quot;</span>
         <span class="n">tqdm_kwargs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_tqdm_kwargs</span>
         <span class="n">tqdm_kwargs</span><span class="p">[</span><span class="s2">&quot;unit&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;B&quot;</span>
@@ -554,7 +554,7 @@ document.write(`
 
 <div class="viewcode-block" id="Package">
 <a class="viewcode-back" href="../../../../modules/generated/models/earth2studio.models.auto.Package.html#earth2studio.models.auto.Package">[docs]</a>
-<span class="k">class</span><span class="w"> </span><span class="nc">Package</span><span class="p">:</span>
+<span class="k">class</span> <span class="nc">Package</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;A generic file system abstraction with local caching, uses Fsspec</span>
 <span class="sd">    WholeFileCacheFileSystem to manage files. Designed to be used for accessing remote</span>
 <span class="sd">    resources, particularly checkpoint files for pre-trained models. Presently supports</span>
@@ -577,7 +577,7 @@ document.write(`
 <span class="sd">        by default {}</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">root</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
         <span class="n">fs</span><span class="p">:</span> <span class="n">AbstractFileSystem</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -637,7 +637,7 @@ document.write(`
 <div class="viewcode-block" id="Package.default_cache">
 <a class="viewcode-back" href="../../../../modules/generated/models/earth2studio.models.auto.Package.html#earth2studio.models.auto.Package.default_cache">[docs]</a>
     <span class="nd">@classmethod</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">default_cache</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">default_cache</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Default cache location for packages located in `~/.cache/earth2studio`</span>
 
 <span class="sd">        Parameters</span>
@@ -658,7 +658,7 @@ document.write(`
 <div class="viewcode-block" id="Package.default_timeout">
 <a class="viewcode-back" href="../../../../modules/generated/models/earth2studio.models.auto.Package.html#earth2studio.models.auto.Package.default_timeout">[docs]</a>
     <span class="nd">@classmethod</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">default_timeout</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">default_timeout</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Default remote store timeout in seconds</span>
 
 <span class="sd">        Returns</span>
@@ -678,7 +678,7 @@ document.write(`
 <div class="viewcode-block" id="Package.default_blocksize">
 <a class="viewcode-back" href="../../../../modules/generated/models/earth2studio.models.auto.Package.html#earth2studio.models.auto.Package.default_blocksize">[docs]</a>
     <span class="nd">@classmethod</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">default_blocksize</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">default_blocksize</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Default remote store block size</span>
 
 <span class="sd">        Returns</span>
@@ -690,13 +690,13 @@ document.write(`
 
 
     <span class="nd">@property</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">cache</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">cache</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Cache path&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">cache_options</span><span class="p">[</span><span class="s2">&quot;cache_storage&quot;</span><span class="p">]</span>
 
 <div class="viewcode-block" id="Package.open">
 <a class="viewcode-back" href="../../../../modules/generated/models/earth2studio.models.auto.Package.html#earth2studio.models.auto.Package.open">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">open</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">file_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">io</span><span class="o">.</span><span class="n">BufferedReader</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">open</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">file_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">io</span><span class="o">.</span><span class="n">BufferedReader</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Open file inside package, caching it to local cache store in the process</span>
 
 <span class="sd">        Parameters</span>
@@ -734,7 +734,7 @@ document.write(`
 
 <div class="viewcode-block" id="Package.resolve">
 <a class="viewcode-back" href="../../../../modules/generated/models/earth2studio.models.auto.Package.html#earth2studio.models.auto.Package.resolve">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">resolve</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">file_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">resolve</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">file_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Resolves current relative file path to absolute path inside Package cache</span>
 
 <span class="sd">        Parameters</span>
@@ -757,7 +757,7 @@ document.write(`
 
 <div class="viewcode-block" id="Package.get">
 <a class="viewcode-back" href="../../../../modules/generated/models/earth2studio.models.auto.Package.html#earth2studio.models.auto.Package.get">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">get</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">file_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">get</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">file_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;PhysicsNeMo / backwards compatibility</span>
 
 <span class="sd">        Parameters</span>
