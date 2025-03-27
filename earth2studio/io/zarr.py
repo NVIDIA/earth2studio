@@ -92,7 +92,7 @@ class ZarrBackend:
         for array in self.root:
             if zarr_major_version >= 3:
                 # https://github.com/pydata/xarray/pull/9669
-                dims = self.root[array].dimension_names
+                dims = self.root[array].metadata.dimension_names
             else:
                 dims = self.root[array].attrs["_ARRAY_DIMENSIONS"]
             for dim in dims:
@@ -103,7 +103,7 @@ class ZarrBackend:
             if array not in self.coords:
                 if zarr_major_version >= 3:
                     # https://github.com/pydata/xarray/pull/9669
-                    dims = self.root[array].dimension_names
+                    dims = self.root[array].metadata.dimension_names
                 else:
                     dims = self.root[array].attrs["_ARRAY_DIMENSIONS"]
             for c, d in zip(self.root[array].chunks, dims):
