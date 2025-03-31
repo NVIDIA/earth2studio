@@ -110,7 +110,7 @@ Notes: Requires [Modulus-Makani](https://github.com/NVIDIA/modulus-makani) to be
 installed manually.
 
 ```bash
-pip install "makani[all] @ git+https://github.com/NVIDIA/modulus-makani.git@v0.1.0"
+pip install "makani[all] @ git+https://github.com/NickGeneva/modulus-makani.git@3da09f9e52a6393839d73d44262779ac7279bc2f"
 pip install earth2studio[sfno]
 ```
 
