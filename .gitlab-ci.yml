@@ -20,6 +20,7 @@ gitlab-clone:
   stage: clone
   rules:
     - if: $PIPELINE_REPO_SOURCE != "github"
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
   tags:
   - docker
   extends:
@@ -87,7 +88,7 @@ pytest:
   script:
     - make setup-ci
     - make install
-    - coverage run -m pytest
+    - coverage run -m pytest test/
   artifacts:
     paths:
       - blossom.log
