@@ -1,5 +1,6 @@
 stages:
   - clone
+  - setup
   - lint
   - test
   - report
@@ -26,6 +27,15 @@ gitlab-clone:
   image: bitnami/git
   script:
     - echo "Cloning from Gitlab"
+
+precommit:
+  stage: setup
+  tags:
+  - docker
+  extends:
+    - .earth2studio:setup:base
+  script:
+    - make setup-ci
 
 format:
   stage: lint
