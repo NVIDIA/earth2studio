@@ -77,7 +77,7 @@ pytest:
   script:
     - make setup-ci
     - make install
-    - make pytest
+    - pytest tests/
   artifacts:
     paths:
       - blossom.log
