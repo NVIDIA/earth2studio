@@ -89,6 +89,7 @@ pytest:
     - make setup-ci
     - make install
     - coverage run -m pytest test/perturbation/
+    - ls -a
   artifacts:
     paths:
       - blossom.log
