@@ -29,14 +29,14 @@ gitlab-clone:
   script:
     - echo "Cloning from Gitlab"
 
-precommit:
-  stage: setup
-  tags:
-  - docker
-  extends:
-    - .earth2studio:setup:base
-  script:
-    - make setup-ci
+# precommit:
+#   stage: setup
+#   tags:
+#   - docker
+#   extends:
+#     - .earth2studio:setup:base
+#   script:
+#     - make setup-ci
 
 format:
   stage: lint
@@ -48,15 +48,6 @@ format:
     - ls
     - make setup-ci
     - make format
-
-interrogate:
-  stage: lint
-  tags:
-  - docker
-  extends:
-    - .earth2studio:test:base
-  script:
-    - make setup-ci
     - make interrogate
 
 lint:
@@ -68,15 +59,6 @@ lint:
   script:
     - make setup-ci
     - make lint
-
-license:
-  stage: lint
-  tags:
-  - docker
-  extends:
-    - .earth2studio:test:base
-  script:
-    - make setup-ci
     - make license
 
 pytest:
@@ -88,8 +70,7 @@ pytest:
   script:
     - make setup-ci
     - make install
-    - coverage run -m pytest test/perturbation/
-    - ls -a
+    - coverage run -m pytest test/ --capture=tee-sys --log-cli-level=INFO --log-file=../blossom.log
 
 coverage:
   stage: report
@@ -100,6 +81,7 @@ coverage:
   script:
     - make setup-ci
     - make coverage
+    - coverage report >> ../blossom.log
   dependencies:
     - pytest
 
