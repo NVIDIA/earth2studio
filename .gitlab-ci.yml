@@ -87,7 +87,7 @@ pytest:
   script:
     - make setup-ci
     - make install
-    - coverage pytest test/
+    - coverage run -m pytest
   artifacts:
     paths:
       - blossom.log
