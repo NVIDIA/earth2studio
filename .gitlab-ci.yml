@@ -90,10 +90,6 @@ pytest:
     - make install
     - coverage run -m pytest test/perturbation/
     - ls -a
-  artifacts:
-    paths:
-      - blossom.log
-    expire_in: 1 day
 
 coverage:
   stage: report
