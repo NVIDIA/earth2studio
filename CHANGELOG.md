@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.6.0a0] - 2025-xx-xx
 
 ### Added
+
 - hemispheric centred bred vector perturbation from HENS
 
 ### Changed

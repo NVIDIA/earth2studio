@@ -23,7 +23,12 @@ import torch
 from xarray import DataArray, concat
 
 from earth2studio.data import fetch_data
-from earth2studio.perturbation import BredVector, Brown, Gaussian, HemisphericCentredBredVector
+from earth2studio.perturbation import (
+    BredVector,
+    Brown,
+    Gaussian,
+    HemisphericCentredBredVector,
+)
 
 
 @pytest.fixture
@@ -102,7 +107,6 @@ def test_bred_vec(
     assert dx.shape == x.shape
     assert dx.device == x.device
     assert model.index == steps + 1
-
 
 
 class ConstRandom:
@@ -190,4 +194,3 @@ def test_hem_cen_bred_vec(
     assert dx.shape == x.shape
     assert dx.device == x.device
     assert model.index == steps * batch_size
-

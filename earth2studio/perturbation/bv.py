@@ -15,17 +15,18 @@
 # limitations under the License.
 
 
-from datetime import datetime
 from collections.abc import Callable
+from datetime import datetime
 
 import numpy as np
 import torch
 
 from earth2studio.data import DataSource, fetch_data
+from earth2studio.models.px import PrognosticModel
 from earth2studio.perturbation.base import Perturbation
 from earth2studio.perturbation.brown import Brown
-from earth2studio.utils.type import CoordSystem
 from earth2studio.utils.time import to_time_array
+from earth2studio.utils.type import CoordSystem
 
 
 class BredVector:
@@ -154,10 +155,11 @@ class HemisphericCentredBredVector:
 
     def __init__(
         self,
-        model: Callable[
-            [torch.Tensor, CoordSystem],
-            tuple[torch.Tensor, CoordSystem],
-        ],
+        model: PrognosticModel,
+        # model: Callable[
+        #     [torch.Tensor, CoordSystem],
+        #     tuple[torch.Tensor, CoordSystem],
+        # ],
         data: DataSource,
         time: list[str] | list[datetime] | list[np.datetime64],
         seeding_perturbation_method: Perturbation,
@@ -244,7 +246,9 @@ class HemisphericCentredBredVector:
         north = torch.sqrt(
             torch.mean(
                 xx[..., :ex_tropic, :] ** 2
-                * weights[:ex_tropic,],
+                * weights[
+                    :ex_tropic,
+                ],
                 dim=(-2, -1),
             )
         )
