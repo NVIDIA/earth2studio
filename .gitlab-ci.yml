@@ -10,7 +10,7 @@ github-clone:
   rules:
     - if: $PIPELINE_REPO_SOURCE == "github"
   tags:
-  - privileged
+  - docker
   extends:
     - .physicsnemo:github:pull
   image: bitnami/git
@@ -20,7 +20,7 @@ gitlab-clone:
   rules:
     - if: $PIPELINE_REPO_SOURCE != "github"
   tags:
-  - privileged
+  - docker
   extends:
     - .physicsnemo:gitlab:pull
   image: bitnami/git
@@ -30,18 +30,18 @@ gitlab-clone:
 format:
   stage: lint
   tags:
-  - privileged
+  - docker
   extends:
     - .earth2studio:test:base
   script:
-    - ls -l
+    - ls
     - make setup-ci
     - make format
 
 interrogate:
   stage: lint
   tags:
-  - privileged
+  - docker
   extends:
     - .earth2studio:test:base
   script:
@@ -51,7 +51,7 @@ interrogate:
 lint:
   stage: lint
   tags:
-  - privileged
+  - docker
   extends:
     - .earth2studio:test:base
   script:
@@ -61,7 +61,7 @@ lint:
 license:
   stage: lint
   tags:
-  - privileged
+  - docker
   extends:
     - .earth2studio:test:base
   script:
@@ -71,7 +71,7 @@ license:
 pytest:
   stage: test
   tags:
-  - privileged
+  - docker
   extends:
     - .earth2studio:test:base
   script:
@@ -86,7 +86,7 @@ pytest:
 coverage:
   stage: report
   tags:
-  - privileged
+  - docker
   extends:
     - .earth2studio:test:base
   script:
