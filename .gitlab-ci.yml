@@ -34,6 +34,7 @@ format:
   extends:
     - .earth2studio:test:base
   script:
+    - ls -l
     - make setup-ci
     - make format
 
