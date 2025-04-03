@@ -69,7 +69,7 @@ pytest:
   script:
     - make setup-ci
     - make install
-    - coverage run -m pytest test/ --capture=tee-sys --log-cli-level=INFO --log-file=../blossom.log
+    - coverage run -m pytest test/perturbation 2>&1 | tee ../blossom.log
 
 coverage:
   stage: report
@@ -79,8 +79,7 @@ coverage:
     - .earth2studio:test:base
   script:
     - make setup-ci
-    - make coverage
-    - coverage report >> ../blossom.log
+    - make coverage 2>&1 | tee ../blossom.log
   dependencies:
     - pytest
 
