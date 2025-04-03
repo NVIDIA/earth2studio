@@ -1,6 +1,5 @@
 stages:
   - clone
-  - setup
   - lint
   - test
   - report
@@ -48,7 +47,6 @@ format:
     - ls
     - make setup-ci
     - make format
-    - make interrogate
 
 lint:
   stage: lint
@@ -58,6 +56,7 @@ lint:
     - .earth2studio:test:base
   script:
     - make setup-ci
+    - make interrogate
     - make lint
     - make license
 
