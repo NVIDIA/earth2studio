@@ -6,7 +6,7 @@ install:
 .PHONY: setup-ci
 setup-ci:
 	pip install .[dev]
-	pre-commit install
+	pre-commit install --install-hooks
 
 .PHONY: format
 format:
