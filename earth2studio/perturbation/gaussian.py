@@ -293,20 +293,9 @@ class CorrelatedSphericalField(torch.nn.Module):
 
         return torch.cat(noises)
 
-    # Override cuda and to methods so sampler gets initialized with mean
-    # and variance on the correct device.
-    def cuda(self, *args: Any, **kwargs: Any) -> Self:
-        """
-        to GPU
-        """
-        super().cuda(*args, **kwargs)
-        self.gaussian_noise = torch.distributions.normal.Normal(self.mean, self.var)
-
-        return self
-
     def to(self, *args: Any, **kwargs: Any) -> Self:
-        """
-        to(*args, **kwargs)
+        """Override cuda and to methods so sampler gets initialized with mean and
+        variance on the correct device, to(*args, **kwargs)
         """
         super().to(*args, **kwargs)
         self.gaussian_noise = torch.distributions.normal.Normal(self.mean, self.var)

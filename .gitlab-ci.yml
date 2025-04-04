@@ -1,7 +1,86 @@
 stages:
-  - docs
-  - wheel
+  - clone
+  - lint
   - test
+  - report
+  - docs
+
+variables:
+  PIPELINE_WORKFLOW_NAME: 'earth2studio/gitlab/$CI_COMMIT_SHORT_SHA'
+
+workflow:
+   name: $PIPELINE_WORKFLOW_NAME
+
+github-clone:
+  stage: clone
+  rules:
+    - if: $PIPELINE_REPO_SOURCE == "github"
+  tags:
+  - docker
+  extends:
+    - .physicsnemo:github:pull
+  image: bitnami/git
+
+gitlab-clone:
+  stage: clone
+  rules:
+    - if: $PIPELINE_REPO_SOURCE != "github" && $CI_PIPELINE_SOURCE == "merge_request_event"
+      when: always
+    - if: $PIPELINE_REPO_SOURCE != "github"
+      when: manual
+  tags:
+  - docker
+  extends:
+    - .physicsnemo:gitlab:pull
+  image: bitnami/git
+
+format:
+  stage: lint
+  tags:
+  - docker
+  extends:
+    - .earth2studio:test:base
+  script:
+    - ls
+    - make setup-ci
+    - make format
+
+lint:
+  stage: lint
+  tags:
+  - docker
+  extends:
+    - .earth2studio:test:base
+  script:
+    - make setup-ci
+    - make interrogate
+    - make lint
+    - make license
+
+pytest:
+  stage: test
+  tags:
+  - docker
+  extends:
+    - .earth2studio:test:base
+  script:
+    - make setup-ci
+    - make install
+    - make pytest 2>&1 | tee ../pytest.log.full
+    - grep -A 9999 "=.*short test summary info.*=" ../pytest.log.full > ../blossom.log
+    - rm ../pytest.log.full
+
+coverage:
+  stage: report
+  tags:
+  - docker
+  extends:
+    - .earth2studio:test:base
+  script:
+    - make setup-ci
+    - make coverage 2>&1 | tee ../blossom.log
+  dependencies:
+    - pytest
 
 pages:
   tags:
@@ -19,10 +98,18 @@ pages:
     - if: $CI_COMMIT_BRANCH == "gl-pages"
 
 include:
-  - project: 'modulus/modulus-ci'
-    ref: main
-    file: '.gitlab-ci/earth2/studio/wheel.gitlab-ci.yml'
+  # - project: 'modulus/modulus-ci'
+  #   ref: main
+  #   file: '.gitlab-ci/earth2/studio/wheel.gitlab-ci.yml'
 
   - project: 'modulus/modulus-ci'
-    ref: main
+    ref: ngeneva/studio-reamped
     file: '.gitlab-ci/earth2/studio/docs.gitlab-ci.yml'
+
+  - project: 'modulus/modulus-ci'
+    ref: ngeneva/studio-reamped
+    file: '.gitlab-ci/pull.gitlab-ci.yml'
+
+  - project: 'modulus/modulus-ci'
+    ref: ngeneva/studio-reamped
+    file: '.gitlab-ci/earth2/studio/test.gitlab-ci.yml'
