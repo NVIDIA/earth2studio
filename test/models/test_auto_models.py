@@ -322,3 +322,21 @@ def test_whole_file_cache(tmp_path, same_names):
     assert (tmp_path / file2).is_file()
     assert (put_path / file2).is_file()
     assert (cache_path / file2).is_file() is same_names
+
+
+async def test_ngc_unsupported_operations():
+    fs = NGCModelFileSystem()
+    with pytest.raises(
+        NotImplementedError, match="Glob / recursive patterns not supported"
+    ):
+        await fs.expand_path("some/path")
+
+    with pytest.raises(
+        NotImplementedError, match="Glob / recursive patterns not supported"
+    ):
+        await fs.glob("some/path")
+
+    with pytest.raises(
+        NotImplementedError, match="Glob / recursive patterns not supported"
+    ):
+        await fs.find("some/path", maxdepth=1)

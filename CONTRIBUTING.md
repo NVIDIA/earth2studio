@@ -21,7 +21,7 @@ checks have passed.
 [Pull Request](https://help.github.com/en/articles/about-pull-requests) using the
 template.
 
-4. Ensure code passes the CI pipeline.
+4. Ensure code passes the CI pipeline by asking a maintainer to trigger CI.
 
 5. Address reviewer feedback and merge.
 
