@@ -29,15 +29,6 @@ gitlab-clone:
     - .physicsnemo:gitlab:pull
   image: bitnami/git
 
-setup:
-  stage: setup
-  tags:
-  - docker
-  extends:
-    - .earth2studio:setup:base
-  script:
-    - make setup-ci
-
 build-image:
   stage: setup
   tags:
