@@ -85,8 +85,6 @@ def test_rank_histogram_broadcasting(device: str) -> None:
     y_shape = [len(y_coords[c]) for c in y_coords]
     y = torch.randn(y_shape, device=device)
 
-    print(x.shape, y.shape)
-
     RH = rank_histogram("ensemble", ["lat", "lon"])
     z, c = RH(x, x_coords, y, y_coords)
     assert z.shape == (2, 10, 1, 2)
