@@ -128,7 +128,6 @@ class CorrelatedSphericalGaussian:
             Output tensor and respective coordinate system dictionary
         """
         shape = x.shape
-
         # Check the required dimensions are present
         handshake_dim(coords, required_dim="lat", required_index=-2)
         handshake_dim(coords, required_dim="lon", required_index=-1)
