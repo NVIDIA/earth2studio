@@ -14,13 +14,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import pickle
 from collections import OrderedDict
 from collections.abc import Generator, Iterator
 from datetime import datetime
 
 import numpy as np
 import torch
-import xarray as xr
 from aurora import Aurora as Aurora_model
 from aurora import Batch, Metadata
 
@@ -246,11 +246,12 @@ class Aurora(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         """Load prognostic from package"""
 
         # Import the static variables: z, slt, lsm
-        static_path = package.resolve("static.nc")
-        static_vars_ds = xr.open_dataset(static_path, engine="netcdf4")
-        z = torch.from_numpy(static_vars_ds["z"].values[0])[:-1]
-        slt = torch.from_numpy(static_vars_ds["slt"].values[0])[:-1]
-        lsm = torch.from_numpy(static_vars_ds["lsm"].values[0])[:-1]
+        static_path = package.resolve("aurora-0.25-static.pickle")
+        with open(static_path, "rb") as f:
+            static_vars_ds = pickle.load(f)  # noqa S301
+        z = torch.from_numpy(static_vars_ds["z"][:-1])
+        slt = torch.from_numpy(static_vars_ds["slt"][:-1])
+        lsm = torch.from_numpy(static_vars_ds["lsm"][:-1])
 
         # Load 0.25 degrees resolution Aurora pretrained model
         aurora_model = package.resolve("aurora-0.25-pretrained.ckpt")
