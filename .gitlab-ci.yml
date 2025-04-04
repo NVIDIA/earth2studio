@@ -18,7 +18,7 @@ github-clone:
 gitlab-clone:
   stage: clone
   rules:
-    - if: $PIPELINE_REPO_SOURCE != "github" && $CI_PIPELINE_SOURCE != "merge_request_event"
+    - if: $PIPELINE_REPO_SOURCE != "github" && $CI_PIPELINE_SOURCE == "merge_request_event"
     - when: manual
   tags:
   - docker
@@ -27,6 +27,8 @@ gitlab-clone:
   image: bitnami/git
   script:
     - echo "Cloning from Gitlab"
+    - git pwd
+    - ls -l
 
 # precommit:
 #   stage: setup
