@@ -33,10 +33,14 @@ build-image:
   stage: setup
   tags:
   - shell
-  extends:
-    - .earth2studio:test:base
   script:
+    - cd src
     - docker build -t $CI_IMAGE -f test/Dockerfile .
+  cache:
+    key: "$CI_PIPELINE_ID"
+    paths:
+      - src
+    policy: pull
 
 format:
   stage: lint
