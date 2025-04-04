@@ -60,7 +60,7 @@ pytest:
   script:
     - make setup-ci
     - make install
-    - coverage run -m pytest test/ --slow 2>&1 | tee ../blossom.log
+    - coverage run -m pytest test/ --slow 2>&1 | tee /dev/tty | grep -A 9999 "=.*short test summary info.*=" > ../blossom.log
 
 coverage:
   stage: report
