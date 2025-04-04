@@ -11,7 +11,7 @@ github-clone:
   rules:
     - if: $PIPELINE_REPO_SOURCE == "github"
   tags:
-  - docker:dind
+  - docker-dind
   extends:
     - .physicsnemo:github:pull
   image: bitnami/git
@@ -24,7 +24,7 @@ gitlab-clone:
     - if: $PIPELINE_REPO_SOURCE != "github"
       when: manual
   tags:
-  - docker:dind
+  - docker-dind
   extends:
     - .physicsnemo:gitlab:pull
   image: bitnami/git
