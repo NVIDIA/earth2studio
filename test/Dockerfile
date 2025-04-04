@@ -13,7 +13,8 @@ COPY . ./src
 RUN unset PIP_CONSTRAINT
 
 # Install earth2studio
-RUN cd src && unset PIP_CONSTRAINT && make setup-ci
+RUN cd src && ls && git init
+RUN cd src && ls && unset PIP_CONSTRAINT && make setup-ci
 RUN cd src && unset PIP_CONSTRAINT && make install
 RUN pip uninstall -y earth2studio
 
