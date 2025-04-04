@@ -18,7 +18,7 @@ github-clone:
 gitlab-clone:
   stage: clone
   rules:
-    - if: $PIPELINE_REPO_SOURCE != "github" && $CI_PIPELINE_SOURCE != "merge_request_event"
+    - if: $PIPELINE_REPO_SOURCE != "github" && $CI_PIPELINE_SOURCE == "merge_request_event"
       when: always
     - when: manual
   tags:
