@@ -108,7 +108,7 @@ ATMOS_LEVELS = [1000, 925, 850, 700, 600, 500, 400, 300, 250, 200, 150, 100, 50]
 
 # adapted from https://microsoft.github.io/aurora/example_era5.html
 class Aurora(torch.nn.Module, AutoModelMixin, PrognosticMixin):
-    """Aurora 0.25degree Pretrained model. This model consists of single
+    """Aurora 0.25 degree global forecast model. This model consists of single
     auto-regressive model with a time-step size of 6 hours. This model operates on
     0.25 degree lat-lon grid (720, 1440) equirectangular grid with 4 surface-level
     variables, 5 atmospheric variables with 13 pressure levels and 3 static variables.
@@ -231,7 +231,7 @@ class Aurora(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def load_default_package(cls) -> Package:
         """Load prognostic package"""
         return Package(
-            "/lustre/fsw/coreai_climate_earth2/iauyeung/earth2_aurora",
+            "hf://microsoft/aurora",
             cache_options={
                 "cache_storage": Package.default_cache("aurora"),
                 "same_names": True,
