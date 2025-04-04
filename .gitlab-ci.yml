@@ -5,6 +5,12 @@ stages:
   - report
   - docs
 
+variables:
+  PIPELINE_WORKFLOW_NAME: 'earth2studio-ci'
+
+workflow:
+   name: $PIPELINE_WORKFLOW_NAME
+
 github-clone:
   stage: clone
   rules:
