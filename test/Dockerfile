@@ -1,0 +1,17 @@
+FROM nvcr.io/nvidia/pytorch:25.03-py3
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    git \
+    make \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+COPY . .
+
+# Install earth2studio
+RUN make setup-ci
+RUN make install
+RUN pip uninstall -y earth2studio
+
+ENTRYPOINT ["bash"]

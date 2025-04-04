@@ -28,14 +28,23 @@ gitlab-clone:
     - .physicsnemo:gitlab:pull
   image: bitnami/git
 
-# precommit:
-#   stage: setup
-#   tags:
-#   - docker
-#   extends:
-#     - .earth2studio:setup:base
-#   script:
-#     - make setup-ci
+setup:
+  stage: setup
+  tags:
+  - docker
+  extends:
+    - .earth2studio:setup:base
+  script:
+    - make setup-ci
+
+build-image:
+  stage: setup
+  tags:
+  - shell
+  extends:
+    - .earth2studio:test:base
+  script:
+    - docker build -t $CI_IMAGE -f test/Dockerfile .
 
 format:
   stage: lint
