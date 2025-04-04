@@ -109,7 +109,7 @@ class CorrelatedSphericalGaussian:
     @torch.inference_mode()
     def __call__(
         self,
-        xx: torch.Tensor,
+        x: torch.Tensor,
         coords: CoordSystem,
     ) -> tuple[torch.Tensor, CoordSystem]:
         """Apply perturbation method
@@ -127,7 +127,7 @@ class CorrelatedSphericalGaussian:
         tuple[torch.Tensor, CoordSystem]:
             Output tensor and respective coordinate system dictionary
         """
-        shape = xx.shape
+        shape = x.shape
 
         # Check the required dimensions are present
         handshake_dim(coords, required_dim="lat", required_index=-2)
@@ -145,21 +145,21 @@ class CorrelatedSphericalGaussian:
             sigma=self.sigma,
             N=shape[-3],
         )
-        sampler = sampler.to(xx.device)
+        sampler = sampler.to(x.device)
 
-        sample_noise = sampler(xx, None)
+        sample_noise = sampler(x, None)
         sample_noise = sample_noise.reshape(*shape[:-2], nlat, 2 * nlat)
 
         # Hack for odd lat coords
-        if xx.shape[-2] % 2 == 1:
-            noise = torch.zeros_like(xx)
+        if x.shape[-2] % 2 == 1:
+            noise = torch.zeros_like(x)
             noise[..., :-1, :] = sample_noise
             noise[..., -1:, :] = noise[..., -2:-1, :]
         else:
             noise = sample_noise
 
-        noise_amplitude = self.noise_amplitude.to(xx.device)
-        return xx + noise_amplitude * noise, coords
+        noise_amplitude = self.noise_amplitude.to(x.device)
+        return x + noise_amplitude * noise, coords
 
 
 class CorrelatedSphericalField(torch.nn.Module):
@@ -272,7 +272,7 @@ class CorrelatedSphericalField(torch.nn.Module):
 
         return (numerator / denominator) ** 0.5
 
-    def forward(self, xx: torch.Tensor, time: np.datetime64 = None) -> torch.Tensor:
+    def forward(self, x: torch.Tensor, time: np.datetime64 = None) -> torch.Tensor:
         """
         Generate and return a field with a correlated length scale.
 
@@ -280,7 +280,7 @@ class CorrelatedSphericalField(torch.nn.Module):
         """
         noises = []
         # iterate over samples in batch
-        for _ in range(xx.shape[0]):
+        for _ in range(x.shape[0]):
             noise = self.isht(self.coeff) * 4 * np.pi  # type: ignore
             noises.append(noise.reshape(1, 1, 1, self.N, self.nlat, self.nlat * 2))
 
@@ -294,20 +294,9 @@ class CorrelatedSphericalField(torch.nn.Module):
 
         return torch.cat(noises)
 
-    # Override cuda and to methods so sampler gets initialized with mean
-    # and variance on the correct device.
-    def cuda(self, *args: Any, **kwargs: Any) -> Self:
-        """
-        to GPU
-        """
-        super().cuda(*args, **kwargs)
-        self.gaussian_noise = torch.distributions.normal.Normal(self.mean, self.var)
-
-        return self
-
     def to(self, *args: Any, **kwargs: Any) -> Self:
-        """
-        to(*args, **kwargs)
+        """Override cuda and to methods so sampler gets initialized with mean and
+        variance on the correct device, to(*args, **kwargs)
         """
         super().to(*args, **kwargs)
         self.gaussian_noise = torch.distributions.normal.Normal(self.mean, self.var)
