@@ -6,7 +6,7 @@ stages:
   - docs
 
 variables:
-  PIPELINE_WORKFLOW_NAME: 'earth2studio-ci'
+  PIPELINE_WORKFLOW_NAME: 'earth2studio-$CI_COMMIT_REF_NAME'
 
 workflow:
    name: $PIPELINE_WORKFLOW_NAME
