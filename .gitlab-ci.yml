@@ -41,6 +41,8 @@ gitlab-clone:
 
 build-image:
   stage: setup
+  tags:
+  - docker
   extends:
     - .dind-base
   script:
