@@ -26,10 +26,6 @@ gitlab-clone:
   extends:
     - .physicsnemo:gitlab:pull
   image: bitnami/git
-  script:
-    - echo "Cloning from Gitlab"
-    - pwd
-    - ls -l
 
 # precommit:
 #   stage: setup
