@@ -16,10 +16,15 @@
 
 from collections import OrderedDict
 
+import numpy as np
 import pytest
 import torch
 
-from earth2studio.perturbation import BredVector, Brown, Gaussian
+from earth2studio.perturbation import (
+    BredVector,
+    Brown,
+    Gaussian,
+)
 
 
 @pytest.fixture
@@ -29,6 +34,13 @@ def model():
             super().__init__()
             self.register_buffer("scale", torch.Tensor([0.1]))
             self.index = 0
+            self._input_coords = None
+
+        def input_coords(self):
+            return self._input_coords
+
+        def output_coords(self, dummy):
+            return {"lead_time": np.array([np.timedelta64(1, "s")])}
 
         def forward(self, x, coords):
             self.index += 1
