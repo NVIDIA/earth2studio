@@ -20,7 +20,8 @@ gitlab-clone:
   rules:
     - if: $PIPELINE_REPO_SOURCE != "github" && $CI_PIPELINE_SOURCE == "merge_request_event"
       when: always
-    - when: manual
+    - if: $PIPELINE_REPO_SOURCE != "github"
+      when: manual
   tags:
   - docker
   extends:
