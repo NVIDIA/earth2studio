@@ -92,9 +92,9 @@ pages:
     - if: $CI_COMMIT_BRANCH == "gl-pages"
 
 include:
-  - project: 'modulus/modulus-ci'
-    ref: main
-    file: '.gitlab-ci/earth2/studio/wheel.gitlab-ci.yml'
+  # - project: 'modulus/modulus-ci'
+  #   ref: main
+  #   file: '.gitlab-ci/earth2/studio/wheel.gitlab-ci.yml'
 
   - project: 'modulus/modulus-ci'
     ref: main
