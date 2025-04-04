@@ -7,11 +7,11 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
-COPY . .
+COPY . ./src
 
 # Install earth2studio
-RUN make setup-ci
-RUN make install
+RUN cd src && make setup-ci
+RUN cd src && make install
 RUN pip uninstall -y earth2studio
 
 ENTRYPOINT ["bash"]
