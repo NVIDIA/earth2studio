@@ -29,13 +29,23 @@ gitlab-clone:
     - .physicsnemo:gitlab:pull
   image: bitnami/git
 
+.dind-base:
+  image: docker:latest
+  services:
+    - docker:dind
+  variables:
+    DOCKER_TLS_CERTDIR: "/certs"
+    DOCKER_HOST: "tcp://docker:2376"
+    DOCKER_TLS_VERIFY: 1
+    DOCKER_CERT_PATH: "$DOCKER_TLS_CERTDIR/client"
+
 build-image:
   stage: setup
-  tags:
-  - shell
+  extends:
+    - .dind-base
   script:
+    - cd src
     - ls
-    - pwd
     - docker build -t $CI_IMAGE -f test/Dockerfile .
   cache:
     key: "$CI_PIPELINE_ID"
