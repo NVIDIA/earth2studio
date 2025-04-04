@@ -9,6 +9,9 @@ RUN apt-get update && apt-get install -y \
 WORKDIR /app
 COPY . ./src
 
+# Disable contraint file in /etc/pip/constraint.txt
+RUN unset PIP_CONSTRAINT
+
 # Install earth2studio
 RUN cd src && make setup-ci
 RUN cd src && make install
