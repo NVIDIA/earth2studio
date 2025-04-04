@@ -1,5 +1,6 @@
 stages:
   - clone
+  - setup
   - lint
   - test
   - report
