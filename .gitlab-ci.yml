@@ -41,11 +41,23 @@ gitlab-clone:
 
 build-image:
   stage: setup
+  image: docker:latest
+  services:
+    - docker:dind
   tags:
-  - docker
-  extends:
-    - .dind-base
+    - docker-dind
+  variables:
+    # Tell docker CLI to talk to the docker service container
+    DOCKER_HOST: tcp://docker:2376
+    # Required for communicating with docker service
+    DOCKER_TLS_CERTDIR: "/certs"
+    DOCKER_TLS_VERIFY: 1
+    DOCKER_CERT_PATH: "/certs/client"
+    # Image name
+    CI_IMAGE: earth2studio-ci:${CI_COMMIT_REF_SLUG}
   script:
+    # Wait for docker service to be ready
+    - until docker info; do sleep 1; done
     - cd src
     - ls
     - docker build -t $CI_IMAGE -f test/Dockerfile .
