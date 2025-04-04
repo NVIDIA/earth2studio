@@ -6,7 +6,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.5.0a0] - 2025-xx-xx
+## [0.6.0a0] - 2025-xx-xx
+
+### Added
+
+- Hemispheric centred bred vector perturbation from HENS
+
+### Changed
+
+### Deprecated
+
+### Removed
+
+### Fixed
+
+### Security
+
+### Dependencies
+
+## [0.5.0] - 2025-03-26
 
 ### Added
 
@@ -31,23 +49,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Changed the NetCDF4Backend to use proleptic gregorian calendar for time
 - Changed the units assigned from the NetCDF4Backend to hours instead of h
 
-### Deprecated
-
-### Removed
-
 ### Fixed
 
 - Fixed bug in prep_data_array that implicitly assumed order of coordinates
 - Fixed bug in rank_histogram that assumed broadcastable ensemble dimension
 - Fixed spread/skill ratio to actually return spread/skill instead of skill/spread
-
-### Security
+- Fixed NGC download APIs and public API fetching for model files
+- Fixed bug when using HRRR datasource in Jupyter notebooks
+- Fixed ARCO for Zarr 3.0 and made proper async running with notebook support
+- Fixed WB2 data source for Zarr 3.0 support
+- Fixed Zarr IO for Zarr 3.0, for Zarr 3.0 datetime and timedeltas stored as int64
+- Fixed CorrDiff and Stormcast for Zarr 3.0 support
+- Fixed examples for Zarr 3.0 support updates
 
 ### Dependencies
 
-- Update NGC SDK dependency to fixed range due to internal API changes
 - Updates to multiple dependencies for Python 3.12 support
 - Added StormCast to optional dependencies
+- Update to physicsnemo version 1.0.0
+- Added nest asyncio to data dependencies for async data sources
 
 ## [0.4.0] - 2024-12-12
 

@@ -16,11 +16,33 @@
 
 from collections import OrderedDict
 from collections.abc import Iterator
-from typing import Any
+from importlib.metadata import version
+from typing import TYPE_CHECKING, Any, Union
 
 import numpy as np
 import torch
 import zarr
+from loguru import logger
+
+# Dealing with zarr 3.0 API breaks and type checking
+try:
+    zarr_version = version("zarr")
+    zarr_major_version = int(zarr_version.split(".")[0])
+except Exception:
+    zarr_major_version = 2
+
+if TYPE_CHECKING:
+    from typing import TypeAlias
+
+    from zarr.core import Array
+    from zarr.core.array import Array as Array3
+
+    ZarrArray: TypeAlias = Union[Array, Array3]
+else:
+    if zarr_major_version >= 3:
+        ZarrArray = zarr.core.array.Array
+    else:
+        ZarrArray = zarr.core.Array
 
 from earth2studio.utils.coords import convert_multidim_to_singledim
 from earth2studio.utils.type import CoordSystem
@@ -57,7 +79,10 @@ class ZarrBackend:
         if file_name is None:
             self.store = zarr.storage.MemoryStore()
         else:
-            self.store = zarr.storage.DirectoryStore(file_name)
+            if zarr_major_version >= 3:
+                self.store = zarr.storage.LocalStore(file_name)
+            else:
+                self.store = zarr.storage.DirectoryStore(file_name)
 
         self.root = zarr.group(self.store, **backend_kwargs)
 
@@ -65,16 +90,24 @@ class ZarrBackend:
         self.coords: CoordSystem = OrderedDict({})
         self.chunks = chunks.copy()
         for array in self.root:
-            dims = self.root[array].attrs["_ARRAY_DIMENSIONS"]
+            if zarr_major_version >= 3:
+                # https://github.com/pydata/xarray/pull/9669
+                dims = self.root[array].metadata.dimension_names
+            else:
+                dims = self.root[array].attrs["_ARRAY_DIMENSIONS"]
             for dim in dims:
                 if dim not in self.coords:
                     self.coords[dim] = self.root[dim]
 
         for array in self.root:
             if array not in self.coords:
-                dims = self.root[array].attrs["_ARRAY_DIMENSIONS"]
-                for c, d in zip(self.root[array].chunks, dims):
-                    self.chunks[d] = c
+                if zarr_major_version >= 3:
+                    # https://github.com/pydata/xarray/pull/9669
+                    dims = self.root[array].metadata.dimension_names
+                else:
+                    dims = self.root[array].attrs["_ARRAY_DIMENSIONS"]
+            for c, d in zip(self.root[array].chunks, dims):
+                self.chunks[d] = c
 
     def __contains__(self, item: str) -> bool:
         """Checks if item in Zarr Group.
@@ -85,7 +118,7 @@ class ZarrBackend:
         """
         return self.root.__contains__(item)
 
-    def __getitem__(self, item: str) -> zarr.core.Array:
+    def __getitem__(self, item: str) -> "ZarrArray":
         """Gets item in Zarr Group.
 
         Parameters
@@ -151,29 +184,83 @@ class ZarrBackend:
 
         for dim, values in adjusted_coords.items():
             if dim not in self.coords:
-                self.root.create_dataset(
-                    dim,
-                    shape=values.shape,
-                    chunks=values.shape,
-                    dtype=values.dtype,
-                    **kwargs,
-                )
+                if zarr_major_version >= 3:
+                    # Dates types not supported in zarr 3.0 at the moment
+                    # https://github.com/zarr-developers/zarr-python/issues/2616
+                    # TODO: Remove once fixed
+                    if np.issubdtype(values.dtype, np.datetime64):
+                        logger.warning(
+                            "Datetime64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch"
+                        )
+                        values = values.astype("datetime64[ns]").astype("int64")
+
+                    if np.issubdtype(values.dtype, np.timedelta64):
+                        logger.warning(
+                            "Timedelta64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch"
+                        )
+                        values = values.astype("timedelta64[ns]").astype("int64")
+
+                    self.root.create_array(
+                        dim,
+                        shape=values.shape,
+                        chunks=values.shape,
+                        dtype=values.dtype,
+                        dimension_names=[dim],
+                        **kwargs,
+                    )
+                else:
+                    self.root.create_dataset(
+                        dim,
+                        shape=values.shape,
+                        chunks=values.shape,
+                        dtype=values.dtype,
+                        **kwargs,
+                    )
                 self.root[dim][:] = values
-                self.root[dim].attrs["_ARRAY_DIMENSIONS"] = [dim]
+                if zarr_major_version < 3:
+                    # https://github.com/pydata/xarray/pull/9669
+                    self.root[dim].attrs["_ARRAY_DIMENSIONS"] = [dim]
 
         # Add any multidim coordinates that were expelled above
         for k in mapping:
             if k not in self.root:
                 values = coords[k]
-                self.root.create_dataset(
-                    k,
-                    shape=values.shape,
-                    chunks=values.shape,
-                    dtype=values.dtype,
-                    **kwargs,
-                )
+                if zarr_major_version >= 3:
+                    # Dates types not supported in zarr 3.0 at the moment
+                    # https://github.com/zarr-developers/zarr-python/issues/2616
+                    # TODO: Remove once fixed
+                    if np.issubdtype(values.dtype, np.datetime64):
+                        logger.warning(
+                            "Datetime64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch"
+                        )
+                        values = values.astype("datetime64[ns]").astype("int64")
+
+                    if np.issubdtype(values.dtype, np.timedelta64):
+                        logger.warning(
+                            "Timedelta64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch"
+                        )
+                        values = values.astype("timedelta64[ns]").astype("int64")
+
+                    self.root.create_array(
+                        k,
+                        shape=values.shape,
+                        chunks=values.shape,
+                        dtype=values.dtype,
+                        dimension_names=mapping[k],
+                        **kwargs,
+                    )
+                else:
+                    self.root.create_dataset(
+                        k,
+                        shape=values.shape,
+                        chunks=values.shape,
+                        dtype=values.dtype,
+                        **kwargs,
+                    )
                 self.root[k][:] = values
-                self.root[k].attrs["_ARRAY_DIMENSIONS"] = mapping[k]
+                if zarr_major_version < 3:
+                    # https://github.com/pydata/xarray/pull/9669
+                    self.root[k].attrs["_ARRAY_DIMENSIONS"] = [mapping[k]]
 
         self.coords = self.coords | adjusted_coords
 
@@ -191,13 +278,25 @@ class ZarrBackend:
 
             di = di.cpu().numpy() if di is not None else None
             dtype = di.dtype if di is not None else "float32"
-            self.root.create_dataset(
-                name, shape=shape, chunks=chunks, dtype=dtype, **kwargs
-            )
+            if zarr_major_version >= 3:
+                self.root.create_array(
+                    name,
+                    shape=shape,
+                    chunks=chunks,
+                    dtype=dtype,
+                    dimension_names=list(adjusted_coords),
+                    **kwargs,
+                )
+            else:
+                self.root.create_dataset(
+                    name, shape=shape, chunks=chunks, dtype=dtype, **kwargs
+                )
             if di is not None:
                 self.root[name][:] = di
 
-            self.root[name].attrs["_ARRAY_DIMENSIONS"] = list(adjusted_coords)
+            if zarr_major_version < 3:
+                # https://github.com/pydata/xarray/pull/9669
+                self.root[name].attrs["_ARRAY_DIMENSIONS"] = list(adjusted_coords)
 
     def write(
         self,
@@ -257,7 +356,7 @@ class ZarrBackend:
                 self.root[name][
                     np.ix_(
                         *[
-                            np.where(np.in1d(self.coords[dim], value))[0]
+                            np.where(np.isin(self.coords[dim], value))[0]
                             for dim, value in adjusted_coords.items()
                         ]
                     )

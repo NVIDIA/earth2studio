@@ -15,9 +15,11 @@
 # limitations under the License.
 
 import http.client
+import os
 from pathlib import Path
 
 import fsspec
+import ngcbase
 import pytest
 
 from earth2studio.models.auto import (
@@ -105,6 +107,7 @@ def cache_folder(tmp_path_factory):
 def test_package(url, file, cache_folder, model_cache_context):
     if url is None:
         url = "file://" / cache_folder
+
     with model_cache_context(
         EARTH2STUDIO_CACHE=str(cache_folder.resolve()),
         EARTH2STUDIO_PACKAGE_TIMEOUT="30",
@@ -117,32 +120,45 @@ def test_package(url, file, cache_folder, model_cache_context):
         assert file_path == file_path2
 
 
-@pytest.mark.xfail  # TODO: REMOVE
 @pytest.mark.parametrize(
-    "url,file",
+    "url,file,api_key",
     [
         (
             "ngc://models/nvidia/modulus/sfno_73ch_small@0.1.0",  # Public
             "sfno_73ch_small/metadata.json",
+            False,
+        ),
+        (
+            "ngc://models/nvidia/modulus/sfno_73ch_small@0.1.0",  # Public
+            "sfno_73ch_small/metadata.json",
+            True,
         ),
         (
             "ngc://models/nvstaging/simnet/physicsnemo_ci@0.1",  # Private
             "test.txt",
+            True,
         ),
     ],
 )
-def test_ngc_package(url, file, cache_folder, model_cache_context):
+def test_ngc_package(url, file, api_key, cache_folder, model_cache_context):
     # Clear instance cache to make sure we always create a new fsspec file system
     # every test. Fsspec caches fs instances by default
     # https://github.com/fsspec/filesystem_spec/blob/master/fsspec/spec.py#L47
     NGCModelFileSystem.clear_instance_cache()
+    # No API key is tested above in test_package
+    current_key = ngcbase.environ.NGC_CLI_API_KEY
     with model_cache_context(
         EARTH2STUDIO_CACHE=str(cache_folder.resolve()),
         EARTH2STUDIO_PACKAGE_TIMEOUT="30",
     ):
+        if api_key:
+            ngcbase.environ.NGC_CLI_API_KEY = os.environ.get("NGC_CLI_API_KEY")
+        else:
+            ngcbase.environ.NGC_CLI_API_KEY = None
         package = Package(str(url))
         file_path = package.resolve(file)
         assert Path(file_path).is_file()
+    ngcbase.environ.NGC_CLI_API_KEY = current_key
 
 
 def test_ngc_filesystem():
@@ -183,14 +199,14 @@ def test_ngc_filesystem():
         fs._parse_ngc_uri("models/a/b/c@1.0/file")
 
     url = fs._get_ngc_model_url("name", "1.0", authenticated_api=False)
-    assert url == "https://api.ngc.nvidia.com/v2/models/name/versions/1.0/files/"
+    assert url == "https://api.ngc.nvidia.com/v2/models/name/1.0/files"
 
     url = fs._get_ngc_model_url(
         "name", "1.0", "org", "team", "file.txt", authenticated_api=False
     )
     assert (
         url
-        == "https://api.ngc.nvidia.com/v2/models/org/team/name/versions/1.0/files/file.txt"
+        == "https://api.ngc.nvidia.com/v2/models/org/org/team/team/name/1.0/files?path=file.txt"
     )
 
     url = fs._get_ngc_model_url(
@@ -198,7 +214,7 @@ def test_ngc_filesystem():
     )
     assert (
         url
-        == "https://api.ngc.nvidia.com/v2/models/org/name/versions/1.0/files/file.txt"
+        == "https://api.ngc.nvidia.com/v2/models/org/org/name/1.0/files?path=file.txt"
     )
 
     url = fs._get_ngc_model_url("name", "1.0", authenticated_api=True)

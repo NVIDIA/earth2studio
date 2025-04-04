@@ -18,6 +18,7 @@ import hashlib
 import os
 import pathlib
 import shutil
+import warnings
 from datetime import datetime, timedelta
 
 import numpy as np
@@ -398,6 +399,9 @@ class GEFS_FX(_GEFSBase):
         if product not in self.GEFS_PRODUCTS:
             raise ValueError(f"Invalid GEFS product {product}")
 
+        # Silence cfgrib warning, TODO Remove this
+        warnings.simplefilter(action="ignore", category=FutureWarning)
+
         self._cache = cache
         self._verbose = verbose
         self._product = product
@@ -512,6 +516,9 @@ class GEFS_FX_721x1440(_GEFSBase):
 
         if product not in self.GEFS_PRODUCTS:
             raise ValueError(f"Invalid GEFS select variable product {product}")
+
+        # Silence cfgrib warning, TODO Remove this
+        warnings.simplefilter(action="ignore", category=FutureWarning)
 
         self._cache = cache
         self._verbose = verbose

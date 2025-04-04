@@ -18,6 +18,7 @@ from .base import Perturbation
 from .brown import Brown  # noqa
 from .bv import BredVector  # noqa
 from .gaussian import CorrelatedSphericalGaussian, Gaussian  # noqa
+from .hcbv import HemisphericCentredBredVector  # noqa
 from .lagged import LaggedEnsemble  # noqa
 from .spherical import SphericalGaussian  # noqa
 from .zero import Zero  # noqa

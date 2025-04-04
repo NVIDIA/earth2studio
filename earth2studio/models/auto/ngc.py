@@ -24,10 +24,11 @@ import aiohttp
 from fsspec.asyn import sync_wrapper
 from fsspec.callbacks import DEFAULT_CALLBACK
 from fsspec.implementations.http import HTTPFileSystem
-from ngcbpc.api import utils as rest_utils
-from ngcbpc.api.authentication import Authentication
-from ngcbpc.api.configuration import Configuration
-from ngcbpc.util.utils import format_org_team
+from loguru import logger
+from ngcbase.api import utils as rest_utils
+from ngcbase.api.configuration import Configuration
+from ngcsdk import Client
+from registry.api.models import ModelAPI
 
 
 async def get_client(**kwargs) -> aiohttp.ClientSession:  # type: ignore
@@ -98,10 +99,18 @@ class NGCModelFileSystem(HTTPFileSystem):
         encoded=True,
         **storage_options,
     ):
-        config = Configuration()
-        config._sdk_configuration.db = True
-        config._load_from_env_vars()
-        Authentication.config = config
+        self.client = Client()
+        # If no org, then get the first org of this API key and use that
+        if not Configuration(self.client).is_guest_mode:
+            org_names = Configuration(self.client).get_org_names()
+            org_default = org_names.get(list(org_names.keys())[-1])
+            self.client.configure(org_name=org_default["org_name"])
+        else:
+            logger.warning(
+                "Using NGC guest mode, which may fail due to unauthorized access. "
+                + "Consider using a valid NGC API key."
+            )
+        self.model_api = ModelAPI(self.client)
 
         super().__init__(
             simple_links,
@@ -169,10 +178,10 @@ class NGCModelFileSystem(HTTPFileSystem):
     ) -> str:
         # Authenticated API
         if authenticated_api:
-            url = "https://api.ngc.nvidia.com/v2/"
-            if format_org_team(org, team):
-                url += f"{format_org_team(org, team)}/"
-            url += f"models/{name}/{version}/files"
+            # APIs from registry/api/models.py but switched to use the async download function
+            url = self.model_api.get_direct_download_URL(
+                name, version, org=org, team=team
+            )
             if filepath:
                 url = f"{url}?path={filepath}"
         # Public API
@@ -180,13 +189,13 @@ class NGCModelFileSystem(HTTPFileSystem):
             url = "https://api.ngc.nvidia.com/v2/models/"
             relative_urls = []
             if org:
-                relative_urls += [org]
+                relative_urls += ["org", org]
             if team:
-                relative_urls += [team]
-            relative_urls += [name, "versions", version, "files/"]
+                relative_urls += ["team", team]
+            relative_urls += [name, version, "files"]
             url = urllib.parse.urljoin(url, os.path.join(*relative_urls))
             if filepath:
-                url = urllib.parse.urljoin(url, filepath)
+                url = f"{url}?path={filepath}"
         return url
 
     async def _get_ngc(
@@ -225,7 +234,11 @@ class NGCModelFileSystem(HTTPFileSystem):
         # Parse remote url
         name, version, org, team, filepath = self._parse_ngc_uri(rpath)
         # Create headers to determine if we have authn headers and point to private vs public APIs
-        auth_header = Authentication.auth_header(auth_org=org, auth_team=team)
+        # Auth header API from ngcbase/transfer/async_download.py and ngcsdk/ngcsdk/__init__.py
+        auth_header = self.model_api.client.authentication.auth_header(
+            auth_org=self.client.config.org_name,
+            auth_team=self.client.config.team_name,
+        )
         headers = rest_utils.default_headers(auth_header)
 
         direct_url = None
@@ -235,30 +248,26 @@ class NGCModelFileSystem(HTTPFileSystem):
             status, response = await self._get_ngc(url, headers)
             # Attempt authn with renew
             if status == http.client.UNAUTHORIZED:
-                auth_header = Authentication.auth_header(
-                    auth_org=org, auth_team=team, renew=True
+                auth_header = self.model_api.client.authentication.auth_header(
+                    auth_org=self.client.config.org_name,
+                    auth_team=self.client.config.team_name,
                 )
                 headers = rest_utils.default_headers(auth_header)
                 status, response = await self._get_ngc(url, headers)
-
-            if status == http.client.OK and response is not None:
-                direct_url = response["urls"][0]
         # No API headers created, so fall back to public access method
         else:
             api_type = "public"
             # Check to see if asset is there on NGC at all
-            url = self._get_ngc_model_url(name, version, org, team, None, False)
+            url = self._get_ngc_model_url(name, version, org, team, filepath, False)
             status, response = await self._get_ngc(url)
-            if status == http.client.OK and response is not None:
-                paths = [
-                    file["path"] for file in response["modelFiles"]
-                ]  # List of all model files
-                if filepath in paths:
-                    direct_url = self._get_ngc_model_url(
-                        name, version, org, team, filepath, False
-                    )
-                else:
-                    status = 404
+
+        # NGC will sent us a specific download URL for the file, extract this
+        if status == http.client.OK and response is not None:
+            if "urls" not in response or len(response["urls"]) == 0:
+                raise http.client.HTTPException(
+                    "NGC did not return a valid download URL in response"
+                )
+            direct_url = response["urls"][0]
 
         #  Do some graceful error catching down here...
         if status == http.client.UNAUTHORIZED:
