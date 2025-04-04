@@ -20,8 +20,10 @@ from collections.abc import Iterable
 import numpy as np
 import pytest
 import torch
+import xarray as xr
 
 from earth2studio.data import Random, fetch_data
+from earth2studio.data.utils import prep_data_inputs
 from earth2studio.models.px import StormCast
 from earth2studio.utils import handshake_dim
 
@@ -49,6 +51,25 @@ class PhooStormCastDiffusionModel(torch.nn.Module):
         return torch.as_tensor(sigma)
 
 
+class PhooStormCastRandom(Random):
+    def __call__(self, time, variable) -> xr.DataArray:
+
+        time, variable = prep_data_inputs(time, variable)
+        shape = [len(time), len(variable)]
+        coords = {"time": time, "variable": variable}
+
+        _, value = list(self.domain_coords.items()).pop()
+        domain_coord_shape = np.array(value).shape
+        shape.extend(domain_coord_shape)
+
+        dims = ["time", "variable", "y", "x"]
+        coords = coords | {
+            "lat": (("y", "x"), self.domain_coords["lat"]),
+            "lon": (("y", "x"), self.domain_coords["lon"]),
+        }
+        return xr.DataArray(data=np.random.randn(*shape), dims=dims, coords=coords)
+
+
 @pytest.mark.parametrize(
     "time",
     [
@@ -74,7 +95,7 @@ def test_stormcast_call(time, device):
         np.linspace(30, 46, num=nlat), np.linspace(250, 275, num=nlon), indexing="ij"
     )
     dc = OrderedDict([("lat", lat), ("lon", lon)])
-    r = Random(dc)
+    r = PhooStormCastRandom(dc)
     r_condition = Random(
         OrderedDict(
             [
@@ -149,7 +170,7 @@ def test_stormcast_iter(ensemble, device):
         np.linspace(30, 46, num=nlat), np.linspace(250, 275, num=nlon), indexing="ij"
     )
     dc = OrderedDict([("lat", lat), ("lon", lon)])
-    r = Random(dc)
+    r = PhooStormCastRandom(dc)
     r_condition = Random(
         OrderedDict(
             [
@@ -235,7 +256,7 @@ def test_stormcast_exceptions(dc, device):
     lat, lon = np.meshgrid(
         np.linspace(30, 46, num=512), np.linspace(250, 275, num=640), indexing="ij"
     )
-    r = Random(OrderedDict([("lat", lat), ("lon", lon)]))
+    r = PhooStormCastRandom(OrderedDict([("lat", lat), ("lon", lon)]))
     means = torch.zeros(1, 99, 1, 1)
     stds = torch.ones(1, 99, 1, 1)
     invariants = torch.randn(1, 2, 512, 640)
@@ -286,7 +307,7 @@ def test_stormcast_package(device, model):
 
     # Create random data sources
     dc = OrderedDict([("lat", p.lat), ("lon", p.lon)])
-    r = Random(dc)
+    r = PhooStormCastRandom(dc)
     r_condition = Random(
         OrderedDict(
             [
