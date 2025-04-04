@@ -34,7 +34,8 @@ build-image:
   tags:
   - shell
   script:
-    - cd src
+    - ls
+    - pwd
     - docker build -t $CI_IMAGE -f test/Dockerfile .
   cache:
     key: "$CI_PIPELINE_ID"
