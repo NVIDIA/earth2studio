@@ -88,8 +88,10 @@ sfno = [
     "tensorly-torch" # makani
 ]
 aurora = [
-    "microsoft-aurora",
-    "timm==0.6.13",
+    # install fork of aurora with timm update
+    # "microsoft-aurora @ git+https://github.com/ivanauyeung/aurora.git@ab41cf1de67d5dcc723b96fc9a6219e4b548d181"
+    # "microsoft-aurora",
+    # "timm==0.6.13",
 ]
 stormcast = [
     "omegaconf",
