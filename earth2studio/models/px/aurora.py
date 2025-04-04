@@ -334,15 +334,21 @@ class Aurora(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         x: torch.Tensor,
         coords: CoordSystem,
     ) -> torch.Tensor:
-        # x shape: [1,2,69,720,1440], batch, time, channels, lat, lon
-        x = self._prepare_input(x, coords)
-        # Convert tensor to Batch, atmos_vars is the first 65 channels, surf_vars is the last 4 channels of x
-        x = self.model(x)
-        # Batch output
-        x = self._prepare_output(x, coords)
-        # Convert Batch to tensor
-        # x shape: [1,1,69,720,1440], batch, time, channels, lat, lon
-        return x
+
+        # output shape: [b,t,1,69,720,1440], batch, time, lead_time, variables, lat, lon
+        out = torch.empty_like(x[:, :, :1])
+        # The aurora model can only process one time per iteration, so loop if multiple
+        for t in range(coords["time"].shape[0]):
+            batch_coords = coords.copy()
+            batch_coords["time"] = batch_coords["time"][t : t + 1]
+            # x shape: [b,1,2,69,720,1440], batch, lead_time, variables, lat, lon
+            input_batch = self._prepare_input(x[:, t : t + 1], batch_coords)
+            # Convert tensor to Batch, atmos_vars is the first 65 variables, surf_vars is the last 4 variables of x
+            output_batch = self.model(input_batch)
+            # Convert Batch to tensor
+            out[:, t : t + 1] = self._prepare_output(output_batch, coords)
+
+        return out
 
     @batch_func()
     def __call__(
