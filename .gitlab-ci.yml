@@ -28,7 +28,7 @@ gitlab-clone:
   image: bitnami/git
   script:
     - echo "Cloning from Gitlab"
-    - git pwd
+    - pwd
     - ls -l
 
 # precommit:
