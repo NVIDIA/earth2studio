@@ -1,6 +1,7 @@
 install:
 	pip install --upgrade pip
 	pip install "makani[all] @ git+https://github.com/NickGeneva/modulus-makani.git@3da09f9e52a6393839d73d44262779ac7279bc2f"
+	pip install "microsoft-aurora @ git+https://github.com/ivanauyeung/aurora.git@ab41cf1de67d5dcc723b96fc9a6219e4b548d181"
 	pip install -e .[all]
 
 .PHONY: setup-ci
