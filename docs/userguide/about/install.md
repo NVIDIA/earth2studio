@@ -61,6 +61,16 @@ pip install earth2studio[data]
 Some models require additional dependencies which are not installed by default.
 Use the optional install commands to add these dependencies.
 
+:::{tab-item} Aurora
+Note: The shipped Aurora package has a restricted dependency which is incompatible with
+other Earth2Studio dependiences, thus install from this patched fork.
+
+```bash
+pip install "microsoft-aurora @ git+https://github.com/ivanauyeung/aurora.git@ab41cf1de67d5dcc723b96fc9a6219e4b548d181"
+```
+
+:::
+
 ::::{tab-set}
 :::{tab-item} CorrDiff
 

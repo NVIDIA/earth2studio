@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Hemispheric centred bred vector perturbation from HENS
+- Add Aurora model to prognostic models
 
 ### Changed
 
