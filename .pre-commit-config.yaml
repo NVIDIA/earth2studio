@@ -73,3 +73,9 @@ repos:
                 docs |
                 earth2studio/models/nn)
         additional_dependencies: ['types-requests']
+
+-   repo: https://github.com/astral-sh/uv-pre-commit
+    # uv version.
+    rev: 0.6.12
+    hooks:
+    -   id: uv-lock
