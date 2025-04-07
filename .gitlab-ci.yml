@@ -39,6 +39,7 @@ format:
   tags:
   - docker
   extends:
+    - .physicsnemo:gitlab:uv
     - .earth2studio:test:base
   script:
     - ls
@@ -50,6 +51,7 @@ lint:
   tags:
   - docker
   extends:
+    - .physicsnemo:gitlab:uv
     - .earth2studio:test:base
   script:
     - make setup-ci
@@ -62,9 +64,9 @@ pytest:
   tags:
   - docker
   extends:
+    - .physicsnemo:gitlab:uv
     - .earth2studio:test:base
   script:
-    - make setup-ci
     - make install
     - make pytest 2>&1 | tee ../pytest.log.full
     - grep -A 9999 "=.*short test summary info.*=" ../pytest.log.full > ../blossom.log
@@ -75,6 +77,7 @@ coverage:
   tags:
   - docker
   extends:
+    - .physicsnemo:gitlab:uv
     - .earth2studio:test:base
   script:
     - make setup-ci
@@ -109,6 +112,10 @@ include:
   - project: 'modulus/modulus-ci'
     ref: ngeneva/studio-reamped
     file: '.gitlab-ci/pull.gitlab-ci.yml'
+
+  - project: 'modulus/modulus-ci'
+    ref: ngeneva/studio-reamped
+    file: '.gitlab-ci/uv.gitlab-ci.yml'
 
   - project: 'modulus/modulus-ci'
     ref: ngeneva/studio-reamped

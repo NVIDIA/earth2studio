@@ -26,6 +26,7 @@ except ImportError:
 from typing_extensions import Self
 
 from earth2studio.utils import handshake_dim
+from earth2studio.utils.imports import check_extra_imports
 from earth2studio.utils.type import CoordSystem
 
 
@@ -70,6 +71,7 @@ class Gaussian:
         return x + noise_amplitude * torch.randn_like(x), coords
 
 
+@check_extra_imports("perturbation", [InverseRealSHT])
 class CorrelatedSphericalGaussian:
     """Produces Gaussian random field on the sphere with Matern
     covariance peturbation method output to a lat lon grid

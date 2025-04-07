@@ -1118,7 +1118,6 @@ dependencies = [
     { name = "h5netcdf" },
     { name = "h5py" },
     { name = "huggingface-hub" },
-    { name = "importlib-metadata" },
     { name = "loguru" },
     { name = "nest-asyncio" },
     { name = "netcdf4" },
@@ -1148,6 +1147,7 @@ all = [
     { name = "omegaconf" },
     { name = "onnxruntime-gpu" },
     { name = "scipy" },
+    { name = "torch-harmonics" },
 ]
 aurora = [
     { name = "microsoft-aurora" },
@@ -1179,11 +1179,17 @@ fengwu = [
 pangu = [
     { name = "onnxruntime-gpu" },
 ]
+perturbation = [
+    { name = "torch-harmonics" },
+]
 precip-afno = [
     { name = "nvidia-physicsnemo" },
 ]
 sfno = [
     { name = "makani", extra = ["all"], marker = "(extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-aurora-fork') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-corrdiff') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-dlwp') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-fcn') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-precip-afno') or (extra != 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-sfno') or (extra == 'extra-12-earth2studio-aurora' and extra != 'extra-12-earth2studio-sfno' and extra == 'extra-12-earth2studio-stormcast') or (extra != 'extra-12-earth2studio-aurora-fork' and extra != 'extra-12-earth2studio-corrdiff' and extra != 'extra-12-earth2studio-dlwp' and extra != 'extra-12-earth2studio-fcn' and extra != 'extra-12-earth2studio-precip-afno' and extra == 'extra-12-earth2studio-sfno')" },
+]
+statistics = [
+    { name = "nvidia-physicsnemo" },
 ]
 stormcast = [
     { name = "einops" },
@@ -1245,7 +1251,6 @@ requires-dist = [
     { name = "herbie-data", marker = "extra == 'all'" },
     { name = "herbie-data", marker = "extra == 'data'" },
     { name = "huggingface-hub", specifier = ">=0.4.0" },
-    { name = "importlib-metadata" },
     { name = "loguru" },
     { name = "makani", extras = ["all"], marker = "extra == 'all'", git = "https://github.com/NickGeneva/modulus-makani.git?rev=3da09f9e52a6393839d73d44262779ac7279bc2f" },
     { name = "makani", extras = ["all"], marker = "extra == 'sfno'", git = "https://github.com/NickGeneva/modulus-makani.git?rev=3da09f9e52a6393839d73d44262779ac7279bc2f" },
@@ -1261,6 +1266,7 @@ requires-dist = [
     { name = "nvidia-physicsnemo", marker = "extra == 'dlwp'", specifier = ">=1.0.1" },
     { name = "nvidia-physicsnemo", marker = "extra == 'fcn'", specifier = ">=1.0.1" },
     { name = "nvidia-physicsnemo", marker = "extra == 'precip-afno'", specifier = ">=1.0.1" },
+    { name = "nvidia-physicsnemo", marker = "extra == 'statistics'", specifier = ">=1.0.1" },
     { name = "nvidia-physicsnemo", marker = "extra == 'stormcast'", specifier = ">=1.0.1" },
     { name = "nvtx", marker = "extra == 'all'", specifier = ">=0.2.11" },
     { name = "nvtx", marker = "extra == 'corrdiff'", specifier = ">=0.2.11" },
@@ -1276,11 +1282,13 @@ requires-dist = [
     { name = "scipy", marker = "extra == 'corrdiff'", specifier = ">=1.15.2" },
     { name = "scipy", marker = "extra == 'stormcast'", specifier = ">=1.15.2" },
     { name = "torch", specifier = ">=2.5.0" },
+    { name = "torch-harmonics", marker = "extra == 'all'", specifier = ">=0.7.4" },
+    { name = "torch-harmonics", marker = "extra == 'perturbation'", specifier = ">=0.7.4" },
     { name = "tqdm", specifier = ">=4.65.0" },
     { name = "xarray", extras = ["parallel"], specifier = ">=2023.1.0" },
     { name = "zarr", specifier = ">=2.14.2" },
 ]
-provides-extras = ["all", "aurora", "aurora-fork", "climatenet", "corrdiff", "data", "dlwp", "fcn", "fengwu", "pangu", "precip-afno", "sfno", "stormcast"]
+provides-extras = ["all", "aurora", "aurora-fork", "climatenet", "corrdiff", "data", "dlwp", "fcn", "fengwu", "pangu", "perturbation", "precip-afno", "sfno", "statistics", "stormcast"]
 
 [package.metadata.requires-dev]
 dev = [
@@ -1963,7 +1971,7 @@ name = "importlib-metadata"
 version = "8.6.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "zipp" },
+    { name = "zipp", marker = "python_full_version < '3.12' or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-aurora-fork') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-corrdiff') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-dlwp') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-fcn') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-precip-afno') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-sfno') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-stormcast')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/33/08/c1395a292bb23fd03bdf572a1357c5a733d3eecbab877641ceacab23db6e/importlib_metadata-8.6.1.tar.gz", hash = "sha256:310b41d755445d74569f993ccfc22838295d9fe005425094fad953d7f15c8580", size = 55767 }
 wheels = [

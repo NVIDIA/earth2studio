@@ -27,7 +27,7 @@ This package is developed using [uv](https://docs.astral.sh/uv/getting-started/i
 and its recommended that users use UV for the best install experience:
 
 ```bash
-uv venv python=3.12
+uv venv --python=3.12
 uv pip install earth2studio
 ```
 

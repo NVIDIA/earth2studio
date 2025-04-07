@@ -19,7 +19,6 @@ dependencies = [
     "h5py>=3.2.0",
     "h5netcdf>=1.0.0",
     "huggingface-hub>=0.4.0",
-    "importlib_metadata",
     "loguru",
     "netCDF4>=1.6.4",
     "ngcsdk>=3.55.0",
@@ -57,12 +56,17 @@ Issues = "https://github.com/NVIDIA/earth2studio/issues"
 Changelog = "https://github.com/NVIDIA/earth2studio/blob/main/CHANGELOG.md"
 
 [project.optional-dependencies]
-# Data
 data = [
     "cdsapi>=0.7.5",
     "eccodes>=2.38.0",
     "ecmwf-opendata>=0.3.3",
     "herbie-data",
+]
+perturbation = [
+    "torch-harmonics>=0.7.4",
+]
+statistics = [
+    "nvidia-physicsnemo>=1.0.1",
 ]
 # PX Models
 aurora = [
@@ -106,7 +110,7 @@ precip-afno = [
 ]
 # All, must not have conflicts
 all = [
-    "earth2studio[data]",
+    "earth2studio[data,perturbation,statistics]",
     "earth2studio[aurora-fork,dlwp,fcn,fengwu,pangu,sfno,stormcast]",
     "earth2studio[climatenet,corrdiff,precip-afno]",
 ]

@@ -66,16 +66,63 @@ updated accordingly.
 ### Handling Optional Imports
 
 When developing features that require optional dependencies, always use graceful error
-handling:
+handling for the user to communicate that additional dependency group needs to be
+installed.
+A good sanity check if things have properly been caught is by building the API docs
+with `make docs`.
+The pattern to properly handle the use of optional dependencies is:
+
+1. Use a try / except in the import for ImportErrors. Set respective package objects to
+    None if not installed.
+2. Place the `@check_extra_imports` decorator on the class and/or function that requires
+    the optional import.
+    This will check to make sure that the required imports are installed when the user
+    attempts to use the respective feature.
+
+For example in the FourCastNet model:
 
 ```python
 try:
-    import optional_package
+    from physicsnemo.models.afno import AFNO
 except ImportError:
-    raise ImportError(
-        "Optional dependency 'optional_package' is required for this feature. "
-        "Install with: uv pip install earth2studio --extra feature_name"
-    )
+    AFNO = None
+
+from earth2studio.utils import check_extra_imports
+
+
+# Use the decorator on classes
+@check_extra_imports("fcn", [AFNO])
+class FCN(torch.nn.Module, AutoModelMixin, PrognosticMixin):
+    ...
+    # Use the decorator on functions
+    @classmethod
+    @check_extra_imports("fcn", [AFNO])
+    def load_model(
+        cls,
+        package: Package,
+    ) -> PrognosticModel:
+
+    ...
+```
+
+When the user attempts to use FCN without the required extra packages, the following
+error will occur:
+
+```bash
+uv run python
+Python 3.12.9 (main, Mar 17 2025, 21:01:58) [Clang 20.1.0 ] on linux
+Type "help", "copyright", "credits" or "license" for more information.
+>>> from earth2studio.models.px import FCN
+>>> FCN.load_model(FCN.load_default_package())
+Traceback (most recent call last):
+  File "<stdin>", line 1, in <module>
+  File ".../earth2studio/utils/imports.py", line 78, in _wrapper
+    _check_dependencies(f"{obj.__module__}.{obj.__name__}")
+  File ".../earth2studio/utils/imports.py", line 61, in _check_dependencies
+    raise OptionalDependencyError(extra_name, obj_name)
+earth2studio.utils.imports.OptionalDependencyError: Optional dependency group 'fcn' is
+    required for earth2studio.models.px.fcn.load_model.
+Install with: uv pip install earth2studio --extra fcn
 ```
 
 ### Managing Conflicts

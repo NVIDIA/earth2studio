@@ -22,10 +22,11 @@ try:
 except ImportError:
     InverseRealSHT = None
 
-from earth2studio.utils import handshake_dim
+from earth2studio.utils import check_extra_imports, handshake_dim
 from earth2studio.utils.type import CoordSystem
 
 
+@check_extra_imports("perturbation", [InverseRealSHT])
 class SphericalGaussian:
     """Gaussian random field on the sphere with Matern covariance peturbation method
     output to a lat lon grid
