@@ -58,12 +58,12 @@ repos:
       args: [--config=pyproject.toml]
 
 -   repo: https://github.com/igorshubovych/markdownlint-cli
-    rev: v0.35.0
+    rev: v0.44.0
     hooks:
     - id: markdownlint
 
 -   repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.7.0  # Use the sha / tag you want to point at
+    rev: v1.14.1  # Use the sha / tag you want to point at
     hooks:
     -   id: mypy
         # Excludes

@@ -65,7 +65,7 @@ Changelog = "https://github.com/NVIDIA/earth2studio/blob/main/CHANGELOG.md"
 
 [dependency-groups]
 dev = [
-    "black>=24.1.0",
+    "black==24.1.0",
     "coverage>=6.5.0",
     "interrogate>=1.5.0",
     "hatch>=1.14.0",
