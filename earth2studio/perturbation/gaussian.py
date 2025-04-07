@@ -18,7 +18,11 @@ from typing import Any
 
 import numpy as np
 import torch
-from torch_harmonics import InverseRealSHT
+
+try:
+    from torch_harmonics import InverseRealSHT
+except ImportError:
+    InverseRealSHT = None
 from typing_extensions import Self
 
 from earth2studio.utils import handshake_dim

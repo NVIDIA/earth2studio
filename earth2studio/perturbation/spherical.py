@@ -16,7 +16,11 @@
 
 import numpy as np
 import torch
-from torch_harmonics import InverseRealSHT
+
+try:
+    from torch_harmonics import InverseRealSHT
+except ImportError:
+    InverseRealSHT = None
 
 from earth2studio.utils import handshake_dim
 from earth2studio.utils.type import CoordSystem
