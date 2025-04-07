@@ -9,27 +9,38 @@ information found in the {ref}`userguide`.
 
 ## Environment Setup
 
-When developing Earth2Studio, it's suggested a docker environment is used detailed in
-the [install environments](#install_environments) section.
-Clone the repo and use an editable install of Earth2Studio with the `dev` option:
+When developing Earth2Studio, using uv virtual environment is suggested and will be used
+in the documentation.
+To create a local development environment with a git repo and uv, follow the steps
+below.
+Clone the repo and use uv to create a Python 3.12 virtual enviroment and sync it with
+the `dev` dependency group:
 
 ```bash
+# Replace with your fork
 git clone https://github.com/NVIDIA/earth2studio.git
 
 cd earth2-inference-studio
 
-pip install -e .[dev]
+uv venv python=3.12
+uv sync --group dev
 ```
 
+This should create a python virtual environment inside of the local Earth2Studio git
+repository.
 To install documentation dependencies, use:
 
 ```bash
-pip install .[docs]
+uv sync --group={dev,docs}
 ```
 
 :::{note}
-When working with models, additional optional dependencies may be required. See the
-[model dependencies](#model_dependencies) section for details.
+When working with models, additional optional dependencies may be required.
+See the [model dependencies](#model_dependencies) section for details on the optional
+dependencies inside the package.
+Use the `uv sync --extra <optional dep>` command instead of the pip install.
+Take note of the difference between the optional dependency groups used here and the
+extra dependencies when using specific models.
 :::
 
 ## Pre-commit
@@ -41,8 +52,8 @@ Contributions that have not used pre-commit will *not be reviewed*.
 To install `pre-commit` run the following inside the Earth2Studio repository folder:
 
 ```bash
-pip install pre-commit
-pre-commit install
+uv pip install pre-commit
+uv run pre-commit install
 
 >>> pre-commit installed at .git/hooks/pre-commit
 ```

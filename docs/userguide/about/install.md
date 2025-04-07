@@ -23,8 +23,8 @@ pip install earth2studio
 
 ## Install using UV (Recommended)
 
-This package is developed using UV and its recommended that users use UV for the best
-install experience:
+This package is developed using [uv](https://docs.astral.sh/uv/getting-started/installation/)
+and its recommended that users use UV for the best install experience:
 
 ```bash
 uv venv python=3.12
@@ -36,16 +36,16 @@ uv pip install earth2studio
 To install the latest main branch version of Earth2Studio:
 
 ```bash
-uv venv python=3.12
-uv pip install "earth2studio @ git+https://github.com/NVIDIA/earth2studio"
-```
-
-or without uv:
-
-```bash
 git clone https://github.com/NVIDIA/earth2studio.git
 cd earth2-inference-studio
 pip install .
+```
+
+or if you are using uv:
+
+```bash
+uv venv python=3.12
+uv pip install "earth2studio @ git+https://github.com/NVIDIA/earth2studio"
 ```
 
 ## Verify Installation
@@ -63,9 +63,12 @@ uv run python
 
 :::{admonition} uv Package Manager
 :class: warning
-From this point forward, it will be assumed that the uv package manager is being used.
+From this point forward, using [uv package manager](https://docs.astral.sh/uv/getting-started/installation/)
+will be the default package manager over pip in the documentation.
 Due to the complexities of interfacing with multiple models with different dependency
 requirements, Earth2Studio relies on uv to create a reproducible runtime environment.
+uv is **not required**, and all installs can be replaced with pip command variants that
+are included but have limited support.
 :::
 
 (data_dependencies)=
@@ -76,74 +79,151 @@ Some data sources require additional dependencies, libraries or specific Python 
 to install.
 To install all dependencies
 
+::::{tab-set}
+:::{tab-item} uv
+
+```bash
+uv pip install earth2studio --extra data
+```
+
+:::
+:::{tab-item} pip
+
 ```bash
 pip install earth2studio[data]
 ```
+
+:::
+::::
 
 (model_dependencies)=
 
 ### Model Dependencies
 
-Some models require additional dependencies which are not installed by default.
+Models typically require additional dependencies which are not installed by default.
 Use the optional install commands to add these dependencies.
 
-:::{tab-item} Aurora
+#### Prognostics
+
+::::::{tab-set}
+:::::{tab-item} Aurora
 Note: The shipped Aurora package has a restricted dependency which is incompatible with
-other Earth2Studio dependiences, thus install from this patched fork.
-
-```bash
-pip install "microsoft-aurora @ git+https://github.com/ivanauyeung/aurora.git@ab41cf1de67d5dcc723b96fc9a6219e4b548d181"
-```
-
-:::
+other Earth2Studio dependiences, thus it is suggested to use the forked variant.
 
 ::::{tab-set}
-:::{tab-item} CorrDiff
-
-Notes: Additional dependencies for all CorrDiff models.
+:::{tab-item} uv
 
 ```bash
-pip install earth2studio[corrdiff]
+# Patched fork
+uv pip install earth2studio --extra aurora-fork
+# Original package from msc
+uv pip install earth2studio --extra aurora
 ```
 
 :::
+:::{tab-item} pip
 
-:::{tab-item} FengWu
+```bash
+pip install "microsoft-aurora @ git+https://github.com/NickGeneva/aurora.git@ab41cf1de67d5dcc723b96fc9a6219e4b548d181"
+```
 
+:::
+::::
+:::::
+:::::{tab-item} FourCastNet
+::::{tab-set}
+:::{tab-item} uv
+
+```bash
+uv pip install earth2studio --extra fcn
+```
+
+:::
+:::{tab-item} pip
+
+```bash
+pip install earth2studio[fcn]
+```
+
+:::
+::::
+:::::
+:::::{tab-item} FengWu
 Notes: Requires [ONNX GPU Runtime](https://onnxruntime.ai/docs/install/). May need
 manual install depending on CUDA version.
+
+::::{tab-set}
+:::{tab-item} uv
+
+```bash
+uv pip install earth2studio --extra fengwu
+```
+
+:::
+:::{tab-item} pip
 
 ```bash
 pip install earth2studio[fengwu]
 ```
 
 :::
-
-:::{tab-item} FuXi
-
+::::
+:::::
+:::::{tab-item} FuXi
 Notes: Requires [ONNX GPU Runtime](https://onnxruntime.ai/docs/install/). May need
 manual install depending on CUDA version.
+
+::::{tab-set}
+:::{tab-item} uv
+
+```bash
+uv pip install earth2studio --extra fuxi
+```
+
+:::
+:::{tab-item} pip
 
 ```bash
 pip install earth2studio[fuxi]
 ```
 
 :::
-
-:::{tab-item} Pangu
-
+::::
+:::::
+:::::{tab-item} Pangu
 Notes: Requires [ONNX GPU Runtime](https://onnxruntime.ai/docs/install/). May need
 manual install depending on CUDA version.
+
+::::{tab-set}
+:::{tab-item} uv
+
+```bash
+uv pip install earth2studio --extra pangu
+```
+
+:::
+:::{tab-item} pip
 
 ```bash
 pip install earth2studio[pangu]
 ```
 
 :::
-
-:::{tab-item} SFNO
+::::
+:::::
+:::::{tab-item} SFNO
 Notes: Requires [Modulus-Makani](https://github.com/NVIDIA/modulus-makani) to be
 installed manually.
+
+::::{tab-set}
+:::{tab-item} uv
+
+```bash
+uv pip install earth2studio --extra sfno
+```
+
+:::
+:::{tab-item} pip
 
 ```bash
 pip install "makani[all] @ git+https://github.com/NickGeneva/modulus-makani.git@3da09f9e52a6393839d73d44262779ac7279bc2f"
@@ -151,10 +231,18 @@ pip install earth2studio[sfno]
 ```
 
 :::
+::::
+:::::
+:::::{tab-item} StormCast
+::::{tab-set}
+:::{tab-item} uv
 
-:::{tab-item} StormCast
+```bash
+uv pip install earth2studio --extra stormcast
+```
 
-Notes: Additional dependencies for StormCast models.
+:::
+:::{tab-item} pip
 
 ```bash
 pip install earth2studio[stormcast]
@@ -162,8 +250,90 @@ pip install earth2studio[stormcast]
 
 :::
 ::::
+:::::
+::::::
 
-Using `pip install earth2studio[all]` will install all optional functionality dependencies.
+#### Diagnostics
+
+::::::{tab-set}
+:::::{tab-item} ClimateNet
+Notes: No additional dependencies are needed for ClimateNet but included for
+completeness.
+
+::::{tab-set}
+:::{tab-item} uv
+
+```bash
+uv pip install earth2studio --extra climatenet
+```
+
+:::
+:::{tab-item} pip
+
+```bash
+pip install earth2studio[climatenet]
+```
+
+:::
+::::
+:::::
+:::::{tab-item} CorrDiff
+Notes: Additional dependencies for all CorrDiff models.
+
+::::{tab-set}
+:::{tab-item} uv
+
+```bash
+uv pip install earth2studio --extra corrdiff
+```
+
+:::
+:::{tab-item} pip
+
+```bash
+pip install earth2studio[corrdiff]
+```
+
+:::
+::::
+:::::
+:::::{tab-item} Precipitation AFNO
+::::{tab-set}
+:::{tab-item} uv
+
+```bash
+uv pip install earth2studio --extra precip-afno
+```
+
+:::
+:::{tab-item} pip
+
+```bash
+pip install earth2studio[precip-afno]
+```
+
+:::
+::::
+:::::
+::::::
+
+## Install All Optional Dependencies
+
+In Earth2Studio, its suggested that users pick and choose the optional dependencies that
+are needed for their use case.
+Installing everything at once and for all models is only expected to work in a few
+golden environments and may not include support for every model depending on conflicts.
+To install a best effort all optional dependencies group, use the following:
+
+::::{tab-set}
+:::{tab-item} uv
+
+```bash
+uv pip install earth2studio --extra all
+```
+
+:::
+::::
 
 (install_environments)=
 

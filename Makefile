@@ -52,21 +52,21 @@ coverage:
 
 .PHONY: docs
 docs:
-	pip install .[docs]
-	$(MAKE) -C docs clean
-	$(MAKE) -C docs html
+	uv sync --extra data --extra fcn --group docs
+	uv run $(MAKE) -C docs clean
+	uv run $(MAKE) -C docs html
 
 .PHONY: docs-full
 docs-full:
-	pip install .[docs,all]
+	uv sync --extra all --group docs
 	rm -rf docs/examples
 	rm -rf docs/modules/generated
 	rm -rf docs/modules/backreferences
-	$(MAKE) -C docs clean
+	uv run $(MAKE) -C docs clean
 	rm -rf examples/outputs
-	PLOT_GALLERY=True RUN_STALE_EXAMPLES=True $(MAKE) -j 8 -C docs html
+	PLOT_GALLERY=True RUN_STALE_EXAMPLES=True uv run $(MAKE) -j 8 -C docs html
 
 .PHONY: docs-dev
 docs-dev:
 	rm -rf examples/outputs
-	PLOT_GALLERY=True RUN_STALE_EXAMPLES=True FILENAME_PATTERN=$(FILENAME) $(MAKE) -j 4 -C docs html
+	PLOT_GALLERY=True RUN_STALE_EXAMPLES=True FILENAME_PATTERN=$(FILENAME) uv run $(MAKE) -j 4 -C docs html

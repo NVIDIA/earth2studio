@@ -94,6 +94,7 @@ stormcast = [
     "scipy>=1.15.2",
 ]
 # DX Models
+climatenet = []
 corrdiff = [
     "einops>=0.8.1",
     "nvidia-physicsnemo>=1.0.1",
@@ -102,6 +103,12 @@ corrdiff = [
 ]
 precip-afno = [
     "nvidia-physicsnemo>=1.0.1",
+]
+# All, must not have conflicts
+all = [
+    "earth2studio[data]",
+    "earth2studio[aurora-fork,dlwp,fcn,fengwu,pangu,sfno,stormcast]",
+    "earth2studio[climatenet,corrdiff,precip-afno]",
 ]
 
 # ==== UV configuration ====
@@ -137,13 +144,9 @@ conflicts = [
     ],
 ]
 
-[tool.uv.pip]
-all-extras = true
-no-extra = ["aurora"]
-
 [tool.uv.sources]
 makani = { git = "https://github.com/NickGeneva/modulus-makani.git", rev = "3da09f9e52a6393839d73d44262779ac7279bc2f" }
-microsoft-aurora = { git = "https://github.com/NickGeneva/aurora", branch = "timm_update" }
+microsoft-aurora = { git = "https://github.com/NickGeneva/aurora", rev = "ab41cf1de67d5dcc723b96fc9a6219e4b548d181" }
 
 [dependency-groups]
 dev = [
