@@ -68,7 +68,7 @@ def model():
 @pytest.mark.parametrize("variable", [["tcwv"], ["tp", "u200", "z500"]])
 @pytest.mark.parametrize(
     "amplitude,steps,batch",
-    [[1.0, 5, 2], [1.0, 3, 4], [0.3, 2, 2]],
+    [[1.0, 5, 2], [2.0, 3, 4], [0.3, 2, 2]],
 )
 @pytest.mark.parametrize(
     "seeding_perturbation_method",
@@ -89,6 +89,8 @@ def model():
 def test_hem_cen_bred_vec(
     model, time, variable, amplitude, steps, batch, seeding_perturbation_method, device
 ):
+    if amplitude > 1.0:
+        amplitude = torch.Tensor([amplitude] * len(variable))[:, None, None]
 
     # Domain coordinates
     dc = OrderedDict(
