@@ -102,14 +102,14 @@ reproducible environments.
 Development dependencies are managed separately using uv dependency groups:
 
 ```toml
+# Example dependency group in pyproject.toml
 [dependency-groups]
 dev = [
     "black==24.1.0",
     "coverage>=6.5.0",
     "interrogate>=1.5.0",
     "hatch>=1.14.0",
-    "mypy",
-    ...
+    "mypy"
 ]
 ```
 
