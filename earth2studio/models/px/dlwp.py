@@ -35,13 +35,14 @@ from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_coords, batch_func
 from earth2studio.models.px.base import PrognosticModel
 from earth2studio.models.px.utils import PrognosticMixin
-from earth2studio.utils import handshake_coords, handshake_dim
+from earth2studio.utils import check_extra_imports, handshake_coords, handshake_dim
 from earth2studio.utils.time import timearray_to_datetime
 from earth2studio.utils.type import CoordSystem
 
 VARIABLES = ["t850", "z1000", "z700", "z500", "z300", "tcwv", "t2m"]
 
 
+@check_extra_imports("dlwp", [physicsnemo, cos_zenith_angle])
 class DLWP(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     """Deep learning weather prediction (DLWP)  prognostic model. This is a parsimonious
     global forecast model with a time-step size of 6 hours. The core model is a
@@ -189,6 +190,7 @@ class DLWP(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         )
 
     @classmethod
+    @check_extra_imports("dlwp", [physicsnemo, cos_zenith_angle])
     def load_model(
         cls,
         package: Package,

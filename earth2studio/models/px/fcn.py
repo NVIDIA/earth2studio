@@ -31,7 +31,7 @@ from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_coords, batch_func
 from earth2studio.models.px.base import PrognosticModel
 from earth2studio.models.px.utils import PrognosticMixin
-from earth2studio.utils import handshake_coords, handshake_dim
+from earth2studio.utils import check_extra_imports, handshake_coords, handshake_dim
 from earth2studio.utils.type import CoordSystem
 
 VARIABLES = [
@@ -64,6 +64,7 @@ VARIABLES = [
 ]
 
 
+@check_extra_imports("fcn", [AFNO])
 class FCN(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     """FourCastNet global prognostic model. Consists of a single model with a time-step
     size of 6 hours. FourCastNet operates on 0.25 degree lat-lon grid (south-pole
@@ -179,6 +180,7 @@ class FCN(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         )
 
     @classmethod
+    @check_extra_imports("fcn", [AFNO])
     def load_model(
         cls,
         package: Package,

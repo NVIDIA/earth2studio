@@ -39,6 +39,7 @@ from earth2studio.models.batch import batch_coords, batch_func
 from earth2studio.models.dx.base import DiagnosticModel
 from earth2studio.models.px.utils import PrognosticMixin
 from earth2studio.utils import (
+    check_extra_imports,
     handshake_coords,
     handshake_dim,
 )
@@ -75,6 +76,7 @@ X_START, X_END = 579, 1219
 Y_START, Y_END = 273, 785
 
 
+@check_extra_imports("stormcast", [OmegaConf, PhysicsNemoModule, deterministic_sampler])
 class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     """StormCast generative convection-allowing model for regional forecasts consists of
     two core models: a regression and diffusion model. Model time step size is 1 hour,
@@ -242,14 +244,11 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         return package
 
     @classmethod
+    @check_extra_imports(
+        "stormcast", [OmegaConf, PhysicsNemoModule, deterministic_sampler]
+    )
     def load_model(cls, package: Package) -> DiagnosticModel:
         """Load StormCast model."""
-
-        if OmegaConf is None or deterministic_sampler is None:
-            raise ImportError(
-                "Additional StormCast model dependencies are not installed. See install documentation for details."
-            )
-
         try:
             OmegaConf.register_new_resolver("eval", eval)
         except ValueError:

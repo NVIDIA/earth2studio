@@ -34,7 +34,7 @@ from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_coords, batch_func
 from earth2studio.models.px.base import PrognosticModel
 from earth2studio.models.px.utils import PrognosticMixin
-from earth2studio.utils import handshake_coords, handshake_dim
+from earth2studio.utils import check_extra_imports, handshake_coords, handshake_dim
 from earth2studio.utils.type import CoordSystem
 
 VARIABLES = [
@@ -112,7 +112,8 @@ VARIABLES = [
 ATMOS_LEVELS = [1000, 925, 850, 700, 600, 500, 400, 300, 250, 200, 150, 100, 50]
 
 
-# adapted from https://microsoft.github.io/aurora/example_era5.html
+# Adapted from https://microsoft.github.io/aurora/example_era5.html
+@check_extra_imports("aurora", [Aurora_model, Batch, Metadata])
 class Aurora(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     """Aurora 0.25 degree global forecast model. This model consists of single
     auto-regressive model with a time-step size of 6 hours. This model operates on
@@ -245,6 +246,7 @@ class Aurora(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         )
 
     @classmethod
+    @check_extra_imports("aurora", [Aurora_model, Batch, Metadata])
     def load_model(
         cls,
         package: Package,
