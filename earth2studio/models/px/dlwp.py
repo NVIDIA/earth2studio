@@ -21,10 +21,15 @@ from datetime import timedelta
 from pathlib import Path
 
 import numpy as np
-import physicsnemo
 import torch
 import xarray
-from physicsnemo.utils.zenith_angle import cos_zenith_angle
+
+try:
+    import physicsnemo
+    from physicsnemo.utils.zenith_angle import cos_zenith_angle
+except ImportError:
+    physicsnemo = None
+    cos_zenith_angle = None
 
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_coords, batch_func

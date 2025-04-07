@@ -21,7 +21,11 @@ from pathlib import Path
 
 import numpy as np
 import torch
-from physicsnemo.models.afno import AFNO
+
+try:
+    from physicsnemo.models.afno import AFNO
+except ImportError:
+    AFNO = None
 
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_coords, batch_func

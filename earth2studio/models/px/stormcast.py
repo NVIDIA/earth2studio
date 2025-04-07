@@ -23,12 +23,13 @@ import numpy as np
 import torch
 import xarray as xr
 import zarr
-from physicsnemo.models import Module
 
 try:
     from omegaconf import OmegaConf
+    from physicsnemo.models import Module as PhysicsNemoModule
     from physicsnemo.utils.generative import deterministic_sampler
 except ImportError:
+    PhysicsNemoModule = None
     OmegaConf = None
     deterministic_sampler = None
 
@@ -256,8 +257,12 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         # load model registry:
         config = OmegaConf.load(package.resolve("model.yaml"))
 
-        regression = Module.from_checkpoint(package.resolve("StormCastUNet.0.0.mdlus"))
-        diffusion = Module.from_checkpoint(package.resolve("EDMPrecond.0.0.mdlus"))
+        regression = PhysicsNemoModule.from_checkpoint(
+            package.resolve("StormCastUNet.0.0.mdlus")
+        )
+        diffusion = PhysicsNemoModule.from_checkpoint(
+            package.resolve("EDMPrecond.0.0.mdlus")
+        )
 
         # Load metadata: means, stds, grid
         store = zarr.storage.ZipStore(package.resolve("metadata.zarr.zip"), mode="r")

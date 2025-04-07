@@ -14,10 +14,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import physicsnemo
 import torch
 import torch.nn.functional as F
-from physicsnemo.models.afno import AFNO
+
+try:
+    import physicsnemo
+    from physicsnemo.models.afno import AFNO
+except ImportError:
+    physicsnemo = None
+    AFNO = None
 
 
 class PeriodicPad2d(torch.nn.Module):

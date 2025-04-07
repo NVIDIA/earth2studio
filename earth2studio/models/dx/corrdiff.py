@@ -24,9 +24,9 @@ from typing import Literal
 import numpy as np
 import torch
 import zarr
-from physicsnemo.models import Module
 
 try:
+    from physicsnemo.models import Module as PhysicsNemoModule
     from physicsnemo.utils.generative import (
         StackedRandomGenerator,
     )
@@ -34,6 +34,7 @@ try:
         deterministic_sampler as ablation_sampler,
     )
 except ImportError:
+    PhysicsNemoModule = None
     StackedRandomGenerator = None
     ablation_sampler = None
 
@@ -220,14 +221,14 @@ class CorrDiffTaiwan(torch.nn.Module, AutoModelMixin):
         with zipfile.ZipFile(checkpoint_zip, "r") as zip_ref:
             zip_ref.extractall(checkpoint_zip.parent)
 
-        residual = Module.from_checkpoint(
+        residual = PhysicsNemoModule.from_checkpoint(
             str(
                 checkpoint_zip.parent
                 / Path("corrdiff_inference_package/checkpoints/diffusion.mdlus")
             )
         ).eval()
 
-        regression = Module.from_checkpoint(
+        regression = PhysicsNemoModule.from_checkpoint(
             str(
                 checkpoint_zip.parent
                 / Path("corrdiff_inference_package/checkpoints/regression.mdlus")

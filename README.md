@@ -31,7 +31,7 @@ Our mission is to enable everyone to build, research and explore AI driven meteo
 Install Earth2Studio:
 
 ```bash
-pip install earth2studio
+pip install earth2studio[data,dlwp]
 ```
 
 Run a deterministic weather prediction in just a few lines of code:

@@ -4,35 +4,6 @@
 
 # Install
 
-## Install from PyPi
-
-To get the latest release of Earth2Studio, install from the Python index:
-
-```bash
-pip install earth2studio
-```
-
-## Install from Source
-
-To install the latest main branch version of Earth2Studio:
-
-```bash
-git clone https://github.com/NVIDIA/earth2studio.git
-
-cd earth2-inference-studio
-
-pip install .
-```
-
-Verify installation using:
-
-```bash
-python
-
->>> import earth2studio
->>> earth2studio.__version__
-```
-
 :::{admonition} Base Install Limitations
 :class: warning
 
@@ -42,9 +13,64 @@ We encourage users that face package issues to familiarize themselves with the o
 model installs and suggested environment set up for the most complete experience.
 :::
 
+## Install using Pip
+
+To get the latest release of Earth2Studio, install from the Python index:
+
+```bash
+pip install earth2studio
+```
+
+## Install using UV (Recommended)
+
+This package is developed using UV and its recommended that users use UV for the best
+install experience:
+
+```bash
+uv venv python=3.12
+uv pip install earth2studio
+```
+
+## Install from Source
+
+To install the latest main branch version of Earth2Studio:
+
+```bash
+uv venv python=3.12
+uv pip install "earth2studio @ git+https://github.com/NVIDIA/earth2studio"
+```
+
+or without uv:
+
+```bash
+git clone https://github.com/NVIDIA/earth2studio.git
+cd earth2-inference-studio
+pip install .
+```
+
+## Verify Installation
+
+```bash
+python
+# or when using uv
+uv run python
+
+>>> import earth2studio
+>>> earth2studio.__version__
+```
+
+## Optional Dependencies
+
+:::{admonition} uv Package Manager
+:class: warning
+From this point forward, it will be assumed that the uv package manager is being used.
+Due to the complexities of interfacing with multiple models with different dependency
+requirements, Earth2Studio relies on uv to create a reproducible runtime environment.
+:::
+
 (data_dependencies)=
 
-## Datasource Dependencies
+### Datasource Dependencies
 
 Some data sources require additional dependencies, libraries or specific Python versions
 to install.
@@ -56,7 +82,7 @@ pip install earth2studio[data]
 
 (model_dependencies)=
 
-## Model Dependencies
+### Model Dependencies
 
 Some models require additional dependencies which are not installed by default.
 Use the optional install commands to add these dependencies.
