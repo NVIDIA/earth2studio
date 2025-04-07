@@ -79,9 +79,11 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     """StormCast generative convection-allowing model for regional forecasts consists of
     two core models: a regression and diffusion model. Model time step size is 1 hour,
     taking as input:
-        - High-resolution (3km) HRRR state over the central United States (99 vars)
-        - High-resolution land-sea mask and orography invariants
-        - Coarse resolution (25km) global state (26 vars)
+
+    - High-resolution (3km) HRRR state over the central United States (99 vars)
+    - High-resolution land-sea mask and orography invariants
+    - Coarse resolution (25km) global state (26 vars)
+
     The high-resolution grid is the HRRR Lambert conformal projection
     Coarse-resolution inputs are regridded to the HRRR grid internally.
 

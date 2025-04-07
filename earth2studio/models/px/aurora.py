@@ -21,8 +21,14 @@ from datetime import datetime
 
 import numpy as np
 import torch
-from aurora import Aurora as Aurora_model
-from aurora import Batch, Metadata
+
+try:
+    from aurora import Aurora as Aurora_model
+    from aurora import Batch, Metadata
+except ImportError:
+    Aurora_model = None
+    Batch = None
+    Metadata = None
 
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_coords, batch_func
