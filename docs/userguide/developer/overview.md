@@ -22,7 +22,7 @@ git clone https://github.com/NVIDIA/earth2studio.git
 
 cd earth2-inference-studio
 
-uv venv python=3.12
+uv venv --python=3.12
 uv sync --group dev
 ```
 

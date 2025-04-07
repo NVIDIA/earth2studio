@@ -44,7 +44,7 @@ pip install .
 or if you are using uv:
 
 ```bash
-uv venv python=3.12
+uv venv --python=3.12
 uv pip install "earth2studio @ git+https://github.com/NVIDIA/earth2studio"
 ```
 
