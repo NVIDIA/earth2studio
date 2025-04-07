@@ -27,7 +27,8 @@ repos:
       exclude: |
             (?x)^(
                 frontend/package-lock.json |
-                .licenses/details.json
+                .licenses/details.json |
+                uv.lock
             )$
     - id: trailing-whitespace
     - id: end-of-file-fixer
