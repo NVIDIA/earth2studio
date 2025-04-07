@@ -20,3 +20,4 @@ from .coords import (
     handshake_dim,
     handshake_size,
 )
+from .imports import check_extra_imports
