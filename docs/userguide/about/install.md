@@ -71,30 +71,6 @@ uv is **not required**, and all installs can be replaced with pip command varian
 are included but have limited support.
 :::
 
-(data_dependencies)=
-
-### Datasource Dependencies
-
-Some data sources require additional dependencies, libraries or specific Python versions
-to install.
-
-::::{tab-set}
-:::{tab-item} uv
-
-```bash
-uv pip install earth2studio --extra data
-```
-
-:::
-:::{tab-item} pip
-
-```bash
-pip install earth2studio[data]
-```
-
-:::
-::::
-
 (model_dependencies)=
 
 ### Model Dependencies
@@ -316,11 +292,33 @@ pip install earth2studio[precip-afno]
 :::::
 ::::::
 
-### Perturbation Dependencies
+### Submodule Dependencies
 
-Some perturbation methods sources require additional dependencies, libraries or specific
-Python versions to install.
+A few features in various submodules require some specific dependencies that have been
+deemed too specific to warrant an addition to the core dependencies.
+These can be installed with a submodule wide install group:
 
+::::::{tab-set}
+:::::{tab-item} Data
+
+::::{tab-set}
+:::{tab-item} uv
+
+```bash
+uv pip install earth2studio --extra data
+```
+
+:::
+:::{tab-item} pip
+
+```bash
+pip install earth2studio[data]
+```
+
+:::
+::::
+:::::
+:::::{tab-item} Perturbation
 ::::{tab-set}
 :::{tab-item} uv
 
@@ -337,12 +335,8 @@ pip install earth2studio[perturbation]
 
 :::
 ::::
-
-### Statistics Dependencies
-
-Some statistics methods sources require additional dependencies, libraries or specific
-Python versions to install.
-
+:::::
+:::::{tab-item} Statistics
 ::::{tab-set}
 :::{tab-item} uv
 
@@ -359,6 +353,8 @@ pip install earth2studio[statistics]
 
 :::
 ::::
+:::::
+::::::
 
 ## Install All Optional Dependencies
 
