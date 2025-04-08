@@ -399,30 +399,6 @@ uv venv --python=3.12
 uv pip install earth2studio --extra all
 ```
 
-## PhysicsNeMo Docker Container
-
-The recommended environment to run Earth2Studio in is the [PhysicsNeMo docker container](https://catalog.ngc.nvidia.com/orgs/nvidia/teams/physicsnemo/containers/physicsnemo).
-This is the environment the team develops with and is the primary test bed.
-You can install Earth2Studio in a running container directly:
-
-```bash
-docker run -i -t nvcr.io/nvidia/physicsnemo/physicsnemo:25.03
-
->>> pip install "makani[all] @ git+https://github.com/NickGeneva/modulus-makani.git@3da09f9e52a6393839d73d44262779ac7279bc2f"
-
->>> pip install earth2studio[all]
-```
-
-or build your own Earth2Studio container using a Dockerfile:
-
-```dockerfile
-FROM nvcr.io/nvidia/physicsnemo/physicsnemo:25.03
-
-RUN pip install "makani[all] @ git+https://github.com/NickGeneva/modulus-makani.git@3da09f9e52a6393839d73d44262779ac7279bc2f"
-
-RUN pip install earth2studio[all]
-```
-
 ## PyTorch Docker Container
 
 For a docker environment the [Nvidia PyTorch container](https://catalog.ngc.nvidia.com/orgs/nvidia/containers/pytorch)
