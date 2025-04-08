@@ -42,6 +42,7 @@ from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_coords, batch_func
 from earth2studio.models.dx.base import DiagnosticModel
 from earth2studio.utils import (
+    check_extra_imports,
     handshake_coords,
     handshake_dim,
 )
@@ -66,6 +67,9 @@ VARIABLES = [
 OUT_VARIABLES = ["mrr", "t2m", "u10m", "v10m"]
 
 
+@check_extra_imports(
+    "corrdiff", [PhysicsNemoModule, StackedRandomGenerator, ablation_sampler]
+)
 class CorrDiffTaiwan(torch.nn.Module, AutoModelMixin):
     """
 
@@ -208,6 +212,9 @@ class CorrDiffTaiwan(torch.nn.Module, AutoModelMixin):
         )
 
     @classmethod
+    @check_extra_imports(
+        "corrdiff", [PhysicsNemoModule, StackedRandomGenerator, ablation_sampler]
+    )
     def load_model(cls, package: Package) -> DiagnosticModel:
         """Load diagnostic from package"""
 
