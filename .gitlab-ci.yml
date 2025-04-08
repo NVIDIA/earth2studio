@@ -46,6 +46,9 @@ setup:
 
 format:
   stage: lint
+  needs:
+    - job: setup
+      artifacts: false
   tags:
   - docker
   extends:
@@ -56,6 +59,9 @@ format:
 
 lint:
   stage: lint
+  needs:
+    - job: setup
+      artifacts: false
   tags:
   - docker
   extends:
@@ -67,6 +73,11 @@ lint:
 
 pytest:
   stage: test
+  needs:
+    - job: format
+      artifacts: false
+    - job: lint
+      artifacts: false
   tags:
   - docker
   extends:

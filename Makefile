@@ -35,8 +35,7 @@ license:
 
 .PHONY: pytest
 pytest:
-	# coverage run -m pytest --slow --ci-cache test/
-	uv run coverage run -m pytest --slow test/
+	uv run coverage run -m pytest --ci-cache --slow test/
 
 .PHONY: doctest
 doctest:

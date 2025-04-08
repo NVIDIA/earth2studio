@@ -25,7 +25,7 @@ def model_cache_context():
     class EnvContextManager:
         def __init__(self, **kwargs):
             # Set default to CI cache
-            self.env_vars = {"EARTH2STUDIO_CACHE": "/data/nfs/earth2studio-cache"}
+            self.env_vars = {}
             # Over rider with inputs
             for key, value in kwargs.items():
                 self.env_vars[key] = value
