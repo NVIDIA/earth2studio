@@ -21,10 +21,10 @@ To get the latest release of Earth2Studio, install from the Python index:
 pip install earth2studio
 ```
 
-## Install using UV (Recommended)
+## Install using uv (Recommended)
 
 This package is developed using [uv](https://docs.astral.sh/uv/getting-started/installation/)
-and it's recommended that users use UV for the best install experience:
+and it's recommended that users use uv for the best install experience:
 
 ```bash
 uv venv --python=3.12
@@ -70,30 +70,6 @@ requirements, Earth2Studio relies on uv to create a reproducible runtime environ
 uv is **not required**, and all installs can be replaced with pip command variants that
 are included but have limited support.
 :::
-
-(data_dependencies)=
-
-### Datasource Dependencies
-
-Some data sources require additional dependencies, libraries or specific Python versions
-to install.
-
-::::{tab-set}
-:::{tab-item} uv
-
-```bash
-uv pip install earth2studio --extra data
-```
-
-:::
-:::{tab-item} pip
-
-```bash
-pip install earth2studio[data]
-```
-
-:::
-::::
 
 (model_dependencies)=
 
@@ -316,11 +292,33 @@ pip install earth2studio[precip-afno]
 :::::
 ::::::
 
-### Perturbation Dependencies
+### Submodule Dependencies
 
-Some perturbation methods sources require additional dependencies, libraries or specific
-Python versions to install.
+A few features in various submodules require some specific dependencies that have been
+deemed too specific to warrant an addition to the core dependencies.
+These can be installed with a submodule wide install group:
 
+::::::{tab-set}
+:::::{tab-item} Data
+
+::::{tab-set}
+:::{tab-item} uv
+
+```bash
+uv pip install earth2studio --extra data
+```
+
+:::
+:::{tab-item} pip
+
+```bash
+pip install earth2studio[data]
+```
+
+:::
+::::
+:::::
+:::::{tab-item} Perturbation
 ::::{tab-set}
 :::{tab-item} uv
 
@@ -337,12 +335,8 @@ pip install earth2studio[perturbation]
 
 :::
 ::::
-
-### Statistics Dependencies
-
-Some statistics methods sources require additional dependencies, libraries or specific
-Python versions to install.
-
+:::::
+:::::{tab-item} Statistics
 ::::{tab-set}
 :::{tab-item} uv
 
@@ -359,8 +353,10 @@ pip install earth2studio[statistics]
 
 :::
 ::::
+:::::
+::::::
 
-## Install All Optional Dependencies
+### Install All Optional Dependencies
 
 In Earth2Studio, it's suggested that users pick and choose the optional dependencies that
 are needed for their use case.
@@ -397,30 +393,6 @@ the following commands:
 ```bash
 uv venv --python=3.12
 uv pip install earth2studio --extra all
-```
-
-## PhysicsNeMo Docker Container
-
-The recommended environment to run Earth2Studio in is the [PhysicsNeMo docker container](https://catalog.ngc.nvidia.com/orgs/nvidia/teams/physicsnemo/containers/physicsnemo).
-This is the environment the team develops with and is the primary test bed.
-You can install Earth2Studio in a running container directly:
-
-```bash
-docker run -i -t nvcr.io/nvidia/physicsnemo/physicsnemo:25.03
-
->>> pip install "makani[all] @ git+https://github.com/NickGeneva/modulus-makani.git@3da09f9e52a6393839d73d44262779ac7279bc2f"
-
->>> pip install earth2studio[all]
-```
-
-or build your own Earth2Studio container using a Dockerfile:
-
-```dockerfile
-FROM nvcr.io/nvidia/physicsnemo/physicsnemo:25.03
-
-RUN pip install "makani[all] @ git+https://github.com/NickGeneva/modulus-makani.git@3da09f9e52a6393839d73d44262779ac7279bc2f"
-
-RUN pip install earth2studio[all]
 ```
 
 ## PyTorch Docker Container

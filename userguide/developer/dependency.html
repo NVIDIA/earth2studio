@@ -584,10 +584,11 @@ Traceback<span class="w"> </span><span class="o">(</span>most<span class="w"> </
 <span class="w">  </span>File<span class="w"> </span><span class="s2">&quot;.../earth2studio/utils/imports.py&quot;</span>,<span class="w"> </span>line<span class="w"> </span><span class="m">78</span>,<span class="w"> </span><span class="k">in</span><span class="w"> </span>_wrapper
 <span class="w">    </span>_check_dependencies<span class="o">(</span>f<span class="s2">&quot;{obj.__module__}.{obj.__name__}&quot;</span><span class="o">)</span>
 <span class="w">  </span>File<span class="w"> </span><span class="s2">&quot;.../earth2studio/utils/imports.py&quot;</span>,<span class="w"> </span>line<span class="w"> </span><span class="m">61</span>,<span class="w"> </span><span class="k">in</span><span class="w"> </span>_check_dependencies
-<span class="w">    </span>raise<span class="w"> </span>OptionalDependencyError<span class="o">(</span>extra_name,<span class="w"> </span>obj_name<span class="o">)</span>
-earth2studio.utils.imports.OptionalDependencyError:<span class="w"> </span>Optional<span class="w"> </span>dependency<span class="w"> </span>group<span class="w"> </span><span class="s1">&#39;fcn&#39;</span><span class="w"> </span>is
+<span class="w">    </span>raise<span class="w"> </span>ExtraDependencyError<span class="o">(</span>extra_name,<span class="w"> </span>obj_name<span class="o">)</span>
+earth2studio.utils.imports.ExtraDependencyError:<span class="w"> </span>Extra<span class="w"> </span>dependency<span class="w"> </span>group<span class="w"> </span><span class="s1">&#39;fcn&#39;</span><span class="w"> </span>is
 <span class="w">    </span>required<span class="w"> </span><span class="k">for</span><span class="w"> </span>earth2studio.models.px.fcn.load_model.
 Install<span class="w"> </span>with:<span class="w"> </span>uv<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>earth2studio<span class="w"> </span>--extra<span class="w"> </span>fcn
+or<span class="w"> </span>refer<span class="w"> </span>to<span class="w"> </span>the<span class="w"> </span>install<span class="w"> </span>documentation.
 </pre></div>
 </div>
 </section>
