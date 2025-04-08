@@ -42,8 +42,9 @@ body:
       label: On which installation method(s) does this occur?
       multiple: true
       options:
-        - Pip
-        - Source
+        - pip
+        - uv
+        - source
 
   - type: textarea
     id: description
