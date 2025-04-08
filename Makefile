@@ -1,45 +1,42 @@
 install:
-	pip install --upgrade pip
-	pip install "makani[all] @ git+https://github.com/NickGeneva/modulus-makani.git@3da09f9e52a6393839d73d44262779ac7279bc2f"
-	pip install "microsoft-aurora @ git+https://github.com/ivanauyeung/aurora.git@ab41cf1de67d5dcc723b96fc9a6219e4b548d181"
-	pip install -e .[all]
+	uv sync --extra all
 
 .PHONY: setup-ci
 setup-ci:
-	pip install .[dev]
-	pre-commit install --install-hooks
+	uv sync
+	uv run pre-commit install --install-hooks
 
 .PHONY: format
 format:
-	pre-commit run black -a --show-diff-on-failure
+	uv run pre-commit run black -a --show-diff-on-failure
 
 .PHONY: black
 black:
-	pre-commit run black -a --show-diff-on-failure
+	uv run pre-commit run black -a --show-diff-on-failure
 
 .PHONY: interrogate
 interrogate:
-	pre-commit run interrogate -a
+	uv run pre-commit run interrogate -a
 
 .PHONY: lint
 lint:
-	pre-commit run check-added-large-files -a
-	pre-commit run trailing-whitespace -a
-	pre-commit run end-of-file-fixer -a
-	pre-commit run debug-statements -a
-	pre-commit run name-tests-test -a
-	pre-commit run pyupgrade -a --show-diff-on-failure
-	pre-commit run ruff -a
-	pre-commit run mypy -a
+	uv run pre-commit run check-added-large-files -a
+	uv run pre-commit run trailing-whitespace -a
+	uv run pre-commit run end-of-file-fixer -a
+	uv run pre-commit run debug-statements -a
+	uv run pre-commit run name-tests-test -a
+	uv run pre-commit run pyupgrade -a --show-diff-on-failure
+	uv run pre-commit run ruff -a
+	uv run pre-commit run mypy -a
 
 .PHONY: license
 license:
-	python test/_license/header_check.py
+	uv run python test/_license/header_check.py
 
 .PHONY: pytest
 pytest:
 	# coverage run -m pytest --slow --ci-cache test/
-	coverage run -m pytest --slow test/
+	uv run coverage run -m pytest --slow test/
 
 .PHONY: doctest
 doctest:
@@ -47,26 +44,26 @@ doctest:
 
 .PHONY: coverage
 coverage:
-	coverage combine
-	coverage report --fail-under=90
+	uv run coverage combine
+	uv run coverage report --fail-under=90
 
 .PHONY: docs
 docs:
-	pip install .[docs]
-	$(MAKE) -C docs clean
-	$(MAKE) -C docs html
+	uv sync --group docs
+	uv run $(MAKE) -C docs clean
+	uv run $(MAKE) -C docs html
 
 .PHONY: docs-full
 docs-full:
-	pip install .[docs,all]
+	uv sync --extra all --group docs
 	rm -rf docs/examples
 	rm -rf docs/modules/generated
 	rm -rf docs/modules/backreferences
-	$(MAKE) -C docs clean
+	uv run $(MAKE) -C docs clean
 	rm -rf examples/outputs
-	PLOT_GALLERY=True RUN_STALE_EXAMPLES=True $(MAKE) -j 8 -C docs html
+	PLOT_GALLERY=True RUN_STALE_EXAMPLES=True uv run $(MAKE) -j 8 -C docs html
 
 .PHONY: docs-dev
 docs-dev:
 	rm -rf examples/outputs
-	PLOT_GALLERY=True RUN_STALE_EXAMPLES=True FILENAME_PATTERN=$(FILENAME) $(MAKE) -j 4 -C docs html
+	PLOT_GALLERY=True RUN_STALE_EXAMPLES=True FILENAME_PATTERN=$(FILENAME) uv run $(MAKE) -j 4 -C docs html

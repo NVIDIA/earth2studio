@@ -15,13 +15,18 @@
 # limitations under the License.
 
 import torch
-from physicsnemo.metrics.general.crps import kcrps
+
+try:
+    from physicsnemo.metrics.general.crps import kcrps
+except ImportError:
+    kcrps = None
 
 from earth2studio.statistics.moments import mean
-from earth2studio.utils.coords import handshake_coords, handshake_dim
+from earth2studio.utils import check_extra_imports, handshake_coords, handshake_dim
 from earth2studio.utils.type import CoordSystem
 
 
+@check_extra_imports("statistics", [kcrps])
 class crps:
     """
     Compute the Continuous Ranked Probably Score (CRPS).

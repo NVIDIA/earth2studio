@@ -412,7 +412,7 @@ def test_convert_multidim_to_singledim_additional():
     coords = OrderedDict(
         [
             ("lat", LAT),
-            ("lon", LON)
+            ("lon", LON),
             # Missing FF coordinate
         ]
     )

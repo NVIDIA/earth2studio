@@ -197,6 +197,7 @@ io = NetCDF4Backend(
     backend_kwargs={"mode": "w"},
 )
 
+
 # Create the custom statistic
 class SOI:
     """Custom metric calculation the Southern Oscillation Index.
