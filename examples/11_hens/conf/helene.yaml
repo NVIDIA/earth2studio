@@ -1,11 +1,6 @@
 project: 'helene'
-mode: 'cyclone_tracking' # 'base' 'cyclone_tracking' 'diagnostic'
-# random_seed: 377777
 
 start_times: ["2024-09-23"]
-#ic_block_start: "2024-09-22"
-#ic_block_end: "2024-09-29"
-#ic_block_step: 12
 
 nsteps: 2 # 40          # number of forecasting steps
 nensemble: 2 # 32       # ensemble size per checkpoint
@@ -16,15 +11,6 @@ forecast_model:
     package: '/media/mkoch/9ee63bf8-5a14-4872-86f2-7f16b120269b/hens_data/hens_checkpoints'
     max_num_checkpoints: 1                     # max number of checkpoints which will be used
 
-# diagnostic_model:
-#     architecture: precip_wrapper.PrecipitationAFNOv2   # diagnostic model class
-#     package: '/hens/precip_package'                    # path to diagnostic model package
-
-# diagnostic_models:
-#     precip:
-#         architecture: precip_wrapper.PAFNO   # diagnostic model class
-#         package: 'default'                    # path to diagnostic model package
-
 perturbation:
     _target_: hens_perturbation.HENSPerturbation
     _partial_: True
@@ -33,17 +19,8 @@ perturbation:
     perturbed_var: 'z500'
     integration_steps: 3
 
-# perturbation:
-#     _target_: earth2studio.perturbation.BredVector
-#     _partial_: True
-#     noise_amplitude: .35
-#     integration_steps: 3
-#     ensemble_perturb: True
-
 data_source:
-    # _target_: earth2studio.data.GFS  # data source class
-    _target_: earth2studio.data.DataArrayDirectory  # data source class
-    dir_path: '/media/mkoch/9ee63bf8-5a14-4872-86f2-7f16b120269b/hens_data/gfs'            # if from disk, path to files
+    _target_: earth2studio.data.GFS  # data source class
 
 cyclone_tracking:
     out_dir: './outputs'
@@ -54,4 +31,9 @@ file_output:
     thread_io: False      # write out in seperate thread (needs further testing)
     format:               # io backend class
         _target_: earth2studio.io.KVBackend
-        # _target_: earth2studio.io.XarrayBackend
+    cropboxes:
+        gulf_of_mexico:
+            lat_min: 10
+            lat_max: 40
+            lon_min: 250
+            lon_max: 310
