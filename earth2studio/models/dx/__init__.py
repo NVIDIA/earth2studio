@@ -19,3 +19,4 @@ from earth2studio.models.dx.precipitation_afno import PrecipitationAFNO  # noqa
 from earth2studio.models.dx.climatenet import ClimateNet  # noqa
 from earth2studio.models.dx.corrdiff import CorrDiffTaiwan  # noqa
 from earth2studio.models.dx.base import DiagnosticModel
+from earth2studio.models.dx.derived_variables import DerivedVariables
