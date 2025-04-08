@@ -30,8 +30,8 @@ from reproduce_utilities import (
 from utilities import (
     initialise,
     initialise_output,
+    initialise_perturbation,
     initialize_output_structures,
-    set_perturbation,
     store_tracks,
     update_model_dict,
     write_to_disk,
@@ -79,7 +79,7 @@ def main(cfg: DictConfig) -> None:
 
         io_dict = initialise_output(cfg, ic, model_dict, output_coords_dict)
 
-        perturbation = set_perturbation(
+        perturbation = initialise_perturbation(
             model=model_dict["model"], data=data, start_time=ic, cfg=cfg
         )
 

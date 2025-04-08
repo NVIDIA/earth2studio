@@ -26,11 +26,19 @@ forecast_model:
 #         package: 'default'                    # path to diagnostic model package
 
 perturbation:
-    method: 'hcbv'             # perturbation method
-    perturbed_var: 'z500'      # variable perurbed in seed perturbation
-    noise_amplification: .35   # amplification of noise
+    _target_: hens_perturbation.HENSPerturbation
+    _partial_: True
     skill_path: '/media/mkoch/9ee63bf8-5a14-4872-86f2-7f16b120269b/hens_data/hens_checkpoints/d2m_sfno_linear_74chq_sc2_layers8_edim620_wstgl2-epoch70_seed16.nc'
+    noise_amplification: .35
+    perturbed_var: 'z500'
     integration_steps: 3
+
+# perturbation:
+#     _target_: earth2studio.perturbation.BredVector
+#     _partial_: True
+#     noise_amplitude: .35
+#     integration_steps: 3
+#     ensemble_perturb: True
 
 data_source:
     # _target_: earth2studio.data.GFS  # data source class

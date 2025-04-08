@@ -34,81 +34,19 @@ from earth2studio.io import IOBackend, KVBackend, XarrayBackend
 from earth2studio.models.auto import Package
 from earth2studio.models.dx import CycloneTrackingVorticity
 from earth2studio.models.px import PrognosticModel
-from earth2studio.perturbation import (
-    BredVector,
-    CorrelatedSphericalGaussian,
-    HemisphericCentredBredVector,
-    Perturbation,
-)
+from earth2studio.perturbation import Perturbation
 from earth2studio.utils.time import to_time_array
 
 
-def get_noise_vector(
-    model: PrognosticModel,
-    skill_path: str = None,
-    noise_amplification: float = 1.0,
-    vars: str | list[str] | None = None,
-    lead_time: int = 48,
-) -> torch.Tensor:
-    """
-    obtaining noise vector for HCBV perturbation.
-
-    Parameters
-    ----------
-    model : PrognosticModel
-        forecast model.
-    skill_path : str, optional
-        path to file containing model skill
-    noise_amplification : float, optional
-        magnitude by which noise vector gets scaled
-    vars : str | list[str] | None, optional
-        Variables on which noise will be applied. The elements in the noise
-        vector for all other variables will be set to zero. If no variables
-        are passed, noise will be applied on all variables
-    lead_time : int, optional
-        lead time at which model skill is taken.
-
-    Returns
-    -------
-    torch.Tensor
-        Noise vector.
-    """
-    if skill_path is None:
-        raise ValueError(
-            f"provide path to data set containing {lead_time}h deterministic [r]mse"
-        )
-
-    model_vars = model.input_coords()["variable"]
-    if vars is None:
-        vars = model_vars
-    elif isinstance(vars, str):
-        vars = [vars]
-
-    # set noise for variables which shall not be perturbed to 0.
-    skill = xr.open_dataset(skill_path)
-    scale_vec = torch.Tensor(
-        np.asarray(
-            [
-                skill.sel(channel=var, lead_time=lead_time)["value"].item()
-                if var in vars
-                else 0.0
-                for var in model_vars
-            ]
-        )
-    )
-
-    return scale_vec.reshape(1, 1, 1, -1, 1, 1) * noise_amplification
-
-
-def set_perturbation(
+def initialise_perturbation(
     model: PrognosticModel,
     data: DataSource,
     start_time: np.ndarray[np.datetime64],
     cfg: DictConfig,
 ) -> Perturbation:
     """
-    Initialise perturbation method. Either choose and set up a bred vector method
-    or instantiate any other perturbation defined in the config.
+    Initialise perturbation method. Some methods need to be initialized with model, data, start_time, etc.
+    which can not always be defined in the config requireing partial instantiation.
 
     Parameters
     ----------
@@ -126,52 +64,19 @@ def set_perturbation(
     Perturbation
         Perturbation method.
     """
-    if "method" in cfg.perturbation:
-        if cfg.perturbation.method == "hcbv":
-            noise_amp_seed = get_noise_vector(
-                model,
-                skill_path=cfg.perturbation.skill_path,
-                noise_amplification=cfg.perturbation.noise_amplification,
-                vars=cfg.perturbation.perturbed_var,
-            )
-            noise_amp_iter = get_noise_vector(
-                model,
-                skill_path=cfg.perturbation.skill_path,
-                noise_amplification=cfg.perturbation.noise_amplification,
-            )
+    perturbation = hydra.utils.instantiate(cfg.perturbation)
 
-            seed_perturbation = CorrelatedSphericalGaussian(
-                noise_amplitude=noise_amp_seed,
-                sigma=1.0,
-                length_scale=5.0e5,
-                time_scale=48.0,
-            )
-
-            per = HemisphericCentredBredVector(
-                model=model,
-                data=data,
-                time=start_time,
-                noise_amplitude=noise_amp_iter,
-                integration_steps=cfg.perturbation.integration_steps,  # use cfg.breeding_steps
-                seeding_perturbation_method=seed_perturbation,
-            )
-
-        elif cfg.perturbation.method == "bv":
-            per = BredVector(
-                model=model,
-                noise_amplitude=cfg.perturbation.noise_amplification,
-                integration_steps=cfg.perturbation.integration_steps,  # use cfg.breeding_steps
-                ensemble_perturb=True,
-            )
+    if isinstance(perturbation, partial):  # inform about model, IC etc
+        if perturbation.func.__name__ == "HENSPerturbation":
+            perturbation = perturbation(model=model, start_time=start_time, data=data)
+        elif perturbation.func.__name__ == "BredVector":
+            perturbation = perturbation(model=model)
         else:
             raise ValueError(
-                f"perturbation method {cfg.perturbation.method} not implemented. Or, call directly through __target__ method in config file"
+                f"perturbation method {perturbation.func.__name__} not implemented for partial instantiation"
             )
 
-    else:
-        per = hydra.utils.instantiate(cfg.perturbation)
-
-    return per
+    return perturbation
 
 
 def build_package_list(cfg: DictConfig) -> list[str]:
