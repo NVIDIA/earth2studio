@@ -158,6 +158,7 @@ conflicts = [
 [tool.uv.sources]
 makani = { git = "https://github.com/NickGeneva/modulus-makani.git", rev = "3da09f9e52a6393839d73d44262779ac7279bc2f" }
 microsoft-aurora = { git = "https://github.com/NickGeneva/aurora", rev = "ab41cf1de67d5dcc723b96fc9a6219e4b548d181" }
+graphcast = { git = "https://github.com/deepmind/graphcast.git", rev = "7077d40a36db6541e3ed72ccaed1c0d202fa6014" }
 
 [dependency-groups]
 dev = [
@@ -187,6 +188,9 @@ docs = [
     "myst-parser>=0.18.0",
     "sphinx-favicon>=1.0.1",
     "pydata-sphinx-theme==0.15.2",
+]
+graphcast = [
+    "graphcast",
 ]
 
 [tool.hatch.version]
