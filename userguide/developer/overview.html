@@ -28,7 +28,7 @@
 <link rel="preload" as="font" type="font/woff2" crossorigin href="../../_static/vendor/fontawesome/6.5.1/webfonts/fa-brands-400.woff2" />
 <link rel="preload" as="font" type="font/woff2" crossorigin href="../../_static/vendor/fontawesome/6.5.1/webfonts/fa-regular-400.woff2" />
 
-    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=a746c00c" />
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=8f2a1f02" />
     <link rel="stylesheet" type="text/css" href="../../_static/togglebutton.css?v=13237357" />
     <link rel="stylesheet" type="text/css" href="../../_static/sg_gallery.css?v=d2d258e8" />
     <link rel="stylesheet" type="text/css" href="../../_static/sg_gallery-binder.css?v=f4aeca0c" />
@@ -60,7 +60,7 @@
         </script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
-    <link rel="next" title="Style Guide" href="style.html" />
+    <link rel="next" title="Dependency Management" href="dependency.html" />
     <link rel="prev" title="Lexicon" href="../advanced/lexicon.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
@@ -405,9 +405,11 @@ document.write(`
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Developer Guide</span></p>
 <ul class="current nav bd-sidenav">
 <li class="toctree-l1 current active"><a class="current reference internal" href="#">Overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="dependency.html">Dependency Management</a></li>
 <li class="toctree-l1"><a class="reference internal" href="style.html">Style Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="documentation.html">Documentation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="testing.html">Testing Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="build.html">Build Process</a></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Support</span></p>
 <ul class="nav bd-sidenav">
@@ -477,24 +479,35 @@ document.write(`
 information found in the <a class="reference internal" href="../index.html#userguide"><span class="std std-ref">User Guide</span></a>.</p>
 <section id="environment-setup">
 <h2>Environment Setup<a class="headerlink" href="#environment-setup" title="Link to this heading">#</a></h2>
-<p>When developing Earth2Studio, it’s suggested a docker environment is used detailed in
-the <a class="reference internal" href="../about/install.html#install-environments"><span class="std std-ref">install environments</span></a> section.
-Clone the repo and use an editable install of Earth2Studio with the <code class="docutils literal notranslate"><span class="pre">dev</span></code> option:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/NVIDIA/earth2studio.git
+<p>When developing Earth2Studio, using uv virtual environment is suggested and will be used
+in the documentation.
+To create a local development environment with a git repo and uv, follow the steps
+below.
+Clone the repo and use uv to create a Python 3.12 virtual enviroment and sync it with
+the <code class="docutils literal notranslate"><span class="pre">dev</span></code> dependency group:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Replace with your fork</span>
+git<span class="w"> </span>clone<span class="w"> </span>https://github.com/NVIDIA/earth2studio.git
 
 <span class="nb">cd</span><span class="w"> </span>earth2-inference-studio
 
-pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span>.<span class="o">[</span>dev<span class="o">]</span>
+uv<span class="w"> </span>venv<span class="w"> </span>--python<span class="o">=</span><span class="m">3</span>.12
+uv<span class="w"> </span>sync<span class="w"> </span>--group<span class="w"> </span>dev
 </pre></div>
 </div>
-<p>To install documentation dependencies, use:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>.<span class="o">[</span>docs<span class="o">]</span>
+<p>This should create a python virtual environment inside of the local Earth2Studio git
+repository.
+To install documentation dependencies, use:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>uv<span class="w"> </span>sync<span class="w"> </span>--group<span class="o">={</span>dev,docs<span class="o">}</span>
 </pre></div>
 </div>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>When working with models, additional optional dependencies may be required. See the
-<a class="reference internal" href="../about/install.html#model-dependencies"><span class="std std-ref">model dependencies</span></a> section for details.</p>
+<p>When working with models, additional optional dependencies may be required.
+See the <a class="reference internal" href="../about/install.html#model-dependencies"><span class="std std-ref">model dependencies</span></a> section for details on the optional
+dependencies inside the package.
+Use the <code class="docutils literal notranslate"><span class="pre">uv</span> <span class="pre">sync</span> <span class="pre">--extra</span> <span class="pre">&lt;optional</span> <span class="pre">dep&gt;</span></code> command instead of the pip install.
+Take note of the difference between the optional dependency groups used here and the
+extra dependencies when using specific models.</p>
 </div>
 </section>
 <section id="pre-commit">
@@ -503,8 +516,8 @@ pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </s
 This will not only help developers pass the CI pipeline, but also accelerate reviews.
 Contributions that have not used pre-commit will <em>not be reviewed</em>.</p>
 <p>To install <code class="docutils literal notranslate"><span class="pre">pre-commit</span></code> run the following inside the Earth2Studio repository folder:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>pre-commit
-pre-commit<span class="w"> </span>install
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>uv<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>pre-commit
+uv<span class="w"> </span>run<span class="w"> </span>pre-commit<span class="w"> </span>install
 
 &gt;&gt;&gt;<span class="w"> </span>pre-commit<span class="w"> </span>installed<span class="w"> </span>at<span class="w"> </span>.git/hooks/pre-commit
 </pre></div>
@@ -534,11 +547,11 @@ the commits will be checked for appropriate formatting, linting, etc.</p>
       </div>
     </a>
     <a class="right-next"
-       href="style.html"
+       href="dependency.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">Style Guide</p>
+        <p class="prev-next-title">Dependency Management</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>

@@ -28,7 +28,7 @@
 <link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../_static/vendor/fontawesome/6.5.1/webfonts/fa-brands-400.woff2" />
 <link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../_static/vendor/fontawesome/6.5.1/webfonts/fa-regular-400.woff2" />
 
-    <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=a746c00c" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=8f2a1f02" />
     <link rel="stylesheet" type="text/css" href="../../../../_static/togglebutton.css?v=13237357" />
     <link rel="stylesheet" type="text/css" href="../../../../_static/sg_gallery.css?v=d2d258e8" />
     <link rel="stylesheet" type="text/css" href="../../../../_static/sg_gallery-binder.css?v=f4aeca0c" />
@@ -60,7 +60,7 @@
         </script>
     <link rel="index" title="Index" href="../../../../genindex.html" />
     <link rel="search" title="Search" href="../../../../search.html" />
-    <link rel="next" title="earth2studio.models.dx.CorrDiffTaiwan" href="../dx/earth2studio.models.dx.CorrDiffTaiwan.html" />
+    <link rel="next" title="earth2studio.models.px.Aurora" href="earth2studio.models.px.Aurora.html" />
     <link rel="prev" title="earth2studio.models.px.SFNO" href="earth2studio.models.px.SFNO.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
@@ -390,6 +390,7 @@ document.write(`
 <li class="toctree-l2"><a class="reference internal" href="earth2studio.models.px.Persistence.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.Persistence</a></li>
 <li class="toctree-l2"><a class="reference internal" href="earth2studio.models.px.SFNO.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.SFNO</a></li>
 <li class="toctree-l2 current active"><a class="current reference internal" href="#"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.StormCast</a></li>
+<li class="toctree-l2"><a class="reference internal" href="earth2studio.models.px.Aurora.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.Aurora</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../dx/earth2studio.models.dx.CorrDiffTaiwan.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.dx</span></code>.CorrDiffTaiwan</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../dx/earth2studio.models.dx.ClimateNet.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.dx</span></code>.ClimateNet</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../dx/earth2studio.models.dx.PrecipitationAFNO.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.dx</span></code>.PrecipitationAFNO</a></li>
@@ -536,13 +537,11 @@ document.write(`
 <dd><p>StormCast generative convection-allowing model for regional forecasts consists of
 two core models: a regression and diffusion model. Model time step size is 1 hour,
 taking as input:</p>
-<blockquote>
-<div><ul class="simple">
+<ul class="simple">
 <li><p>High-resolution (3km) HRRR state over the central United States (99 vars)</p></li>
 <li><p>High-resolution land-sea mask and orography invariants</p></li>
 <li><p>Coarse resolution (25km) global state (26 vars)</p></li>
 </ul>
-</div></blockquote>
 <p>The high-resolution grid is the HRRR Lambert conformal projection
 Coarse-resolution inputs are regridded to the HRRR grid internally.</p>
 <div class="admonition note">
@@ -673,11 +672,11 @@ output data tensor and coordinate system dictionary.</p>
       </div>
     </a>
     <a class="right-next"
-       href="../dx/earth2studio.models.dx.CorrDiffTaiwan.html"
+       href="earth2studio.models.px.Aurora.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.dx</span></code>.CorrDiffTaiwan</p>
+        <p class="prev-next-title"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.Aurora</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>

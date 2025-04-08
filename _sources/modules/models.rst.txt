@@ -35,6 +35,7 @@ Thus are typically used to generate forecast predictions.
    models.px.Persistence
    models.px.SFNO
    models.px.StormCast
+   models.px.Aurora
 
 .. _earth2studio.models.dx:
 

@@ -28,7 +28,7 @@
 <link rel="preload" as="font" type="font/woff2" crossorigin href="../../_static/vendor/fontawesome/6.5.1/webfonts/fa-brands-400.woff2" />
 <link rel="preload" as="font" type="font/woff2" crossorigin href="../../_static/vendor/fontawesome/6.5.1/webfonts/fa-regular-400.woff2" />
 
-    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=a746c00c" />
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=8f2a1f02" />
     <link rel="stylesheet" type="text/css" href="../../_static/togglebutton.css?v=13237357" />
     <link rel="stylesheet" type="text/css" href="../../_static/sg_gallery.css?v=d2d258e8" />
     <link rel="stylesheet" type="text/css" href="../../_static/sg_gallery-binder.css?v=f4aeca0c" />
@@ -405,9 +405,11 @@ document.write(`
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Developer Guide</span></p>
 <ul class="nav bd-sidenav">
 <li class="toctree-l1"><a class="reference internal" href="../developer/overview.html">Overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../developer/dependency.html">Dependency Management</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../developer/style.html">Style Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../developer/documentation.html">Documentation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../developer/testing.html">Testing Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../developer/build.html">Build Process</a></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Support</span></p>
 <ul class="nav bd-sidenav">
@@ -510,7 +512,7 @@ data store.</p>
 <p>The following snippet is part of the lexicon for the GFS dataset.
 Note that the class has a <code class="docutils literal notranslate"><span class="pre">metaclass=LexiconType</span></code> which is present in
 <code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.lexicon.base.py</span></code> used for type checking.</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">class</span> <span class="nc">GFSLexicon</span><span class="p">(</span><span class="n">metaclass</span><span class="o">=</span><span class="n">LexiconType</span><span class="p">):</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">class</span><span class="w"> </span><span class="nc">GFSLexicon</span><span class="p">(</span><span class="n">metaclass</span><span class="o">=</span><span class="n">LexiconType</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Global Forecast System Lexicon</span>
 <span class="sd">    GFS specified &lt;Parameter ID&gt;::&lt;Level/ Layer&gt;</span>
 
@@ -547,7 +549,7 @@ fetch the correct data.</p>
                 <span class="p">)</span>
                 <span class="n">gfs_name</span> <span class="o">=</span> <span class="n">variable</span>
 
-                <span class="k">def</span> <span class="nf">modifier</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">:</span>
+                <span class="k">def</span><span class="w"> </span><span class="nf">modifier</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">:</span>
 <span class="w">                    </span><span class="sd">&quot;&quot;&quot;Modify data (if necessary).&quot;&quot;&quot;</span>
                     <span class="k">return</span> <span class="n">x</span>
 
@@ -583,18 +585,18 @@ A good example of this is the GFS dataset which uses the modifier function to tr
 the GFS supplied the geo-potential height to geo-potential to better align with other
 sources inside Earth2Studio.</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span>    <span class="nd">@classmethod</span>
-    <span class="k">def</span> <span class="nf">get_item</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">val</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Callable</span><span class="p">]:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_item</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">val</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Callable</span><span class="p">]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Get item from GFS vocabulary.&quot;&quot;&quot;</span>
         <span class="n">gfs_key</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">VOCAB</span><span class="p">[</span><span class="n">val</span><span class="p">]</span>
         <span class="k">if</span> <span class="n">gfs_key</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;::&quot;</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;HGT&quot;</span><span class="p">:</span>
 
-            <span class="k">def</span> <span class="nf">mod</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">:</span>
+            <span class="k">def</span><span class="w"> </span><span class="nf">mod</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">:</span>
 <span class="w">                </span><span class="sd">&quot;&quot;&quot;Modify data value (if necessary).&quot;&quot;&quot;</span>
                 <span class="k">return</span> <span class="n">x</span> <span class="o">*</span> <span class="mf">9.81</span>
 
         <span class="k">else</span><span class="p">:</span>
 
-            <span class="k">def</span> <span class="nf">mod</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">:</span>
+            <span class="k">def</span><span class="w"> </span><span class="nf">mod</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">:</span>
 <span class="w">                </span><span class="sd">&quot;&quot;&quot;Modify data value (if necessary).&quot;&quot;&quot;</span>
                 <span class="k">return</span> <span class="n">x</span>
 

@@ -27,7 +27,7 @@
 <link rel="preload" as="font" type="font/woff2" crossorigin href="../../../_static/vendor/fontawesome/6.5.1/webfonts/fa-brands-400.woff2" />
 <link rel="preload" as="font" type="font/woff2" crossorigin href="../../../_static/vendor/fontawesome/6.5.1/webfonts/fa-regular-400.woff2" />
 
-    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=a746c00c" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=8f2a1f02" />
     <link rel="stylesheet" type="text/css" href="../../../_static/togglebutton.css?v=13237357" />
     <link rel="stylesheet" type="text/css" href="../../../_static/sg_gallery.css?v=d2d258e8" />
     <link rel="stylesheet" type="text/css" href="../../../_static/sg_gallery-binder.css?v=f4aeca0c" />
@@ -437,17 +437,17 @@ document.write(`
 <span class="c1"># See the License for the specific language governing permissions and</span>
 <span class="c1"># limitations under the License.</span>
 
-<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Literal</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Literal</span>
 
-<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
-<span class="kn">import</span> <span class="nn">torch</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
 
-<span class="kn">from</span> <span class="nn">earth2studio.utils.type</span> <span class="kn">import</span> <span class="n">CoordSystem</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.utils.type</span><span class="w"> </span><span class="kn">import</span> <span class="n">CoordSystem</span>
 
 
 <div class="viewcode-block" id="handshake_dim">
 <a class="viewcode-back" href="../../../modules/generated/utils/earth2studio.utils.coords.handshake_dim.html#earth2studio.utils.coords.handshake_dim">[docs]</a>
-<span class="k">def</span> <span class="nf">handshake_dim</span><span class="p">(</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">handshake_dim</span><span class="p">(</span>
     <span class="n">input_coords</span><span class="p">:</span> <span class="n">CoordSystem</span><span class="p">,</span>
     <span class="n">required_dim</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
     <span class="n">required_index</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -503,7 +503,7 @@ document.write(`
 
 <div class="viewcode-block" id="handshake_coords">
 <a class="viewcode-back" href="../../../modules/generated/utils/earth2studio.utils.coords.handshake_coords.html#earth2studio.utils.coords.handshake_coords">[docs]</a>
-<span class="k">def</span> <span class="nf">handshake_coords</span><span class="p">(</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">handshake_coords</span><span class="p">(</span>
     <span class="n">input_coords</span><span class="p">:</span> <span class="n">CoordSystem</span><span class="p">,</span>
     <span class="n">target_coords</span><span class="p">:</span> <span class="n">CoordSystem</span><span class="p">,</span>
     <span class="n">required_dim</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
@@ -553,7 +553,7 @@ document.write(`
 
 <div class="viewcode-block" id="handshake_size">
 <a class="viewcode-back" href="../../../modules/generated/utils/earth2studio.utils.coords.handshake_size.html#earth2studio.utils.coords.handshake_size">[docs]</a>
-<span class="k">def</span> <span class="nf">handshake_size</span><span class="p">(</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">handshake_size</span><span class="p">(</span>
     <span class="n">input_coords</span><span class="p">:</span> <span class="n">CoordSystem</span><span class="p">,</span>
     <span class="n">required_dim</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
     <span class="n">required_size</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
@@ -600,7 +600,7 @@ document.write(`
 
 <div class="viewcode-block" id="map_coords">
 <a class="viewcode-back" href="../../../modules/generated/utils/earth2studio.utils.coords.map_coords.html#earth2studio.utils.coords.map_coords">[docs]</a>
-<span class="k">def</span> <span class="nf">map_coords</span><span class="p">(</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">map_coords</span><span class="p">(</span>
     <span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
     <span class="n">input_coords</span><span class="p">:</span> <span class="n">CoordSystem</span><span class="p">,</span>
     <span class="n">output_coords</span><span class="p">:</span> <span class="n">CoordSystem</span><span class="p">,</span>
@@ -756,7 +756,7 @@ document.write(`
 
 <div class="viewcode-block" id="split_coords">
 <a class="viewcode-back" href="../../../modules/generated/utils/earth2studio.utils.coords.split_coords.html#earth2studio.utils.coords.split_coords">[docs]</a>
-<span class="k">def</span> <span class="nf">split_coords</span><span class="p">(</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">split_coords</span><span class="p">(</span>
     <span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">coords</span><span class="p">:</span> <span class="n">CoordSystem</span><span class="p">,</span> <span class="n">dim</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;variable&quot;</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">],</span> <span class="n">CoordSystem</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
@@ -793,7 +793,7 @@ document.write(`
 
 
 
-<span class="k">def</span> <span class="nf">convert_multidim_to_singledim</span><span class="p">(</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">convert_multidim_to_singledim</span><span class="p">(</span>
     <span class="n">coords</span><span class="p">:</span> <span class="n">CoordSystem</span><span class="p">,</span> <span class="n">return_mapping</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">CoordSystem</span><span class="p">,</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]]]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Converts a set of coordinates from a complex coordinate system, which has some</span>

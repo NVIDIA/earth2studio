@@ -62,9 +62,11 @@ run(["2024-01-01"], 10, model, ds, io)
 ## Developer Guide
 
 - [Overview](developer/overview)
+- [Dependencies](developer/dependency)
 - [Style](developer/style)
 - [Documentation](developer/documentation)
 - [Testing](developer/testing)
+- [Build](developer/build)
 
 ## Support
 
@@ -111,9 +113,11 @@ advanced/lexicon
 :hidden:
 
 developer/overview
+developer/dependency
 developer/style
 developer/documentation
 developer/testing
+developer/build
 ```
 
 ```{toctree}
