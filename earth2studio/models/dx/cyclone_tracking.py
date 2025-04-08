@@ -56,13 +56,17 @@ OUT_VARIABLES = ["tc_lat", "tc_lon", "tc_msl", "tc_w10m"]
 
 
 class CycloneTrackingVorticity(torch.nn.Module, AutoModelMixin):
-    """
+    """Finds a list of tropical cyclone centers using an adaption of the method
+    described in the conditions in Wu and Duan 2023. The algorithm converts vorticity
+    from reanalysis data into a binary image using a defined critical threshold.
+    Subsequent processing with connected component labeling and erosion identifies the
+    resulting inner cores as TC seeds.
 
-    Finds a list of tropical cyclone centers using an adaption of the method described in the conditions
-    in Wu and Duan 2023 vort850
+    Note
+    ----
+    For more information about this method see:
 
-    https://doi.org/10.1016/j.wace.2023.100626.
-
+    - https://doi.org/10.1016/j.wace.2023.100626
     """
 
     def __init__(
@@ -128,12 +132,7 @@ class CycloneTrackingVorticity(torch.nn.Module, AutoModelMixin):
         msl: torch.tensor,
         vort850_threshold: torch.Tensor = torch.tensor(1.4e-4),
     ) -> torch.Tensor:
-        """Finds a list of tropical cyclone centers using an adaption of the method described in the conditions
-        in Wu and Duan 2023 vort850
-        Note
-        ----
-        For more information about this method see:
-        https://doi.org/10.1016/j.wace.2023.100626.
+        """Finds a list of tropical cyclone centers
 
         Parameters
         ----------
@@ -265,7 +264,6 @@ class CycloneTrackingVorticity(torch.nn.Module, AutoModelMixin):
     @classmethod
     def load_model(cls, package: Package) -> DiagnosticModel:
         """Load diagnostic from package"""
-
         return cls()
 
     @torch.inference_mode()
@@ -335,15 +333,14 @@ class CycloneTrackingVorticity(torch.nn.Module, AutoModelMixin):
 
 
 class CycloneTracking(torch.nn.Module, AutoModelMixin):
-    """
-
-    Finds a list of tropical cyclone centers using the conditions
+    """Finds a list of tropical cyclone centers using the conditions
     in Vitart 1997
 
     Note
-    ---
+    ----
     For more information about this method see:
-    https://doi.org/10.1175/1520-0442(1997)010%3C0745:SOIVOT%3E2.0.CO;2
+
+    - https://doi.org/10.1175/1520-0442(1997)010%3C0745:SOIVOT%3E2.0.CO;2
 
     Parameters
     ----------
@@ -417,13 +414,7 @@ class CycloneTracking(torch.nn.Module, AutoModelMixin):
         temp_dec_threshold: float = 0.5,
         exclude_border: bool | int = True,
     ) -> torch.Tensor:
-        """Finds a list of tropical cyclone centers using the conditions
-        in Vitart 1997
-
-        Note
-        ---
-        For more information about this method see:
-        https://doi.org/10.1175/1520-0442(1997)010%3C0745:SOIVOT%3E2.0.CO;2
+        """Finds a list of tropical cyclone centers
 
         Parameters
         ----------
@@ -460,6 +451,7 @@ class CycloneTracking(torch.nn.Module, AutoModelMixin):
             that dimension. If True, takes the min_distance parameter as value.
             If zero or False, peaks are identified regardless of their distance
             from the border.
+
         Returns
         -------
         centers
@@ -712,8 +704,11 @@ def get_local_max(
     This is a helper utility that converts a pytorch tensor to a cupy tensor
     to use a CuCIM utility `peak_local_max` to extract the local maxima.
 
-    For more details, see
-    https://scikit-image.org/docs/stable/api/skimage.feature.html#skimage.feature.peak_local_max
+    Note
+    ----
+    For more details, see:
+
+    - https://scikit-image.org/docs/stable/api/skimage.feature.html#skimage.feature.peak_local_max
 
     Parameters
     ----------
@@ -1081,36 +1076,36 @@ def get_next_position(
         return (None, None, None, None)
 
 
-def run_example() -> None:
-    """Demonstrates the functionality of the CycloneTracking model by running it on a sample dataset and
-    connecting the identified tropical cyclone positions to tracks."""
-    import pandas as pd
+# def run_example() -> None:
+#     """Demonstrates the functionality of the CycloneTracking model by running it on a sample dataset and
+#     connecting the identified tropical cyclone positions to tracks."""
+#     import pandas as pd
 
-    from earth2studio.data import GFS, prep_data_array
+#     from earth2studio.data import GFS, prep_data_array
 
-    # Initialize the CycloneTracking model
-    CT = CycloneTracking()
+#     # Initialize the CycloneTracking model
+#     CT = CycloneTracking()
 
-    # Define the timestamps to analyze
-    time = np.array(pd.date_range("2024-08-26", "2024-08-29", freq="6H"))
+#     # Define the timestamps to analyze
+#     time = np.array(pd.date_range("2024-08-26", "2024-08-29", freq="6H"))
 
-    # Load the required weather data from GFS analysis
-    gfs = GFS()
-    variable = CT.input_coords()["variable"]
-    da = gfs(time, variable)
-    x, coords = prep_data_array(da)
+#     # Load the required weather data from GFS analysis
+#     gfs = GFS()
+#     variable = CT.input_coords()["variable"]
+#     da = gfs(time, variable)
+#     x, coords = prep_data_array(da)
 
-    # Run the tropical cyclone tracker
-    y, c = CT(x, coords)
+#     # Run the tropical cyclone tracker
+#     y, c = CT(x, coords)
 
-    # Connect positions to tracks
-    df_tracks = get_tracks_from_positions(
-        y, c, min_length=3, search_radius_km=250, max_skips=1
-    )
+#     # Connect positions to tracks
+#     df_tracks = get_tracks_from_positions(
+#         y, c, min_length=3, search_radius_km=250, max_skips=1
+#     )
 
-    # Display the tracks DataFrame
-    print(df_tracks)
+#     # Display the tracks DataFrame
+#     print(df_tracks)
 
 
-if __name__ == "__main__":
-    run_example()
+# if __name__ == "__main__":
+#     run_example()
