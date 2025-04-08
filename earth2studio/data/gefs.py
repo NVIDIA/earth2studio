@@ -26,7 +26,6 @@ import s3fs
 import xarray as xr
 from fsspec.implementations.cached import WholeFileCacheFileSystem
 from loguru import logger
-from physicsnemo.distributed.manager import DistributedManager
 from s3fs.core import S3FileSystem
 from tqdm import tqdm
 
@@ -295,13 +294,9 @@ class _GEFSBase:
     @property
     def cache(self) -> str:
         """Return appropriate cache location."""
-        cache_location = os.path.join(datasource_cache_root(), "gfs")
+        cache_location = os.path.join(datasource_cache_root(), "gefs")
         if not self._cache:
-            if not DistributedManager.is_initialized():
-                DistributedManager.initialize()
-            cache_location = os.path.join(
-                cache_location, f"tmp_{DistributedManager().rank}"
-            )
+            cache_location = os.path.join(cache_location, "tmp_gefs")
         return cache_location
 
     @classmethod

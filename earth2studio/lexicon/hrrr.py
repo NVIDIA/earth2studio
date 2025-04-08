@@ -106,9 +106,9 @@ class HRRRLexicon(metaclass=LexiconType):
         hybrid_variables = {}
         for id, variable in zip(e2s_id, hybrid_names):
             for level in hybrid_levels:
-                hybrid_variables[
-                    f"{id}{level:d}hl"
-                ] = f"nat::anl::{level} hybrid level::{variable}"
+                hybrid_variables[f"{id}{level:d}hl"] = (
+                    f"nat::anl::{level} hybrid level::{variable}"
+                )
 
         return {**sfc_variables, **prs_variables, **hybrid_variables}
 
@@ -193,9 +193,9 @@ class HRRRFXLexicon(metaclass=LexiconType):
         hybrid_variables = {}
         for id, variable in zip(e2s_id, hybrid_names):
             for level in hybrid_levels:
-                hybrid_variables[
-                    f"{id}{level:d}hl"
-                ] = f"nat::fcst::{level} hybrid level::{variable}"
+                hybrid_variables[f"{id}{level:d}hl"] = (
+                    f"nat::fcst::{level} hybrid level::{variable}"
+                )
 
         return {**sfc_variables, **prs_variables, **hybrid_variables}
 
