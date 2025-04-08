@@ -69,6 +69,9 @@ statistics = [
     "nvidia-physicsnemo>=1.0.1",
 ]
 # PX Models
+graphcast = [
+    "graphcast",
+]
 aurora = [
     "microsoft-aurora>=1.5.0",
 ]
@@ -188,9 +191,6 @@ docs = [
     "myst-parser>=0.18.0",
     "sphinx-favicon>=1.0.1",
     "pydata-sphinx-theme==0.15.2",
-]
-graphcast = [
-    "graphcast",
 ]
 
 [tool.hatch.version]
