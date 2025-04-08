@@ -1,5 +1,6 @@
 stages:
   - clone
+  - setup
   - lint
   - test
   - report
@@ -34,6 +35,15 @@ gitlab-clone:
     - .physicsnemo:gitlab:pull
   image: bitnami/git
 
+setup:
+  stage: setup
+  tags:
+  - docker
+  extends:
+    - .earth2studio:setup:base
+  script:
+    - make setup-ci
+
 format:
   stage: lint
   tags:
@@ -42,7 +52,6 @@ format:
     - .earth2studio:test:base
   script:
     - ls
-    - make setup-ci
     - make format
 
 lint:
@@ -52,7 +61,6 @@ lint:
   extends:
     - .earth2studio:test:base
   script:
-    - make setup-ci
     - make interrogate
     - make lint
     - make license
