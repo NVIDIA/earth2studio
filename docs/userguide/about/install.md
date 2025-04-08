@@ -21,10 +21,10 @@ To get the latest release of Earth2Studio, install from the Python index:
 pip install earth2studio
 ```
 
-## Install using UV (Recommended)
+## Install using uv (Recommended)
 
 This package is developed using [uv](https://docs.astral.sh/uv/getting-started/installation/)
-and it's recommended that users use UV for the best install experience:
+and it's recommended that users use uv for the best install experience:
 
 ```bash
 uv venv --python=3.12
@@ -356,7 +356,7 @@ pip install earth2studio[statistics]
 :::::
 ::::::
 
-## Install All Optional Dependencies
+### Install All Optional Dependencies
 
 In Earth2Studio, it's suggested that users pick and choose the optional dependencies that
 are needed for their use case.
