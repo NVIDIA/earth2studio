@@ -24,7 +24,7 @@ pip install earth2studio
 ## Install using UV (Recommended)
 
 This package is developed using [uv](https://docs.astral.sh/uv/getting-started/installation/)
-and its recommended that users use UV for the best install experience:
+and it's recommended that users use UV for the best install experience:
 
 ```bash
 uv venv --python=3.12
@@ -37,7 +37,7 @@ To install the latest main branch version of Earth2Studio:
 
 ```bash
 git clone https://github.com/NVIDIA/earth2studio.git
-cd earth2-inference-studio
+cd earth2studio
 pip install .
 ```
 
@@ -77,7 +77,6 @@ are included but have limited support.
 
 Some data sources require additional dependencies, libraries or specific Python versions
 to install.
-To install all dependencies
 
 ::::{tab-set}
 :::{tab-item} uv
@@ -317,12 +316,56 @@ pip install earth2studio[precip-afno]
 :::::
 ::::::
 
+### Perturbation Dependencies
+
+Some perturbation methods sources require additional dependencies, libraries or specific
+Python versions to install.
+
+::::{tab-set}
+:::{tab-item} uv
+
+```bash
+uv pip install earth2studio --extra perturbation
+```
+
+:::
+:::{tab-item} pip
+
+```bash
+pip install earth2studio[perturbation]
+```
+
+:::
+::::
+
+### Statistics Dependencies
+
+Some statistics methods sources require additional dependencies, libraries or specific
+Python versions to install.
+
+::::{tab-set}
+:::{tab-item} uv
+
+```bash
+uv pip install earth2studio --extra statistics
+```
+
+:::
+:::{tab-item} pip
+
+```bash
+pip install earth2studio[statistics]
+```
+
+:::
+::::
+
 ## Install All Optional Dependencies
 
-In Earth2Studio, its suggested that users pick and choose the optional dependencies that
+In Earth2Studio, it's suggested that users pick and choose the optional dependencies that
 are needed for their use case.
 Installing everything at once and for all models is only expected to work in a few
-golden environments and may not include support for every model depending on conflicts.
+specific environments and may not include support for every model depending on conflicts.
 To install a best effort all optional dependencies group, use the following:
 
 ::::{tab-set}
@@ -339,10 +382,22 @@ uv pip install earth2studio --extra all
 
 # Environments
 
-For the best experience we recommend creating a fresh environment whether that be using
-a Docker container or a Conda environment.
-Below are some recipes for creating a handful of environments that we recommend for
-setting up Earth2Studio to run all build in models.
+For the best experience, we recommend creating a fresh environment whether that be using
+uv, a Docker container or even a Conda environment.
+Below are some recipes for creating a handful of environments for setting up
+Earth2Studio in an isolated enviroment.
+For developer environments, please refer to the {ref}`developer_overview`..
+
+## uv Virtual Environment
+
+Using uv is the recommend way to set up a Python enviroment for Earth2Studio.
+Assuming [uv is installed](https://docs.astral.sh/uv/getting-started/installation/), use
+the following commands:
+
+```bash
+uv venv --python=3.12
+uv pip install earth2studio --extra all
+```
 
 ## PhysicsNeMo Docker Container
 
@@ -370,34 +425,57 @@ RUN pip install earth2studio[all]
 
 ## PyTorch Docker Container
 
-PhysicsNeMo docker container is shipped with some packages that are not directly needed by
-Earth2Studio.
-Thus, some may prefer to install from the [PyTorch container](https://catalog.ngc.nvidia.com/orgs/nvidia/containers/pytorch).
-Note that for ONNX models to work we will need a [specific install](https://onnxruntime.ai/docs/install/#install-onnx-runtime-ort-1):
+For a docker environment the [Nvidia PyTorch container](https://catalog.ngc.nvidia.com/orgs/nvidia/containers/pytorch)
+provides a good base.
 
 ```bash
-docker run -i -t nvcr.io/nvidia/pytorch:25.02-py3
+docker run -i -t nvcr.io/nvidia/pytorch:25.03-py3
 
->>> pip install "makani[all] @ git+https://github.com/NickGeneva/modulus-makani.git@3da09f9e52a6393839d73d44262779ac7279bc2f"
+>>> unset PIP_CONSTRAINT
+>>> curl -LsSf https://astral.sh/uv/install.sh | sh
+>>> uv venv --python=3.12
+>>> uv pip install earth2studio --extra all
+```
 
->>> pip install earth2studio[all]
+## Custom Container
+
+For a dedicated docker container the following can be used to get started.
+There is some complexity to undo the pip constraints from the PyTorch container, but
+otherwise the install process is the same.
+
+```dockerfile
+FROM nvcr.io/nvidia/pytorch:25.03-py3
+COPY --from=ghcr.io/astral-sh/uv:0.6.13 /uv /uvx /bin/
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    make \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Disable contraint files in the container
+ENV PIP_CONSTRAINT=
+
+RUN uv venv --python=3.12 && uv pip install earth2studio --extra all
 ```
 
 ## Conda Environment
 
-For instances where Docker is not an option, we recommend creating a Conda environment.
-Ensuring the PyTorch is running on your GPU is essential, make sure you are [installing](https://pytorch.org/get-started/locally/)
-the correct PyTorch for your hardware and CUDA is accessible.
+It is no longer recommend to use any conda enviroment manager for Earth2Studio in favor
+of uv.
+This is because the virtual enviroments set up by uv make the system-wide conda
+environments not needed.
+However this demonstrates that in principle Earth2Studio can be installed using standard
+package tooling.
 
 ```bash
 conda create -n earth2studio python=3.12
 conda activate earth2studio
 
-pip install torch
-conda install eccodes python-eccodes -c conda-forge
-pip install "makani[all] @ git+https://github.com/NickGeneva/modulus-makani.git@3da09f9e52a6393839d73d44262779ac7279bc2f"
-
-pip install earth2studio[all]
+pip install earth2studio
+# Manually follow up with optional dependencies needed [all] will not work
 ```
 
 (configuration_userguide)=
@@ -405,7 +483,7 @@ pip install earth2studio[all]
 # Configuration
 
 Earth2Studio uses a few environment variables to configure various parts of the package.
-The import ones are:
+The important ones are:
 
 - `EARTH2STUDIO_CACHE`: The location of the cache used for Earth2Studio. This is a file
 path where things like models and cached data from data sources will be stored.

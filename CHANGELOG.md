@@ -28,7 +28,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Dependencies
 
 - Migrated repo / package to uv package manager
-- Removed physics-nemo, torch harmonics from base packages
+- Removed physics-nemo, torch harmonics from base packages to enable CPU install
 - Added optional dependency groups for all models
 - Added optional dependency groups for other submodules
 - Added docuementation for build, install and package management for developers
