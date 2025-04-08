@@ -35,7 +35,7 @@ from earth2studio.models.batch import batch_coords, batch_func
 from earth2studio.models.px.base import PrognosticModel
 from earth2studio.models.px.utils import PrognosticMixin
 from earth2studio.models.utils import create_ort_session
-from earth2studio.utils import handshake_coords, handshake_dim
+from earth2studio.utils import check_extra_imports, handshake_coords, handshake_dim
 from earth2studio.utils.type import CoordSystem, TimeArray
 
 VARIABLES = [
@@ -112,6 +112,7 @@ VARIABLES = [
 ]
 
 
+@check_extra_imports("fuxi", [ort])
 class FuXi(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     """FuXi weather model consists of three auto-regressive U-net transfomer models with
     a time-step size of 6 hours. The three models are trained to predict short (5days),
@@ -256,6 +257,7 @@ class FuXi(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         )
 
     @classmethod
+    @check_extra_imports("fuxi", [ort])
     def load_model(
         cls,
         package: Package,
