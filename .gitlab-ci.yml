@@ -90,6 +90,9 @@ pytest:
 
 coverage:
   stage: report
+  needs:
+    - job: pytest
+      artifacts: true
   tags:
   - docker
   extends:
