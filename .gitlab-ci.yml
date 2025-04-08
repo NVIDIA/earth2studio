@@ -120,8 +120,4 @@ include:
 
   - project: 'modulus/modulus-ci'
     ref: ngeneva/studio-reamped
-    file: '.gitlab-ci/uv.gitlab-ci.yml'
-
-  - project: 'modulus/modulus-ci'
-    ref: ngeneva/studio-reamped
     file: '.gitlab-ci/earth2/studio/test.gitlab-ci.yml'
