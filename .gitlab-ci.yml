@@ -39,7 +39,6 @@ format:
   tags:
   - docker
   extends:
-    - .physicsnemo:gitlab:uv
     - .earth2studio:test:base
   script:
     - ls
@@ -51,7 +50,6 @@ lint:
   tags:
   - docker
   extends:
-    - .physicsnemo:gitlab:uv
     - .earth2studio:test:base
   script:
     - make setup-ci
@@ -64,7 +62,6 @@ pytest:
   tags:
   - docker
   extends:
-    - .physicsnemo:gitlab:uv
     - .earth2studio:test:base
   script:
     - make install
