@@ -22,7 +22,7 @@ from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.px.base import PrognosticModel
 from earth2studio.models.px.utils import PrognosticMixin
 from earth2studio.utils.type import CoordSystem
-from inference.arcolocal import ARCOLocalLexicon
+from earth2studio.lexicon.arco import ARCOLexicon
 
 VARIABLES = [
     "t2m",
@@ -347,7 +347,7 @@ class GraphCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         )
 
         dataset = dataset.rename(
-            {key: ARCOLocalLexicon.INV_VOCAB[key] for key in dataset.data_vars}
+            {key: ARCOLexicon.INV_VOCAB[key] for key in dataset.data_vars}
         )
 
         dataarray = (
