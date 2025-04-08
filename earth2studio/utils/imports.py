@@ -23,13 +23,14 @@ F = TypeVar("F", bound=Callable[..., Any])
 C = TypeVar("C", bound=type[Any])
 
 
-class OptionalDependencyError(ImportError):
-    """Custom error for missing optional dependencies."""
+class ExtraDependencyError(ImportError):
+    """Custom error for missing extra dependencies."""
 
     def __init__(self, extra_name: str, obj_name: str):
         super().__init__(
-            f"Optional dependency group '{extra_name}' is required for {obj_name}.\n"
-            f"Install with: uv pip install earth2studio --extra {extra_name}"
+            f"Extra dependency group '{extra_name}' is required for {obj_name}.\n"
+            f"Install with: uv pip install earth2studio --extra {extra_name} \n"
+            f"or refer to the install documentation."
         )
 
 
@@ -56,9 +57,9 @@ def check_extra_imports(
             # If package is a string (module path like module.submodule), check if the
             #  module is available.
             if isinstance(pkg, str) and find_spec(pkg) is None:
-                raise OptionalDependencyError(extra_name, obj_name)
+                raise ExtraDependencyError(extra_name, obj_name)
             elif pkg is None:
-                raise OptionalDependencyError(extra_name, obj_name)
+                raise ExtraDependencyError(extra_name, obj_name)
 
     def _decorator(obj: F | C) -> F | C:
         if isinstance(obj, type):

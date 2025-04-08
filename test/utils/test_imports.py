@@ -18,7 +18,7 @@ import json as js
 
 import pytest
 
-from earth2studio.utils.imports import OptionalDependencyError, check_extra_imports
+from earth2studio.utils.imports import ExtraDependencyError, check_extra_imports
 
 
 @pytest.mark.parametrize(
@@ -36,7 +36,7 @@ def test_extra_check_function(package_obj, should_raise):
         return 1993
 
     if should_raise:
-        with pytest.raises(OptionalDependencyError) as exc_info:
+        with pytest.raises(ExtraDependencyError) as exc_info:
             func()
             assert "test-group" in str(exc_info.value)
             assert "func" in str(exc_info.value)
@@ -60,7 +60,7 @@ def test_extra_check_class(package_obj, should_raise):
             self.value = 1993
 
     if should_raise:
-        with pytest.raises(OptionalDependencyError) as exc_info:
+        with pytest.raises(ExtraDependencyError) as exc_info:
             TestClass()
             assert "test-group" in str(exc_info.value)
             assert "TestClass" in str(exc_info.value)
@@ -84,7 +84,7 @@ def test_extra_check_multiple(package_objs, should_raise):
         return 1993
 
     if should_raise:
-        with pytest.raises(OptionalDependencyError) as exc_info:
+        with pytest.raises(ExtraDependencyError) as exc_info:
             func()
             assert "test-group" in str(exc_info.value)
             assert "func" in str(exc_info.value)
