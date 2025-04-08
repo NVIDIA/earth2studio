@@ -183,7 +183,7 @@ io_perturbed = ensemble(
 #
 # Notice that the Zarr IO function has additional APIs to interact with the stored data.
 
-#%%
+# %%
 import cartopy.crs as ccrs
 import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm

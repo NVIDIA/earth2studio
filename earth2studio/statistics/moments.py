@@ -262,9 +262,7 @@ class variance:
             else:
                 delta = self.sum * temp_n / self.n - temp_sum
                 self.sum += temp_sum
-                self.sum2 += (
-                    temp_sum2 + self.n / temp_n / (self.n + temp_n) * delta**2
-                )
+                self.sum2 += temp_sum2 + self.n / temp_n / (self.n + temp_n) * delta**2
                 self.n += temp_n
 
             return (
