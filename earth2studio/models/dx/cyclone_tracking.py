@@ -1081,22 +1081,36 @@ def get_next_position(
         return (None, None, None, None)
 
 
-if __name__ == "__main__":
+def run_example() -> None:
+    """Demonstrates the functionality of the CycloneTracking model by running it on a sample dataset and
+    connecting the identified tropical cyclone positions to tracks."""
+    import pandas as pd
+
     from earth2studio.data import GFS, prep_data_array
 
-    CT = CycloneTrackingVorticity()
+    # Initialize the CycloneTracking model
+    CT = CycloneTracking()
 
-    time = np.array(
-        [
-            np.datetime64("2023-08-29T00:00:00"),
-            np.datetime64("2024-06-30T00:00:00"),
-            np.datetime64("2024-07-04T00:00:00"),
-        ]
-    )
-    variable = CT.input_coords()["variable"]
+    # Define the timestamps to analyze
+    time = np.array(pd.date_range("2024-08-26", "2024-08-29", freq="6H"))
 
+    # Load the required weather data from GFS analysis
     gfs = GFS()
+    variable = CT.input_coords()["variable"]
     da = gfs(time, variable)
-    x, coords = prep_data_array(da, device="cpu")
+    x, coords = prep_data_array(da)
+
+    # Run the tropical cyclone tracker
     y, c = CT(x, coords)
-    print(1)
+
+    # Connect positions to tracks
+    df_tracks = get_tracks_from_positions(
+        y, c, min_length=3, search_radius_km=250, max_skips=1
+    )
+
+    # Display the tracks DataFrame
+    print(df_tracks)
+
+
+if __name__ == "__main__":
+    run_example()
