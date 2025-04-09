@@ -112,6 +112,11 @@ corrdiff = [
     "nvtx>=0.2.11",
     "scipy>=1.15.2",
 ]
+cyclone = [
+    "cucim>=23.10.0",
+    "cupy>=13.4.1",
+    "scikit-image>=0.25.2",
+]
 precip-afno = [
     "nvidia-physicsnemo>=1.0.1",
 ]
@@ -119,7 +124,7 @@ precip-afno = [
 all = [
     "earth2studio[data,perturbation,statistics]",
     "earth2studio[aurora-fork,dlwp,fcn,fengwu,pangu,sfno,stormcast]",
-    "earth2studio[climatenet,corrdiff,precip-afno]",
+    "earth2studio[climatenet,corrdiff,precip-afno,cyclone]",
 ]
 
 # ==== UV configuration ====

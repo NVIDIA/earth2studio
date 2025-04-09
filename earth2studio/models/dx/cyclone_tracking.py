@@ -17,15 +17,26 @@
 from collections import OrderedDict
 from typing import Any
 
-import cupy as cp
+try:
+    import cupy as cp
+    from cucim.skimage.feature import peak_local_max as cucim_peak_local_max
+    from cucim.skimage.measure import label, regionprops
+    from cucim.skimage.morphology import binary_erosion, remove_small_objects
+    from skimage.feature import peak_local_max as skimage_peak_local_max
+    from skimage.morphology import convex_hull_image
+except ImportError:
+    cp = None
+    cucim_peak_local_max = None
+    label = None
+    regionprops = None
+    binary_erosion = None
+    remove_small_objects = None
+    skimage_peak_local_max = None
+    convex_hull_image = None
+
 import numpy as np
 import torch
-from cucim.skimage.feature import peak_local_max as cucim_peak_local_max
-from cucim.skimage.measure import label, regionprops
-from cucim.skimage.morphology import binary_erosion, remove_small_objects
 from pandas import DataFrame
-from skimage.feature import peak_local_max as skimage_peak_local_max
-from skimage.morphology import convex_hull_image
 
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_coords, batch_func
@@ -34,6 +45,7 @@ from earth2studio.utils import (
     handshake_coords,
     handshake_dim,
 )
+from earth2studio.utils.imports import check_extra_imports
 from earth2studio.utils.type import CoordSystem
 
 VARIABLES_TC = [
@@ -49,12 +61,11 @@ VARIABLES_TC = [
     "t250",
     "t200",
 ]
-
 VARIABLES_TCV = ["u850", "v850", "u10m", "v10m", "msl"]
-
 OUT_VARIABLES = ["tc_lat", "tc_lon", "tc_msl", "tc_w10m"]
 
 
+@check_extra_imports("cyclone", ["cupy", "cucim", "skimage"])
 class CycloneTrackingVorticity(torch.nn.Module, AutoModelMixin):
     """Finds a list of tropical cyclone centers using an adaption of the method
     described in the conditions in Wu and Duan 2023. The algorithm converts vorticity
@@ -262,6 +273,7 @@ class CycloneTrackingVorticity(torch.nn.Module, AutoModelMixin):
             return x
 
     @classmethod
+    @check_extra_imports("cyclone", ["cupy", "cucim", "skimage"])
     def load_model(cls, package: Package) -> DiagnosticModel:
         """Load diagnostic from package"""
         return cls()
@@ -332,6 +344,7 @@ class CycloneTrackingVorticity(torch.nn.Module, AutoModelMixin):
         return out_tensor, output_coords
 
 
+@check_extra_imports("cyclone", ["cupy", "cucim", "skimage"])
 class CycloneTracking(torch.nn.Module, AutoModelMixin):
     """Finds a list of tropical cyclone centers using the conditions
     in Vitart 1997
@@ -590,6 +603,7 @@ class CycloneTracking(torch.nn.Module, AutoModelMixin):
         return output_coords
 
     @classmethod
+    @check_extra_imports("cyclone", ["cupy", "cucim", "skimage"])
     def load_model(cls, package: Package) -> DiagnosticModel:
         """Load diagnostic from package"""
 
