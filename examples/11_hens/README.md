@@ -112,11 +112,9 @@ forecast_model:
 
 ### Diagnostic Models
 
-Key points about diagnostic models:
-
-- Multiple diagnostic models possible
-- Order has to be correct, like in this example (@Marius: verify!)
-- These models will be applied on forecast data and augment list of variables
+Diagnostic models can augment the generated data by deriving additional variables
+from the forecast model output. Multiple diagnostic models can be integrated into
+the pipeline, with their order of application being crucial for correct computation.
 
 ```yaml
 diagnostic_models:
@@ -128,20 +126,35 @@ diagnostic_models:
         architecture: earth2studio.models.dx.PrecipitationAFNO
 ```
 
+### IC Data Source
+
+The IC data source configuration determines where the pipeline retrieves
+its input data. Earth2studio supports various data sources, including
+common online repositories and on-prem solutions. Users can also implement
+custom data sources to meet specific requirements.
+
+```yaml
+data_source:
+    _target_: earth2studio.data.NCAR_ERA5
+```
+
 ### IC Perturbation
 
-- Configuration of the perturbation on the example of the HENS perturbation
-with settings provided in the publication
-- blah
+The pipeline supports various perturbation methods for initial conditions.
+While this example demonstrates the HENS perturbation configuration, any
+perturbation method can be implemented. Note that some perturbation methods
+require runtime information that is only available during pipeline execution.
+In such cases, set `_partial_` to `True` and complete the instantiation within
+the Python script.
 
 ```yaml
 perturbation:
     _target_: hens_perturbation.HENSPerturbation
     _partial_: True
     skill_path: '/path/to/channel/specific/skill.nc' # downloaded in section 2
-    noise_amplification: .35
-    perturbed_var: 'z500'
-    integration_steps: 3
+    noise_amplification: .35  # scaling amplitude of noise vector
+    perturbed_var: 'z500'     # variable to perturb in seeding step
+    integration_steps: 3      # vector breeding steps
 ```
 
 ### Tropical Cyclone Tracking
@@ -154,10 +167,25 @@ cyclone_tracking:
     out_dir: './outputs'
 ```
 
-## 4. Executing the pipeline
+### Writing Fields to Disk
 
-- Sequentially
-- In parallel
+- crop output in lat/lon boxes
+
+```yaml
+file_output:
+    path: './outputs'  # directory to which files are written
+    output_vars: ["t2m", 'u10m', 't850', 'z500'] # variables to write out
+    format:               # io backend class
+        _target_: earth2studio.io.KVBackend
+    cropboxes:
+        gulf_of_mexico:
+            lat_min: 10
+            lat_max: 40
+            lon_min: 250
+            lon_max: 310
+```
+
+## 4. Executing the pipeline
 
 The method described in [Huge Ensembles Part I][hens-paper] can be recovered by
 using the `HemisphericCentredBredVector` perturbation.

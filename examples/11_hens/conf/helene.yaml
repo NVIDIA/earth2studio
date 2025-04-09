@@ -19,7 +19,7 @@ perturbation:
     integration_steps: 3
 
 data_source:
-    _target_: earth2studio.data.GFS  # data source class
+    _target_: earth2studio.data.ARCO  # data source class
 
 cyclone_tracking:
     out_dir: './outputs'
