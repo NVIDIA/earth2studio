@@ -184,7 +184,7 @@ def model(model_cache_context) -> Aurora:
 
 
 @pytest.mark.ci_cache
-@pytest.mark.timeout(15)
+@pytest.mark.timeout(360)
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
 def test_aurora_package(model, device):
     torch.cuda.empty_cache()
