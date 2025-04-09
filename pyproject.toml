@@ -1,16 +1,16 @@
 [build-system]
-requires = ["setuptools", "setuptools-scm"]
-build-backend = "setuptools.build_meta"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
 [project]
 name = "earth2studio"
 authors = [
-  { name="NVIDIA PhysicsNeMo Team"},
+  { name="NVIDIA PhysicsNeMo Team" },
 ]
 description = "Open-source deep-learning framework for exploring, building and deploying AI weather/climate workflows."
 readme = "README.md"
 requires-python = ">=3.10"
-license = {text = "Apache 2.0"}
+license = "Apache-2.0"
 dependencies = [
     "cfgrib >= 0.9.10.3",
     "cftime",
@@ -19,17 +19,13 @@ dependencies = [
     "h5py>=3.2.0",
     "h5netcdf>=1.0.0",
     "huggingface-hub>=0.4.0",
-    "importlib_metadata",
     "loguru",
     "netCDF4>=1.6.4",
     "ngcsdk>=3.55.0",
-    "numpy>=1.24.0",
-    "nvidia-physicsnemo>=1.0.0",
+    "nest_asyncio", # TODO Remove
     "python-dotenv",
     "s3fs>=2023.5.0",
-    "setuptools>=67.6.0",
     "torch>=2.5.0",
-    "torch-harmonics>=0.7.3",
     "tqdm>=4.65.0",
     "xarray[parallel]>=2023.1.0",
     "zarr>=2.14.2",
@@ -61,73 +57,119 @@ Changelog = "https://github.com/NVIDIA/earth2studio/blob/main/CHANGELOG.md"
 
 [project.optional-dependencies]
 data = [
-    "cdsapi >= 0.7.4",
+    "cdsapi>=0.7.5",
     "eccodes>=2.38.0",
     "ecmwf-opendata>=0.3.3",
     "herbie-data",
-    "nest_asyncio",
+]
+perturbation = [
+    "torch-harmonics>=0.7.4",
+]
+statistics = [
+    "nvidia-physicsnemo>=1.0.1",
+]
+# PX Models
+aurora = [
+    "microsoft-aurora>=1.5.0",
+]
+aurora-fork = [
+    "microsoft-aurora", # optional fork install without timm package version conflict
+]
+dlwp = [
+    "nvidia-physicsnemo>=1.0.1",
+]
+fcn = [
+    "nvidia-physicsnemo>=1.0.1",
 ]
 fengwu = [
-    "onnxruntime-gpu",
-]
-fuxi = [
-    "onnxruntime-gpu",
+    "onnxruntime-gpu>=1.21.0",
 ]
 pangu = [
-    "onnxruntime-gpu",
+    "onnxruntime-gpu>=1.21.0",
 ]
 sfno = [
-    # makani needs to be installed manually
-    # "makani[all] @ git+https://github.com/NickGeneva/modulus-makani.git@3da09f9e52a6393839d73d44262779ac7279bc2f",
-    "jsbeautifier", # makani
-    "numba", # makani
-    "pynvml", # makani
-    "ruamel.yaml", # makani
-    "torch-harmonics>=0.7.3", # makani
-    "tensorly", # makani
-    "tensorly-torch" # makani
-]
-aurora = [
-    # install fork of aurora with timm update
-    # "microsoft-aurora @ git+https://github.com/ivanauyeung/aurora.git@ab41cf1de67d5dcc723b96fc9a6219e4b548d181"
-    # "microsoft-aurora",
-    # "timm==0.6.13",
+    "jsbeautifier>=1.15.4",
+    "makani[all]",
+    "numba>=0.61.0",
+    "pynvml>=12.0.0",
+    "ruamel-yaml>=0.18.10",
+    "tensorly>=0.9.0",
+    "tensorly-torch>=0.5.0",
+    "torch-harmonics>=0.7.4",
 ]
 stormcast = [
-    "omegaconf",
-    "nvtx",
-    "einops",
-    "scipy",
+    "einops>=0.8.1",
+    "nvidia-physicsnemo>=1.0.1",
+    "nvtx>=0.2.11",
+    "omegaconf>=2.3.0",
+    "scipy>=1.15.2",
 ]
+# DX Models
+climatenet = []
 corrdiff = [
-    "einops>=0.7.0",
-    "nvtx",
-    "scipy",
+    "einops>=0.8.1",
+    "nvidia-physicsnemo>=1.0.1",
+    "nvtx>=0.2.11",
+    "scipy>=1.15.2",
 ]
+cyclone = [
+    "cucim>=23.10.0",
+    "cupy>=13.4.1",
+    "scikit-image>=0.25.2",
+]
+precip-afno = [
+    "nvidia-physicsnemo>=1.0.1",
+]
+# All, must not have conflicts
 all = [
-    "cdsapi >= 0.7.4",
-    "cfgrib >= 0.9.10.3",
-    "eccodes>=2.38.0",
-    "ecmwf-opendata>=0.3.3",
-    "herbie-data",
-    "onnxruntime-gpu",
-    "jsbeautifier",
-    "nest_asyncio",
-    "numba",
-    "pynvml",
-    "ruamel.yaml",
-    "torch-harmonics>=0.7.3",
-    "tensorly",
-    "tensorly-torch",
-    "einops>=0.7.0",
-    "omegaconf",
-    "nvtx",
-    "scipy",
+    "earth2studio[data,perturbation,statistics]",
+    "earth2studio[aurora-fork,dlwp,fcn,fengwu,pangu,sfno,stormcast]",
+    "earth2studio[climatenet,corrdiff,precip-afno,cyclone]",
 ]
+
+# ==== UV configuration ====
+[tool.uv]
+conflicts = [
+    [
+      { extra = "aurora" },
+      { extra = "dlwp" },
+    ],
+    [
+      { extra = "aurora" },
+      { extra = "fcn" },
+    ],
+    [
+      { extra = "aurora" },
+      { extra = "sfno" },
+    ],
+    [
+      { extra = "aurora" },
+      { extra = "stormcast" },
+    ],
+    [
+      { extra = "aurora" },
+      { extra = "corrdiff" },
+    ],
+    [
+      { extra = "aurora" },
+      { extra = "precip-afno" },
+    ],
+    [
+      { extra = "aurora" },
+      { extra = "aurora-fork" },
+    ],
+]
+
+[tool.uv.sources]
+makani = { git = "https://github.com/NickGeneva/modulus-makani.git", rev = "3da09f9e52a6393839d73d44262779ac7279bc2f" }
+microsoft-aurora = { git = "https://github.com/NickGeneva/aurora", rev = "ab41cf1de67d5dcc723b96fc9a6219e4b548d181" }
+
+[dependency-groups]
 dev = [
-    "black==22.10.0",
-    "coverage>=6.5.0", # TODO: Bump back to 7.2.0 with next version of ngcsdk
-    "interrogate==1.5.0",
+    "black==24.1.0",
+    "coverage>=6.5.0",
+    "interrogate>=1.5.0",
+    "hatch>=1.14.0",
     "mypy",
     "pre-commit",
     "pytest>=6.0.0",
@@ -135,7 +177,7 @@ dev = [
     "pytest-skip-slow>=0.0.5",
     "pyyaml>=6.0",
     "types-requests",
-    "ruff==0.1.5",
+    "ruff",
 ]
 docs = [
     "cartopy",
@@ -152,12 +194,14 @@ docs = [
     "pydata-sphinx-theme==0.15.2",
 ]
 
-[tool.setuptools.dynamic]
-version = {attr = "earth2studio.__version__"}
+[tool.hatch.version]
+path = "earth2studio/__init__.py"
 
-[tool.setuptools.packages.find]
-include = ["earth2studio", "earth2studio.*"]
+[tool.hatch.build.targets.sdist]
+include = ["earth2studio/**/*.py"]
+exclude = []
 
+# ==== Ruff configuration ====
 [tool.ruff]
 # Enable flake8/pycodestyle (`E`), Pyflakes (`F`), flake8-bandit (`S`),
 # isort (`I`), and performance 'PERF' rules.
@@ -180,6 +224,7 @@ exclude = []
 # Ignore `S101` (assertions) in all `test` files.
 "test/*.py" = ["S101"]
 
+# ==== Pytest configuration ====
 [tool.pytest.ini_options]
 testpaths = ["test"]
 norecursedirs = [".git", "third_party"]
@@ -222,6 +267,7 @@ fail_under = 75
 [tool.coverage.xml]
 output = "e2studio.coverage.xml"
 
+# ==== Interrogate configuration ====
 [tool.interrogate]
 ignore-init-method = true
 ignore-init-module = true

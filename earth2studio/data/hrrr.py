@@ -27,7 +27,6 @@ import s3fs
 import xarray as xr
 from fsspec.implementations.cached import WholeFileCacheFileSystem
 from loguru import logger
-from physicsnemo.distributed.manager import DistributedManager
 from tqdm import tqdm
 
 from earth2studio.data.utils import (
@@ -36,12 +35,14 @@ from earth2studio.data.utils import (
     prep_forecast_inputs,
 )
 from earth2studio.lexicon import HRRRFXLexicon, HRRRLexicon
+from earth2studio.utils.imports import check_extra_imports
 from earth2studio.utils.type import LeadTimeArray, TimeArray, VariableArray
 
 logger.remove()
 logger.add(lambda msg: tqdm.write(msg, end=""), colorize=True)
 
 
+@check_extra_imports("data", ["herbie"])
 class _HRRRBase:
 
     HRRR_BUCKET_NAME = "noaa-hrrr-bdp-pds"
@@ -257,11 +258,7 @@ class _HRRRBase:
         """Return appropriate cache location."""
         cache_location = os.path.join(datasource_cache_root(), "hrrr")
         if not self._cache:
-            if not DistributedManager.is_initialized():
-                DistributedManager.initialize()
-            cache_location = os.path.join(
-                cache_location, f"tmp_{DistributedManager().rank}"
-            )
+            cache_location = os.path.join(cache_location, "tmp_hrrr")
         return cache_location
 
     @classmethod

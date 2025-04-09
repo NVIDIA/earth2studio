@@ -60,6 +60,8 @@ etc.
 
    models.dx.CorrDiffTaiwan
    models.dx.ClimateNet
+   models.dx.CycloneTracking
+   models.dx.CycloneTrackingVorticity
    models.dx.PrecipitationAFNO
    models.dx.Identity
 

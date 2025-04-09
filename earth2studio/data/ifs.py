@@ -27,18 +27,19 @@ except ImportError:
 import numpy as np
 import xarray as xr
 from loguru import logger
-from physicsnemo.distributed.manager import DistributedManager
 from s3fs.core import S3FileSystem
 from tqdm import tqdm
 
 from earth2studio.data.utils import datasource_cache_root, prep_data_inputs
 from earth2studio.lexicon import IFSLexicon
+from earth2studio.utils import check_extra_imports
 from earth2studio.utils.type import TimeArray, VariableArray
 
 logger.remove()
 logger.add(lambda msg: tqdm.write(msg, end=""), colorize=True)
 
 
+@check_extra_imports("data", [opendata])
 class IFS:
     """The integrated forecast system (IFS) initial state data source provided on an
     equirectangular grid. This data is part of ECMWF's open data project on AWS. This
@@ -246,11 +247,7 @@ class IFS:
         """Get the appropriate cache location."""
         cache_location = os.path.join(datasource_cache_root(), "ifs")
         if not self._cache:
-            if not DistributedManager.is_initialized():
-                DistributedManager.initialize()
-            cache_location = os.path.join(
-                cache_location, f"tmp_{DistributedManager().rank}"
-            )
+            cache_location = os.path.join(cache_location, "tmp_ifs")
         return cache_location
 
     @classmethod
