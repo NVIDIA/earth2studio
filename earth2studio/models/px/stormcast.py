@@ -23,12 +23,13 @@ import numpy as np
 import torch
 import xarray as xr
 import zarr
-from physicsnemo.models import Module
 
 try:
     from omegaconf import OmegaConf
+    from physicsnemo.models import Module as PhysicsNemoModule
     from physicsnemo.utils.generative import deterministic_sampler
 except ImportError:
+    PhysicsNemoModule = None
     OmegaConf = None
     deterministic_sampler = None
 
@@ -38,6 +39,7 @@ from earth2studio.models.batch import batch_coords, batch_func
 from earth2studio.models.dx.base import DiagnosticModel
 from earth2studio.models.px.utils import PrognosticMixin
 from earth2studio.utils import (
+    check_extra_imports,
     handshake_coords,
     handshake_dim,
 )
@@ -74,13 +76,16 @@ X_START, X_END = 579, 1219
 Y_START, Y_END = 273, 785
 
 
+@check_extra_imports("stormcast", [OmegaConf, PhysicsNemoModule, deterministic_sampler])
 class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     """StormCast generative convection-allowing model for regional forecasts consists of
     two core models: a regression and diffusion model. Model time step size is 1 hour,
     taking as input:
-        - High-resolution (3km) HRRR state over the central United States (99 vars)
-        - High-resolution land-sea mask and orography invariants
-        - Coarse resolution (25km) global state (26 vars)
+
+    - High-resolution (3km) HRRR state over the central United States (99 vars)
+    - High-resolution land-sea mask and orography invariants
+    - Coarse resolution (25km) global state (26 vars)
+
     The high-resolution grid is the HRRR Lambert conformal projection
     Coarse-resolution inputs are regridded to the HRRR grid internally.
 
@@ -239,14 +244,11 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         return package
 
     @classmethod
+    @check_extra_imports(
+        "stormcast", [OmegaConf, PhysicsNemoModule, deterministic_sampler]
+    )
     def load_model(cls, package: Package) -> DiagnosticModel:
         """Load StormCast model."""
-
-        if OmegaConf is None or deterministic_sampler is None:
-            raise ImportError(
-                "Additional StormCast model dependencies are not installed. See install documentation for details."
-            )
-
         try:
             OmegaConf.register_new_resolver("eval", eval)
         except ValueError:
@@ -256,8 +258,12 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         # load model registry:
         config = OmegaConf.load(package.resolve("model.yaml"))
 
-        regression = Module.from_checkpoint(package.resolve("StormCastUNet.0.0.mdlus"))
-        diffusion = Module.from_checkpoint(package.resolve("EDMPrecond.0.0.mdlus"))
+        regression = PhysicsNemoModule.from_checkpoint(
+            package.resolve("StormCastUNet.0.0.mdlus")
+        )
+        diffusion = PhysicsNemoModule.from_checkpoint(
+            package.resolve("EDMPrecond.0.0.mdlus")
+        )
 
         # Load metadata: means, stds, grid
         store = zarr.storage.ZipStore(package.resolve("metadata.zarr.zip"), mode="r")

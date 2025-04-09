@@ -165,12 +165,12 @@ class NCAR_ERA5:
         pattern = "s3://nsf-ncar-era5/e5.oper.an.{lvl}/{y}{m:02}/{spec}.{y}{m:02}{d:02}00_{y}{m:02}{dend:02}23.nc"
 
         tasks = []  # group tasks by S3 object
-        times_by_day: dict[
-            date, list[datetime]
-        ] = {}  # pressure-level variables are in daily files
-        times_by_month: dict[
-            date, list[datetime]
-        ] = {}  # surface-level variables are in monthly files
+        times_by_day: dict[date, list[datetime]] = (
+            {}
+        )  # pressure-level variables are in daily files
+        times_by_month: dict[date, list[datetime]] = (
+            {}
+        )  # surface-level variables are in monthly files
         for dt in times:
             times_by_day.setdefault(dt.date(), []).append(dt)
             times_by_month.setdefault(dt.date().replace(day=1), []).append(dt)
@@ -301,7 +301,9 @@ class NCAR_ERA5:
     @property
     def cache(self) -> str:
         """Return appropriate cache location."""
-        cache_path = os.path.join(datasource_cache_root(), "ncar_era5")
-        if not os.path.exists(cache_path):
-            os.makedirs(cache_path, exist_ok=True)
-        return cache_path
+        cache_location = os.path.join(datasource_cache_root(), "ncar_era5")
+        if not self._cache:
+            cache_location = os.path.join(cache_location, "tmp_ncar_era5")
+        if not os.path.exists(cache_location):
+            os.makedirs(cache_location, exist_ok=True)
+        return cache_location

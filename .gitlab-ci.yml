@@ -1,5 +1,6 @@
 stages:
   - clone
+  - setup
   - lint
   - test
   - report
@@ -34,37 +35,54 @@ gitlab-clone:
     - .physicsnemo:gitlab:pull
   image: bitnami/git
 
+setup:
+  stage: setup
+  tags:
+  - docker
+  extends:
+    - .earth2studio:setup:base
+  script:
+    - make setup-ci
+
 format:
   stage: lint
+  needs:
+    - job: setup
+      artifacts: false
   tags:
   - docker
   extends:
     - .earth2studio:test:base
   script:
     - ls
-    - make setup-ci
     - make format
 
 lint:
   stage: lint
+  needs:
+    - job: setup
+      artifacts: false
   tags:
   - docker
   extends:
     - .earth2studio:test:base
   script:
-    - make setup-ci
     - make interrogate
     - make lint
     - make license
 
 pytest:
   stage: test
+  needs:
+    - job: format
+      artifacts: false
+    - job: lint
+      artifacts: false
   tags:
   - docker
   extends:
     - .earth2studio:test:base
   script:
-    - make setup-ci
     - make install
     - make pytest 2>&1 | tee ../pytest.log.full
     - grep -A 9999 "=.*short test summary info.*=" ../pytest.log.full > ../blossom.log
@@ -72,6 +90,9 @@ pytest:
 
 coverage:
   stage: report
+  needs:
+    - job: pytest
+      artifacts: true
   tags:
   - docker
   extends:
