@@ -36,9 +36,7 @@ uv pip install earth2studio
 To install the latest main branch version of Earth2Studio:
 
 ```bash
-git clone https://github.com/NVIDIA/earth2studio.git
-cd earth2studio
-pip install .
+pip install "earth2studio @ git+https://github.com/NVIDIA/earth2studio"
 ```
 
 or if you are using uv:
@@ -90,9 +88,9 @@ other Earth2Studio dependiences, thus it is suggested to use the forked variant.
 
 ```bash
 # Patched fork
-uv pip install earth2studio --extra aurora-fork
+uv pip install earth2studio[aurora-fork]
 # Original package from msc
-uv pip install earth2studio --extra aurora
+uv pip install earth2studio[aurora]
 ```
 
 :::
@@ -110,7 +108,7 @@ pip install "microsoft-aurora @ git+https://github.com/NickGeneva/aurora.git@ab4
 :::{tab-item} uv
 
 ```bash
-uv pip install earth2studio --extra fcn
+uv pip install earth2studio[fcn]
 ```
 
 :::
@@ -131,7 +129,7 @@ manual install depending on CUDA version.
 :::{tab-item} uv
 
 ```bash
-uv pip install earth2studio --extra fengwu
+uv pip install earth2studio[fengwu]
 ```
 
 :::
@@ -152,7 +150,7 @@ manual install depending on CUDA version.
 :::{tab-item} uv
 
 ```bash
-uv pip install earth2studio --extra fuxi
+uv pip install earth2studio[fuxi]
 ```
 
 :::
@@ -173,7 +171,7 @@ manual install depending on CUDA version.
 :::{tab-item} uv
 
 ```bash
-uv pip install earth2studio --extra pangu
+uv pip install earth2studio[pangu]
 ```
 
 :::
@@ -194,7 +192,7 @@ installed manually.
 :::{tab-item} uv
 
 ```bash
-uv pip install earth2studio --extra sfno
+uv pip install earth2studio[sfno]
 ```
 
 :::
@@ -213,7 +211,7 @@ pip install earth2studio[sfno]
 :::{tab-item} uv
 
 ```bash
-uv pip install earth2studio --extra stormcast
+uv pip install earth2studio[stormcast]
 ```
 
 :::
@@ -239,7 +237,7 @@ completeness.
 :::{tab-item} uv
 
 ```bash
-uv pip install earth2studio --extra climatenet
+uv pip install earth2studio[climatenet]
 ```
 
 :::
@@ -259,7 +257,7 @@ Notes: Additional dependencies for all CorrDiff models.
 :::{tab-item} uv
 
 ```bash
-uv pip install earth2studio --extra corrdiff
+uv pip install earth2studio[corrdiff]
 ```
 
 :::
@@ -277,7 +275,7 @@ pip install earth2studio[corrdiff]
 :::{tab-item} uv
 
 ```bash
-uv pip install earth2studio --extra precip-afno
+uv pip install earth2studio[precip-afno]
 ```
 
 :::
@@ -305,7 +303,7 @@ These can be installed with a submodule wide install group:
 :::{tab-item} uv
 
 ```bash
-uv pip install earth2studio --extra data
+uv pip install earth2studio[data]
 ```
 
 :::
@@ -323,7 +321,7 @@ pip install earth2studio[data]
 :::{tab-item} uv
 
 ```bash
-uv pip install earth2studio --extra perturbation
+uv pip install earth2studio[perturbation]
 ```
 
 :::
@@ -341,7 +339,7 @@ pip install earth2studio[perturbation]
 :::{tab-item} uv
 
 ```bash
-uv pip install earth2studio --extra statistics
+uv pip install earth2studio[statistics]
 ```
 
 :::
@@ -368,7 +366,7 @@ To install a best effort all optional dependencies group, use the following:
 :::{tab-item} uv
 
 ```bash
-uv pip install earth2studio --extra all
+uv pip install earth2studio[all]
 ```
 
 :::
@@ -381,18 +379,18 @@ uv pip install earth2studio --extra all
 For the best experience, we recommend creating a fresh environment whether that be using
 uv, a Docker container or even a Conda environment.
 Below are some recipes for creating a handful of environments for setting up
-Earth2Studio in an isolated enviroment.
+Earth2Studio in an isolated environment.
 For developer environments, please refer to the {ref}`developer_overview`..
 
 ## uv Virtual Environment
 
-Using uv is the recommend way to set up a Python enviroment for Earth2Studio.
+Using uv is the recommend way to set up a Python environment for Earth2Studio.
 Assuming [uv is installed](https://docs.astral.sh/uv/getting-started/installation/), use
 the following commands:
 
 ```bash
 uv venv --python=3.12
-uv pip install earth2studio --extra all
+uv pip install earth2studio[all]
 ```
 
 ## PyTorch Docker Container
@@ -403,10 +401,11 @@ provides a good base.
 ```bash
 docker run -i -t nvcr.io/nvidia/pytorch:25.03-py3
 
+>>> apt-get update && apt-get install -y git make curl && rm -rf /var/lib/apt/lists/*
 >>> unset PIP_CONSTRAINT
 >>> curl -LsSf https://astral.sh/uv/install.sh | sh
 >>> uv venv --python=3.12
->>> uv pip install earth2studio --extra all
+>>> uv pip install earth2studio[all]
 ```
 
 ## Custom Container
@@ -430,14 +429,14 @@ WORKDIR /app
 # Disable contraint files in the container
 ENV PIP_CONSTRAINT=
 
-RUN uv venv --python=3.12 && uv pip install earth2studio --extra all
+RUN uv venv --python=3.12 && uv pip install earth2studio[all]
 ```
 
 ## Conda Environment
 
-It is no longer recommend to use any conda enviroment manager for Earth2Studio in favor
+It is no longer recommend to use any conda environment manager for Earth2Studio in favor
 of uv.
-This is because the virtual enviroments set up by uv make the system-wide conda
+This is because the virtual environments set up by uv make the system-wide conda
 environments not needed.
 However this demonstrates that in principle Earth2Studio can be installed using standard
 package tooling.
