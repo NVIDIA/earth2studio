@@ -36,6 +36,7 @@ from earth2studio.models.px import (
     DLWP,
     FCN,
     SFNO,
+    Aurora,
     FengWu,
     FuXi,
     Pangu3,
@@ -44,16 +45,12 @@ from earth2studio.models.px import (
 )
 
 
-@pytest.fixture
-def cache_dir():
-    return Path("./cache").resolve()
-
-
 # @pytest.mark.xfail
 @pytest.mark.model_download
 @pytest.mark.parametrize(
     "model",
     [
+        Aurora,
         DLWP,
         FCN,
         FengWu,
@@ -72,6 +69,8 @@ def test_auto_model(model, model_cache_context):
     This should not be ran in a CI pipeline, rather reserved to periodic testing /
     manual tests. Can also be used to create a complete model cache.
 
+    The cache variable `EARTH2STUDIO_CACHE` should be set before invoking
+
     Parameters
     ----------
     model : AutoModelMixin
@@ -80,7 +79,7 @@ def test_auto_model(model, model_cache_context):
         Context manager that changed cache dir for CI, provided via fixture
     """
     assert issubclass(model, AutoModelMixin), "Model class needs to be an AutoModel"
-    with model_cache_context(EARTH2STUDIO_CACHE="./cache"):
+    with model_cache_context():
         package = model.load_default_package()
         model.load_model(package)
 
