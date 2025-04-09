@@ -14,6 +14,54 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import pytest
+import torch
+
+from earth2studio.models.dx import CycloneTracking
+
+
+@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+def test_vorticity_calculation(device):
+    # Create a simple grid
+    nx, ny = 4, 4
+    dx = dy = 1.0  # 1km grid spacing
+
+    y_vals = torch.arange(ny, dtype=torch.float32, device=device)
+    x_vals = torch.arange(nx, dtype=torch.float32, device=device)
+
+    # u varies with y
+    u = y_vals.view(-1, 1).repeat(1, nx)
+    # v varies with x
+    v = x_vals.view(1, -1).repeat(ny, 1)
+
+    # Expected vorticity should be 2 since du/dy = 1 and dv/dx = 1
+    expected_vorticity = torch.full((ny, nx), 2.0, device=device)
+    calculated_vorticity = CycloneTracking.vorticity(u, v, dx=dx, dy=dy)
+
+    torch.testing.assert_close(
+        calculated_vorticity,
+        expected_vorticity,
+        rtol=1e-5,
+        atol=1e-5,
+    )
+
+    # u varies with x
+    u = y_vals.view(1, -1).repeat(ny, 1)
+    # v varies with y
+    v = x_vals.view(-1, 1).repeat(1, nx)
+
+    # Expected vorticity should be 2 since du/dy = 0 and dv/dx = 0
+    expected_vorticity = torch.full((ny, nx), 0.0, device=device)
+    calculated_vorticity = CycloneTracking.vorticity(u, v, dx=dx, dy=dy)
+
+    torch.testing.assert_close(
+        calculated_vorticity,
+        expected_vorticity,
+        rtol=1e-5,
+        atol=1e-5,
+    )
+
+
 # import numpy as np
 # import pytest
 
