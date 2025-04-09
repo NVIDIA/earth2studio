@@ -38,9 +38,7 @@ import numpy as np
 import torch
 from pandas import DataFrame
 
-from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_coords, batch_func
-from earth2studio.models.dx.base import DiagnosticModel
 from earth2studio.utils import (
     handshake_coords,
     handshake_dim,
@@ -65,8 +63,110 @@ VARIABLES_TCV = ["u850", "v850", "u10m", "v10m", "msl"]
 OUT_VARIABLES = ["tc_lat", "tc_lon", "tc_msl", "tc_w10m"]
 
 
+class _CycloneTrackingBase:
+
+    @classmethod
+    def vorticity(
+        cls, u: torch.Tensor, v: torch.Tensor, dx: float = 25000.0, dy: float = 25000.0
+    ) -> torch.Tensor:
+        """Compute Relative Vorticity."""
+        dudx = torch.gradient(u, dim=-2)[0] / dx
+        dvdy = torch.gradient(v, dim=-1)[0] / dy
+        vorticity = torch.add(dvdy, dudx)
+        return vorticity
+
+    @classmethod
+    def haversine_torch(
+        cls,
+        lat1: torch.Tensor,
+        lon1: torch.Tensor,
+        lat2: torch.Tensor,
+        lon2: torch.Tensor,
+        meters: bool = True,
+    ) -> torch.Tensor:
+        """Compute haversine distance between two pairs of points."""
+        lat1, lon1, lat2, lon2 = map(torch.deg2rad, [lat1, lon1, lat2, lon2])
+        dlon = lon2 - lon1
+        dlat = lat2 - lat1
+        unit = 6_371_000 if meters else 6371
+        return (
+            2
+            * unit
+            * torch.arcsin(
+                torch.sqrt(
+                    torch.sin(dlat / 2) ** 2
+                    + torch.cos(lat1) * torch.cos(lat2) * torch.sin(dlon / 2) ** 2
+                )
+            )
+        )
+
+    @classmethod
+    def get_local_max(
+        cls,
+        x: torch.Tensor,
+        threshold_abs: float | None = None,
+        min_distance: int = 1,
+        exclude_border: bool | int = True,
+    ) -> torch.Tensor:
+        """Gets the local maximum of a tensor x, above a given absolute threshold,
+        with a minimum distance separating local maximums.
+
+        This is a helper utility that converts a pytorch tensor to a cupy tensor
+        to use a CuCIM utility `peak_local_max` to extract the local maxima.
+
+        Note
+        ----
+        For more details, see:
+
+        - https://scikit-image.org/docs/stable/api/skimage.feature.html#skimage.feature.peak_local_max
+
+        Parameters
+        ----------
+        x : torch.Tensor
+            Input tensor of shape [x, y]
+        threshold_abs : _type_, optional
+            Absolute value to threshold local maximum, by default None
+        min_distance : int, optional
+            Minimum distance separating local maximums, by default 1
+        exclude_border: bool or int
+            If positive integer, exclude_border excludes peaks from within
+            exclude_border-pixels of the border of the image. If tuple of
+            non-negative ints, the length of the tuple must match the input
+            array dimensionality. Each element of the tuple will exclude peaks
+            from within exclude_border-pixels of the border of the image along
+            that dimension. If True, takes the min_distance parameter as value.
+            If zero or False, peaks are identified regardless of their distance
+            from the border.
+
+        Returns
+        -------
+        torch.Tensor
+            List of coordinates of local maximum [2, N]
+        """
+        if x.is_cuda:
+            x_ = cp.from_dlpack(x)
+            local_max = cucim_peak_local_max(
+                x_,
+                threshold_abs=threshold_abs,
+                min_distance=min_distance,
+                exclude_border=exclude_border,
+            )
+            local_max = torch.from_dlpack(local_max)
+        else:
+            x_ = np.from_dlpack(x)
+            local_max = skimage_peak_local_max(
+                x_,
+                threshold_abs=threshold_abs,
+                min_distance=min_distance,
+                exclude_border=exclude_border,
+            )
+            local_max = torch.as_tensor(local_max, device=x.device)
+
+        return local_max
+
+
 @check_extra_imports("cyclone", ["cupy", "cucim", "skimage"])
-class CycloneTrackingVorticity(torch.nn.Module, AutoModelMixin):
+class CycloneTrackingVorticity(torch.nn.Module, _CycloneTrackingBase):
     """Finds a list of tropical cyclone centers using an adaption of the method
     described in the conditions in Wu and Duan 2023. The algorithm converts vorticity
     from reanalysis data into a binary image using a defined critical threshold.
@@ -134,7 +234,7 @@ class CycloneTrackingVorticity(torch.nn.Module, AutoModelMixin):
 
         return output_coords
 
-    def find_centers_wuduan(
+    def _find_centers(
         self,
         lat: torch.Tensor,
         lon: torch.Tensor,
@@ -272,12 +372,6 @@ class CycloneTrackingVorticity(torch.nn.Module, AutoModelMixin):
             x[:] = torch.nan
             return x
 
-    @classmethod
-    @check_extra_imports("cyclone", ["cupy", "cucim", "skimage"])
-    def load_model(cls, package: Package) -> DiagnosticModel:
-        """Load diagnostic from package"""
-        return cls()
-
     @torch.inference_mode()
     @batch_func()
     def __call__(
@@ -307,14 +401,14 @@ class CycloneTrackingVorticity(torch.nn.Module, AutoModelMixin):
             msl = get_variable(x[i], "msl")
 
             # Calculate vorticity at 850 hPa
-            vort850 = vorticity(u850, v850)
+            vort850 = CycloneTracking.vorticity(u850, v850)
             vort850[361:] *= -1
 
             # Calculate wind speed at 10m height
             w10m = torch.sqrt(torch.square(u10m) + torch.square(v10m))
 
             # identify position of tropical storm centers
-            centers = self.find_centers_wuduan(lat, lon, vort850, w10m, msl)
+            centers = self._find_centers(lat, lon, vort850, w10m, msl)
             outs.append(centers)
 
         if outs:
@@ -345,7 +439,7 @@ class CycloneTrackingVorticity(torch.nn.Module, AutoModelMixin):
 
 
 @check_extra_imports("cyclone", ["cupy", "cucim", "skimage"])
-class CycloneTracking(torch.nn.Module, AutoModelMixin):
+class CycloneTracking(torch.nn.Module, _CycloneTrackingBase):
     """Finds a list of tropical cyclone centers using the conditions
     in Vitart 1997
 
@@ -414,7 +508,7 @@ class CycloneTracking(torch.nn.Module, AutoModelMixin):
             }
         )
 
-    def find_centers_vitart(
+    def _find_centers(
         self,
         lat: torch.Tensor,
         lon: torch.Tensor,
@@ -467,12 +561,12 @@ class CycloneTracking(torch.nn.Module, AutoModelMixin):
 
         Returns
         -------
-        centers
+        torch.Tensor
             List of TC centers, torch.Tensor of shape [2, N]
         """
 
         # Get local max vorticity
-        vlm = get_local_max(
+        vlm = CycloneTracking.get_local_max(
             vort850,
             threshold_abs=vorticity_threshold,
             min_distance=10,
@@ -483,7 +577,7 @@ class CycloneTracking(torch.nn.Module, AutoModelMixin):
         )
 
         # Get local maximum of average temperature between 500 and 200mb
-        tlm = get_local_max(
+        tlm = CycloneTracking.get_local_max(
             t_200_500_mean, min_distance=10, exclude_border=exclude_border
         )
         tlm_loc = torch.stack(
@@ -491,13 +585,13 @@ class CycloneTracking(torch.nn.Module, AutoModelMixin):
         )
 
         # Get local max z200 - z850
-        dzlm = get_local_max(dz_200_850, exclude_border=exclude_border)
+        dzlm = CycloneTracking.get_local_max(dz_200_850, exclude_border=exclude_border)
         dzlm_loc = torch.stack(
             (lat[dzlm[:, 0], dzlm[:, 1]], lon[dzlm[:, 0], dzlm[:, 1]]), dim=1
         )
 
         # Get local min msl
-        msllm = get_local_max(
+        msllm = CycloneTracking.get_local_max(
             -msl / 100,
             threshold_abs=-mslp_threshold,
             min_distance=10,
@@ -512,14 +606,14 @@ class CycloneTracking(torch.nn.Module, AutoModelMixin):
             center0 = torch.as_tensor(mins, device=msl.device)
 
             # Vorticity filter
-            dist = haversine_torch(
+            dist = CycloneTracking.haversine_torch(
                 mins[0], mins[1], vlm_loc[:, 0], vlm_loc[:, 1], meters=False
             )
             if dist.min() > 8 * 25:  # Distance should be 8 degrees ~= 200 km
                 continue
 
             # Warm Core filter
-            dist = haversine_torch(
+            dist = CycloneTracking.haversine_torch(
                 mins[0], mins[1], tlm_loc[:, 0], tlm_loc[:, 1], meters=False
             )
             if dist.min() > 2 * 25:  # Distance should be less than 2 degrees ~= 50 km
@@ -530,13 +624,13 @@ class CycloneTracking(torch.nn.Module, AutoModelMixin):
             ti = tlm[ti]
 
             lat_inds = (
-                haversine_torch(
+                CycloneTracking.haversine_torch(
                     ti_loc[0], ti_loc[1], lat[:, ti[1]], lon[:, ti[1]], meters=False
                 )
                 < 8 * 25
             )
             lon_inds = (
-                haversine_torch(
+                CycloneTracking.haversine_torch(
                     ti_loc[0], ti_loc[1], lat[ti[0], :], lon[ti[0], :], meters=False
                 )
                 < 8 * 25
@@ -558,7 +652,7 @@ class CycloneTracking(torch.nn.Module, AutoModelMixin):
                 continue
 
             # dZ filter
-            dist = haversine_torch(
+            dist = CycloneTracking.haversine_torch(
                 mins[0], mins[1], dzlm_loc[:, 0], dzlm_loc[:, 1], meters=False
             )
             if dist.min() > 2 * 25:
@@ -601,13 +695,6 @@ class CycloneTracking(torch.nn.Module, AutoModelMixin):
         output_coords["point"] = np.arange(0)
 
         return output_coords
-
-    @classmethod
-    @check_extra_imports("cyclone", ["cupy", "cucim", "skimage"])
-    def load_model(cls, package: Package) -> DiagnosticModel:
-        """Load diagnostic from package"""
-
-        return cls()
 
     @torch.inference_mode()
     @batch_func()
@@ -655,7 +742,7 @@ class CycloneTracking(torch.nn.Module, AutoModelMixin):
             # Get vorticity
             u850 = get_variable(x[i], "u850")
             v850 = get_variable(x[i], "v850")
-            vort850 = vorticity(u850, v850)
+            vort850 = CycloneTracking.vorticity(u850, v850)
             vort850[361:] *= -1
 
             # Get MSL
@@ -682,7 +769,7 @@ class CycloneTracking(torch.nn.Module, AutoModelMixin):
                 t_200_500_mean = t_200_500_mean[indices].reshape(-1, nlon)
                 dz_200_850 = dz_200_850[indices].reshape(-1, nlon)
 
-            centers = self.find_centers_vitart(
+            centers = self._find_centers(
                 lat,
                 lon,
                 msl,
@@ -706,123 +793,7 @@ class CycloneTracking(torch.nn.Module, AutoModelMixin):
         return out_tensor, output_coords
 
 
-def get_local_max(
-    x: torch.Tensor,
-    threshold_abs: float | None = None,
-    min_distance: int = 1,
-    exclude_border: bool | int = True,
-) -> torch.Tensor:
-    """Gets the local maximum of a tensor x, above a given absolute threshold,
-    with a minimum distance separating local maximums.
-
-    This is a helper utility that converts a pytorch tensor to a cupy tensor
-    to use a CuCIM utility `peak_local_max` to extract the local maxima.
-
-    Note
-    ----
-    For more details, see:
-
-    - https://scikit-image.org/docs/stable/api/skimage.feature.html#skimage.feature.peak_local_max
-
-    Parameters
-    ----------
-    x : torch.Tensor
-        Input tensor of shape [x, y]
-    threshold_abs : _type_, optional
-        Absolute value to threshold local maximum, by default None
-    min_distance : int, optional
-        Minimum distance separating local maximums, by default 1
-    exclude_border: bool or int
-        If positive integer, exclude_border excludes peaks from within
-        exclude_border-pixels of the border of the image. If tuple of
-        non-negative ints, the length of the tuple must match the input
-        array dimensionality. Each element of the tuple will exclude peaks
-        from within exclude_border-pixels of the border of the image along
-        that dimension. If True, takes the min_distance parameter as value.
-        If zero or False, peaks are identified regardless of their distance
-        from the border.
-
-    Returns
-    -------
-    torch.Tensor
-        List of coordinates of local maximum [2, N]
-    """
-    if x.is_cuda:
-        x_ = cp.from_dlpack(x)
-        local_max = cucim_peak_local_max(
-            x_,
-            threshold_abs=threshold_abs,
-            min_distance=min_distance,
-            exclude_border=exclude_border,
-        )
-        local_max = torch.from_dlpack(local_max)
-    else:
-        x_ = np.from_dlpack(x)
-        local_max = skimage_peak_local_max(
-            x_,
-            threshold_abs=threshold_abs,
-            min_distance=min_distance,
-            exclude_border=exclude_border,
-        )
-        local_max = torch.as_tensor(local_max, device=x.device)
-
-    return local_max
-
-
-def vorticity(
-    u: torch.Tensor, v: torch.Tensor, dx: float = 25000.0, dy: float = 25000.0
-) -> torch.Tensor:
-    """Compute Relative Vorticity."""
-    dudx = torch.gradient(u, dim=-2)[0] / dx
-    dvdy = torch.gradient(v, dim=-1)[0] / dy
-    vorticity = torch.add(dvdy, dudx)
-    return vorticity
-
-
-def haversine(
-    lat1: np.array, lon1: np.array, lat2: np.array, lon2: np.array, meters: bool = True
-) -> np.array:
-    """Compute haversine distance between two pairs of points."""
-    lat1, lon1, lat2, lon2 = map(np.deg2rad, [lat1, lon1, lat2, lon2])
-    dlon = lon2 - lon1
-    dlat = lat2 - lat1
-    unit = 6_371_000 if meters else 6371
-    return (
-        2
-        * unit
-        * np.arcsin(
-            np.sqrt(
-                np.sin(dlat / 2) ** 2
-                + np.cos(lat1) * np.cos(lat2) * np.sin(dlon / 2) ** 2
-            )
-        )
-    )
-
-
-def haversine_torch(
-    lat1: torch.Tensor,
-    lon1: torch.Tensor,
-    lat2: torch.Tensor,
-    lon2: torch.Tensor,
-    meters: bool = True,
-) -> torch.Tensor:
-    """Compute haversine distance between two pairs of points."""
-    lat1, lon1, lat2, lon2 = map(torch.deg2rad, [lat1, lon1, lat2, lon2])
-    dlon = lon2 - lon1
-    dlat = lat2 - lat1
-    unit = 6_371_000 if meters else 6371
-    return (
-        2
-        * unit
-        * torch.arcsin(
-            torch.sqrt(
-                torch.sin(dlat / 2) ** 2
-                + torch.cos(lat1) * torch.cos(lat2) * torch.sin(dlon / 2) ** 2
-            )
-        )
-    )
-
-
+# The rest of this code is a workflow utility functions
 def get_tracks_from_positions(
     y: torch.Tensor,
     c: OrderedDict,
@@ -1076,7 +1047,7 @@ def get_next_position(
         if len(next_candidates[forward_search_step]) > 0:
             lat2 = torch.tensor(next_candidates[forward_search_step])[:, 0]
             lon2 = torch.tensor(next_candidates[forward_search_step])[:, 1]
-            dist = haversine_torch(lat1, lon1, lat2, lon2) / 1000
+            dist = CycloneTracking.haversine_torch(lat1, lon1, lat2, lon2) / 1000
         else:
             continue
         if torch.min(dist) < search_radius_km * (1 + forward_search_step):
