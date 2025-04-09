@@ -1,6 +1,6 @@
 project: 'helene'
 
-start_times: ["2024-09-23"]
+start_times: ["2024-09-24 12:00:00"]
 
 nsteps: 2 # 40          # number of forecasting steps
 nensemble: 2 # 32       # ensemble size per checkpoint
