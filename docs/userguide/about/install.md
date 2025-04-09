@@ -272,6 +272,26 @@ pip install earth2studio[corrdiff]
 :::
 ::::
 :::::
+:::::{tab-item} Cyclone Trackers
+Notes: Additional dependencies for all cyclone tracking models.
+
+::::{tab-set}
+:::{tab-item} uv
+
+```bash
+uv pip install earth2studio --extra cyclone
+```
+
+:::
+:::{tab-item} pip
+
+```bash
+pip install earth2studio[cyclone]
+```
+
+:::
+::::
+:::::
 :::::{tab-item} Precipitation AFNO
 ::::{tab-set}
 :::{tab-item} uv
