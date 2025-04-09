@@ -22,9 +22,8 @@ from earth2studio.models.dx import CycloneTracking
 
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
 def test_vorticity_calculation(device):
-    # Create a simple grid
     nx, ny = 4, 4
-    dx = dy = 1.0  # 1km grid spacing
+    dx = dy = 1.0
 
     y_vals = torch.arange(ny, dtype=torch.float32, device=device)
     x_vals = torch.arange(nx, dtype=torch.float32, device=device)
