@@ -436,7 +436,7 @@ RUN uv venv --python=3.12 && uv pip install earth2studio[all]
 
 It is no longer recommend to use any conda environment manager for Earth2Studio in favor
 of uv.
-This is because the virtual environments set up by uv make the system-wide conda
+This is because the virtual environments set up by uv makes the system-wide conda
 environments not needed.
 However this demonstrates that in principle Earth2Studio can be installed using standard
 package tooling.
