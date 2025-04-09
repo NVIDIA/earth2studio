@@ -61,6 +61,89 @@ def test_vorticity_calculation(device):
     )
 
 
+@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+def test_haversine_torch(device):
+    # Define known points
+    lat1 = torch.tensor(0, dtype=torch.float32)
+    lon1 = torch.tensor(0, dtype=torch.float32)
+    lat2 = torch.tensor(30, dtype=torch.float32)
+    lon2 = torch.tensor(120, dtype=torch.float32)
+
+    # Known expected distance in kilometers (approximate)
+    expected_distance = torch.tensor(12860.0)
+
+    # Calculate distance using haversine_torch
+    dist = CycloneTracking.haversine_torch(lat1, lon1, lat2, lon2, meters=False)
+
+    # Assert that the calculated distance is close to the expected distance
+    torch.testing.assert_close(expected_distance, dist, rtol=1e-3, atol=1e-3)
+
+
+@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+@pytest.mark.parametrize("num_maxima", [0, 1, 2])
+def test_get_local_max(device, num_maxima):
+    # Define test cases based on the number of maxima
+    test_cases = {
+        0: {
+            "x": torch.tensor(
+                [
+                    [0, 0, 0, 0],
+                    [0, 0, 0, 0],
+                    [0, 0, 0, 0],
+                    [0, 0, 0, 0],
+                ],
+                dtype=torch.float32,
+            ),
+            "expected": torch.empty((0, 2), dtype=torch.int64),
+        },
+        1: {
+            "x": torch.tensor(
+                [
+                    [0, 0, 0, 0],
+                    [0, 1, 0, 0],
+                    [0, 0, 0, 0],
+                    [0, 0, 0, 0],
+                ],
+                dtype=torch.float32,
+            ),
+            "expected": torch.tensor([[1, 1]], dtype=torch.int64),
+        },
+        2: {
+            "x": torch.tensor(
+                [
+                    [0, 0, 0, 0],
+                    [0, 1, 0, 0],
+                    [0, 0, 0, 0],
+                    [0, 0, 0, 5],
+                ],
+                dtype=torch.float32,
+            ),
+            "expected": torch.tensor([[3, 3], [1, 1]], dtype=torch.int64),
+        },
+    }
+
+    # Get the specific test case based on num_maxima
+    test_case = test_cases[num_maxima]
+
+    x = test_case["x"].to(device)
+    expected_output = test_case["expected"].to(device)
+
+    # Define parameters for get_local_max
+    threshold_abs = 0.9
+    min_distance = 1
+    exclude_border = False
+
+    # Call the method
+    local_max = CycloneTracking.get_local_max(
+        x, threshold_abs, min_distance, exclude_border
+    )
+
+    # Assertions
+    assert torch.all(
+        local_max == expected_output
+    ), f"Expected {expected_output}, but got {local_max}"
+
+
 # import numpy as np
 # import pytest
 
