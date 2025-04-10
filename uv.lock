@@ -1351,7 +1351,7 @@ requires-dist = [
     { name = "xarray", extras = ["parallel"], specifier = ">=2023.1.0" },
     { name = "zarr", specifier = ">=2.14.2" },
 ]
-provides-extras = ["all", "aurora", "aurora-fork", "climatenet", "corrdiff", "cyclone", "data", "dlwp", "fcn", "fengwu", "pangu", "perturbation", "precip-afno", "sfno", "statistics", "stormcast"]
+provides-extras = ["all", "aurora", "aurora-fork", "climatenet", "corrdiff", "cyclone", "data", "derived", "dlwp", "fcn", "fengwu", "pangu", "perturbation", "precip-afno", "sfno", "statistics", "stormcast"]
 
 [package.metadata.requires-dev]
 dev = [
