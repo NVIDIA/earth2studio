@@ -23,15 +23,15 @@ git clone https://github.com/NVIDIA/earth2studio.git --single-branch
 cd earth2studio
 
 uv venv --python=3.12
-uv sync --group dev
+uv sync # This will install the base and developer dependencies
 ```
 
 This should create a python virtual environment inside of the local Earth2Studio git
 repository.
-To install documentation dependencies, use:
+To install the base developer, documentation dependencies, use:
 
 ```bash
-uv sync --group={dev,docs}
+uv sync --group={docs}
 ```
 
 :::{note}
