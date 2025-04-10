@@ -156,6 +156,26 @@ class ForecastInterpolation(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self.register_buffer("lon", torch.Tensor(lon))
         self.register_buffer("sincos_latlon", torch.Tensor(sincos_latlon))
 
+    @staticmethod
+    def _load_feature_from_file(fn, var):
+        """Load a feature from a NetCDF file.
+        
+        Parameters
+        ----------
+        fn : str
+            Path to the NetCDF file
+        var : str
+            Variable name to load from the file
+            
+        Returns
+        -------
+        torch.Tensor
+            Loaded feature as a tensor with shape (1, 1, H, W)
+        """
+        with xr.open_dataset(fn) as ds:
+            x = np.array(ds[var])
+        return torch.Tensor(x).unsqueeze(0).unsqueeze(0)
+
     def __str__(self) -> str:
         return "modafno_interp_73ch"
 
@@ -207,7 +227,15 @@ class ForecastInterpolation(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     @classmethod
     def load_default_package(cls) -> Package:
         """Load prognostic package"""
-        pass
+        package = Package(
+            "ngc://models/nvidia/earth-2/afno_dx_fi-v1-era5@v0.1.0",
+            cache_options={
+                "cache_storage": Package.default_cache("modafno_interpolation"),
+                "same_names": True,
+            },
+        )
+        package.root = os.path.join(package.root, "afno_dx_fi-v1-era5_vv0.1.0")
+        return package
 
     @classmethod
     def load_model(
@@ -226,11 +254,11 @@ class ForecastInterpolation(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         ]
 
         # load static variables
-        geop = _load_feature_from_file(package.resolve("orography.nc"), "Z")[
+        geop = cls._load_feature_from_file(package.resolve("orography.nc"), "Z")[
             0, :, :, :720, :
         ]
         geop = (geop - geop.mean()) / geop.std()
-        lsm = _load_feature_from_file(package.resolve("land_sea_mask.nc"), "LSM")[
+        lsm = cls._load_feature_from_file(package.resolve("land_sea_mask.nc"), "LSM")[
             0, :, :, :720, :
         ]
 
@@ -365,9 +393,3 @@ class ForecastInterpolation(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             output data tensor and coordinate system dictionary.
         """
         yield from self._default_generator(x, coords)
-
-
-def _load_feature_from_file(fn, var):
-    with xr.open_dataset(fn) as ds:
-        x = np.array(ds[var])
-    return torch.Tensor(x).unsqueeze(0).unsqueeze(0)
