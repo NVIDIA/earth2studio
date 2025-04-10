@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
     <link href="../../../../_static/favicon.ico" rel="icon" type="image/x-icon">
-    <title>earth2studio.models.dx.ClimateNet &#8212; Earth2Studio 0.6.0a0 documentation</title>
+    <title>earth2studio.models.dx.DerivedWS &#8212; Earth2Studio 0.6.0a0 documentation</title>
   
   
   
@@ -51,7 +51,7 @@
     <script src="../../../../_static/togglebutton.js?v=4a39c7ea"></script>
     <script src="../../../../_static/design-tabs.js?v=f930bc37"></script>
     <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
-    <script>DOCUMENTATION_OPTIONS.pagename = 'modules/generated/models/dx/earth2studio.models.dx.ClimateNet';</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'modules/generated/models/dx/earth2studio.models.dx.DerivedWS';</script>
     <script>
         DOCUMENTATION_OPTIONS.theme_version = '0.15.2';
         DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'https://raw.githubusercontent.com/NVIDIA/earth2studio/gh-pages/_static/switcher.json';
@@ -60,8 +60,8 @@
         </script>
     <link rel="index" title="Index" href="../../../../genindex.html" />
     <link rel="search" title="Search" href="../../../../search.html" />
-    <link rel="next" title="earth2studio.models.dx.DerivedRH" href="earth2studio.models.dx.DerivedRH.html" />
-    <link rel="prev" title="earth2studio.models.dx.CorrDiffTaiwan" href="earth2studio.models.dx.CorrDiffTaiwan.html" />
+    <link rel="next" title="earth2studio.models.dx.PrecipitationAFNO" href="earth2studio.models.dx.PrecipitationAFNO.html" />
+    <link rel="prev" title="earth2studio.models.dx.DerivedVPD" href="earth2studio.models.dx.DerivedVPD.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   </head>
@@ -392,10 +392,10 @@ document.write(`
 <li class="toctree-l2"><a class="reference internal" href="../px/earth2studio.models.px.StormCast.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.StormCast</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../px/earth2studio.models.px.Aurora.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.Aurora</a></li>
 <li class="toctree-l2"><a class="reference internal" href="earth2studio.models.dx.CorrDiffTaiwan.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.dx</span></code>.CorrDiffTaiwan</a></li>
-<li class="toctree-l2 current active"><a class="current reference internal" href="#"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.dx</span></code>.ClimateNet</a></li>
+<li class="toctree-l2"><a class="reference internal" href="earth2studio.models.dx.ClimateNet.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.dx</span></code>.ClimateNet</a></li>
 <li class="toctree-l2"><a class="reference internal" href="earth2studio.models.dx.DerivedRH.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.dx</span></code>.DerivedRH</a></li>
 <li class="toctree-l2"><a class="reference internal" href="earth2studio.models.dx.DerivedVPD.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.dx</span></code>.DerivedVPD</a></li>
-<li class="toctree-l2"><a class="reference internal" href="earth2studio.models.dx.DerivedWS.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.dx</span></code>.DerivedWS</a></li>
+<li class="toctree-l2 current active"><a class="current reference internal" href="#"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.dx</span></code>.DerivedWS</a></li>
 <li class="toctree-l2"><a class="reference internal" href="earth2studio.models.dx.PrecipitationAFNO.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.dx</span></code>.PrecipitationAFNO</a></li>
 <li class="toctree-l2"><a class="reference internal" href="earth2studio.models.dx.Identity.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.dx</span></code>.Identity</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../earth2studio.models.auto.Package.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.auto</span></code>.Package</a></li>
@@ -532,37 +532,24 @@ document.write(`
 <div id="searchbox"></div>
                 <article class="bd-article">
                   
-  <section id="earth2studio-models-dx-climatenet">
-<h1><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.dx</span></code>.ClimateNet<a class="headerlink" href="#earth2studio-models-dx-climatenet" title="Link to this heading">#</a></h1>
+  <section id="earth2studio-models-dx-derivedws">
+<h1><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.dx</span></code>.DerivedWS<a class="headerlink" href="#earth2studio-models-dx-derivedws" title="Link to this heading">#</a></h1>
 <dl class="py class">
-<dt class="sig sig-object py" id="earth2studio.models.dx.ClimateNet">
-<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">earth2studio.models.dx.</span></span><span class="sig-name descname"><span class="pre">ClimateNet</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">core_model</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">center</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scale</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/earth2studio/models/dx/climatenet.html#ClimateNet"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.dx.ClimateNet" title="Link to this definition">#</a></dt>
-<dd><p>Climate Net diagnostic model, built into Earth2Studio. This model can be used to
-create prediction labels for tropical cyclones and atmospheric rivers from a set of
-three atmospheric variables on a quater degree resolution equirectangular grid. It
-produces three non-standard output channels climnet_bg, climnet_tc and climnet_ar
-representing background label, tropical cyclone and atmospheric river labels.</p>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>This model and checkpoint are from Prabhat et al. 2021. For more information see the
-following references:</p>
-<ul class="simple">
-<li><p><a class="reference external" href="https://doi.org/10.5194/gmd-14-107-2021">https://doi.org/10.5194/gmd-14-107-2021</a></p></li>
-<li><p><a class="github reference external" href="https://github.com/andregraubner/ClimateNet">andregraubner/ClimateNet</a></p></li>
-</ul>
-</div>
+<dt class="sig sig-object py" id="earth2studio.models.dx.DerivedWS">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">earth2studio.models.dx.</span></span><span class="sig-name descname"><span class="pre">DerivedWS</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">levels</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">[100]</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/earth2studio/models/dx/derived.html#DerivedWS"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.dx.DerivedWS" title="Link to this definition">#</a></dt>
+<dd><p>Calculates the Wind Speed (WS) magnitude from eastward and northward wind
+components for specified levels. The calculation is based on the formula:
+ws = sqrt(u^2 + v^2)</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>core_model</strong> (<em>torch.nn.Module</em>) – Core pytorch model</p></li>
-<li><p><strong>center</strong> (<em>torch.Tensor</em>) – Model center normalization tensor of size [20,1,1]</p></li>
-<li><p><strong>scale</strong> (<em>torch.Tensor</em>) – Model scale normalization tensor of size [20,1,1]</p></li>
-</ul>
+<dd class="field-odd"><p><strong>levels</strong> (<em>list</em><em>[</em><em>int</em><em>  |  </em><em>str</em><em>]</em><em>, </em><em>optional</em>) – Pressure / height levels to compute WS for. The resulting expected input fields
+are u and v wind components pairs for each level. E.g. for level 100 the input
+fields should be [u100, v100], by default [100]</p>
 </dd>
 </dl>
 <dl class="py method">
-<dt class="sig sig-object py" id="earth2studio.models.dx.ClimateNet.__call__">
-<span class="sig-name descname"><span class="pre">__call__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">coords</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/earth2studio/models/dx/climatenet.html#ClimateNet.__call__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.dx.ClimateNet.__call__" title="Link to this definition">#</a></dt>
+<dt class="sig sig-object py" id="earth2studio.models.dx.DerivedWS.__call__">
+<span class="sig-name descname"><span class="pre">__call__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">coords</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/earth2studio/models/dx/derived.html#DerivedWS.__call__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.dx.DerivedWS.__call__" title="Link to this definition">#</a></dt>
 <dd><p>Forward pass of diagnostic</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -573,31 +560,6 @@ following references:</p>
 </dd>
 <dt class="field-even">Return type<span class="colon">:</span></dt>
 <dd class="field-even"><p>tuple[<em>Tensor</em>, <em>OrderedDict</em>[str, <em>ndarray</em>]]</p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="earth2studio.models.dx.ClimateNet.load_default_package">
-<em class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">load_default_package</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/earth2studio/models/dx/climatenet.html#ClimateNet.load_default_package"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.dx.ClimateNet.load_default_package" title="Link to this definition">#</a></dt>
-<dd><p>Default pre-trained climatenet model package from Nvidia model registry</p>
-<dl class="field-list simple">
-<dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p><a class="reference internal" href="../earth2studio.models.auto.Package.html#earth2studio.models.auto.Package" title="earth2studio.models.auto.package.Package"><em>Package</em></a></p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="earth2studio.models.dx.ClimateNet.load_model">
-<em class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">load_model</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">package</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/earth2studio/models/dx/climatenet.html#ClimateNet.load_model"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.dx.ClimateNet.load_model" title="Link to this definition">#</a></dt>
-<dd><p>Load diagnostic from package</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>package</strong> (<a class="reference internal" href="../earth2studio.models.auto.Package.html#earth2studio.models.auto.Package" title="earth2studio.models.auto.package.Package"><em>Package</em></a>)</p>
-</dd>
-<dt class="field-even">Return type<span class="colon">:</span></dt>
-<dd class="field-even"><p><em>DiagnosticModel</em></p>
 </dd>
 </dl>
 </dd></dl>
@@ -617,20 +579,20 @@ following references:</p>
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="earth2studio.models.dx.CorrDiffTaiwan.html"
+       href="earth2studio.models.dx.DerivedVPD.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.dx</span></code>.CorrDiffTaiwan</p>
+        <p class="prev-next-title"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.dx</span></code>.DerivedVPD</p>
       </div>
     </a>
     <a class="right-next"
-       href="earth2studio.models.dx.DerivedRH.html"
+       href="earth2studio.models.dx.PrecipitationAFNO.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.dx</span></code>.DerivedRH</p>
+        <p class="prev-next-title"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.dx</span></code>.PrecipitationAFNO</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
@@ -652,10 +614,8 @@ following references:</p>
   </div>
   <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="visible nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.models.dx.ClimateNet"><code class="docutils literal notranslate"><span class="pre">ClimateNet</span></code></a><ul class="nav section-nav flex-column">
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.models.dx.ClimateNet.__call__"><code class="docutils literal notranslate"><span class="pre">ClimateNet.__call__()</span></code></a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.models.dx.ClimateNet.load_default_package"><code class="docutils literal notranslate"><span class="pre">ClimateNet.load_default_package()</span></code></a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.models.dx.ClimateNet.load_model"><code class="docutils literal notranslate"><span class="pre">ClimateNet.load_model()</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.models.dx.DerivedWS"><code class="docutils literal notranslate"><span class="pre">DerivedWS</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.models.dx.DerivedWS.__call__"><code class="docutils literal notranslate"><span class="pre">DerivedWS.__call__()</span></code></a></li>
 </ul>
 </li>
 </ul>
@@ -664,7 +624,7 @@ following references:</p>
   <div class="sidebar-secondary-item">
 
   <div class="tocsection sourcelink">
-    <a href="../../../../_sources/modules/generated/models/dx/earth2studio.models.dx.ClimateNet.rst.txt">
+    <a href="../../../../_sources/modules/generated/models/dx/earth2studio.models.dx.DerivedWS.rst.txt">
       <i class="fa-solid fa-file-lines"></i> Show Source
     </a>
   </div>
