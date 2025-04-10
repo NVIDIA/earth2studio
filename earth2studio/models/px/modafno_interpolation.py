@@ -13,6 +13,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import os
 from collections import OrderedDict
 from collections.abc import Generator, Iterator
 from datetime import datetime
@@ -113,12 +114,20 @@ class ForecastInterpolation(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     Parameters
     ----------
-    core_model : torch.nn.Module
-        Core PyTorch model with loaded weights
+    interp_model : torch.nn.Module
+        The interpolation model that performs the time interpolation
+    fc_model : PrognosticModel
+        The base forecast model that produces the coarse time resolution forecasts
     center : torch.Tensor
         Model center normalization tensor
     scale : torch.Tensor
-        Model scale normalization tensor
+        Model scale normalization tensors
+    geop : torch.Tensor
+        Geopotential height data used as a static feature
+    lsm : torch.Tensor
+        Land-sea mask data used as a static feature
+    num_interp_steps : int, optional
+        Number of interpolation steps to perform between forecast steps, by default 6
     variables : np.array, optional
         Variables associated with model, by default 73 variable model.
     """
@@ -234,7 +243,6 @@ class ForecastInterpolation(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 "same_names": True,
             },
         )
-        package.root = os.path.join(package.root, "afno_dx_fi-v1-era5_vv0.1.0")
         return package
 
     @classmethod
