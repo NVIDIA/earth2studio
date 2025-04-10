@@ -63,11 +63,11 @@ load_dotenv()  # TODO: make common example prep function
 
 from earth2studio.data import GFS
 from earth2studio.io import ZarrBackend
-from earth2studio.models.px import FCN
+from earth2studio.models.px import Aurora
 
 # Load the default model package which downloads the check point from NGC
-package = FCN.load_default_package()
-model = FCN.load_model(package)
+package = Aurora.load_default_package()
+model = Aurora.load_model(package)
 
 # Create the data source
 data = GFS()

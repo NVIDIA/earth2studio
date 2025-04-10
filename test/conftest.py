@@ -15,7 +15,6 @@
 # limitations under the License.
 
 import os
-from pathlib import Path
 
 import pytest
 
@@ -25,7 +24,7 @@ def model_cache_context():
     class EnvContextManager:
         def __init__(self, **kwargs):
             # Set default to CI cache
-            self.env_vars = {"EARTH2STUDIO_CACHE": "/data/nfs/earth2studio-cache"}
+            self.env_vars = {}
             # Over rider with inputs
             for key, value in kwargs.items():
                 self.env_vars[key] = value
@@ -71,12 +70,9 @@ def pytest_configure(config):
 
 def pytest_collection_modifyitems(config, items):
 
-    if (
-        not config.getoption("--ci-cache")
-        or not Path("/data/nfs/earth2studio-cache").is_dir()
-    ):
+    if not config.getoption("--ci-cache"):
         skip_ci_cache = pytest.mark.skip(
-            reason="need --ci-cache option to model packages from CI cache and /data/nfs/earth2studio-cache must exist"
+            reason="need --ci-cache option to model packages from CI cache"
         )
         for item in items:
             if "ci_cache" in item.keywords:

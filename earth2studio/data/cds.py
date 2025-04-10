@@ -31,7 +31,6 @@ except ImportError:
 import numpy as np
 import xarray as xr
 from loguru import logger
-from physicsnemo.distributed.manager import DistributedManager
 from tqdm import tqdm
 
 from earth2studio.data.utils import datasource_cache_root, prep_data_inputs
@@ -339,9 +338,5 @@ class CDS:
         """Get the appropriate cache location."""
         cache_location = os.path.join(datasource_cache_root(), "cds")
         if not self._cache:
-            if not DistributedManager.is_initialized():
-                DistributedManager.initialize()
-            cache_location = os.path.join(
-                cache_location, f"tmp_{DistributedManager().rank}"
-            )
+            cache_location = os.path.join(cache_location, "tmp_cds")
         return cache_location

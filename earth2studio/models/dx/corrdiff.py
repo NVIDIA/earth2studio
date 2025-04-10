@@ -24,9 +24,9 @@ from typing import Literal
 import numpy as np
 import torch
 import zarr
-from physicsnemo.models import Module
 
 try:
+    from physicsnemo.models import Module as PhysicsNemoModule
     from physicsnemo.utils.generative import (
         StackedRandomGenerator,
     )
@@ -34,6 +34,7 @@ try:
         deterministic_sampler as ablation_sampler,
     )
 except ImportError:
+    PhysicsNemoModule = None
     StackedRandomGenerator = None
     ablation_sampler = None
 
@@ -41,6 +42,7 @@ from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_coords, batch_func
 from earth2studio.models.dx.base import DiagnosticModel
 from earth2studio.utils import (
+    check_extra_imports,
     handshake_coords,
     handshake_dim,
 )
@@ -65,6 +67,9 @@ VARIABLES = [
 OUT_VARIABLES = ["mrr", "t2m", "u10m", "v10m"]
 
 
+@check_extra_imports(
+    "corrdiff", [PhysicsNemoModule, StackedRandomGenerator, ablation_sampler]
+)
 class CorrDiffTaiwan(torch.nn.Module, AutoModelMixin):
     """
 
@@ -207,6 +212,9 @@ class CorrDiffTaiwan(torch.nn.Module, AutoModelMixin):
         )
 
     @classmethod
+    @check_extra_imports(
+        "corrdiff", [PhysicsNemoModule, StackedRandomGenerator, ablation_sampler]
+    )
     def load_model(cls, package: Package) -> DiagnosticModel:
         """Load diagnostic from package"""
 
@@ -220,14 +228,14 @@ class CorrDiffTaiwan(torch.nn.Module, AutoModelMixin):
         with zipfile.ZipFile(checkpoint_zip, "r") as zip_ref:
             zip_ref.extractall(checkpoint_zip.parent)
 
-        residual = Module.from_checkpoint(
+        residual = PhysicsNemoModule.from_checkpoint(
             str(
                 checkpoint_zip.parent
                 / Path("corrdiff_inference_package/checkpoints/diffusion.mdlus")
             )
         ).eval()
 
-        regression = Module.from_checkpoint(
+        regression = PhysicsNemoModule.from_checkpoint(
             str(
                 checkpoint_zip.parent
                 / Path("corrdiff_inference_package/checkpoints/regression.mdlus")

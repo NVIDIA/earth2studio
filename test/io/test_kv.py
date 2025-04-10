@@ -315,5 +315,3 @@ def test_kv_fields_multidim(
 
     xx, _ = z.read(total_coords, "fields_1", device=device)
     assert torch.allclose(x, xx)
-    print(list(z.root))
-    print(z.to_xarray())

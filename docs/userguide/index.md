@@ -20,7 +20,7 @@ and resources necessary to leverage the full potential of Earth2Studio.
 Install Earth2Studio:
 
 ```bash
-pip install earth2studio
+pip install earth2studio[dlwp]
 ```
 
 Run a deterministic weather prediction in just a few lines of code:
@@ -62,9 +62,11 @@ run(["2024-01-01"], 10, model, ds, io)
 ## Developer Guide
 
 - [Overview](developer/overview)
+- [Dependencies](developer/dependency)
 - [Style](developer/style)
 - [Documentation](developer/documentation)
 - [Testing](developer/testing)
+- [Build](developer/build)
 
 ## Support
 
@@ -111,9 +113,11 @@ advanced/lexicon
 :hidden:
 
 developer/overview
+developer/dependency
 developer/style
 developer/documentation
 developer/testing
+developer/build
 ```
 
 ```{toctree}

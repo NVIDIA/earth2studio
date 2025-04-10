@@ -42,7 +42,7 @@ from earth2studio.models.batch import batch_coords, batch_func
 from earth2studio.models.px.base import PrognosticModel
 from earth2studio.models.px.utils import PrognosticMixin
 from earth2studio.models.utils import create_ort_session
-from earth2studio.utils import handshake_coords, handshake_dim
+from earth2studio.utils import check_extra_imports, handshake_coords, handshake_dim
 from earth2studio.utils.type import CoordSystem
 
 VARIABLES = [
@@ -118,7 +118,7 @@ VARIABLES = [
 ]
 
 
-# adapted from https://raw.githubusercontent.com/ecmwf-lab/ai-models-panguweather/main/ai_models_panguweather/model.py
+# Adapted from https://raw.githubusercontent.com/ecmwf-lab/ai-models-panguweather/main/ai_models_panguweather/model.py
 class PanguBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     """Pangu base class"""
 
@@ -325,6 +325,7 @@ class PanguBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         yield from self._default_generator(x, coords)
 
 
+@check_extra_imports("pangu", [ort])
 class Pangu24(PanguBase):
     """Pangu Weather 24 hour model. This model consists of single auto-regressive
     model with a time-step size of 24 hours. Pangu Weather operates on 0.25 degree
@@ -365,6 +366,7 @@ class Pangu24(PanguBase):
         self._output_coords["lead_time"] = np.array([np.timedelta64(24, "h")])
 
     @classmethod
+    @check_extra_imports("pangu", [ort])
     def load_model(
         cls,
         package: Package,
@@ -422,6 +424,7 @@ class Pangu24(PanguBase):
             yield x, coords.copy()
 
 
+@check_extra_imports("pangu", [ort])
 class Pangu6(PanguBase):
     """Pangu Weather 6 hour model. This model consists of two underlying auto-regressive
     models with a time-step size of 24 hours and 6 hours. These two models are
@@ -466,6 +469,7 @@ class Pangu6(PanguBase):
         self._output_coords["lead_time"] = np.array([np.timedelta64(6, "h")])
 
     @classmethod
+    @check_extra_imports("pangu", [ort])
     def load_model(
         cls,
         package: Package,
@@ -535,6 +539,7 @@ class Pangu6(PanguBase):
             yield x, coords.copy()
 
 
+@check_extra_imports("pangu", [ort])
 class Pangu3(PanguBase):
     """Pangu Weather 3 hour model. This model consists of three underlying
     auto-regressive models with a time-step size of 24, 6 and 3 hours. These three
@@ -584,6 +589,7 @@ class Pangu3(PanguBase):
         self._output_coords["lead_time"] = np.array([np.timedelta64(3, "h")])
 
     @classmethod
+    @check_extra_imports("pangu", [ort])
     def load_model(
         cls,
         package: Package,

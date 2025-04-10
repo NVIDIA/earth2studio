@@ -28,7 +28,6 @@ import xarray as xr
 import zarr
 from fsspec.implementations.cached import WholeFileCacheFileSystem
 from loguru import logger
-from physicsnemo.distributed.manager import DistributedManager
 from tqdm import tqdm
 
 from earth2studio.data.utils import (
@@ -281,11 +280,7 @@ class ARCO:
         """Get the appropriate cache location."""
         cache_location = os.path.join(datasource_cache_root(), "arco")
         if not self._cache:
-            if not DistributedManager.is_initialized():
-                DistributedManager.initialize()
-            cache_location = os.path.join(
-                cache_location, f"tmp_{DistributedManager().rank}"
-            )
+            cache_location = os.path.join(cache_location, "tmp_arco")
         return cache_location
 
     @classmethod

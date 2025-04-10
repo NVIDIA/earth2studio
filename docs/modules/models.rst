@@ -25,6 +25,7 @@ Thus are typically used to generate forecast predictions.
    :toctree: generated/models/px/
    :template: prognostic.rst
 
+   models.px.Aurora
    models.px.DLWP
    models.px.FCN
    models.px.FengWu
@@ -59,6 +60,10 @@ etc.
 
    models.dx.CorrDiffTaiwan
    models.dx.ClimateNet
+   models.dx.DerivedRH
+   models.dx.DerivedRHDewpoint
+   models.dx.DerivedVPD
+   models.dx.DerivedWS
    models.dx.PrecipitationAFNO
    models.dx.Identity
 

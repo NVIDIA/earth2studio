@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from earth2studio.models.px.aurora import Aurora
 from earth2studio.models.px.base import PrognosticModel
 from earth2studio.models.px.dlwp import DLWP
 from earth2studio.models.px.fcn import FCN
