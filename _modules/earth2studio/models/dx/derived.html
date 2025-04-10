@@ -539,8 +539,8 @@ document.write(`
 <div class="viewcode-block" id="DerivedRH">
 <a class="viewcode-back" href="../../../../modules/generated/models/dx/earth2studio.models.dx.DerivedRH.html#earth2studio.models.dx.DerivedRH">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">DerivedRH</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Calculates the relative humidity (RH) from specific humidity, temperature,</span>
-<span class="sd">    and pressure for specified levels. Based on the calculations ECMWF uses in the IFS</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Calculates the relative humidity (RH) from specific humidity and temperature</span>
+<span class="sd">    for specified pressure levels. Based on the calculations ECMWF uses in the IFS</span>
 <span class="sd">    numerical simulator which accounts for estimating the water vapor and ice present</span>
 <span class="sd">    in the atmosphere.</span>
 
@@ -639,6 +639,99 @@ document.write(`
         <span class="n">out_tensor</span> <span class="o">=</span> <span class="mi">100</span> <span class="o">*</span> <span class="n">e</span> <span class="o">/</span> <span class="n">es</span>
         <span class="n">out_tensor</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">clamp</span><span class="p">(</span><span class="n">out_tensor</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">100</span><span class="p">)</span>
 
+        <span class="k">return</span> <span class="n">out_tensor</span><span class="p">,</span> <span class="n">output_coords</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="DerivedRHDewpoint">
+<a class="viewcode-back" href="../../../../modules/generated/models/dx/earth2studio.models.dx.DerivedRHDewpoint.html#earth2studio.models.dx.DerivedRHDewpoint">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">DerivedRHDewpoint</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Calculates the surface relative humidity (RH) from dewpoint temperature and air</span>
+<span class="sd">    temperature. This calculation is based on the August-Roche-Magnus approximation.</span>
+
+<span class="sd">    Note</span>
+<span class="sd">    ----</span>
+<span class="sd">    For more details see the following references:</span>
+
+<span class="sd">    - https://doi.org/10.5194/gmd-9-523-2016 (Eq. B3)</span>
+<span class="sd">    - https://doi.org/10.5194/tc-2023-8 (Eq. 1 and 5)</span>
+<span class="sd">    - https://doi.org/10.1175/1520-0450(1996)035&lt;0601:IMFAOS&gt;2.0.CO;2 (Eq. 21)</span>
+<span class="sd">    - https://en.wikipedia.org/wiki/Clausius%E2%80%93Clapeyron_relation#August%E2%80%93Roche%E2%80%93Magnus_formula</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">input_coords</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">CoordSystem</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Input coordinate system of diagnostic model</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        CoordSystem</span>
+<span class="sd">            Coordinate system dictionary</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="k">return</span> <span class="n">OrderedDict</span><span class="p">(</span>
+            <span class="p">{</span>
+                <span class="s2">&quot;batch&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span>
+                <span class="s2">&quot;variable&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="s2">&quot;t2m&quot;</span><span class="p">,</span> <span class="s2">&quot;d2m&quot;</span><span class="p">]),</span>
+                <span class="s2">&quot;lat&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span>
+                <span class="s2">&quot;lon&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span>
+            <span class="p">}</span>
+        <span class="p">)</span>
+
+    <span class="nd">@batch_coords</span><span class="p">()</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">output_coords</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_coords</span><span class="p">:</span> <span class="n">CoordSystem</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">CoordSystem</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Output coordinate system of diagnostic model</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        input_coords : CoordSystem</span>
+<span class="sd">            Input coordinate system to transform into output_coords</span>
+<span class="sd">            by default None, will use self.input_coords.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        CoordSystem</span>
+<span class="sd">            Coordinate system dictionary</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">target_input_coords</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">input_coords</span><span class="p">()</span>
+        <span class="n">handshake_dim</span><span class="p">(</span><span class="n">input_coords</span><span class="p">,</span> <span class="s2">&quot;variable&quot;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="n">handshake_dim</span><span class="p">(</span><span class="n">input_coords</span><span class="p">,</span> <span class="s2">&quot;lat&quot;</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+        <span class="n">handshake_dim</span><span class="p">(</span><span class="n">input_coords</span><span class="p">,</span> <span class="s2">&quot;lon&quot;</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span>
+        <span class="n">handshake_coords</span><span class="p">(</span><span class="n">input_coords</span><span class="p">,</span> <span class="n">target_input_coords</span><span class="p">,</span> <span class="s2">&quot;variable&quot;</span><span class="p">)</span>
+
+        <span class="n">output_coords</span> <span class="o">=</span> <span class="n">input_coords</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="n">output_coords</span><span class="p">[</span><span class="s2">&quot;variable&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="s2">&quot;r2m&quot;</span><span class="p">])</span>
+        <span class="k">return</span> <span class="n">output_coords</span>
+
+<div class="viewcode-block" id="DerivedRHDewpoint.__call__">
+<a class="viewcode-back" href="../../../../modules/generated/models/dx/earth2studio.models.dx.DerivedRHDewpoint.html#earth2studio.models.dx.DerivedRHDewpoint.__call__">[docs]</a>
+    <span class="nd">@torch</span><span class="o">.</span><span class="n">inference_mode</span><span class="p">()</span>
+    <span class="nd">@batch_func</span><span class="p">()</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__call__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+        <span class="n">coords</span><span class="p">:</span> <span class="n">CoordSystem</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">CoordSystem</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Forward pass of diagnostic&quot;&quot;&quot;</span>
+        <span class="n">output_coords</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">output_coords</span><span class="p">(</span><span class="n">coords</span><span class="p">)</span>
+
+        <span class="n">t</span> <span class="o">=</span> <span class="n">x</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="p">::</span><span class="mi">2</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:]</span> <span class="o">-</span> <span class="mf">273.16</span>  <span class="c1"># K -&gt; C</span>
+        <span class="n">d</span> <span class="o">=</span> <span class="n">x</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">1</span><span class="p">::</span><span class="mi">2</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:]</span> <span class="o">-</span> <span class="mf">273.16</span>  <span class="c1"># K -&gt; C</span>
+
+        <span class="c1"># Calculate saturation vapor pressure (es) and vapor pressure (e)</span>
+        <span class="n">e</span> <span class="o">=</span> <span class="mf">6.11</span> <span class="o">*</span> <span class="n">torch</span><span class="o">.</span><span class="n">exp</span><span class="p">((</span><span class="mf">17.62</span> <span class="o">*</span> <span class="n">d</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">d</span> <span class="o">+</span> <span class="mf">243.12</span><span class="p">))</span>
+        <span class="n">es</span> <span class="o">=</span> <span class="mf">6.11</span> <span class="o">*</span> <span class="n">torch</span><span class="o">.</span><span class="n">exp</span><span class="p">((</span><span class="mf">17.62</span> <span class="o">*</span> <span class="n">t</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">t</span> <span class="o">+</span> <span class="mf">243.12</span><span class="p">))</span>
+
+        <span class="c1"># Improved fit for cold temperatures (Sonntag 1990)</span>
+        <span class="n">e_cold</span> <span class="o">=</span> <span class="mf">6.11</span> <span class="o">*</span> <span class="n">torch</span><span class="o">.</span><span class="n">exp</span><span class="p">((</span><span class="mf">22.46</span> <span class="o">*</span> <span class="n">d</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">d</span> <span class="o">+</span> <span class="mf">272.62</span><span class="p">))</span>
+        <span class="n">es_cold</span> <span class="o">=</span> <span class="mf">6.11</span> <span class="o">*</span> <span class="n">torch</span><span class="o">.</span><span class="n">exp</span><span class="p">((</span><span class="mf">22.46</span> <span class="o">*</span> <span class="n">t</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">t</span> <span class="o">+</span> <span class="mf">272.62</span><span class="p">))</span>
+
+        <span class="n">out_tensor</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">t</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">,</span> <span class="n">e_cold</span> <span class="o">/</span> <span class="n">es_cold</span><span class="p">,</span> <span class="n">e</span> <span class="o">/</span> <span class="n">es</span><span class="p">)</span> <span class="o">*</span> <span class="mi">100</span>
+        <span class="c1"># Clamp to 0-100%</span>
+        <span class="n">out_tensor</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">clamp</span><span class="p">(</span><span class="n">out_tensor</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">100</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">out_tensor</span><span class="p">,</span> <span class="n">output_coords</span></div>
 </div>
 

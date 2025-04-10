@@ -486,18 +486,18 @@ below.
 Clone the repo and use uv to create a Python 3.12 virtual enviroment and sync it with
 the <code class="docutils literal notranslate"><span class="pre">dev</span></code> dependency group:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Replace with your fork</span>
-git<span class="w"> </span>clone<span class="w"> </span>https://github.com/NVIDIA/earth2studio.git
+git<span class="w"> </span>clone<span class="w"> </span>https://github.com/NVIDIA/earth2studio.git<span class="w"> </span>--single-branch
 
-<span class="nb">cd</span><span class="w"> </span>earth2-inference-studio
+<span class="nb">cd</span><span class="w"> </span>earth2studio
 
 uv<span class="w"> </span>venv<span class="w"> </span>--python<span class="o">=</span><span class="m">3</span>.12
-uv<span class="w"> </span>sync<span class="w"> </span>--group<span class="w"> </span>dev
+uv<span class="w"> </span>sync<span class="w"> </span><span class="c1"># This will install the base and developer dependencies</span>
 </pre></div>
 </div>
 <p>This should create a python virtual environment inside of the local Earth2Studio git
 repository.
-To install documentation dependencies, use:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>uv<span class="w"> </span>sync<span class="w"> </span>--group<span class="o">={</span>dev,docs<span class="o">}</span>
+To install the base, developer, documentation dependencies, use:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>uv<span class="w"> </span>sync<span class="w"> </span>--group<span class="o">={</span>docs<span class="o">}</span>
 </pre></div>
 </div>
 <div class="admonition note">

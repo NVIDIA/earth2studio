@@ -60,7 +60,7 @@
         </script>
     <link rel="index" title="Index" href="../../../../genindex.html" />
     <link rel="search" title="Search" href="../../../../search.html" />
-    <link rel="next" title="earth2studio.models.dx.DerivedVPD" href="earth2studio.models.dx.DerivedVPD.html" />
+    <link rel="next" title="earth2studio.models.dx.DerivedRHDewpoint" href="earth2studio.models.dx.DerivedRHDewpoint.html" />
     <link rel="prev" title="earth2studio.models.dx.ClimateNet" href="earth2studio.models.dx.ClimateNet.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
@@ -380,6 +380,7 @@ document.write(`
   <p class="bd-links__title" role="heading" aria-level="1">Section Navigation</p>
   <div class="bd-toc-item navbar-nav"><ul class="current nav bd-sidenav">
 <li class="toctree-l1 current active has-children"><a class="reference internal" href="../../../models.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models</span></code>: Models</a><input checked="" class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-1"><i class="fa-solid fa-chevron-down"></i></label><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="../px/earth2studio.models.px.Aurora.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.Aurora</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../px/earth2studio.models.px.DLWP.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.DLWP</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../px/earth2studio.models.px.FCN.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.FCN</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../px/earth2studio.models.px.FengWu.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.FengWu</a></li>
@@ -390,10 +391,10 @@ document.write(`
 <li class="toctree-l2"><a class="reference internal" href="../px/earth2studio.models.px.Persistence.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.Persistence</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../px/earth2studio.models.px.SFNO.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.SFNO</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../px/earth2studio.models.px.StormCast.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.StormCast</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../px/earth2studio.models.px.Aurora.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.Aurora</a></li>
 <li class="toctree-l2"><a class="reference internal" href="earth2studio.models.dx.CorrDiffTaiwan.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.dx</span></code>.CorrDiffTaiwan</a></li>
 <li class="toctree-l2"><a class="reference internal" href="earth2studio.models.dx.ClimateNet.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.dx</span></code>.ClimateNet</a></li>
 <li class="toctree-l2 current active"><a class="current reference internal" href="#"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.dx</span></code>.DerivedRH</a></li>
+<li class="toctree-l2"><a class="reference internal" href="earth2studio.models.dx.DerivedRHDewpoint.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.dx</span></code>.DerivedRHDewpoint</a></li>
 <li class="toctree-l2"><a class="reference internal" href="earth2studio.models.dx.DerivedVPD.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.dx</span></code>.DerivedVPD</a></li>
 <li class="toctree-l2"><a class="reference internal" href="earth2studio.models.dx.DerivedWS.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.dx</span></code>.DerivedWS</a></li>
 <li class="toctree-l2"><a class="reference internal" href="earth2studio.models.dx.PrecipitationAFNO.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.dx</span></code>.PrecipitationAFNO</a></li>
@@ -537,8 +538,8 @@ document.write(`
 <dl class="py class">
 <dt class="sig sig-object py" id="earth2studio.models.dx.DerivedRH">
 <em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">earth2studio.models.dx.</span></span><span class="sig-name descname"><span class="pre">DerivedRH</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">levels</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">[100]</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/earth2studio/models/dx/derived.html#DerivedRH"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.dx.DerivedRH" title="Link to this definition">#</a></dt>
-<dd><p>Calculates the relative humidity (RH) from specific humidity, temperature,
-and pressure for specified levels. Based on the calculations ECMWF uses in the IFS
+<dd><p>Calculates the relative humidity (RH) from specific humidity and temperature
+for specified pressure levels. Based on the calculations ECMWF uses in the IFS
 numerical simulator which accounts for estimating the water vapor and ice present
 in the atmosphere.</p>
 <div class="admonition note">
@@ -596,11 +597,11 @@ level 100 hPa the input fields should be [t100, q100], by default [100]</p>
       </div>
     </a>
     <a class="right-next"
-       href="earth2studio.models.dx.DerivedVPD.html"
+       href="earth2studio.models.dx.DerivedRHDewpoint.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.dx</span></code>.DerivedVPD</p>
+        <p class="prev-next-title"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.dx</span></code>.DerivedRHDewpoint</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>

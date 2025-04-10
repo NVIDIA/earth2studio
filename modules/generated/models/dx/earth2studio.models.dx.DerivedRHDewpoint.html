@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
     <link href="../../../../_static/favicon.ico" rel="icon" type="image/x-icon">
-    <title>earth2studio.models.dx.Identity &#8212; Earth2Studio 0.6.0a0 documentation</title>
+    <title>earth2studio.models.dx.DerivedRHDewpoint &#8212; Earth2Studio 0.6.0a0 documentation</title>
   
   
   
@@ -51,7 +51,7 @@
     <script src="../../../../_static/togglebutton.js?v=4a39c7ea"></script>
     <script src="../../../../_static/design-tabs.js?v=f930bc37"></script>
     <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
-    <script>DOCUMENTATION_OPTIONS.pagename = 'modules/generated/models/dx/earth2studio.models.dx.Identity';</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'modules/generated/models/dx/earth2studio.models.dx.DerivedRHDewpoint';</script>
     <script>
         DOCUMENTATION_OPTIONS.theme_version = '0.15.2';
         DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'https://raw.githubusercontent.com/NVIDIA/earth2studio/gh-pages/_static/switcher.json';
@@ -60,8 +60,8 @@
         </script>
     <link rel="index" title="Index" href="../../../../genindex.html" />
     <link rel="search" title="Search" href="../../../../search.html" />
-    <link rel="next" title="earth2studio.models.auto.Package" href="../earth2studio.models.auto.Package.html" />
-    <link rel="prev" title="earth2studio.models.dx.PrecipitationAFNO" href="earth2studio.models.dx.PrecipitationAFNO.html" />
+    <link rel="next" title="earth2studio.models.dx.DerivedVPD" href="earth2studio.models.dx.DerivedVPD.html" />
+    <link rel="prev" title="earth2studio.models.dx.DerivedRH" href="earth2studio.models.dx.DerivedRH.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   </head>
@@ -394,11 +394,11 @@ document.write(`
 <li class="toctree-l2"><a class="reference internal" href="earth2studio.models.dx.CorrDiffTaiwan.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.dx</span></code>.CorrDiffTaiwan</a></li>
 <li class="toctree-l2"><a class="reference internal" href="earth2studio.models.dx.ClimateNet.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.dx</span></code>.ClimateNet</a></li>
 <li class="toctree-l2"><a class="reference internal" href="earth2studio.models.dx.DerivedRH.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.dx</span></code>.DerivedRH</a></li>
-<li class="toctree-l2"><a class="reference internal" href="earth2studio.models.dx.DerivedRHDewpoint.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.dx</span></code>.DerivedRHDewpoint</a></li>
+<li class="toctree-l2 current active"><a class="current reference internal" href="#"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.dx</span></code>.DerivedRHDewpoint</a></li>
 <li class="toctree-l2"><a class="reference internal" href="earth2studio.models.dx.DerivedVPD.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.dx</span></code>.DerivedVPD</a></li>
 <li class="toctree-l2"><a class="reference internal" href="earth2studio.models.dx.DerivedWS.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.dx</span></code>.DerivedWS</a></li>
 <li class="toctree-l2"><a class="reference internal" href="earth2studio.models.dx.PrecipitationAFNO.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.dx</span></code>.PrecipitationAFNO</a></li>
-<li class="toctree-l2 current active"><a class="current reference internal" href="#"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.dx</span></code>.Identity</a></li>
+<li class="toctree-l2"><a class="reference internal" href="earth2studio.models.dx.Identity.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.dx</span></code>.Identity</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../earth2studio.models.auto.Package.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.auto</span></code>.Package</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../earth2studio.models.batch.batch_func.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.batch</span></code>.batch_func</a></li>
 </ul>
@@ -533,17 +533,28 @@ document.write(`
 <div id="searchbox"></div>
                 <article class="bd-article">
                   
-  <section id="earth2studio-models-dx-identity">
-<h1><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.dx</span></code>.Identity<a class="headerlink" href="#earth2studio-models-dx-identity" title="Link to this heading">#</a></h1>
+  <section id="earth2studio-models-dx-derivedrhdewpoint">
+<h1><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.dx</span></code>.DerivedRHDewpoint<a class="headerlink" href="#earth2studio-models-dx-derivedrhdewpoint" title="Link to this heading">#</a></h1>
 <dl class="py class">
-<dt class="sig sig-object py" id="earth2studio.models.dx.Identity">
-<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">earth2studio.models.dx.</span></span><span class="sig-name descname"><span class="pre">Identity</span></span><a class="reference internal" href="../../../../_modules/earth2studio/models/dx/identity.html#Identity"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.dx.Identity" title="Link to this definition">#</a></dt>
-<dd><p>Identity diagnostic that is coordinate insensitive. Typically used for testing.</p>
+<dt class="sig sig-object py" id="earth2studio.models.dx.DerivedRHDewpoint">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">earth2studio.models.dx.</span></span><span class="sig-name descname"><span class="pre">DerivedRHDewpoint</span></span><a class="reference internal" href="../../../../_modules/earth2studio/models/dx/derived.html#DerivedRHDewpoint"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.dx.DerivedRHDewpoint" title="Link to this definition">#</a></dt>
+<dd><p>Calculates the surface relative humidity (RH) from dewpoint temperature and air
+temperature. This calculation is based on the August-Roche-Magnus approximation.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>For more details see the following references:</p>
+<ul class="simple">
+<li><p><a class="reference external" href="https://doi.org/10.5194/gmd-9-523-2016">https://doi.org/10.5194/gmd-9-523-2016</a> (Eq. B3)</p></li>
+<li><p><a class="reference external" href="https://doi.org/10.5194/tc-2023-8">https://doi.org/10.5194/tc-2023-8</a> (Eq. 1 and 5)</p></li>
+<li><p><a class="reference external" href="https://doi.org/10.1175/1520-0450(1996">https://doi.org/10.1175/1520-0450(1996</a>)035&lt;0601:IMFAOS&gt;2.0.CO;2 (Eq. 21)</p></li>
+<li><p><a class="reference external" href="https://en.wikipedia.org/wiki/Clausius%E2%80%93Clapeyron_relation#August%E2%80%93Roche%E2%80%93Magnus_formula">https://en.wikipedia.org/wiki/Clausius%E2%80%93Clapeyron_relation#August%E2%80%93Roche%E2%80%93Magnus_formula</a></p></li>
+</ul>
+</div>
 <dl class="field-list simple">
 </dl>
 <dl class="py method">
-<dt class="sig sig-object py" id="earth2studio.models.dx.Identity.__call__">
-<span class="sig-name descname"><span class="pre">__call__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">coords</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/earth2studio/models/dx/identity.html#Identity.__call__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.dx.Identity.__call__" title="Link to this definition">#</a></dt>
+<dt class="sig sig-object py" id="earth2studio.models.dx.DerivedRHDewpoint.__call__">
+<span class="sig-name descname"><span class="pre">__call__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">coords</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/earth2studio/models/dx/derived.html#DerivedRHDewpoint.__call__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.dx.DerivedRHDewpoint.__call__" title="Link to this definition">#</a></dt>
 <dd><p>Forward pass of diagnostic</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -573,20 +584,20 @@ document.write(`
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="earth2studio.models.dx.PrecipitationAFNO.html"
+       href="earth2studio.models.dx.DerivedRH.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.dx</span></code>.PrecipitationAFNO</p>
+        <p class="prev-next-title"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.dx</span></code>.DerivedRH</p>
       </div>
     </a>
     <a class="right-next"
-       href="../earth2studio.models.auto.Package.html"
+       href="earth2studio.models.dx.DerivedVPD.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.auto</span></code>.Package</p>
+        <p class="prev-next-title"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.dx</span></code>.DerivedVPD</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
@@ -608,8 +619,8 @@ document.write(`
   </div>
   <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="visible nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.models.dx.Identity"><code class="docutils literal notranslate"><span class="pre">Identity</span></code></a><ul class="nav section-nav flex-column">
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.models.dx.Identity.__call__"><code class="docutils literal notranslate"><span class="pre">Identity.__call__()</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.models.dx.DerivedRHDewpoint"><code class="docutils literal notranslate"><span class="pre">DerivedRHDewpoint</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.models.dx.DerivedRHDewpoint.__call__"><code class="docutils literal notranslate"><span class="pre">DerivedRHDewpoint.__call__()</span></code></a></li>
 </ul>
 </li>
 </ul>
@@ -618,7 +629,7 @@ document.write(`
   <div class="sidebar-secondary-item">
 
   <div class="tocsection sourcelink">
-    <a href="../../../../_sources/modules/generated/models/dx/earth2studio.models.dx.Identity.rst.txt">
+    <a href="../../../../_sources/modules/generated/models/dx/earth2studio.models.dx.DerivedRHDewpoint.rst.txt">
       <i class="fa-solid fa-file-lines"></i> Show Source
     </a>
   </div>

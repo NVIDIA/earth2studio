@@ -485,7 +485,7 @@ If you would like to use a new feature, install from source following the
 </section>
 <section id="will-earth2studio-add-xyz-model">
 <h2>Will Earth2Studio add XYZ model?<a class="headerlink" href="#will-earth2studio-add-xyz-model" title="Link to this heading">#</a></h2>
-<p>Whether its you’re own model or someone else’s checkpoint, we are always interested in
+<p>Whether its your own model or someone else’s checkpoint, we are always interested in
 making Earth2Studio as feature rich as possible for users.
 Open an issue to discuss the model you’re interested in using / integrating and we can
 work out a plan to get it integrated.</p>
@@ -494,24 +494,24 @@ work out a plan to get it integrated.</p>
 <h2>Earth2Studio requires X.Y.Z package or Python version, can I use another?<a class="headerlink" href="#earth2studio-requires-x-y-z-package-or-python-version-can-i-use-another" title="Link to this heading">#</a></h2>
 <p>Earth2Studio has adopted the <a class="reference external" href="https://scientific-python.org/specs/">scientific python</a>
 spec 0 for minimum supported dependencies.
-This mean adopting a common time-based policy for dropping dependencies to encourage the
-use of modern Python and packages.
-This helps improve matainance of the package and security posture.
+This means adopting a common time-based policy for dropping dependencies to encourage
+the use of modern Python and packages.
+This helps improve maintenance of the package and security posture.
 This does not imply a strict requirement for all functionality and does not apply to
 optional packages.</p>
 </section>
-<section id="earth2studio-not-authorized-to-download-public-ngc-model-checkpoints">
-<h2>Earth2Studio not authorized to download public NGC model checkpoints<a class="headerlink" href="#earth2studio-not-authorized-to-download-public-ngc-model-checkpoints" title="Link to this heading">#</a></h2>
+<section id="why-is-earth2studio-not-authorized-to-download-public-models-from-ngc">
+<h2>Why is Earth2Studio not authorized to download public models from NGC?<a class="headerlink" href="#why-is-earth2studio-not-authorized-to-download-public-models-from-ngc" title="Link to this heading">#</a></h2>
 <p>Earth2Studio will attempt to use NGC CLI based authentication to download models.
-Sometimes some misconfiguration can impact access to even public models with potential
-errors like:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>ValueError:<span class="w"> </span>Invalid<span class="w"> </span>org.<span class="w"> </span>Choose<span class="w"> </span>from<span class="w"> </span><span class="o">[</span><span class="s1">&#39;no-team&#39;</span>,<span class="w"> </span><span class="s1">&#39;0123456789&#39;</span><span class="o">]</span>
+Sometimes credential misconfiguration can impact access to even public models with
+potential errors like:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>ValueError:<span class="w"> </span>Invalid<span class="w"> </span>org.<span class="w"> </span>Choose<span class="w"> </span>from<span class="w"> </span><span class="o">[</span><span class="s1">&#39;no-org&#39;</span>,<span class="w"> </span><span class="s1">&#39;0123456789&#39;</span><span class="o">]</span>
 <span class="c1"># or</span>
 ValueError:<span class="w"> </span>Invalid<span class="w"> </span>team.<span class="w"> </span>Choose<span class="w"> </span>from<span class="w"> </span><span class="o">[</span><span class="s1">&#39;no-team&#39;</span>,<span class="w"> </span><span class="s1">&#39;0123456789&#39;</span><span class="o">]</span>
 </pre></div>
 </div>
 <p>In these cases it’s typically because there is an NGC API key on the system either via
-the NGC config file typically at <code class="docutils literal notranslate"><span class="pre">~/.ngc/config</span></code> or by environment variable
+the NGC config file located at <code class="docutils literal notranslate"><span class="pre">~/.ngc/config</span></code> by default or by environment variable
 <code class="docutils literal notranslate"><span class="pre">NGC_CLI_API_KEY</span></code>.</p>
 <p>One solution is to rename your config file or unset the API key environment variable so
 Earth2Studio uses guest access.
@@ -575,7 +575,7 @@ For example:</p>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#there-is-a-feature-in-the-docs-but-not-in-the-pip-install-package">There is a feature in the docs but not in the pip install package?</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#will-earth2studio-add-xyz-model">Will Earth2Studio add XYZ model?</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio-requires-x-y-z-package-or-python-version-can-i-use-another">Earth2Studio requires X.Y.Z package or Python version, can I use another?</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio-not-authorized-to-download-public-ngc-model-checkpoints">Earth2Studio not authorized to download public NGC model checkpoints</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#why-is-earth2studio-not-authorized-to-download-public-models-from-ngc">Why is Earth2Studio not authorized to download public models from NGC?</a></li>
 </ul>
   </nav></div>
 
