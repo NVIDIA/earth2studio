@@ -310,6 +310,26 @@ pip install earth2studio[precip-afno]
 :::
 ::::
 :::::
+:::::{tab-item} Precipitation AFNO V2
+Notes: Improved version of the Precipitation AFNO model with enhanced accuracy.
+
+::::{tab-set}
+:::{tab-item} uv
+
+```bash
+uv pip install earth2studio[precip-afno-v2]
+```
+
+:::
+:::{tab-item} pip
+
+```bash
+pip install earth2studio[precip-afno-v2]
+```
+
+:::
+::::
+:::::
 ::::::
 
 ### Submodule Dependencies
