@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2024-2025 NVIDIA CORPORATION & AFFILIATES.
 # SPDX-FileCopyrightText: All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -13,33 +13,38 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 from collections import OrderedDict
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 
 import numpy as np
-import physicsnemo  # noqa: F401 for docs
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import xarray as xr
-from physicsnemo import Module
-from physicsnemo.models.afno import AFNO
-from physicsnemo.models.meta import ModelMetaData
-from physicsnemo.utils.zenith_angle import cos_zenith_angle
+
+try:
+    from physicsnemo import Module
+    from physicsnemo.models.afno import AFNO
+    from physicsnemo.models.meta import ModelMetaData
+    from physicsnemo.utils.zenith_angle import cos_zenith_angle
+except ImportError:
+    Module = None
+    AFNO = None
+    ModelMetaData = None
+    cos_zenith_angle = None
 
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_coords, batch_func
 from earth2studio.models.dx.base import DiagnosticModel
 from earth2studio.utils import (
+    check_extra_imports,
     handshake_coords,
     handshake_dim,
 )
 from earth2studio.utils.type import CoordSystem
-
-Tensor = torch.Tensor
-
 
 class PeriodicPad2d(nn.Module):
     """
@@ -141,6 +146,9 @@ VARIABLES = [
 ]
 
 
+@check_extra_imports(
+    "precipitation_afno_v2", [Module, AFNO, ModelMetaData, cos_zenith_angle]
+)
 class PrecipitationAFNOV2(torch.nn.Module, AutoModelMixin):
     """Improved Precipitation AFNO diagnostic model. Predicts the average hourly precipitation for the next 6 hour
     with the units mm/h. This model uses an 20 atmospheric inputs and outputs one on a 0.25 degree
@@ -240,8 +248,17 @@ class PrecipitationAFNOV2(torch.nn.Module, AutoModelMixin):
         return package
 
     @classmethod
+    @check_extra_imports(
+        "precipitation_afno_v2", [Module, AFNO, ModelMetaData, cos_zenith_angle]
+    )
     def load_model(cls, package: Package) -> DiagnosticModel:
         """Load diagnostic from package"""
+        if Module is None or AFNO is None or ModelMetaData is None or cos_zenith_angle is None:
+            raise ImportError(
+                "Additional PrecipitationAFNOV2 model dependencies are not installed. "
+                "Please install them using: pip install earth2studio[precip-afno-v2]"
+            )
+
         p = package.resolve("afno_precip.mdlus")
         model = PrecipNet.from_checkpoint(str(Path(p)))
         model.eval()
