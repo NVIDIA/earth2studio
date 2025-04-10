@@ -37,10 +37,11 @@ In this example you will learn:
 
 # %%
 import os
-import numpy as np
-import matplotlib.pyplot as plt
-import cartopy.crs as ccrs
 from datetime import datetime, timedelta
+
+import cartopy.crs as ccrs
+import matplotlib.pyplot as plt
+import numpy as np
 
 from earth2studio.data import GFS
 from earth2studio.io import ZarrBackend
@@ -96,8 +97,9 @@ io = deterministic([forecast_date], nsteps, interp_model, data, io)
 
 # %%
 # Create a figure with multiple subplots
-fig, axes = plt.subplots(2, 3, figsize=(15, 10), 
-                         subplot_kw={"projection": ccrs.Robinson()})
+fig, axes = plt.subplots(
+    2, 3, figsize=(15, 10), subplot_kw={"projection": ccrs.Robinson()}
+)
 axes = axes.flatten()
 
 # Plot at different lead times
@@ -107,7 +109,7 @@ variable = "t2m"
 for i, lead_time in enumerate(lead_times):
     # Calculate the step index (each step is 1 hour)
     step = lead_time
-    
+
     # Create the plot
     ax = axes[i]
     im = ax.pcolormesh(
@@ -117,10 +119,10 @@ for i, lead_time in enumerate(lead_times):
         transform=ccrs.PlateCarree(),
         cmap="Spectral_r",
     )
-    
+
     # Set title
     ax.set_title(f"Lead time: {lead_time}hrs")
-    
+
     # Add coastlines and gridlines
     ax.coastlines()
     ax.gridlines()

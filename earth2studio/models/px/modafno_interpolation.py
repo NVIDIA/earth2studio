@@ -168,14 +168,14 @@ class ForecastInterpolation(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     @staticmethod
     def _load_feature_from_file(fn, var):
         """Load a feature from a NetCDF file.
-        
+
         Parameters
         ----------
         fn : str
             Path to the NetCDF file
         var : str
             Variable name to load from the file
-            
+
         Returns
         -------
         torch.Tensor
@@ -376,7 +376,7 @@ class ForecastInterpolation(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 yield (x, coords)
             else:
                 x1 = x
-                for (x, coords) in self._interpolate(x0, x1, coords0):
+                for x, coords in self._interpolate(x0, x1, coords0):
                     yield (x, coords)
                 coords = self.output_coords(coords)
                 yield (x1, coords)

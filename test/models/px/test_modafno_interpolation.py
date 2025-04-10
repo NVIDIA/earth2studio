@@ -28,12 +28,14 @@ from earth2studio.utils import handshake_dim
 
 class PhooSFNOModel(torch.nn.Module):
     """Mock SFNO model for testing."""
+
     def forward(self, x, t):
         return x
 
 
 class PhooInterpolationModel(torch.nn.Module):
     """Mock interpolation model for testing."""
+
     def forward(self, x, t_norm):
         # Stack by 6
         return torch.cat([x, x, x, x, x, x], dim=1)
@@ -43,13 +45,15 @@ class PhooInterpolationModel(torch.nn.Module):
     "time",
     [
         np.array([np.datetime64("1993-04-05T00:00")]),
-        np.array([
-            np.datetime64("1999-10-11T12:00"),
-            np.datetime64("2001-06-04T00:00"),
-        ]),
+        np.array(
+            [
+                np.datetime64("1999-10-11T12:00"),
+                np.datetime64("2001-06-04T00:00"),
+            ]
+        ),
     ],
 )
-#@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+# @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
 @pytest.mark.parametrize("device", ["cpu"])
 def test_forecast_interpolation_call(time, device):
     """Test basic forward pass of ForecastInterpolation model."""
@@ -62,8 +66,8 @@ def test_forecast_interpolation_call(time, device):
     # Set up interpolation model
     interp_model = PhooInterpolationModel()
     geop = torch.zeros(1, 1, 720, 1440)  # Mock geopotential height
-    lsm = torch.zeros(1, 1, 720, 1440)   # Mock land-sea mask
-    
+    lsm = torch.zeros(1, 1, 720, 1440)  # Mock land-sea mask
+
     model = ForecastInterpolation(
         interp_model=interp_model,
         fc_model=base_model,
@@ -98,7 +102,9 @@ def test_forecast_interpolation_call(time, device):
     assert out.shape == torch.Size([len(time), 1, 73, 720, 1440])
     assert (out_coords["variable"] == model.output_coords(coords)["variable"]).all()
     assert (out_coords["time"] == time).all()
-    assert out_coords["lead_time"][0] == np.timedelta64(1, "h")  # Should output 1-hour steps
+    assert out_coords["lead_time"][0] == np.timedelta64(
+        1, "h"
+    )  # Should output 1-hour steps
 
     # Verify coordinate system dimensions
     handshake_dim(out_coords, "lon", 4)
@@ -109,4 +115,6 @@ def test_forecast_interpolation_call(time, device):
 
     # Verify interpolation steps
     assert len(out_coords["lead_time"]) == 1  # Each call should return one timestep
-    assert out_coords["lead_time"][0] == np.timedelta64(1, "h")  # Should be hourly output 
+    assert out_coords["lead_time"][0] == np.timedelta64(
+        1, "h"
+    )  # Should be hourly output
