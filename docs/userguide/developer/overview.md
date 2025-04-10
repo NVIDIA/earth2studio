@@ -18,7 +18,7 @@ the `dev` dependency group:
 
 ```bash
 # Replace with your fork
-git clone https://github.com/NVIDIA/earth2studio.git
+git clone https://github.com/NVIDIA/earth2studio.git --single-branch
 
 cd earth2-inference-studio
 
