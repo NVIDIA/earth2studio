@@ -60,6 +60,9 @@ etc.
 
    models.dx.CorrDiffTaiwan
    models.dx.ClimateNet
+   models.dx.DerivedRH
+   models.dx.DerivedVPD
+   models.dx.DerivedWS
    models.dx.PrecipitationAFNO
    models.dx.Identity
 

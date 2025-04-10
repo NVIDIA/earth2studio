@@ -14,6 +14,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add Aurora model to prognostic models
 - Added check_extra_imports util for informative errors when optional dependencies are
   not installed
+- Added diagnostic for relative humidity
+- Added diagnostic for wind speed magnitude
+- Added diagnostic for vapour-pressure deficit
 
 ### Changed
 

@@ -270,6 +270,28 @@ pip install earth2studio[corrdiff]
 :::
 ::::
 :::::
+:::::{tab-item} Derived
+Notes: Additional dependencies for all derivced diagnostic models.
+No additional dependencies are needed for the derived models at the moment but included
+for completeness.
+
+::::{tab-set}
+:::{tab-item} uv
+
+```bash
+uv pip install earth2studio[derived]
+```
+
+:::
+:::{tab-item} pip
+
+```bash
+pip install earth2studio[derived]
+```
+
+:::
+::::
+:::::
 :::::{tab-item} Precipitation AFNO
 ::::{tab-set}
 :::{tab-item} uv
