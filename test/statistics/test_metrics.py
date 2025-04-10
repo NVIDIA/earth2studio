@@ -121,9 +121,9 @@ def test_batch_mean(device) -> None:
 @pytest.mark.parametrize(
     "reduction_weights",
     [
-        (["time", "lat", "lon"], lat_weights.unsqueeze(1).repeat(2, 1, 720)),
+        (["time", "lat", "lon"], lat_weights.unsqueeze(1).repeat(2, 1, 90)),
         (["lat"], lat_weights),
-        (["lat", "lon"], lat_weights.unsqueeze(1).repeat(1, 720)),
+        (["lat", "lon"], lat_weights.unsqueeze(1).repeat(1, 90)),
     ],
 )
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
@@ -131,8 +131,8 @@ def test_spread_skill(
     reduction_weights: tuple[list[str], np.ndarray], device: str
 ) -> None:
 
-    n_ensemble = 800
-    x = 3.0 + 2.0 * torch.randn((n_ensemble, 2, 2, 361, 720), device=device)
+    n_ensemble = 2400
+    x = 3.0 + 2.0 * torch.randn((n_ensemble, 2, 2, 361, 90), device=device)
 
     x_coords = OrderedDict(
         {
@@ -142,13 +142,13 @@ def test_spread_skill(
             ),
             "variable": np.array(["t2m", "tcwv"]),
             "lat": np.linspace(-90.0, 90.0, 361),
-            "lon": np.linspace(0.0, 360.0, 720, endpoint=False),
+            "lon": np.linspace(0.0, 360.0, 90, endpoint=False),
         }
     )
 
     y_coords = copy.deepcopy(x_coords)
     y_coords.pop("ensemble")
-    y = 3.0 + 2.0 * torch.randn((2, 2, 361, 720), device=device)
+    y = 3.0 + 2.0 * torch.randn((2, 2, 361, 90), device=device)
 
     ensemble_dimension = "ensemble"
     reduction_dimensions, weights = reduction_weights

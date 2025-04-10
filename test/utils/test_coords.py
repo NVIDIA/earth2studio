@@ -22,9 +22,11 @@ import torch
 
 from earth2studio.utils import (
     convert_multidim_to_singledim,
+    handshake_coords,
     handshake_dim,
+    handshake_size,
 )
-from earth2studio.utils.coords import map_coords
+from earth2studio.utils.coords import map_coords, split_coords
 
 
 @pytest.mark.parametrize(
@@ -294,3 +296,127 @@ def test_convert_multidim_to_singledim_error():
 
     with pytest.raises(ValueError):
         convert_multidim_to_singledim(dc)
+
+
+def test_handshake_coords():
+    """Test handshake_coords function"""
+    coords1 = OrderedDict([("lat", np.array([1, 2, 3]))])
+    coords2 = OrderedDict([("lat", np.array([1, 2, 3]))])
+
+    # Should pass
+    handshake_coords(coords1, coords2, "lat")
+
+    # Test missing dimension in input coords
+    with pytest.raises(KeyError, match="not found in input coordinates"):
+        handshake_coords(coords1, coords2, "lon")
+
+    # Test missing dimension in target coords
+    coords2 = OrderedDict([("lon", np.array([1, 2, 3]))])
+    with pytest.raises(KeyError, match="not found in target coordinates"):
+        handshake_coords(coords1, coords2, "lat")
+
+    # Test different shapes
+    coords2 = OrderedDict([("lat", np.array([1, 2, 3, 4]))])
+    with pytest.raises(ValueError, match="are not the same"):
+        handshake_coords(coords1, coords2, "lat")
+
+    # Test different values
+    coords2 = OrderedDict([("lat", np.array([1, 2, 4]))])
+    with pytest.raises(ValueError, match="are not the same"):
+        handshake_coords(coords1, coords2, "lat")
+
+
+def test_handshake_size():
+    """Test handshake_size function"""
+    coords = OrderedDict([("lat", np.array([1, 2, 3]))])
+
+    # Should pass
+    handshake_size(coords, "lat", 3)
+
+    # Test missing dimension
+    with pytest.raises(KeyError, match="not found in input coordinates"):
+        handshake_size(coords, "lon", 3)
+
+    # Test wrong size
+    with pytest.raises(ValueError, match="is not of size"):
+        handshake_size(coords, "lat", 4)
+
+
+def test_map_coords_additional():
+    """Test additional map_coords scenarios"""
+    # Test time coordinate handling
+    coords = OrderedDict([("time", np.array([1, 2, 3])), ("lat", np.array([1, 2, 3]))])
+    data = torch.randn(3, 3)
+    output_coords = OrderedDict([("lat", np.array([1.5, 2]))])
+    out, outc = map_coords(data, coords, output_coords)
+    assert out.shape == (3, 2)
+
+    # Test unsupported method
+    with pytest.raises(ValueError, match="not supported"):
+        map_coords(data, coords, output_coords, method="quadratic")
+
+    # Test non-numeric coordinate error
+    coords = OrderedDict([("var", np.array(["a", "b", "c"]))])
+    output_coords = OrderedDict([("var", np.array(["d", "e"]))])
+    with pytest.raises(ValueError, match="must be in the input coordinates"):
+        map_coords(torch.randn(3), coords, output_coords)
+
+
+def test_split_coords():
+    """Test split_coords function"""
+    x = torch.randn(2, 3, 4)
+    coords = OrderedDict(
+        [
+            ("batch", np.array([0, 1])),
+            ("variable", np.array(["a", "b", "c"])),
+            ("time", np.array([1, 2, 3, 4])),
+        ]
+    )
+
+    # Test normal split
+    xs, reduced_coords, values = split_coords(x, coords, "variable")
+    assert len(xs) == 3
+    assert all(t.shape == (2, 4) for t in xs)
+    assert "variable" not in reduced_coords
+    assert np.array_equal(values, np.array(["a", "b", "c"]))
+
+    # Test invalid dimension
+    with pytest.raises(ValueError, match="is not in coords"):
+        split_coords(x, coords, "invalid_dim")
+
+
+def test_convert_multidim_to_singledim_additional():
+    """Test additional convert_multidim_to_singledim scenarios"""
+    # Test incomplete multidimensional coordinates
+    lat = np.linspace(0, 1, 20)
+    lon = np.linspace(0, 1, 40)
+    LON, LAT = np.meshgrid(lon, lat)
+
+    # Missing matching coordinate
+    coords = OrderedDict([("lat", LAT)])
+    with pytest.raises(
+        ValueError, match="Assumed that if an n-dimensional coordinate exists"
+    ):
+        convert_multidim_to_singledim(coords)
+
+    # Test mismatched shapes
+    coords = OrderedDict([("lat", LAT), ("lon", np.zeros((30, 50)))])  # Different shape
+    with pytest.raises(
+        ValueError, match="Assumed that if an n-dimensional coordinate exists"
+    ):
+        convert_multidim_to_singledim(coords)
+
+    # Test with 3D coordinates but missing matching coordinates
+    ff = np.linspace(0, 1, 5)
+    LON, LAT, FF = np.meshgrid(lon, lat, ff)
+    coords = OrderedDict(
+        [
+            ("lat", LAT),
+            ("lon", LON),
+            # Missing FF coordinate
+        ]
+    )
+    with pytest.raises(
+        ValueError, match="Assumed that if an n-dimensional coordinate exists"
+    ):
+        convert_multidim_to_singledim(coords)

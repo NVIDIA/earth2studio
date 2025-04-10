@@ -22,7 +22,7 @@ import torch
 from earth2studio.data import DataSource, fetch_data
 from earth2studio.models.px import PrognosticModel
 from earth2studio.perturbation.base import Perturbation
-from earth2studio.utils.coords import handshake_dim, handshake_size
+from earth2studio.utils import handshake_dim, handshake_size
 from earth2studio.utils.time import to_time_array
 from earth2studio.utils.type import CoordSystem
 
@@ -141,10 +141,7 @@ class HemisphericCentredBredVector:
         # compute norms on northern and southern hemisphere
         north = torch.sqrt(
             torch.mean(
-                x[..., :ex_tropic, :] ** 2
-                * weights[
-                    :ex_tropic,
-                ],
+                x[..., :ex_tropic, :] ** 2 * weights[:ex_tropic,],
                 dim=(-2, -1),
             )
         )

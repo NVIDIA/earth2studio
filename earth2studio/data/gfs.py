@@ -26,7 +26,6 @@ import s3fs
 import xarray as xr
 from fsspec.implementations.ftp import FTPFileSystem
 from loguru import logger
-from physicsnemo.distributed.manager import DistributedManager
 from s3fs.core import S3FileSystem
 from tqdm import tqdm
 
@@ -368,11 +367,7 @@ class GFS:
         """Return appropriate cache location."""
         cache_location = os.path.join(datasource_cache_root(), "gfs")
         if not self._cache:
-            if not DistributedManager.is_initialized():
-                DistributedManager.initialize()
-            cache_location = os.path.join(
-                cache_location, f"tmp_{DistributedManager().rank}"
-            )
+            cache_location = os.path.join(cache_location, "tmp_gfs")
         return cache_location
 
     @classmethod
