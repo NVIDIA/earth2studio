@@ -1,10 +1,11 @@
-project: 'helene'
+project: 'helene_reprod'
 random_seed: 377778
 
 start_times: ["2024-09-24 12:00:00"]
 nsteps: 20         # number of forecasting steps
 nensemble: 4       # ensemble size per checkpoint
 batch_size: 2      # inference batch size
+batch_ids_reproduce: [0] # select specifc batchs that you want to run to reproduce certain runs
 
 forecast_model:
     architecture: earth2studio.models.px.SFNO   # forecast model class

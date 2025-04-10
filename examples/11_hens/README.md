@@ -75,6 +75,9 @@ demonstrated in the configuration of the HENS perturbation.
 Select a project name to uniquely identify your run. This prevents overwriting
 files from previous runs and helps with organisation. Note that `nensemble`
 refers to the number of ensemble members per (IC × number of checkpoints).
+When used with the HENS perturbation, `nensemble` and `batch_size` have to be even
+as the perurbation method is symmetric, ie the perturbation is once added and once
+subtracted from the IC.
 
 ```yaml
 project: 'project_name' # project name
@@ -253,7 +256,43 @@ Execute the ensemble inference by running:
 [mpirun -n XX] python hens.py --config-name=helene.yaml
 ```
 
-### 5.2 Reproducing individual Batches of the Helene Ensemble
+### 5.2 Reproducing Individual Batches of the Helene Ensemble
+
+There are scenarios where reproducing specific ensemble batches becomes necessary.
+For example, when working with large ensembles, storing all forecast fields might
+be impractical due to storage limitations. However, for cases featuring particularly
+interesting cyclone tracks, it remains valuable to reproduce and store the relevant
+fields.
+
+It is important to note that since inference batches, including perturbations, are
+generated collectively, we cannot reproduce individual ensemble members in isolation.
+Instead, the entire batch must be reproduced. To demonstrate this functionality, we
+will reproduce the first batch of the Helene ensemble.
+
+To achieve this, set the `batch_ids_reproduce` parameter to the desired batch ID. The
+remaining configuration must match the `helene.yaml` file. Exception is the file
+output section. If you have modified the original configuration, either revert
+those changes or apply them consistently to `reproduce_helene_batches.yaml`.
+
+Execute the following command:
+
+```bash
+python hens.py --config-name=reproduce_helene_batches.yaml
+```
+
+Now compare the output file of the tracks with the original one. The entries in your
+should be identical, only the track ID should be diffrent, as this depends on the
+total number of ensemble members.
+
+<!-- markdownlint-disable MD033 -->
+<div style="background-color:#fff3cd; padding: 10px; border-radius: 5px;
+border-left: 5px solid #ffc107; margin: 10px 0; color: #000000;">
+**Note:**
+- Currently requires torch seed to be set
+- Produces batch ID for each checkpoint
+- You can choose individual checkpoint, or wait for update...
+</div>
+<!-- markdownlint-enable MD033 -->
 
 ### 5.3 Precipitation Forecast
 
