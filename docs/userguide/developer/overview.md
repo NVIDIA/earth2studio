@@ -20,7 +20,7 @@ the `dev` dependency group:
 # Replace with your fork
 git clone https://github.com/NVIDIA/earth2studio.git --single-branch
 
-cd earth2-inference-studio
+cd earth2studio
 
 uv venv --python=3.12
 uv sync --group dev
