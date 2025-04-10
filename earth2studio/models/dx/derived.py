@@ -210,12 +210,11 @@ class DerivedRH(torch.nn.Module):
 
 
 class DerivedVPD(torch.nn.Module):
-    """Calculates the Vapor Pressure Deficit (VPD) kPa from relative humidity and
-    temperature fields. The calculation is based on the formula:
+    """Calculates the Vapor Pressure Deficit (VPD) in hPa from relative humidity
+    and temperature fields. The calculation is based on the formula:
 
-    VPD = 0.1 * es * ((100 - rh) / 100)
+    VPD = es * ((100 - rh) / 100)
 
-    the 0.1 conversion factor converts the output to kPa.
     The variable es is the saturation vapor pressure calculated using the formula:
 
     es = 6.11 * exp((L / Rv) * ((1 / 273) - (1 / T)))
@@ -304,6 +303,6 @@ class DerivedVPD(torch.nn.Module):
         L = 2.26e6
         Rv = 461
         es = 6.11 * torch.exp((L / Rv) * ((1.0 / 273.16) - (1.0 / t)))
-        out_tensor = 0.1 * es * ((100.0 - r) / 100.0)
+        out_tensor = es * ((100.0 - r) / 100.0)
 
         return out_tensor, output_coords

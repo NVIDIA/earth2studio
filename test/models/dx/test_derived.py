@@ -228,11 +228,11 @@ def test_derived_vpd(levels, shape, device):
     assert out.device == x.device
 
     # Test physical bounds and behavior
-    # At 25°C and 60% RH, VPD should be around 1.2-1.3 kPa
+    # At 25°C and 60% RH, VPD should be around 1.2-1.3 kPa or 12-13 mb/hPa
     # https://www.dimluxlighting.com/knowledge/vapor-pressure-deficit-vpd-calculator/
     # https://www.omnicalculator.com/biology/vapor-pressure-deficit#what-is-vapor-pressure-deficit-vpd
     # https://en.wikipedia.org/wiki/Vapour-pressure_deficit
-    expected_vpd = 1.25
+    expected_vpd = 12.5
     assert torch.allclose(
         torch.mean(out), torch.tensor(expected_vpd, device=device), rtol=0.2
     )
