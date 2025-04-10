@@ -286,7 +286,7 @@ total number of ensemble members.
 
 <!-- markdownlint-disable MD033 -->
 <div style="background-color:#fff3cd; padding: 10px; border-radius: 5px;
-border-left: 5px solid #ffc107; margin: 10px 0; color: #000000;">
+border-left: 5px solid #ffc107; margin: 10px 0;">
 **Note:**
 - Currently requires torch seed to be set
 - Produces batch ID for each checkpoint
