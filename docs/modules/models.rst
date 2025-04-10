@@ -25,6 +25,7 @@ Thus are typically used to generate forecast predictions.
    :toctree: generated/models/px/
    :template: prognostic.rst
 
+   models.px.Aurora
    models.px.DLWP
    models.px.FCN
    models.px.FengWu
@@ -35,7 +36,6 @@ Thus are typically used to generate forecast predictions.
    models.px.Persistence
    models.px.SFNO
    models.px.StormCast
-   models.px.Aurora
 
 .. _earth2studio.models.dx:
 
@@ -63,6 +63,7 @@ etc.
    models.dx.CycloneTracking
    models.dx.CycloneTrackingVorticity
    models.dx.DerivedRH
+   models.dx.DerivedRHDewpoint
    models.dx.DerivedVPD
    models.dx.DerivedWS
    models.dx.PrecipitationAFNO
