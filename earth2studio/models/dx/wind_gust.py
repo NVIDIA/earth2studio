@@ -15,7 +15,6 @@
 # limitations under the License.
 from collections import OrderedDict
 from datetime import datetime, timezone
-from pathlib import Path
 
 import numpy as np
 import torch
@@ -161,25 +160,18 @@ class WindgustAFNO(torch.nn.Module, AutoModelMixin):
     @classmethod
     def load_model(cls, package: Package) -> DiagnosticModel:
         """Load diagnostic from package"""
-        p = package.resolve("afno_windgust_1h.mdlus")
-        model = Module.from_checkpoint(str(Path(p)))
+        model = Module.from_checkpoint(package.resolve("afno_windgust_1h.mdlus"))
         model.eval()
 
-        input_center = torch.Tensor(
-            np.load(str(package.resolve(Path("global_means.npy"))))
-        )
+        input_center = torch.Tensor(np.load(package.resolve("global_means.npy")))
 
-        input_scale = torch.Tensor(
-            np.load(str(package.resolve(Path("global_stds.npy"))))
-        )
+        input_scale = torch.Tensor(np.load(package.resolve("global_stds.npy")))
         lsm = torch.Tensor(
-            xr.open_dataset(str(package.resolve(Path("land_sea_mask.nc"))))[
-                "LSM"
-            ].values
+            xr.open_dataset(package.resolve("land_sea_mask.nc"))["LSM"].values
         )[None, :, :-1]
 
         orography = torch.Tensor(
-            xr.open_dataset(str(package.resolve(Path("orography.nc"))))["Z"].values
+            xr.open_dataset(package.resolve("orography.nc"))["Z"].values
         )[None, :, :-1]
         orography = (orography - orography.mean()) / orography.std()
 

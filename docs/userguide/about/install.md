@@ -57,6 +57,8 @@ uv run python
 >>> earth2studio.__version__
 ```
 
+(optional_dependencies)=
+
 ## Optional Dependencies
 
 :::{admonition} uv Package Manager

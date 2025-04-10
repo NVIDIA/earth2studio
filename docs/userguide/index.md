@@ -70,8 +70,8 @@ run(["2024-01-01"], 10, model, ds, io)
 
 ## Support
 
+- [Troubleshooting](support/troubleshooting)
 - [Frequently Asked Questions](support/faq)
-- [Trouble Shooting](support/troubleshooting)
 
 ```{toctree}
 :caption: About
