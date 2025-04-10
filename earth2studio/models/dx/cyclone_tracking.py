@@ -84,7 +84,26 @@ class _CycloneTrackingBase:
         lon2: torch.Tensor,
         meters: bool = True,
     ) -> torch.Tensor:
-        """Compute haversine distance between two pairs of points."""
+        """Compute haversine distance between two pairs of points.
+
+        Parameters
+        ----------
+        lat1 : torch.Tensor
+            Latitude coordinates of first point [n]
+        lon1 : torch.Tensor
+            Longitude coordinates of first point [n]
+        lat2 : torch.Tensor
+            Latitude coordinates of second point [n]
+        lon2 : torch.Tensor
+            Longitude coordinates of second point [n]
+        meters : bool, optional
+            Return meters, otherwise return kilometers, by default True
+
+        Returns
+        -------
+        torch.Tensor
+            Distance between two points [n]
+        """
         lat1, lon1, lat2, lon2 = map(torch.deg2rad, [lat1, lon1, lat2, lon2])
         dlon = lon2 - lon1
         dlat = lat2 - lat1
