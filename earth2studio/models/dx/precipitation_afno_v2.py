@@ -15,25 +15,18 @@
 # limitations under the License.
 
 from collections import OrderedDict
-from dataclasses import dataclass
 from datetime import datetime, timezone
-from pathlib import Path
 
 import numpy as np
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
 import xarray as xr
 
 try:
-    from physicsnemo import Module
-    from physicsnemo.models.afno import AFNO
-    from physicsnemo.models.meta import ModelMetaData
     from physicsnemo.utils.zenith_angle import cos_zenith_angle
+
+    from earth2studio.models.nn.afno_precip_v2 import PrecipNet
 except ImportError:
-    Module = None
-    AFNO = None
-    ModelMetaData = None
+    PrecipNet = None
     cos_zenith_angle = None
 
 from earth2studio.models.auto import AutoModelMixin, Package
@@ -45,83 +38,6 @@ from earth2studio.utils import (
     handshake_dim,
 )
 from earth2studio.utils.type import CoordSystem
-
-
-class PeriodicPad2d(nn.Module):
-    """
-    pad longitudinal (left-right) circular
-    and pad latitude (top-bottom) with zeros
-    """
-
-    def __init__(self, pad_width: int):
-        super().__init__()
-        self.pad_width = pad_width
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        # pad left and right circular
-        out = F.pad(x, (self.pad_width, self.pad_width, 0, 0), mode="circular")
-        # pad top and bottom zeros
-        out = F.pad(
-            out, (0, 0, self.pad_width, self.pad_width), mode="constant", value=0
-        )
-        return out
-
-
-@dataclass
-class MetaData(ModelMetaData):
-    name: str = "AFNO"
-    # Optimization
-    jit: bool = False  # ONNX Ops Conflict
-    cuda_graphs: bool = True
-    amp: bool = True
-    # Inference
-    onnx_cpu: bool = False  # No FFT op on CPU
-    onnx_gpu: bool = True
-    onnx_runtime: bool = True
-    # Physics informed
-    var_dim: int = 1
-    func_torch: bool = False
-    auto_grad: bool = False
-
-
-class PrecipNet(Module):
-    def __init__(
-        self,
-        inp_shape: tuple,
-        patch_size: tuple,
-        in_channels: int,
-        out_channels: int,
-        embed_dim: int,
-        depth: int,
-        num_blocks: int,
-        *args: tuple,
-        **kwargs: dict,
-    ):
-        super().__init__(meta=MetaData())
-        backbone = AFNO(
-            inp_shape,
-            in_channels,
-            out_channels,
-            patch_size,
-            embed_dim,
-            depth,
-            num_blocks,
-        )
-
-        self.backbone = backbone
-        self.ppad = PeriodicPad2d(1)
-        self.conv = nn.Conv2d(
-            out_channels, out_channels, kernel_size=3, stride=1, padding=0, bias=True
-        )
-        self.act = nn.ReLU()
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        x = self.backbone(x)
-        x = self.ppad(x)
-        x = self.conv(x)
-        x = self.act(x)
-        return x
-
 
 VARIABLES = [
     "u10m",
@@ -147,13 +63,12 @@ VARIABLES = [
 ]
 
 
-@check_extra_imports(
-    "precipitation_afno_v2", [Module, AFNO, ModelMetaData, cos_zenith_angle]
-)
-class PrecipitationAFNOV2(torch.nn.Module, AutoModelMixin):
-    """Improved Precipitation AFNO diagnostic model. Predicts the average hourly precipitation for the next 6 hour
-    with the units mm/h. This model uses an 20 atmospheric inputs and outputs one on a 0.25 degree
-    lat-lon grid (south-pole excluding) [720 x 1440].
+@check_extra_imports("precip-afno-v2", [PrecipNet, cos_zenith_angle])
+class PrecipitationAFNOv2(torch.nn.Module, AutoModelMixin):
+    """Improved Precipitation AFNO diagnostic model. Predicts the average hourly
+    precipitation for the next 6 hour with the units mm/h. This model uses an 20
+    atmospheric inputs and outputs one on a 0.25 degree lat-lon grid (south-pole
+    excluding) [720 x 1440].
 
     Parameters
     ----------
@@ -234,7 +149,7 @@ class PrecipitationAFNOV2(torch.nn.Module, AutoModelMixin):
         return output_coords
 
     def __str__(self) -> str:
-        return "precipnet"
+        return "PrecipNet"
 
     @classmethod
     def load_default_package(cls) -> Package:
@@ -249,39 +164,26 @@ class PrecipitationAFNOV2(torch.nn.Module, AutoModelMixin):
         return package
 
     @classmethod
-    @check_extra_imports(
-        "precipitation_afno_v2", [Module, AFNO, ModelMetaData, cos_zenith_angle]
-    )
+    @check_extra_imports("precip-afno-v2", [PrecipNet, cos_zenith_angle])
     def load_model(cls, package: Package) -> DiagnosticModel:
         """Load diagnostic from package"""
-        if (
-            Module is None
-            or AFNO is None
-            or ModelMetaData is None
-            or cos_zenith_angle is None
-        ):
-            raise ImportError(
-                "Additional PrecipitationAFNOV2 model dependencies are not installed. See install documentation for details."
-            )
-
-        p = package.resolve("afno_precip.mdlus")
-        model = PrecipNet.from_checkpoint(str(Path(p)))
+        model = PrecipNet.from_checkpoint(package.resolve("afno_precip.mdlus"))
         model.eval()
 
-        input_center = torch.Tensor(np.load(str(package.resolve("global_means.npy"))))
-        input_scale = torch.Tensor(np.load(str(package.resolve("global_stds.npy"))))
+        input_center = torch.Tensor(np.load(package.resolve("global_means.npy")))
+        input_scale = torch.Tensor(np.load(package.resolve("global_stds.npy")))
         lsm = torch.Tensor(
-            xr.open_dataset(str(package.resolve("land_sea_mask.nc")))["LSM"].values
+            xr.open_dataset(package.resolve("land_sea_mask.nc"))["LSM"].values
         )[None, :, :-1]
 
         orography = torch.Tensor(
-            xr.open_dataset(str(package.resolve("orography.nc")))["Z"].values
+            xr.open_dataset(package.resolve("orography.nc"))["Z"].values
         )[None, :, :-1]
         orography = (orography - orography.mean()) / orography.std()
 
         return cls(model, lsm, orography, input_center, input_scale)
 
-    def compute_sza(
+    def _compute_sza(
         self,
         lon: np.ndarray,
         lat: np.ndarray,
@@ -314,7 +216,7 @@ class PrecipitationAFNOV2(torch.nn.Module, AutoModelMixin):
             for k, t in enumerate(coords["time"]):
                 for lt, dt in enumerate(coords["lead_time"]):
                     sza = (
-                        self.compute_sza(grid_x, grid_y, t, dt)
+                        self._compute_sza(grid_x, grid_y, t, dt)
                         .unsqueeze(0)
                         .unsqueeze(0)
                         .to(x.device)

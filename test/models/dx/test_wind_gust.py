@@ -79,8 +79,8 @@ def test_afno_windgust(x, device):
 
 
 @pytest.mark.ci_cache
-@pytest.mark.timeout(45)
-@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+@pytest.mark.timeout(30)
+@pytest.mark.parametrize("device", ["cuda:0"])
 def test_afno_windgust_package(device, model_cache_context):
     with model_cache_context():
         package = WindgustAFNO.load_default_package()

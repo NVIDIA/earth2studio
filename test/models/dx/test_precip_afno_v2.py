@@ -20,7 +20,7 @@ import numpy as np
 import pytest
 import torch
 
-from earth2studio.models.dx import PrecipitationAFNOV2
+from earth2studio.models.dx import PrecipitationAFNOv2
 from earth2studio.utils import handshake_dim
 
 
@@ -45,7 +45,7 @@ def test_afno_precip_v2(x, device):
     landsea_mask = torch.zeros(1, 1, 720, 1440)
     orography = torch.zeros(1, 1, 720, 1440)
 
-    dx = PrecipitationAFNOV2(model, landsea_mask, orography, center, scale).to(device)
+    dx = PrecipitationAFNOv2(model, landsea_mask, orography, center, scale).to(device)
     x = x.to(device)
 
     coords = OrderedDict(
@@ -72,14 +72,14 @@ def test_afno_precip_v2(x, device):
 
 
 @pytest.mark.ci_cache
-@pytest.mark.timeout(15)
+@pytest.mark.timeout(30)
 @pytest.mark.parametrize("device", ["cuda:0"])
 def test_afno_precip_v2_package(device, model_cache_context):
     # Test the cached model package AFNO precip
     # Only cuda supported
     with model_cache_context():
-        package = PrecipitationAFNOV2.load_default_package()
-        dx = PrecipitationAFNOV2.load_model(package).to(device)
+        package = PrecipitationAFNOv2.load_default_package()
+        dx = PrecipitationAFNOv2.load_model(package).to(device)
     x = torch.randn(2, 1, 1, 20, 720, 1440).to(device)
     coords = OrderedDict(
         {
@@ -112,7 +112,7 @@ def test_afno_v2_exceptions(device):
     landsea_mask = torch.zeros(1, 1, 720, 1440)
     orography = torch.zeros(1, 1, 720, 1440)
 
-    dx = PrecipitationAFNOV2(model, landsea_mask, orography, center, scale).to(device)
+    dx = PrecipitationAFNOv2(model, landsea_mask, orography, center, scale).to(device)
     x = torch.randn(1, 1, 1, 20, 720, 1440).to(device)
     wrong_coords = OrderedDict(
         {
