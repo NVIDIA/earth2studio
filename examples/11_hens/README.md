@@ -233,9 +233,25 @@ mpirun -n 2 python hens.py --config-name=your_config.yaml
 
 ### 5.1 Hurricane Helene
 
-- Does 234583 member ensemble of [Hurricane Helene][helene-wiki]
-- Use config `helene.yaml`
-- Run in parallel, use up to X GPUs
+[Hurricane Helene][helene-wiki] was a significant tropical cyclone that made landfall in September 2024,
+causing widespread impacts across the southeastern United States. The storm's rapid
+intensification and complex structure made it a challenging case for weather prediction.
+
+This workflow demonstrates ensemble inference for Helene, with the model
+initialised approximately two and a half days before landfall. To run this example,
+first download the model packages and skill file as described in [section 2](#2-prerequisites).
+In the configuration file `helene.yaml`, specify the path to the model packages under
+`forecast_model.package` and the skill file under `perturbation.skill_path`. The current
+configuration is set up for two checkpoints, one initial condition, and four ensemble
+members per checkpoint-IC pair, resulting in eight ensemble members in total. Once the
+small configuration is verified, you can expand the number of checkpoints, ICs, and
+ensemble members per checkpoint-IC pair.
+
+Execute the ensemble inference by running:
+
+```bash
+[mpirun -n XX] python hens.py --config-name=helene.yaml
+```
 
 ### 5.2 Reproducing individual Batches of the Helene Ensemble
 
