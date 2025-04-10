@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2024-2025 NVIDIA CORPORATION & AFFILIATES.
 # SPDX-FileCopyrightText: All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 from collections import OrderedDict
-from datetime import datetime, timezone
+from datetime import datetime
 from pathlib import Path
 
 import numpy as np
@@ -23,13 +23,9 @@ import xarray as xr
 from physicsnemo import Module
 from physicsnemo.utils.zenith_angle import cos_zenith_angle
 
-from earth2studio import run
-from earth2studio.data import GFS
-from earth2studio.io import ZarrBackend
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_coords, batch_func
 from earth2studio.models.dx.base import DiagnosticModel
-from earth2studio.models.px import SFNO
 from earth2studio.utils import (
     handshake_coords,
     handshake_dim,
@@ -145,8 +141,14 @@ class WindgustAFNO(torch.nn.Module, AutoModelMixin):
 
     @classmethod
     def load_default_package(cls) -> Package:
-        """Default pre-trained windgust model package from Nvidia model registry"""
-        pass
+        """Default pre-trained climatenet model package from Nvidia model registry"""
+        return Package(
+            "ngc://models/nvidia/modulus/modulus_diagnostics@v0.1",
+            cache_options={
+                "cache_storage": Package.default_cache("climatenet"),
+                "same_names": True,
+            },
+        )
 
     @classmethod
     def load_model(cls, package: Package) -> DiagnosticModel:
@@ -175,13 +177,14 @@ class WindgustAFNO(torch.nn.Module, AutoModelMixin):
 
         return cls(model, lsm, orography, input_center, input_scale)
 
-    def compute_sza(
+    def _compute_sza(
         self,
         lon: np.array,
         lat: np.array,
         time: np.datetime64,
         lead_time: np.timedelta64,
-    ):
+    ) -> torch.Tensor:
+        """Compute solar zenith angle"""
         _unix = np.datetime64(0, "s")
         _ds = np.timedelta64(1, "s")
         t = time + lead_time
@@ -209,7 +212,7 @@ class WindgustAFNO(torch.nn.Module, AutoModelMixin):
             for k, t in enumerate(coords["time"]):
                 for lt, dt in enumerate(coords["lead_time"]):
                     sza = (
-                        self.compute_sza(grid_x, grid_y, t, dt)
+                        self._compute_sza(grid_x, grid_y, t, dt)
                         .unsqueeze(0)
                         .unsqueeze(0)
                         .to(x.device)
@@ -220,5 +223,5 @@ class WindgustAFNO(torch.nn.Module, AutoModelMixin):
                     in_ = torch.cat((x[j, k, lt : lt + 1], tran), dim=1)
                     out[j, k, lt : lt + 1] = self.core_model(in_)
 
-        out[out < 0] = 0
+        out = torch.clamp(out, min=0)
         return out, output_coords
