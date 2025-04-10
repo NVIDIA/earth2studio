@@ -112,6 +112,7 @@ corrdiff = [
     "nvtx>=0.2.11",
     "scipy>=1.15.2",
 ]
+derived = []
 precip-afno = [
     "nvidia-physicsnemo>=1.0.1",
 ]
