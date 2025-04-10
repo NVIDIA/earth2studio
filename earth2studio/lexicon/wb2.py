@@ -28,6 +28,8 @@ class WB2Lexicon(metaclass=LexiconType):
     Note
     ----
     Variable named based on ERA5 names, see WB2 docs for resources.
+
+    - https://weatherbench2.readthedocs.io/en/latest/data-guide.html
     """
 
     VOCAB = {
