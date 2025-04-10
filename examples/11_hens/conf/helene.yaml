@@ -19,7 +19,7 @@ perturbation:
     integration_steps: 3
 
 data_source:
-    _target_: earth2studio.data.ARCO  # data source class
+    _target_: earth2studio.data.GFS  # data source class
 
 cyclone_tracking:
     out_dir: './outputs'
@@ -29,7 +29,16 @@ file_output:
     output_vars: ["t2m", 'u10m', 't850', 'q850', 'z500'] # , 'tp06']
     thread_io: False      # write out in seperate thread (needs further testing)
     format:               # io backend class
-        _target_: earth2studio.io.KVBackend
+        _target_: earth2studio.io.NetCDF4Backend
+        _partial_: True
+        backend_kwargs:
+            mode: 'w'
+            diskless: False
+            persist: False
+            chunks:
+                ensemble: 1
+                time: 1
+                lead_time: 1
     cropboxes:
         gulf_of_mexico:
             lat_min: 10

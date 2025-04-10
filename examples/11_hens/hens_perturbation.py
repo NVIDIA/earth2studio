@@ -128,9 +128,11 @@ class HENSPerturbation:
         scale_vec = Tensor(
             asarray(
                 [
-                    skill.sel(channel=var, lead_time=lead_time)["value"].item()
-                    if var in vars
-                    else 0.0
+                    (
+                        skill.sel(channel=var, lead_time=lead_time)["value"].item()
+                        if var in vars
+                        else 0.0
+                    )
                     for var in model_vars
                 ]
             )

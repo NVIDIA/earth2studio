@@ -159,8 +159,13 @@ perturbation:
 
 ### Tropical Cyclone Tracking
 
-- TC tracking through...
-- blah
+Cyclone tracking can be triggered by providing the `cyclone_tracking` section in
+the config. The pipeline utilises `CycloneTrackingVorticity` model.
+While alternative trackers are available in earth2studio, they require synchronisation
+to enable seamless switching between different approaches (this feature is currently
+in development). The tracking results are exported as CSV files to the directory
+specified by `out_dir`. The tracker supports regional analysis through the
+`cropboxes` parameter defined in the `file_output` section.
 
 ```yaml
 cyclone_tracking:
@@ -169,14 +174,31 @@ cyclone_tracking:
 
 ### Writing Fields to Disk
 
-- crop output in lat/lon boxes
+The pipeline supports writing forecast fields to disk through the `file_output` section.
+Users can specify the output directory, select variables for export, and optionally
+define regional boundaries using lat/lon cropboxes. The output `format` is determined
+by the chosen IO backend class, with both `KVBackend` and `XarrayBackend` being written
+to netCDF files after inference completion. These two backends can be instantiated
+without passing additional arguments.
+For the `ZarrBackend` and the `NetCDF4Backend`, chunking can have a significant impact
+on write speed. Also, these backends have to be instantiated with the partial flag set to
+`True`, as file names are determined during runtime.
 
 ```yaml
 file_output:
     path: './outputs'  # directory to which files are written
     output_vars: ["t2m", 'u10m', 't850', 'z500'] # variables to write out
     format:               # io backend class
-        _target_: earth2studio.io.KVBackend
+        _target_: earth2studio.io.NetCDF4Backend
+        _partial_: True
+        backend_kwargs:
+            mode: 'w'
+            diskless: False
+            persist: False
+            chunks:
+                ensemble: 1
+                time: 1
+                lead_time: 1
     cropboxes:
         gulf_of_mexico:
             lat_min: 10
