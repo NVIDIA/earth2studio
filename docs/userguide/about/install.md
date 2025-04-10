@@ -57,6 +57,8 @@ uv run python
 >>> earth2studio.__version__
 ```
 
+(optional_dependencies)=
+
 ## Optional Dependencies
 
 :::{admonition} uv Package Manager
@@ -325,6 +327,24 @@ uv pip install earth2studio[precip-afno-v2]
 
 ```bash
 pip install earth2studio[precip-afno-v2]
+```
+
+:::
+::::
+:::::
+:::::{tab-item} Windgust AFNO
+::::{tab-set}
+:::{tab-item} uv
+
+```bash
+uv pip install earth2studio[windgust-afno]
+```
+
+:::
+:::{tab-item} pip
+
+```bash
+pip install earth2studio[windgust-afno]
 ```
 
 :::

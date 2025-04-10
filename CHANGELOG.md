@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add Aurora model to prognostic models
 - Added check_extra_imports util for informative errors when optional dependencies are
   not installed
+- Added wind gust AFNO diagnostic model
 - Added diagnostic for relative humidity from temperature and specific humidity
 - Added diagnostic for relative humidity from temperature and dew point
 - Added diagnostic for wind speed magnitude

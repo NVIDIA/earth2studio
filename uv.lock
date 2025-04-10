@@ -1214,6 +1214,9 @@ stormcast = [
     { name = "omegaconf" },
     { name = "scipy" },
 ]
+windgust-afno = [
+    { name = "nvidia-physicsnemo" },
+]
 
 [package.dev-dependencies]
 dev = [
@@ -1289,6 +1292,7 @@ requires-dist = [
     { name = "nvidia-physicsnemo", marker = "extra == 'precip-afno-v2'", specifier = ">=1.0.1" },
     { name = "nvidia-physicsnemo", marker = "extra == 'statistics'", specifier = ">=1.0.1" },
     { name = "nvidia-physicsnemo", marker = "extra == 'stormcast'", specifier = ">=1.0.1" },
+    { name = "nvidia-physicsnemo", marker = "extra == 'windgust-afno'", specifier = ">=1.0.1" },
     { name = "nvtx", marker = "extra == 'all'", specifier = ">=0.2.11" },
     { name = "nvtx", marker = "extra == 'corrdiff'", specifier = ">=0.2.11" },
     { name = "nvtx", marker = "extra == 'stormcast'", specifier = ">=0.2.11" },
@@ -1318,7 +1322,7 @@ requires-dist = [
     { name = "xarray", extras = ["parallel"], specifier = ">=2023.1.0" },
     { name = "zarr", specifier = ">=2.14.2" },
 ]
-provides-extras = ["all", "aurora", "aurora-fork", "climatenet", "corrdiff", "data", "derived", "dlwp", "fcn", "fengwu", "pangu", "perturbation", "precip-afno", "precip-afno-v2", "sfno", "statistics", "stormcast"]
+provides-extras = ["all", "aurora", "aurora-fork", "climatenet", "corrdiff", "data", "derived", "dlwp", "fcn", "fengwu", "pangu", "perturbation", "precip-afno", "precip-afno-v2", "sfno", "statistics", "stormcast", "windgust-afno"]
 
 [package.metadata.requires-dev]
 dev = [
