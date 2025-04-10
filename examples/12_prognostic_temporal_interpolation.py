@@ -39,7 +39,6 @@ In this example you will learn:
 import os
 from datetime import datetime, timedelta
 
-import cartopy.crs as ccrs
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -81,7 +80,7 @@ io = ZarrBackend()
 # %%
 # Define forecast parameters
 forecast_date = "2024-01-01"
-nsteps = 1  # Number of forecast steps from the base model
+nsteps = 2  # Number of forecast steps from the base model
 # The interpolation model will automatically interpolate between these steps
 
 # Run the model
@@ -92,40 +91,33 @@ io = deterministic([forecast_date], nsteps, interp_model, data, io)
 # %%
 # Visualize Results
 # ----------------
-# Let's visualize the temperature at 2 meters (t2m) at different lead times
-# to see the interpolation in action.
+# Let's visualize the temperature at 2 meters (t2m) at each time step
+# and save them as separate files.
 
 # %%
-# Create a figure with multiple subplots
-fig, axes = plt.subplots(
-    2, 3, figsize=(15, 10), subplot_kw={"projection": ccrs.Robinson()}
-)
-axes = axes.flatten()
+# Get the number of time steps
+n_steps = io["t2m"].shape[1]
 
-# Plot at different lead times
-lead_times = [0, 6, 12, 18, 24, 30]  # hours
-variable = "t2m"
-
-for i, lead_time in enumerate(lead_times):
-    # Calculate the step index (each step is 1 hour)
-    step = lead_time
-
+# Create a separate plot for each time step
+for step in range(n_steps):
+    # Create a new figure for each time step
+    plt.figure(figsize=(10, 6))
+    
     # Create the plot
-    ax = axes[i]
-    im = ax.pcolormesh(
-        io["lon"][:],
-        io["lat"][:],
-        io[variable][0, step],
-        transform=ccrs.PlateCarree(),
+    im = plt.imshow(
+        io["t2m"][0, step],
         cmap="Spectral_r",
+        origin="lower",
+        extent=[0, 360, -90, 90],
+        aspect="auto"
     )
-
+    
     # Set title
-    ax.set_title(f"Lead time: {lead_time}hrs")
-
-    # Add coastlines and gridlines
-    ax.coastlines()
-    ax.gridlines()
-
-plt.tight_layout()
-plt.savefig("outputs/12_t2m_interpolation.jpg")
+    plt.title(f"Temperature at 2m - Step: {step}hrs")
+    
+    # Add colorbar
+    plt.colorbar(im, label="Temperature (K)")
+    
+    # Save the figure
+    plt.savefig(f"outputs/12_t2m_step_{step}.jpg")
+    plt.close()  # Close the figure to free memory
