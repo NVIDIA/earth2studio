@@ -14,10 +14,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import numpy as np
 import pytest
 import torch
 
-from earth2studio.models.dx import CycloneTracking
+from earth2studio.models.dx import CycloneTracking, CycloneTrackingVorticity
 
 
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
@@ -59,6 +60,217 @@ def test_vorticity_calculation(device):
         rtol=1e-5,
         atol=1e-5,
     )
+
+
+@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+def test_haversine_torch(device):
+    # Define known points
+    lat1 = torch.tensor(0, dtype=torch.float32)
+    lon1 = torch.tensor(0, dtype=torch.float32)
+    lat2 = torch.tensor(30, dtype=torch.float32)
+    lon2 = torch.tensor(120, dtype=torch.float32)
+
+    # Known expected distance in kilometers (approximate)
+    expected_distance = torch.tensor(12860.0)
+
+    # Calculate distance using haversine_torch
+    dist = CycloneTracking.haversine_torch(lat1, lon1, lat2, lon2, meters=False)
+
+    # Assert that the calculated distance is close to the expected distance
+    torch.testing.assert_close(expected_distance, dist, rtol=1e-3, atol=1e-3)
+
+
+@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+@pytest.mark.parametrize("num_maxima", [0, 1, 2])
+def test_get_local_max(device, num_maxima):
+    # Define test cases based on the number of maxima
+    test_cases = {
+        0: {
+            "x": torch.tensor(
+                [
+                    [0, 0, 0, 0],
+                    [0, 0, 0, 0],
+                    [0, 0, 0, 0],
+                    [0, 0, 0, 0],
+                ],
+                dtype=torch.float32,
+            ),
+            "expected": torch.empty((0, 2), dtype=torch.int64),
+        },
+        1: {
+            "x": torch.tensor(
+                [
+                    [0, 0, 0, 0],
+                    [0, 1, 0, 0],
+                    [0, 0, 0, 0],
+                    [0, 0, 0, 0],
+                ],
+                dtype=torch.float32,
+            ),
+            "expected": torch.tensor([[1, 1]], dtype=torch.int64),
+        },
+        2: {
+            "x": torch.tensor(
+                [
+                    [0, 0, 0, 0],
+                    [0, 1, 0, 0],
+                    [0, 0, 0, 0],
+                    [0, 0, 0, 5],
+                ],
+                dtype=torch.float32,
+            ),
+            "expected": torch.tensor([[3, 3], [1, 1]], dtype=torch.int64),
+        },
+    }
+
+    # Get the specific test case based on num_maxima
+    test_case = test_cases[num_maxima]
+
+    x = test_case["x"].to(device)
+    expected_output = test_case["expected"].to(device)
+
+    # Define parameters for get_local_max
+    threshold_abs = 0.9
+    min_distance = 1
+    exclude_border = False
+
+    # Call the method
+    local_max = CycloneTracking.get_local_max(
+        x, threshold_abs, min_distance, exclude_border
+    )
+
+    # Assertions
+    assert torch.all(
+        local_max == expected_output
+    ), f"Expected {expected_output}, but got {local_max}"
+
+
+@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+@pytest.mark.parametrize("num_timesteps", [0, 1, 2, 3])
+def test_cyclone_tracking_vorticity(num_timesteps, device):
+    # Set dimensions
+    num_vars, height, width = 5, 721, 1440
+
+    # Initialize x with random values
+    x = torch.zeros(num_timesteps, num_vars, height, width, device=device)
+
+    # Define the initial center latitude and longitude in actual units
+    initial_center_lat = 15
+    initial_center_lon = 280.0
+
+    # Define the movement of the center in actual latitude and longitude units
+    lat_movement = [
+        0.0,
+        -2.0,
+        -4.0,
+    ]  # Center moves north by 2 and then 4 degrees latitude
+    lon_movement = [
+        0.0,
+        -1.0,
+        -2.0,
+    ]  # Center moves west by 1 and then 2 degrees longitude
+
+    # Create latitude and longitude arrays
+    lats = np.linspace(90, -90, height, endpoint=True)
+    lons = np.linspace(0, 360, width, endpoint=False)
+
+    # Initialize the CycloneTrackingVorticity model
+    ct = CycloneTrackingVorticity()
+
+    for t in range(num_timesteps):
+        current_center_lat = initial_center_lat + lat_movement[t]
+        current_center_lon = initial_center_lon + lon_movement[t]
+
+        y_vals = (
+            torch.from_numpy(lats)
+            .to(dtype=torch.float32, device=device)
+            .view(-1, 1)
+            .repeat(1, width)
+        )
+        x_vals = (
+            torch.from_numpy(lons)
+            .to(dtype=torch.float32, device=device)
+            .view(1, -1)
+            .repeat(height, 1)
+        )
+
+        # Calculate distances in lat-lon space
+        lat_dist = (y_vals - current_center_lat) * np.pi / 180.0
+        lon_dist = (x_vals - current_center_lon) * np.pi / 180.0
+
+        # Convert to radians
+        R = 6371.0  # Earth radius in kilometers
+        dlat = lat_dist
+        dlon = lon_dist * torch.cos(y_vals * np.pi / 180.0)
+        a = (
+            torch.sin(dlat / 2) ** 2
+            + torch.cos(y_vals * np.pi / 180.0)
+            * torch.cos(torch.tensor(current_center_lat * np.pi / 180.0))
+            * torch.sin(dlon / 2) ** 2
+        )
+        c = 2 * torch.atan2(torch.sqrt(a), torch.sqrt(1 - a))
+        distance = R * c  # Distance in kilometers
+
+        radius_km = 100.0  # Radius of the cyclone center in kilometers
+
+        # Increase the amplitude of u850 and v850 to ensure higher vorticity
+        amplitude = 1e7  # Amplitude to increase the magnitude of wind components
+        u850 = (
+            amplitude * torch.sin(dlat) * torch.exp(-(distance**2) / (2 * radius_km**2))
+        )
+        v850 = (
+            -amplitude
+            * torch.sin(dlon)
+            * torch.exp(-(distance**2) / (2 * radius_km**2))
+        )
+
+        # Calculate vorticity
+        vorticity = ct.vorticity(u850, v850)
+
+        # Debug: Print max vorticity to ensure it is sufficient
+        print(f"Max vorticity at timestep {t}: {torch.max(vorticity).item()}")
+
+        # Assign u850 and v850 to the appropriate index in x for each timestep
+        x[t, 0] = u850
+        x[t, 1] = v850
+
+    # Set up mock coordinates dictionary
+    coords = {
+        "time": np.array(list(range(0, num_timesteps))),
+        "variable": np.array(["u850", "v850", "u10m", "v10m", "msl"]),
+        "lat": lats,
+        "lon": lons,
+    }
+
+    # Forward pass through the model
+    y, c = ct(x, coords)
+
+    # Define the expected center positions
+    expected_lat_values = np.array(
+        [initial_center_lat + lat_movement[t] for t in range(num_timesteps)]
+    )
+    expected_lon_values = np.array(
+        [initial_center_lon + lon_movement[t] for t in range(num_timesteps)]
+    )
+
+    # Check expected coordinates
+    assert list(c["time"]) == list(range(0, num_timesteps))
+    assert list(c["variable"]) == ["tc_lat", "tc_lon", "tc_msl", "tc_w10m"]
+
+    # Check expected values for each timestep
+    for t in range(num_timesteps):
+        assert (
+            pytest.approx(y[t, 0].item(), expected_lat_values[t], 0.1) == y[t, 0].item()
+        ), f"Expected {expected_lat_values[t]}, but got {y[t, 0].item()}"
+        assert (
+            pytest.approx(y[t, 1].item(), expected_lon_values[t], 0.1) == y[t, 1].item()
+        ), f"Expected {expected_lon_values[t]}, but got {y[t, 1].item()}"
+        assert (
+            pytest.approx(y[t, 2].item(), 0, 0.01) == y[t, 2].item()
+        ), f"Expected 0, but got {y[t, 2].item()}"
+        assert (
+            pytest.approx(y[t, 3].item(), 0, 0.01) == y[t, 3].item()
+        ), f"Expected 0, but got {y[t, 3].item()}"
 
 
 # import numpy as np

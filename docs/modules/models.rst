@@ -62,6 +62,9 @@ etc.
    models.dx.ClimateNet
    models.dx.CycloneTracking
    models.dx.CycloneTrackingVorticity
+   models.dx.DerivedRH
+   models.dx.DerivedVPD
+   models.dx.DerivedWS
    models.dx.PrecipitationAFNO
    models.dx.Identity
 
