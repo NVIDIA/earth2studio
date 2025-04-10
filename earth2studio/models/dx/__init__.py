@@ -25,3 +25,4 @@ from earth2studio.models.dx.derived import (
 )
 from earth2studio.models.dx.identity import Identity  # noqa
 from earth2studio.models.dx.precipitation_afno import PrecipitationAFNO  # noqa
+from earth2studio.models.dx.wind_gust import WindgustAFNO  # noqa

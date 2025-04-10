@@ -14,14 +14,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 from collections import OrderedDict
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 import numpy as np
 import torch
 import xarray as xr
-from physicsnemo import Module
-from physicsnemo.utils.zenith_angle import cos_zenith_angle
+
+from earth2studio.utils.imports import check_extra_imports
+
+try:
+    from physicsnemo import Module
+    from physicsnemo.utils.zenith_angle import cos_zenith_angle
+except ImportError:
+    Module = None
+    cos_zenith_angle = None
 
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_coords, batch_func
@@ -53,10 +60,11 @@ VARIABLES = [
 ]
 
 
+@check_extra_imports("windgust-afno", [Module, cos_zenith_angle])
 class WindgustAFNO(torch.nn.Module, AutoModelMixin):
-    """Wind gust AFNO diagnsotic model. Predicts the maximum wind gust during the preceding hour
-    with the units m/s. This model uses an 17 atmospheric inputs and outputs one on a 0.25 degree
-    lat-lon grid (south-pole excluding) [720 x 1440].
+    """Wind gust AFNO diagnsotic model. Predicts the maximum wind gust during the
+    preceding hour with the units m/s. This model uses an 17 atmospheric inputs and
+    outputs one on a 0.25 degree lat-lon grid (south-pole excluding) [720 x 1440].
 
     Parameters
     ----------
@@ -133,7 +141,7 @@ class WindgustAFNO(torch.nn.Module, AutoModelMixin):
         handshake_coords(input_coords, target_input_coords, "variable")
 
         output_coords = input_coords.copy()
-        output_coords["variable"] = np.array(["fg10"])
+        output_coords["variable"] = np.array(["fg10m"])
         return output_coords
 
     def __str__(self) -> str:
@@ -143,7 +151,7 @@ class WindgustAFNO(torch.nn.Module, AutoModelMixin):
     def load_default_package(cls) -> Package:
         """Default pre-trained climatenet model package from Nvidia model registry"""
         return Package(
-            "ngc://models/nvidia/modulus/modulus_diagnostics@v0.1",
+            "ngc://models/nvidia/earth-2/afno_dx_wg-v1-era5@v0.1.0",
             cache_options={
                 "cache_storage": Package.default_cache("climatenet"),
                 "same_names": True,
@@ -188,7 +196,7 @@ class WindgustAFNO(torch.nn.Module, AutoModelMixin):
         _unix = np.datetime64(0, "s")
         _ds = np.timedelta64(1, "s")
         t = time + lead_time
-        t = datetime.fromtimestamp((t - _unix) / _ds)
+        t = datetime.fromtimestamp((t - _unix) / _ds, tz=timezone.utc)
         return torch.Tensor(cos_zenith_angle(t, lon, lat))
 
     @torch.inference_mode()
