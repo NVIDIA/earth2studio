@@ -94,8 +94,8 @@ class PrecipNet(Module):
         embed_dim: int,
         depth: int,
         num_blocks: int,
-        *args,
-        **kwargs
+        *args: tuple,
+        **kwargs: dict,
     ):
         super().__init__(meta=MetaData())
         backbone = AFNO(
@@ -268,20 +268,14 @@ class PrecipitationAFNOV2(torch.nn.Module, AutoModelMixin):
         model = PrecipNet.from_checkpoint(str(Path(p)))
         model.eval()
 
-        input_center = torch.Tensor(
-            np.load(str(package.resolve(Path("global_means.npy"))))
-        )
-        input_scale = torch.Tensor(
-            np.load(str(package.resolve(Path("global_stds.npy"))))
-        )
+        input_center = torch.Tensor(np.load(str(package.resolve("global_means.npy"))))
+        input_scale = torch.Tensor(np.load(str(package.resolve("global_stds.npy"))))
         lsm = torch.Tensor(
-            xr.open_dataset(str(package.resolve(Path("land_sea_mask.nc"))))[
-                "LSM"
-            ].values
+            xr.open_dataset(str(package.resolve("land_sea_mask.nc")))["LSM"].values
         )[None, :, :-1]
 
         orography = torch.Tensor(
-            xr.open_dataset(str(package.resolve(Path("orography.nc"))))["Z"].values
+            xr.open_dataset(str(package.resolve("orography.nc")))["Z"].values
         )[None, :, :-1]
         orography = (orography - orography.mean()) / orography.std()
 
@@ -289,11 +283,11 @@ class PrecipitationAFNOV2(torch.nn.Module, AutoModelMixin):
 
     def compute_sza(
         self,
-        lon: np.array,
-        lat: np.array,
+        lon: np.ndarray,
+        lat: np.ndarray,
         time: np.datetime64,
         lead_time: np.timedelta64,
-    ):
+    ) -> torch.Tensor:
         _unix = np.datetime64(0, "s")
         _ds = np.timedelta64(1, "s")
         t = time + lead_time
