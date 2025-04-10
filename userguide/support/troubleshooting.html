@@ -494,6 +494,56 @@ If you are using CUDA 12 make sure you manually pip install following the instru
 on the ONNX <a class="reference external" href="https://onnxruntime.ai/docs/install/#python-installs">documentation</a>.
 You may need to manally link the need libraries, see this
 <a class="reference external" href="https://github.com/microsoft/onnxruntime/issues/19616">Github issue</a> for reference.</p>
+</section>
+<section id="importerror-object-is-not-installed-install-manually-or-using-pip">
+<h2>ImportError: object is not installed, install manually or using pip<a class="headerlink" href="#importerror-object-is-not-installed-install-manually-or-using-pip" title="Link to this heading">#</a></h2>
+<p>This is an error that arrises typically when the proper optional dependencies are not
+installed on the system.
+For example:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>&gt;&gt;&gt;<span class="w"> </span>from<span class="w"> </span>earth2studio.data<span class="w"> </span>import<span class="w"> </span>CDS
+&gt;&gt;&gt;<span class="w"> </span>CDS<span class="o">()</span>
+Traceback<span class="w"> </span><span class="o">(</span>most<span class="w"> </span>recent<span class="w"> </span>call<span class="w"> </span>last<span class="o">)</span>:
+<span class="w">  </span>File<span class="w"> </span><span class="s2">&quot;&lt;stdin&gt;&quot;</span>,<span class="w"> </span>line<span class="w"> </span><span class="m">1</span>,<span class="w"> </span><span class="k">in</span><span class="w"> </span>&lt;module&gt;
+<span class="w">  </span>File<span class="w"> </span><span class="s2">&quot;/earth2studio/earth2studio/data/cds.py&quot;</span>,<span class="w"> </span>line<span class="w"> </span><span class="m">90</span>,<span class="w"> </span><span class="k">in</span><span class="w"> </span>__init__
+<span class="w">    </span>raise<span class="w"> </span>ImportError<span class="o">(</span>
+ImportError:<span class="w"> </span>cdsapi<span class="w"> </span>is<span class="w"> </span>not<span class="w"> </span>installed,<span class="w"> </span>install<span class="w"> </span>manually<span class="w"> </span>or<span class="w"> </span>using<span class="w"> </span><span class="sb">`</span>pip<span class="w"> </span>install<span class="w"> </span>earth2studio<span class="o">[</span>data<span class="o">]</span><span class="sb">`</span>
+</pre></div>
+</div>
+<p>The error message should indicate what the install group is that needs to be added.
+In the above example, running the command:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>uv<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>earth2studio<span class="o">[</span>data<span class="o">]</span>
+<span class="c1"># Or with pip</span>
+pip<span class="w"> </span>install<span class="w"> </span>earth2studio<span class="o">[</span>data<span class="o">]</span>
+<span class="c1"># Or if you are developer</span>
+uv<span class="w"> </span>sync<span class="w"> </span>--extra<span class="w"> </span>data
+</pre></div>
+</div>
+<p>will fix the problem.
+For additional information refer to the <a class="reference internal" href="../about/install.html#optional-dependencies"><span class="std std-ref">Optional Dependencies</span></a> section.</p>
+</section>
+<section id="earth2studio-not-authorized-to-download-public-models-from-ngc">
+<h2>Earth2Studio not authorized to download public models from NGC<a class="headerlink" href="#earth2studio-not-authorized-to-download-public-models-from-ngc" title="Link to this heading">#</a></h2>
+<p>Earth2Studio will attempt to use NGC CLI based authentication to download models.
+Sometimes credential misconfiguration can impact access to even public models with
+potential errors like:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>ValueError:<span class="w"> </span>Invalid<span class="w"> </span>org.<span class="w"> </span>Choose<span class="w"> </span>from<span class="w"> </span><span class="o">[</span><span class="s1">&#39;no-org&#39;</span>,<span class="w"> </span><span class="s1">&#39;0123456789&#39;</span><span class="o">]</span>
+<span class="c1"># or</span>
+ValueError:<span class="w"> </span>Invalid<span class="w"> </span>team.<span class="w"> </span>Choose<span class="w"> </span>from<span class="w"> </span><span class="o">[</span><span class="s1">&#39;no-team&#39;</span>,<span class="w"> </span><span class="s1">&#39;0123456789&#39;</span><span class="o">]</span>
+</pre></div>
+</div>
+<p>In these cases it’s typically because there is an NGC API key on the system either via
+the NGC config file located at <code class="docutils literal notranslate"><span class="pre">~/.ngc/config</span></code> by default or by environment variable
+<code class="docutils literal notranslate"><span class="pre">NGC_CLI_API_KEY</span></code>.</p>
+<p>One solution is to rename your config file or unset the API key environment variable so
+Earth2Studio uses guest access.
+Otherwise one can modify the config / environment variables to provide the needed
+information.
+For example:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">export</span><span class="w"> </span><span class="nv">NGC_CLI_ORG</span><span class="o">=</span>no-org
+<span class="nb">export</span><span class="w"> </span><span class="nv">NGC_CLI_TEAM</span><span class="o">=</span>no-team
+</pre></div>
+</div>
+<p>For more information see the <a class="reference external" href="https://docs.ngc.nvidia.com/cli/index.html">NGC CLI docs</a>.</p>
 <p>Still having some problems? Open an issue.</p>
 </section>
 </section>
@@ -545,6 +595,8 @@ You may need to manally link the need libraries, see this
   <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="visible nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#onnx-runtime-error-when-binding-input">ONNX Runtime  Error when binding input</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#importerror-object-is-not-installed-install-manually-or-using-pip">ImportError: object is not installed, install manually or using pip</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio-not-authorized-to-download-public-models-from-ngc">Earth2Studio not authorized to download public models from NGC</a></li>
 </ul>
   </nav></div>
 

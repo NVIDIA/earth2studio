@@ -65,6 +65,7 @@ etc.
    models.dx.DerivedVPD
    models.dx.DerivedWS
    models.dx.PrecipitationAFNO
+   models.dx.WindgustAFNO
    models.dx.Identity
 
 :mod:`earth2studio.models`: Utilities
