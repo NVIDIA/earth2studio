@@ -28,7 +28,7 @@ uv sync # This will install the base and developer dependencies
 
 This should create a python virtual environment inside of the local Earth2Studio git
 repository.
-To install the base developer, documentation dependencies, use:
+To install the base, developer, documentation dependencies, use:
 
 ```bash
 uv sync --group={docs}
