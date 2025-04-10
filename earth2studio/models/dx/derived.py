@@ -108,8 +108,8 @@ class DerivedWS(torch.nn.Module):
 
 
 class DerivedRH(torch.nn.Module):
-    """Calculates the relative humidity (RH) from specific humidity, temperature,
-    and pressure for specified levels. Based on the calculations ECMWF uses in the IFS
+    """Calculates the relative humidity (RH) from specific humidity and temperature
+    for specified pressure levels. Based on the calculations ECMWF uses in the IFS
     numerical simulator which accounts for estimating the water vapor and ice present
     in the atmosphere.
 
@@ -206,6 +206,93 @@ class DerivedRH(torch.nn.Module):
         out_tensor = 100 * e / es
         out_tensor = torch.clamp(out_tensor, 0, 100)
 
+        return out_tensor, output_coords
+
+
+class DerivedRHDewpoint(torch.nn.Module):
+    """Calculates the surface relative humidity (RH) from dewpoint temperature and air
+    temperature. This calculation is based on the August-Roche-Magnus approximation.
+
+    Note
+    ----
+    For more details see the following references:
+
+    - https://doi.org/10.5194/gmd-9-523-2016 (Eq. B3)
+    - https://doi.org/10.5194/tc-2023-8 (Eq. 1 and 5)
+    - https://doi.org/10.1175/1520-0450(1996)035<0601:IMFAOS>2.0.CO;2 (Eq. 21)
+    - https://en.wikipedia.org/wiki/Clausius%E2%80%93Clapeyron_relation#August%E2%80%93Roche%E2%80%93Magnus_formula
+    """
+
+    def __init__(self) -> None:
+        super().__init__()
+
+    def input_coords(self) -> CoordSystem:
+        """Input coordinate system of diagnostic model
+
+        Returns
+        -------
+        CoordSystem
+            Coordinate system dictionary
+        """
+
+        return OrderedDict(
+            {
+                "batch": np.empty(0),
+                "variable": np.array(["t2m", "d2m"]),
+                "lat": np.empty(0),
+                "lon": np.empty(0),
+            }
+        )
+
+    @batch_coords()
+    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
+        """Output coordinate system of diagnostic model
+
+        Parameters
+        ----------
+        input_coords : CoordSystem
+            Input coordinate system to transform into output_coords
+            by default None, will use self.input_coords.
+
+        Returns
+        -------
+        CoordSystem
+            Coordinate system dictionary
+        """
+        target_input_coords = self.input_coords()
+        handshake_dim(input_coords, "variable", 1)
+        handshake_dim(input_coords, "lat", 2)
+        handshake_dim(input_coords, "lon", 3)
+        handshake_coords(input_coords, target_input_coords, "variable")
+
+        output_coords = input_coords.copy()
+        output_coords["variable"] = np.array(["r2m"])
+        return output_coords
+
+    @torch.inference_mode()
+    @batch_func()
+    def __call__(
+        self,
+        x: torch.Tensor,
+        coords: CoordSystem,
+    ) -> tuple[torch.Tensor, CoordSystem]:
+        """Forward pass of diagnostic"""
+        output_coords = self.output_coords(coords)
+
+        t = x[..., ::2, :, :] - 273.16  # K -> C
+        d = x[..., 1::2, :, :] - 273.16  # K -> C
+
+        # Calculate saturation vapor pressure (es) and vapor pressure (e)
+        e = 6.11 * torch.exp((17.62 * d) / (d + 243.12))
+        es = 6.11 * torch.exp((17.62 * t) / (t + 243.12))
+
+        # Improved fit for over ice (Sonntag 1990)
+        e_cold = 6.11 * torch.exp((22.46 * d) / (d + 272.62))
+        es_cold = 6.11 * torch.exp((22.46 * t) / (t + 272.62))
+
+        out_tensor = torch.where(t < 0, e_cold / es_cold, e / es) * 100
+        # Clamp to 0-100%
+        out_tensor = torch.clamp(out_tensor, 0, 100)
         return out_tensor, output_coords
 
 
