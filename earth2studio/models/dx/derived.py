@@ -286,7 +286,7 @@ class DerivedRHDewpoint(torch.nn.Module):
         e = 6.11 * torch.exp((17.62 * d) / (d + 243.12))
         es = 6.11 * torch.exp((17.62 * t) / (t + 243.12))
 
-        # Improved fit for over ice (Sonntag 1990)
+        # Improved fit for cold temperatures (Sonntag 1990)
         e_cold = 6.11 * torch.exp((22.46 * d) / (d + 272.62))
         es_cold = 6.11 * torch.exp((22.46 * t) / (t + 272.62))
 
