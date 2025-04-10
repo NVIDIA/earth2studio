@@ -45,9 +45,7 @@ def test_afno_precip_v2(x, device):
     landsea_mask = torch.zeros(1, 1, 720, 1440)
     orography = torch.zeros(1, 1, 720, 1440)
 
-    dx = PrecipitationAFNOV2(
-        model, landsea_mask, orography, center, scale
-    ).to(device)
+    dx = PrecipitationAFNOV2(model, landsea_mask, orography, center, scale).to(device)
     x = x.to(device)
 
     coords = OrderedDict(
@@ -114,9 +112,7 @@ def test_afno_v2_exceptions(device):
     landsea_mask = torch.zeros(1, 1, 720, 1440)
     orography = torch.zeros(1, 1, 720, 1440)
 
-    dx = PrecipitationAFNOV2(
-        model, landsea_mask, orography, center, scale
-    ).to(device)
+    dx = PrecipitationAFNOV2(model, landsea_mask, orography, center, scale).to(device)
     x = torch.randn(1, 1, 1, 20, 720, 1440).to(device)
     wrong_coords = OrderedDict(
         {
@@ -157,4 +153,4 @@ def test_afno_v2_exceptions(device):
         }
     )
     with pytest.raises(ValueError):
-        dx(x, wrong_coords) 
+        dx(x, wrong_coords)

@@ -46,6 +46,7 @@ from earth2studio.utils import (
 )
 from earth2studio.utils.type import CoordSystem
 
+
 class PeriodicPad2d(nn.Module):
     """
     pad longitudinal (left-right) circular
@@ -253,10 +254,14 @@ class PrecipitationAFNOV2(torch.nn.Module, AutoModelMixin):
     )
     def load_model(cls, package: Package) -> DiagnosticModel:
         """Load diagnostic from package"""
-        if Module is None or AFNO is None or ModelMetaData is None or cos_zenith_angle is None:
+        if (
+            Module is None
+            or AFNO is None
+            or ModelMetaData is None
+            or cos_zenith_angle is None
+        ):
             raise ImportError(
-                "Additional PrecipitationAFNOV2 model dependencies are not installed. "
-                "Please install them using: pip install earth2studio[precip-afno-v2]"
+                "Additional PrecipitationAFNOV2 model dependencies are not installed. See install documentation for details."
             )
 
         p = package.resolve("afno_precip.mdlus")
