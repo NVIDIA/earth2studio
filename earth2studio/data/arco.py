@@ -70,6 +70,7 @@ class ARCO:
 
     ARCO_LAT = np.linspace(90, -90, 721)
     ARCO_LON = np.linspace(0, 359.75, 1440)
+    SOIL_LEVELS = [1, 2]  # Add this near other class constants
 
     def __init__(
         self, cache: bool = True, verbose: bool = True, async_timeout: int = 600
@@ -263,8 +264,16 @@ class ARCO:
         arco_variable, level = arco_name.split("::")
 
         shape = self.zarr_group[arco_variable].shape
+        
+        # Add soil variable handling
+        if variable.startswith(('swvl', 'stl')):
+            soil_level = int(variable[-1])  # Get level from variable name
+            if soil_level not in self.SOIL_LEVELS:
+                raise ValueError(f"Invalid soil level {soil_level} for {variable}")
+            level_index = soil_level - 1  # Convert to 0-based index
+            output = modifier(self.zarr_group[arco_variable][time_index, level_index])
         # Static variables
-        if len(shape) == 2:
+        elif len(shape) == 2:
             output = modifier(self.zarr_group[arco_variable][:])
         # Surface variable
         elif len(shape) == 3:

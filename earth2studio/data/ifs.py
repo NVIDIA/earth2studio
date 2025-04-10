@@ -230,11 +230,11 @@ class IFS:
                 "date": time,
                 "type": "fc",
                 "param": variable,
-                "levtype": levtype,
+                # "levtype": levtype, # TODO: Fix this for soil levels
                 "step": 0,  # Would change this for forecasts
                 "target": cache_path,
             }
-            if levtype == "pl":  # Pressure levels
+            if levtype == "pl" or levtype == "sl":  # Pressure levels or soil levels
                 request["levelist"] = level
             # Download
             self.client.retrieve(**request)
