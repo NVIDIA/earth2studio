@@ -65,7 +65,7 @@ etc.
    models.dx.DerivedVPD
    models.dx.DerivedWS
    models.dx.PrecipitationAFNO
-   models.dx.PrecipitationAFNOV2
+   models.dx.PrecipitationAFNOv2
    models.dx.WindgustAFNO
    models.dx.Identity
 
