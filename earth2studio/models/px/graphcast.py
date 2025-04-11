@@ -1,5 +1,6 @@
 import torch
 import xarray as xr
+import copy
 
 import functools
 from collections import OrderedDict
@@ -22,7 +23,7 @@ from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.px.base import PrognosticModel
 from earth2studio.models.px.utils import PrognosticMixin
 from earth2studio.utils.type import CoordSystem
-from earth2studio.lexicon.arco import ARCOLexicon
+from earth2studio.data.arcoextra import ARCOExtraLexicon
 
 VARIABLES = [
     "t2m",
@@ -214,7 +215,14 @@ class GraphCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         return drop_state(with_params(jax.jit(with_configs(run_forward.apply))))
 
-    def __init__(self, ckpt, diffs_stddev_by_level, mean_by_level, stddev_by_level, interp_method: str = "linear"):
+    def __init__(
+        self,
+        ckpt,
+        diffs_stddev_by_level,
+        mean_by_level,
+        stddev_by_level,
+        interp_method: str = "linear",
+    ):
         super().__init__()
 
         self.ckpt = ckpt
@@ -256,23 +264,23 @@ class GraphCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         )
 
         self.iterator = None
-        self.nsteps = 1
+        self.nsteps = None
 
     @batch_func()
     def _default_generator(
         self, x: torch.Tensor, coords: CoordSystem
-    ) -> Generator[tuple[torch.Tensor, CoordSystem], None, None]:
+    ) -> Generator[tuple[torch.Tensor, CoordSystem]]:
         coords = coords.copy()
 
         self.output_coords(coords)
 
         # first batch has 2 times
-        yield x[:, :, 1:, :, :, :], coords
+        yield x[:, :, 1:, ...], coords
 
         while True:
             # Front hook
             # front hook doesn't do anything
-            x, coords = self.front_hook(x, coords)
+            # x, coords = self.front_hook(x, coords)
 
             # Forward is identity operator
             coords = self.output_coords(coords)
@@ -281,7 +289,6 @@ class GraphCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             x, coords = self.rear_hook(x, coords)
 
             coords = coords.copy()
-
             yield x, coords
 
     def create_iterator(
@@ -347,17 +354,18 @@ class GraphCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         )
 
         dataset = dataset.rename(
-            {key: ARCOLexicon.INV_VOCAB[key] for key in dataset.data_vars}
+            {key: ARCOExtraLexicon.INV_VOCAB[key] for key in dataset.data_vars}
         )
 
         dataarray = (
             dataset[VARIABLES]
             .to_dataarray()
-            .T.transpose("batch", "time", "lead_time", "variable", "lat", "lon")
+            .T.transpose(..., "batch", "time", "lead_time", "variable", "lat", "lon")
         )
 
         return torch.from_numpy(dataarray.to_numpy().copy())
 
+    @batch_func()
     def __call__(
         self,
         x: torch.Tensor,
@@ -400,7 +408,7 @@ class GraphCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             forcings=forcings,
         )
         torch_pred = self.iterator_result_to_tensor(predictions)
-        out = torch.concat([x.cpu()[:, 1:, ...], torch_pred[0, ...]], dim=1)
+        out = torch.concat([x.cpu()[:, :, 1:, ...], torch_pred], dim=2)
         output_coords = self.output_coords(coords)
 
         output_coords["lead_time"] = np.array(
@@ -437,7 +445,7 @@ class GraphCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         all_datetimes = [start_date + time_delta for time_delta in time_deltas]
 
         data = data.to_dataset(dim="variable")
-        data = data.rename({key: ARCOLocalLexicon.VOCAB[key] for key in data.data_vars})
+        data = data.rename({key: ARCOExtraLexicon.VOCAB[key] for key in data.data_vars})
         out_data = xr.Dataset(
             coords={
                 "time": all_datetimes[0:2],
@@ -484,6 +492,14 @@ class GraphCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         out_data = out_data.assign_coords(
             coords=dict(time=time_deltas, datetime=(("batch", "time"), [all_datetimes]))
         )
+        # make sure lat is -90 to 90
+        out_data = out_data.reindex(lat=sorted(out_data.lat.values))
+        out_data = out_data.transpose("batch", "time", "level", "lat", "lon", ...)
+
+        # change dtype
+        for var in out_data.data_vars:
+            out_data[var] = out_data[var].astype(np.float32)
+
         return out_data, target_lead_times
 
     def input_coords(self) -> CoordSystem:
@@ -563,8 +579,9 @@ class GraphCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         return cls(ckpt, diffs_stddev_by_level, mean_by_level, stddev_by_level)
 
     def set_nsteps(self, nsteps):
-        self.nsteps = nsteps
-        return self
+        ret = copy.deepcopy(self)
+        ret.nsteps = nsteps
+        return ret
 
     @staticmethod
     def torch_to_jax(x):
