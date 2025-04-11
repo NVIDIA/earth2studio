@@ -24,6 +24,7 @@ lint:
 	uv run pre-commit run trailing-whitespace -a
 	uv run pre-commit run end-of-file-fixer -a
 	uv run pre-commit run debug-statements -a
+	uv run pre-commit run markdownlint -a
 	uv run pre-commit run name-tests-test -a
 	uv run pre-commit run pyupgrade -a --show-diff-on-failure
 	uv run pre-commit run ruff -a

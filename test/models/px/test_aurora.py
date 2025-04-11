@@ -75,7 +75,6 @@ def test_aurora_call(time, device):
     lead_time = p.input_coords()["lead_time"]
     variable = p.input_coords()["variable"]
     x, coords = fetch_data(r, time, variable, lead_time, device=device)
-    print("coords: ", coords)
 
     out, out_coords = p(x, coords)
 
