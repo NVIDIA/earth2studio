@@ -35,6 +35,13 @@ gitlab-clone:
 
 build-env:
   stage: build
+  needs:
+    - job: github-clone
+      artifacts: false
+      optional: true
+    - job: gitlab-clone
+      artifacts: false
+      optional: true
   tags:
   - docker
   extends:
@@ -46,7 +53,7 @@ build-env:
 format:
   stage: lint
   needs:
-    - job: setup
+    - job: build-env
       artifacts: false
   tags:
   - docker
@@ -60,7 +67,7 @@ format:
 lint:
   stage: lint
   needs:
-    - job: setup
+    - job: build-env
       artifacts: false
   tags:
   - docker
