@@ -35,6 +35,7 @@ from earth2studio.models.dx import (
     ClimateNet,
     CorrDiffTaiwan,
     PrecipitationAFNO,
+    PrecipitationAFNOv2,
     WindgustAFNO,
 )
 from earth2studio.models.px import (
@@ -68,6 +69,7 @@ from earth2studio.models.px import (
         ClimateNet,
         CorrDiffTaiwan,
         WindgustAFNO,
+        PrecipitationAFNOv2,
     ],
 )
 def test_auto_model(model, model_cache_context):
