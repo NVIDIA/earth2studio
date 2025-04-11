@@ -18,10 +18,15 @@ from typing import Any
 
 import numpy as np
 import torch
-from torch_harmonics import InverseRealSHT
+
+try:
+    from torch_harmonics import InverseRealSHT
+except ImportError:
+    InverseRealSHT = None
 from typing_extensions import Self
 
 from earth2studio.utils import handshake_dim
+from earth2studio.utils.imports import check_extra_imports
 from earth2studio.utils.type import CoordSystem
 
 
@@ -66,6 +71,7 @@ class Gaussian:
         return x + noise_amplitude * torch.randn_like(x), coords
 
 
+@check_extra_imports("perturbation", [InverseRealSHT])
 class CorrelatedSphericalGaussian:
     """Produces Gaussian random field on the sphere with Matern
     covariance peturbation method output to a lat lon grid
@@ -293,20 +299,9 @@ class CorrelatedSphericalField(torch.nn.Module):
 
         return torch.cat(noises)
 
-    # Override cuda and to methods so sampler gets initialized with mean
-    # and variance on the correct device.
-    def cuda(self, *args: Any, **kwargs: Any) -> Self:
-        """
-        to GPU
-        """
-        super().cuda(*args, **kwargs)
-        self.gaussian_noise = torch.distributions.normal.Normal(self.mean, self.var)
-
-        return self
-
     def to(self, *args: Any, **kwargs: Any) -> Self:
-        """
-        to(*args, **kwargs)
+        """Override cuda and to methods so sampler gets initialized with mean and
+        variance on the correct device, to(*args, **kwargs)
         """
         super().to(*args, **kwargs)
         self.gaussian_noise = torch.distributions.normal.Normal(self.mean, self.var)

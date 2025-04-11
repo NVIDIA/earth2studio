@@ -18,12 +18,18 @@ from collections import OrderedDict
 
 import numpy as np
 import torch
-from physicsnemo.metrics.general.histogram import _count_bins, linspace
 
-from earth2studio.utils.coords import handshake_coords, handshake_dim
+try:
+    from physicsnemo.metrics.general.histogram import _count_bins, linspace
+except ImportError:
+    _count_bins = None
+    linspace = None
+
+from earth2studio.utils import check_extra_imports, handshake_coords, handshake_dim
 from earth2studio.utils.type import CoordSystem
 
 
+@check_extra_imports("statistics", [_count_bins, linspace])
 class rank_histogram:
     """
     Compute the Rank Histogram for a given set of ensemble forecasts.

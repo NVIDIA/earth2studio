@@ -19,7 +19,7 @@ from collections import OrderedDict
 import pytest
 import torch
 
-from earth2studio.perturbation import Gaussian
+from earth2studio.perturbation import CorrelatedSphericalGaussian, Gaussian
 
 
 @pytest.mark.parametrize(
@@ -73,3 +73,47 @@ def test_gaussian(x, coords, amplitude, device):
             torch.std(dx), torch.Tensor([amplitude]).to(device), rtol=1e-2, atol=1e-1
         )
     assert dx.device == x.device
+
+
+def test_correlated_spherical_gaussian_no_amplitude():
+    """Test that CorrelatedSphericalGaussian raises error without amplitude"""
+    with pytest.raises(ValueError):
+        CorrelatedSphericalGaussian(noise_amplitude=None)
+
+
+def test_correlated_spherical_gaussian_wrong_ratio():
+    """Test that incorrect lat/lon ratio raises error"""
+    x = torch.randn(4, 16, 15, 16)  # Wrong ratio
+    coords = OrderedDict([("variable", []), ("time", []), ("lat", []), ("lon", [])])
+
+    prtb = CorrelatedSphericalGaussian(noise_amplitude=0.05)
+    with pytest.raises(ValueError):
+        prtb(x, coords)
+
+
+@pytest.mark.parametrize("nlat", [32, 33])  # Test both even and odd latitudes
+@pytest.mark.parametrize(
+    "device",
+    [
+        "cpu",
+        pytest.param(
+            "cuda:0",
+            marks=pytest.mark.skipif(
+                not torch.cuda.is_available(), reason="cuda missing"
+            ),
+        ),
+    ],
+)
+def test_correlated_spherical_gaussian_odd_even_lats(nlat, device):
+    """Test CorrelatedSphericalGaussian handles both odd and even latitude counts"""
+    x = torch.randn(2, 4, nlat, 2 * 32).to(device)  # Keep lon count even
+    coords = OrderedDict([("batch", []), ("variable", []), ("lat", []), ("lon", [])])
+
+    prtb = CorrelatedSphericalGaussian(
+        noise_amplitude=0.05, sigma=1.0, length_scale=5.0e5, time_scale=48.0
+    )
+
+    output, _ = prtb(x, coords)
+    assert output.shape == x.shape
+    assert output.device == x.device
+    # Need a good statistical test for this

@@ -24,8 +24,14 @@ import torch
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_coords, batch_func
 from earth2studio.models.dx.base import DiagnosticModel
-from earth2studio.models.nn.afno_precip import PrecipNet
+
+try:
+    from earth2studio.models.nn.afno_precip import PrecipNet
+except ImportError:
+    PrecipNet = None
+
 from earth2studio.utils import (
+    check_extra_imports,
     handshake_coords,
     handshake_dim,
 )
@@ -55,11 +61,14 @@ VARIABLES = [
 ]
 
 
+@check_extra_imports("precip-afno", [PrecipNet])
 class PrecipitationAFNO(torch.nn.Module, AutoModelMixin):
     """Precipitation AFNO diagnsotic model. Predicts the total precipation parameter
     which is the accumulated amount of liquid and frozen water (rain or snow) with
-    units m. This model uses an 20 atmospheric inputs and outputs one on a 0.25 degree
-    lat-lon grid (south-pole excluding) [720 x 1440].
+    units m. This model was trained on ERA5 data thus the accumulation period is over
+    the 1 hour ending at the validity date and time.This model uses an 20 atmospheric
+    inputs and outputs one on a 0.25 degree lat-lon grid (south-pole excluding)
+    [720 x 1440].
 
     Note:
         This checkpoint is from Parthik et al. 2022:
@@ -148,6 +157,7 @@ class PrecipitationAFNO(torch.nn.Module, AutoModelMixin):
         )
 
     @classmethod
+    @check_extra_imports("precip-afno", [PrecipNet])
     def load_model(cls, package: Package) -> DiagnosticModel:
         """Load diagnostic from package"""
         checkpoint_zip = Path(package.resolve("precipitation_afno.zip"))

@@ -26,8 +26,6 @@ import numpy as np
 import xarray as xr
 import zarr
 from fsspec.implementations.cached import WholeFileCacheFileSystem
-from physicsnemo.distributed.manager import DistributedManager
-from physicsnemo.utils.zenith_angle import cos_zenith_angle_from_timestamp
 
 from earth2studio.data.utils import datasource_cache_root, prep_data_inputs
 from earth2studio.utils import handshake_dim
@@ -153,9 +151,7 @@ class ARCORxBase:
         """Get the appropriate cache location."""
         cache_location = os.path.join(datasource_cache_root(), self.id)
         if not self._cache:
-            cache_location = os.path.join(
-                cache_location, f"tmp_{DistributedManager().rank}"
-            )
+            cache_location = os.path.join(cache_location, f"tmp_{self.id}")
         return cache_location
 
 
@@ -299,6 +295,13 @@ class CosineSolarZenith:
             Cosine zenith angle data array
         """
         time, variable = prep_data_inputs(time, variable)
+        try:
+            from physicsnemo.utils.zenith_angle import cos_zenith_angle_from_timestamp
+        except ImportError:
+            raise ImportError(
+                "nvidia-physicsnemo is required for this data source, which is not installed"
+            )
+
         # For some reason physicsnemo function only works with float values
         # Hope this is correct
         data = cos_zenith_angle_from_timestamp(

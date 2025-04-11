@@ -27,7 +27,6 @@ except ImportError:
 import numpy as np
 import xarray as xr
 from loguru import logger
-from physicsnemo.distributed.manager import DistributedManager
 from s3fs.core import S3FileSystem
 from tqdm import tqdm
 
@@ -246,11 +245,7 @@ class IFS:
         """Get the appropriate cache location."""
         cache_location = os.path.join(datasource_cache_root(), "ifs")
         if not self._cache:
-            if not DistributedManager.is_initialized():
-                DistributedManager.initialize()
-            cache_location = os.path.join(
-                cache_location, f"tmp_{DistributedManager().rank}"
-            )
+            cache_location = os.path.join(cache_location, "tmp_ifs")
         return cache_location
 
     @classmethod

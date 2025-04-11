@@ -31,7 +31,7 @@ from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_coords, batch_func
 from earth2studio.models.px.base import PrognosticModel
 from earth2studio.models.px.utils import PrognosticMixin
-from earth2studio.utils import handshake_coords, handshake_dim
+from earth2studio.utils import check_extra_imports, handshake_coords, handshake_dim
 from earth2studio.utils.time import timearray_to_datetime
 from earth2studio.utils.type import CoordSystem
 
@@ -112,6 +112,7 @@ VARIABLES = [
 ]
 
 
+@check_extra_imports("sfno", [load_model_package])
 class SFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     """Spherical Fourier Operator Network global prognostic model.
     Consists of a single model with a time-step size of 6 hours.
@@ -230,15 +231,11 @@ class SFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         return package
 
     @classmethod
+    @check_extra_imports("sfno", [load_model_package])
     def load_model(
         cls, package: Package, variables: list = VARIABLES
     ) -> PrognosticModel:
         """Load prognostic from package"""
-        if load_model_package is None:
-            raise ImportError(
-                "Modulus Makani required for SFNO. See model install notes for details.\n"
-                + "https://nvidia.github.io/earth2studio/userguide/about/install.html#model-dependencies"
-            )
         model = load_model_package(package)
         model.eval()
 

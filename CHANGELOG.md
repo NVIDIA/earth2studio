@@ -11,6 +11,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Hemispheric centred bred vector perturbation from HENS
+- Add Aurora model to prognostic models
+- Added check_extra_imports util for informative errors when optional dependencies are
+  not installed
+- Added wind gust AFNO diagnostic model
+- Added diagnostic for relative humidity from temperature and specific humidity
+- Added diagnostic for relative humidity from temperature and dew point
+- Added diagnostic for wind speed magnitude
+- Added diagnostic for vapour-pressure deficit
+- Added PrecipitationAFNOv2 model for predicting tp06
+- Added InterpModAFNO model for temporal interpolation of forecasts
 
 ### Changed
 
@@ -23,6 +33,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Security
 
 ### Dependencies
+
+- Migrated repo / package to uv package manager
+- Removed physics-nemo, torch harmonics from base packages to enable CPU install
+- Added optional dependency groups for all models
+- Added optional dependency groups for other submodules
+- Added docuementation for build, install and package management for developers
+- Migrated build system to hatch
+- Moved dev and doc optional dependencies to uv dependency groups
 
 ## [0.5.0] - 2025-03-26
 

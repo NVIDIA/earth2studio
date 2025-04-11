@@ -27,7 +27,6 @@ import s3fs
 import xarray as xr
 from fsspec.implementations.cached import WholeFileCacheFileSystem
 from loguru import logger
-from physicsnemo.distributed.manager import DistributedManager
 from tqdm import tqdm
 
 from earth2studio.data.utils import (
@@ -257,11 +256,7 @@ class _HRRRBase:
         """Return appropriate cache location."""
         cache_location = os.path.join(datasource_cache_root(), "hrrr")
         if not self._cache:
-            if not DistributedManager.is_initialized():
-                DistributedManager.initialize()
-            cache_location = os.path.join(
-                cache_location, f"tmp_{DistributedManager().rank}"
-            )
+            cache_location = os.path.join(cache_location, "tmp_hrrr")
         return cache_location
 
     @classmethod
