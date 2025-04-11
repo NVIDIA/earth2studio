@@ -65,6 +65,12 @@ class WindgustAFNO(torch.nn.Module, AutoModelMixin):
     preceding hour with the units m/s. This model uses an 17 atmospheric inputs and
     outputs one on a 0.25 degree lat-lon grid (south-pole excluding) [720 x 1440].
 
+    Note
+    ----
+    For more information on the model, please refer to:
+
+    - https://catalog.ngc.nvidia.com/orgs/nvidia/teams/earth-2/models/afno_dx_wg-v1-era5
+
     Parameters
     ----------
     core_model : torch.nn.Module

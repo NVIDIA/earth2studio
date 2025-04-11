@@ -65,10 +65,16 @@ VARIABLES = [
 
 @check_extra_imports("precip-afno-v2", [PrecipNet, cos_zenith_angle])
 class PrecipitationAFNOv2(torch.nn.Module, AutoModelMixin):
-    """Improved Precipitation AFNO diagnostic model. Predicts the average hourly
-    precipitation for the next 6 hour with the units mm/h. This model uses an 20
-    atmospheric inputs and outputs one on a 0.25 degree lat-lon grid (south-pole
-    excluding) [720 x 1440].
+    """Improved Precipitation AFNO diagnostic model. Predicts the total precipitation
+    for the next 6 hour with the units m. This model uses an 20 atmospheric
+    inputs and outputs one on a 0.25 degree lat-lon grid (south-pole excluding)
+    [720 x 1440].
+
+    Note
+    ----
+    For more information on the model, please refer to:
+
+    - https://catalog.ngc.nvidia.com/orgs/nvidia/teams/earth-2/models/afno_dx_tp-v1-era5
 
     Parameters
     ----------
@@ -228,5 +234,7 @@ class PrecipitationAFNOv2(torch.nn.Module, AutoModelMixin):
                     out[j, k, lt : lt + 1] = self.core_model(in_)
 
         out = 1e-5 * (torch.exp(out) - 1)
+        # convert from mm to m
+        out = out / 1000.0
         out[out < 0] = 0
         return out, output_coords
