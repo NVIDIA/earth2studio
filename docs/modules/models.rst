@@ -29,6 +29,7 @@ Thus are typically used to generate forecast predictions.
    models.px.DLWP
    models.px.FCN
    models.px.FengWu
+   models.px.ForecastInterpolation
    models.px.FuXi
    models.px.Pangu24
    models.px.Pangu6

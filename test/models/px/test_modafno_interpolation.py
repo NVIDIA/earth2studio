@@ -37,8 +37,7 @@ class PhooInterpolationModel(torch.nn.Module):
     """Mock interpolation model for testing."""
 
     def forward(self, x, t_norm):
-        # Stack by 6
-        return torch.cat([x, x, x, x, x, x], dim=1)
+        return x[:, :73]
 
 
 @pytest.mark.parametrize(
@@ -53,8 +52,7 @@ class PhooInterpolationModel(torch.nn.Module):
         ),
     ],
 )
-# @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
-@pytest.mark.parametrize("device", ["cpu"])
+@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
 def test_forecast_interpolation_call(time, device):
     """Test basic forward pass of ForecastInterpolation model."""
     # Set up base SFNO model
@@ -92,9 +90,6 @@ def test_forecast_interpolation_call(time, device):
     # Run forward pass
     out, out_coords = model(x, coords)
 
-    print(out.shape)
-    print(out_coords)
-
     if not isinstance(time, Iterable):
         time = [time]
 
@@ -102,19 +97,181 @@ def test_forecast_interpolation_call(time, device):
     assert out.shape == torch.Size([len(time), 1, 73, 720, 1440])
     assert (out_coords["variable"] == model.output_coords(coords)["variable"]).all()
     assert (out_coords["time"] == time).all()
-    assert out_coords["lead_time"][0] == np.timedelta64(
-        1, "h"
-    )  # Should output 1-hour steps
-
-    # Verify coordinate system dimensions
     handshake_dim(out_coords, "lon", 4)
     handshake_dim(out_coords, "lat", 3)
     handshake_dim(out_coords, "variable", 2)
     handshake_dim(out_coords, "lead_time", 1)
     handshake_dim(out_coords, "time", 0)
 
-    # Verify interpolation steps
-    assert len(out_coords["lead_time"]) == 1  # Each call should return one timestep
-    assert out_coords["lead_time"][0] == np.timedelta64(
-        1, "h"
-    )  # Should be hourly output
+
+@pytest.mark.parametrize(
+    "ensemble",
+    [1, 2],
+)
+@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+def test_forecast_interpolation_iter(ensemble, device):
+    """Test iteration functionality of ForecastInterpolation model."""
+    time = np.array([np.datetime64("1993-04-05T00:00")])
+    
+    # Set up base SFNO model
+    sfno_model = PhooSFNOModel()
+    center = torch.zeros(1, 73, 1, 1)
+    scale = torch.ones(1, 73, 1, 1)
+    base_model = SFNO(sfno_model, center, scale).to(device)
+
+    # Set up interpolation model
+    interp_model = PhooInterpolationModel()
+    geop = torch.zeros(1, 1, 720, 1440)  # Mock geopotential height
+    lsm = torch.zeros(1, 1, 720, 1440)  # Mock land-sea mask
+
+    model = ForecastInterpolation(
+        interp_model=interp_model,
+        fc_model=base_model,
+        center=center,
+        scale=scale,
+        geop=geop,
+        lsm=lsm,
+        num_interp_steps=6,
+    ).to(device)
+
+    # Create domain coordinates
+    dc = {k: model.input_coords()[k] for k in ["lat", "lon"]}
+
+    # Initialize Data Source
+    r = Random(dc)
+
+    # Get Data and convert to tensor, coords
+    lead_time = model.input_coords()["lead_time"]
+    variable = model.input_coords()["variable"]
+    x, coords = fetch_data(r, time, variable, lead_time, device=device)
+
+    # Add ensemble to front
+    x = x.unsqueeze(0).repeat(ensemble, 1, 1, 1, 1, 1)
+    coords.update({"ensemble": np.arange(ensemble)})
+    coords.move_to_end("ensemble", last=False)
+
+    # Create iterator
+    model_iter = model.create_iterator(x, coords)
+
+    if not isinstance(time, Iterable):
+        time = [time]
+
+    # Get generator
+    next(model_iter)  # Skip first which should return the input
+    
+    # Test interpolation steps
+    for i, (out, out_coords) in enumerate(model_iter):
+
+        # Check output shape
+        assert len(out.shape) == 6
+        assert out.shape == torch.Size([ensemble, len(time), 1, 73, 720, 1440])
+        
+        # Check coordinates
+        assert (out_coords["variable"] == model.output_coords(model.input_coords())["variable"]).all()
+        assert (out_coords["ensemble"] == np.arange(ensemble)).all()
+        
+        # Check lead time - should be 1 hour increments due to interpolation
+        assert out_coords["lead_time"][0] == np.timedelta64(1 * (i + 1), "h")
+
+        # Break after testing a few steps
+        if i > 10:
+            break
+
+
+@pytest.mark.parametrize(
+    "dc",
+    [
+        OrderedDict({"lat": np.random.randn(720)}),
+        OrderedDict({"lat": np.random.randn(720), "phoo": np.random.randn(1440)}),
+        OrderedDict({"lat": np.random.randn(720), "lon": np.random.randn(1)}),
+    ],
+)
+@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+def test_forecast_interpolation_exceptions(dc, device):
+    """Test exception handling for invalid inputs in ForecastInterpolation model."""
+    time = np.array([np.datetime64("1993-04-05T00:00")])
+    
+    # Set up base SFNO model
+    sfno_model = PhooSFNOModel()
+    center = torch.zeros(1, 73, 1, 1)
+    scale = torch.ones(1, 73, 1, 1)
+    base_model = SFNO(sfno_model, center, scale).to(device)
+
+    # Set up interpolation model
+    interp_model = PhooInterpolationModel()
+    geop = torch.zeros(1, 1, 720, 1440)  # Mock geopotential height
+    lsm = torch.zeros(1, 1, 720, 1440)  # Mock land-sea mask
+
+    model = ForecastInterpolation(
+        interp_model=interp_model,
+        fc_model=base_model,
+        center=center,
+        scale=scale,
+        geop=geop,
+        lsm=lsm,
+        num_interp_steps=6,
+    ).to(device)
+
+    # Initialize Data Source with invalid domain coordinates
+    r = Random(dc)
+
+    # Get Data and convert to tensor, coords
+    lead_time = model.input_coords()["lead_time"]
+    variable = model.input_coords()["variable"]
+    x, coords = fetch_data(r, time, variable, lead_time, device=device)
+
+    # Expect an exception when running the model with invalid inputs
+    with pytest.raises((KeyError, ValueError)):
+        model(x, coords)
+
+
+@pytest.fixture(scope="module")
+def model(model_cache_context) -> ForecastInterpolation:
+    # Test only on cuda device
+    with model_cache_context():
+        # Load the base SFNO model
+        sfno_package = SFNO.load_default_package()
+        base_model = SFNO.load_model(sfno_package)
+        
+        # Load the interpolation model
+        interp_package = ForecastInterpolation.load_default_package()
+        model = ForecastInterpolation.load_model(interp_package, fc_model=base_model)
+        return model
+
+
+@pytest.mark.ci_cache
+@pytest.mark.timeout(360)
+@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+def test_forecast_interpolation_package(device, model):
+    """Test loading and using the ForecastInterpolation model from a package."""
+    torch.cuda.empty_cache()
+    time = np.array([np.datetime64("1993-04-05T00:00")])
+    
+    # Test the cached model package
+    model = model.to(device)
+
+    # Create domain coordinates
+    dc = {k: model.input_coords()[k] for k in ["lat", "lon"]}
+
+    # Initialize Data Source
+    r = Random(dc)
+
+    # Get Data and convert to tensor, coords
+    lead_time = model.input_coords()["lead_time"]
+    variable = model.input_coords()["variable"]
+    x, coords = fetch_data(r, time, variable, lead_time, device=device)
+
+    # Run forward pass
+    out, out_coords = model(x, coords)
+
+    if not isinstance(time, Iterable):
+        time = [time]
+
+    # Verify output shape and coordinates
+    assert out.shape == torch.Size([len(time), 1, 73, 720, 1440])
+    assert (out_coords["variable"] == model.output_coords(coords)["variable"]).all()
+    handshake_dim(out_coords, "lon", 4)
+    handshake_dim(out_coords, "lat", 3)
+    handshake_dim(out_coords, "variable", 2)
+    handshake_dim(out_coords, "lead_time", 1)
+    handshake_dim(out_coords, "time", 0)

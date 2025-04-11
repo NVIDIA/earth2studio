@@ -226,6 +226,26 @@ pip install earth2studio[stormcast]
 :::
 ::::
 :::::
+:::::{tab-item} ForecastInterpolation
+Notes: Requires a base prognostic model to be installed.
+
+::::{tab-set}
+:::{tab-item} uv
+
+```bash
+uv pip install earth2studio[forecast-interpolation]
+```
+
+:::
+:::{tab-item} pip
+
+```bash
+pip install earth2studio[forecast-interpolation]
+```
+
+:::
+::::
+:::::
 ::::::
 
 #### Diagnostics
