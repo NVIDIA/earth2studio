@@ -13,6 +13,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 from collections import OrderedDict
 from datetime import datetime, timezone
 
@@ -20,56 +21,60 @@ import numpy as np
 import torch
 import xarray as xr
 
-from earth2studio.utils.imports import check_extra_imports
-
 try:
-    from physicsnemo import Module
     from physicsnemo.utils.zenith_angle import cos_zenith_angle
+
+    from earth2studio.models.nn.afno_precip_v2 import PrecipNet
 except ImportError:
-    Module = None
+    PrecipNet = None
     cos_zenith_angle = None
 
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_coords, batch_func
 from earth2studio.models.dx.base import DiagnosticModel
 from earth2studio.utils import (
+    check_extra_imports,
     handshake_coords,
     handshake_dim,
 )
 from earth2studio.utils.type import CoordSystem
 
 VARIABLES = [
-    "u100m",
-    "v100m",
+    "u10m",
+    "v10m",
+    "t2m",
+    "sp",
     "msl",
-    "u300",
+    "tcwv",
+    "u500",
     "u850",
-    "u925",
-    "v300",
+    "u1000",
+    "v500",
     "v850",
-    "v925",
-    "z300",
+    "v1000",
+    "z50",
+    "z500",
     "z850",
-    "z925",
+    "z1000",
+    "t500",
     "t850",
-    "t925",
     "q500",
     "q850",
-    "q925",
 ]
 
 
-@check_extra_imports("windgust-afno", [Module, cos_zenith_angle])
-class WindgustAFNO(torch.nn.Module, AutoModelMixin):
-    """Wind gust AFNO diagnsotic model. Predicts the maximum wind gust during the
-    preceding hour with the units m/s. This model uses an 17 atmospheric inputs and
-    outputs one on a 0.25 degree lat-lon grid (south-pole excluding) [720 x 1440].
+@check_extra_imports("precip-afno-v2", [PrecipNet, cos_zenith_angle])
+class PrecipitationAFNOv2(torch.nn.Module, AutoModelMixin):
+    """Improved Precipitation AFNO diagnostic model. Predicts the total precipitation
+    for the past 6 hours [t-6h, t] with the units m. This model uses an 20 atmospheric
+    inputs and outputs one on a 0.25 degree lat-lon grid (south-pole excluding)
+    [720 x 1440].
 
     Note
     ----
     For more information on the model, please refer to:
 
-    - https://catalog.ngc.nvidia.com/orgs/nvidia/teams/earth-2/models/afno_dx_wg-v1-era5
+    - https://catalog.ngc.nvidia.com/orgs/nvidia/teams/earth-2/models/afno_dx_tp-v1-era5
 
     Parameters
     ----------
@@ -80,9 +85,9 @@ class WindgustAFNO(torch.nn.Module, AutoModelMixin):
     orography : torch.Tensor
         Surface geopotential (orography) tensor of size [720,1440]
     center : torch.Tensor
-        Model center normalization tensor of size [17,1,1]
+        Model center normalization tensor of size [20,1,1]
     scale : torch.Tensor
-        Model scale normalization tensor of size [17,1,1]
+        Model scale normalization tensor of size [20,1,1]
     """
 
     def __init__(
@@ -146,31 +151,32 @@ class WindgustAFNO(torch.nn.Module, AutoModelMixin):
         handshake_coords(input_coords, target_input_coords, "variable")
 
         output_coords = input_coords.copy()
-        output_coords["variable"] = np.array(["fg10m"])
+        output_coords["variable"] = np.array(["tp06"])
         return output_coords
 
     def __str__(self) -> str:
-        return "windgustnet"
+        return "PrecipNet"
 
     @classmethod
     def load_default_package(cls) -> Package:
-        """Default pre-trained climatenet model package from Nvidia model registry"""
-        return Package(
-            "ngc://models/nvidia/earth-2/afno_dx_wg-v1-era5@v0.1.0",
+        """Load prognostic package"""
+        package = Package(
+            "ngc://models/nvidia/earth-2/afno_dx_tp-v1-era5@v0.1.0",
             cache_options={
-                "cache_storage": Package.default_cache("climatenet"),
+                "cache_storage": Package.default_cache("precipitation_afno_v2"),
                 "same_names": True,
             },
         )
+        return package
 
     @classmethod
+    @check_extra_imports("precip-afno-v2", [PrecipNet, cos_zenith_angle])
     def load_model(cls, package: Package) -> DiagnosticModel:
         """Load diagnostic from package"""
-        model = Module.from_checkpoint(package.resolve("afno_windgust_1h.mdlus"))
+        model = PrecipNet.from_checkpoint(package.resolve("afno_precip.mdlus"))
         model.eval()
 
         input_center = torch.Tensor(np.load(package.resolve("global_means.npy")))
-
         input_scale = torch.Tensor(np.load(package.resolve("global_stds.npy")))
         lsm = torch.Tensor(
             xr.open_dataset(package.resolve("land_sea_mask.nc"))["LSM"].values
@@ -185,12 +191,11 @@ class WindgustAFNO(torch.nn.Module, AutoModelMixin):
 
     def _compute_sza(
         self,
-        lon: np.array,
-        lat: np.array,
+        lon: np.ndarray,
+        lat: np.ndarray,
         time: np.datetime64,
         lead_time: np.timedelta64,
     ) -> torch.Tensor:
-        """Compute solar zenith angle"""
         _unix = np.datetime64(0, "s")
         _ds = np.timedelta64(1, "s")
         t = time + lead_time
@@ -213,7 +218,6 @@ class WindgustAFNO(torch.nn.Module, AutoModelMixin):
             torch.tensor(coords["lat"]), torch.tensor(coords["lon"])
         )
 
-        # compute solar zenith angle and concatenate
         for j, _ in enumerate(coords["batch"]):
             for k, t in enumerate(coords["time"]):
                 for lt, dt in enumerate(coords["lead_time"]):
@@ -229,5 +233,8 @@ class WindgustAFNO(torch.nn.Module, AutoModelMixin):
                     in_ = torch.cat((x[j, k, lt : lt + 1], tran), dim=1)
                     out[j, k, lt : lt + 1] = self.core_model(in_)
 
-        out = torch.clamp(out, min=0)
+        out = 1e-5 * (torch.exp(out) - 1)
+        # convert from mm to m
+        out = out / 1000.0
+        out[out < 0] = 0
         return out, output_coords
