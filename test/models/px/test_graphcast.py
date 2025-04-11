@@ -1,32 +1,49 @@
 # From https://github.com/NVIDIA/earth2studio/pull/208
-import sys; sys.path.insert(0, '..') 
 
 from collections import OrderedDict
 from collections.abc import Iterable
+from unittest import mock
 
 import numpy as np
-import xarray  as  xr
 import pytest
 import torch
-
-from unittest import mock
-from earth2studio.data import Random, fetch_data
+import xarray as xr
 from graphcast import graphcast
+
+from earth2studio.data import Random, fetch_data
 from earth2studio.models.px.graphcast import GraphCast
 from earth2studio.utils import handshake_dim
-import earth2studio.run as run
 
 CUDA_DEVICE = 0
 
 
-def mocked_chunked_prediction_generator(predictor_fn, rng, inputs, targets_template, forcings, num_steps_per_chunk=None, verbose=None):
+def mocked_chunked_prediction_generator(
+    predictor_fn,
+    rng,
+    inputs,
+    targets_template,
+    forcings,
+    num_steps_per_chunk=None,
+    verbose=None,
+):
     # iterator returns 1 template lead time at a time
     while True:
         if "ensemble" in targets_template.dims:
-            targets_template = targets_template.squeeze("batch").rename({"ensemble": "batch"})
+            targets_template = targets_template.squeeze("batch").rename(
+                {"ensemble": "batch"}
+            )
         yield targets_template.isel(time=[0])
 
-def mocked_chunked_prediction(predictor_fn, rng, inputs, targets_template, forcings, num_steps_per_chunk=None, verbose=None):
+
+def mocked_chunked_prediction(
+    predictor_fn,
+    rng,
+    inputs,
+    targets_template,
+    forcings,
+    num_steps_per_chunk=None,
+    verbose=None,
+):
     return targets_template
 
 
@@ -45,12 +62,13 @@ def test_graphcast_call(time, device):
 
     # Spoof model
     model_config = graphcast.ModelConfig(
-      resolution=1.0,
-      mesh_size=5,
-      latent_size=512,
-      gnn_msg_steps=16,
-      hidden_layers=1,
-      radius_query_fraction_edge_length=0.6)
+        resolution=1.0,
+        mesh_size=5,
+        latent_size=512,
+        gnn_msg_steps=16,
+        hidden_layers=1,
+        radius_query_fraction_edge_length=0.6,
+    )
     task_config = graphcast.TaskConfig(
         input_variables=graphcast.TASK.input_variables,
         target_variables=graphcast.TASK.target_variables,
@@ -61,24 +79,39 @@ def test_graphcast_call(time, device):
 
     class CKPT:
         def __init__(self, model_config, task_config):
-            self.model_config=model_config
-            self.task_config=task_config
-            self.params=None
-            self.description="some"
-            self.license="license"
+            self.model_config = model_config
+            self.task_config = task_config
+            self.params = None
+            self.description = "some"
+            self.license = "license"
 
     static_data = {}
-    for v in graphcast.ALL_ATMOSPHERIC_VARS + graphcast.TARGET_SURFACE_VARS + graphcast.FORCING_VARS:
+    for v in (
+        graphcast.ALL_ATMOSPHERIC_VARS
+        + graphcast.TARGET_SURFACE_VARS
+        + graphcast.FORCING_VARS
+    ):
         if v in graphcast.TARGET_ATMOSPHERIC_VARS:
             static_data[v] = ("level", np.ones(len(graphcast.PRESSURE_LEVELS[37])))
         else:
             static_data[v] = 1
 
-    diffs_stddev_by_level = xr.Dataset(static_data, coords={"level": list(graphcast.PRESSURE_LEVELS[37])})
-    mean_by_level = xr.Dataset(static_data, coords={"level": list(graphcast.PRESSURE_LEVELS[37])})
-    stddev_by_level = xr.Dataset(static_data, coords={"level": list(graphcast.PRESSURE_LEVELS[37])})
+    diffs_stddev_by_level = xr.Dataset(
+        static_data, coords={"level": list(graphcast.PRESSURE_LEVELS[37])}
+    )
+    mean_by_level = xr.Dataset(
+        static_data, coords={"level": list(graphcast.PRESSURE_LEVELS[37])}
+    )
+    stddev_by_level = xr.Dataset(
+        static_data, coords={"level": list(graphcast.PRESSURE_LEVELS[37])}
+    )
 
-    p = GraphCast(CKPT(model_config, task_config), diffs_stddev_by_level, mean_by_level, stddev_by_level).to(device)
+    p = GraphCast(
+        CKPT(model_config, task_config),
+        diffs_stddev_by_level,
+        mean_by_level,
+        stddev_by_level,
+    ).to(device)
 
     dc = p.input_coords()
     del dc["batch"]
@@ -94,13 +127,13 @@ def test_graphcast_call(time, device):
     x, coords = fetch_data(r, time, variable, lead_time, device=device)
     print("coords: ", coords)
 
-    nsteps=1
+    nsteps = 1
     out, out_coords = p.set_nsteps(1)(x, coords)
 
     if not isinstance(time, Iterable):
         time = [time]
 
-    assert out.shape == torch.Size([len(time), 1+nsteps, 85, 181, 360])
+    assert out.shape == torch.Size([len(time), 1 + nsteps, 85, 181, 360])
     assert (out_coords["variable"] == p.output_coords(coords)["variable"]).all()
     assert (out_coords["time"] == time).all()
     handshake_dim(out_coords, "lon", 4)
@@ -115,17 +148,21 @@ def test_graphcast_call(time, device):
     [1, 2],
 )
 @pytest.mark.parametrize("device", ["cpu", f"cuda:{CUDA_DEVICE}"])
-@mock.patch("graphcast.rollout.chunked_prediction_generator", mocked_chunked_prediction_generator)
+@mock.patch(
+    "graphcast.rollout.chunked_prediction_generator",
+    mocked_chunked_prediction_generator,
+)
 def test_graphcast_iter(ensemble, device):
     time = np.array([np.datetime64("1993-04-05T00:00")])
     # Spoof model
     model_config = graphcast.ModelConfig(
-      resolution=1.0,
-      mesh_size=5,
-      latent_size=512,
-      gnn_msg_steps=16,
-      hidden_layers=1,
-      radius_query_fraction_edge_length=0.6)
+        resolution=1.0,
+        mesh_size=5,
+        latent_size=512,
+        gnn_msg_steps=16,
+        hidden_layers=1,
+        radius_query_fraction_edge_length=0.6,
+    )
     task_config = graphcast.TaskConfig(
         input_variables=graphcast.TASK.input_variables,
         target_variables=graphcast.TASK.target_variables,
@@ -136,24 +173,39 @@ def test_graphcast_iter(ensemble, device):
 
     class CKPT:
         def __init__(self, model_config, task_config):
-            self.model_config=model_config
-            self.task_config=task_config
-            self.params=None
-            self.description="some"
-            self.license="license"
+            self.model_config = model_config
+            self.task_config = task_config
+            self.params = None
+            self.description = "some"
+            self.license = "license"
 
     static_data = {}
-    for v in graphcast.ALL_ATMOSPHERIC_VARS + graphcast.TARGET_SURFACE_VARS + graphcast.FORCING_VARS:
+    for v in (
+        graphcast.ALL_ATMOSPHERIC_VARS
+        + graphcast.TARGET_SURFACE_VARS
+        + graphcast.FORCING_VARS
+    ):
         if v in graphcast.TARGET_ATMOSPHERIC_VARS:
             static_data[v] = ("level", np.ones(len(graphcast.PRESSURE_LEVELS[37])))
         else:
             static_data[v] = 1
 
-    diffs_stddev_by_level = xr.Dataset(static_data, coords={"level": list(graphcast.PRESSURE_LEVELS[37])})
-    mean_by_level = xr.Dataset(static_data, coords={"level": list(graphcast.PRESSURE_LEVELS[37])})
-    stddev_by_level = xr.Dataset(static_data, coords={"level": list(graphcast.PRESSURE_LEVELS[37])})
+    diffs_stddev_by_level = xr.Dataset(
+        static_data, coords={"level": list(graphcast.PRESSURE_LEVELS[37])}
+    )
+    mean_by_level = xr.Dataset(
+        static_data, coords={"level": list(graphcast.PRESSURE_LEVELS[37])}
+    )
+    stddev_by_level = xr.Dataset(
+        static_data, coords={"level": list(graphcast.PRESSURE_LEVELS[37])}
+    )
 
-    p = GraphCast(CKPT(model_config, task_config), diffs_stddev_by_level, mean_by_level, stddev_by_level).to(device)
+    p = GraphCast(
+        CKPT(model_config, task_config),
+        diffs_stddev_by_level,
+        mean_by_level,
+        stddev_by_level,
+    ).to(device)
 
     dc = p.input_coords()
     del dc["batch"]
@@ -173,7 +225,7 @@ def test_graphcast_iter(ensemble, device):
     coords.update({"ensemble": np.arange(ensemble)})
     coords.move_to_end("ensemble", last=False)
 
-    nsteps=5
+    nsteps = 5
     p = p.set_nsteps(nsteps)
     p_iter = p.create_iterator(x, coords)
 
@@ -194,6 +246,7 @@ def test_graphcast_iter(ensemble, device):
         if i > 5:
             break
 
+
 @pytest.mark.parametrize(
     "dc",
     [
@@ -207,12 +260,13 @@ def test_graphcast_exceptions(dc, device):
     time = np.array([np.datetime64("1993-04-05T00:00")])
     # Spoof model
     model_config = graphcast.ModelConfig(
-      resolution=1.0,
-      mesh_size=5,
-      latent_size=512,
-      gnn_msg_steps=16,
-      hidden_layers=1,
-      radius_query_fraction_edge_length=0.6)
+        resolution=1.0,
+        mesh_size=5,
+        latent_size=512,
+        gnn_msg_steps=16,
+        hidden_layers=1,
+        radius_query_fraction_edge_length=0.6,
+    )
     task_config = graphcast.TaskConfig(
         input_variables=graphcast.TASK.input_variables,
         target_variables=graphcast.TASK.target_variables,
@@ -223,24 +277,39 @@ def test_graphcast_exceptions(dc, device):
 
     class CKPT:
         def __init__(self, model_config, task_config):
-            self.model_config=model_config
-            self.task_config=task_config
-            self.params=None
-            self.description="some"
-            self.license="license"
+            self.model_config = model_config
+            self.task_config = task_config
+            self.params = None
+            self.description = "some"
+            self.license = "license"
 
     static_data = {}
-    for v in graphcast.ALL_ATMOSPHERIC_VARS + graphcast.TARGET_SURFACE_VARS + graphcast.FORCING_VARS:
+    for v in (
+        graphcast.ALL_ATMOSPHERIC_VARS
+        + graphcast.TARGET_SURFACE_VARS
+        + graphcast.FORCING_VARS
+    ):
         if v in graphcast.TARGET_ATMOSPHERIC_VARS:
             static_data[v] = ("level", np.ones(len(graphcast.PRESSURE_LEVELS[37])))
         else:
             static_data[v] = 1
 
-    diffs_stddev_by_level = xr.Dataset(static_data, coords={"level": list(graphcast.PRESSURE_LEVELS[37])})
-    mean_by_level = xr.Dataset(static_data, coords={"level": list(graphcast.PRESSURE_LEVELS[37])})
-    stddev_by_level = xr.Dataset(static_data, coords={"level": list(graphcast.PRESSURE_LEVELS[37])})
+    diffs_stddev_by_level = xr.Dataset(
+        static_data, coords={"level": list(graphcast.PRESSURE_LEVELS[37])}
+    )
+    mean_by_level = xr.Dataset(
+        static_data, coords={"level": list(graphcast.PRESSURE_LEVELS[37])}
+    )
+    stddev_by_level = xr.Dataset(
+        static_data, coords={"level": list(graphcast.PRESSURE_LEVELS[37])}
+    )
 
-    p = GraphCast(CKPT(model_config, task_config), diffs_stddev_by_level, mean_by_level, stddev_by_level).to(device)
+    p = GraphCast(
+        CKPT(model_config, task_config),
+        diffs_stddev_by_level,
+        mean_by_level,
+        stddev_by_level,
+    ).to(device)
     # Initialize Data Source
     r = Random(dc)
 
@@ -261,8 +330,9 @@ def model(model_cache_context) -> GraphCast:
         p = GraphCast.load_model(package)
         return p
 
+
 @pytest.mark.ci_cache
-#@pytest.mark.timeout()
+# @pytest.mark.timeout()
 @pytest.mark.parametrize("device", ["cpu", f"cuda:{CUDA_DEVICE}"])
 def test_graphcast_package(model, device):
     torch.cuda.empty_cache()
@@ -283,13 +353,13 @@ def test_graphcast_package(model, device):
     variable = p.input_coords()["variable"]
     x, coords = fetch_data(r, time, variable, lead_time, device=device)
 
-    nsteps=1
+    nsteps = 1
     out, out_coords = p.set_nsteps(nsteps)(x, coords)
 
     if not isinstance(time, Iterable):
         time = [time]
 
-    assert out.shape == torch.Size([len(time), nsteps+1, 85, 181, 360])
+    assert out.shape == torch.Size([len(time), nsteps + 1, 85, 181, 360])
     assert (out_coords["variable"] == p.output_coords(coords)["variable"]).all()
     assert (out_coords["time"] == time).all()
     handshake_dim(out_coords, "lon", 4)

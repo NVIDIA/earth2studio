@@ -1,7 +1,5 @@
-import torch
-import xarray as xr
 import copy
-
+import dataclasses
 import functools
 from collections import OrderedDict
 from collections.abc import Generator, Iterator
@@ -10,20 +8,25 @@ import haiku as hk
 import jax
 import jax.dlpack
 import numpy as np
-from graphcast import checkpoint, data_utils, graphcast, rollout
-from graphcast import autoregressive
-from graphcast import casting
-from earth2studio.models.batch import batch_coords, batch_func
-from earth2studio.utils.coords import map_coords
+import torch
+import xarray as xr
+from graphcast import (
+    autoregressive,
+    casting,
+    checkpoint,
+    data_utils,
+    graphcast,
+    normalization,
+    rollout,
+)
 
-from graphcast import normalization
-import dataclasses
-
+from earth2studio.data.arcoextra import ARCOExtraLexicon
 from earth2studio.models.auto import AutoModelMixin, Package
+from earth2studio.models.batch import batch_coords, batch_func
 from earth2studio.models.px.base import PrognosticModel
 from earth2studio.models.px.utils import PrognosticMixin
+from earth2studio.utils.coords import map_coords
 from earth2studio.utils.type import CoordSystem
-from earth2studio.data.arcoextra import ARCOExtraLexicon
 
 VARIABLES = [
     "t2m",
@@ -117,9 +120,7 @@ STATIC_VARS = (
     "land_sea_mask",  # lsm
 )
 
-EXTERNAL_FORCING_VARS = (
-    "toa_incident_solar_radiation",  # tisr
-)
+EXTERNAL_FORCING_VARS = ("toa_incident_solar_radiation",)  # tisr
 GENERATED_FORCING_VARS = (
     "year_progress_sin",
     "year_progress_cos",
