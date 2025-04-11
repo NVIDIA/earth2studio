@@ -35,8 +35,8 @@ from earth2studio.models.dx import (
     ClimateNet,
     CorrDiffTaiwan,
     PrecipitationAFNO,
-    WindgustAFNO,
     PrecipitationAFNOv2,
+    WindgustAFNO,
 )
 from earth2studio.models.px import (
     DLWP,
