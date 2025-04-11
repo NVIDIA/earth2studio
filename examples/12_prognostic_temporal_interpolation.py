@@ -61,7 +61,8 @@ base_model = SFNO.load_model(sfno_package)
 
 # Load the interpolation model
 interp_package = InterpModAFNO.load_default_package()
-interp_model = InterpModAFNO.load_model(interp_package, fc_model=base_model)
+interp_model = InterpModAFNO.load_model(interp_package)
+interp_model.px_model = base_model  # Set the base model
 
 # Create the data source
 data = GFS()

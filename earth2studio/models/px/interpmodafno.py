@@ -125,12 +125,15 @@ class InterpModAFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     - https://catalog.ngc.nvidia.com/orgs/nvidia/teams/earth-2/models/afno_dx_fi-v1-era5
     - https://arxiv.org/abs/2410.18904
 
+    Warning
+    -------
+    The model requires a base forecast model to be set before execution. This can be
+    done by setting the `px_model` attribute.
+
     Parameters
     ----------
     interp_model : torch.nn.Module
         The interpolation model that performs the time interpolation
-    fc_model : PrognosticModel
-        The base forecast model that produces the coarse time resolution forecasts
     center : torch.Tensor
         Model center normalization tensor
     scale : torch.Tensor
@@ -139,6 +142,10 @@ class InterpModAFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         Geopotential height data used as a static feature
     lsm : torch.Tensor
         Land-sea mask data used as a static feature
+    px_model : PrognosticModel, optional
+        The base forecast model that produces the coarse time resolution forecasts. If
+        not provide, should be set by the user before executing the model, by default
+        None.
     num_interp_steps : int, optional
         Number of interpolation steps to perform between forecast steps, by default 6
     variables : np.array, optional
@@ -148,16 +155,16 @@ class InterpModAFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def __init__(
         self,
         interp_model: torch.nn.Module,
-        fc_model: PrognosticModel,
         center: torch.Tensor,
         scale: torch.Tensor,
         geop: torch.Tensor,
         lsm: torch.Tensor,
+        px_model: PrognosticModel | None = None,
         num_interp_steps: int = 6,
         variables: np.ndarray = np.array(VARIABLES),
     ) -> None:
         super().__init__()
-        self.fc_model = fc_model
+        self.px_model = px_model
         self.interp_model = interp_model
         self.num_interp_steps = num_interp_steps
         self.variables = variables
@@ -165,18 +172,6 @@ class InterpModAFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self.register_buffer("scale", scale)
         self.register_buffer("geop", geop)
         self.register_buffer("lsm", lsm)
-
-        # compute sin/cos of lat/lon
-        coords = self.output_coords(self.input_coords())
-        lat = np.deg2rad(coords["lat"])
-        lon = np.deg2rad(coords["lon"])
-        (lat, lon) = np.meshgrid(lat, lon, indexing="ij")
-        sincos_latlon = torch.Tensor(
-            np.stack([np.sin(lat), np.cos(lat), np.sin(lon), np.cos(lon)], axis=0)
-        ).unsqueeze(0)
-        self.register_buffer("lat", torch.Tensor(lat))
-        self.register_buffer("lon", torch.Tensor(lon))
-        self.register_buffer("sincos_latlon", torch.Tensor(sincos_latlon))
 
     @staticmethod
     def _load_feature_from_file(fn: str, var: str) -> torch.Tensor:
@@ -198,8 +193,23 @@ class InterpModAFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             x = np.array(ds[var])
         return torch.Tensor(x).unsqueeze(0).unsqueeze(0)
 
+    def _compute_latlon(self) -> None:
+        # compute sin/cos of lat/lon
+        coords = self.output_coords(self.input_coords())
+        lat = np.deg2rad(coords["lat"])
+        lon = np.deg2rad(coords["lon"])
+        (lat, lon) = np.meshgrid(lat, lon, indexing="ij")
+        sincos_latlon = torch.Tensor(
+            np.stack([np.sin(lat), np.cos(lat), np.sin(lon), np.cos(lon)], axis=0)
+        ).unsqueeze(0)
+        self.register_buffer("lat", torch.as_tensor(lat, device=self.center.device))
+        self.register_buffer("lon", torch.as_tensor(lon, device=self.center.device))
+        self.register_buffer(
+            "sincos_latlon", torch.as_tensor(sincos_latlon, device=self.center.device)
+        )
+
     def __str__(self) -> str:
-        return "modafno_interp_73ch"
+        return "InterpModAFNO"
 
     def input_coords(self) -> CoordSystem:
         """Input coordinate system of the prognostic model
@@ -208,7 +218,10 @@ class InterpModAFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         CoordSystem
             Coordinate system dictionary
         """
-        return self.fc_model.input_coords()
+        # Getter / Setters don't work with torch.nn.Module, need to check manually here
+        if self.px_model is None:
+            raise ValueError("Base forecast model, px_model, must be set")
+        return self.px_model.input_coords()
 
     @batch_coords()
     def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
@@ -260,15 +273,8 @@ class InterpModAFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     @classmethod
     @check_extra_imports("interp-modafno", [PhysicsNemoModule, cos_zenith_angle])
-    def load_model(
-        cls, package: Package, *, fc_model: PrognosticModel, variables: list = VARIABLES
-    ) -> PrognosticModel:
+    def load_model(cls, package: Package) -> PrognosticModel:
         """Load prognostic from package"""
-        if PhysicsNemoModule is None or cos_zenith_angle is None:
-            raise ImportError(
-                "Additional InterpModAFNO model dependencies are not installed. See install documentation for details."
-            )
-
         model = PhysicsNemoModule.from_checkpoint(
             package.resolve("fcinterp-modafno-2x2.mdlus")
         )
@@ -276,11 +282,9 @@ class InterpModAFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         # Load center and std normalizations
         local_center = torch.Tensor(np.load(package.resolve("global_means.npy")))[
-            :, : len(variables)
+            :, :73
         ]
-        local_std = torch.Tensor(np.load(package.resolve("global_stds.npy")))[
-            :, : len(variables)
-        ]
+        local_std = torch.Tensor(np.load(package.resolve("global_stds.npy")))[:, :73]
 
         # load static variables
         geop = cls._load_feature_from_file(package.resolve("orography.nc"), "Z")[
@@ -293,12 +297,10 @@ class InterpModAFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         return cls(
             model,
-            fc_model,
             center=local_center,
             scale=local_std,
             geop=geop,
             lsm=lsm,
-            variables=np.array(variables),
         )
 
     def _cos_zenith(self, times: list) -> torch.Tensor:
@@ -418,7 +420,16 @@ class InterpModAFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def _default_generator(
         self, x: torch.Tensor, coords: CoordSystem
     ) -> Generator[tuple[torch.Tensor, CoordSystem], None, None]:
-        for fc_step, (x, coords) in enumerate(self.fc_model.create_iterator(x, coords)):
+
+        if self.px_model is None:
+            raise ValueError(
+                "Base forecast model, px_model, must be set before executing the model."
+            )
+
+        if not hasattr(self, "sincos_latlon"):
+            self._compute_latlon()
+
+        for fc_step, (x, coords) in enumerate(self.px_model.create_iterator(x, coords)):
             (x, coords) = map_coords(x, coords, self.output_coords(coords))
             if fc_step == 0:
                 x0 = x

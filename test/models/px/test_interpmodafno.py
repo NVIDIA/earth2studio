@@ -68,11 +68,11 @@ def test_forecast_interpolation_call(time, device):
 
     model = InterpModAFNO(
         interp_model=interp_model,
-        fc_model=base_model,
         center=center,
         scale=scale,
         geop=geop,
         lsm=lsm,
+        px_model=base_model,
         num_interp_steps=6,
     ).to(device)
 
@@ -126,11 +126,11 @@ def test_forecast_interpolation_iter(ensemble, device):
 
     model = InterpModAFNO(
         interp_model=interp_model,
-        fc_model=base_model,
         center=center,
         scale=scale,
         geop=geop,
         lsm=lsm,
+        px_model=base_model,
         num_interp_steps=6,
     ).to(device)
 
@@ -207,11 +207,11 @@ def test_forecast_interpolation_exceptions(dc, device):
 
     model = InterpModAFNO(
         interp_model=interp_model,
-        fc_model=base_model,
         center=center,
         scale=scale,
         geop=geop,
         lsm=lsm,
+        px_model=base_model,
         num_interp_steps=6,
     ).to(device)
 
@@ -227,6 +227,17 @@ def test_forecast_interpolation_exceptions(dc, device):
     with pytest.raises((KeyError, ValueError)):
         model(x, coords)
 
+    model = InterpModAFNO(
+        interp_model=interp_model,
+        center=center,
+        scale=scale,
+        geop=geop,
+        lsm=lsm,
+        num_interp_steps=6,
+    ).to(device)
+    with pytest.raises(ValueError):
+        model.input_coords()
+
 
 @pytest.fixture(scope="module")
 def model(model_cache_context) -> InterpModAFNO:
@@ -238,7 +249,8 @@ def model(model_cache_context) -> InterpModAFNO:
 
         # Load the interpolation model
         interp_package = InterpModAFNO.load_default_package()
-        model = InterpModAFNO.load_model(interp_package, fc_model=base_model)
+        model = InterpModAFNO.load_model(interp_package)
+        model.px_model = base_model
         return model
 
 
