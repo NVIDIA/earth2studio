@@ -102,13 +102,20 @@ class NGCModelFileSystem(HTTPFileSystem):
         self.client = Client()
         # If no org, then get the first org of this API key and use that
         if not Configuration(self.client).is_guest_mode:
-            org_names = Configuration(self.client).get_org_names()
-            org_default = org_names.get(list(org_names.keys())[-1])
-            self.client.configure(org_name=org_default["org_name"])
+            org_name = Configuration(self.client).org_name
+            if org_name is None:
+                org_names = Configuration(self.client).get_org_names()
+                org_default = org_names.get(list(org_names.keys())[-1])
+                org_name = org_default["org_name"]
+                logger.warning(
+                    f"API key found but no org found, using the org {org_name}"
+                )
+
+            self.client.configure(org_name=org_name)
         else:
             logger.warning(
                 "Using NGC guest mode, which may fail due to unauthorized access. "
-                + "Consider using a valid NGC API key."
+                + "Consider using a valid NGC API key and org"
             )
         self.model_api = ModelAPI(self.client)
 

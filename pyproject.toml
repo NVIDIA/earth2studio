@@ -117,6 +117,7 @@ cyclone = [
     "cupy>=13.4.1",
     "scikit-image>=0.25.2",
 ]
+derived = []
 precip-afno = [
     "nvidia-physicsnemo>=1.0.1",
 ]
