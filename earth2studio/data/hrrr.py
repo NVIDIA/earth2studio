@@ -35,12 +35,14 @@ from earth2studio.data.utils import (
     prep_forecast_inputs,
 )
 from earth2studio.lexicon import HRRRFXLexicon, HRRRLexicon
+from earth2studio.utils.imports import check_extra_imports
 from earth2studio.utils.type import LeadTimeArray, TimeArray, VariableArray
 
 logger.remove()
 logger.add(lambda msg: tqdm.write(msg, end=""), colorize=True)
 
 
+@check_extra_imports("data", ["herbie"])
 class _HRRRBase:
 
     HRRR_BUCKET_NAME = "noaa-hrrr-bdp-pds"

@@ -292,6 +292,26 @@ pip install earth2studio[corrdiff]
 :::
 ::::
 :::::
+:::::{tab-item} Cyclone Trackers
+Notes: Additional dependencies for all cyclone tracking models.
+
+::::{tab-set}
+:::{tab-item} uv
+
+```bash
+uv pip install earth2studio --extra cyclone
+```
+
+:::
+:::{tab-item} pip
+
+```bash
+pip install earth2studio[cyclone]
+```
+
+:::
+::::
+:::::
 :::::{tab-item} Derived
 Notes: Additional dependencies for all derivced diagnostic models.
 No additional dependencies are needed for the derived models at the moment but included
@@ -462,7 +482,7 @@ For the best experience, we recommend creating a fresh environment whether that 
 uv, a Docker container or even a Conda environment.
 Below are some recipes for creating a handful of environments for setting up
 Earth2Studio in an isolated environment.
-For developer environments, please refer to the {ref}`developer_overview`..
+For developer environments, please refer to the {ref}`developer_overview`.
 
 ## uv Virtual Environment
 

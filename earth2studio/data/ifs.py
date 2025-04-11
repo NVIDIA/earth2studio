@@ -32,12 +32,14 @@ from tqdm import tqdm
 
 from earth2studio.data.utils import datasource_cache_root, prep_data_inputs
 from earth2studio.lexicon import IFSLexicon
+from earth2studio.utils import check_extra_imports
 from earth2studio.utils.type import TimeArray, VariableArray
 
 logger.remove()
 logger.add(lambda msg: tqdm.write(msg, end=""), colorize=True)
 
 
+@check_extra_imports("data", [opendata])
 class IFS:
     """The integrated forecast system (IFS) initial state data source provided on an
     equirectangular grid. This data is part of ECMWF's open data project on AWS. This

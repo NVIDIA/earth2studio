@@ -9,8 +9,8 @@ predict a new field such as precipitation.
 These models differ from {ref}`prognostic_model_userguide` since they do not perform
 time integration.
 Calculations such as statistics or metrics could fall into a diagnostic classification,
-but we distinguish that diagnostic models are in fact models used to predict
-physical processes.
+but we distinguish that diagnostic models are in fact models (numerical, AI, etc) used
+to predict / calculate derived physical processes or quantities.
 Not standard mathematical calculations / reductions the purpose of analysis.
 
 The list of diagnostic models that are already built into Earth2studio can be found in
