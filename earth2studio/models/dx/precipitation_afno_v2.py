@@ -66,7 +66,7 @@ VARIABLES = [
 @check_extra_imports("precip-afno-v2", [PrecipNet, cos_zenith_angle])
 class PrecipitationAFNOv2(torch.nn.Module, AutoModelMixin):
     """Improved Precipitation AFNO diagnostic model. Predicts the total precipitation
-    for the past 6 hours with the units m. This model uses an 20 atmospheric
+    for the past 6 hours [t-6h, t] with the units m. This model uses an 20 atmospheric
     inputs and outputs one on a 0.25 degree lat-lon grid (south-pole excluding)
     [720 x 1440].
 
