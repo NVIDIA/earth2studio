@@ -148,8 +148,6 @@ class InterpModAFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         None.
     num_interp_steps : int, optional
         Number of interpolation steps to perform between forecast steps, by default 6
-    variables : np.array, optional
-        Variables associated with model, by default 73 variable model.
     """
 
     def __init__(
@@ -161,13 +159,12 @@ class InterpModAFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         lsm: torch.Tensor,
         px_model: PrognosticModel | None = None,
         num_interp_steps: int = 6,
-        variables: np.ndarray = np.array(VARIABLES),
     ) -> None:
         super().__init__()
         self.px_model = px_model
         self.interp_model = interp_model
         self.num_interp_steps = num_interp_steps
-        self.variables = variables
+        self.variables = np.array(VARIABLES)
         self.register_buffer("center", center)
         self.register_buffer("scale", scale)
         self.register_buffer("geop", geop)
@@ -252,8 +249,10 @@ class InterpModAFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         test_coords["lead_time"] = (
             test_coords["lead_time"] - input_coords["lead_time"][-1]
         )
-        output_coords["batch"] = input_coords["batch"]
-        output_coords["time"] = input_coords["time"]
+        # Sometime prognostics don't explicitly have a time coord and thats okay
+        # as long as the data does
+        output_coords["batch"] = input_coords.get("batch", np.empty(0))
+        output_coords["time"] = input_coords.get("time", np.empty(0))
         output_coords["lead_time"] = (
             output_coords["lead_time"] + input_coords["lead_time"]
         )
@@ -430,6 +429,7 @@ class InterpModAFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             self._compute_latlon()
 
         for fc_step, (x, coords) in enumerate(self.px_model.create_iterator(x, coords)):
+            # Make sure prognostic model has all 73 required variables
             (x, coords) = map_coords(x, coords, self.output_coords(coords))
             if fc_step == 0:
                 x0 = x

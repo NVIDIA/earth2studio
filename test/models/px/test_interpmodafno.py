@@ -23,6 +23,7 @@ import torch
 
 from earth2studio.data import Random, fetch_data
 from earth2studio.models.px import SFNO, InterpModAFNO
+from earth2studio.models.px.persistence import Persistence
 from earth2studio.utils import handshake_dim
 
 
@@ -241,12 +242,18 @@ def test_forecast_interpolation_exceptions(dc, device):
 
 @pytest.fixture(scope="module")
 def model(model_cache_context) -> InterpModAFNO:
+
+    from earth2studio.models.px.interpmodafno import VARIABLES
+
+    base_model = Persistence(
+        variable=VARIABLES,
+        domain_coords={
+            "lat": np.linspace(90.0, -90.0, 720, endpoint=False),
+            "lon": np.linspace(0, 360, 1440, endpoint=False),
+        },
+    )
     # Test only on cuda device
     with model_cache_context():
-        # Load the base SFNO model
-        sfno_package = SFNO.load_default_package()
-        base_model = SFNO.load_model(sfno_package)
-
         # Load the interpolation model
         interp_package = InterpModAFNO.load_default_package()
         model = InterpModAFNO.load_model(interp_package)
