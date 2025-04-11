@@ -1,6 +1,5 @@
 stages:
-  - git
-  - clone
+  - pre
   - build
   - lint
   - test
@@ -11,7 +10,7 @@ workflow:
    name: $PIPELINE_WORKFLOW_NAME
 
 github-clone:
-  stage: clone
+  stage: pre
   rules:
     - if: $PIPELINE_REPO_SOURCE == "github"
   tags:
@@ -21,7 +20,7 @@ github-clone:
   image: bitnami/git
 
 gitlab-clone:
-  stage: clone
+  stage: pre
   rules:
     - if: $PIPELINE_REPO_SOURCE != "github" && $CI_PIPELINE_SOURCE == "merge_request_event"
       when: always
