@@ -294,6 +294,9 @@ total number of ensemble members.
 
 ### 5.3 Rain or Shine?
 
+- storm Bernd hit central Europe in July 2021, causing [widespread
+  flooding][bernd-wiki]
+
 - Shows use of diagnostic models
 - Various diagnostic models can be used simultaneously
 - Order is important
@@ -304,3 +307,4 @@ total number of ensemble members.
 [skill-file]: https://portal.nersc.gov/cfs/m4416/hens/d2m_sfno_linear_74chq_sc2_layers8_edim620_wstgl2-epoch70_seed16.nc
 [hydra-docs]: https://hydra.cc/docs/advanced/instantiate_objects/overview/
 [helene-wiki]: https://en.wikipedia.org/wiki/Hurricane_Helene
+[bernd-wiki]: https://en.wikipedia.org/wiki/2021_European_flood_event
