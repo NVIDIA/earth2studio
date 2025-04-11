@@ -71,6 +71,8 @@ statistics = [
 # PX Models
 graphcast = [
     "graphcast",
+    "dm-haiku==0.0.13",
+    "jax[cuda12]>=0.4.26",
 ]
 aurora = [
     "microsoft-aurora>=1.5.0",
