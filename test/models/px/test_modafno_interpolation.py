@@ -22,7 +22,7 @@ import pytest
 import torch
 
 from earth2studio.data import Random, fetch_data
-from earth2studio.models.px import SFNO, ForecastInterpolation
+from earth2studio.models.px import SFNO, InterpModAFNO
 from earth2studio.utils import handshake_dim
 
 
@@ -54,7 +54,7 @@ class PhooInterpolationModel(torch.nn.Module):
 )
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
 def test_forecast_interpolation_call(time, device):
-    """Test basic forward pass of ForecastInterpolation model."""
+    """Test basic forward pass of InterpModAFNO model."""
     # Set up base SFNO model
     sfno_model = PhooSFNOModel()
     center = torch.zeros(1, 73, 1, 1)
@@ -66,7 +66,7 @@ def test_forecast_interpolation_call(time, device):
     geop = torch.zeros(1, 1, 720, 1440)  # Mock geopotential height
     lsm = torch.zeros(1, 1, 720, 1440)  # Mock land-sea mask
 
-    model = ForecastInterpolation(
+    model = InterpModAFNO(
         interp_model=interp_model,
         fc_model=base_model,
         center=center,
@@ -110,7 +110,7 @@ def test_forecast_interpolation_call(time, device):
 )
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
 def test_forecast_interpolation_iter(ensemble, device):
-    """Test iteration functionality of ForecastInterpolation model."""
+    """Test iteration functionality of InterpModAFNO model."""
     time = np.array([np.datetime64("1993-04-05T00:00")])
 
     # Set up base SFNO model
@@ -124,7 +124,7 @@ def test_forecast_interpolation_iter(ensemble, device):
     geop = torch.zeros(1, 1, 720, 1440)  # Mock geopotential height
     lsm = torch.zeros(1, 1, 720, 1440)  # Mock land-sea mask
 
-    model = ForecastInterpolation(
+    model = InterpModAFNO(
         interp_model=interp_model,
         fc_model=base_model,
         center=center,
@@ -191,7 +191,7 @@ def test_forecast_interpolation_iter(ensemble, device):
 )
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
 def test_forecast_interpolation_exceptions(dc, device):
-    """Test exception handling for invalid inputs in ForecastInterpolation model."""
+    """Test exception handling for invalid inputs in InterpModAFNO model."""
     time = np.array([np.datetime64("1993-04-05T00:00")])
 
     # Set up base SFNO model
@@ -205,7 +205,7 @@ def test_forecast_interpolation_exceptions(dc, device):
     geop = torch.zeros(1, 1, 720, 1440)  # Mock geopotential height
     lsm = torch.zeros(1, 1, 720, 1440)  # Mock land-sea mask
 
-    model = ForecastInterpolation(
+    model = InterpModAFNO(
         interp_model=interp_model,
         fc_model=base_model,
         center=center,
@@ -229,7 +229,7 @@ def test_forecast_interpolation_exceptions(dc, device):
 
 
 @pytest.fixture(scope="module")
-def model(model_cache_context) -> ForecastInterpolation:
+def model(model_cache_context) -> InterpModAFNO:
     # Test only on cuda device
     with model_cache_context():
         # Load the base SFNO model
@@ -237,8 +237,8 @@ def model(model_cache_context) -> ForecastInterpolation:
         base_model = SFNO.load_model(sfno_package)
 
         # Load the interpolation model
-        interp_package = ForecastInterpolation.load_default_package()
-        model = ForecastInterpolation.load_model(interp_package, fc_model=base_model)
+        interp_package = InterpModAFNO.load_default_package()
+        model = InterpModAFNO.load_model(interp_package, fc_model=base_model)
         return model
 
 
@@ -246,7 +246,7 @@ def model(model_cache_context) -> ForecastInterpolation:
 @pytest.mark.timeout(360)
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
 def test_forecast_interpolation_package(device, model):
-    """Test loading and using the ForecastInterpolation model from a package."""
+    """Test loading and using the InterpModAFNO model from a package."""
     torch.cuda.empty_cache()
     time = np.array([np.datetime64("1993-04-05T00:00")])
 

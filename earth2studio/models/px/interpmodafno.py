@@ -112,16 +112,18 @@ VARIABLES = [
 ]
 
 
-@check_extra_imports("physicsnemo", [PhysicsNemoModule, cos_zenith_angle])
-class ForecastInterpolation(torch.nn.Module, AutoModelMixin, PrognosticMixin):
-    """ModAFNO interpolation for global prognostic models.
-    Interpolates a forecast model to a shorter time-step size (by default from 6 h to 1 h)
-    Operates on 0.25 degree lat-lon equirectangular grid with 73 variables.
+@check_extra_imports("interp-modafno", [PhysicsNemoModule, cos_zenith_angle])
+class InterpModAFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
+    """ModAFNO interpolation for global prognostic models. Interpolates a forecast model
+    to a shorter time-step size (by default from 6 to 1 hour). Operates on 0.25 degree
+    lat-lon equirectangular grid with 73 variables.
 
     Note
     ----
     For more information on the model, please refer to:
+
     - https://catalog.ngc.nvidia.com/orgs/nvidia/teams/earth-2/models/afno_dx_fi-v1-era5
+    - https://arxiv.org/abs/2410.18904
 
     Parameters
     ----------
@@ -257,14 +259,14 @@ class ForecastInterpolation(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         return package
 
     @classmethod
-    @check_extra_imports("physicsnemo", [PhysicsNemoModule, cos_zenith_angle])
+    @check_extra_imports("interp-modafno", [PhysicsNemoModule, cos_zenith_angle])
     def load_model(
         cls, package: Package, *, fc_model: PrognosticModel, variables: list = VARIABLES
     ) -> PrognosticModel:
         """Load prognostic from package"""
         if PhysicsNemoModule is None or cos_zenith_angle is None:
             raise ImportError(
-                "Additional ForecastInterpolation model dependencies are not installed. See install documentation for details."
+                "Additional InterpModAFNO model dependencies are not installed. See install documentation for details."
             )
 
         model = PhysicsNemoModule.from_checkpoint(

@@ -35,6 +35,7 @@ from earth2studio.models.dx import (
     ClimateNet,
     CorrDiffTaiwan,
     PrecipitationAFNO,
+    PrecipitationAFNOv2,
     WindgustAFNO,
 )
 from earth2studio.models.px import (
@@ -43,8 +44,8 @@ from earth2studio.models.px import (
     SFNO,
     Aurora,
     FengWu,
-    ForecastInterpolation,
     FuXi,
+    InterpModAFNO,
     Pangu3,
     Pangu6,
     Pangu24,
@@ -69,7 +70,8 @@ from earth2studio.models.px import (
         ClimateNet,
         CorrDiffTaiwan,
         WindgustAFNO,
-        ForecastInterpolation,
+        InterpModAFNO,
+        PrecipitationAFNOv2,
     ],
 )
 def test_auto_model(model, model_cache_context):

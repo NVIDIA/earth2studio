@@ -19,13 +19,13 @@
 Temporal Interpolation of Forecasts
 ==================================
 
-This example demonstrates how to use the ForecastInterpolation model to interpolate
+This example demonstrates how to use the InterpModAFNO model to interpolate
 forecasts from a base model to a finer time resolution.
 
 In this example you will learn:
 
 - How to load a base prognostic model (e.g., SFNO)
-- How to load the ForecastInterpolation model
+- How to load the InterpModAFNO model
 - How to run the interpolation model to get forecasts at a finer time resolution
 - How to visualize the results
 """
@@ -43,7 +43,7 @@ import numpy as np
 
 from earth2studio.data import GFS
 from earth2studio.io import ZarrBackend
-from earth2studio.models.px import SFNO, ForecastInterpolation
+from earth2studio.models.px import SFNO, InterpModAFNO
 
 # Create output directory
 os.makedirs("outputs", exist_ok=True)
@@ -51,7 +51,7 @@ os.makedirs("outputs", exist_ok=True)
 # %%
 # Load Models
 # -----------
-# We'll use SFNO as our base model and the ForecastInterpolation model to
+# We'll use SFNO as our base model and the InterpModAFNO model to
 # interpolate its output to a finer time resolution.
 
 # %%
@@ -60,8 +60,8 @@ sfno_package = SFNO.load_default_package()
 base_model = SFNO.load_model(sfno_package)
 
 # Load the interpolation model
-interp_package = ForecastInterpolation.load_default_package()
-interp_model = ForecastInterpolation.load_model(interp_package, fc_model=base_model)
+interp_package = InterpModAFNO.load_default_package()
+interp_model = InterpModAFNO.load_model(interp_package, fc_model=base_model)
 
 # Create the data source
 data = GFS()

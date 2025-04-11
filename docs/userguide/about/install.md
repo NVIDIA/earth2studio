@@ -226,21 +226,21 @@ pip install earth2studio[stormcast]
 :::
 ::::
 :::::
-:::::{tab-item} ForecastInterpolation
+:::::{tab-item} InterpModAFNO
 Notes: Requires a base prognostic model to be installed.
 
 ::::{tab-set}
 :::{tab-item} uv
 
 ```bash
-uv pip install earth2studio[forecast-interpolation]
+uv pip install earth2studio[interp-modafno]
 ```
 
 :::
 :::{tab-item} pip
 
 ```bash
-pip install earth2studio[forecast-interpolation]
+pip install earth2studio[interp-modafno]
 ```
 
 :::
@@ -327,6 +327,26 @@ uv pip install earth2studio[precip-afno]
 
 ```bash
 pip install earth2studio[precip-afno]
+```
+
+:::
+::::
+:::::
+:::::{tab-item} Precipitation AFNO V2
+Notes: Improved version of the Precipitation AFNO model with enhanced accuracy.
+
+::::{tab-set}
+:::{tab-item} uv
+
+```bash
+uv pip install earth2studio[precip-afno-v2]
+```
+
+:::
+:::{tab-item} pip
+
+```bash
+pip install earth2studio[precip-afno-v2]
 ```
 
 :::
