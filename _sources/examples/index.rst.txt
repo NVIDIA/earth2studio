@@ -184,6 +184,23 @@ and commonly used workflows.
     </div>
 
 
+.. raw:: html
+
+    <div class="sphx-glr-thumbcontainer" tooltip="This example demonstrates how to use the InterpModAFNO model to interpolate forecasts from a base model to a finer time resolution.">
+
+.. only:: html
+
+  .. image:: /examples/images/thumb/sphx_glr_12_prognostic_temporal_interpolation_thumb.png
+    :alt:
+
+  :ref:`sphx_glr_examples_12_prognostic_temporal_interpolation.py`
+
+.. raw:: html
+
+      <div class="sphx-glr-thumbnail-title">Temporal Interpolation of Forecasts</div>
+    </div>
+
+
 .. thumbnail-parent-div-close
 
 .. raw:: html
@@ -204,6 +221,7 @@ and commonly used workflows.
    /examples/08_distributed_manager
    /examples/09_stormcast_example
    /examples/10_stormcast_ensemble_example
+   /examples/12_prognostic_temporal_interpolation
 
 
 Extending Earth2Studio

@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
     <link href="../../../../_static/favicon.ico" rel="icon" type="image/x-icon">
-    <title>earth2studio.models.px.StormCast &#8212; Earth2Studio 0.6.0a0 documentation</title>
+    <title>earth2studio.models.px.InterpModAFNO &#8212; Earth2Studio 0.6.0a0 documentation</title>
   
   
   
@@ -51,7 +51,7 @@
     <script src="../../../../_static/togglebutton.js?v=4a39c7ea"></script>
     <script src="../../../../_static/design-tabs.js?v=f930bc37"></script>
     <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
-    <script>DOCUMENTATION_OPTIONS.pagename = 'modules/generated/models/px/earth2studio.models.px.StormCast';</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'modules/generated/models/px/earth2studio.models.px.InterpModAFNO';</script>
     <script>
         DOCUMENTATION_OPTIONS.theme_version = '0.15.2';
         DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'https://raw.githubusercontent.com/NVIDIA/earth2studio/gh-pages/_static/switcher.json';
@@ -60,8 +60,8 @@
         </script>
     <link rel="index" title="Index" href="../../../../genindex.html" />
     <link rel="search" title="Search" href="../../../../search.html" />
-    <link rel="next" title="earth2studio.models.dx.CorrDiffTaiwan" href="../dx/earth2studio.models.dx.CorrDiffTaiwan.html" />
-    <link rel="prev" title="earth2studio.models.px.SFNO" href="earth2studio.models.px.SFNO.html" />
+    <link rel="next" title="earth2studio.models.px.Pangu24" href="earth2studio.models.px.Pangu24.html" />
+    <link rel="prev" title="earth2studio.models.px.FuXi" href="earth2studio.models.px.FuXi.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   </head>
@@ -385,13 +385,13 @@ document.write(`
 <li class="toctree-l2"><a class="reference internal" href="earth2studio.models.px.FCN.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.FCN</a></li>
 <li class="toctree-l2"><a class="reference internal" href="earth2studio.models.px.FengWu.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.FengWu</a></li>
 <li class="toctree-l2"><a class="reference internal" href="earth2studio.models.px.FuXi.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.FuXi</a></li>
-<li class="toctree-l2"><a class="reference internal" href="earth2studio.models.px.InterpModAFNO.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.InterpModAFNO</a></li>
+<li class="toctree-l2 current active"><a class="current reference internal" href="#"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.InterpModAFNO</a></li>
 <li class="toctree-l2"><a class="reference internal" href="earth2studio.models.px.Pangu24.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.Pangu24</a></li>
 <li class="toctree-l2"><a class="reference internal" href="earth2studio.models.px.Pangu6.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.Pangu6</a></li>
 <li class="toctree-l2"><a class="reference internal" href="earth2studio.models.px.Pangu3.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.Pangu3</a></li>
 <li class="toctree-l2"><a class="reference internal" href="earth2studio.models.px.Persistence.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.Persistence</a></li>
 <li class="toctree-l2"><a class="reference internal" href="earth2studio.models.px.SFNO.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.SFNO</a></li>
-<li class="toctree-l2 current active"><a class="current reference internal" href="#"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.StormCast</a></li>
+<li class="toctree-l2"><a class="reference internal" href="earth2studio.models.px.StormCast.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.StormCast</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../dx/earth2studio.models.dx.CorrDiffTaiwan.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.dx</span></code>.CorrDiffTaiwan</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../dx/earth2studio.models.dx.ClimateNet.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.dx</span></code>.ClimateNet</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../dx/earth2studio.models.dx.DerivedRH.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.dx</span></code>.DerivedRH</a></li>
@@ -536,68 +536,73 @@ document.write(`
 <div id="searchbox"></div>
                 <article class="bd-article">
                   
-  <section id="earth2studio-models-px-stormcast">
-<h1><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.StormCast<a class="headerlink" href="#earth2studio-models-px-stormcast" title="Link to this heading">#</a></h1>
+  <section id="earth2studio-models-px-interpmodafno">
+<h1><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.InterpModAFNO<a class="headerlink" href="#earth2studio-models-px-interpmodafno" title="Link to this heading">#</a></h1>
 <dl class="py class">
-<dt class="sig sig-object py" id="earth2studio.models.px.StormCast">
-<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">earth2studio.models.px.</span></span><span class="sig-name descname"><span class="pre">StormCast</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">regression_model</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">diffusion_model</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">lat</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">lon</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">means</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">stds</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">invariants</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">variables</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">array(['u10m',</span> <span class="pre">'v10m',</span> <span class="pre">'t2m',</span> <span class="pre">'mslp',</span> <span class="pre">'u1hl',</span> <span class="pre">'u2hl',</span> <span class="pre">'u3hl',</span> <span class="pre">'u4hl',</span> <span class="pre">'u5hl',</span> <span class="pre">'u6hl',</span> <span class="pre">'u7hl',</span> <span class="pre">'u8hl',</span> <span class="pre">'u9hl',</span> <span class="pre">'u10hl',</span> <span class="pre">'u11hl',</span> <span class="pre">'u13hl',</span> <span class="pre">'u15hl',</span> <span class="pre">'u20hl',</span> <span class="pre">'u25hl',</span> <span class="pre">'u30hl',</span> <span class="pre">'v1hl',</span> <span class="pre">'v2hl',</span> <span class="pre">'v3hl',</span> <span class="pre">'v4hl',</span> <span class="pre">'v5hl',</span> <span class="pre">'v6hl',</span> <span class="pre">'v7hl',</span> <span class="pre">'v8hl',</span> <span class="pre">'v9hl',</span> <span class="pre">'v10hl',</span> <span class="pre">'v11hl',</span> <span class="pre">'v13hl',</span> <span class="pre">'v15hl',</span> <span class="pre">'v20hl',</span> <span class="pre">'v25hl',</span> <span class="pre">'v30hl',</span> <span class="pre">'t1hl',</span> <span class="pre">'t2hl',</span> <span class="pre">'t3hl',</span> <span class="pre">'t4hl',</span> <span class="pre">'t5hl',</span> <span class="pre">'t6hl',</span> <span class="pre">'t7hl',</span> <span class="pre">'t8hl',</span> <span class="pre">'t9hl',</span> <span class="pre">'t10hl',</span> <span class="pre">'t11hl',</span> <span class="pre">'t13hl',</span> <span class="pre">'t15hl',</span> <span class="pre">'t20hl',</span> <span class="pre">'t25hl',</span> <span class="pre">'t30hl',</span> <span class="pre">'q1hl',</span> <span class="pre">'q2hl',</span> <span class="pre">'q3hl',</span> <span class="pre">'q4hl',</span> <span class="pre">'q5hl',</span> <span class="pre">'q6hl',</span> <span class="pre">'q7hl',</span> <span class="pre">'q8hl',</span> <span class="pre">'q9hl',</span> <span class="pre">'q10hl',</span> <span class="pre">'q11hl',</span> <span class="pre">'q13hl',</span> <span class="pre">'q15hl',</span> <span class="pre">'q20hl',</span> <span class="pre">'q25hl',</span> <span class="pre">'q30hl',</span> <span class="pre">'Z1hl',</span> <span class="pre">'Z2hl',</span> <span class="pre">'Z3hl',</span> <span class="pre">'Z4hl',</span> <span class="pre">'Z5hl',</span> <span class="pre">'Z6hl',</span> <span class="pre">'Z7hl',</span> <span class="pre">'Z8hl',</span> <span class="pre">'Z9hl',</span> <span class="pre">'Z10hl',</span> <span class="pre">'Z11hl',</span> <span class="pre">'Z13hl',</span> <span class="pre">'Z15hl',</span> <span class="pre">'Z20hl',</span> <span class="pre">'Z25hl',</span> <span class="pre">'Z30hl',</span> <span class="pre">'p1hl',</span> <span class="pre">'p2hl',</span> <span class="pre">'p3hl',</span> <span class="pre">'p4hl',</span> <span class="pre">'p5hl',</span> <span class="pre">'p6hl',</span> <span class="pre">'p7hl',</span> <span class="pre">'p8hl',</span> <span class="pre">'p9hl',</span> <span class="pre">'p10hl',</span> <span class="pre">'p11hl',</span> <span class="pre">'p13hl',</span> <span class="pre">'p15hl',</span> <span class="pre">'p20hl',</span> <span class="pre">'refc'],</span> <span class="pre">dtype='&lt;U5')</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">conditioning_means</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">conditioning_stds</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">conditioning_variables</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">array(['u10m',</span> <span class="pre">'v10m',</span> <span class="pre">'t2m',</span> <span class="pre">'tcwv',</span> <span class="pre">'mslp',</span> <span class="pre">'sp',</span> <span class="pre">'u1000',</span> <span class="pre">'u850',</span> <span class="pre">'u500',</span> <span class="pre">'u250',</span> <span class="pre">'v1000',</span> <span class="pre">'v850',</span> <span class="pre">'v500',</span> <span class="pre">'v250',</span> <span class="pre">'z1000',</span> <span class="pre">'z850',</span> <span class="pre">'z500',</span> <span class="pre">'z250',</span> <span class="pre">'t1000',</span> <span class="pre">'t850',</span> <span class="pre">'t500',</span> <span class="pre">'t250',</span> <span class="pre">'q1000',</span> <span class="pre">'q850',</span> <span class="pre">'q500',</span> <span class="pre">'q250'],</span> <span class="pre">dtype='&lt;U5')</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">conditioning_data_source</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sampler_args</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">{}</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">interp_method</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'linear'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/earth2studio/models/px/stormcast.html#StormCast"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.px.StormCast" title="Link to this definition">#</a></dt>
-<dd><p>StormCast generative convection-allowing model for regional forecasts consists of
-two core models: a regression and diffusion model. Model time step size is 1 hour,
-taking as input:</p>
-<ul class="simple">
-<li><p>High-resolution (3km) HRRR state over the central United States (99 vars)</p></li>
-<li><p>High-resolution land-sea mask and orography invariants</p></li>
-<li><p>Coarse resolution (25km) global state (26 vars)</p></li>
-</ul>
-<p>The high-resolution grid is the HRRR Lambert conformal projection
-Coarse-resolution inputs are regridded to the HRRR grid internally.</p>
+<dt class="sig sig-object py" id="earth2studio.models.px.InterpModAFNO">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">earth2studio.models.px.</span></span><span class="sig-name descname"><span class="pre">InterpModAFNO</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">interp_model</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">center</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scale</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">geop</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">lsm</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">px_model</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">num_interp_steps</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">6</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/earth2studio/models/px/interpmodafno.html#InterpModAFNO"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.px.InterpModAFNO" title="Link to this definition">#</a></dt>
+<dd><p>ModAFNO interpolation for global prognostic models. Interpolates a forecast model
+to a shorter time-step size (by default from 6 to 1 hour). Operates on 0.25 degree
+lat-lon equirectangular grid with 73 variables.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>For more information see the following references:</p>
+<p>For more information on the model, please refer to:</p>
 <ul class="simple">
-<li><p><a class="reference external" href="https://arxiv.org/abs/2408.10958">https://arxiv.org/abs/2408.10958</a></p></li>
+<li><p><a class="reference external" href="https://catalog.ngc.nvidia.com/orgs/nvidia/teams/earth-2/models/afno_dx_fi-v1-era5">https://catalog.ngc.nvidia.com/orgs/nvidia/teams/earth-2/models/afno_dx_fi-v1-era5</a></p></li>
+<li><p><a class="reference external" href="https://arxiv.org/abs/2410.18904">https://arxiv.org/abs/2410.18904</a></p></li>
 </ul>
+</div>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>The model requires a base forecast model to be set before execution. This can be
+done by setting the <cite>px_model</cite> attribute.</p>
 </div>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>regression_model</strong> (<em>torch.nn.Module</em>) – Deterministic model used to make an initial prediction</p></li>
-<li><p><strong>diffusion_model</strong> (<em>torch.nn.Module</em>) – Generative model correcting the deterministic prediciton</p></li>
-<li><p><strong>lat</strong> (<em>np.array</em>) – Latitude array (2D) of the domain</p></li>
-<li><p><strong>lon</strong> (<em>np.array</em>) – Longitude array (2D) of the domain</p></li>
-<li><p><strong>means</strong> (<em>torch.Tensor</em>) – Mean value of each input high-resolution variable</p></li>
-<li><p><strong>stds</strong> (<em>torch.Tensor</em>) – Standard deviation of each input high-resolution variable</p></li>
-<li><p><strong>invariants</strong> (<em>torch.Tensor</em>) – Static invariant  quantities</p></li>
-<li><p><strong>variables</strong> (<em>np.array</em><em>, </em><em>optional</em>) – High-resolution variables, by default np.array(VARIABLES)</p></li>
-<li><p><strong>conditioning_means</strong> (<em>torch.Tensor</em><em> | </em><em>None</em><em>, </em><em>optional</em>) – Means to normalize conditioning data, by default None</p></li>
-<li><p><strong>conditioning_stds</strong> (<em>torch.Tensor</em><em> | </em><em>None</em><em>, </em><em>optional</em>) – Standard deviations to normalize conditioning data, by default None</p></li>
-<li><p><strong>conditioning_variables</strong> (<em>np.array</em><em>, </em><em>optional</em>) – Global variables for conditioning, by default np.array(CONDITIONING_VARIABLES)</p></li>
-<li><p><strong>conditioning_data_source</strong> (<em>DataSource</em><em> | </em><em>None</em><em>, </em><em>optional</em>) – Data Source to use for global conditoining. Required for running in iterator mode, by default None</p></li>
-<li><p><strong>sampler_args</strong> (<em>dict</em><em>[</em><em>str</em><em>, </em><em>float</em><em>  |  </em><em>int</em><em>]</em><em>, </em><em>optional</em>) – Arguments to pass to the diffusion sampler, by default {}</p></li>
-<li><p><strong>interp_method</strong> (<em>str</em><em>, </em><em>optional</em>) – Interpolation method to use when regridding coarse conditoining data, by default “linear”</p></li>
+<li><p><strong>interp_model</strong> (<em>torch.nn.Module</em>) – The interpolation model that performs the time interpolation</p></li>
+<li><p><strong>center</strong> (<em>torch.Tensor</em>) – Model center normalization tensor</p></li>
+<li><p><strong>scale</strong> (<em>torch.Tensor</em>) – Model scale normalization tensors</p></li>
+<li><p><strong>geop</strong> (<em>torch.Tensor</em>) – Geopotential height data used as a static feature</p></li>
+<li><p><strong>lsm</strong> (<em>torch.Tensor</em>) – Land-sea mask data used as a static feature</p></li>
+<li><p><strong>px_model</strong> (<em>PrognosticModel</em><em>, </em><em>optional</em>) – The base forecast model that produces the coarse time resolution forecasts. If
+not provide, should be set by the user before executing the model, by default
+None.</p></li>
+<li><p><strong>num_interp_steps</strong> (<em>int</em><em>, </em><em>optional</em>) – Number of interpolation steps to perform between forecast steps, by default 6</p></li>
 </ul>
 </dd>
 </dl>
 <dl class="py method">
-<dt class="sig sig-object py" id="earth2studio.models.px.StormCast.__call__">
-<span class="sig-name descname"><span class="pre">__call__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">coords</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/earth2studio/models/px/stormcast.html#StormCast.__call__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.px.StormCast.__call__" title="Link to this definition">#</a></dt>
-<dd><p>Forward pass of diagnostic</p>
+<dt class="sig sig-object py" id="earth2studio.models.px.InterpModAFNO.__call__">
+<span class="sig-name descname"><span class="pre">__call__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">coords</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/earth2studio/models/px/interpmodafno.html#InterpModAFNO.__call__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.px.InterpModAFNO.__call__" title="Link to this definition">#</a></dt>
+<dd><p>Runs prognostic model 1 step.
+:param x: Input tensor
+:type x: torch.Tensor
+:param coords: Input coordinate system
+:type coords: CoordSystem</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p><ul class="simple">
+<li><p><strong>x</strong> (<em>torch.Tensor</em>)</p></li>
+<li><p><strong>coords</strong> (<em>CoordSystem</em>)</p></li>
+</ul>
+</p>
+</dd>
+<dt class="field-even">Parameters<span class="colon">:</span></dt>
+<dd class="field-even"><ul class="simple">
 <li><p><strong>x</strong> (<em>Tensor</em>)</p></li>
 <li><p><strong>coords</strong> (<em>OrderedDict</em><em>[</em><em>str</em><em>, </em><em>ndarray</em><em>]</em>)</p></li>
 </ul>
 </dd>
-<dt class="field-even">Return type<span class="colon">:</span></dt>
-<dd class="field-even"><p>tuple[<em>Tensor</em>, <em>OrderedDict</em>[str, <em>ndarray</em>]]</p>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>tuple[<em>Tensor</em>, <em>OrderedDict</em>[str, <em>ndarray</em>]]</p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py method">
-<dt class="sig sig-object py" id="earth2studio.models.px.StormCast.create_iterator">
-<span class="sig-name descname"><span class="pre">create_iterator</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">coords</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/earth2studio/models/px/stormcast.html#StormCast.create_iterator"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.px.StormCast.create_iterator" title="Link to this definition">#</a></dt>
+<dt class="sig sig-object py" id="earth2studio.models.px.InterpModAFNO.create_iterator">
+<span class="sig-name descname"><span class="pre">create_iterator</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">coords</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/earth2studio/models/px/interpmodafno.html#InterpModAFNO.create_iterator"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.px.InterpModAFNO.create_iterator" title="Link to this definition">#</a></dt>
 <dd><p>Creates a iterator which can be used to perform time-integration of the
 prognostic model. Will return the initial condition first (0th step).
 :param x: Input tensor
@@ -622,8 +627,8 @@ output data tensor and coordinate system dictionary.</p>
 </dd></dl>
 
 <dl class="py method">
-<dt class="sig sig-object py" id="earth2studio.models.px.StormCast.load_default_package">
-<em class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">load_default_package</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/earth2studio/models/px/stormcast.html#StormCast.load_default_package"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.px.StormCast.load_default_package" title="Link to this definition">#</a></dt>
+<dt class="sig sig-object py" id="earth2studio.models.px.InterpModAFNO.load_default_package">
+<em class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">load_default_package</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/earth2studio/models/px/interpmodafno.html#InterpModAFNO.load_default_package"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.px.InterpModAFNO.load_default_package" title="Link to this definition">#</a></dt>
 <dd><p>Load prognostic package</p>
 <dl class="field-list simple">
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
@@ -633,31 +638,22 @@ output data tensor and coordinate system dictionary.</p>
 </dd></dl>
 
 <dl class="py method">
-<dt class="sig sig-object py" id="earth2studio.models.px.StormCast.load_model">
-<em class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">load_model</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">package</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/earth2studio/models/px/stormcast.html#StormCast.load_model"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.px.StormCast.load_model" title="Link to this definition">#</a></dt>
-<dd><p>Load StormCast model.</p>
+<dt class="sig sig-object py" id="earth2studio.models.px.InterpModAFNO.load_model">
+<em class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">load_model</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">package</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/earth2studio/models/px/interpmodafno.html#InterpModAFNO.load_model"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.px.InterpModAFNO.load_model" title="Link to this definition">#</a></dt>
+<dd><p>Load prognostic from package</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><p><strong>package</strong> (<a class="reference internal" href="../earth2studio.models.auto.Package.html#earth2studio.models.auto.Package" title="earth2studio.models.auto.package.Package"><em>Package</em></a>)</p>
 </dd>
 <dt class="field-even">Return type<span class="colon">:</span></dt>
-<dd class="field-even"><p><em>DiagnosticModel</em></p>
+<dd class="field-even"><p><em>PrognosticModel</em></p>
 </dd>
 </dl>
 </dd></dl>
 
 </dd></dl>
 
-<section id="examples-using-earth2studio-models-px-stormcast">
-<span id="sphx-glr-backref-earth2studio-models-px-stormcast"></span><h2>Examples using <code class="docutils literal notranslate"><span class="pre">earth2studio.models.px.StormCast</span></code><a class="headerlink" href="#examples-using-earth2studio-models-px-stormcast" title="Link to this heading">#</a></h2>
-<div class="sphx-glr-thumbnails"><div class="sphx-glr-thumbcontainer" tooltip="Basic StormCast inference workflow."><img alt="" src="../../../../_images/sphx_glr_09_stormcast_example_thumb.png" />
-<p><a class="reference internal" href="../../../../examples/09_stormcast_example.html#sphx-glr-examples-09-stormcast-example-py"><span class="std std-ref">Running StormCast Inference</span></a></p>
-  <div class="sphx-glr-thumbnail-title">Running StormCast Inference</div>
-</div><div class="sphx-glr-thumbcontainer" tooltip="Ensemble StormCast inference workflow."><img alt="" src="../../../../_images/sphx_glr_10_stormcast_ensemble_example_thumb.png" />
-<p><a class="reference internal" href="../../../../examples/10_stormcast_ensemble_example.html#sphx-glr-examples-10-stormcast-ensemble-example-py"><span class="std std-ref">Running StormCast Ensemble Inference</span></a></p>
-  <div class="sphx-glr-thumbnail-title">Running StormCast Ensemble Inference</div>
-</div></div><div class="clearer"></div></section>
-</section>
+<div class="clearer"></div></section>
 
 
                 </article>
@@ -670,20 +666,20 @@ output data tensor and coordinate system dictionary.</p>
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="earth2studio.models.px.SFNO.html"
+       href="earth2studio.models.px.FuXi.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.SFNO</p>
+        <p class="prev-next-title"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.FuXi</p>
       </div>
     </a>
     <a class="right-next"
-       href="../dx/earth2studio.models.dx.CorrDiffTaiwan.html"
+       href="earth2studio.models.px.Pangu24.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.dx</span></code>.CorrDiffTaiwan</p>
+        <p class="prev-next-title"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.Pangu24</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
@@ -705,21 +701,20 @@ output data tensor and coordinate system dictionary.</p>
   </div>
   <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="visible nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.models.px.StormCast"><code class="docutils literal notranslate"><span class="pre">StormCast</span></code></a><ul class="nav section-nav flex-column">
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.models.px.StormCast.__call__"><code class="docutils literal notranslate"><span class="pre">StormCast.__call__()</span></code></a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.models.px.StormCast.create_iterator"><code class="docutils literal notranslate"><span class="pre">StormCast.create_iterator()</span></code></a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.models.px.StormCast.load_default_package"><code class="docutils literal notranslate"><span class="pre">StormCast.load_default_package()</span></code></a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.models.px.StormCast.load_model"><code class="docutils literal notranslate"><span class="pre">StormCast.load_model()</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.models.px.InterpModAFNO"><code class="docutils literal notranslate"><span class="pre">InterpModAFNO</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.models.px.InterpModAFNO.__call__"><code class="docutils literal notranslate"><span class="pre">InterpModAFNO.__call__()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.models.px.InterpModAFNO.create_iterator"><code class="docutils literal notranslate"><span class="pre">InterpModAFNO.create_iterator()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.models.px.InterpModAFNO.load_default_package"><code class="docutils literal notranslate"><span class="pre">InterpModAFNO.load_default_package()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.models.px.InterpModAFNO.load_model"><code class="docutils literal notranslate"><span class="pre">InterpModAFNO.load_model()</span></code></a></li>
 </ul>
 </li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#examples-using-earth2studio-models-px-stormcast">Examples using <code class="docutils literal notranslate"><span class="pre">earth2studio.models.px.StormCast</span></code></a></li>
 </ul>
   </nav></div>
 
   <div class="sidebar-secondary-item">
 
   <div class="tocsection sourcelink">
-    <a href="../../../../_sources/modules/generated/models/px/earth2studio.models.px.StormCast.rst.txt">
+    <a href="../../../../_sources/modules/generated/models/px/earth2studio.models.px.InterpModAFNO.rst.txt">
       <i class="fa-solid fa-file-lines"></i> Show Source
     </a>
   </div>
