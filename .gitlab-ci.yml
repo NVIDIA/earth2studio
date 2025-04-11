@@ -1,13 +1,11 @@
 stages:
+  - git
   - clone
-  - setup
+  - build
   - lint
   - test
   - report
   - docs
-
-variables:
-  PIPELINE_WORKFLOW_NAME: 'earth2studio/gitlab/$CI_COMMIT_SHORT_SHA'
 
 workflow:
    name: $PIPELINE_WORKFLOW_NAME
@@ -19,7 +17,7 @@ github-clone:
   tags:
   - docker
   extends:
-    - .physicsnemo:github:pull
+    - .github:pull
   image: bitnami/git
 
 gitlab-clone:
@@ -32,15 +30,16 @@ gitlab-clone:
   tags:
   - docker
   extends:
-    - .physicsnemo:gitlab:pull
+    - .gitlab:pull
   image: bitnami/git
 
-setup:
-  stage: setup
+build-env:
+  stage: build
   tags:
   - docker
   extends:
-    - .earth2studio:setup:base
+    - .earth2studio:build-env:base
+    - .build-env:cache
   script:
     - make setup-ci
 
@@ -53,6 +52,7 @@ format:
   - docker
   extends:
     - .earth2studio:test:base
+    - .lint:cache
   script:
     - ls
     - make format
@@ -66,6 +66,7 @@ lint:
   - docker
   extends:
     - .earth2studio:test:base
+    - .lint:cache
   script:
     - make interrogate
     - make lint
@@ -82,6 +83,7 @@ pytest:
   - docker
   extends:
     - .earth2studio:test:base
+    - .test:cache
   script:
     - make install
     - make pytest 2>&1 | tee ../pytest.log.full
@@ -97,6 +99,7 @@ coverage:
   - docker
   extends:
     - .earth2studio:test:base
+    - .coverage:cache
   script:
     - make setup-ci
     - make coverage 2>&1 | tee ../blossom.log
@@ -125,12 +128,8 @@ include:
 
   - project: 'modulus/modulus-ci'
     ref: ngeneva/studio-reamped
-    file: '.gitlab-ci/earth2/studio/docs.gitlab-ci.yml'
+    file: '.gitlab-ci/earth2studio/common.gitlab-ci.yml'
 
   - project: 'modulus/modulus-ci'
     ref: ngeneva/studio-reamped
     file: '.gitlab-ci/pull.gitlab-ci.yml'
-
-  - project: 'modulus/modulus-ci'
-    ref: ngeneva/studio-reamped
-    file: '.gitlab-ci/earth2/studio/test.gitlab-ci.yml'
