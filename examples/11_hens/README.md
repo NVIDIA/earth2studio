@@ -284,17 +284,15 @@ Now compare the output file of the tracks with the original one. The entries in 
 should be identical, only the track ID should be diffrent, as this depends on the
 total number of ensemble members.
 
-<!-- markdownlint-disable MD033 -->
-<div style="background-color:#fff3cd; padding: 10px; border-radius: 5px;
-border-left: 5px solid #ffc107; margin: 10px 0;">
-**Note:**
-- Currently requires torch seed to be set
-- Produces batch ID for each checkpoint
-- You can choose individual checkpoint, or wait for update...
-</div>
-<!-- markdownlint-enable MD033 -->
+> [!Caution]
+>
+> - Currently requires torch seed to be set
+> - Produces batch ID for each checkpoint
+> - You can choose individual checkpoint, or wait for update...
+> - We are working on streamlineing the interface for reproducibility,
+    stay tuned for improvements!
 
-### 5.3 Precipitation Forecast
+### 5.3 Rain or Shine?
 
 - Shows use of diagnostic models
 - Various diagnostic models can be used simultaneously
