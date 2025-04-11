@@ -21,6 +21,11 @@ from earth2studio.models.dx.cyclone_tracking import (
     CycloneTracking,
     CycloneTrackingVorticity,
 )
-from earth2studio.models.dx.derived import DerivedRH, DerivedVPD, DerivedWS
+from earth2studio.models.dx.derived import (
+    DerivedRH,
+    DerivedRHDewpoint,
+    DerivedVPD,
+    DerivedWS,
+)
 from earth2studio.models.dx.identity import Identity  # noqa
 from earth2studio.models.dx.precipitation_afno import PrecipitationAFNO  # noqa

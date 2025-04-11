@@ -15,7 +15,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added check_extra_imports util for informative errors when optional dependencies are
   not installed
 - Add cyclone trackers
-- Added diagnostic for relative humidity
+- Added diagnostic for relative humidity from temperature and specific humidity
+- Added diagnostic for relative humidity from temperature and dew point
 - Added diagnostic for wind speed magnitude
 - Added diagnostic for vapour-pressure deficit
 

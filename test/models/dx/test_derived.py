@@ -20,7 +20,7 @@ import numpy as np
 import pytest
 import torch
 
-from earth2studio.models.dx import DerivedRH, DerivedVPD, DerivedWS
+from earth2studio.models.dx import DerivedRH, DerivedRHDewpoint, DerivedVPD, DerivedWS
 
 
 @pytest.mark.parametrize(
@@ -135,7 +135,6 @@ def test_derived_rh(levels, shape, device):
     out, out_coords = model(x, coords)
 
     # Check output shape and coordinates
-    print(len(levels))
     assert out.shape == (batch_size, n_levels, lat_size, lon_size)
     assert "variable" in out_coords
     assert len(out_coords["variable"]) == len(levels)
@@ -176,6 +175,105 @@ def test_derived_rh(levels, shape, device):
 def test_derived_rh_invalid_coords(invalid_coords):
     """Test relative humidity derivation with invalid coordinates"""
     model = DerivedRH([100])
+    x = torch.randn(1, 1, 16, 32)
+
+    with pytest.raises(ValueError):
+        model(x, invalid_coords)
+
+
+@pytest.mark.parametrize(
+    "shape",
+    [
+        (1, 2, 16, 32),
+        (2, 2, 32, 64),
+        (4, 2, 48, 96),
+    ],
+)
+@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+def test_derived_rh_dewpoint(shape, device):
+    model = DerivedRHDewpoint().to(device)
+
+    batch_size = shape[0]
+    lat_size = shape[2]
+    lon_size = shape[3]
+
+    input_coords = model.input_coords()
+    coords = OrderedDict(
+        {
+            "batch": np.arange(batch_size),
+            "variable": input_coords["variable"],
+            "lat": np.linspace(-90, 90, lat_size),
+            "lon": np.linspace(0, 360, lon_size),
+        }
+    )
+
+    # Test with realistic temperature and dewpoint values
+    t = 273.15 + 20
+    d = 273.15 + 15
+    x = torch.ones(shape).to(device)
+    x[:, 0::2] *= t
+    x[:, 1::2] *= d
+
+    out, out_coords = model(x, coords)
+
+    # Check output shape and coordinates
+    assert out.shape == (batch_size, 1, lat_size, lon_size)
+    assert "variable" in out_coords
+    assert len(out_coords["variable"]) == 1
+    assert "r2m" in out_coords["variable"]
+
+    # Test device consistency
+    assert out.device == x.device
+
+    # Test physical bounds and behavior
+    # At 20°C and 15°C dewpoint, RH should be around 73%
+    # https://bmcnoldy.earth.miami.edu/Humidity.ht
+    expected_rh = 73.0
+    assert torch.allclose(
+        torch.mean(out), torch.tensor(expected_rh, device=device), rtol=0.1
+    )
+
+    # Test with saturated conditions (T = Td)
+    x_sat = x.clone()
+    x_sat[:, 1::2] = x_sat[:, ::2]  # Dewpoint equals air temperature
+    out_sat, _ = model(x_sat, coords)
+    assert torch.all(out_sat > 99)
+
+    # Test with very dry conditions
+    x_dry = x.clone()
+    x_dry[:, ::2] = 273.15 + 30
+    x_dry[:, 1::2] = 273.15 - 10
+    out_dry, _ = model(x_dry, coords)
+    assert torch.all(out_dry < 20)
+
+    # Test with cold conditions (below freezing)
+    x_cold = x.clone()
+    x_cold[:, ::2] = 273.15 - 10
+    x_cold[:, 1::2] = 273.15 - 12
+    out_cold, _ = model(x_cold, coords)
+    # Should still give reasonable RH values and use ice formula
+    assert torch.all(out_cold >= 0)
+    assert torch.all(out_cold <= 100)
+    assert torch.allclose(
+        torch.mean(out_cold), torch.tensor(85.0, device=device), rtol=0.1
+    )
+
+
+@pytest.mark.parametrize(
+    "invalid_coords",
+    [
+        OrderedDict({"batch": np.array([0]), "variable": np.array(["wrong_var"])}),
+        OrderedDict(
+            {"batch": np.array([0]), "variable": np.array(["t2m"])}
+        ),  # Missing d2m
+        OrderedDict(
+            {"batch": np.array([0]), "variable": np.array(["d2m"])}
+        ),  # Missing t2m
+    ],
+)
+def test_derived_rh_dewpoint_invalid_coords(invalid_coords):
+    """Test RH from dewpoint derivation with invalid coordinates"""
+    model = DerivedRHDewpoint()
     x = torch.randn(1, 1, 16, 32)
 
     with pytest.raises(ValueError):
