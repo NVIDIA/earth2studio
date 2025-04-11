@@ -112,7 +112,7 @@ def test_forecast_interpolation_call(time, device):
 def test_forecast_interpolation_iter(ensemble, device):
     """Test iteration functionality of ForecastInterpolation model."""
     time = np.array([np.datetime64("1993-04-05T00:00")])
-    
+
     # Set up base SFNO model
     sfno_model = PhooSFNOModel()
     center = torch.zeros(1, 73, 1, 1)
@@ -158,18 +158,21 @@ def test_forecast_interpolation_iter(ensemble, device):
 
     # Get generator
     next(model_iter)  # Skip first which should return the input
-    
+
     # Test interpolation steps
     for i, (out, out_coords) in enumerate(model_iter):
 
         # Check output shape
         assert len(out.shape) == 6
         assert out.shape == torch.Size([ensemble, len(time), 1, 73, 720, 1440])
-        
+
         # Check coordinates
-        assert (out_coords["variable"] == model.output_coords(model.input_coords())["variable"]).all()
+        assert (
+            out_coords["variable"]
+            == model.output_coords(model.input_coords())["variable"]
+        ).all()
         assert (out_coords["ensemble"] == np.arange(ensemble)).all()
-        
+
         # Check lead time - should be 1 hour increments due to interpolation
         assert out_coords["lead_time"][0] == np.timedelta64(1 * (i + 1), "h")
 
@@ -190,7 +193,7 @@ def test_forecast_interpolation_iter(ensemble, device):
 def test_forecast_interpolation_exceptions(dc, device):
     """Test exception handling for invalid inputs in ForecastInterpolation model."""
     time = np.array([np.datetime64("1993-04-05T00:00")])
-    
+
     # Set up base SFNO model
     sfno_model = PhooSFNOModel()
     center = torch.zeros(1, 73, 1, 1)
@@ -232,7 +235,7 @@ def model(model_cache_context) -> ForecastInterpolation:
         # Load the base SFNO model
         sfno_package = SFNO.load_default_package()
         base_model = SFNO.load_model(sfno_package)
-        
+
         # Load the interpolation model
         interp_package = ForecastInterpolation.load_default_package()
         model = ForecastInterpolation.load_model(interp_package, fc_model=base_model)
@@ -246,7 +249,7 @@ def test_forecast_interpolation_package(device, model):
     """Test loading and using the ForecastInterpolation model from a package."""
     torch.cuda.empty_cache()
     time = np.array([np.datetime64("1993-04-05T00:00")])
-    
+
     # Test the cached model package
     model = model.to(device)
 

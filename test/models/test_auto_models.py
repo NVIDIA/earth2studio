@@ -43,6 +43,7 @@ from earth2studio.models.px import (
     SFNO,
     Aurora,
     FengWu,
+    ForecastInterpolation,
     FuXi,
     Pangu3,
     Pangu6,
@@ -68,6 +69,7 @@ from earth2studio.models.px import (
         ClimateNet,
         CorrDiffTaiwan,
         WindgustAFNO,
+        ForecastInterpolation,
     ],
 )
 def test_auto_model(model, model_cache_context):

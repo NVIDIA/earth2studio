@@ -84,6 +84,9 @@ fcn = [
 fengwu = [
     "onnxruntime-gpu>=1.21.0",
 ]
+modafno-interpolation = [
+    "nvidia-physicsnemo>=1.0.1",
+]
 pangu = [
     "onnxruntime-gpu>=1.21.0",
 ]
@@ -123,7 +126,7 @@ windgust-afno = [
 all = [
     "earth2studio[data,perturbation,statistics]",
     "earth2studio[aurora-fork,dlwp,fcn,fengwu,pangu,sfno,stormcast]",
-    "earth2studio[climatenet,corrdiff,derived,precip-afno,windgust-afno]",
+    "earth2studio[climatenet,corrdiff,derived,precip-afno,windgust-afno,modafno-interpolation]",
 ]
 
 # ==== UV configuration ====

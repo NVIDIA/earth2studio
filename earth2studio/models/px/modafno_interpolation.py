@@ -13,7 +13,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import os
 from collections import OrderedDict
 from collections.abc import Generator, Iterator
 from datetime import datetime
@@ -21,13 +20,19 @@ from datetime import datetime
 import numpy as np
 import torch
 import xarray as xr
-from physicsnemo import Module
-from physicsnemo.utils.zenith_angle import cos_zenith_angle
+
+try:
+    from physicsnemo import Module as PhysicsNemoModule
+    from physicsnemo.utils.zenith_angle import cos_zenith_angle
+except ImportError:
+    PhysicsNemoModule = None
+    cos_zenith_angle = None
 
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_coords, batch_func
 from earth2studio.models.px.base import PrognosticModel
 from earth2studio.models.px.utils import PrognosticMixin
+from earth2studio.utils import check_extra_imports
 from earth2studio.utils.coords import CoordSystem, map_coords
 
 VARIABLES = [
@@ -107,10 +112,16 @@ VARIABLES = [
 ]
 
 
+@check_extra_imports("physicsnemo", [PhysicsNemoModule, cos_zenith_angle])
 class ForecastInterpolation(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     """ModAFNO interpolation for global prognostic models.
     Interpolates a forecast model to a shorter time-step size (by default from 6 h to 1 h)
     Operates on 0.25 degree lat-lon equirectangular grid with 73 variables.
+
+    Note
+    ----
+    For more information on the model, please refer to:
+    - https://catalog.ngc.nvidia.com/orgs/nvidia/teams/earth-2/models/afno_dx_fi-v1-era5
 
     Parameters
     ----------
@@ -140,9 +151,9 @@ class ForecastInterpolation(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         scale: torch.Tensor,
         geop: torch.Tensor,
         lsm: torch.Tensor,
-        num_interp_steps=6,
-        variables: np.array = np.array(VARIABLES),
-    ):
+        num_interp_steps: int = 6,
+        variables: np.ndarray = np.array(VARIABLES),
+    ) -> None:
         super().__init__()
         self.fc_model = fc_model
         self.interp_model = interp_model
@@ -166,7 +177,7 @@ class ForecastInterpolation(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self.register_buffer("sincos_latlon", torch.Tensor(sincos_latlon))
 
     @staticmethod
-    def _load_feature_from_file(fn, var):
+    def _load_feature_from_file(fn: str, var: str) -> torch.Tensor:
         """Load a feature from a NetCDF file.
 
         Parameters
@@ -246,11 +257,19 @@ class ForecastInterpolation(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         return package
 
     @classmethod
+    @check_extra_imports("physicsnemo", [PhysicsNemoModule, cos_zenith_angle])
     def load_model(
         cls, package: Package, *, fc_model: PrognosticModel, variables: list = VARIABLES
     ) -> PrognosticModel:
         """Load prognostic from package"""
-        model = Module.from_checkpoint(package.resolve("fcinterp-modafno-2x2.mdlus"))
+        if PhysicsNemoModule is None or cos_zenith_angle is None:
+            raise ImportError(
+                "Additional ForecastInterpolation model dependencies are not installed. See install documentation for details."
+            )
+
+        model = PhysicsNemoModule.from_checkpoint(
+            package.resolve("fcinterp-modafno-2x2.mdlus")
+        )
         model.eval()
 
         # Load center and std normalizations
@@ -280,11 +299,24 @@ class ForecastInterpolation(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             variables=np.array(variables),
         )
 
-    def _cos_zenith(self, times):
-        times = (datetime.fromisoformat(str(t)[:19]) for t in times)
+    def _cos_zenith(self, times: list) -> torch.Tensor:
+        """Calculate cosine of zenith angle for given times.
+
+        Parameters
+        ----------
+        times : list
+            List of times to calculate cosine of zenith angle for
+
+        Returns
+        -------
+        torch.Tensor
+            Cosine of zenith angle for each time
+        """
+        # Convert generator to list to fix type incompatibility
+        times_list = list(datetime.fromisoformat(str(t)[:19]) for t in times)
         cos_zen = [
             cos_zenith_angle(t, self.lon.cpu().numpy(), self.lat.cpu().numpy())
-            for t in times
+            for t in times_list
         ]
         return torch.Tensor(np.stack(cos_zen, axis=0)).unsqueeze(0)
 
@@ -295,6 +327,22 @@ class ForecastInterpolation(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         x1: torch.Tensor,
         coords: CoordSystem,
     ) -> Generator[tuple[torch.Tensor, CoordSystem], None, None]:
+        """Interpolate between two forecast steps.
+
+        Parameters
+        ----------
+        x0 : torch.Tensor
+            First forecast step
+        x1 : torch.Tensor
+            Second forecast step
+        coords : CoordSystem
+            Coordinate system for the forecast steps
+
+        Yields
+        ------
+        Generator[tuple[torch.Tensor, CoordSystem], None, None]
+            Generator yielding interpolated forecast steps and their coordinate systems
+        """
         x0 = (x0 - self.center) / self.scale
         x1 = (x1 - self.center) / self.scale
 

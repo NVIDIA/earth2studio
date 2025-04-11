@@ -37,7 +37,6 @@ In this example you will learn:
 
 # %%
 import os
-from datetime import datetime, timedelta
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -80,7 +79,7 @@ io = ZarrBackend()
 # %%
 # Define forecast parameters
 forecast_date = "2024-01-01"
-nsteps = 2  # Number of forecast steps from the base model
+nsteps = 1  # Number of forecast steps from the base model
 # The interpolation model will automatically interpolate between these steps
 
 # Run the model
@@ -102,22 +101,22 @@ n_steps = io["t2m"].shape[1]
 for step in range(n_steps):
     # Create a new figure for each time step
     plt.figure(figsize=(10, 6))
-    
-    # Create the plot
+
+    # Create the plot - flip the data vertically and adjust extent to rotate 180 degrees
     im = plt.imshow(
-        io["t2m"][0, step],
+        np.flipud(io["t2m"][0, step]),  # Flip the data vertically
         cmap="Spectral_r",
         origin="lower",
-        extent=[0, 360, -90, 90],
-        aspect="auto"
+        extent=[0, 360, -90, 90],  # Keep the same extent
+        aspect="auto",
     )
-    
+
     # Set title
     plt.title(f"Temperature at 2m - Step: {step}hrs")
-    
+
     # Add colorbar
     plt.colorbar(im, label="Temperature (K)")
-    
+
     # Save the figure
     plt.savefig(f"outputs/12_t2m_step_{step}.jpg")
     plt.close()  # Close the figure to free memory
