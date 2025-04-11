@@ -45,6 +45,7 @@ from earth2studio.models.px import (
     Aurora,
     FengWu,
     FuXi,
+    InterpModAFNO,
     Pangu3,
     Pangu6,
     Pangu24,
@@ -69,6 +70,7 @@ from earth2studio.models.px import (
         ClimateNet,
         CorrDiffTaiwan,
         WindgustAFNO,
+        InterpModAFNO,
         PrecipitationAFNOv2,
     ],
 )

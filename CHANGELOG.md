@@ -19,8 +19,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added diagnostic for relative humidity from temperature and dew point
 - Added diagnostic for wind speed magnitude
 - Added diagnostic for vapour-pressure deficit
-- Added PrecipitationAFNOV2 model, an improved version of the precipitation AFNO diagnostic model
-  with enhanced accuracy and performance
+- Added PrecipitationAFNOv2 model for predicting tp06
+- Added InterpModAFNO model for temporal interpolation of forecasts
 
 ### Changed
 
