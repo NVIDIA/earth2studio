@@ -2,7 +2,7 @@ import copy
 import dataclasses
 import functools
 from collections import OrderedDict
-from collections.abc import Generator, Iterator
+from collections.abc import Callable, Generator, Iterator
 
 import haiku as hk
 import jax
@@ -138,7 +138,7 @@ class GraphCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     TBD
     """
 
-    def load_run_forward_from_checkpoint(self):
+    def load_run_forward_from_checkpoint(self) -> autoregressive.Predictor:
         """
         This function is mostly copied from
         https://github.com/google-deepmind/graphcast/tree/main
@@ -159,7 +159,7 @@ class GraphCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         # See the License for the specific language governing permissions and
         # limitations under the License.
         """
-        state = {}
+        state: dict = {}
         params = self.ckpt.params
         model_config = self.ckpt.model_config
         task_config = self.ckpt.task_config
@@ -168,7 +168,7 @@ class GraphCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         def construct_wrapped_graphcast(
             model_config: graphcast.ModelConfig, task_config: graphcast.TaskConfig
-        ):
+        ) -> autoregressive.Predictor:
             """Constructs and wraps the GraphCast Predictor."""
             # Deeper one-step predictor.
             predictor = graphcast.GraphCast(model_config, task_config)
@@ -191,7 +191,13 @@ class GraphCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             return predictor
 
         @hk.transform_with_state
-        def run_forward(model_config, task_config, inputs, targets_template, forcings):
+        def run_forward(
+            model_config: graphcast.ModelConfig,
+            task_config: graphcast.TaskConfig,
+            inputs: xr.Dataset,
+            targets_template: xr.Dataset,
+            forcings: xr.Dataset,
+        ) -> autoregressive.Predictor:
             predictor = construct_wrapped_graphcast(model_config, task_config)
             return predictor(
                 inputs, targets_template=targets_template, forcings=forcings
@@ -200,28 +206,28 @@ class GraphCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         # Jax doesn't seem to like passing configs as args through the jit. Passing it
         # in via partial (instead of capture by closure) forces jax to invalidate the
         # jit cache if you change configs.
-        def with_configs(fn):
+        def with_configs(fn: Callable) -> Callable:
             return functools.partial(
                 fn, model_config=model_config, task_config=task_config
             )
 
         # Always pass params and state, so the usage below are simpler
-        def with_params(fn):
+        def with_params(fn: Callable) -> Callable:
             return functools.partial(fn, params=params, state=state)
 
         # Our models aren't stateful, so the state is always empty, so just return the
         # predictions. This is requiredy by our rollout code, and generally simpler.
-        def drop_state(fn):
+        def drop_state(fn: Callable) -> Callable:
             return lambda **kw: fn(**kw)[0]
 
         return drop_state(with_params(jax.jit(with_configs(run_forward.apply))))
 
     def __init__(
         self,
-        ckpt,
-        diffs_stddev_by_level,
-        mean_by_level,
-        stddev_by_level,
+        ckpt: graphcast.CheckPoint,
+        diffs_stddev_by_level: xr.Dataset,
+        mean_by_level: xr.Dataset,
+        stddev_by_level: xr.Dataset,
         interp_method: str = "linear",
     ):
         super().__init__()
@@ -264,8 +270,8 @@ class GraphCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             }
         )
 
-        self.iterator = None
-        self.nsteps = None
+        self.iterator: None | Generator[xr.Dataset] = None
+        self.nsteps: None | int = None
 
     @batch_func()
     def _default_generator(
@@ -285,6 +291,9 @@ class GraphCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
             # Forward is identity operator
             coords = self.output_coords(coords)
+            if self.iterator is None:
+                raise TypeError("Iterator is not initialized. Run create_iterator()")
+
             x = self.iterator_result_to_tensor(next(self.iterator))
             # Rear hook
             x, coords = self.rear_hook(x, coords)
@@ -312,6 +321,9 @@ class GraphCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             Iterator that generates time-steps of the prognostic model container the
             output data tensor and coordinate system dictionary.
         """
+        if self.nsteps is None:
+            raise TypeError("nsteps is not set. Run model.set_nsteps(nsteps).")
+
         batch, target_lead_times = self.from_dataarray_to_dataset(
             xr.DataArray(x.cpu(), coords=coords), 6 * self.nsteps
         )
@@ -334,7 +346,7 @@ class GraphCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         yield from self._default_generator(x, coords)
 
-    def iterator_result_to_tensor(self, dataset) -> torch.Tensor:
+    def iterator_result_to_tensor(self, dataset: xr.Dataset) -> torch.Tensor:
         for var in dataset.data_vars:
             if "level" in dataset[var].dims:
                 for level in dataset[var].level:
@@ -389,6 +401,9 @@ class GraphCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         # Map lat and lon if needed
         x, coords = map_coords(x, coords, self.input_coords())
 
+        if self.nsteps is None:
+            raise TypeError("nsteps is not set. Run model.set_nsteps(nsteps).")
+
         data, target_lead_times = self.from_dataarray_to_dataset(
             xr.DataArray(x.cpu(), coords=coords), 6 * self.nsteps
         )
@@ -419,7 +434,7 @@ class GraphCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         return out, output_coords
 
     def from_dataarray_to_dataset(
-        self, data: xr.DataArray, lead_time=6, hour_steps=6
+        self, data: xr.DataArray, lead_time: int = 6, hour_steps: int = 6
     ) -> xr.Dataset:
         # time
         if "lead_time" in data.dims:
@@ -579,11 +594,7 @@ class GraphCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         return cls(ckpt, diffs_stddev_by_level, mean_by_level, stddev_by_level)
 
-    def set_nsteps(self, nsteps):
+    def set_nsteps(self, nsteps: int) -> PrognosticModel:
         ret = copy.deepcopy(self)
         ret.nsteps = nsteps
         return ret
-
-    @staticmethod
-    def torch_to_jax(x):
-        return jax.dlpack.from_dlpack(x)
