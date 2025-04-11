@@ -25,32 +25,3 @@ the use of modern Python and packages.
 This helps improve maintenance of the package and security posture.
 This does not imply a strict requirement for all functionality and does not apply to
 optional packages.
-
-## Why is Earth2Studio not authorized to download public models from NGC?
-
-Earth2Studio will attempt to use NGC CLI based authentication to download models.
-Sometimes credential misconfiguration can impact access to even public models with
-potential errors like:
-
-```bash
-ValueError: Invalid org. Choose from ['no-org', '0123456789']
-# or
-ValueError: Invalid team. Choose from ['no-team', '0123456789']
-```
-
-In these cases it's typically because there is an NGC API key on the system either via
-the NGC config file located at `~/.ngc/config` by default or by environment variable
-`NGC_CLI_API_KEY`.
-
-One solution is to rename your config file or unset the API key environment variable so
-Earth2Studio uses guest access.
-Otherwise one can modify the config / environment variables to provide the needed
-information.
-For example:
-
-```bash
-export NGC_CLI_ORG=no-org
-export NGC_CLI_TEAM=no-team
-```
-
-For more information see the [NGC CLI docs](https://docs.ngc.nvidia.com/cli/index.html).

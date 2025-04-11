@@ -30,6 +30,7 @@ Thus are typically used to generate forecast predictions.
    models.px.FCN
    models.px.FengWu
    models.px.FuXi
+   models.px.InterpModAFNO
    models.px.Pangu24
    models.px.Pangu6
    models.px.Pangu3
@@ -67,6 +68,8 @@ etc.
    models.dx.DerivedVPD
    models.dx.DerivedWS
    models.dx.PrecipitationAFNO
+   models.dx.PrecipitationAFNOv2
+   models.dx.WindgustAFNO
    models.dx.Identity
 
 :mod:`earth2studio.models`: Utilities

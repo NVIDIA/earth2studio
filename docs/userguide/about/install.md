@@ -57,6 +57,8 @@ uv run python
 >>> earth2studio.__version__
 ```
 
+(optional_dependencies)=
+
 ## Optional Dependencies
 
 :::{admonition} uv Package Manager
@@ -224,6 +226,26 @@ pip install earth2studio[stormcast]
 :::
 ::::
 :::::
+:::::{tab-item} InterpModAFNO
+Notes: Requires a base prognostic model to be installed.
+
+::::{tab-set}
+:::{tab-item} uv
+
+```bash
+uv pip install earth2studio[interp-modafno]
+```
+
+:::
+:::{tab-item} pip
+
+```bash
+pip install earth2studio[interp-modafno]
+```
+
+:::
+::::
+:::::
 ::::::
 
 #### Diagnostics
@@ -325,6 +347,44 @@ uv pip install earth2studio[precip-afno]
 
 ```bash
 pip install earth2studio[precip-afno]
+```
+
+:::
+::::
+:::::
+:::::{tab-item} Precipitation AFNO V2
+Notes: Improved version of the Precipitation AFNO model with enhanced accuracy.
+
+::::{tab-set}
+:::{tab-item} uv
+
+```bash
+uv pip install earth2studio[precip-afno-v2]
+```
+
+:::
+:::{tab-item} pip
+
+```bash
+pip install earth2studio[precip-afno-v2]
+```
+
+:::
+::::
+:::::
+:::::{tab-item} Windgust AFNO
+::::{tab-set}
+:::{tab-item} uv
+
+```bash
+uv pip install earth2studio[windgust-afno]
+```
+
+:::
+:::{tab-item} pip
+
+```bash
+pip install earth2studio[windgust-afno]
 ```
 
 :::
