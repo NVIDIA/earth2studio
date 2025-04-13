@@ -25,6 +25,7 @@ import sys
 from importlib.metadata import version
 
 import dotenv
+import requests
 from sphinx_gallery.sorting import ExplicitOrder, FileNameSortKey
 
 # -- Load environment vairs -----------------------------------------------------
@@ -49,7 +50,7 @@ sys.path.insert(0, os.path.dirname(__file__))
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 version = ".".join(release.split(".")[:2])
 project = "Earth2Studio"
-copyright = "2024, NVIDIA"
+copyright = "2025, NVIDIA"
 author = "NVIDIA"
 
 # -- General configuration ---------------------------------------------------
@@ -136,3 +137,14 @@ sphinx_gallery_conf = {
     "exclude_implicit_doc": {r"load_model", r"load_default_package"},
     "log_level": {"backreference_missing": "debug"},
 }
+
+
+# MySt subsitutions
+def _get_latest_tag():
+    response = requests.get(  # noqa
+        "https://api.github.com/repos/NVIDIA/earth2studio/releases/latest"
+    )
+    return response.json()["tag_name"]
+
+
+myst_substitutions = {"latest_tag": _get_latest_tag()}
