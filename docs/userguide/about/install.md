@@ -83,8 +83,8 @@ used in the above sections.
 
 :::{admonition} uv Package Manager
 :class: warning
-uv commands assume Earth2Studio has already been added to the project using the
-appropriate *git* link used in the above sections.
+uv commands assume Earth2Studio has already been added to the project with the *git*
+link used in the above sections.
 :::
 
 (model_dependencies)=
