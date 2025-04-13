@@ -32,7 +32,7 @@ gitlab-clone:
     - .gitlab:pull
   image: bitnami/git
 
-build-env:
+build-ci-env:
   stage: build
   needs:
     - job: github-clone
@@ -52,7 +52,7 @@ build-env:
 format:
   stage: lint
   needs:
-    - job: build-env
+    - job: build-ci-env
       artifacts: false
   tags:
   - docker
@@ -66,7 +66,7 @@ format:
 lint:
   stage: lint
   needs:
-    - job: build-env
+    - job: build-ci-env
       artifacts: false
   tags:
   - docker
@@ -128,9 +128,6 @@ pages:
     - if: $CI_COMMIT_BRANCH == "gl-pages"
 
 include:
-  # - project: 'modulus/modulus-ci'
-  #   ref: main
-  #   file: '.gitlab-ci/earth2/studio/wheel.gitlab-ci.yml'
 
   - project: 'modulus/modulus-ci'
     ref: ngeneva/studio-reamped
