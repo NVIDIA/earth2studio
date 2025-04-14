@@ -575,27 +575,19 @@ None.</p></li>
 <dl class="py method">
 <dt class="sig sig-object py" id="earth2studio.models.px.InterpModAFNO.__call__">
 <span class="sig-name descname"><span class="pre">__call__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">coords</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/earth2studio/models/px/interpmodafno.html#InterpModAFNO.__call__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.px.InterpModAFNO.__call__" title="Link to this definition">#</a></dt>
-<dd><p>Runs prognostic model 1 step.
-:param x: Input tensor
-:type x: torch.Tensor
-:param coords: Input coordinate system
-:type coords: CoordSystem</p>
+<dd><p>Runs prognostic model 1 step</p>
 <dl class="field-list simple">
-<dt class="field-odd">Returns<span class="colon">:</span></dt>
-<dd class="field-odd"><p><ul class="simple">
-<li><p><strong>x</strong> (<em>torch.Tensor</em>)</p></li>
-<li><p><strong>coords</strong> (<em>CoordSystem</em>)</p></li>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>x</strong> (<em>torch.Tensor</em>) – Input tensor</p></li>
+<li><p><strong>coords</strong> (<em>CoordSystem</em>) – Input coordinate system</p></li>
 </ul>
-</p>
 </dd>
-<dt class="field-even">Parameters<span class="colon">:</span></dt>
-<dd class="field-even"><ul class="simple">
-<li><p><strong>x</strong> (<em>Tensor</em>)</p></li>
-<li><p><strong>coords</strong> (<em>OrderedDict</em><em>[</em><em>str</em><em>, </em><em>ndarray</em><em>]</em>)</p></li>
-</ul>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Output tensor and coordinate system 1 hour in the future</p>
 </dd>
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>tuple[<em>Tensor</em>, <em>OrderedDict</em>[str, <em>ndarray</em>]]</p>
+<dd class="field-odd"><p>tuple[torch.Tensor, CoordSystem]</p>
 </dd>
 </dl>
 </dd></dl>
@@ -604,21 +596,17 @@ None.</p></li>
 <dt class="sig sig-object py" id="earth2studio.models.px.InterpModAFNO.create_iterator">
 <span class="sig-name descname"><span class="pre">create_iterator</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">coords</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/earth2studio/models/px/interpmodafno.html#InterpModAFNO.create_iterator"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.px.InterpModAFNO.create_iterator" title="Link to this definition">#</a></dt>
 <dd><p>Creates a iterator which can be used to perform time-integration of the
-prognostic model. Will return the initial condition first (0th step).
-:param x: Input tensor
-:type x: torch.Tensor
-:param coords: Input coordinate system
-:type coords: CoordSystem</p>
+prognostic model. Will return the initial condition first (0th step).</p>
 <dl class="field-list simple">
-<dt class="field-odd">Yields<span class="colon">:</span></dt>
-<dd class="field-odd"><p><em>Iterator[tuple[torch.Tensor, CoordSystem]]</em> – Iterator that generates time-steps of the prognostic model container the
-output data tensor and coordinate system dictionary.</p>
-</dd>
-<dt class="field-even">Parameters<span class="colon">:</span></dt>
-<dd class="field-even"><ul class="simple">
-<li><p><strong>x</strong> (<em>Tensor</em>)</p></li>
-<li><p><strong>coords</strong> (<em>OrderedDict</em><em>[</em><em>str</em><em>, </em><em>ndarray</em><em>]</em>)</p></li>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>x</strong> (<em>torch.Tensor</em>) – Input tensor</p></li>
+<li><p><strong>coords</strong> (<em>CoordSystem</em>) – Input coordinate system</p></li>
 </ul>
+</dd>
+<dt class="field-even">Yields<span class="colon">:</span></dt>
+<dd class="field-even"><p><em>Iterator[tuple[torch.Tensor, CoordSystem]]</em> – Iterator that generates time-steps of the prognostic model container the
+output data tensor and coordinate system dictionary.</p>
 </dd>
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><em>Iterator</em>[tuple[<em>Tensor</em>, <em>OrderedDict</em>[str, <em>ndarray</em>]]]</p>
@@ -745,7 +733,7 @@ output data tensor and coordinate system dictionary.</p>
 
   <p class="copyright">
     
-      © Copyright 2024, NVIDIA.
+      © Copyright 2025, NVIDIA.
       <br/>
     
   </p>

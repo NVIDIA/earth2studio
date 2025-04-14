@@ -21,19 +21,30 @@ To get the latest release of Earth2Studio, install from the Python index:
 pip install earth2studio
 ```
 
-## Install using uv (Recommended)
+## Install using uv (recommended)
 
 This package is developed using [uv](https://docs.astral.sh/uv/getting-started/installation/)
-and it's recommended that users use uv for the best install experience:
+and it's recommended that users use an uv project for the best install experience:
 
 ```bash
-uv venv --python=3.12
-uv pip install earth2studio
+mkdir earth2studio-project && cd earth2studio-project
+uv init --python=3.12
+uv add "earth2studio @ git+https://github.com/NVIDIA/earth2studio.git@0.6.0"
 ```
 
-## Install from Source
+:::{admonition} uv install
+:class: note
 
-To install the latest main branch version of Earth2Studio:
+Yep, that's right, we are linking to the latest git release tag with uv.
+This will allow uv to handle any complicated dependency conditions and automatically
+handle url based dependencies.
+This is not achievable using the [pypi registry](https://docs.astral.sh/uv/pip/compatibility/#transitive-url-dependencies)
+but makes installing optional packages much easier down the line.
+:::
+
+## Install Main Branch
+
+To install the latest main branch version of Earth2Studio main branch:
 
 ```bash
 pip install "earth2studio @ git+https://github.com/NVIDIA/earth2studio"
@@ -42,8 +53,7 @@ pip install "earth2studio @ git+https://github.com/NVIDIA/earth2studio"
 or if you are using uv:
 
 ```bash
-uv venv --python=3.12
-uv pip install "earth2studio @ git+https://github.com/NVIDIA/earth2studio"
+uv add "earth2studio @ git+https://github.com/NVIDIA/earth2studio.git"
 ```
 
 ## Verify Installation
@@ -62,13 +72,19 @@ uv run python
 ## Optional Dependencies
 
 :::{admonition} uv Package Manager
+:class: tip
+For developers [uv package manager](https://docs.astral.sh/uv/getting-started/installation/)
+should be used.
+uv is **not required** for just using Earth2Studio thus both pip and uv commands are
+included.
+uv commands assume Earth2Studio has already been added to the project using *git source*
+used in the above sections.
+:::
+
+:::{admonition} uv Package Manager
 :class: warning
-From this point forward, using [uv package manager](https://docs.astral.sh/uv/getting-started/installation/)
-will be the default package manager over pip in the documentation.
-Due to the complexities of interfacing with multiple models with different dependency
-requirements, Earth2Studio relies on uv to create a reproducible runtime environment.
-uv is **not required**, and all installs can be replaced with pip command variants that
-are included but have limited support.
+uv commands assume Earth2Studio has already been added to the project with the *git*
+link used in the above sections.
 :::
 
 (model_dependencies)=
@@ -83,23 +99,24 @@ Use the optional install commands to add these dependencies.
 ::::::{tab-set}
 :::::{tab-item} Aurora
 Note: The shipped Aurora package has a restricted dependency which is incompatible with
-other Earth2Studio dependiences, thus it is suggested to use the forked variant.
+other Earth2Studio dependencies, thus it is suggested to use the forked variant.
 
 ::::{tab-set}
-:::{tab-item} uv
-
-```bash
-# Patched fork
-uv pip install earth2studio[aurora-fork]
-# Original package from msc
-uv pip install earth2studio[aurora]
-```
-
-:::
 :::{tab-item} pip
 
 ```bash
 pip install "microsoft-aurora @ git+https://github.com/NickGeneva/aurora.git@ab41cf1de67d5dcc723b96fc9a6219e4b548d181"
+pip install earth2studio[aurora]
+```
+
+:::
+:::{tab-item} uv
+
+```bash
+# Patched fork
+uv add earth2studio --extra aurora-fork
+# Original package from msc
+uv add earth2studio --extra aurora
 ```
 
 :::
@@ -107,13 +124,6 @@ pip install "microsoft-aurora @ git+https://github.com/NickGeneva/aurora.git@ab4
 :::::
 :::::{tab-item} FourCastNet
 ::::{tab-set}
-:::{tab-item} uv
-
-```bash
-uv pip install earth2studio[fcn]
-```
-
-:::
 :::{tab-item} pip
 
 ```bash
@@ -121,24 +131,31 @@ pip install earth2studio[fcn]
 ```
 
 :::
+:::{tab-item} uv
+
+```bash
+uv add earth2studio --extra fcn
+```
+
+:::
 ::::
 :::::
 :::::{tab-item} FengWu
 Notes: Requires [ONNX GPU Runtime](https://onnxruntime.ai/docs/install/). May need
-manual install depending on CUDA version.
+manual install depending on CUDA and Python version.
 
 ::::{tab-set}
-:::{tab-item} uv
-
-```bash
-uv pip install earth2studio[fengwu]
-```
-
-:::
 :::{tab-item} pip
 
 ```bash
 pip install earth2studio[fengwu]
+```
+
+:::
+:::{tab-item} uv
+
+```bash
+uv add earth2studio --extra fengwu
 ```
 
 :::
@@ -149,17 +166,17 @@ Notes: Requires [ONNX GPU Runtime](https://onnxruntime.ai/docs/install/). May ne
 manual install depending on CUDA version.
 
 ::::{tab-set}
-:::{tab-item} uv
-
-```bash
-uv pip install earth2studio[fuxi]
-```
-
-:::
 :::{tab-item} pip
 
 ```bash
 pip install earth2studio[fuxi]
+```
+
+:::
+:::{tab-item} uv
+
+```bash
+uv add earth2studio --extra fuxi
 ```
 
 :::
@@ -170,17 +187,17 @@ Notes: Requires [ONNX GPU Runtime](https://onnxruntime.ai/docs/install/). May ne
 manual install depending on CUDA version.
 
 ::::{tab-set}
-:::{tab-item} uv
-
-```bash
-uv pip install earth2studio[pangu]
-```
-
-:::
 :::{tab-item} pip
 
 ```bash
 pip install earth2studio[pangu]
+```
+
+:::
+:::{tab-item} uv
+
+```bash
+uv add earth2studio --extra pangu
 ```
 
 :::
@@ -191,13 +208,6 @@ Notes: Requires [Modulus-Makani](https://github.com/NVIDIA/modulus-makani) to be
 installed manually.
 
 ::::{tab-set}
-:::{tab-item} uv
-
-```bash
-uv pip install earth2studio[sfno]
-```
-
-:::
 :::{tab-item} pip
 
 ```bash
@@ -206,21 +216,28 @@ pip install earth2studio[sfno]
 ```
 
 :::
+:::{tab-item} uv
+
+```bash
+uv add earth2studio --extra sfno
+```
+
+:::
 ::::
 :::::
 :::::{tab-item} StormCast
 ::::{tab-set}
-:::{tab-item} uv
-
-```bash
-uv pip install earth2studio[stormcast]
-```
-
-:::
 :::{tab-item} pip
 
 ```bash
 pip install earth2studio[stormcast]
+```
+
+:::
+:::{tab-item} uv
+
+```bash
+uv add earth2studio --extra stormcast
 ```
 
 :::
@@ -230,17 +247,17 @@ pip install earth2studio[stormcast]
 Notes: Requires a base prognostic model to be installed.
 
 ::::{tab-set}
-:::{tab-item} uv
-
-```bash
-uv pip install earth2studio[interp-modafno]
-```
-
-:::
 :::{tab-item} pip
 
 ```bash
 pip install earth2studio[interp-modafno]
+```
+
+:::
+:::{tab-item} uv
+
+```bash
+uv add earth2studio --extra interp-modafno
 ```
 
 :::
@@ -256,17 +273,17 @@ Notes: No additional dependencies are needed for ClimateNet but included for
 completeness.
 
 ::::{tab-set}
-:::{tab-item} uv
-
-```bash
-uv pip install earth2studio[climatenet]
-```
-
-:::
 :::{tab-item} pip
 
 ```bash
 pip install earth2studio[climatenet]
+```
+
+:::
+:::{tab-item} uv
+
+```bash
+uv add earth2studio --extra climatenet
 ```
 
 :::
@@ -276,13 +293,6 @@ pip install earth2studio[climatenet]
 Notes: Additional dependencies for all CorrDiff models.
 
 ::::{tab-set}
-:::{tab-item} uv
-
-```bash
-uv pip install earth2studio[corrdiff]
-```
-
-:::
 :::{tab-item} pip
 
 ```bash
@@ -290,21 +300,21 @@ pip install earth2studio[corrdiff]
 ```
 
 :::
+:::{tab-item} uv
+
+```bash
+uv add earth2studio --extra corrdiff
+```
+
+:::
 ::::
 :::::
 :::::{tab-item} Derived
-Notes: Additional dependencies for all derivced diagnostic models.
+Notes: Additional dependencies for all derived diagnostic models.
 No additional dependencies are needed for the derived models at the moment but included
 for completeness.
 
 ::::{tab-set}
-:::{tab-item} uv
-
-```bash
-uv pip install earth2studio[derived]
-```
-
-:::
 :::{tab-item} pip
 
 ```bash
@@ -312,21 +322,28 @@ pip install earth2studio[derived]
 ```
 
 :::
+:::{tab-item} uv
+
+```bash
+uv add earth2studio --extra derived
+```
+
+:::
 ::::
 :::::
 :::::{tab-item} Precipitation AFNO
 ::::{tab-set}
-:::{tab-item} uv
-
-```bash
-uv pip install earth2studio[precip-afno]
-```
-
-:::
 :::{tab-item} pip
 
 ```bash
 pip install earth2studio[precip-afno]
+```
+
+:::
+:::{tab-item} uv
+
+```bash
+uv add earth2studio --extra precip-afno
 ```
 
 :::
@@ -336,13 +353,6 @@ pip install earth2studio[precip-afno]
 Notes: Improved version of the Precipitation AFNO model with enhanced accuracy.
 
 ::::{tab-set}
-:::{tab-item} uv
-
-```bash
-uv pip install earth2studio[precip-afno-v2]
-```
-
-:::
 :::{tab-item} pip
 
 ```bash
@@ -350,21 +360,28 @@ pip install earth2studio[precip-afno-v2]
 ```
 
 :::
+:::{tab-item} uv
+
+```bash
+uv add earth2studio --extra precip-afno-v2
+```
+
+:::
 ::::
 :::::
 :::::{tab-item} Windgust AFNO
 ::::{tab-set}
-:::{tab-item} uv
-
-```bash
-uv pip install earth2studio[windgust-afno]
-```
-
-:::
 :::{tab-item} pip
 
 ```bash
 pip install earth2studio[windgust-afno]
+```
+
+:::
+:::{tab-item} uv
+
+```bash
+uv add earth2studio --extra windgust-afno
 ```
 
 :::
@@ -382,13 +399,6 @@ These can be installed with a submodule wide install group:
 :::::{tab-item} Data
 
 ::::{tab-set}
-:::{tab-item} uv
-
-```bash
-uv pip install earth2studio[data]
-```
-
-:::
 :::{tab-item} pip
 
 ```bash
@@ -396,17 +406,17 @@ pip install earth2studio[data]
 ```
 
 :::
+:::{tab-item} uv
+
+```bash
+uv add earth2studio --extra data
+```
+
+:::
 ::::
 :::::
 :::::{tab-item} Perturbation
 ::::{tab-set}
-:::{tab-item} uv
-
-```bash
-uv pip install earth2studio[perturbation]
-```
-
-:::
 :::{tab-item} pip
 
 ```bash
@@ -414,21 +424,28 @@ pip install earth2studio[perturbation]
 ```
 
 :::
+:::{tab-item} uv
+
+```bash
+uv add earth2studio --extra perturbation
+```
+
+:::
 ::::
 :::::
 :::::{tab-item} Statistics
 ::::{tab-set}
-:::{tab-item} uv
-
-```bash
-uv pip install earth2studio[statistics]
-```
-
-:::
 :::{tab-item} pip
 
 ```bash
 pip install earth2studio[statistics]
+```
+
+:::
+:::{tab-item} uv
+
+```bash
+uv add earth2studio --extra statistics
 ```
 
 :::
@@ -438,17 +455,19 @@ pip install earth2studio[statistics]
 
 ### Install All Optional Dependencies
 
-In Earth2Studio, it's suggested that users pick and choose the optional dependencies that
+In Earth2Studio, it's recommended that users pick and choose the optional dependencies that
 are needed for their use case.
 Installing everything at once and for all models is only expected to work in a few
-specific environments and may not include support for every model depending on conflicts.
+specific environments and may not include support for every model depending on
+conflicts.
+This is only supported using uv and when using github as the source, [not pypi registry](https://docs.astral.sh/uv/pip/compatibility/#transitive-url-dependencies).
 To install a best effort all optional dependencies group, use the following:
 
 ::::{tab-set}
 :::{tab-item} uv
 
 ```bash
-uv pip install earth2studio[all]
+uv add earth2studio --extra all
 ```
 
 :::
@@ -462,17 +481,25 @@ For the best experience, we recommend creating a fresh environment whether that 
 uv, a Docker container or even a Conda environment.
 Below are some recipes for creating a handful of environments for setting up
 Earth2Studio in an isolated environment.
-For developer environments, please refer to the {ref}`developer_overview`..
+For developer environments, please refer to the {ref}`developer_overview`.
 
-## uv Virtual Environment
+## uv Project
 
 Using uv is the recommend way to set up a Python environment for Earth2Studio.
 Assuming [uv is installed](https://docs.astral.sh/uv/getting-started/installation/), use
 the following commands:
 
 ```bash
+mkdir earth2studio-project && cd earth2studio-project
+uv init --python=3.12
+uv add "earth2studio @ git+https://github.com/NVIDIA/earth2studio.git@0.6.0"
+```
+
+or if you are already inside an existing uv project:
+
+```bash
 uv venv --python=3.12
-uv pip install earth2studio[all]
+uv add "earth2studio @ git+https://github.com/NVIDIA/earth2studio.git@0.6.0"
 ```
 
 ## PyTorch Docker Container
@@ -487,7 +514,7 @@ docker run -i -t nvcr.io/nvidia/pytorch:25.03-py3
 >>> unset PIP_CONSTRAINT
 >>> curl -LsSf https://astral.sh/uv/install.sh | sh
 >>> uv venv --python=3.12
->>> uv pip install earth2studio[all]
+>>> uv pip install "earth2studio[all] @ git+https://github.com/NVIDIA/earth2studio.git@0.6.0"
 ```
 
 ## Custom Container
@@ -511,7 +538,8 @@ WORKDIR /app
 # Disable contraint files in the container
 ENV PIP_CONSTRAINT=
 
-RUN uv venv --python=3.12 && uv pip install earth2studio[all]
+RUN uv venv --python=3.12
+RUN uv pip install "earth2studio[all] @ git+https://github.com/NVIDIA/earth2studio.git@0.6.0"
 ```
 
 ## Conda Environment

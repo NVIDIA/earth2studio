@@ -490,23 +490,31 @@ model installs and suggested environment set up for the most complete experience
 </div>
 </section>
 <section id="install-using-uv-recommended">
-<h2>Install using uv (Recommended)<a class="headerlink" href="#install-using-uv-recommended" title="Link to this heading">#</a></h2>
+<h2>Install using uv (recommended)<a class="headerlink" href="#install-using-uv-recommended" title="Link to this heading">#</a></h2>
 <p>This package is developed using <a class="reference external" href="https://docs.astral.sh/uv/getting-started/installation/">uv</a>
-and it’s recommended that users use uv for the best install experience:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>uv<span class="w"> </span>venv<span class="w"> </span>--python<span class="o">=</span><span class="m">3</span>.12
-uv<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>earth2studio
+and it’s recommended that users use an uv project for the best install experience:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>mkdir<span class="w"> </span>earth2studio-project<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nb">cd</span><span class="w"> </span>earth2studio-project
+uv<span class="w"> </span>init<span class="w"> </span>--python<span class="o">=</span><span class="m">3</span>.12
+uv<span class="w"> </span>add<span class="w"> </span><span class="s2">&quot;earth2studio @ git+https://github.com/NVIDIA/earth2studio.git@0.6.0&quot;</span>
 </pre></div>
 </div>
+<div class="note admonition">
+<p class="admonition-title">uv install</p>
+<p>Yep, that’s right, we are linking to the latest git release tag with uv.
+This will allow uv to handle any complicated dependency conditions and automatically
+handle url based dependencies.
+This is not achievable using the <a class="reference external" href="https://docs.astral.sh/uv/pip/compatibility/#transitive-url-dependencies">pypi registry</a>
+but makes installing optional packages much easier down the line.</p>
+</div>
 </section>
-<section id="install-from-source">
-<h2>Install from Source<a class="headerlink" href="#install-from-source" title="Link to this heading">#</a></h2>
-<p>To install the latest main branch version of Earth2Studio:</p>
+<section id="install-main-branch">
+<h2>Install Main Branch<a class="headerlink" href="#install-main-branch" title="Link to this heading">#</a></h2>
+<p>To install the latest main branch version of Earth2Studio main branch:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span><span class="s2">&quot;earth2studio @ git+https://github.com/NVIDIA/earth2studio&quot;</span>
 </pre></div>
 </div>
 <p>or if you are using uv:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>uv<span class="w"> </span>venv<span class="w"> </span>--python<span class="o">=</span><span class="m">3</span>.12
-uv<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span><span class="s2">&quot;earth2studio @ git+https://github.com/NVIDIA/earth2studio&quot;</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>uv<span class="w"> </span>add<span class="w"> </span><span class="s2">&quot;earth2studio @ git+https://github.com/NVIDIA/earth2studio.git&quot;</span>
 </pre></div>
 </div>
 </section>
@@ -523,14 +531,19 @@ uv<span class="w"> </span>run<span class="w"> </span>python
 </section>
 <section id="optional-dependencies">
 <span id="id1"></span><h2>Optional Dependencies<a class="headerlink" href="#optional-dependencies" title="Link to this heading">#</a></h2>
+<div class="tip admonition">
+<p class="admonition-title">uv Package Manager</p>
+<p>For developers <a class="reference external" href="https://docs.astral.sh/uv/getting-started/installation/">uv package manager</a>
+should be used.
+uv is <strong>not required</strong> for just using Earth2Studio thus both pip and uv commands are
+included.
+uv commands assume Earth2Studio has already been added to the project using <em>git source</em>
+used in the above sections.</p>
+</div>
 <div class="warning admonition">
 <p class="admonition-title">uv Package Manager</p>
-<p>From this point forward, using <a class="reference external" href="https://docs.astral.sh/uv/getting-started/installation/">uv package manager</a>
-will be the default package manager over pip in the documentation.
-Due to the complexities of interfacing with multiple models with different dependency
-requirements, Earth2Studio relies on uv to create a reproducible runtime environment.
-uv is <strong>not required</strong>, and all installs can be replaced with pip command variants that
-are included but have limited support.</p>
+<p>uv commands assume Earth2Studio has already been added to the project with the <em>git</em>
+link used in the above sections.</p>
 </div>
 <section id="model-dependencies">
 <span id="id2"></span><h3>Model Dependencies<a class="headerlink" href="#model-dependencies" title="Link to this heading">#</a></h3>
@@ -543,22 +556,23 @@ Use the optional install commands to add these dependencies.</p>
 <label class="sd-tab-label" for="sd-tab-item-0">
 Aurora</label><div class="sd-tab-content docutils">
 <p>Note: The shipped Aurora package has a restricted dependency which is incompatible with
-other Earth2Studio dependiences, thus it is suggested to use the forked variant.</p>
+other Earth2Studio dependencies, thus it is suggested to use the forked variant.</p>
 <div class="sd-tab-set docutils">
 <input checked="checked" id="sd-tab-item-8" name="sd-tab-set-1" type="radio">
 <label class="sd-tab-label" for="sd-tab-item-8">
-uv</label><div class="sd-tab-content docutils">
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Patched fork</span>
-uv<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>earth2studio<span class="o">[</span>aurora-fork<span class="o">]</span>
-<span class="c1"># Original package from msc</span>
-uv<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>earth2studio<span class="o">[</span>aurora<span class="o">]</span>
+pip</label><div class="sd-tab-content docutils">
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span><span class="s2">&quot;microsoft-aurora @ git+https://github.com/NickGeneva/aurora.git@ab41cf1de67d5dcc723b96fc9a6219e4b548d181&quot;</span>
+pip<span class="w"> </span>install<span class="w"> </span>earth2studio<span class="o">[</span>aurora<span class="o">]</span>
 </pre></div>
 </div>
 </div>
 <input id="sd-tab-item-9" name="sd-tab-set-1" type="radio">
 <label class="sd-tab-label" for="sd-tab-item-9">
-pip</label><div class="sd-tab-content docutils">
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span><span class="s2">&quot;microsoft-aurora @ git+https://github.com/NickGeneva/aurora.git@ab41cf1de67d5dcc723b96fc9a6219e4b548d181&quot;</span>
+uv</label><div class="sd-tab-content docutils">
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Patched fork</span>
+uv<span class="w"> </span>add<span class="w"> </span>earth2studio<span class="w"> </span>--extra<span class="w"> </span>aurora-fork
+<span class="c1"># Original package from msc</span>
+uv<span class="w"> </span>add<span class="w"> </span>earth2studio<span class="w"> </span>--extra<span class="w"> </span>aurora
 </pre></div>
 </div>
 </div>
@@ -570,15 +584,15 @@ FourCastNet</label><div class="sd-tab-content docutils">
 <div class="sd-tab-set docutils">
 <input checked="checked" id="sd-tab-item-10" name="sd-tab-set-2" type="radio">
 <label class="sd-tab-label" for="sd-tab-item-10">
-uv</label><div class="sd-tab-content docutils">
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>uv<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>earth2studio<span class="o">[</span>fcn<span class="o">]</span>
+pip</label><div class="sd-tab-content docutils">
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>earth2studio<span class="o">[</span>fcn<span class="o">]</span>
 </pre></div>
 </div>
 </div>
 <input id="sd-tab-item-11" name="sd-tab-set-2" type="radio">
 <label class="sd-tab-label" for="sd-tab-item-11">
-pip</label><div class="sd-tab-content docutils">
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>earth2studio<span class="o">[</span>fcn<span class="o">]</span>
+uv</label><div class="sd-tab-content docutils">
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>uv<span class="w"> </span>add<span class="w"> </span>earth2studio<span class="w"> </span>--extra<span class="w"> </span>fcn
 </pre></div>
 </div>
 </div>
@@ -588,19 +602,19 @@ pip</label><div class="sd-tab-content docutils">
 <label class="sd-tab-label" for="sd-tab-item-2">
 FengWu</label><div class="sd-tab-content docutils">
 <p>Notes: Requires <a class="reference external" href="https://onnxruntime.ai/docs/install/">ONNX GPU Runtime</a>. May need
-manual install depending on CUDA version.</p>
+manual install depending on CUDA and Python version.</p>
 <div class="sd-tab-set docutils">
 <input checked="checked" id="sd-tab-item-12" name="sd-tab-set-3" type="radio">
 <label class="sd-tab-label" for="sd-tab-item-12">
-uv</label><div class="sd-tab-content docutils">
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>uv<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>earth2studio<span class="o">[</span>fengwu<span class="o">]</span>
+pip</label><div class="sd-tab-content docutils">
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>earth2studio<span class="o">[</span>fengwu<span class="o">]</span>
 </pre></div>
 </div>
 </div>
 <input id="sd-tab-item-13" name="sd-tab-set-3" type="radio">
 <label class="sd-tab-label" for="sd-tab-item-13">
-pip</label><div class="sd-tab-content docutils">
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>earth2studio<span class="o">[</span>fengwu<span class="o">]</span>
+uv</label><div class="sd-tab-content docutils">
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>uv<span class="w"> </span>add<span class="w"> </span>earth2studio<span class="w"> </span>--extra<span class="w"> </span>fengwu
 </pre></div>
 </div>
 </div>
@@ -614,15 +628,15 @@ manual install depending on CUDA version.</p>
 <div class="sd-tab-set docutils">
 <input checked="checked" id="sd-tab-item-14" name="sd-tab-set-4" type="radio">
 <label class="sd-tab-label" for="sd-tab-item-14">
-uv</label><div class="sd-tab-content docutils">
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>uv<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>earth2studio<span class="o">[</span>fuxi<span class="o">]</span>
+pip</label><div class="sd-tab-content docutils">
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>earth2studio<span class="o">[</span>fuxi<span class="o">]</span>
 </pre></div>
 </div>
 </div>
 <input id="sd-tab-item-15" name="sd-tab-set-4" type="radio">
 <label class="sd-tab-label" for="sd-tab-item-15">
-pip</label><div class="sd-tab-content docutils">
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>earth2studio<span class="o">[</span>fuxi<span class="o">]</span>
+uv</label><div class="sd-tab-content docutils">
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>uv<span class="w"> </span>add<span class="w"> </span>earth2studio<span class="w"> </span>--extra<span class="w"> </span>fuxi
 </pre></div>
 </div>
 </div>
@@ -636,15 +650,15 @@ manual install depending on CUDA version.</p>
 <div class="sd-tab-set docutils">
 <input checked="checked" id="sd-tab-item-16" name="sd-tab-set-5" type="radio">
 <label class="sd-tab-label" for="sd-tab-item-16">
-uv</label><div class="sd-tab-content docutils">
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>uv<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>earth2studio<span class="o">[</span>pangu<span class="o">]</span>
+pip</label><div class="sd-tab-content docutils">
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>earth2studio<span class="o">[</span>pangu<span class="o">]</span>
 </pre></div>
 </div>
 </div>
 <input id="sd-tab-item-17" name="sd-tab-set-5" type="radio">
 <label class="sd-tab-label" for="sd-tab-item-17">
-pip</label><div class="sd-tab-content docutils">
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>earth2studio<span class="o">[</span>pangu<span class="o">]</span>
+uv</label><div class="sd-tab-content docutils">
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>uv<span class="w"> </span>add<span class="w"> </span>earth2studio<span class="w"> </span>--extra<span class="w"> </span>pangu
 </pre></div>
 </div>
 </div>
@@ -658,16 +672,16 @@ installed manually.</p>
 <div class="sd-tab-set docutils">
 <input checked="checked" id="sd-tab-item-18" name="sd-tab-set-6" type="radio">
 <label class="sd-tab-label" for="sd-tab-item-18">
-uv</label><div class="sd-tab-content docutils">
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>uv<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>earth2studio<span class="o">[</span>sfno<span class="o">]</span>
+pip</label><div class="sd-tab-content docutils">
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span><span class="s2">&quot;makani[all] @ git+https://github.com/NickGeneva/modulus-makani.git@3da09f9e52a6393839d73d44262779ac7279bc2f&quot;</span>
+pip<span class="w"> </span>install<span class="w"> </span>earth2studio<span class="o">[</span>sfno<span class="o">]</span>
 </pre></div>
 </div>
 </div>
 <input id="sd-tab-item-19" name="sd-tab-set-6" type="radio">
 <label class="sd-tab-label" for="sd-tab-item-19">
-pip</label><div class="sd-tab-content docutils">
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span><span class="s2">&quot;makani[all] @ git+https://github.com/NickGeneva/modulus-makani.git@3da09f9e52a6393839d73d44262779ac7279bc2f&quot;</span>
-pip<span class="w"> </span>install<span class="w"> </span>earth2studio<span class="o">[</span>sfno<span class="o">]</span>
+uv</label><div class="sd-tab-content docutils">
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>uv<span class="w"> </span>add<span class="w"> </span>earth2studio<span class="w"> </span>--extra<span class="w"> </span>sfno
 </pre></div>
 </div>
 </div>
@@ -679,15 +693,15 @@ StormCast</label><div class="sd-tab-content docutils">
 <div class="sd-tab-set docutils">
 <input checked="checked" id="sd-tab-item-20" name="sd-tab-set-7" type="radio">
 <label class="sd-tab-label" for="sd-tab-item-20">
-uv</label><div class="sd-tab-content docutils">
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>uv<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>earth2studio<span class="o">[</span>stormcast<span class="o">]</span>
+pip</label><div class="sd-tab-content docutils">
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>earth2studio<span class="o">[</span>stormcast<span class="o">]</span>
 </pre></div>
 </div>
 </div>
 <input id="sd-tab-item-21" name="sd-tab-set-7" type="radio">
 <label class="sd-tab-label" for="sd-tab-item-21">
-pip</label><div class="sd-tab-content docutils">
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>earth2studio<span class="o">[</span>stormcast<span class="o">]</span>
+uv</label><div class="sd-tab-content docutils">
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>uv<span class="w"> </span>add<span class="w"> </span>earth2studio<span class="w"> </span>--extra<span class="w"> </span>stormcast
 </pre></div>
 </div>
 </div>
@@ -700,15 +714,15 @@ InterpModAFNO</label><div class="sd-tab-content docutils">
 <div class="sd-tab-set docutils">
 <input checked="checked" id="sd-tab-item-22" name="sd-tab-set-8" type="radio">
 <label class="sd-tab-label" for="sd-tab-item-22">
-uv</label><div class="sd-tab-content docutils">
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>uv<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>earth2studio<span class="o">[</span>interp-modafno<span class="o">]</span>
+pip</label><div class="sd-tab-content docutils">
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>earth2studio<span class="o">[</span>interp-modafno<span class="o">]</span>
 </pre></div>
 </div>
 </div>
 <input id="sd-tab-item-23" name="sd-tab-set-8" type="radio">
 <label class="sd-tab-label" for="sd-tab-item-23">
-pip</label><div class="sd-tab-content docutils">
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>earth2studio<span class="o">[</span>interp-modafno<span class="o">]</span>
+uv</label><div class="sd-tab-content docutils">
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>uv<span class="w"> </span>add<span class="w"> </span>earth2studio<span class="w"> </span>--extra<span class="w"> </span>interp-modafno
 </pre></div>
 </div>
 </div>
@@ -727,15 +741,15 @@ completeness.</p>
 <div class="sd-tab-set docutils">
 <input checked="checked" id="sd-tab-item-30" name="sd-tab-set-10" type="radio">
 <label class="sd-tab-label" for="sd-tab-item-30">
-uv</label><div class="sd-tab-content docutils">
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>uv<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>earth2studio<span class="o">[</span>climatenet<span class="o">]</span>
+pip</label><div class="sd-tab-content docutils">
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>earth2studio<span class="o">[</span>climatenet<span class="o">]</span>
 </pre></div>
 </div>
 </div>
 <input id="sd-tab-item-31" name="sd-tab-set-10" type="radio">
 <label class="sd-tab-label" for="sd-tab-item-31">
-pip</label><div class="sd-tab-content docutils">
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>earth2studio<span class="o">[</span>climatenet<span class="o">]</span>
+uv</label><div class="sd-tab-content docutils">
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>uv<span class="w"> </span>add<span class="w"> </span>earth2studio<span class="w"> </span>--extra<span class="w"> </span>climatenet
 </pre></div>
 </div>
 </div>
@@ -748,15 +762,15 @@ CorrDiff</label><div class="sd-tab-content docutils">
 <div class="sd-tab-set docutils">
 <input checked="checked" id="sd-tab-item-32" name="sd-tab-set-11" type="radio">
 <label class="sd-tab-label" for="sd-tab-item-32">
-uv</label><div class="sd-tab-content docutils">
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>uv<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>earth2studio<span class="o">[</span>corrdiff<span class="o">]</span>
+pip</label><div class="sd-tab-content docutils">
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>earth2studio<span class="o">[</span>corrdiff<span class="o">]</span>
 </pre></div>
 </div>
 </div>
 <input id="sd-tab-item-33" name="sd-tab-set-11" type="radio">
 <label class="sd-tab-label" for="sd-tab-item-33">
-pip</label><div class="sd-tab-content docutils">
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>earth2studio<span class="o">[</span>corrdiff<span class="o">]</span>
+uv</label><div class="sd-tab-content docutils">
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>uv<span class="w"> </span>add<span class="w"> </span>earth2studio<span class="w"> </span>--extra<span class="w"> </span>corrdiff
 </pre></div>
 </div>
 </div>
@@ -765,21 +779,21 @@ pip</label><div class="sd-tab-content docutils">
 <input id="sd-tab-item-26" name="sd-tab-set-9" type="radio">
 <label class="sd-tab-label" for="sd-tab-item-26">
 Derived</label><div class="sd-tab-content docutils">
-<p>Notes: Additional dependencies for all derivced diagnostic models.
+<p>Notes: Additional dependencies for all derived diagnostic models.
 No additional dependencies are needed for the derived models at the moment but included
 for completeness.</p>
 <div class="sd-tab-set docutils">
 <input checked="checked" id="sd-tab-item-34" name="sd-tab-set-12" type="radio">
 <label class="sd-tab-label" for="sd-tab-item-34">
-uv</label><div class="sd-tab-content docutils">
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>uv<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>earth2studio<span class="o">[</span>derived<span class="o">]</span>
+pip</label><div class="sd-tab-content docutils">
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>earth2studio<span class="o">[</span>derived<span class="o">]</span>
 </pre></div>
 </div>
 </div>
 <input id="sd-tab-item-35" name="sd-tab-set-12" type="radio">
 <label class="sd-tab-label" for="sd-tab-item-35">
-pip</label><div class="sd-tab-content docutils">
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>earth2studio<span class="o">[</span>derived<span class="o">]</span>
+uv</label><div class="sd-tab-content docutils">
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>uv<span class="w"> </span>add<span class="w"> </span>earth2studio<span class="w"> </span>--extra<span class="w"> </span>derived
 </pre></div>
 </div>
 </div>
@@ -791,15 +805,15 @@ Precipitation AFNO</label><div class="sd-tab-content docutils">
 <div class="sd-tab-set docutils">
 <input checked="checked" id="sd-tab-item-36" name="sd-tab-set-13" type="radio">
 <label class="sd-tab-label" for="sd-tab-item-36">
-uv</label><div class="sd-tab-content docutils">
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>uv<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>earth2studio<span class="o">[</span>precip-afno<span class="o">]</span>
+pip</label><div class="sd-tab-content docutils">
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>earth2studio<span class="o">[</span>precip-afno<span class="o">]</span>
 </pre></div>
 </div>
 </div>
 <input id="sd-tab-item-37" name="sd-tab-set-13" type="radio">
 <label class="sd-tab-label" for="sd-tab-item-37">
-pip</label><div class="sd-tab-content docutils">
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>earth2studio<span class="o">[</span>precip-afno<span class="o">]</span>
+uv</label><div class="sd-tab-content docutils">
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>uv<span class="w"> </span>add<span class="w"> </span>earth2studio<span class="w"> </span>--extra<span class="w"> </span>precip-afno
 </pre></div>
 </div>
 </div>
@@ -812,15 +826,15 @@ Precipitation AFNO V2</label><div class="sd-tab-content docutils">
 <div class="sd-tab-set docutils">
 <input checked="checked" id="sd-tab-item-38" name="sd-tab-set-14" type="radio">
 <label class="sd-tab-label" for="sd-tab-item-38">
-uv</label><div class="sd-tab-content docutils">
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>uv<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>earth2studio<span class="o">[</span>precip-afno-v2<span class="o">]</span>
+pip</label><div class="sd-tab-content docutils">
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>earth2studio<span class="o">[</span>precip-afno-v2<span class="o">]</span>
 </pre></div>
 </div>
 </div>
 <input id="sd-tab-item-39" name="sd-tab-set-14" type="radio">
 <label class="sd-tab-label" for="sd-tab-item-39">
-pip</label><div class="sd-tab-content docutils">
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>earth2studio<span class="o">[</span>precip-afno-v2<span class="o">]</span>
+uv</label><div class="sd-tab-content docutils">
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>uv<span class="w"> </span>add<span class="w"> </span>earth2studio<span class="w"> </span>--extra<span class="w"> </span>precip-afno-v2
 </pre></div>
 </div>
 </div>
@@ -832,15 +846,15 @@ Windgust AFNO</label><div class="sd-tab-content docutils">
 <div class="sd-tab-set docutils">
 <input checked="checked" id="sd-tab-item-40" name="sd-tab-set-15" type="radio">
 <label class="sd-tab-label" for="sd-tab-item-40">
-uv</label><div class="sd-tab-content docutils">
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>uv<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>earth2studio<span class="o">[</span>windgust-afno<span class="o">]</span>
+pip</label><div class="sd-tab-content docutils">
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>earth2studio<span class="o">[</span>windgust-afno<span class="o">]</span>
 </pre></div>
 </div>
 </div>
 <input id="sd-tab-item-41" name="sd-tab-set-15" type="radio">
 <label class="sd-tab-label" for="sd-tab-item-41">
-pip</label><div class="sd-tab-content docutils">
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>earth2studio<span class="o">[</span>windgust-afno<span class="o">]</span>
+uv</label><div class="sd-tab-content docutils">
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>uv<span class="w"> </span>add<span class="w"> </span>earth2studio<span class="w"> </span>--extra<span class="w"> </span>windgust-afno
 </pre></div>
 </div>
 </div>
@@ -861,15 +875,15 @@ Data</label><div class="sd-tab-content docutils">
 <div class="sd-tab-set docutils">
 <input checked="checked" id="sd-tab-item-45" name="sd-tab-set-17" type="radio">
 <label class="sd-tab-label" for="sd-tab-item-45">
-uv</label><div class="sd-tab-content docutils">
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>uv<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>earth2studio<span class="o">[</span>data<span class="o">]</span>
+pip</label><div class="sd-tab-content docutils">
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>earth2studio<span class="o">[</span>data<span class="o">]</span>
 </pre></div>
 </div>
 </div>
 <input id="sd-tab-item-46" name="sd-tab-set-17" type="radio">
 <label class="sd-tab-label" for="sd-tab-item-46">
-pip</label><div class="sd-tab-content docutils">
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>earth2studio<span class="o">[</span>data<span class="o">]</span>
+uv</label><div class="sd-tab-content docutils">
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>uv<span class="w"> </span>add<span class="w"> </span>earth2studio<span class="w"> </span>--extra<span class="w"> </span>data
 </pre></div>
 </div>
 </div>
@@ -881,15 +895,15 @@ Perturbation</label><div class="sd-tab-content docutils">
 <div class="sd-tab-set docutils">
 <input checked="checked" id="sd-tab-item-47" name="sd-tab-set-18" type="radio">
 <label class="sd-tab-label" for="sd-tab-item-47">
-uv</label><div class="sd-tab-content docutils">
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>uv<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>earth2studio<span class="o">[</span>perturbation<span class="o">]</span>
+pip</label><div class="sd-tab-content docutils">
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>earth2studio<span class="o">[</span>perturbation<span class="o">]</span>
 </pre></div>
 </div>
 </div>
 <input id="sd-tab-item-48" name="sd-tab-set-18" type="radio">
 <label class="sd-tab-label" for="sd-tab-item-48">
-pip</label><div class="sd-tab-content docutils">
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>earth2studio<span class="o">[</span>perturbation<span class="o">]</span>
+uv</label><div class="sd-tab-content docutils">
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>uv<span class="w"> </span>add<span class="w"> </span>earth2studio<span class="w"> </span>--extra<span class="w"> </span>perturbation
 </pre></div>
 </div>
 </div>
@@ -901,15 +915,15 @@ Statistics</label><div class="sd-tab-content docutils">
 <div class="sd-tab-set docutils">
 <input checked="checked" id="sd-tab-item-49" name="sd-tab-set-19" type="radio">
 <label class="sd-tab-label" for="sd-tab-item-49">
-uv</label><div class="sd-tab-content docutils">
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>uv<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>earth2studio<span class="o">[</span>statistics<span class="o">]</span>
+pip</label><div class="sd-tab-content docutils">
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>earth2studio<span class="o">[</span>statistics<span class="o">]</span>
 </pre></div>
 </div>
 </div>
 <input id="sd-tab-item-50" name="sd-tab-set-19" type="radio">
 <label class="sd-tab-label" for="sd-tab-item-50">
-pip</label><div class="sd-tab-content docutils">
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>earth2studio<span class="o">[</span>statistics<span class="o">]</span>
+uv</label><div class="sd-tab-content docutils">
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>uv<span class="w"> </span>add<span class="w"> </span>earth2studio<span class="w"> </span>--extra<span class="w"> </span>statistics
 </pre></div>
 </div>
 </div>
@@ -919,16 +933,18 @@ pip</label><div class="sd-tab-content docutils">
 </section>
 <section id="install-all-optional-dependencies">
 <h3>Install All Optional Dependencies<a class="headerlink" href="#install-all-optional-dependencies" title="Link to this heading">#</a></h3>
-<p>In Earth2Studio, it’s suggested that users pick and choose the optional dependencies that
+<p>In Earth2Studio, it’s recommended that users pick and choose the optional dependencies that
 are needed for their use case.
 Installing everything at once and for all models is only expected to work in a few
-specific environments and may not include support for every model depending on conflicts.
+specific environments and may not include support for every model depending on
+conflicts.
+This is only supported using uv and when using github as the source, <a class="reference external" href="https://docs.astral.sh/uv/pip/compatibility/#transitive-url-dependencies">not pypi registry</a>.
 To install a best effort all optional dependencies group, use the following:</p>
 <div class="sd-tab-set docutils">
 <input checked="checked" id="sd-tab-item-51" name="sd-tab-set-20" type="radio">
 <label class="sd-tab-label" for="sd-tab-item-51">
 uv</label><div class="sd-tab-content docutils">
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>uv<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>earth2studio<span class="o">[</span>all<span class="o">]</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>uv<span class="w"> </span>add<span class="w"> </span>earth2studio<span class="w"> </span>--extra<span class="w"> </span>all
 </pre></div>
 </div>
 </div>
@@ -942,14 +958,20 @@ uv</label><div class="sd-tab-content docutils">
 uv, a Docker container or even a Conda environment.
 Below are some recipes for creating a handful of environments for setting up
 Earth2Studio in an isolated environment.
-For developer environments, please refer to the <a class="reference internal" href="../developer/overview.html#developer-overview"><span class="std std-ref">Overview</span></a>..</p>
-<section id="uv-virtual-environment">
-<h2>uv Virtual Environment<a class="headerlink" href="#uv-virtual-environment" title="Link to this heading">#</a></h2>
+For developer environments, please refer to the <a class="reference internal" href="../developer/overview.html#developer-overview"><span class="std std-ref">Overview</span></a>.</p>
+<section id="uv-project">
+<h2>uv Project<a class="headerlink" href="#uv-project" title="Link to this heading">#</a></h2>
 <p>Using uv is the recommend way to set up a Python environment for Earth2Studio.
 Assuming <a class="reference external" href="https://docs.astral.sh/uv/getting-started/installation/">uv is installed</a>, use
 the following commands:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>mkdir<span class="w"> </span>earth2studio-project<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nb">cd</span><span class="w"> </span>earth2studio-project
+uv<span class="w"> </span>init<span class="w"> </span>--python<span class="o">=</span><span class="m">3</span>.12
+uv<span class="w"> </span>add<span class="w"> </span><span class="s2">&quot;earth2studio @ git+https://github.com/NVIDIA/earth2studio.git@0.6.0&quot;</span>
+</pre></div>
+</div>
+<p>or if you are already inside an existing uv project:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>uv<span class="w"> </span>venv<span class="w"> </span>--python<span class="o">=</span><span class="m">3</span>.12
-uv<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>earth2studio<span class="o">[</span>all<span class="o">]</span>
+uv<span class="w"> </span>add<span class="w"> </span><span class="s2">&quot;earth2studio @ git+https://github.com/NVIDIA/earth2studio.git@0.6.0&quot;</span>
 </pre></div>
 </div>
 </section>
@@ -963,7 +985,7 @@ provides a good base.</p>
 &gt;&gt;&gt;<span class="w"> </span><span class="nb">unset</span><span class="w"> </span>PIP_CONSTRAINT
 &gt;&gt;&gt;<span class="w"> </span>curl<span class="w"> </span>-LsSf<span class="w"> </span>https://astral.sh/uv/install.sh<span class="w"> </span><span class="p">|</span><span class="w"> </span>sh
 &gt;&gt;&gt;<span class="w"> </span>uv<span class="w"> </span>venv<span class="w"> </span>--python<span class="o">=</span><span class="m">3</span>.12
-&gt;&gt;&gt;<span class="w"> </span>uv<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>earth2studio<span class="o">[</span>all<span class="o">]</span>
+&gt;&gt;&gt;<span class="w"> </span>uv<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span><span class="s2">&quot;earth2studio[all] @ git+https://github.com/NVIDIA/earth2studio.git@0.6.0&quot;</span>
 </pre></div>
 </div>
 </section>
@@ -986,7 +1008,8 @@ otherwise the install process is the same.</p>
 <span class="c"># Disable contraint files in the container</span>
 <span class="k">ENV</span><span class="w"> </span><span class="nv">PIP_CONSTRAINT</span><span class="o">=</span>
 
-<span class="k">RUN</span><span class="w"> </span>uv<span class="w"> </span>venv<span class="w"> </span>--python<span class="o">=</span><span class="m">3</span>.12<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>uv<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>earth2studio<span class="o">[</span>all<span class="o">]</span>
+<span class="k">RUN</span><span class="w"> </span>uv<span class="w"> </span>venv<span class="w"> </span>--python<span class="o">=</span><span class="m">3</span>.12
+<span class="k">RUN</span><span class="w"> </span>uv<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span><span class="s2">&quot;earth2studio[all] @ git+https://github.com/NVIDIA/earth2studio.git@0.6.0&quot;</span>
 </pre></div>
 </div>
 </section>
@@ -1067,8 +1090,8 @@ a model package file from a remote store such as NGC, Huggingface or S3.</p></li
     <ul class="visible nav section-nav flex-column">
 <li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#">Install</a><ul class="visible nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#install-using-pip">Install using Pip</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#install-using-uv-recommended">Install using uv (Recommended)</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#install-from-source">Install from Source</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#install-using-uv-recommended">Install using uv (recommended)</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#install-main-branch">Install Main Branch</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#verify-installation">Verify Installation</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#optional-dependencies">Optional Dependencies</a><ul class="nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#model-dependencies">Model Dependencies</a><ul class="nav section-nav flex-column">
@@ -1083,7 +1106,7 @@ a model package file from a remote store such as NGC, Huggingface or S3.</p></li
 </ul>
 </li>
 <li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#environments">Environments</a><ul class="visible nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#uv-virtual-environment">uv Virtual Environment</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#uv-project">uv Project</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#pytorch-docker-container">PyTorch Docker Container</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#custom-container">Custom Container</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#conda-environment">Conda Environment</a></li>
@@ -1128,7 +1151,7 @@ a model package file from a remote store such as NGC, Huggingface or S3.</p></li
 
   <p class="copyright">
     
-      © Copyright 2024, NVIDIA.
+      © Copyright 2025, NVIDIA.
       <br/>
     
   </p>

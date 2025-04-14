@@ -834,17 +834,19 @@ document.write(`
         <span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
         <span class="n">coords</span><span class="p">:</span> <span class="n">CoordSystem</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">CoordSystem</span><span class="p">]:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Runs prognostic model 1 step.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Runs prognostic model 1 step</span>
+
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
 <span class="sd">        x : torch.Tensor</span>
 <span class="sd">            Input tensor</span>
 <span class="sd">        coords : CoordSystem</span>
 <span class="sd">            Input coordinate system</span>
+
 <span class="sd">        Returns</span>
-<span class="sd">        ------</span>
-<span class="sd">        x : torch.Tensor</span>
-<span class="sd">        coords : CoordSystem</span>
+<span class="sd">        -------</span>
+<span class="sd">        tuple[torch.Tensor, CoordSystem]</span>
+<span class="sd">            Output tensor and coordinate system 1 hour in the future</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">gen</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_default_generator</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="p">)</span>
         <span class="k">return</span> <span class="nb">next</span><span class="p">(</span><span class="n">gen</span><span class="p">)</span></div>
@@ -886,12 +888,14 @@ document.write(`
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Iterator</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">CoordSystem</span><span class="p">]]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Creates a iterator which can be used to perform time-integration of the</span>
 <span class="sd">        prognostic model. Will return the initial condition first (0th step).</span>
+
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
 <span class="sd">        x : torch.Tensor</span>
 <span class="sd">            Input tensor</span>
 <span class="sd">        coords : CoordSystem</span>
 <span class="sd">            Input coordinate system</span>
+
 <span class="sd">        Yields</span>
 <span class="sd">        ------</span>
 <span class="sd">        Iterator[tuple[torch.Tensor, CoordSystem]]</span>
@@ -944,7 +948,7 @@ document.write(`
 
   <p class="copyright">
     
-      © Copyright 2024, NVIDIA.
+      © Copyright 2025, NVIDIA.
       <br/>
     
   </p>
