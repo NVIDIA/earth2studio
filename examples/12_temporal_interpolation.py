@@ -105,11 +105,7 @@ axs = axs.ravel()
 # Create plots for each time step
 for step in range(min([n_steps, 6])):
     im = axs[step].imshow(
-        io["tcwv"][0, step],
-        cmap="twilight_shifted",
-        aspect="auto",
-        vmin=0,
-        vmax=85
+        io["tcwv"][0, step], cmap="twilight_shifted", aspect="auto", vmin=0, vmax=85
     )
     axs[step].set_title(f"Water Vapour - Step: {step}hrs")
     fig.colorbar(im, ax=axs[step], label="kg/m^2")
@@ -117,4 +113,3 @@ for step in range(min([n_steps, 6])):
 plt.tight_layout()
 # Save the figure
 plt.savefig("outputs/12_tcwv_steps.jpg")
-plt.close()
