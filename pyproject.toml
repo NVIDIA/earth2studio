@@ -167,7 +167,8 @@ conflicts = [
 
 [tool.uv.sources]
 makani = { git = "https://github.com/NickGeneva/modulus-makani.git", rev = "3da09f9e52a6393839d73d44262779ac7279bc2f" }
-microsoft-aurora = { git = "https://github.com/NickGeneva/aurora", rev = "ab41cf1de67d5dcc723b96fc9a6219e4b548d181" }
+microsoft-aurora = { git = "https://github.com/NickGeneva/aurora.git", rev = "ab41cf1de67d5dcc723b96fc9a6219e4b548d181" }
+nvidia-physicsnemo = { git = "https://github.com/NickGeneva/physicsnemo.git", rev = "57ef58b5b1638f984cb97525ed64b949a5871357" }
 
 [dependency-groups]
 dev = [

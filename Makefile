@@ -56,6 +56,10 @@ docs:
 .PHONY: docs-full
 docs-full:
 	uv sync --extra all --group docs
+	$(MAKE) docs-build-examples
+
+.PHONY: docs-build-examples
+docs-build-examples:
 	rm -rf docs/examples
 	rm -rf docs/modules/generated
 	rm -rf docs/modules/backreferences

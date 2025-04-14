@@ -1278,25 +1278,25 @@ requires-dist = [
     { name = "loguru" },
     { name = "makani", extras = ["all"], marker = "extra == 'all'", git = "https://github.com/NickGeneva/modulus-makani.git?rev=3da09f9e52a6393839d73d44262779ac7279bc2f" },
     { name = "makani", extras = ["all"], marker = "extra == 'sfno'", git = "https://github.com/NickGeneva/modulus-makani.git?rev=3da09f9e52a6393839d73d44262779ac7279bc2f" },
-    { name = "microsoft-aurora", marker = "extra == 'all'", git = "https://github.com/NickGeneva/aurora?rev=ab41cf1de67d5dcc723b96fc9a6219e4b548d181" },
-    { name = "microsoft-aurora", marker = "extra == 'aurora'", git = "https://github.com/NickGeneva/aurora?rev=ab41cf1de67d5dcc723b96fc9a6219e4b548d181" },
-    { name = "microsoft-aurora", marker = "extra == 'aurora-fork'", git = "https://github.com/NickGeneva/aurora?rev=ab41cf1de67d5dcc723b96fc9a6219e4b548d181" },
+    { name = "microsoft-aurora", marker = "extra == 'all'", git = "https://github.com/NickGeneva/aurora.git?rev=ab41cf1de67d5dcc723b96fc9a6219e4b548d181" },
+    { name = "microsoft-aurora", marker = "extra == 'aurora'", git = "https://github.com/NickGeneva/aurora.git?rev=ab41cf1de67d5dcc723b96fc9a6219e4b548d181" },
+    { name = "microsoft-aurora", marker = "extra == 'aurora-fork'", git = "https://github.com/NickGeneva/aurora.git?rev=ab41cf1de67d5dcc723b96fc9a6219e4b548d181" },
     { name = "nest-asyncio" },
     { name = "netcdf4", specifier = ">=1.6.4" },
     { name = "ngcsdk", specifier = ">=3.55.0" },
     { name = "numba", marker = "extra == 'all'", specifier = ">=0.61.0" },
     { name = "numba", marker = "extra == 'sfno'", specifier = ">=0.61.0" },
     { name = "numcodecs", specifier = "<0.15.0" },
-    { name = "nvidia-physicsnemo", marker = "extra == 'all'", specifier = ">=1.0.1" },
-    { name = "nvidia-physicsnemo", marker = "extra == 'corrdiff'", specifier = ">=1.0.1" },
-    { name = "nvidia-physicsnemo", marker = "extra == 'dlwp'", specifier = ">=1.0.1" },
-    { name = "nvidia-physicsnemo", marker = "extra == 'fcn'", specifier = ">=1.0.1" },
-    { name = "nvidia-physicsnemo", marker = "extra == 'interp-modafno'", specifier = ">=1.0.1" },
-    { name = "nvidia-physicsnemo", marker = "extra == 'precip-afno'", specifier = ">=1.0.1" },
-    { name = "nvidia-physicsnemo", marker = "extra == 'precip-afno-v2'", specifier = ">=1.0.1" },
-    { name = "nvidia-physicsnemo", marker = "extra == 'statistics'", specifier = ">=1.0.1" },
-    { name = "nvidia-physicsnemo", marker = "extra == 'stormcast'", specifier = ">=1.0.1" },
-    { name = "nvidia-physicsnemo", marker = "extra == 'windgust-afno'", specifier = ">=1.0.1" },
+    { name = "nvidia-physicsnemo", marker = "extra == 'all'", git = "https://github.com/NickGeneva/physicsnemo.git?rev=57ef58b5b1638f984cb97525ed64b949a5871357" },
+    { name = "nvidia-physicsnemo", marker = "extra == 'corrdiff'", git = "https://github.com/NickGeneva/physicsnemo.git?rev=57ef58b5b1638f984cb97525ed64b949a5871357" },
+    { name = "nvidia-physicsnemo", marker = "extra == 'dlwp'", git = "https://github.com/NickGeneva/physicsnemo.git?rev=57ef58b5b1638f984cb97525ed64b949a5871357" },
+    { name = "nvidia-physicsnemo", marker = "extra == 'fcn'", git = "https://github.com/NickGeneva/physicsnemo.git?rev=57ef58b5b1638f984cb97525ed64b949a5871357" },
+    { name = "nvidia-physicsnemo", marker = "extra == 'interp-modafno'", git = "https://github.com/NickGeneva/physicsnemo.git?rev=57ef58b5b1638f984cb97525ed64b949a5871357" },
+    { name = "nvidia-physicsnemo", marker = "extra == 'precip-afno'", git = "https://github.com/NickGeneva/physicsnemo.git?rev=57ef58b5b1638f984cb97525ed64b949a5871357" },
+    { name = "nvidia-physicsnemo", marker = "extra == 'precip-afno-v2'", git = "https://github.com/NickGeneva/physicsnemo.git?rev=57ef58b5b1638f984cb97525ed64b949a5871357" },
+    { name = "nvidia-physicsnemo", marker = "extra == 'statistics'", git = "https://github.com/NickGeneva/physicsnemo.git?rev=57ef58b5b1638f984cb97525ed64b949a5871357" },
+    { name = "nvidia-physicsnemo", marker = "extra == 'stormcast'", git = "https://github.com/NickGeneva/physicsnemo.git?rev=57ef58b5b1638f984cb97525ed64b949a5871357" },
+    { name = "nvidia-physicsnemo", marker = "extra == 'windgust-afno'", git = "https://github.com/NickGeneva/physicsnemo.git?rev=57ef58b5b1638f984cb97525ed64b949a5871357" },
     { name = "nvtx", marker = "extra == 'all'", specifier = ">=0.2.11" },
     { name = "nvtx", marker = "extra == 'corrdiff'", specifier = ">=0.2.11" },
     { name = "nvtx", marker = "extra == 'stormcast'", specifier = ">=0.2.11" },
@@ -2564,7 +2564,7 @@ wheels = [
 [[package]]
 name = "microsoft-aurora"
 version = "0.1.dev55+gab41cf1"
-source = { git = "https://github.com/NickGeneva/aurora?rev=ab41cf1de67d5dcc723b96fc9a6219e4b548d181#ab41cf1de67d5dcc723b96fc9a6219e4b548d181" }
+source = { git = "https://github.com/NickGeneva/aurora.git?rev=ab41cf1de67d5dcc723b96fc9a6219e4b548d181#ab41cf1de67d5dcc723b96fc9a6219e4b548d181" }
 dependencies = [
     { name = "azure-storage-blob" },
     { name = "einops" },
@@ -3352,8 +3352,8 @@ wheels = [
 
 [[package]]
 name = "nvidia-physicsnemo"
-version = "1.0.1"
-source = { registry = "https://pypi.org/simple" }
+version = "1.1.0a0"
+source = { git = "https://github.com/NickGeneva/physicsnemo.git?rev=57ef58b5b1638f984cb97525ed64b949a5871357#57ef58b5b1638f984cb97525ed64b949a5871357" }
 dependencies = [
     { name = "certifi" },
     { name = "fsspec" },
@@ -3369,9 +3369,6 @@ dependencies = [
     { name = "xarray" },
     { name = "zarr", version = "2.18.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11' or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-aurora-fork') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-corrdiff') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-dlwp') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-fcn') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-precip-afno') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-sfno') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-stormcast')" },
     { name = "zarr", version = "3.0.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11' or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-aurora-fork') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-corrdiff') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-dlwp') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-fcn') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-precip-afno') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-sfno') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-stormcast')" },
-]
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/0c/8f/2b6199a6ac1a17e39658b442fb77cd6d8354c3160dd32d3c27c675eb3c85/nvidia_physicsnemo-1.0.1-py3-none-any.whl", hash = "sha256:eb6926e9686d2c8cde5ff5d36a8fa95f9bc92064635823fde54575bc02651fa5", size = 637009 },
 ]
 
 [[package]]
