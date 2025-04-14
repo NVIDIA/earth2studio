@@ -61,9 +61,12 @@ docs-full:
 	rm -rf docs/modules/backreferences
 	uv run $(MAKE) -C docs clean
 	rm -rf examples/outputs
-	PLOT_GALLERY=True RUN_STALE_EXAMPLES=True uv run $(MAKE) -j 8 -C docs html
+	uv run $(MAKE) -C docs html
+	for i in $(shell seq -f "%02g" 1 12); do \
+		PLOT_GALLERY=True RUN_STALE_EXAMPLES=True FILENAME_PATTERN=$$i"_*" uv run $(MAKE) -j 8 -C docs html; \
+	done
 
 .PHONY: docs-dev
 docs-dev:
-	rm -rf examples/outputs
+	# rm -rf examples/outputs
 	PLOT_GALLERY=True RUN_STALE_EXAMPLES=True FILENAME_PATTERN=$(FILENAME) uv run $(MAKE) -j 4 -C docs html
