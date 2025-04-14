@@ -33,10 +33,11 @@ def reset_torch(gallery_conf, fname):
 
 def reset_physicsnemo(gallery_conf, fname):
     """Reset PhysicsNemos's state between examples."""
-    import sys
-
+    pass
+    # import sys
     # Clear module for fresh imports
-    # Something wierd with entry points...
-    modules_to_clear = [mod for mod in sys.modules if mod.startswith("physicsnemo")]
-    for mod in modules_to_clear:
-        sys.modules.pop(mod, None)
+    # OKAY DONT DO THIS, THIS CAN CAUSE SOME ISSUES WITH ISINSTANCE AND STUFF
+    # WHAT A WASTE OF A DAY
+    # modules_to_clear = [mod for mod in sys.modules if mod.startswith("physicsnemo")]
+    # for mod in modules_to_clear:
+    #     sys.modules.pop(mod, None)
