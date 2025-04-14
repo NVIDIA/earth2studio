@@ -99,7 +99,7 @@ def main(cfg: DictConfig) -> None:
             batch_ids_produce=batch_ids_produce,
             base_seed_string=base_seed_string,
         )
-        df_tracks_dict, io_dict, seed_dict = run_hens()
+        df_tracks_dict, io_dict = run_hens()
         for k, v in df_tracks_dict.items():
             v["ic"] = pd.to_datetime(ic)
             all_tracks_dict[k].append(v)
@@ -114,7 +114,6 @@ def main(cfg: DictConfig) -> None:
                 writer_threads,
                 writer_executor,
                 ens_idx,
-                seed_dict,
             )
 
     # Output run duration
