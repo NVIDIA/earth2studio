@@ -388,8 +388,6 @@ Notice that the NetCDF IO function has additional APIs to interact with the stor
     plt.savefig("outputs/07_southern_oscillation_index_prediction_2022.png")
     io.close()
 
-**Estimated memory usage:**  0 MB
-
 
 .. _sphx_glr_download_examples_07_seasonal_statistics.py:
 

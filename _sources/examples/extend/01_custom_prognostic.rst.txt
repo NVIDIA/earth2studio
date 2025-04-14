@@ -347,8 +347,6 @@ become progressively more noisy as time progresses.
 
     plt.savefig("outputs/01_custom_prognostic_prediction.jpg", bbox_inches="tight")
 
-**Estimated memory usage:**  0 MB
-
 
 .. _sphx_glr_download_examples_extend_01_custom_prognostic.py:
 

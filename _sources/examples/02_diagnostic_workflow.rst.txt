@@ -172,8 +172,6 @@ prognostic model.
 
     plt.savefig("outputs/02_tp_prediction.jpg")
 
-**Estimated memory usage:**  0 MB
-
 
 .. _sphx_glr_download_examples_02_diagnostic_workflow.py:
 

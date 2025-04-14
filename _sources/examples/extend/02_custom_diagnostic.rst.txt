@@ -291,8 +291,6 @@ Let's plot the Celsius temperature field from our custom diagnostic model.
 
     plt.savefig("outputs/02_custom_diagnostic_dlwp_prediction.jpg")
 
-**Estimated memory usage:**  0 MB
-
 
 .. _sphx_glr_download_examples_extend_02_custom_diagnostic.py:
 

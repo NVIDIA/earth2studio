@@ -229,8 +229,6 @@ allows outputs from all processes to get treated as a single data array.
         )
         plt.savefig("outputs/08_tcwv_distributed_manager.jpg")
 
-**Estimated memory usage:**  0 MB
-
 
 .. _sphx_glr_download_examples_08_distributed_manager.py:
 

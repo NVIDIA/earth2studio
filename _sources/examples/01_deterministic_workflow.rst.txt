@@ -70,11 +70,11 @@ Thus, we need the following:
 
     from earth2studio.data import GFS
     from earth2studio.io import ZarrBackend
-    from earth2studio.models.px import Aurora
+    from earth2studio.models.px import DLWP
 
     # Load the default model package which downloads the check point from NGC
-    package = Aurora.load_default_package()
-    model = Aurora.load_model(package)
+    package = DLWP.load_default_package()
+    model = DLWP.load_model(package)
 
     # Create the data source
     data = GFS()
@@ -151,8 +151,6 @@ Notice that the Zarr IO function has additional APIs to interact with the stored
     ax.coastlines()
     ax.gridlines()
     plt.savefig("outputs/01_t2m_prediction.jpg")
-
-**Estimated memory usage:**  0 MB
 
 
 .. _sphx_glr_download_examples_01_deterministic_workflow.py:

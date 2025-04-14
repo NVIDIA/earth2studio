@@ -176,8 +176,6 @@ Notice that the Zarr IO function has additional APIs to interact with the stored
     ax.gridlines()
     plt.savefig(f"outputs/09_{date}_t2m_prediction.jpg")
 
-**Estimated memory usage:**  0 MB
-
 
 .. _sphx_glr_download_examples_09_stormcast_example.py:
 

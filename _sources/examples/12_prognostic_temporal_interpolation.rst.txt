@@ -151,8 +151,6 @@ Get the number of time steps
         plt.savefig(f"outputs/12_t2m_step_{step}.jpg")
         plt.close()  # Close the figure to free memory
 
-**Estimated memory usage:**  0 MB
-
 
 .. _sphx_glr_download_examples_12_prognostic_temporal_interpolation.py:
 
