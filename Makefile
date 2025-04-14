@@ -66,10 +66,8 @@ docs-build-examples:
 	uv run $(MAKE) -C docs clean
 	rm -rf examples/outputs
 	uv run $(MAKE) -C docs html
-	for i in $(shell seq -f "%02g" 1 12); do \
-		sleep 5; \
-		PLOT_GALLERY=True RUN_STALE_EXAMPLES=True FILENAME_PATTERN=$$i"_*" uv run $(MAKE) -j 1 -C docs html; \
-	done
+	PLOT_GALLERY=True RUN_STALE_EXAMPLES=True uv run $(MAKE) -j 8 -C docs html; \
+
 
 .PHONY: docs-dev
 docs-dev:
