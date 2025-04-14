@@ -39,7 +39,6 @@ In this example you will learn:
 import os
 
 import matplotlib.pyplot as plt
-import numpy as np
 
 from earth2studio.data import GFS
 from earth2studio.io import ZarrBackend
