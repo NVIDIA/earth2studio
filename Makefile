@@ -67,7 +67,7 @@ docs-build-examples:
 	rm -rf examples/outputs
 	uv run $(MAKE) -C docs html
 	for i in $(shell seq -f "%02g" 1 12); do \
-		sleep(5); \
+		sleep 5; \
 		PLOT_GALLERY=True RUN_STALE_EXAMPLES=True FILENAME_PATTERN=$$i"_*" uv run $(MAKE) -j 8 -C docs html; \
 	done
 
