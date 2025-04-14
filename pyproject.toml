@@ -66,6 +66,7 @@ perturbation = [
     "torch-harmonics>=0.7.4",
 ]
 statistics = [
+    "onnx-weekly ; python_full_version >= '3.13'",
     "nvidia-physicsnemo>=1.0.1",
 ]
 # PX Models
@@ -76,19 +77,24 @@ aurora-fork = [
     "microsoft-aurora", # optional fork install without timm package version conflict
 ]
 dlwp = [
+    "onnx-weekly ; python_full_version >= '3.13'",
     "nvidia-physicsnemo>=1.0.1",
     "importlib_metadata",
 ]
 fcn = [
+    "onnx-weekly ; python_full_version >= '3.13'",
     "nvidia-physicsnemo>=1.0.1",
 ]
 fengwu = [
+    "onnx-weekly ; python_full_version >= '3.13'",
     "onnxruntime-gpu>=1.21.0",
 ]
 interp-modafno = [
+    "onnx-weekly ; python_full_version >= '3.13'",
     "nvidia-physicsnemo>=1.0.1",
 ]
 pangu = [
+    "onnx-weekly ; python_full_version >= '3.13'",
     "onnxruntime-gpu>=1.21.0",
 ]
 sfno = [
@@ -96,6 +102,7 @@ sfno = [
     "makani[all]",
     "numba>=0.61.0",
     "pynvml>=12.0.0",
+    "onnx-weekly ; python_full_version >= '3.13'",
     "ruamel-yaml>=0.18.10",
     "tensorly>=0.9.0",
     "tensorly-torch>=0.5.0",
@@ -103,6 +110,7 @@ sfno = [
 ]
 stormcast = [
     "einops>=0.8.1",
+    "onnx-weekly ; python_full_version >= '3.13'",
     "nvidia-physicsnemo>=1.0.1",
     "nvtx>=0.2.11",
     "omegaconf>=2.3.0",
@@ -112,18 +120,22 @@ stormcast = [
 climatenet = []
 corrdiff = [
     "einops>=0.8.1",
+    "onnx-weekly ; python_full_version >= '3.13'",
     "nvidia-physicsnemo>=1.0.1",
     "nvtx>=0.2.11",
     "scipy>=1.15.2",
 ]
 derived = []
 precip-afno = [
+    "onnx-weekly ; python_full_version >= '3.13'",
     "nvidia-physicsnemo>=1.0.1",
 ]
 precip-afno-v2 = [
+    "onnx-weekly ; python_full_version >= '3.13'",
     "nvidia-physicsnemo>=1.0.1",
 ]
 windgust-afno = [
+    "onnx-weekly ; python_full_version >= '3.13'",
     "nvidia-physicsnemo>=1.0.1",
 ]
 # All, must not have conflicts
@@ -165,10 +177,17 @@ conflicts = [
       { extra = "aurora-fork" },
     ],
 ]
+# Force onnx to only try to install when below 3.13, otherwise we will use onnx weekly
+override-dependencies = ["onnx; python_full_version < '3.13'"]
 
 [tool.uv.sources]
 makani = { git = "https://github.com/NickGeneva/modulus-makani.git", rev = "3da09f9e52a6393839d73d44262779ac7279bc2f" }
 microsoft-aurora = { git = "https://github.com/NickGeneva/aurora.git", rev = "ab41cf1de67d5dcc723b96fc9a6219e4b548d181" }
+
+[[tool.uv.index]]
+name = "onnx"
+url = "https://pypi.org/simple/onnx"
+explicit = true
 
 [dependency-groups]
 dev = [
