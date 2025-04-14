@@ -17,6 +17,7 @@
 
 def reset_torch(gallery_conf, fname):
     """Reset PyTorch's state between examples."""
+    import numpy
     import torch
 
     # Clear CUDA memory
@@ -24,6 +25,7 @@ def reset_torch(gallery_conf, fname):
         torch.cuda.empty_cache()
         torch.cuda.reset_peak_memory_stats()
     # Reset random seeds
+    numpy.random.seed(42)
     torch.manual_seed(0)
     if torch.cuda.is_available():
         torch.cuda.manual_seed_all(0)

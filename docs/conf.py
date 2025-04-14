@@ -137,6 +137,7 @@ sphinx_gallery_conf = {
         "sphinxext.reset_torch",
         "sphinxext.reset_physicsnemo",
     ),
+    "reset_modules_order": "both",
     "show_memory": False,
     "exclude_implicit_doc": {r"load_model", r"load_default_package"},
     "log_level": {"backreference_missing": "warning", "gallery_examples": "debug"},
