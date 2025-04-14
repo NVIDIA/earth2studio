@@ -5,17 +5,17 @@ start_times: ["2024-09-24 12:00:00"]
 nsteps: 20         # number of forecasting steps
 nensemble: 4       # ensemble size per checkpoint
 batch_size: 2      # inference batch size
-batch_ids_reproduce: [0] # select specifc batchs that you want to run to reproduce certain runs
+batch_ids_reproduce: [0,2] # select specifc batchs that you want to run to reproduce certain runs
 
 forecast_model:
     architecture: earth2studio.models.px.SFNO   # forecast model class
-    package: '/media/mkoch/9ee63bf8-5a14-4872-86f2-7f16b120269b/hens_data/hens_checkpoints'
+    package: '/path/to/hens_checkpoints'
     max_num_checkpoints: 2 # max number of checkpoints which will be used
 
 perturbation:
     _target_: hens_perturbation.HENSPerturbation
     _partial_: True
-    skill_path: '/media/mkoch/9ee63bf8-5a14-4872-86f2-7f16b120269b/hens_data/hens_checkpoints/d2m_sfno_linear_74chq_sc2_layers8_edim620_wstgl2-epoch70_seed16.nc' # CAUTION: remove personal paths!!!
+    skill_path: '/path/to/d2m_sfno_linear_74chq_sc2_layers8_edim620_wstgl2-epoch70_seed16.nc' # CAUTION: remove personal paths!!!
     noise_amplification: .35
     perturbed_var: 'z500'
     integration_steps: 3

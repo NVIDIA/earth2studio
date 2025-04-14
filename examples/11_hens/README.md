@@ -9,23 +9,22 @@
 - [5. Reference Workflows](#5-reference-workflows)
   - [5.1 Hurricane Helene](#51-hurricane-helene)
   - [5.2 Reproducing individual Batches of the Helene Ensemble](#52-reproducing-individual-batches-of-the-helene-ensemble)
-  - [5.3 Precipitation Forecast](#53-precipitation-forecast)
+  - [5.3 Rain or Shine?](#53-rain-or-shine)
 
 ## 1. Method overview
 
-This project implements a multi-checkpoint inference pipeline designed for
-large-scale ensemble weather forecasting.
-The pipeline enables parallel processing of multiple model checkpoints, providing
-a flexible framework for uncertainty quantification in weather prediction systems.
+This project implements a multi-checkpoint inference pipeline for large-scale
+ensemble weather forecasting. The pipeline enables parallel processing of multiple
+model checkpoints, providing a flexible framework for uncertainty quantification
+in weather prediction systems.
 
-A key application of this pipeline is the recovery of the HENS (Huge Ensemble) method, as described in
-[Huge Ensembles Part I][hens-paper].
-
-HENS provides a calibrated ensemble forecasting
-system based on Spherical Fourier Neural Operators (SFNO).
-It uses customised bred vectors for initial condition perturbations and multiple
-independently trained model checkpoints to represent model uncertainty. This is
-specifically designed to better represent extreme weather events.
+A key application is the recovery of the HENS (Huge Ensemble) method, as described in
+[Huge Ensembles Part I][hens-paper], which provides a calibrated ensemble forecasting
+system based on Spherical Fourier Neural Operators (SFNO). HENS uses customised
+bred vectors for initial condition
+perturbations and multiple independently trained model checkpoints to represent
+model uncertainty, specifically designed for better representation of extreme
+weather events.
 
 This approach enables unprecedented sampling of the tails of forecast
 distributions for improved extreme event prediction.
@@ -221,12 +220,15 @@ python hens.py --config-name=your_config.yaml
 ```
 
 The pipeline supports multi-GPU and multi-node execution, with individual inferences
-being fully independent. The parallelism strategy is designed to minimise the overhead
-of loading models to devices. This is achieved by pairing initial conditions with
-model checkpoints, where each GPU maintains a single checkpoint in memory. As a result,
-the maximum number of GPUs that can be effectively utilised is equal to the product
-of the number of checkpoints and initial conditions. Any additional GPUs will remain
-idle during inference. To run the pipeline in a multi-GPU or multi-node environment, use:
+being fully independent. The parallelism strategy minimises the overhead of loading
+models to devices by pairing initial conditions with model checkpoints.
+
+> [!Note]
+> The maximum number of GPUs that can be effectively utilised equals the product of
+the number of checkpoints and initial conditions. Additional GPUs will remain idle
+during inference.
+
+To run the pipeline in a multi-GPU or multi-node environment:
 
 ```bash
 mpirun -n 2 python hens.py --config-name=your_config.yaml
@@ -236,13 +238,15 @@ mpirun -n 2 python hens.py --config-name=your_config.yaml
 
 ### 5.1 Hurricane Helene
 
-[Hurricane Helene][helene-wiki] was a significant tropical cyclone that made landfall in September 2024,
+[Hurricane Helene][helene-wiki] was a significant tropical cyclone that made landfall
+in September 2024,
 causing widespread impacts across the southeastern United States. The storm's rapid
 intensification and complex structure made it a challenging case for weather prediction.
 
 This workflow demonstrates ensemble inference for Helene, with the model
 initialised approximately two and a half days before landfall. To run this example,
-first download the model packages and skill file as described in [section 2](#2-prerequisites).
+first download the model packages and skill file as described in
+[section 2](#2-prerequisites).
 In the configuration file `helene.yaml`, specify the path to the model packages under
 `forecast_model.package` and the skill file under `perturbation.skill_path`. The current
 configuration is set up for two checkpoints, one initial condition, and four ensemble
@@ -255,6 +259,10 @@ Execute the ensemble inference by running:
 ```bash
 [mpirun -n XX] python hens.py --config-name=helene.yaml
 ```
+
+The current configuration uses two checkpoints, one initial condition, and four
+ensemble members per checkpoint-IC pair, resulting in eight ensemble members total.
+You can expand these parameters once the configuration is verified.
 
 ### 5.2 Reproducing Individual Batches of the Helene Ensemble
 
@@ -301,13 +309,22 @@ Helene ensemble.
 
 ### 5.3 Rain or Shine?
 
-- storm Bernd hit central Europe in July 2021, causing [widespread
-  flooding][bernd-wiki]
+This example demonstrates the use of diagnostic models in ensemble forecasting,
+using the case of Storm Bernd which caused [widespread flooding across central
+Europe][bernd-wiki] in July 2021. The workflow showcases how multiple diagnostic
+models can be chained together in a specific order to derive complex meteorological
+variables.
 
-- Shows use of diagnostic models
-- Various diagnostic models can be used simultaneously
-- Order is important
-- Show use of data directory data loader and data dl script
+In this particular case, the pipeline first calculates relative humidity using a
+numerical model. This derived variable, along with other forecasted fields, serves as input
+for the precipitation diagnostic model. The sequential processing is essential as each
+diagnostic model's output can become an input for subsequent models in the chain.
+
+Execute this example by running:
+
+```bash
+python hens.py --config-name=storm_bernd.yaml
+```
 
 [hens-paper]: https://arxiv.org/abs/2408.03100 "Huge Ensembles Part I: Design of Ensemble Weather Forecasts using Spherical Fourier Neural Operators"
 [nersc-registry]: https://portal.nersc.gov/cfs/m4416/hens/earth2mip_prod_registry/
