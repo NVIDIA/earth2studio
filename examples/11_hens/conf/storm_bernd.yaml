@@ -1,21 +1,26 @@
 project: 'bernd'
 
-ic_block_start: "2021-07-10" # first IC
-ic_block_end: "2021-07-11 12:00:00"   # upper boundary for ICs
-ic_block_step: 12            # number of hours between individual ICs
+start_times: ["2024-09-24 12:00:00"]
+# ic_block_start: "2021-07-10" # first IC
+# ic_block_end: "2021-07-11 12:00:00"   # upper boundary for ICs
+# ic_block_step: 12            # number of hours between individual ICs
 nsteps: 2         # number of forecasting steps
-nensemble: 4       # ensemble size per checkpoint
+nensemble: 2 #4       # ensemble size per checkpoint
 batch_size: 2      # inference batch size
 
 forecast_model:
     architecture: earth2studio.models.px.SFNO   # forecast model class
     package: '/media/mkoch/9ee63bf8-5a14-4872-86f2-7f16b120269b/hens_data/hens_checkpoints'
-    max_num_checkpoints: 2 # max number of checkpoints which will be used
+    max_num_checkpoints: 1 #2 # max number of checkpoints which will be used
 
 diagnostic_models:
     rel_hum:
         _target_: earth2studio.models.dx.DerivedRH
         levels: [850,500]
+    # rel_hum:
+    #     _target_: earth2studio.enterprise.models.dx.DerivedVariables
+    #     calculation_name: 'r_from_q_t_sp'
+    #     levels: [850,500]
     precipitation:
         architecture: earth2studio.models.dx.PrecipitationAFNO
 
@@ -28,11 +33,11 @@ perturbation:
     integration_steps: 3
 
 data_source:
-    _target_: earth2studio.data.ARCO  # data source class
+    _target_: earth2studio.data.GFS  # data source class
 
 file_output:
     path: './outputs'       # directory to which outfiles are written
-    output_vars: ["t2m", 'u10m', 'r500', 'tp06']
+    output_vars: ["t2m", 'u10m', 'r500', 'tp']
     thread_io: False      # write out in seperate thread (needs further testing)
     format:               # io backend class
         _target_: earth2studio.io.ZarrBackend
