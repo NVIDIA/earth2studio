@@ -15,10 +15,3 @@
 # limitations under the License.
 
 __version__ = "0.6.0a0"
-
-# TODO: Remove upon physics-nemo update...
-# package turned on logging of warnings in 1.1.0, this is silencing them
-import warnings
-
-warnings.filterwarnings("ignore")
-warnings.filterwarnings("ignore", category=SyntaxWarning)

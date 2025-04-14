@@ -137,14 +137,3 @@ sphinx_gallery_conf = {
     "exclude_implicit_doc": {r"load_model", r"load_default_package"},
     "log_level": {"backreference_missing": "debug"},
 }
-
-
-# MySt subsitutions
-def _get_latest_tag():
-    response = requests.get(  # noqa
-        "https://api.github.com/repos/NVIDIA/earth2studio/releases/latest"
-    )
-    return response.json()["tag_name"]
-
-
-myst_substitutions = {"latest_tag": _get_latest_tag()}

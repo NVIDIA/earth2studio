@@ -14,6 +14,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# TODO: Remove upon physics-nemo update...
+# package turned on logging of warnings in 1.1.0, this is silencing them
+import warnings
+
 from .arco import ARCO
 from .base import DataSource
 from .cds import CDS
@@ -28,3 +32,8 @@ from .rx import CosineSolarZenith, LandSeaMask, SurfaceGeoPotential
 from .utils import datasource_to_file, fetch_data, prep_data_array
 from .wb2 import WB2ERA5, WB2Climatology, WB2ERA5_32x64, WB2ERA5_121x240
 from .xr import DataArrayDirectory, DataArrayFile, DataSetFile
+
+warnings.filterwarnings("ignore")
+warnings.filterwarnings("ignore", category=SyntaxWarning)
+warnings.filterwarnings("ignore", category=DeprecationWarning)
+warnings.filterwarnings("ignore", category=FutureWarning)
