@@ -79,8 +79,7 @@ io = ZarrBackend()
 # %%
 # Define forecast parameters
 forecast_date = "2024-01-01"
-nsteps = 1  # Number of forecast steps from the base model
-# The interpolation model will automatically interpolate between these steps
+nsteps = 5  # Number of interpolated forecast steps
 
 # Run the model
 from earth2studio.run import deterministic
@@ -92,28 +91,30 @@ print(io.root.tree())
 # %%
 # Visualize Results
 # -----------------
-# Let's visualize the temperature at 2 meters (t2m) at each time step
+# Let's visualize the total column water vapour (tcwv) at each time step
 # and save them as separate files.
 
 # %%
 # Get the number of time steps
-n_steps = io["t2m"].shape[1]
+n_steps = io["tcwv"].shape[1]
 
 # Create a single figure with subplots
-fig, axs = plt.subplots(2, 3, figsize=(15, 10))
+fig, axs = plt.subplots(2, 3, figsize=(15, 6))
 axs = axs.ravel()
 
 # Create plots for each time step
 for step in range(min([n_steps, 6])):
     im = axs[step].imshow(
-        io["t2m"][0, step],
-        cmap="Spectral_r",
+        io["tcwv"][0, step],
+        cmap="twilight_shifted",
         aspect="auto",
+        vmin=0,
+        vmax=85
     )
-    axs[step].set_title(f"Temperature at 2m - Step: {step}hrs")
-    fig.colorbar(im, ax=axs[step], label="Temperature (K)")
+    axs[step].set_title(f"Water Vapour - Step: {step}hrs")
+    fig.colorbar(im, ax=axs[step], label="kg/m^2")
 
 plt.tight_layout()
 # Save the figure
-plt.savefig("outputs/12_t2m_steps.jpg")
+plt.savefig("outputs/12_tcwv_steps.jpg")
 plt.close()
