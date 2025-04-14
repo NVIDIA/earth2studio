@@ -25,6 +25,7 @@ import torch
 from loguru import logger
 from reproduce_utilities import calculate_torch_seed
 from tqdm import tqdm
+from utilities import get_batchid_from_ensid
 
 from earth2studio.data import DataSource, fetch_data
 from earth2studio.io import IOBackend
@@ -199,7 +200,10 @@ class EnsembleBase:
 
         # assemble output coords from fetched IC coords and ensemble IDs
         ensemble_members = np.arange(self.nensemble) + self.ensemble_idx
-        batch_ids = np.arange(self.nensemble) // self.batch_size
+        batch_ids = [
+            get_batchid_from_ensid(self.nensemble, self.batch_size, ensid)
+            for ensid in ensemble_members
+        ]
         # determine which ensemble members we keep (based on batch_ids_produce)
         ensemble_members_to_produce = ensemble_members[
             np.isin(batch_ids, self.batch_ids_produce)
@@ -268,12 +272,20 @@ class EnsembleBase:
         xx = self.x0.to(self.device)
 
         # calculate mini batch size and define coords for ensemble
-        mini_batch_size = min(
-            self.batch_size, self.nensemble - batch_id * self.batch_size
-        )
+        num_batches_per_ic = int(np.ceil(self.nensemble / self.batch_size))
+        mini_batch_sizes = [
+            min((self.nensemble - ii * self.batch_size), 2)
+            for ii in range(num_batches_per_ic)
+        ]
+        batch_id_ic = batch_id % num_batches_per_ic
+        mini_batch_size = mini_batch_sizes[batch_id_ic]
+
         coords = {
-            "ensemble": np.arange(
-                batch_id * self.batch_size, batch_id * self.batch_size + mini_batch_size
+            "ensemble": np.array(
+                [
+                    sum(mini_batch_sizes[0 : batch_id % num_batches_per_ic]) + t
+                    for t in range(0, mini_batch_size)
+                ]
             )
             + self.ensemble_idx
         } | self.coords0.copy()
@@ -365,9 +377,7 @@ class EnsembleBase:
                     # combine track elements to get full tracks (includes threading)
                     df_tracks_dict = self.connect_centres_to_tracks(track_element_dict)
                     for k, df_tracks in df_tracks_dict.items():
-                        df_tracks = self.add_meta_data_to_trackds_df(
-                            df_tracks, full_seed_string, torch_seed
-                        )
+                        df_tracks = self.add_meta_data_to_trackds_df(df_tracks)
                         tracks_dict[k].append(df_tracks)
         df_tracks_dict = self.concat_tracks_for_each_region(tracks_dict)
         logger.success("Inference complete")
@@ -595,13 +605,15 @@ class EnsembleBase:
             df_tracks_dict[k] = pd.concat(tracks_dict[k]).reset_index(drop=True)
         return df_tracks_dict
 
-    def add_meta_data_to_trackds_df(self, tracks_df, full_seed_string, torch_seed):
+    def add_meta_data_to_trackds_df(self, tracks_df):
 
-        tracks_df = tracks_df.assign(full_seed_string=full_seed_string)
-        tracks_df = tracks_df.assign(torch_seed=str(torch_seed))
-        tracks_df = tracks_df.assign(
-            batch_id=(tracks_df["ens_member"] - self.ensemble_idx) // self.batch_size
-        )
+        tracks_df["random_seed"] = self.base_seed_string.split("_")[0]
+        tracks_df["model_package"] = self.base_seed_string.split("_")[1]
+        batch_ids = [
+            get_batchid_from_ensid(self.nensemble, self.batch_size, ensid)
+            for ensid in tracks_df["ens_member"].values
+        ]
+        tracks_df = tracks_df.assign(batch_id=batch_ids)
         tracks_df = tracks_df.assign(batch_size=self.batch_size)
         tracks_df = tracks_df.assign(nensemble=self.nensemble)
         return tracks_df

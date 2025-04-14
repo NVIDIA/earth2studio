@@ -114,7 +114,6 @@ def main(cfg: DictConfig) -> None:
                 writer_threads,
                 writer_executor,
                 ens_idx,
-                seed_dict,
             )
 
     # Output run duration

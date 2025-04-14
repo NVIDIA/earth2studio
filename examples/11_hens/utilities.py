@@ -266,7 +266,11 @@ def initialise_output(
 
 
 def pair_packages_ics(
-    ics: list, model_packages: list, ensemble_size: int, batch_ids_produce: list[int]
+    ics: list,
+    model_packages: list,
+    ensemble_size: int,
+    batch_ids_produce: list[int],
+    batch_size: int,
 ) -> list:
     """
     Pair initial conditions with model packages. In parallel setting, distribute among
@@ -282,17 +286,30 @@ def pair_packages_ics(
         number of members in ensemble.
     batch_ids_produce: list[int]
         List of batch_ids that will be processed
+    batch_size : int
+        Size of each batch.
 
     Returns
     -------
     list
-        IC - model package configs.
+        List of configurations containing IC - model package pairs along with ensemble size offsets and batch IDs.
     """
-    configs = [
-        (pkg, ic, ii * ensemble_size, batch_ids_produce)
-        for ii, pkg in enumerate(model_packages)
-        for ic in ics
-    ]
+    configs = []
+    num_batch_per_ic = int(np.ceil(ensemble_size / batch_size))
+    batch_ids_complete = list(range(0, num_batch_per_ic * len(model_packages)))
+    for ic in ics:
+        for ii, pkg in enumerate(model_packages):
+            # Determine the batch IDs for the current package and initial condition
+            batch_ids_model = batch_ids_complete[
+                ii * num_batch_per_ic : (ii + 1) * num_batch_per_ic
+            ]
+            # Find the intersection with batch_ids_produce to filter relevant batches
+            batch_ids_produce_model = list(
+                set(batch_ids_model).intersection(set(batch_ids_produce))
+            )
+            # If there are batch IDs to process, add the configuration to the list
+            if batch_ids_produce_model:
+                configs.append((pkg, ic, ii * ensemble_size, batch_ids_produce_model))
 
     dist = DistributedManager()
     if dist.world_size > 1:
@@ -389,7 +406,7 @@ def initialise(cfg: DictConfig) -> tuple[list, dict, DataSource, OrderedDict]:
 
     # get ensemble configs
     ensemble_configs = pair_packages_ics(
-        ics, model_packages, cfg.nensemble, batch_ids_produce
+        ics, model_packages, cfg.nensemble, batch_ids_produce, cfg.batch_size
     )
     # get data source
     data = hydra.utils.instantiate(cfg.data_source)
@@ -510,7 +527,15 @@ def get_reproducibility_settings(cfg: DictConfig) -> tuple[str | int, list[int],
     try:
         batch_ids_produce = cfg["batch_ids_reproduce"]
     except KeyError:
-        batch_ids_produce = range(0, int(np.ceil(cfg.nensemble / cfg.batch_size)))
+        batch_ids_produce = list(
+            range(
+                0,
+                int(
+                    np.ceil(cfg.nensemble / cfg.batch_size)
+                    * cfg.forecast_model.max_num_checkpoints
+                ),
+            )
+        )
     try:
         base_random_seed = cfg["random_seed"]
     except KeyError:
@@ -801,8 +826,8 @@ def store_tracks(area_name: str, tracks: list[pd.DataFrame], cfg: DictConfig) ->
             "tc_speed",
             "batch_id",
             "batch_size",
-            "torch_seed",
-            "full_seed_string",
+            "random_seed",
+            "model_package",
         ]
     ]
     cols_uint16 = ["point_number", "ens_member"]
@@ -828,7 +853,6 @@ def write_to_disk(
     writer_threads: list[Future],
     writer_executor: ThreadPoolExecutor | None,
     ens_idx: int,
-    seed_dict: dict,
 ) -> tuple[list[Future], ThreadPoolExecutor | None]:
     """
     method which writes in-memory backends to file.
@@ -851,8 +875,6 @@ def write_to_disk(
         initial value for counting ensemble members
     ens_idx: int
         index of the ensemble member
-    seed_dict: dict
-        contains the base_seed_string and torch_seed (values) used for each batch_id (key)
     Returns
     -------
     writer_threads: list[Future]
@@ -875,22 +897,16 @@ def write_to_disk(
                 tmp = io.root
             elif isinstance(io, KVBackend):
                 tmp = io.to_xarray()
-            tmp = extend_xarray_for_reproducibility(
-                tmp, seed_dict, io, ens_idx, cfg, model_dict
-            )
+            tmp = extend_xarray_for_reproducibility(tmp, io, cfg, model_dict)
             writer_threads.append(writer_executor.submit(tmp.to_netcdf, **kw_args))
         else:
             if isinstance(io, XarrayBackend):
                 tmp = io.root
-                tmp = extend_xarray_for_reproducibility(
-                    tmp, seed_dict, io, ens_idx, cfg, model_dict
-                )
+                tmp = extend_xarray_for_reproducibility(tmp, io, cfg, model_dict)
                 tmp.to_netcdf(**kw_args)
             elif isinstance(io, KVBackend):
                 tmp = io.to_xarray()
-                tmp = extend_xarray_for_reproducibility(
-                    tmp, seed_dict, io, ens_idx, cfg, model_dict
-                )
+                tmp = extend_xarray_for_reproducibility(tmp, io, cfg, model_dict)
                 tmp.to_netcdf(**kw_args)
 
     return writer_threads, writer_executor
@@ -898,9 +914,7 @@ def write_to_disk(
 
 def extend_xarray_for_reproducibility(
     x: xr.Dataset,
-    seed_dict: dict,
     io: IOBackend,
-    ens_idx: int,
     cfg: DictConfig,
     model_dict: dict,
 ):
@@ -911,12 +925,8 @@ def extend_xarray_for_reproducibility(
     ----------
     x : xarray.DataSet | xarray.Dataset
         the array that that we want to augment with metadata
-    seed_dict: dict
-        contains the base_seed_string and torch_seed (values) used for each batch_id (key)
     io : IOBackend
         object for data output
-    ens_idx: int
-        index of the ensemble member
     cfg : DictConfig
         config.
     model_dict : dict
@@ -927,17 +937,16 @@ def extend_xarray_for_reproducibility(
         the augmented array
 
     """
-    batch_ids = (io.coords["ensemble"] - ens_idx) // cfg.batch_size
-    torch_seeds = [seed_dict[bi][1] for bi in batch_ids]
-    full_seed_strings = [seed_dict[bi][0] for bi in batch_ids]
-
-    x = x.assign_attrs(torch_seeds=torch_seeds)
-    x = x.assign_attrs(full_seed_strings=full_seed_strings)
+    batch_ids = [
+        get_batchid_from_ensid(cfg.nensemble, cfg.batch_size, ensid)
+        for ensid in io.coords["ensemble"]
+    ]
     x = x.assign_attrs(batch_ids=batch_ids)
     x = x.assign_attrs(torch_version=torch.__version__)
     x = x.assign_attrs(model_package=model_dict["package"])
     x = x.assign_attrs(batch_size=cfg.batch_size)
     x = x.assign_attrs(nensemble=cfg.nensemble)
+    x = x.assign_attrs(random_seed=cfg.random_seed)
     return x
 
 
@@ -995,3 +1004,38 @@ def initialize_output_structures(cfg: DictConfig):
     writer_threads: list[Future] = []
 
     return all_tracks_dict, writer_executor, writer_threads
+
+
+def get_batchid_from_ensid(nensemble_per_package, batch_size, ensid):
+    """
+    Calculate the gloabl batch ID from a global ensemble member ID (ensid).
+
+    Parameters
+    ----------
+    nensemble_per_package : int
+        Number of ensemble members per model package (0-based index).
+    batch_size : int
+        Number of ensemble members per batch.
+    ensid : int
+        Global ensemble member ID (0-based index).
+    num_packages : int
+        Number of model packages.
+
+    Returns
+    -------
+    int
+        The global batch ID corresponding to the given global ensemble member ID.
+
+    """
+    if batch_size <= 0:
+        raise ValueError("batch_size must be greater than zero.")
+    if nensemble_per_package <= 0:
+        raise ValueError("nensemble_per_package must be greater than zero.")
+
+    num_batches = int(np.ceil(nensemble_per_package / batch_size))
+    batch_id = int(
+        np.floor((ensid % nensemble_per_package) / batch_size)
+        + (np.floor(ensid / nensemble_per_package)) * num_batches
+    )
+
+    return batch_id
