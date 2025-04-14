@@ -27,3 +27,14 @@ def reset_torch(gallery_conf, fname):
     torch.manual_seed(0)
     if torch.cuda.is_available():
         torch.cuda.manual_seed_all(0)
+
+
+def reset_physicsnemo(gallery_conf, fname):
+    """Reset PhysicsNemos's state between examples."""
+    import sys
+
+    # Clear module for fresh imports
+    # Something wierd with entry points...
+    modules_to_clear = [mod for mod in sys.modules if mod.startswith("physicsnemo")]
+    for mod in modules_to_clear:
+        sys.modules.pop(mod, None)
