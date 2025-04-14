@@ -258,39 +258,46 @@ Execute the ensemble inference by running:
 
 ### 5.2 Reproducing Individual Batches of the Helene Ensemble
 
-There are scenarios where reproducing specific ensemble batches becomes necessary.
-For example, when working with large ensembles, storing all forecast fields might
-be impractical due to storage limitations. However, for cases featuring particularly
-interesting cyclone tracks, it remains valuable to reproduce and store the relevant
-fields.
+In large ensemble forecasting scenarios, storing all forecast fields may
+be impractical due to storage constraints. However, you may want to reproduce
+and store specific ensemble batches, particularly those containing interesting
+cyclone tracks. This section explains how to reproduce specific batches of the
+Helene ensemble.
 
-It is important to note that since inference batches, including perturbations, are
-generated collectively, we cannot reproduce individual ensemble members in isolation.
-Instead, the entire batch must be reproduced. To demonstrate this functionality, we
-will reproduce the first batch of the Helene ensemble.
+#### Key Considerations
 
-To achieve this, set the `batch_ids_reproduce` parameter to the desired batch ID. The
-remaining configuration must match the `helene.yaml` file. Exception is the file
-output section. If you have modified the original configuration, either revert
-those changes or apply them consistently to `reproduce_helene_batches.yaml`.
+- Ensemble batches (including perturbations) are generated collectively,
+  so individual ensemble members cannot be reproduced in isolation
+- The entire batch must be reproduced together
+- The configuration must match the original run, except for the file output section
+- A fixed random seed is required to ensure identical initial condition perturbations
 
-Execute the following command:
+#### Steps to Reproduce a Batch
 
-```bash
-python hens.py --config-name=reproduce_helene_batches.yaml
-```
+1. **Identify the Batch to Reproduce**
+   - Determine the batch ID(s) you want to reproduce
+   - Set these IDs in the `batch_ids_reproduce` parameter
 
-Now compare the output file of the tracks with the original one. The entries in your
-should be identical, only the track ID should be diffrent, as this depends on the
-total number of ensemble members.
+2. **Configure the Reproduction Run**
+   - Use the same configuration as `helene.yaml` for all parameters except file output
+   - If the original run didn't specify a random seed, you can find it in:
+     - The cyclone tracker file
+     - The netCDF output file (when using `KVBackend` or `XarrayBackend`)
+     - Other IObackends, including the netcdf4 backend do not provide the
+       seed in the output file
+   - If the original run didn't specify a random seed, different processes will
+     generate different seeds
 
-> [!Caution]
->
-> - Currently requires torch seed to be set
-> - Produces batch ID for each checkpoint
-> - You can choose individual checkpoint, or wait for update...
-> - We are working on streamlineing the interface for reproducibility,
-    stay tuned for improvements!
+3. **Execute the Reproduction**
+
+   ```bash
+   python hens.py --config-name=reproduce_helene_batches.yaml
+   ```
+
+4. **Verify the Output**
+   - Compare the output tracks with the selected batches of the original run
+   - The entries should be identical, with only the track ID differing
+     (as this depends on the total number of ensemble members)
 
 ### 5.3 Rain or Shine?
 
