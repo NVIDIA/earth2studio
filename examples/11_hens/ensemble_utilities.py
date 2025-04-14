@@ -327,7 +327,6 @@ class EnsembleBase:
         )
 
         tracks_dict = {kk: [] for kk in self.output_coords_dict.keys()}
-        seed_dict = {}
         for batch_id in tqdm(
             self.batch_ids_produce,
             total=len(self.batch_ids_produce),
@@ -335,7 +334,6 @@ class EnsembleBase:
         ):
 
             model, nsamples, full_seed_string, torch_seed = self.prep_loop(batch_id)
-            seed_dict[batch_id] = (full_seed_string, torch_seed)
             with tqdm(
                 total=self.nsteps + 1,
                 desc=f"Inferencing batch {batch_id} ({nsamples} samples)",
@@ -382,7 +380,7 @@ class EnsembleBase:
         df_tracks_dict = self.concat_tracks_for_each_region(tracks_dict)
         logger.success("Inference complete")
 
-        return df_tracks_dict, self.io_dict, seed_dict
+        return df_tracks_dict, self.io_dict
 
     @staticmethod
     def concat_tracks_for_each_region(
@@ -605,8 +603,25 @@ class EnsembleBase:
             df_tracks_dict[k] = pd.concat(tracks_dict[k]).reset_index(drop=True)
         return df_tracks_dict
 
-    def add_meta_data_to_trackds_df(self, tracks_df):
+    def add_meta_data_to_trackds_df(self, tracks_df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Adds metadata to the track data DataFrame, including:
+        - Random seed used for generating the ensemble.
+        - Model package information.
+        - Batch ID for each ensemble member.
+        - Batch size.
+        - Total ensemble size.
 
+        Parameters
+        ----------
+        tracks_df : pd.DataFrame
+            Input DataFrame containing track data.
+
+        Returns
+        -------
+        pd.DataFrame
+            Updated DataFrame with additional metadata columns.
+        """
         tracks_df["random_seed"] = self.base_seed_string.split("_")[0]
         tracks_df["model_package"] = self.base_seed_string.split("_")[1]
         batch_ids = [
