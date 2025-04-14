@@ -16,8 +16,8 @@
 
 # %%
 """
-Temporal Interpolation of Forecasts
-==================================
+Temporal Interpolation
+======================
 
 This example demonstrates how to use the InterpModAFNO model to interpolate
 forecasts from a base model to a finer time resolution.
@@ -88,9 +88,11 @@ from earth2studio.run import deterministic
 
 io = deterministic([forecast_date], nsteps, interp_model, data, io)
 
+print(io.root.tree())
+
 # %%
 # Visualize Results
-# ----------------
+# -----------------
 # Let's visualize the temperature at 2 meters (t2m) at each time step
 # and save them as separate files.
 
@@ -98,26 +100,21 @@ io = deterministic([forecast_date], nsteps, interp_model, data, io)
 # Get the number of time steps
 n_steps = io["t2m"].shape[1]
 
-# Create a separate plot for each time step
-for step in range(n_steps):
-    # Create a new figure for each time step
-    plt.figure(figsize=(10, 6))
+# Create a single figure with subplots
+fig, axs = plt.subplots(2, 3, figsize=(15, 10))
+axs = axs.ravel()
 
-    # Create the plot - flip the data vertically and adjust extent to rotate 180 degrees
-    im = plt.imshow(
-        np.flipud(io["t2m"][0, step]),  # Flip the data vertically
+# Create plots for each time step
+for step in range(min([n_steps, 6])):
+    im = axs[step].imshow(
+        io["t2m"][0, step],
         cmap="Spectral_r",
-        origin="lower",
-        extent=[0, 360, -90, 90],  # Keep the same extent
         aspect="auto",
     )
+    axs[step].set_title(f"Temperature at 2m - Step: {step}hrs")
+    fig.colorbar(im, ax=axs[step], label="Temperature (K)")
 
-    # Set title
-    plt.title(f"Temperature at 2m - Step: {step}hrs")
-
-    # Add colorbar
-    plt.colorbar(im, label="Temperature (K)")
-
-    # Save the figure
-    plt.savefig(f"outputs/12_t2m_step_{step}.jpg")
-    plt.close()  # Close the figure to free memory
+plt.tight_layout()
+# Save the figure
+plt.savefig("outputs/12_t2m_steps.jpg")
+plt.close()
