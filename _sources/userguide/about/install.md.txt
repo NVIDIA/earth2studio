@@ -35,7 +35,7 @@ uv add "earth2studio @ git+https://github.com/NVIDIA/earth2studio.git@0.6.0"
 :::{admonition} uv install
 :class: note
 
-Yep, that's right, we are linking to the latest git release tag with uv.
+The use of the latest git release tag for the package install with uv is intentional.
 This will allow uv to handle any complicated dependency conditions and automatically
 handle url based dependencies.
 This is not achievable using the [pypi registry](https://docs.astral.sh/uv/pip/compatibility/#transitive-url-dependencies)
