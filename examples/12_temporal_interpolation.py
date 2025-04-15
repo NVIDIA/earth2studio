@@ -54,6 +54,7 @@ os.makedirs("outputs", exist_ok=True)
 # interpolate its output to a finer time resolution.
 
 # %%
+
 # Load the base model (SFNO)
 sfno_package = SFNO.load_default_package()
 base_model = SFNO.load_model(sfno_package)
@@ -77,6 +78,7 @@ io = ZarrBackend()
 # interpolation model will interpolate to 1-hour intervals.
 
 # %%
+
 # Define forecast parameters
 forecast_date = "2024-01-01"
 nsteps = 5  # Number of interpolated forecast steps
@@ -95,6 +97,7 @@ print(io.root.tree())
 # and save them as separate files.
 
 # %%
+
 # Get the number of time steps
 n_steps = io["tcwv"].shape[1]
 
