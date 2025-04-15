@@ -91,3 +91,5 @@ cache/
 outputs/
 multirun/
 !examples/.env
+
+docs/

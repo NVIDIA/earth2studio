@@ -1,0 +1,21 @@
+﻿:mod:`earth2studio.io`.XarrayBackend
+===========================================
+
+.. currentmodule:: earth2studio.io
+
+.. autoclass:: XarrayBackend
+
+
+    .. automethod:: add_array
+    .. automethod:: write
+
+
+.. _sphx_glr_backref_earth2studio.io.XarrayBackend:
+
+.. minigallery:: earth2studio.io.XarrayBackend
+      :add-heading:
+      :heading-level: ^
+
+.. raw:: html
+
+    <div class="clearer"></div>

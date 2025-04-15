@@ -1,0 +1,20 @@
+﻿:mod:`earth2studio.statistics`.crps
+==========================================
+
+.. currentmodule:: earth2studio.statistics
+
+.. autoclass:: crps
+
+
+    .. automethod:: __call__
+
+
+.. _sphx_glr_backref_earth2studio.statistics.crps:
+
+.. minigallery:: earth2studio.statistics.crps
+      :add-heading:
+      :heading-level: ^
+
+.. raw:: html
+
+    <div class="clearer"></div>
