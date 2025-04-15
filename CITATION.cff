@@ -1,7 +1,6 @@
 cff-version: 1.2.0
 message: If you use this software, please cite it as below.
 title: NVIDIA Earth2Studio
-version: 0.2.0
 authors:
   - family-names: Geneva
     given-names: Nicholas
