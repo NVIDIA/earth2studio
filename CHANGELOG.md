@@ -32,6 +32,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Bug in WeatherBench2 Climatology data source with Zarr 3.0
+
 ### Security
 
 ### Dependencies

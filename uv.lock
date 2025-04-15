@@ -34,6 +34,9 @@ conflicts = [[
     { package = "earth2studio", extra = "aurora-fork" },
 ]]
 
+[manifest]
+overrides = [{ name = "onnx", marker = "python_full_version < '3.13'" }]
+
 [[package]]
 name = "absl-py"
 version = "2.2.2"
@@ -1165,6 +1168,7 @@ all = [
     { name = "ecmwf-opendata" },
     { name = "einops" },
     { name = "herbie-data" },
+    { name = "importlib-metadata" },
     { name = "jsbeautifier" },
     { name = "makani", extra = ["all"] },
     { name = "microsoft-aurora" },
@@ -1172,6 +1176,7 @@ all = [
     { name = "nvidia-physicsnemo" },
     { name = "nvtx" },
     { name = "omegaconf" },
+    { name = "onnx-weekly", marker = "python_full_version >= '3.13' or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-aurora-fork') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-corrdiff') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-dlwp') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-fcn') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-precip-afno') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-sfno') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-stormcast')" },
     { name = "onnxruntime-gpu" },
     { name = "pynvml" },
     { name = "ruamel-yaml" },
@@ -1191,6 +1196,7 @@ corrdiff = [
     { name = "einops" },
     { name = "nvidia-physicsnemo" },
     { name = "nvtx" },
+    { name = "onnx-weekly", marker = "python_full_version >= '3.13'" },
     { name = "scipy" },
 ]
 cyclone = [
@@ -1205,18 +1211,24 @@ data = [
     { name = "herbie-data" },
 ]
 dlwp = [
+    { name = "importlib-metadata" },
     { name = "nvidia-physicsnemo" },
+    { name = "onnx-weekly", marker = "python_full_version >= '3.13'" },
 ]
 fcn = [
     { name = "nvidia-physicsnemo" },
+    { name = "onnx-weekly", marker = "python_full_version >= '3.13'" },
 ]
 fengwu = [
+    { name = "onnx-weekly", marker = "python_full_version >= '3.13' or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-aurora-fork') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-corrdiff') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-dlwp') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-fcn') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-precip-afno') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-sfno') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-stormcast')" },
     { name = "onnxruntime-gpu" },
 ]
 interp-modafno = [
     { name = "nvidia-physicsnemo" },
+    { name = "onnx-weekly", marker = "python_full_version >= '3.13' or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-aurora-fork') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-corrdiff') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-dlwp') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-fcn') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-precip-afno') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-sfno') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-stormcast')" },
 ]
 pangu = [
+    { name = "onnx-weekly", marker = "python_full_version >= '3.13' or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-aurora-fork') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-corrdiff') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-dlwp') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-fcn') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-precip-afno') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-sfno') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-stormcast')" },
     { name = "onnxruntime-gpu" },
 ]
 perturbation = [
@@ -1224,14 +1236,17 @@ perturbation = [
 ]
 precip-afno = [
     { name = "nvidia-physicsnemo" },
+    { name = "onnx-weekly", marker = "python_full_version >= '3.13'" },
 ]
 precip-afno-v2 = [
     { name = "nvidia-physicsnemo" },
+    { name = "onnx-weekly", marker = "python_full_version >= '3.13' or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-aurora-fork') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-corrdiff') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-dlwp') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-fcn') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-precip-afno') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-sfno') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-stormcast')" },
 ]
 sfno = [
     { name = "jsbeautifier" },
     { name = "makani", extra = ["all"], marker = "(extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-aurora-fork') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-corrdiff') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-dlwp') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-fcn') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-precip-afno') or (extra != 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-sfno') or (extra == 'extra-12-earth2studio-aurora' and extra != 'extra-12-earth2studio-sfno' and extra == 'extra-12-earth2studio-stormcast') or (extra != 'extra-12-earth2studio-aurora-fork' and extra != 'extra-12-earth2studio-corrdiff' and extra != 'extra-12-earth2studio-dlwp' and extra != 'extra-12-earth2studio-fcn' and extra != 'extra-12-earth2studio-precip-afno' and extra == 'extra-12-earth2studio-sfno')" },
     { name = "numba" },
+    { name = "onnx-weekly", marker = "python_full_version >= '3.13'" },
     { name = "pynvml" },
     { name = "ruamel-yaml" },
     { name = "tensorly" },
@@ -1240,16 +1255,19 @@ sfno = [
 ]
 statistics = [
     { name = "nvidia-physicsnemo" },
+    { name = "onnx-weekly", marker = "python_full_version >= '3.13' or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-aurora-fork') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-corrdiff') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-dlwp') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-fcn') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-precip-afno') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-sfno') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-stormcast')" },
 ]
 stormcast = [
     { name = "einops" },
     { name = "nvidia-physicsnemo" },
     { name = "nvtx" },
     { name = "omegaconf" },
+    { name = "onnx-weekly", marker = "python_full_version >= '3.13'" },
     { name = "scipy" },
 ]
 windgust-afno = [
     { name = "nvidia-physicsnemo" },
+    { name = "onnx-weekly", marker = "python_full_version >= '3.13' or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-aurora-fork') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-corrdiff') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-dlwp') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-fcn') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-precip-afno') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-sfno') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-stormcast')" },
 ]
 
 [package.dev-dependencies]
@@ -1308,14 +1326,16 @@ requires-dist = [
     { name = "herbie-data", marker = "extra == 'all'" },
     { name = "herbie-data", marker = "extra == 'data'" },
     { name = "huggingface-hub", specifier = ">=0.4.0" },
+    { name = "importlib-metadata", marker = "extra == 'all'" },
+    { name = "importlib-metadata", marker = "extra == 'dlwp'" },
     { name = "jsbeautifier", marker = "extra == 'all'", specifier = ">=1.15.4" },
     { name = "jsbeautifier", marker = "extra == 'sfno'", specifier = ">=1.15.4" },
     { name = "loguru" },
     { name = "makani", extras = ["all"], marker = "extra == 'all'", git = "https://github.com/NickGeneva/modulus-makani.git?rev=3da09f9e52a6393839d73d44262779ac7279bc2f" },
     { name = "makani", extras = ["all"], marker = "extra == 'sfno'", git = "https://github.com/NickGeneva/modulus-makani.git?rev=3da09f9e52a6393839d73d44262779ac7279bc2f" },
-    { name = "microsoft-aurora", marker = "extra == 'all'", git = "https://github.com/NickGeneva/aurora?rev=ab41cf1de67d5dcc723b96fc9a6219e4b548d181" },
-    { name = "microsoft-aurora", marker = "extra == 'aurora'", git = "https://github.com/NickGeneva/aurora?rev=ab41cf1de67d5dcc723b96fc9a6219e4b548d181" },
-    { name = "microsoft-aurora", marker = "extra == 'aurora-fork'", git = "https://github.com/NickGeneva/aurora?rev=ab41cf1de67d5dcc723b96fc9a6219e4b548d181" },
+    { name = "microsoft-aurora", marker = "extra == 'all'", git = "https://github.com/NickGeneva/aurora.git?rev=ab41cf1de67d5dcc723b96fc9a6219e4b548d181" },
+    { name = "microsoft-aurora", marker = "extra == 'aurora'", git = "https://github.com/NickGeneva/aurora.git?rev=ab41cf1de67d5dcc723b96fc9a6219e4b548d181" },
+    { name = "microsoft-aurora", marker = "extra == 'aurora-fork'", git = "https://github.com/NickGeneva/aurora.git?rev=ab41cf1de67d5dcc723b96fc9a6219e4b548d181" },
     { name = "nest-asyncio" },
     { name = "netcdf4", specifier = ">=1.6.4" },
     { name = "ngcsdk", specifier = ">=3.55.0" },
@@ -1337,6 +1357,19 @@ requires-dist = [
     { name = "nvtx", marker = "extra == 'stormcast'", specifier = ">=0.2.11" },
     { name = "omegaconf", marker = "extra == 'all'", specifier = ">=2.3.0" },
     { name = "omegaconf", marker = "extra == 'stormcast'", specifier = ">=2.3.0" },
+    { name = "onnx-weekly", marker = "python_full_version >= '3.13' and extra == 'all'" },
+    { name = "onnx-weekly", marker = "python_full_version >= '3.13' and extra == 'corrdiff'" },
+    { name = "onnx-weekly", marker = "python_full_version >= '3.13' and extra == 'dlwp'" },
+    { name = "onnx-weekly", marker = "python_full_version >= '3.13' and extra == 'fcn'" },
+    { name = "onnx-weekly", marker = "python_full_version >= '3.13' and extra == 'fengwu'" },
+    { name = "onnx-weekly", marker = "python_full_version >= '3.13' and extra == 'interp-modafno'" },
+    { name = "onnx-weekly", marker = "python_full_version >= '3.13' and extra == 'pangu'" },
+    { name = "onnx-weekly", marker = "python_full_version >= '3.13' and extra == 'precip-afno'" },
+    { name = "onnx-weekly", marker = "python_full_version >= '3.13' and extra == 'precip-afno-v2'" },
+    { name = "onnx-weekly", marker = "python_full_version >= '3.13' and extra == 'sfno'" },
+    { name = "onnx-weekly", marker = "python_full_version >= '3.13' and extra == 'statistics'" },
+    { name = "onnx-weekly", marker = "python_full_version >= '3.13' and extra == 'stormcast'" },
+    { name = "onnx-weekly", marker = "python_full_version >= '3.13' and extra == 'windgust-afno'" },
     { name = "onnxruntime-gpu", marker = "extra == 'all'", specifier = ">=1.21.0" },
     { name = "onnxruntime-gpu", marker = "extra == 'fengwu'", specifier = ">=1.21.0" },
     { name = "onnxruntime-gpu", marker = "extra == 'pangu'", specifier = ">=1.21.0" },
@@ -2091,7 +2124,7 @@ name = "importlib-metadata"
 version = "8.6.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "zipp", marker = "python_full_version < '3.12' or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-aurora-fork') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-corrdiff') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-dlwp') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-fcn') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-precip-afno') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-sfno') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-stormcast')" },
+    { name = "zipp" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/33/08/c1395a292bb23fd03bdf572a1357c5a733d3eecbab877641ceacab23db6e/importlib_metadata-8.6.1.tar.gz", hash = "sha256:310b41d755445d74569f993ccfc22838295d9fe005425094fad953d7f15c8580", size = 55767 }
 wheels = [
@@ -2649,7 +2682,7 @@ wheels = [
 [[package]]
 name = "microsoft-aurora"
 version = "0.1.dev55+gab41cf1"
-source = { git = "https://github.com/NickGeneva/aurora?rev=ab41cf1de67d5dcc723b96fc9a6219e4b548d181#ab41cf1de67d5dcc723b96fc9a6219e4b548d181" }
+source = { git = "https://github.com/NickGeneva/aurora.git?rev=ab41cf1de67d5dcc723b96fc9a6219e4b548d181#ab41cf1de67d5dcc723b96fc9a6219e4b548d181" }
 dependencies = [
     { name = "azure-storage-blob" },
     { name = "einops" },
@@ -3444,7 +3477,7 @@ dependencies = [
     { name = "fsspec" },
     { name = "numpy" },
     { name = "nvidia-dali-cuda120" },
-    { name = "onnx" },
+    { name = "onnx", marker = "python_full_version < '3.13'" },
     { name = "s3fs" },
     { name = "setuptools" },
     { name = "timm" },
@@ -3506,8 +3539,8 @@ name = "onnx"
 version = "1.17.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "numpy" },
-    { name = "protobuf" },
+    { name = "numpy", marker = "python_full_version < '3.13'" },
+    { name = "protobuf", marker = "python_full_version < '3.13'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/9a/54/0e385c26bf230d223810a9c7d06628d954008a5e5e4b73ee26ef02327282/onnx-1.17.0.tar.gz", hash = "sha256:48ca1a91ff73c1d5e3ea2eef20ae5d0e709bb8a2355ed798ffc2169753013fd3", size = 12165120 }
 wheels = [
@@ -3526,6 +3559,42 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/3d/7c/67f4952d1b56b3f74a154b97d0dd0630d525923b354db117d04823b8b49b/onnx-1.17.0-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:4f3fb5cc4e2898ac5312a7dc03a65133dd2abf9a5e520e69afb880a7251ec97a", size = 16046307 },
     { url = "https://files.pythonhosted.org/packages/ae/20/6da11042d2ab870dfb4ce4a6b52354d7651b6b4112038b6d2229ab9904c4/onnx-1.17.0-cp312-cp312-win32.whl", hash = "sha256:317870fca3349d19325a4b7d1b5628f6de3811e9710b1e3665c68b073d0e68d7", size = 14424235 },
     { url = "https://files.pythonhosted.org/packages/35/55/c4d11bee1fdb0c4bd84b4e3562ff811a19b63266816870ae1f95567aa6e1/onnx-1.17.0-cp312-cp312-win_amd64.whl", hash = "sha256:659b8232d627a5460d74fd3c96947ae83db6d03f035ac633e20cd69cfa029227", size = 14530453 },
+]
+
+[[package]]
+name = "onnx-weekly"
+version = "1.18.0.dev20250414"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "numpy", marker = "python_full_version >= '3.13'" },
+    { name = "protobuf", marker = "python_full_version >= '3.13'" },
+    { name = "typing-extensions", marker = "python_full_version >= '3.13'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/eb/84/c026120cba928ca3d8ebabc7801d6bdccf5e3c30b42603e85f0b0c257395/onnx_weekly-1.18.0.dev20250414.tar.gz", hash = "sha256:b9cc7bcf7162cc56a85ef60ac8375949f2d618fe2a7fc4252d274cbc0853483e", size = 12571866 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/d7/04/bcc87e683df8b2dcad079cd78be54b7a4ebfa2ad2dbd2e3ea923c9b28399/onnx_weekly-1.18.0.dev20250414-cp310-cp310-macosx_12_0_universal2.whl", hash = "sha256:246019763db68e9fca67a41c4b30d6ba4d7427bb4d4d1b6c3a7407297acfc877", size = 18282401 },
+    { url = "https://files.pythonhosted.org/packages/36/5a/637a499ae51491d18ea05c6f151276e9bbfa6ed0a52892ccb4e2c11b43bb/onnx_weekly-1.18.0.dev20250414-cp310-cp310-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:62f2ddab947fcb6dde43dd7980feb9cb12bdae0e4553326fbdbee6f7f6bd7e43", size = 17528782 },
+    { url = "https://files.pythonhosted.org/packages/11/87/5d670d3ad477653b4af68287401a06feea44ff9d4492911934f609125a1c/onnx_weekly-1.18.0.dev20250414-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:f1f0218ad85176f593f7a97b81f7b0eb80a2cd6e5df33c9c270a84014e31498f", size = 17697085 },
+    { url = "https://files.pythonhosted.org/packages/c5/86/fec34d92f93d0f629d04946a4f5522749b8cfd7f738b59c830656c348da4/onnx_weekly-1.18.0.dev20250414-cp310-cp310-win32.whl", hash = "sha256:f6022474d1721a3bd32eef6382c39e98744b7d0265f970ac6e83256691a988ea", size = 15737877 },
+    { url = "https://files.pythonhosted.org/packages/79/6f/99ea23aef3058eacc1b9343b3fc55fb03965e31bc9f8f8ebbea50f2e3918/onnx_weekly-1.18.0.dev20250414-cp310-cp310-win_amd64.whl", hash = "sha256:e4cd8555286f63c72e6a8932031835143c5c94f64dfae9e90db9438c5b48dabf", size = 15849542 },
+    { url = "https://files.pythonhosted.org/packages/44/08/5a78fef845c04fa3ab80104a0dd281f4a0bb634049c991b46878699d21ed/onnx_weekly-1.18.0.dev20250414-cp311-cp311-macosx_12_0_universal2.whl", hash = "sha256:cdc36b1623728f4acbbfd01ca8420efd6c2d553955f9b7e60b0b48e5c27b397c", size = 18283945 },
+    { url = "https://files.pythonhosted.org/packages/9f/97/1ba11fd88ab0986efdbd164fa2fb976d95a43857103276629c28deb29502/onnx_weekly-1.18.0.dev20250414-cp311-cp311-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:9c6325cf38a71bf263ca170915cb98c8a03223680d9706877aa390554ea53658", size = 17530776 },
+    { url = "https://files.pythonhosted.org/packages/59/7f/89eb86d0ee7331f4efc9e1371732c4913a23d6ef8f2e1e95b022d72779ab/onnx_weekly-1.18.0.dev20250414-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:97a4f86e2c9b5411e9139d8d5636dfaa4572f136a28f5c52d5c54a6e45d387bf", size = 17698172 },
+    { url = "https://files.pythonhosted.org/packages/31/68/09f39144522291ae9552ae4e76ca5d5e4443fd1c4fd95a50b4b55a6b725c/onnx_weekly-1.18.0.dev20250414-cp311-cp311-win32.whl", hash = "sha256:6a5cb8e242abbd7a6893cc97b8b6c14bc79f8c839cfcfe1b7237dd5d57573f1d", size = 15738483 },
+    { url = "https://files.pythonhosted.org/packages/db/ac/eaac674852f3e749a123fbc46d72c535409301ed00997c220992d83eaf64/onnx_weekly-1.18.0.dev20250414-cp311-cp311-win_amd64.whl", hash = "sha256:a3c48f3d26d0d46e90fbfb5e7c0062dc3beefe33620f62698c3b6808195dc959", size = 15849907 },
+    { url = "https://files.pythonhosted.org/packages/e6/f2/34f542be564fa8bff8269151d80b4dbff46d720568267af836816d0ce5f3/onnx_weekly-1.18.0.dev20250414-cp312-cp312-macosx_12_0_universal2.whl", hash = "sha256:558d8722353f37c133d3930be817fae12e41da62c650bdc7b8304231370dc6fe", size = 18289867 },
+    { url = "https://files.pythonhosted.org/packages/64/b0/5ae57796667615312c1abd6f7491bffdfb61efb151693f2d5856c45b2d00/onnx_weekly-1.18.0.dev20250414-cp312-cp312-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:9d400a61a52c13f92c31220b7c27469e62a9ee05ab3ba250c16fd55febd50115", size = 17527765 },
+    { url = "https://files.pythonhosted.org/packages/00/f7/15bc55b1694748e2d77b7f99777804dd72ee2c11517a934d5be725381b1d/onnx_weekly-1.18.0.dev20250414-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:62506ee8ada2e62195b85dd4df1b4c4852140ba1a2f7eb3de86fb9acfb26805d", size = 17697202 },
+    { url = "https://files.pythonhosted.org/packages/c7/6c/aa3f2aa212f52dc95c315a5fa4f1cc7097f9213c6b91928cc1527b0a5168/onnx_weekly-1.18.0.dev20250414-cp312-cp312-win32.whl", hash = "sha256:076101cc1a8293cf3a8245afb4205c147bb546f9df16a0d2507ad1784b4e95a4", size = 15738039 },
+    { url = "https://files.pythonhosted.org/packages/32/9a/84badc17b8b70bf70d4a660731e0ba387d70ef85a336a98ceef0c476e4be/onnx_weekly-1.18.0.dev20250414-cp312-cp312-win_amd64.whl", hash = "sha256:07372bd985a8476d69b994a0c06688d242a39211de8a1b317b2b8f009d2905a0", size = 15850886 },
+    { url = "https://files.pythonhosted.org/packages/f5/30/c3219d7725207406549f089c537e5f7950336a1614184149798f4d8fc910/onnx_weekly-1.18.0.dev20250414-cp313-cp313-macosx_12_0_universal2.whl", hash = "sha256:c39a0ea6739bb41f3ce6c843b50b39df30a0786dd770c3a436b12b84c6936e4b", size = 18289768 },
+    { url = "https://files.pythonhosted.org/packages/bb/49/fb650c82ff5c9ec0e6b5dce834646720ef7b383dd9f0270bb37af482522e/onnx_weekly-1.18.0.dev20250414-cp313-cp313-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:9e165f7acfe002e9b64a974e0a064e33b1e8917e8255b17df8ea20c9f249ac77", size = 17527473 },
+    { url = "https://files.pythonhosted.org/packages/4d/58/d718c492eafb4f767dee529dc199189e91a32d9c74ef62f801a049ef3b74/onnx_weekly-1.18.0.dev20250414-cp313-cp313-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:51f67c340951d22b15b35ea9a48a77c8ae43032470d2f7e69d6db29ceab79909", size = 17697138 },
+    { url = "https://files.pythonhosted.org/packages/8a/81/8b15846ffb0cde5d372b6923e589e3e7b4842a13e5693c3246e1c377a6bb/onnx_weekly-1.18.0.dev20250414-cp313-cp313-win32.whl", hash = "sha256:b8e1b83550a6bfeae3dc80f58e16b994010f34d993bf9af83b42eaeaefceb3a1", size = 15738087 },
+    { url = "https://files.pythonhosted.org/packages/fa/16/6ccdec32d721b6b9efcec75d2f3eb262afe1abce971a75c1cc4ddb384f13/onnx_weekly-1.18.0.dev20250414-cp313-cp313-win_amd64.whl", hash = "sha256:7ad5ba40921555b66f985bf72bead686e840891f91c7d5e9cd99e3890de688cd", size = 15850930 },
+    { url = "https://files.pythonhosted.org/packages/e3/8d/82b2c63c5dee7cf88f164d012b347a689a20b6d62ffd8965ef765049901c/onnx_weekly-1.18.0.dev20250414-cp313-cp313t-macosx_12_0_universal2.whl", hash = "sha256:a8a6cdb82a44ed1c0084dc865171dc7d2f1f5409b7d03de52db37f5763184807", size = 18319656 },
+    { url = "https://files.pythonhosted.org/packages/3e/dd/3a25aef120633fccbf70c98bfc94a2bb1aa241eab768bf226d27630cd123/onnx_weekly-1.18.0.dev20250414-cp313-cp313t-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:83e6295a1d1ae5868812f075f296a276bceb2ec7146fa5e8661fbd09792dbc46", size = 17699131 },
+    { url = "https://files.pythonhosted.org/packages/66/94/02d4dcd10235dcf97e85d3040f1909f2d68ef7191ff59d47c523f944cafd/onnx_weekly-1.18.0.dev20250414-cp313-cp313t-win_amd64.whl", hash = "sha256:2429547572943ab2fc28c626bb0b1fc02a50cfbf1eb234e024a175a178e750b5", size = 15865966 },
 ]
 
 [[package]]
