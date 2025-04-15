@@ -185,7 +185,7 @@ class _CycloneTrackingBase:
 
 
 @check_extra_imports("cyclone", ["cupy", "cucim", "skimage"])
-class CycloneTrackingVorticity(torch.nn.Module, _CycloneTrackingBase):
+class TCTrackerWuDuan(torch.nn.Module, _CycloneTrackingBase):
     """Finds a list of tropical cyclone centers using an adaption of the method
     described in the conditions in Wu and Duan 2023. The algorithm converts vorticity
     from reanalysis data into a binary image using a defined critical threshold.
@@ -275,7 +275,7 @@ class CycloneTrackingVorticity(torch.nn.Module, _CycloneTrackingBase):
 
         Returns
         -------
-        centers
+        torch.Tensor
             List of TC centers, torch.Tensor of shape [2, N]
         """
 
@@ -420,7 +420,7 @@ class CycloneTrackingVorticity(torch.nn.Module, _CycloneTrackingBase):
             msl = get_variable(x[i], "msl")
 
             # Calculate vorticity at 850 hPa
-            vort850 = CycloneTracking.vorticity(u850, v850)
+            vort850 = _CycloneTrackingBase.vorticity(u850, v850)
             vort850[361:] *= -1
 
             # Calculate wind speed at 10m height
@@ -458,9 +458,8 @@ class CycloneTrackingVorticity(torch.nn.Module, _CycloneTrackingBase):
 
 
 @check_extra_imports("cyclone", ["cupy", "cucim", "skimage"])
-class CycloneTracking(torch.nn.Module, _CycloneTrackingBase):
-    """Finds a list of tropical cyclone centers using the conditions
-    in Vitart 1997
+class TCTrackerVitart(torch.nn.Module, _CycloneTrackingBase):
+    """Finds a list of tropical cyclone centers using the conditions in Vitart 1997
 
     Note
     ----
@@ -470,20 +469,20 @@ class CycloneTracking(torch.nn.Module, _CycloneTrackingBase):
 
     Parameters
     ----------
-    vorticity_threshold: float
+    vorticity_threshold : float, optional
         The threshold for vorticity at 850, below which a possible
-        tropical cyclone center is rejected. By default 3.5e-5 1/s
-    mslp_threshold: float
+        tropical cyclone center is rejected, by default 3.5e-5 1/s
+    mslp_threshold : float, optional
         The threshold for minimum sea level pressure for local minimums
-        to be considered tropical cyclones. By default 990 hPa.
-    temp_dec_threshold: float
+        to be considered tropical cyclonesb by default 990 hPa
+    temp_dec_threshold : float, optional
         The value for which average temperature must decrease away from
         the warm core for a possible center to be considered a tropical
-        cyclone. By default 0.5 degrees celsius
-    lat_threshold: float
+        cyclone, by default 0.5 degrees celsius
+    lat_threshold: float, optional
         The maximum absolute latitude that a point will be considered to
-        be a tropical cyclone. By default 60 degrees (N and S).
-    exclude_border: bool or int
+        be a tropical cyclone, by default 60 degrees (N and S).
+    exclude_border: bool | int, optional
         If positive integer, exclude_border excludes peaks from within
         exclude_border-pixels of the border of the image. If tuple of
         non-negative ints, the length of the tuple must match the input
@@ -526,6 +525,36 @@ class CycloneTracking(torch.nn.Module, _CycloneTrackingBase):
                 "lon": np.empty(0),
             }
         )
+
+    @batch_coords()
+    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
+        """Output coordinate system of diagnostic model
+
+        Parameters
+        ----------
+        input_coords : CoordSystem
+            Input coordinate system to transform into output_coords
+            by default None, will use self.input_coords.
+
+        Returns
+        -------
+        CoordSystem
+            Coordinate system dictionary
+        """
+        target_input_coords = self.input_coords()
+        handshake_dim(input_coords, "lon", 3)
+        handshake_dim(input_coords, "lat", 2)
+        handshake_dim(input_coords, "variable", 1)
+        handshake_coords(input_coords, target_input_coords, "variable")
+
+        output_coords = input_coords.copy()
+        output_coords.pop("variable")
+        output_coords.pop("lat")
+        output_coords.pop("lon")
+        output_coords["coord"] = np.array(["lat", "lon"])
+        output_coords["point"] = np.arange(0)
+
+        return output_coords
 
     def _find_centers(
         self,
@@ -585,7 +614,7 @@ class CycloneTracking(torch.nn.Module, _CycloneTrackingBase):
         """
 
         # Get local max vorticity
-        vlm = CycloneTracking.get_local_max(
+        vlm = TCTrackerVitart.get_local_max(
             vort850,
             threshold_abs=vorticity_threshold,
             min_distance=10,
@@ -596,7 +625,7 @@ class CycloneTracking(torch.nn.Module, _CycloneTrackingBase):
         )
 
         # Get local maximum of average temperature between 500 and 200mb
-        tlm = CycloneTracking.get_local_max(
+        tlm = TCTrackerVitart.get_local_max(
             t_200_500_mean, min_distance=10, exclude_border=exclude_border
         )
         tlm_loc = torch.stack(
@@ -604,13 +633,13 @@ class CycloneTracking(torch.nn.Module, _CycloneTrackingBase):
         )
 
         # Get local max z200 - z850
-        dzlm = CycloneTracking.get_local_max(dz_200_850, exclude_border=exclude_border)
+        dzlm = TCTrackerVitart.get_local_max(dz_200_850, exclude_border=exclude_border)
         dzlm_loc = torch.stack(
             (lat[dzlm[:, 0], dzlm[:, 1]], lon[dzlm[:, 0], dzlm[:, 1]]), dim=1
         )
 
         # Get local min msl
-        msllm = CycloneTracking.get_local_max(
+        msllm = TCTrackerVitart.get_local_max(
             -msl / 100,
             threshold_abs=-mslp_threshold,
             min_distance=10,
@@ -625,14 +654,14 @@ class CycloneTracking(torch.nn.Module, _CycloneTrackingBase):
             center0 = torch.as_tensor(mins, device=msl.device)
 
             # Vorticity filter
-            dist = CycloneTracking.haversine_torch(
+            dist = TCTrackerVitart.haversine_torch(
                 mins[0], mins[1], vlm_loc[:, 0], vlm_loc[:, 1], meters=False
             )
             if dist.min() > 8 * 25:  # Distance should be 8 degrees ~= 200 km
                 continue
 
             # Warm Core filter
-            dist = CycloneTracking.haversine_torch(
+            dist = TCTrackerVitart.haversine_torch(
                 mins[0], mins[1], tlm_loc[:, 0], tlm_loc[:, 1], meters=False
             )
             if dist.min() > 2 * 25:  # Distance should be less than 2 degrees ~= 50 km
@@ -643,13 +672,13 @@ class CycloneTracking(torch.nn.Module, _CycloneTrackingBase):
             ti = tlm[ti]
 
             lat_inds = (
-                CycloneTracking.haversine_torch(
+                TCTrackerVitart.haversine_torch(
                     ti_loc[0], ti_loc[1], lat[:, ti[1]], lon[:, ti[1]], meters=False
                 )
                 < 8 * 25
             )
             lon_inds = (
-                CycloneTracking.haversine_torch(
+                TCTrackerVitart.haversine_torch(
                     ti_loc[0], ti_loc[1], lat[ti[0], :], lon[ti[0], :], meters=False
                 )
                 < 8 * 25
@@ -671,7 +700,7 @@ class CycloneTracking(torch.nn.Module, _CycloneTrackingBase):
                 continue
 
             # dZ filter
-            dist = CycloneTracking.haversine_torch(
+            dist = TCTrackerVitart.haversine_torch(
                 mins[0], mins[1], dzlm_loc[:, 0], dzlm_loc[:, 1], meters=False
             )
             if dist.min() > 2 * 25:
@@ -684,36 +713,6 @@ class CycloneTracking(torch.nn.Module, _CycloneTrackingBase):
             x = torch.empty((2, 1), device=vort850.device)
             x[:] = torch.nan
             return x
-
-    @batch_coords()
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
-        """Output coordinate system of diagnostic model
-
-        Parameters
-        ----------
-        input_coords : CoordSystem
-            Input coordinate system to transform into output_coords
-            by default None, will use self.input_coords.
-
-        Returns
-        -------
-        CoordSystem
-            Coordinate system dictionary
-        """
-        target_input_coords = self.input_coords()
-        handshake_dim(input_coords, "lon", 3)
-        handshake_dim(input_coords, "lat", 2)
-        handshake_dim(input_coords, "variable", 1)
-        handshake_coords(input_coords, target_input_coords, "variable")
-
-        output_coords = input_coords.copy()
-        output_coords.pop("variable")
-        output_coords.pop("lat")
-        output_coords.pop("lon")
-        output_coords["coord"] = np.array(["lat", "lon"])
-        output_coords["point"] = np.arange(0)
-
-        return output_coords
 
     @torch.inference_mode()
     @batch_func()
@@ -761,7 +760,7 @@ class CycloneTracking(torch.nn.Module, _CycloneTrackingBase):
             # Get vorticity
             u850 = get_variable(x[i], "u850")
             v850 = get_variable(x[i], "v850")
-            vort850 = CycloneTracking.vorticity(u850, v850)
+            vort850 = TCTrackerVitart.vorticity(u850, v850)
             vort850[361:] *= -1
 
             # Get MSL
@@ -1066,7 +1065,7 @@ def get_next_position(
         if len(next_candidates[forward_search_step]) > 0:
             lat2 = torch.tensor(next_candidates[forward_search_step])[:, 0]
             lon2 = torch.tensor(next_candidates[forward_search_step])[:, 1]
-            dist = CycloneTracking.haversine_torch(lat1, lon1, lat2, lon2) / 1000
+            dist = TCTrackerVitart.haversine_torch(lat1, lon1, lat2, lon2) / 1000
         else:
             continue
         if torch.min(dist) < search_radius_km * (1 + forward_search_step):

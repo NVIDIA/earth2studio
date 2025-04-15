@@ -18,7 +18,10 @@ import numpy as np
 import pytest
 import torch
 
-from earth2studio.models.dx import CycloneTracking, CycloneTrackingVorticity
+from earth2studio.models.dx import (
+    TCTrackerVitart,
+    TCTrackerWuDuan,
+)
 
 
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
@@ -36,7 +39,7 @@ def test_vorticity_calculation(device):
 
     # Expected vorticity should be 2 since du/dy = 1 and dv/dx = 1
     expected_vorticity = torch.full((ny, nx), 2.0, device=device)
-    calculated_vorticity = CycloneTracking.vorticity(u, v, dx=dx, dy=dy)
+    calculated_vorticity = TCTrackerVitart.vorticity(u, v, dx=dx, dy=dy)
 
     torch.testing.assert_close(
         calculated_vorticity,
@@ -52,7 +55,7 @@ def test_vorticity_calculation(device):
 
     # Expected vorticity should be 2 since du/dy = 0 and dv/dx = 0
     expected_vorticity = torch.full((ny, nx), 0.0, device=device)
-    calculated_vorticity = CycloneTracking.vorticity(u, v, dx=dx, dy=dy)
+    calculated_vorticity = TCTrackerVitart.vorticity(u, v, dx=dx, dy=dy)
 
     torch.testing.assert_close(
         calculated_vorticity,
@@ -74,7 +77,7 @@ def test_haversine_torch(device):
     expected_distance = torch.tensor(12860.0)
 
     # Calculate distance using haversine_torch
-    dist = CycloneTracking.haversine_torch(lat1, lon1, lat2, lon2, meters=False)
+    dist = TCTrackerVitart.haversine_torch(lat1, lon1, lat2, lon2, meters=False)
 
     # Assert that the calculated distance is close to the expected distance
     torch.testing.assert_close(expected_distance, dist, rtol=1e-3, atol=1e-3)
@@ -135,7 +138,7 @@ def test_get_local_max(device, num_maxima):
     exclude_border = False
 
     # Call the method
-    local_max = CycloneTracking.get_local_max(
+    local_max = TCTrackerVitart.get_local_max(
         x, threshold_abs, min_distance, exclude_border
     )
 
@@ -176,7 +179,7 @@ def test_cyclone_tracking_vorticity(num_timesteps, tc_included, device):
     lons = np.linspace(0, 360, width, endpoint=False)
 
     # Initialize the CycloneTrackingVorticity model
-    ct = CycloneTrackingVorticity()
+    ct = TCTrackerWuDuan()
 
     for t in range(num_timesteps):
         current_center_lat = initial_center_lat + lat_movement[t]
@@ -314,7 +317,7 @@ def test_cyclone_tracking(num_timesteps, tc_included, device):
     lons = np.linspace(0, 360, width, endpoint=False)
 
     # Initialize the CycloneTracking model
-    ct = CycloneTracking()
+    ct = TCTrackerVitart()
 
     for t in range(num_timesteps):
         current_center_lat = initial_center_lat + lat_movement[t]

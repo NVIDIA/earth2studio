@@ -61,14 +61,14 @@ etc.
 
    models.dx.CorrDiffTaiwan
    models.dx.ClimateNet
-   models.dx.CycloneTracking
-   models.dx.CycloneTrackingVorticity
    models.dx.DerivedRH
    models.dx.DerivedRHDewpoint
    models.dx.DerivedVPD
    models.dx.DerivedWS
    models.dx.PrecipitationAFNO
    models.dx.PrecipitationAFNOv2
+   models.dx.TCTrackerWuDuan
+   models.dx.TCTrackerVitart
    models.dx.WindgustAFNO
    models.dx.Identity
 
