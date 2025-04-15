@@ -31,9 +31,6 @@ Our mission is to enable everyone to build, research and explore AI driven meteo
 Install Earth2Studio:
 
 ```bash
-# For 0.5.0 (current on pypi) and below
-pip install earth2studio
-# For > 0.5.0
 pip install earth2studio[dlwp]
 ```
 
