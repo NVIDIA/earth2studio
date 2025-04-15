@@ -14,6 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import warnings
+
 from earth2studio.models.px.aurora import Aurora
 from earth2studio.models.px.base import PrognosticModel
 from earth2studio.models.px.dlwp import DLWP
@@ -25,3 +27,10 @@ from earth2studio.models.px.pangu import Pangu3, Pangu6, Pangu24
 from earth2studio.models.px.persistence import Persistence
 from earth2studio.models.px.sfno import SFNO
 from earth2studio.models.px.stormcast import StormCast
+
+# TODO: Remove upon physics-nemo update...
+# package turned on logging of warnings in 1.1.0, this is silencing them
+warnings.filterwarnings("ignore")
+warnings.filterwarnings("ignore", category=SyntaxWarning)
+warnings.filterwarnings("ignore", category=DeprecationWarning)
+warnings.filterwarnings("ignore", category=FutureWarning)

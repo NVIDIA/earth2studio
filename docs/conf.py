@@ -127,24 +127,18 @@ sphinx_gallery_conf = {
     "gallery_dirs": "examples",
     "plot_gallery": plot_gallery,
     "filename_pattern": filename_pattern,
-    "image_srcset": ["2x"],
+    "image_srcset": ["1x"],
     "within_subsection_order": FileNameSortKey,
     "run_stale_examples": run_stale_examples,
     "backreferences_dir": "modules/backreferences",
     "doc_module": ("earth2studio"),
-    "reset_modules": ("matplotlib", "sphinxext.reset_torch"),
-    "show_memory": True,
+    "reset_modules": (
+        "matplotlib",
+        "sphinxext.reset_torch",
+        "sphinxext.reset_physicsnemo",
+    ),
+    "reset_modules_order": "both",
+    "show_memory": False,
     "exclude_implicit_doc": {r"load_model", r"load_default_package"},
-    "log_level": {"backreference_missing": "debug"},
+    "log_level": {"backreference_missing": "warning", "gallery_examples": "debug"},
 }
-
-
-# MySt subsitutions
-def _get_latest_tag():
-    response = requests.get(  # noqa
-        "https://api.github.com/repos/NVIDIA/earth2studio/releases/latest"
-    )
-    return response.json()["tag_name"]
-
-
-myst_substitutions = {"latest_tag": _get_latest_tag()}
