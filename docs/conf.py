@@ -25,6 +25,7 @@ import sys
 from importlib.metadata import version
 
 import dotenv
+import requests
 from sphinx_gallery.sorting import ExplicitOrder, FileNameSortKey
 
 # -- Load environment vairs -----------------------------------------------------
@@ -49,7 +50,7 @@ sys.path.insert(0, os.path.dirname(__file__))
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 version = ".".join(release.split(".")[:2])
 project = "Earth2Studio"
-copyright = "2024, NVIDIA"
+copyright = "2025, NVIDIA"
 author = "NVIDIA"
 
 # -- General configuration ---------------------------------------------------
@@ -126,13 +127,18 @@ sphinx_gallery_conf = {
     "gallery_dirs": "examples",
     "plot_gallery": plot_gallery,
     "filename_pattern": filename_pattern,
-    "image_srcset": ["2x"],
+    "image_srcset": ["1x"],
     "within_subsection_order": FileNameSortKey,
     "run_stale_examples": run_stale_examples,
     "backreferences_dir": "modules/backreferences",
     "doc_module": ("earth2studio"),
-    "reset_modules": ("matplotlib", "sphinxext.reset_torch"),
-    "show_memory": True,
+    "reset_modules": (
+        "matplotlib",
+        "sphinxext.reset_torch",
+        "sphinxext.reset_physicsnemo",
+    ),
+    "reset_modules_order": "both",
+    "show_memory": False,
     "exclude_implicit_doc": {r"load_model", r"load_default_package"},
-    "log_level": {"backreference_missing": "debug"},
+    "log_level": {"backreference_missing": "warning", "gallery_examples": "debug"},
 }

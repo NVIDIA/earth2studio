@@ -31,9 +31,6 @@ Our mission is to enable everyone to build, research and explore AI driven meteo
 Install Earth2Studio:
 
 ```bash
-# For 0.5.0 (current on pypi) and below
-pip install earth2studio
-# For > 0.5.0
 pip install earth2studio[dlwp]
 ```
 
@@ -83,7 +80,7 @@ Earth2Studio is provided under the Apache License 2.0, please see
 
 <!-- Badge links -->
 
-[e2studio_python_img]: https://img.shields.io/badge/Python-3.10%20|%203.11%20|%203.12-blue?style=flat-square&logo=python
+[e2studio_python_img]: https://img.shields.io/badge/Python-3.10%20|%203.11%20|%203.12%20|%203.13-blue?style=flat-square&logo=python
 [e2studio_license_img]: https://img.shields.io/badge/License-Apache%202.0-green?style=flat-square
 [e2studio_format_img]: https://img.shields.io/badge/Code%20Style-Black-black?style=flat-square
 [e2studio_mypy_img]: https://img.shields.io/badge/mypy-Checked-blue?style=flat-square&labelColor=grey

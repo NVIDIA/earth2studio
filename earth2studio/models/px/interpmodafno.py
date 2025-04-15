@@ -401,17 +401,19 @@ class InterpModAFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         x: torch.Tensor,
         coords: CoordSystem,
     ) -> tuple[torch.Tensor, CoordSystem]:
-        """Runs prognostic model 1 step.
+        """Runs prognostic model 1 step
+
         Parameters
         ----------
         x : torch.Tensor
             Input tensor
         coords : CoordSystem
             Input coordinate system
+
         Returns
-        ------
-        x : torch.Tensor
-        coords : CoordSystem
+        -------
+        tuple[torch.Tensor, CoordSystem]
+            Output tensor and coordinate system 1 hour in the future
         """
         gen = self._default_generator(x, coords)
         return next(gen)
@@ -450,12 +452,14 @@ class InterpModAFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     ) -> Iterator[tuple[torch.Tensor, CoordSystem]]:
         """Creates a iterator which can be used to perform time-integration of the
         prognostic model. Will return the initial condition first (0th step).
+
         Parameters
         ----------
         x : torch.Tensor
             Input tensor
         coords : CoordSystem
             Input coordinate system
+
         Yields
         ------
         Iterator[tuple[torch.Tensor, CoordSystem]]

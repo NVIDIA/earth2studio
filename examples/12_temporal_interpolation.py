@@ -16,8 +16,8 @@
 
 # %%
 """
-Temporal Interpolation of Forecasts
-==================================
+Temporal Interpolation
+======================
 
 This example demonstrates how to use the InterpModAFNO model to interpolate
 forecasts from a base model to a finer time resolution.
@@ -39,7 +39,6 @@ In this example you will learn:
 import os
 
 import matplotlib.pyplot as plt
-import numpy as np
 
 from earth2studio.data import GFS
 from earth2studio.io import ZarrBackend
@@ -55,6 +54,7 @@ os.makedirs("outputs", exist_ok=True)
 # interpolate its output to a finer time resolution.
 
 # %%
+
 # Load the base model (SFNO)
 sfno_package = SFNO.load_default_package()
 base_model = SFNO.load_model(sfno_package)
@@ -78,46 +78,41 @@ io = ZarrBackend()
 # interpolation model will interpolate to 1-hour intervals.
 
 # %%
+
 # Define forecast parameters
 forecast_date = "2024-01-01"
-nsteps = 1  # Number of forecast steps from the base model
-# The interpolation model will automatically interpolate between these steps
+nsteps = 5  # Number of interpolated forecast steps
 
 # Run the model
 from earth2studio.run import deterministic
 
 io = deterministic([forecast_date], nsteps, interp_model, data, io)
 
+print(io.root.tree())
+
 # %%
 # Visualize Results
-# ----------------
-# Let's visualize the temperature at 2 meters (t2m) at each time step
+# -----------------
+# Let's visualize the total column water vapour (tcwv) at each time step
 # and save them as separate files.
 
 # %%
+
 # Get the number of time steps
-n_steps = io["t2m"].shape[1]
+n_steps = io["tcwv"].shape[1]
 
-# Create a separate plot for each time step
-for step in range(n_steps):
-    # Create a new figure for each time step
-    plt.figure(figsize=(10, 6))
+# Create a single figure with subplots
+fig, axs = plt.subplots(2, 3, figsize=(15, 6))
+axs = axs.ravel()
 
-    # Create the plot - flip the data vertically and adjust extent to rotate 180 degrees
-    im = plt.imshow(
-        np.flipud(io["t2m"][0, step]),  # Flip the data vertically
-        cmap="Spectral_r",
-        origin="lower",
-        extent=[0, 360, -90, 90],  # Keep the same extent
-        aspect="auto",
+# Create plots for each time step
+for step in range(min([n_steps, 6])):
+    im = axs[step].imshow(
+        io["tcwv"][0, step], cmap="twilight_shifted", aspect="auto", vmin=0, vmax=85
     )
+    axs[step].set_title(f"Water Vapour - Step: {step}hrs")
+    fig.colorbar(im, ax=axs[step], label="kg/m^2")
 
-    # Set title
-    plt.title(f"Temperature at 2m - Step: {step}hrs")
-
-    # Add colorbar
-    plt.colorbar(im, label="Temperature (K)")
-
-    # Save the figure
-    plt.savefig(f"outputs/12_t2m_step_{step}.jpg")
-    plt.close()  # Close the figure to free memory
+plt.tight_layout()
+# Save the figure
+plt.savefig("outputs/12_tcwv_steps.jpg")

@@ -1,29 +1,26 @@
 stages:
-  - clone
-  - setup
+  - pre
+  - build
   - lint
   - test
   - report
   - docs
 
-variables:
-  PIPELINE_WORKFLOW_NAME: 'earth2studio/gitlab/$CI_COMMIT_SHORT_SHA'
-
 workflow:
    name: $PIPELINE_WORKFLOW_NAME
 
 github-clone:
-  stage: clone
+  stage: pre
   rules:
     - if: $PIPELINE_REPO_SOURCE == "github"
   tags:
   - docker
   extends:
-    - .physicsnemo:github:pull
+    - .github:pull
   image: bitnami/git
 
 gitlab-clone:
-  stage: clone
+  stage: pre
   rules:
     - if: $PIPELINE_REPO_SOURCE != "github" && $CI_PIPELINE_SOURCE == "merge_request_event"
       when: always
@@ -32,27 +29,36 @@ gitlab-clone:
   tags:
   - docker
   extends:
-    - .physicsnemo:gitlab:pull
+    - .gitlab:pull
   image: bitnami/git
 
-setup:
-  stage: setup
+build-ci-env:
+  stage: build
+  needs:
+    - job: github-clone
+      artifacts: false
+      optional: true
+    - job: gitlab-clone
+      artifacts: false
+      optional: true
   tags:
   - docker
   extends:
-    - .earth2studio:setup:base
+    - .earth2studio:build-env:base
+    - .build-env:cache
   script:
     - make setup-ci
 
 format:
   stage: lint
   needs:
-    - job: setup
+    - job: build-ci-env
       artifacts: false
   tags:
   - docker
   extends:
     - .earth2studio:test:base
+    - .lint:cache
   script:
     - ls
     - make format
@@ -60,12 +66,13 @@ format:
 lint:
   stage: lint
   needs:
-    - job: setup
+    - job: build-ci-env
       artifacts: false
   tags:
   - docker
   extends:
     - .earth2studio:test:base
+    - .lint:cache
   script:
     - make interrogate
     - make lint
@@ -82,6 +89,7 @@ pytest:
   - docker
   extends:
     - .earth2studio:test:base
+    - .test:cache
   script:
     - make install
     - make pytest 2>&1 | tee ../pytest.log.full
@@ -97,6 +105,7 @@ coverage:
   - docker
   extends:
     - .earth2studio:test:base
+    - .coverage:cache
   script:
     - make setup-ci
     - make coverage 2>&1 | tee ../blossom.log
@@ -119,18 +128,11 @@ pages:
     - if: $CI_COMMIT_BRANCH == "gl-pages"
 
 include:
-  # - project: 'modulus/modulus-ci'
-  #   ref: main
-  #   file: '.gitlab-ci/earth2/studio/wheel.gitlab-ci.yml'
 
   - project: 'modulus/modulus-ci'
     ref: ngeneva/studio-reamped
-    file: '.gitlab-ci/earth2/studio/docs.gitlab-ci.yml'
+    file: '.gitlab-ci/earth2studio/common.gitlab-ci.yml'
 
   - project: 'modulus/modulus-ci'
     ref: ngeneva/studio-reamped
     file: '.gitlab-ci/pull.gitlab-ci.yml'
-
-  - project: 'modulus/modulus-ci'
-    ref: ngeneva/studio-reamped
-    file: '.gitlab-ci/earth2/studio/test.gitlab-ci.yml'
