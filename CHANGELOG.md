@@ -10,6 +10,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added two cyclone trackers and related utilities
+
 ### Changed
 
 ### Deprecated
@@ -30,7 +32,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add Aurora model to prognostic models
 - Added check_extra_imports util for informative errors when optional dependencies are
   not installed
-- Add cyclone trackers
 - Added wind gust AFNO diagnostic model
 - Added diagnostic for relative humidity from temperature and specific humidity
 - Added diagnostic for relative humidity from temperature and dew point
