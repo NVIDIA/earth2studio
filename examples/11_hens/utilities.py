@@ -28,6 +28,7 @@ import xarray as xr
 from loguru import logger
 from omegaconf import DictConfig, open_dict
 from physicsnemo.distributed import DistributedManager
+from reproduce_utilities import ensure_all_torch_seeds_are_unique
 
 from earth2studio.data import DataSource
 from earth2studio.io import IOBackend, KVBackend, XarrayBackend
@@ -421,6 +422,12 @@ def initialise(cfg: DictConfig) -> tuple[list, dict, DataSource, OrderedDict]:
     # initialize diagnostic models
     dx_model_dict = initialize_diagnostic_models(cfg)
 
+    # initialize output structures
+    all_tracks_dict, writer_executor, writer_threads = initialize_output_structures(cfg)
+
+    # make sure that all the seeds are unique
+    ensure_all_torch_seeds_are_unique(ensemble_configs, base_random_seed)
+
     return (
         ensemble_configs,
         model_dict,
@@ -429,6 +436,9 @@ def initialise(cfg: DictConfig) -> tuple[list, dict, DataSource, OrderedDict]:
         data,
         output_coords_dict,
         base_random_seed,
+        all_tracks_dict,
+        writer_executor,
+        writer_threads,
     )
 
 

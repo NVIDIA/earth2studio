@@ -23,15 +23,11 @@ from ensemble_utilities import EnsembleBase
 from loguru import logger
 from omegaconf import DictConfig
 from physicsnemo.distributed import DistributedManager
-from reproduce_utilities import (
-    create_base_seed_string,
-    ensure_all_torch_seeds_are_unique,
-)
+from reproduce_utilities import create_base_seed_string
 from utilities import (
     initialise,
     initialise_output,
     initialise_perturbation,
-    initialize_output_structures,
     store_tracks,
     update_model_dict,
     write_to_disk,
@@ -62,14 +58,17 @@ def main(cfg: DictConfig) -> None:
         data,
         output_coords_dict,
         base_random_seed,
+        all_tracks_dict,
+        writer_executor,
+        writer_threads,
     ) = initialise(cfg)
 
-    all_tracks_dict, writer_executor, writer_threads = initialize_output_structures(cfg)
+    # initialize output objects
+    # all_tracks_dict, writer_executor, writer_threads = initialize_output_structures(cfg)
 
     # run forecasts
     then = datetime.now()
 
-    ensure_all_torch_seeds_are_unique(ensemble_configs, base_random_seed)
     for pkg, ic, ens_idx, batch_ids_produce in ensemble_configs:
         # TODO: add start time as optional call, so it works for run.ensemble and run_hens
         #       without having to pass start_time in initialisation
