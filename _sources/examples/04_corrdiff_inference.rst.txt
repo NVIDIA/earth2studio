@@ -148,12 +148,6 @@ For this workflow, we specify
 
 
 
-
-
-
-
-
-
 .. GENERATED FROM PYTHON SOURCE LINES 146-157
 
 Set Up
@@ -186,12 +180,6 @@ It's clear we need the following:
     io = ZarrBackend()
 
 
-
-
-
-
-
-
 .. GENERATED FROM PYTHON SOURCE LINES 173-182
 
 Execute the Workflow
@@ -209,37 +197,6 @@ Typhoon Koinu.
 .. code-block:: Python
 
     io = run(["2023-10-04T18:00:00"], corrdiff, data, io, number_of_samples=1)
-
-
-
-
-
-.. rst-class:: sphx-glr-script-out
-
- .. code-block:: none
-
-    2025-04-14 23:44:04.393 | INFO     | __main__:run:108 - Running corrdiff inference!
-    2025-04-14 23:44:04.393 | INFO     | __main__:run:110 - Inference device: cuda
-    2025-04-14 23:44:04.520 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:213 - Fetching GFS index file: 2023-10-04 18:00:00 lead 0:00:00
-    Fetching GFS for 2023-10-04 18:00:00:   0%|          | 0/12 [00:00<?, ?it/s]                                                                                2025-04-14 23:44:04.523 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:259 - Fetching GFS grib file for variable: tcwv at 2023-10-04 18:00:00_0:00:00
-    Fetching GFS for 2023-10-04 18:00:00:   0%|          | 0/12 [00:00<?, ?it/s]                                                                                2025-04-14 23:44:04.548 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:259 - Fetching GFS grib file for variable: z500 at 2023-10-04 18:00:00_0:00:00
-    Fetching GFS for 2023-10-04 18:00:00:   0%|          | 0/12 [00:00<?, ?it/s]                                                                                2025-04-14 23:44:04.573 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:259 - Fetching GFS grib file for variable: t500 at 2023-10-04 18:00:00_0:00:00
-    Fetching GFS for 2023-10-04 18:00:00:   0%|          | 0/12 [00:00<?, ?it/s]                                                                                2025-04-14 23:44:04.598 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:259 - Fetching GFS grib file for variable: u500 at 2023-10-04 18:00:00_0:00:00
-    Fetching GFS for 2023-10-04 18:00:00:   0%|          | 0/12 [00:00<?, ?it/s]                                                                                2025-04-14 23:44:04.622 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:259 - Fetching GFS grib file for variable: v500 at 2023-10-04 18:00:00_0:00:00
-    Fetching GFS for 2023-10-04 18:00:00:   0%|          | 0/12 [00:00<?, ?it/s]    Fetching GFS for 2023-10-04 18:00:00:  42%|████▏     | 5/12 [00:00<00:00, 40.66it/s]                                                                                        2025-04-14 23:44:04.646 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:259 - Fetching GFS grib file for variable: z850 at 2023-10-04 18:00:00_0:00:00
-    Fetching GFS for 2023-10-04 18:00:00:  42%|████▏     | 5/12 [00:00<00:00, 40.66it/s]                                                                                        2025-04-14 23:44:04.671 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:259 - Fetching GFS grib file for variable: t850 at 2023-10-04 18:00:00_0:00:00
-    Fetching GFS for 2023-10-04 18:00:00:  42%|████▏     | 5/12 [00:00<00:00, 40.66it/s]                                                                                        2025-04-14 23:44:04.695 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:259 - Fetching GFS grib file for variable: u850 at 2023-10-04 18:00:00_0:00:00
-    Fetching GFS for 2023-10-04 18:00:00:  42%|████▏     | 5/12 [00:00<00:00, 40.66it/s]                                                                                        2025-04-14 23:44:04.719 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:259 - Fetching GFS grib file for variable: v850 at 2023-10-04 18:00:00_0:00:00
-    Fetching GFS for 2023-10-04 18:00:00:  42%|████▏     | 5/12 [00:00<00:00, 40.66it/s]                                                                                        2025-04-14 23:44:04.743 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:259 - Fetching GFS grib file for variable: t2m at 2023-10-04 18:00:00_0:00:00
-    Fetching GFS for 2023-10-04 18:00:00:  42%|████▏     | 5/12 [00:00<00:00, 40.66it/s]    Fetching GFS for 2023-10-04 18:00:00:  83%|████████▎ | 10/12 [00:00<00:00, 41.10it/s]                                                                                         2025-04-14 23:44:04.767 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:259 - Fetching GFS grib file for variable: u10m at 2023-10-04 18:00:00_0:00:00
-    Fetching GFS for 2023-10-04 18:00:00:  83%|████████▎ | 10/12 [00:00<00:00, 41.10it/s]                                                                                         2025-04-14 23:44:04.791 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:259 - Fetching GFS grib file for variable: v10m at 2023-10-04 18:00:00_0:00:00
-    Fetching GFS for 2023-10-04 18:00:00:  83%|████████▎ | 10/12 [00:00<00:00, 41.10it/s]    Fetching GFS for 2023-10-04 18:00:00: 100%|██████████| 12/12 [00:00<00:00, 41.12it/s]
-    2025-04-14 23:44:04.854 | SUCCESS  | __main__:run:123 - Fetched data from GFS
-    2025-04-14 23:44:04.855 | WARNING  | earth2studio.io.zarr:add_array:192 - Datetime64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch
-    2025-04-14 23:44:04.931 | INFO     | __main__:run:137 - Inference starting!
-    2025-04-14 23:44:06.360 | SUCCESS  | __main__:run:141 - Inference complete
-
-
 
 
 .. GENERATED FROM PYTHON SOURCE LINES 187-193
@@ -304,22 +261,6 @@ Notice that the Zarr IO function has additional APIs to interact with the stored
     ax2.set_title("10-meter Wind Speed")
 
     plt.savefig("outputs/04_corr_diff_prediction.jpg")
-
-
-
-.. image-sg:: /examples/images/sphx_glr_04_corrdiff_inference_001.png
-   :alt: Radar Reflectivity, 2-meter Temperature, 10-meter Wind Speed
-   :srcset: /examples/images/sphx_glr_04_corrdiff_inference_001.png
-   :class: sphx-glr-single-img
-
-
-
-
-
-
-.. rst-class:: sphx-glr-timing
-
-   **Total running time of the script:** (0 minutes 12.207 seconds)
 
 
 .. _sphx_glr_download_examples_04_corrdiff_inference.py:

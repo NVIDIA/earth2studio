@@ -894,11 +894,28 @@ document.write(`
             <span class="p">}</span>
             <span class="n">fs</span> <span class="o">=</span> <span class="n">WholeFileCacheFileSystem</span><span class="p">(</span><span class="n">fs</span><span class="o">=</span><span class="n">fs</span><span class="p">,</span> <span class="o">**</span><span class="n">cache_options</span><span class="p">)</span>
 
-        <span class="n">fs_map</span> <span class="o">=</span> <span class="n">fsspec</span><span class="o">.</span><span class="n">FSMap</span><span class="p">(</span>
-            <span class="sa">f</span><span class="s2">&quot;weatherbench2/datasets/era5-hourly-climatology/</span><span class="si">{</span><span class="n">climatology_zarr_store</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
-            <span class="n">fs</span><span class="p">,</span>
-        <span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">zarr_group</span> <span class="o">=</span> <span class="n">zarr</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="n">fs_map</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;r&quot;</span><span class="p">)</span>
+        <span class="c1"># Check Zarr version and use appropriate method</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">zarr_version</span> <span class="o">=</span> <span class="n">version</span><span class="p">(</span><span class="s2">&quot;zarr&quot;</span><span class="p">)</span>
+            <span class="n">zarr_major_version</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">zarr_version</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;.&quot;</span><span class="p">)[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+            <span class="c1"># Fallback to older method if version check fails</span>
+            <span class="n">zarr_major_version</span> <span class="o">=</span> <span class="mi">2</span>  <span class="c1"># Assume older version if we can&#39;t determine</span>
+
+        <span class="k">if</span> <span class="n">zarr_major_version</span> <span class="o">&gt;=</span> <span class="mi">3</span><span class="p">:</span>
+            <span class="c1"># Zarr 3.0+ method</span>
+            <span class="n">zstore</span> <span class="o">=</span> <span class="n">zarr</span><span class="o">.</span><span class="n">storage</span><span class="o">.</span><span class="n">FsspecStore</span><span class="p">(</span>
+                <span class="n">fs</span><span class="p">,</span>
+                <span class="n">path</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;/weatherbench2/datasets/era5-hourly-climatology/</span><span class="si">{</span><span class="n">climatology_zarr_store</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">zarr_group</span> <span class="o">=</span> <span class="n">zarr</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="n">zstore</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;r&quot;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># Legacy method for Zarr &lt; 3.0</span>
+            <span class="n">fs_map</span> <span class="o">=</span> <span class="n">fsspec</span><span class="o">.</span><span class="n">FSMap</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;weatherbench2/datasets/era5-hourly-climatology/</span><span class="si">{</span><span class="n">climatology_zarr_store</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
+                <span class="n">fs</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">zarr_group</span> <span class="o">=</span> <span class="n">zarr</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="n">fs_map</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;r&quot;</span><span class="p">)</span>
 
 <div class="viewcode-block" id="WB2Climatology.__call__">
 <a class="viewcode-back" href="../../../modules/generated/data/earth2studio.data.WB2Climatology.html#earth2studio.data.WB2Climatology.__call__">[docs]</a>
