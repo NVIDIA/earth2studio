@@ -128,6 +128,7 @@ corrdiff = [
 cyclone = [
     "cucim-cu12>=25.4.0 ; python_full_version < '3.13'",
     "scikit-image>=0.25.2",
+    "scikit-learn>=1.6.1",
 ]
 derived = []
 precip-afno = [
