@@ -252,7 +252,6 @@ class _CycloneTrackingBase(torch.nn.Module):
         torch.Tensor
             Updated history buffer of size [batch, path_id(+1), step+1, variable]
         """
-        print("====", frame.shape)
         if history_buffer.nelement() == 0:
             return frame.unsqueeze(2).clone()
 
@@ -547,7 +546,6 @@ class TCTrackerWuDuan(_CycloneTrackingBase):
             # identify position of tropical storm centers
             centers = self._find_centers(lat, lon, vort850, w10m, msl)
             # Pack [points, variables]
-            print("++", centers.shape)
             outs.append(centers.T)
 
         # Cursor found this amazing function!
@@ -561,8 +559,6 @@ class TCTrackerWuDuan(_CycloneTrackingBase):
         output_coords = self.output_coords(coords)
         output_coords["path_id"] = np.arange(self.history_buffer.shape[1])
         output_coords["steps"] = np.arange(self.history_buffer.shape[2])
-
-        print(self.history_buffer.shape)
 
         return self.history_buffer, output_coords
 

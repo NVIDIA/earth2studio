@@ -107,7 +107,7 @@ for time in times:
 
     output, output_coords = tracker(input, input_coords)
 
-    print(output)
+    print(output.shape)
 
 torch.save(output, "output.pt")
 
