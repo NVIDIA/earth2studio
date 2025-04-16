@@ -6,7 +6,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.6.0a0] - 2025-xx-xx
+## [0.7.0a0] - 2025-xx-xx
+
+### Added
+
+### Changed
+
+### Deprecated
+
+### Removed
+
+### Fixed
+
+### Security
+
+### Dependencies
+
+## [0.6.0] - 2025-04-15
 
 ### Added
 
@@ -23,18 +39,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added diagnostic for vapour-pressure deficit
 - Added PrecipitationAFNOv2 model for predicting tp06
 - Added InterpModAFNO model for temporal interpolation of forecasts
-
-### Changed
-
-### Deprecated
-
-### Removed
+- Python 3.13 support
 
 ### Fixed
 
-- Bug in WeatherBench2 Climatology data source with Zarr 3.0
-
-### Security
+- Bug in Weather Bench 2 climatology data source with Zarr 3.0
 
 ### Dependencies
 
@@ -42,7 +51,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Removed physics-nemo, torch harmonics from base packages to enable CPU install
 - Added optional dependency groups for all models
 - Added optional dependency groups for other submodules
-- Added docuementation for build, install and package management for developers
+- Added documentation for build, install and package management for developers
 - Migrated build system to hatch
 - Moved dev and doc optional dependencies to uv dependency groups
 
