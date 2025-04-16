@@ -862,7 +862,6 @@ def write_to_disk(
     io_dict: IOBackend,
     writer_threads: list[Future],
     writer_executor: ThreadPoolExecutor | None,
-    ens_idx: int,
 ) -> tuple[list[Future], ThreadPoolExecutor | None]:
     """
     method which writes in-memory backends to file.
@@ -883,8 +882,6 @@ def write_to_disk(
         executor for parallel file output
     ensemble_idx_base : int
         initial value for counting ensemble members
-    ens_idx: int
-        index of the ensemble member
     Returns
     -------
     writer_threads: list[Future]
