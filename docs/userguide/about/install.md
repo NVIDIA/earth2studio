@@ -310,7 +310,8 @@ uv add earth2studio --extra corrdiff
 ::::
 :::::
 :::::{tab-item} Cyclone Trackers
-Notes: Additional dependencies for all cyclone tracking models.
+Notes: Additional dependencies for all cyclone tracking models. Only Python 3.12 and
+below support.
 
 ::::{tab-set}
 :::{tab-item} uv

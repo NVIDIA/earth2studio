@@ -46,7 +46,7 @@ from earth2studio.utils import (
 from earth2studio.utils.imports import check_extra_imports
 from earth2studio.utils.type import CoordSystem
 
-VARIABLES_TC = [
+VARIABLES_TCV = [
     "u850",
     "v850",
     "msl",
@@ -59,7 +59,7 @@ VARIABLES_TC = [
     "t250",
     "t200",
 ]
-VARIABLES_TCV = ["u850", "v850", "u10m", "v10m", "msl"]
+VARIABLES_TCWD = ["u850", "v850", "u10m", "v10m", "msl"]
 OUT_VARIABLES = ["tc_lat", "tc_lon", "tc_msl", "tc_w10m"]
 
 
@@ -216,7 +216,7 @@ class TCTrackerWuDuan(torch.nn.Module, _CycloneTrackingBase):
         return OrderedDict(
             {
                 "batch": np.empty(0),
-                "variable": np.array(VARIABLES_TCV),
+                "variable": np.array(VARIABLES_TCWD),
                 "lat": np.linspace(90, -90, 721, endpoint=True),
                 "lon": np.linspace(0, 360, 1440, endpoint=False),
             }
@@ -293,10 +293,11 @@ class TCTrackerWuDuan(torch.nn.Module, _CycloneTrackingBase):
             msl_ = cp.array(np.from_dlpack(msl))
         vort850_threshold = float(vort850_threshold)
         x_ = v_ > vort850_threshold
-
+        # Label regions
         x_label = label(x_)
+        # Remove labels that are not of the the needed size (less than 18 pixels)
         x_label = remove_small_objects(x_label, min_size=18, connectivity=1)
-
+        # Get region props (bounding box / axis)
         props = regionprops(x_label, intensity_image=v_)
         centers = []
         for prop in props:
@@ -406,13 +407,14 @@ class TCTrackerWuDuan(torch.nn.Module, _CycloneTrackingBase):
         lon = torch.as_tensor(self.input_coords()["lon"], device=x.device)
 
         def get_variable(x: torch.Tensor, var: str) -> torch.Tensor:
-            index = VARIABLES_TCV.index(var)
+            index = VARIABLES_TCWD.index(var)
             return x[index]
 
         outs = []
         for i in range(x.shape[0]):
 
             # Get wind components at 850 hPa
+            # VARIABLES_TCWD = ["u850", "v850", "u10m", "v10m", "msl"]
             u850 = get_variable(x[i], "u850")
             v850 = get_variable(x[i], "v850")
             u10m = get_variable(x[i], "u10m")
@@ -421,7 +423,7 @@ class TCTrackerWuDuan(torch.nn.Module, _CycloneTrackingBase):
 
             # Calculate vorticity at 850 hPa
             vort850 = _CycloneTrackingBase.vorticity(u850, v850)
-            vort850[361:] *= -1
+            vort850[361:] *= -1  # Invert southern hemisphere
 
             # Calculate wind speed at 10m height
             w10m = torch.sqrt(torch.square(u10m) + torch.square(v10m))
@@ -520,7 +522,7 @@ class TCTrackerVitart(torch.nn.Module, _CycloneTrackingBase):
         return OrderedDict(
             {
                 "batch": np.empty(0),
-                "variable": np.array(VARIABLES_TC),
+                "variable": np.array(VARIABLES_TCV),
                 "lat": np.empty(0),
                 "lon": np.empty(0),
             }
@@ -747,7 +749,7 @@ class TCTrackerVitart(torch.nn.Module, _CycloneTrackingBase):
             lon = lon[indices].reshape(-1, nlon)
 
         def get_variable(x: torch.Tensor, var: str) -> torch.Tensor:
-            index = VARIABLES_TC.index(var)
+            index = VARIABLES_TCV.index(var)
             return x[index]
 
         ####
