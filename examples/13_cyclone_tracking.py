@@ -38,19 +38,17 @@ In this example you will learn:
 # %%
 # Set Up
 # ------
-# In this example, we will use hurricane Harvey as the focus study.
-# Harvey was a storm that cause signifcant damage in the United States in August 2017.
-# Earth2Studio provides two variations of TC trackers :py:class:`earth2studio.models.dx.TCTrackerVitart`
+# This example will look at tracking cyclones during August 2009, a moment in time when
+# multiple tropical cyclones where impacting East Asia.
+# Earth2Studio provides multiple variations of TC trackers such as :py:class:`earth2studio.models.dx.TCTrackerVitart`
 # and :py:class:`earth2studio.models.dx.TCTrackerWuDuan`.
 # The difference being the underlying algorithm used to identify the center.
-# This example will demonstrate the later.
 #
-# Thus, we need the following:
+# This example needs the following:
 #
 # - Diagostic Model: Use the TC tracker :py:class:`earth2studio.models.dx.TCTrackerWuDuan`.
 # - Datasource: Pull data from the WB2 ERA5 data api :py:class:`earth2studio.data.WB2ERA5`.
 # - Prognostic Model: Use the built in FourCastNet Model :py:class:`earth2studio.models.px.FCN`.
-# - IO Backend: Let's save the outputs into a Zarr store :py:class:`earth2studio.io.ZarrBackend`.
 
 # %%
 import os
@@ -65,7 +63,6 @@ from datetime import datetime, timedelta
 import torch
 
 from earth2studio.data import ARCO
-from earth2studio.io import ZarrBackend
 from earth2studio.models.dx import TCTrackerWuDuan
 from earth2studio.models.px import SFNO
 
@@ -79,11 +76,8 @@ prognostic = SFNO.load_model(package)
 # Create the data source
 data = ARCO()
 
-# Create the IO handler, store in memory
-io = ZarrBackend()
-
 nsteps = 16  # Number of steps to run the tracker for into future
-start_time = datetime(2017, 8, 22)  # Start date for inference
+start_time = datetime(2009, 8, 5)  # Start date for inference
 
 # %%
 # Tracking Analysis Data
@@ -123,7 +117,7 @@ torch.save(era5_tracks, "era5.pt")
 # Up next lets also repeat the same process using the prognostic AI model.
 # One could use one of the build in workflows but here we will manually implement the
 # inference loop.
-#
+
 # %%
 
 from tqdm import tqdm
@@ -174,12 +168,14 @@ torch.save(sfno_tracks, "sfno.pt")
 # The lat/lon coords are the first two variables in the last dimension.
 # Lastly we just need to be mindful of the NaN filler values which can get easily
 # masked out and any "path" that isnt over 2 points long
+
 # %%
 
 from datetime import datetime, timedelta
 
 import cartopy.crs as ccrs
 import cartopy.feature as cfeature
+import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -191,22 +187,38 @@ sfno_paths = sfno_tracks.numpy()
 end_time = start_time + timedelta(hours=6 * nsteps)
 
 # Create figure with cartopy projection
-plt.figure(figsize=(12, 8))
-ax = plt.axes(projection=ccrs.PlateCarree())
+plt.figure(figsize=(10, 8))
+projection = ccrs.LambertConformal(
+    central_longitude=130.0, central_latitude=30.0, standard_parallels=(20.0, 40.0)
+)
+ax = plt.axes(projection=projection)
 
 # Add map features
 ax.add_feature(cfeature.COASTLINE)
 ax.add_feature(cfeature.LAND, alpha=0.1)
-ax.gridlines(draw_labels=True)
+ax.gridlines(draw_labels=True, alpha=0.6)
+ax.set_extent([90, 170, 0, 50], crs=ccrs.PlateCarree())
 
-# Plot ERA5 tracks
+era5_cmap = plt.cm.autumn
+sfno_cmap = plt.cm.winter
+
+# %%
+# In addition to filtering out the NaN values, users may want to apply other post
+# processing steps on the paths which may be enforcing path lengths are above a certain
+# threshold or other geography based filters.
+#
+# No cyclone tracker is perfect, we encourage users to experiment and tune the tracker
+# as needed.
+
+# %%
+
 for path in range(era5_paths.shape[1]):
     # Get lat/lon coordinates, filtering out nans
     lats = era5_paths[0, path, :, 0]
     lons = era5_paths[0, path, :, 1]
     mask = ~np.isnan(lats) & ~np.isnan(lons)
     if mask.any() and len(lons[mask]) > 2:
-        color = plt.cm.autumn(path / era5_paths.shape[1])
+        color = era5_cmap(path / era5_paths.shape[1])
         ax.plot(
             lons[mask],
             lats[mask],
@@ -217,14 +229,13 @@ for path in range(era5_paths.shape[1]):
             transform=ccrs.PlateCarree(),
         )
 
-# Plot SFNO tracks
 for path in range(sfno_paths.shape[1]):
     # Get lat/lon coordinates, filtering out nans
     lats = sfno_paths[0, path, :, 0]
     lons = sfno_paths[0, path, :, 1]
     mask = ~np.isnan(lats) & ~np.isnan(lons)
     if mask.any() and len(lons[mask]) > 2:
-        color = plt.cm.winter(path / sfno_paths.shape[1])
+        color = sfno_cmap(path / sfno_paths.shape[1])
         ax.plot(
             lons[mask],
             lats[mask],
@@ -234,10 +245,14 @@ for path in range(sfno_paths.shape[1]):
             transform=ccrs.PlateCarree(),
         )
 
-# Set map extent (optional - adjust as needed)
-ax.set_global()
+era5_patch = mpatches.Rectangle(
+    (0, 0), 1, 1, fc=era5_cmap(0.3), alpha=0.9, label="ERA5"
+)
+sfno_patch = mpatches.Rectangle(
+    (0, 0), 1, 1, fc=sfno_cmap(0.3), alpha=0.9, label="SFNO"
+)
+ax.legend(handles=[era5_patch, sfno_patch], loc="upper right", title="Cyclone Tracks")
 
-plt.legend()
 plt.title(
     f'Tropical Cyclone Tracks\n{start_time.strftime("%Y-%m-%d")} to {end_time.strftime("%Y-%m-%d")}'
 )

@@ -21,9 +21,11 @@ try:
     from cucim.skimage.feature import peak_local_max as cucim_peak_local_max
     from cucim.skimage.measure import label, regionprops
     from cucim.skimage.morphology import binary_erosion, remove_small_objects
+    from scipy.spatial import KDTree
     from skimage.feature import peak_local_max as skimage_peak_local_max
     from skimage.morphology import convex_hull_image
-    from sklearn.neighbors import BallTree
+
+    # from cupyx.scipy.spatial import KDTree as CuKDTree
 except ImportError:
     cp = None
     cucim_peak_local_max = None
@@ -33,7 +35,8 @@ except ImportError:
     remove_small_objects = None
     skimage_peak_local_max = None
     convex_hull_image = None
-    BallTree = None
+    KDTree = None
+    # CuKDTree = None
 
 import numpy as np
 import torch
@@ -120,44 +123,34 @@ class _TCTrackerBase:
             )
         )
 
-    @classmethod
-    def haversine_torch_np(
-        cls,
-        p1: np.array,
-        p2: np.array,
+    @staticmethod
+    def latlon_to_equirectangular(
+        lat: torch.Tensor, lon: torch.Tensor, R: float = 6371.0
     ) -> torch.Tensor:
-        """Compute haversine distance between two pairs of lat/lon points in km.
+        """Convert latitude/longitude to equirectangular projection coordinates.
 
         Parameters
         ----------
-        p1 : np.array
-            Batch of point 1 [lat,lon] coordinates of size [n,2]
-        p2 : np.array
-            Batch of point 2 [lat,lon] coordinates of size [n,2]
+        lat : torch.Tensor
+            Latitude in degrees
+        lon : torch.Tensor
+            Longitude in degrees
+        R : float, optional
+            Earth radius in km, by default 6371.0
 
         Returns
         -------
-        np.array
-            Distance between two points [n]
+        torch.Tensor
+            Stacked x, y coordinates in km
         """
-        lon1 = p1[0]
-        lat1 = p1[1]
-        lon2 = p2[0]
-        lat2 = p2[1]
-        lat1, lon1, lat2, lon2 = map(np.deg2rad, [lat1, lon1, lat2, lon2])
-        dlon = lon2 - lon1
-        dlat = lat2 - lat1
-        unit = 6371
-        return (
-            2
-            * unit
-            * np.arcsin(
-                np.sqrt(
-                    np.sin(dlat / 2) ** 2
-                    + np.cos(lat1) * np.cos(lat2) * np.sin(dlon / 2) ** 2
-                )
-            )
-        )
+        lat_rad = torch.deg2rad(lat)
+        lon_rad = torch.deg2rad(lon)
+
+        # Project to equirectangular coordinates
+        x = R * lon_rad * torch.cos(torch.deg2rad(torch.tensor(0.0)))
+        y = R * lat_rad
+
+        return torch.stack([x, y], dim=-1)
 
     @classmethod
     def get_local_max(
@@ -229,7 +222,7 @@ class _TCTrackerBase:
         frame: torch.Tensor,
         path_buffer: torch.Tensor,
         path_search_distance: float = 250,
-        path_search_window_size: int = 2,
+        path_search_window_size: int = 3,
     ) -> torch.Tensor:
         """Appends frame of TC centers into the track path history tensor
 
@@ -246,7 +239,7 @@ class _TCTrackerBase:
         path_search_window_size: int, optional
             The historical window size for a path to use when pairing. Namely, the
             path search will use the specified number of historic points to connect a
-            new frame to the current set of paths, by default 2
+            new frame to the current set of paths, by default 3
 
         Returns
         -------
@@ -267,7 +260,6 @@ class _TCTrackerBase:
                 f"Error with updating TC tracker history buffer, input and history buffer need the same batch size. Got {frame.shape[0]} and {path_buffer.shape[0]}"
             )
 
-        # Numpy only search...
         next_frame = torch.full_like(
             path_buffer[:, :, 0, :], cls.PATH_FILL_VALUE, dtype=frame.dtype
         ).unsqueeze(2)
@@ -285,10 +277,25 @@ class _TCTrackerBase:
             tree_features = (
                 path_buffer[i, :, -path_search_window_size:, :2].flip(-2).reshape(-1, 2)
             )
-            # TODO: CuPy
-            tree = BallTree(tree_features.cpu(), metric=cls.haversine_torch_np)
-            # Ball tree search for nearest neighbor for current batch index
-            dist, idx = tree.query(frame[i, :, :2].cpu(), k=1)
+
+            tree_features = cls.latlon_to_equirectangular(
+                tree_features[:, 0], tree_features[:, 1]
+            )
+            input_features = cls.latlon_to_equirectangular(
+                frame[i, :, 0], frame[i, :, 1]
+            )
+
+            if tree_features.is_cuda and False:
+                # Make need to edit below, not worth it at the moment
+                # /.venv/lib/python3.12/site-packages/cupy/_environment.py
+                # Liune 350 to min_pypi_version = config[lib]['version']
+                # tree = CuKDTree(cp.from_dlpack(tree_features))
+                # dist, idx = tree.query(cp.from_dlpack(input_features), k=1)
+                pass
+            else:
+                tree = KDTree(tree_features.cpu())
+                dist, idx = tree.query(input_features.cpu(), k=1)
+
             for p in range(dist.shape[0]):
                 # If all variables are 0, its a filler from rnn.pad_sequence
                 if torch.all(frame[i, p] == cls.PATH_FILL_VALUE):
@@ -297,10 +304,10 @@ class _TCTrackerBase:
                 # Note, the `.flip(-2)` above make this calculation easier placing most
                 # recent step at index 0 instead of last
                 past_steps = idx[p] % path_search_window_size + 1
-                if dist[p, 0] < past_steps * path_search_distance:
+                if dist[p] < past_steps * path_search_distance:
                     # Recall we have a window of points for each path
                     # if any match, append to that path
-                    path_id = idx[p] // path_search_window_size
+                    path_id = int(idx[p]) // path_search_window_size
                     next_frame[i, path_id] = frame[i, p]
                 # No match so looks like we need a new path
                 else:
@@ -319,7 +326,7 @@ class _TCTrackerBase:
         return torch.cat([path_buffer, next_frame], axis=2)
 
 
-@check_extra_imports("cyclone", ["cupy", "cucim", "skimage", "sklearn"])
+@check_extra_imports("cyclone", [cp, KDTree, "cucim", "skimage"])
 class TCTrackerWuDuan(torch.nn.Module, _TCTrackerBase):
     """Finds a list of tropical cyclone (TC) centers using an adaption of the method
     described in the conditions in Wu and Duan 2023. The algorithm converts vorticity
@@ -365,7 +372,7 @@ class TCTrackerWuDuan(torch.nn.Module, _TCTrackerBase):
     """
 
     def __init__(
-        self, path_search_distance: int = 300, path_search_window_size: int = 2
+        self, path_search_distance: int = 300, path_search_window_size: int = 3
     ) -> None:
         super().__init__()
         self.register_buffer("path_buffer", torch.empty(0))
@@ -445,7 +452,7 @@ class TCTrackerWuDuan(torch.nn.Module, _TCTrackerBase):
         lon : torch.Tensor
             Vector of longitudes for tensors.
         vort850 : torch.Tensor
-        850 hPa relative vorticity of dimension [lat, lon].
+            850 hPa relative vorticity of dimension [lat, lon].
 
         Returns
         -------
@@ -630,7 +637,7 @@ class TCTrackerWuDuan(torch.nn.Module, _TCTrackerBase):
         return out, output_coords
 
 
-@check_extra_imports("cyclone", ["cupy", "cucim", "skimage", "sklearn"])
+@check_extra_imports("cyclone", [cp, KDTree, "cucim", "skimage"])
 class TCTrackerVitart(torch.nn.Module, _TCTrackerBase):
     """Finds a list of tropical cyclone centers using the conditions in Vitart 1997
 
@@ -701,7 +708,7 @@ class TCTrackerVitart(torch.nn.Module, _TCTrackerBase):
         lat_threshold: float = 60.0,
         exclude_border: bool | int = True,
         path_search_distance: int = 300,
-        path_search_window_size: int = 2,
+        path_search_window_size: int = 3,
     ) -> None:
         super().__init__()
         # TC Center identification parameters

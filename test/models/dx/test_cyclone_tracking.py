@@ -68,19 +68,41 @@ def test_vorticity_calculation(device):
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
 def test_haversine_torch(device):
     # Define known points
-    lat1 = torch.tensor(0, dtype=torch.float32)
-    lon1 = torch.tensor(0, dtype=torch.float32)
-    lat2 = torch.tensor(30, dtype=torch.float32)
-    lon2 = torch.tensor(120, dtype=torch.float32)
+    lat1 = torch.tensor(0, dtype=torch.float32, device=device)
+    lon1 = torch.tensor(0, dtype=torch.float32, device=device)
+    lat2 = torch.tensor(30, dtype=torch.float32, device=device)
+    lon2 = torch.tensor(120, dtype=torch.float32, device=device)
 
     # Known expected distance in kilometers (approximate)
     expected_distance = torch.tensor(12860.0)
-
-    # Calculate distance using haversine_torch
     dist = TCTrackerVitart.haversine_torch(lat1, lon1, lat2, lon2)
 
-    # Assert that the calculated distance is close to the expected distance
     torch.testing.assert_close(expected_distance, dist, rtol=1e-3, atol=1e-3)
+
+
+@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+def test_latlon_to_equirectangular(device):
+    lats = torch.tensor(
+        [[0.0, 45.0, -45.0], [90.0, -90.0, 0.0]],  # Equator and mid-latitudes
+        device=device,
+    )  # Poles and equator
+    lons = torch.tensor(
+        [[0.0, 90.0, -90.0], [180.0, -180.0, 45.0]],  # Prime meridian and +/- 90°
+        device=device,
+    )  # Date line and 45°
+    result = TCTrackerVitart.latlon_to_equirectangular(lats, lons)
+
+    # Expected values (approximate)
+    R = 6371.0
+    expected_x = R * torch.deg2rad(lons)  # x = R * λ * cos(0°)
+    expected_y = R * torch.deg2rad(lats)  # y = R * φ
+    expected = torch.stack([expected_x, expected_y], dim=-1)
+
+    assert result.shape == (2, 3, 2)
+    assert torch.allclose(result, expected, rtol=1e-5)
+    assert torch.allclose(result[0, 0, 0], torch.tensor(0.0), atol=1e-6)  # x at 0° lon
+    assert torch.allclose(result[1, 0, 0], -result[1, 1, 0], atol=1e-6)  # 180° vs -180°
+    assert torch.allclose(result[0, 0, 1], result[1, 2, 1], atol=1e-6)  # Both at 0° lat
 
 
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])

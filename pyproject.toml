@@ -128,7 +128,6 @@ corrdiff = [
 cyclone = [
     "cucim-cu12>=25.4.0 ; python_full_version < '3.13'",
     "scikit-image>=0.25.2",
-    "scikit-learn>=1.6.1",
 ]
 derived = []
 precip-afno = [
@@ -180,7 +179,7 @@ conflicts = [
     [
       { extra = "aurora" },
       { extra = "aurora-fork" },
-    ],
+    ]
 ]
 # Force onnx to only try to install when below 3.13, otherwise we will use onnx weekly
 override-dependencies = ["onnx; python_full_version < '3.13'"]
