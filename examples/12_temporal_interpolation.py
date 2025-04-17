@@ -33,7 +33,16 @@ In this example you will learn:
 # %%
 # Set Up
 # ------
-# First, import the necessary modules and set up our environment.
+# First, import the necessary modules and set up our environment and load the models.
+# We will use SFNO as the base prognostic model and the InterpModAFNO model to
+# interpolate its output to a finer time resolution.
+# The prognostic model must predict the needed variables in the interpolation model.
+#
+# This example needs the following:
+#
+# - Interpolation Model: :py:class:`earth2studio.models.dx.InterpModAFNO`.
+# - Prognostic Base Model: Use SFNO model :py:class:`earth2studio.models.px.SFNO`.
+# - Datasource: Pull data from the GFS data api :py:class:`earth2studio.data.GFS`.
 
 # %%
 import os
@@ -47,13 +56,6 @@ from earth2studio.models.px import SFNO, InterpModAFNO
 # Create output directory
 os.makedirs("outputs", exist_ok=True)
 
-# %%
-# Load Models
-# -----------
-# We will use SFNO as the base prognostic model and the InterpModAFNO model to
-# interpolate its output to a finer time resolution.
-
-# %%
 sfno_package = SFNO.load_default_package()
 base_model = SFNO.load_model(sfno_package)
 
