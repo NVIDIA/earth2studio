@@ -1,59 +1,146 @@
-# import io
-# import json
 import os
 
-# from copy import deepcopy
+import cartopy.crs as ccrs
+import cartopy.feature as cfeature
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-
-# from PIL import Image
-
-# E2CC_CONFIG_TEMPLATE = {
-#     "features": [
-#         {
-#             "name": None,
-#             "type": "Image",
-#             "projection": "latlong",
-#             "sources": {},
-#             "alpha_sources": {},
-#             "latlon_min": None,
-#             "latlon_max": None,
-#             "remapping": {
-#                 "input_min": 0.0,
-#                 "input_max": 1.0,
-#                 "output_min": 0.0,
-#                 "output_max": 1.0,
-#                 "output_gamma": 1.0,
-#             },
-#             "colormap": None,
-#         }
-#     ]
-# }
+import xarray as xr
+from cartopy.mpl.ticker import LatitudeFormatter, LongitudeFormatter
 
 
-# def initialise_e2cc_config(cfg):
-#     e2cc_config = deepcopy(E2CC_CONFIG_TEMPLATE)
-#     feature = e2cc_config["features"][0]
-#     feature["name"] = cfg.name
+def ibtracs_helene():
+    """Get the IBTrACS coordinates for Hurricane Helene.
 
-#     feature["latlon_min"] = [float(cfg.lat_min), float(cfg.lon_min)]
-#     feature["latlon_max"] = [float(cfg.lat_max), float(cfg.lon_max)]
-#     feature["colormap"] = cfg.colour_map
+    Returns
+    -------
+    pd.DataFrame
+        data frame containing latitude and longitude coordinates of TC centres
 
-#     # create out dir if not exist
-#     os.makedirs(cfg.out_dir, exist_ok=True)
+    """
+    centre_coords = pd.DataFrame(
+        {
+            "time": pd.date_range(
+                "2024-09-21 18:00:00", "2024-09-28 12:00:00", freq="3h"
+            ),
+            "lat": [
+                13.60,
+                13.80,
+                14.00,
+                14.20,
+                14.40,
+                14.60,
+                14.80,
+                15.00,
+                15.20,
+                15.40,
+                15.60,
+                15.70,
+                16.00,
+                16.60,
+                17.20,
+                17.60,
+                17.90,
+                18.10,
+                18.20,
+                18.40,
+                18.60,
+                19.00,
+                19.30,
+                19.40,
+                19.40,
+                19.50,
+                19.80,
+                20.00,
+                20.30,
+                20.70,
+                21.10,
+                21.50,
+                22.00,
+                22.40,
+                22.80,
+                23.20,
+                23.60,
+                24.10,
+                24.70,
+                25.60,
+                26.70,
+                27.70,
+                28.70,
+                29.90,
+                31.30,
+                32.90,
+                34.40,
+                35.70,
+                36.70,
+                37.60,
+                38.10,
+                37.90,
+                37.40,
+                37.00,
+                36.60,
+            ],
+            "lon": [
+                277.3,
+                277.4,
+                277.4,
+                277.4,
+                277.4,
+                277.4,
+                277.4,
+                277.4,
+                277.4,
+                277.4,
+                277.5,
+                277.7,
+                278.0,
+                278.1,
+                278.2,
+                278.2,
+                278.1,
+                278.0,
+                277.9,
+                277.7,
+                277.3,
+                276.8,
+                276.3,
+                275.8,
+                275.4,
+                275.0,
+                274.7,
+                274.4,
+                274.1,
+                273.9,
+                273.8,
+                273.7,
+                273.5,
+                273.4,
+                273.3,
+                273.3,
+                273.5,
+                273.7,
+                274.1,
+                274.6,
+                275.1,
+                275.4,
+                275.7,
+                276.2,
+                276.7,
+                276.9,
+                276.8,
+                276.1,
+                275.1,
+                274.2,
+                273.4,
+                272.5,
+                272.0,
+                272.0,
+                272.4,
+            ],
+        }
+    )
 
-#     return e2cc_config
-
-
-# def save_e2cc_config(e2cc_config, out_dir):
-#     e2cc_conf_path = os.path.join(out_dir, "0000-config.json")
-#     with open(e2cc_conf_path, "w") as conf:
-#         json.dump(e2cc_config, conf)
-#     print(f"done :)  ---> all data to be found under {out_dir}")
-
-#     return
+    return centre_coords
 
 
 def get_file_list(dir):
@@ -238,46 +325,133 @@ def plot_tracks(
     return fig, ax
 
 
-# def plot_to_image(fig, ax):
-#     # Extract the plot as an image
-#     with io.BytesIO() as buff:
-#         fig.savefig(buff, format="raw", transparent=True)
-#         buff.seek(0)
-#         data = np.frombuffer(buff.getvalue(), dtype=np.uint8)
-#     ww, hh = fig.get_size_inches() * fig.dpi
-#     arr = data.reshape((int(hh), int(ww), -1))
+# define plots
+def make_figure(projection: ccrs.Projection = ccrs.PlateCarree()):
+    """Create a figure with a map projection and basic geographic features.
 
-#     arr = arr.copy()
-#     for channel in range(3):
-#         arr[:, :, channel] = arr[:, :, -1]
-#     arr = arr[..., -1]
-#     cont_img = Image.fromarray(arr).convert("L")
+    Parameters
+    ----------
+    projection : ccrs.Projection, optional
+        Cartopy projection to use for the map, by default ccrs.PlateCarree()
 
-#     arr[arr != 0] = 255
-#     binary_img = Image.fromarray(arr).convert("L")
+    Returns
+    -------
+    tuple
+        matplotlib Figure and Axes objects with configured map projection
+    """
+    fig = plt.figure(figsize=(11, 5))
+    ax = fig.add_subplot(1, 1, 1, projection=projection)
 
-#     return cont_img, binary_img
+    ax.add_feature(cfeature.COASTLINE, lw=0.5)
+    ax.add_feature(cfeature.RIVERS, lw=0.5)
+
+    lon_formatter = LongitudeFormatter(zero_direction_label=False)
+    lat_formatter = LatitudeFormatter()
+    ax.xaxis.set_major_formatter(lon_formatter)
+    ax.yaxis.set_major_formatter(lat_formatter)
+
+    return fig, ax
 
 
-# def image_to_file(cont_img, binary_img, time, out_dir, e2cc_config, value_to):
-#     if value_to == "colour":
-#         imgs = {"source": cont_img, "alpha_source": binary_img}
-#     elif value_to == "alpha":
-#         imgs = {"source": binary_img, "alpha_source": cont_img}
-#     elif value_to == "both":
-#         imgs = {"source": cont_img, "alpha_source": cont_img}
-#     elif value_to == "none":
-#         imgs = {"source": binary_img, "alpha_source": binary_img}
-#     else:
-#         raise ValueError(
-#             f"value_to is set as {value_to}, but has to "
-#             + "be 'colour', 'alpha', 'both' or 'none'."
-#         )
+class make_frame:
+    """Class for creating animation frames with variable data and track overlays.
 
-#     for component in ["source", "alpha_source"]:
-#         file_name = f"{time.replace(':', '-').replace(' ', 'T')}_{component}.jpg"
-#         out_path = os.path.join(out_dir, file_name)
-#         imgs[component].save(out_path, quality=100, subsampling=0)
+    Parameters
+    ----------
+    fig : matplotlib.figure.Figure
+        Figure object to draw on
+    ax : matplotlib.axes.Axes
+        Axes object with map projection
+    var_ds : xarray.DataArray
+        dataset to plot
+    ensemble_member : int
+        Index of ensemble member to plot
+    track_list : list
+        List of track dictionaries containing lat/lon coordinates
+    max_frames : int
+        Maximum number of frames to process
+    min_val : float
+        Minimum value for colormap
+    max_val : float
+        Maximum value for colormap
+    projection : ccrs.Projection
+        Cartopy projection used for the map
+    reg_ds : xarray.Dataset
+        Dataset containing latitude and longitude coordinates
+    time_str : str
+        Time string for the frame title
+    """
 
-#         # add info to e2cc_config
-#         e2cc_config["features"][0][component + "s"][time] = "./" + file_name
+    def __init__(
+        self,
+        fig: plt.Figure,
+        ax: plt.Axes,
+        var_ds: xr.DataArray,
+        ensemble_member: int,
+        track_list: list,
+        max_frames: int,
+        min_val: float,
+        max_val: float,
+        projection: ccrs.Projection,
+        reg_ds: xr.Dataset,
+        time_str: str,
+    ):
+        self.fig = fig
+        self.ax = ax
+        self.var_ds = var_ds
+        self.ensemble_member = ensemble_member
+        self.track_list = track_list
+        self.max_frames = max_frames
+        self.min_val = min_val
+        self.max_val = max_val
+        self.projection = projection
+        self.reg_ds = reg_ds
+        self.time_str = time_str
+
+    def __call__(self, frame: int) -> plt.pcolormesh:
+        """Generate a single frame for the animation.
+
+        Parameters
+        ----------
+        frame : int
+            Frame number to generate (-1 for initialization frame)
+
+        Returns
+        -------
+        matplotlib.pyplot.pcolormesh
+            The pcolormesh object for the current frame
+        """
+        print(
+            f"\rprocessing frame {frame+1} of {min(self.max_frames, self.var_ds.shape[2])}",
+            end="",
+        )
+        plot_ds = self.var_ds[self.ensemble_member, 0, max(frame, 0), :, :]
+        pc = self.ax.pcolormesh(
+            self.reg_ds.lon,
+            self.reg_ds.lat,
+            plot_ds,
+            transform=self.projection,
+            cmap="plasma",
+            vmin=self.min_val,
+            vmax=self.max_val,
+        )
+
+        if frame == -1:
+            # create colorbar
+            _ = self.fig.colorbar(pc, extend="both", shrink=0.8, ax=self.ax)
+        else:
+            # plot track
+            track = self.track_list[self.ensemble_member]
+            max_len = min(frame, len(track["lon"]))
+            self.ax.plot(
+                track["lon"][:max_len] - 360,
+                track["lat"][:max_len],
+                color="white",
+                linewidth=2,
+                alpha=1,
+            )
+
+        header = self.time_str + " " + f"{frame*6}:00:00"
+        self.ax.set_title(header, fontsize=14)
+
+        return pc
