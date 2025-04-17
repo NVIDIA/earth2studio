@@ -60,23 +60,30 @@ from dotenv import load_dotenv
 
 load_dotenv()  # TODO: make common example prep function
 
-from earth2studio.data import WB2ERA5
+from datetime import datetime, timedelta
+
+import torch
+
+from earth2studio.data import ARCO
 from earth2studio.io import ZarrBackend
 from earth2studio.models.dx import TCTrackerWuDuan
-from earth2studio.models.px import FCN
+from earth2studio.models.px import SFNO
 
 # Create tropical cyclone tracker
 tracker = TCTrackerWuDuan()
 
 # Load the default model package which downloads the check point from NGC
-package = FCN.load_default_package()
-model = FCN.load_model(package)
+package = SFNO.load_default_package()
+prognostic = SFNO.load_model(package)
 
 # Create the data source
-data = WB2ERA5()
+data = ARCO()
 
 # Create the IO handler, store in memory
 io = ZarrBackend()
+
+nsteps = 4  # Number of steps to run the tracker for
+start_time = datetime(2017, 8, 25)  # Start date for inference
 
 # %%
 # Tracking Analysis Data
@@ -89,32 +96,60 @@ io = ZarrBackend()
 # 20 forecast steps which is 5 days.
 
 # %%
-from datetime import datetime, timedelta
 
-import torch
-
-from earth2studio.data import prep_data_array
+from earth2studio.data import fetch_data, prep_data_array
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 tracker = tracker.to(device)
 
 # Land fall occured August 25th 2017
-times = [datetime(2017, 8, 25) + timedelta(hours=6 * i) for i in range(3)]
-print(tracker.path_buffer.shape)
-for time in times:
+times = [start_time + timedelta(hours=6 * i) for i in range(nsteps)]
+for step, time in enumerate(times):
     da = data(time, tracker.input_coords()["variable"])
-    input, input_coords = prep_data_array(da, device=device)
+    x, coords = prep_data_array(da, device=device)
+    output, output_coords = tracker(x, coords)
+    print(f"Step {step}: output shape {output.shape}")
 
-    output, output_coords = tracker(input, input_coords)
+era5_tracks = output.cpu()
+torch.save(era5_tracks, "era5.pt")
 
-    print(output.shape)
+# %%
+# Notice that the output tensor grows as iterations are performed.
+# This is because the tracker builds tracks based on previous forward passes returning
+# a tensor with the dimensions [batch, path, step, variable].
+# Not all paths are garenteed to be the same length or have the same start / stop time
+# so any missing data is populated with a nan value.
+#
+# Up next lets also repeat the same process using the prognostic AI model.
+# One could use one of the build in workflows but here we will manually implement the
+# inference loop.
+# %%
 
-torch.save(output, "output.pt")
+from tqdm import tqdm
 
-# from earth2studio.models.dx.tc_tracking import get_tracks_from_positions
-# df_tracks = get_tracks_from_positions(
-#     output, output_coords, min_length=3, search_radius_km=250, max_skips=1
-# )
+from earth2studio.utils.coords import map_coords
 
-# df_tracks.to_csv("output_2.csv")
-# print(df_tracks['point_name'].isin([0]))
+prognostic = prognostic.to(device)
+
+# Load the initial state
+x, coords = fetch_data(
+    source=data,
+    time=[start_time],
+    variable=prognostic.input_coords()["variable"],
+    lead_time=prognostic.input_coords()["lead_time"],
+    device=device,
+)
+
+print(x.shape, coords)
+# Create prognostic iterator
+model = prognostic.create_iterator(x, coords)
+
+with tqdm(total=nsteps + 1, desc="Running inference") as pbar:
+    for step, (x, coords) in enumerate(model):
+        # Run tracker
+        x, coords = map_coords(x, coords, tracker.input_coords())
+        output, output_coords = tracker(x, coords)
+        print(f"Step {step}: output shape {output.shape}")
+
+fcn_tracks = output.cpu()
+torch.save(fcn_tracks, "sfno.pt")
