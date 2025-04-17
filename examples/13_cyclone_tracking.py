@@ -211,7 +211,7 @@ for path in range(era5_paths.shape[1]):
             lons[mask],
             lats[mask],
             color=color,
-            linestyle=".",
+            linestyle="-.",
             marker="x",
             label="ERA5" if path == 0 else "",
             transform=ccrs.PlateCarree(),
