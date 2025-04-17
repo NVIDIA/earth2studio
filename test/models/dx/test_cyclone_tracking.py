@@ -77,7 +77,7 @@ def test_haversine_torch(device):
     expected_distance = torch.tensor(12860.0)
 
     # Calculate distance using haversine_torch
-    dist = TCTrackerVitart.haversine_torch(lat1, lon1, lat2, lon2, meters=False)
+    dist = TCTrackerVitart.haversine_torch(lat1, lon1, lat2, lon2)
 
     # Assert that the calculated distance is close to the expected distance
     torch.testing.assert_close(expected_distance, dist, rtol=1e-3, atol=1e-3)
@@ -149,9 +149,96 @@ def test_get_local_max(device, num_maxima):
 
 
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+def test_multiple_tracks(device):
+    # Create two tracks: one moving northeast, one moving northwest
+    frames = [
+        torch.tensor(
+            [
+                [[30.0, 60.0, 1.0, 1.0], [35.0, 70.0, 2.0, 2.0]],
+                [[-20.0, 190.0, 1.0, 1.0], [-25.0, 210.0, 2.0, 2.0]],
+            ],
+            device=device,
+        ),
+        torch.tensor(
+            [
+                [[30.2, 60.2, 1.1, 1.1], [35.2, 69.8, 2.1, 2.1]],
+                [[-20.3, 191.0, 1.0, 1.0], [-25.2, 209.0, 2.0, 2.0]],
+            ],
+            device=device,
+        ),
+    ]
+
+    path_buffer = frames[0].unsqueeze(2)
+    for frame in frames:
+        path_buffer = TCTrackerVitart.append_paths(
+            frame, path_buffer, path_search_distance=100.0
+        )
+
+    assert path_buffer.shape == (2, 3, 3, 4)
+    assert torch.abs(path_buffer[0, 0, :, 0] - path_buffer[0, 1, :, 0]).mean() > 4.0
+
+
+@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+def test_track_with_gap(device):
+    frames = [
+        torch.tensor([[[30.0, 60.0, 1.0, 1.0]]], device=device),  # t=0
+        torch.tensor(
+            [[[TCTrackerVitart.PATH_FILL_VALUE] * 4]], device=device
+        ),  # t=1 (gap)
+        torch.tensor([[[30.4, 60.4, 1.2, 1.2]]], device=device),  # t=2
+    ]
+
+    path_buffer = torch.empty(0)
+    for frame in frames:
+        path_buffer = TCTrackerVitart.append_paths(
+            frame, path_buffer, path_search_distance=50.0, path_search_window_size=2
+        )
+
+    # Assertions
+    assert path_buffer.shape == (1, 1, 3, 4)
+    assert torch.allclose(path_buffer[0, 0, 0], frames[0][0, 0])
+    assert torch.allclose(path_buffer[0, 0, -1], frames[-1][0, 0])
+    assert torch.all(path_buffer[0, 0, 1] == TCTrackerVitart.PATH_FILL_VALUE)
+
+
+@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+def test_empty_initialization(device):
+    frame = torch.tensor([[[30.0, 60.0, 1.0, 1.0]]], device=device)
+    path_buffer = torch.empty(0, device=device)
+
+    result = TCTrackerVitart.append_paths(frame, path_buffer)
+
+    assert result.shape == (1, 1, 1, 4)
+    assert torch.allclose(result[0, 0, 0], frame[0, 0])
+
+
+def test_invalid_inputs():
+    with pytest.raises(ValueError):
+        TCTrackerVitart.append_paths(
+            torch.ones((1, 1, 4)),
+            torch.ones((2, 1, 1, 4)),  # Mismatched batch size
+            path_search_distance=50.0,
+        )
+
+    with pytest.raises(ValueError):
+        TCTrackerVitart.append_paths(
+            torch.ones((1, 1, 4)),
+            torch.ones((1, 1, 1, 4)),
+            path_search_distance=-1.0,  # Invalid distance
+        )
+
+    with pytest.raises(ValueError):
+        TCTrackerVitart.append_paths(
+            torch.ones((1, 1, 4)),
+            torch.ones((1, 1, 1, 4)),
+            path_search_window_size=0,  # Invalid window size
+        )
+
+
 @pytest.mark.parametrize("num_timesteps", [1, 2])
 @pytest.mark.parametrize("tc_included", [True, False])
-def test_cyclone_tracking_vorticity(num_timesteps, tc_included, device):
+@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+def test_cyclone_tracking_wuduan(num_timesteps, tc_included, device):
     # Set dimensions
     num_vars, height, width = 5, 721, 1440
 
@@ -165,8 +252,8 @@ def test_cyclone_tracking_vorticity(num_timesteps, tc_included, device):
     # Define the movement of the center in actual latitude and longitude units
     lat_movement = [
         0.0,
-        -2.0,
-        -4.0,
+        1.0,
+        -1.5,
     ]  # Center moves north by 2 and then 4 degrees latitude
     lon_movement = [
         0.0,
@@ -221,84 +308,97 @@ def test_cyclone_tracking_vorticity(num_timesteps, tc_included, device):
         radius_km = 100.0  # Radius of the cyclone center in kilometers
 
         # Increase the amplitude of u850 and v850 to ensure higher vorticity
-        amplitude = 1e7  # Amplitude to increase the magnitude of wind components
+        amplitude = 1e4  # Amplitude to increase the magnitude of wind components
         u850 = (
             amplitude * torch.sin(dlat) * torch.exp(-(distance**2) / (2 * radius_km**2))
         )
         v850 = (
-            amplitude * torch.sin(dlon) * torch.exp(-(distance**2) / (2 * radius_km**2))
+            -amplitude
+            * torch.sin(dlon)
+            * torch.exp(-(distance**2) / (2 * radius_km**2))
         )
 
-        # Calculate vorticity
-        vorticity = ct.vorticity(u850, v850)
-
-        # Debug: Print max vorticity to ensure it is sufficient
-        print(f"Max vorticity at timestep {t}: {torch.max(vorticity).item()}")
-
         # Assign u850 and v850 to the appropriate index in x for each timestep
-        x[t, 0] = u850
-        x[t, 1] = v850
-        x[t, 2, :] = 10  # u10m
-        x[t, 3, :] = 10  # v10m
-        x[t, 4, :] = 980  # msl
+        x[t, 3] = u850
+        x[t, 4] = v850
+        # Create 10m wind components with similar structure to 850hPa winds but lower amplitude
+        max_10m = 20
+        amplitude_10m = 5e3  # Lower amplitude for surface winds
+        u10m = (
+            amplitude_10m
+            * torch.sin(dlat)
+            * torch.exp(-(distance**2) / (2 * radius_km**2))
+        )
+        v10m = (
+            amplitude_10m
+            * torch.sin(dlon)
+            * torch.exp(-(distance**2) / (2 * radius_km**2))
+        )
+        u10m = torch.clamp(u10m, -max_10m, max_10m)
+        v10m = torch.clamp(v10m, -max_10m, max_10m)
+
+        # Create MSL pressure field centered on hurricane with lower pressure in center
+        msl_ambient = 1013.0  # Ambient pressure in hPa
+        msl_center = 980.0  # Center pressure in hPa
+        msl = msl_ambient - (msl_ambient - msl_center) * torch.exp(
+            -(distance**2) / (2 * radius_km**2)
+        )
+
+        x[t, 0] = u10m  # u10m
+        x[t, 1] = v10m  # v10m
+        x[t, 2] = 100 * msl  # msl
 
     # Set up mock coordinates dictionary
     coords = {
-        "time": np.array(list(range(0, num_timesteps))),
-        "variable": np.array(["u850", "v850", "u10m", "v10m", "msl"]),
+        "time": np.array([1]),
+        "variable": ct.input_coords()["variable"],
         "lat": lats,
         "lon": lons,
     }
-
     # Forward pass through the model
-    y, c = ct(x, coords)
+    for t in range(x.shape[0]):
+        y, c = ct(x[t : t + 1], coords)
 
-    # Define the expected center positions
-    if tc_included:
-        expected_lat_values = np.array(
-            [initial_center_lat + lat_movement[t] for t in range(num_timesteps)]
-        )
-        expected_lon_values = np.array(
-            [initial_center_lon + lon_movement[t] for t in range(num_timesteps)]
-        )
-    else:
-        expected_lat_values = np.empty((num_timesteps, 1))
-        expected_lat_values[:] = np.nan
-        expected_lon_values = np.empty((num_timesteps, 1))
-        expected_lon_values[:] = np.nan
+    if not tc_included:
+        assert torch.all(y.isnan())
+        assert np.all(c["step"] == np.arange(num_timesteps))
+        assert y.shape == (1, 1, num_timesteps, 4)
+        return
 
-    # Check expected coordinates
-    assert list(c["time"]) == list(range(0, num_timesteps))
-    assert list(c["variable"]) == ["tc_lat", "tc_lon", "tc_msl", "tc_w10m"]
-
-    # Check expected values for each timestep
+    assert y.shape == (1, 1, num_timesteps, 4)
+    assert np.all(c["step"] == np.arange(num_timesteps))
+    # Check the tracking is close to expected
     for t in range(num_timesteps):
-        if not tc_included:
-            assert torch.all(torch.isnan(y[t, :]))
-        else:
-            assert pytest.approx(y[0, 0, t].item(), None, 2) == expected_lat_values[t]
-            assert pytest.approx(y[0, 1, t].item(), None, 2) == expected_lon_values[t]
-            assert pytest.approx(y[0, 2, t].item(), None, 0.01) == 980
-            assert pytest.approx(y[0, 3, t].item(), None, 0.01) == np.sqrt(
-                10**2 + 10**2
-            )
+        current_center_lat = initial_center_lat + lat_movement[t]
+        current_center_lon = initial_center_lon + lon_movement[t]
+        assert np.allclose(
+            y[0, 0, t, :2].cpu(),
+            np.array([current_center_lat, current_center_lon]),
+            rtol=1e-1,
+        )
+        assert np.allclose(y[0, 0, t, 2].cpu(), 100 * msl_center, rtol=1e-1)
+        assert np.allclose(
+            y[0, 0, t, 3].cpu(), np.sqrt([max_10m**2 + max_10m**2]), rtol=1e-1
+        )
+    assert y.device == torch.device(device)
 
 
-@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
 @pytest.mark.parametrize("num_timesteps", [1, 2])
 @pytest.mark.parametrize("tc_included", [True, False])
-def test_cyclone_tracking(num_timesteps, tc_included, device):
+@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+def test_cyclone_tracking_vitart(num_timesteps, tc_included, device):
     """Runs hurricane identification with synthetic data"""
     # Set dimensions
-    num_vars, height, width = 11, 721, 1440
+    num_vars, height, width = 13, 721, 1440
 
     # Initialize x with random values
-    torch.manual_seed(42)
+    torch.manual_seed(0)
     x = torch.rand(num_timesteps, num_vars, height, width, device=device)
+    x[:, 2] = 101300  # Bump up msl field to atmos value
 
-    # Define the initial center latitude and longitude in actual units
-    initial_center_lat = 15
-    initial_center_lon = 280.0
+    # Define the initial center in gulf of mexico
+    initial_center_lat = 24
+    initial_center_lon = 90.0
 
     # Define the movement of the center in actual latitude and longitude units
     lat_movement = [
@@ -323,52 +423,83 @@ def test_cyclone_tracking(num_timesteps, tc_included, device):
         current_center_lat = initial_center_lat + lat_movement[t]
         current_center_lon = initial_center_lon + lon_movement[t]
 
+        if not tc_included:
+            continue
+
+        y_vals = (
+            torch.from_numpy(lats)
+            .to(dtype=torch.float32, device=device)
+            .view(-1, 1)
+            .repeat(1, width)
+        )
+        x_vals = (
+            torch.from_numpy(lons)
+            .to(dtype=torch.float32, device=device)
+            .view(1, -1)
+            .repeat(height, 1)
+        )
+
         # Define the center of the cyclone for other variables
         center_lat_index = np.argmin(np.abs(lats - current_center_lat))
         center_lon_index = np.argmin(np.abs(lons - current_center_lon))
 
-        # Initialize u850 and v850 with zeros
-        u850 = torch.zeros((height, width), dtype=torch.float32, device=device)
-        v850 = torch.zeros((height, width), dtype=torch.float32, device=device)
+        # Calculate distances in lat-lon space
+        lat_dist = (y_vals - current_center_lat) * np.pi / 180.0
+        lon_dist = (x_vals - current_center_lon) * np.pi / 180.0
 
-        # Define the radius of the area around the center to assign values
-        radius = 1
-
-        # Directly assign values to create a vorticity pattern
-        for i in range(
-            max(0, center_lat_index - radius),
-            min(height, center_lat_index + radius + 1),
-        ):
-            for j in range(
-                max(0, center_lon_index - radius),
-                min(width, center_lon_index + radius + 1),
-            ):
-                dy = i - center_lat_index
-                dx = j - center_lon_index
-                # Create a simple vorticity pattern
-                u850[i, j] = -dy
-                v850[i, j] = dx
-
-        x[t, 0] = u850
-        x[t, 1] = v850
+        # Convert to radians
+        R = 6371.0  # Earth radius in kilometers
+        dlat = lat_dist
+        dlon = lon_dist * torch.cos(y_vals * np.pi / 180.0)
+        a = (
+            torch.sin(dlat / 2) ** 2
+            + torch.cos(y_vals * np.pi / 180.0)
+            * torch.cos(torch.tensor(current_center_lat * np.pi / 180.0))
+            * torch.sin(dlon / 2) ** 2
+        )
+        c = 2 * torch.atan2(torch.sqrt(a), torch.sqrt(1 - a))
+        distance = R * c  # Distance in kilometers
+        radius_km = 100.0  # Radius of the cyclone center in kilometers
 
         # Define the MSL (mean sea level pressure) with a local minimum at the center
-        msl = torch.ones_like(x[t, 0, :, :]) * 1010
-        if tc_included:
-            msl[
-                center_lat_index - 20 : center_lat_index + 20,
-                center_lon_index - 20 : center_lon_index + 20,
-            ] = 990.0  # Further increase around the center
-            msl[
-                center_lat_index - 10 : center_lat_index + 10,
-                center_lon_index - 10 : center_lon_index + 10,
-            ] = 985.0  # Slight increase around the center
-            msl[
-                center_lat_index - 5 : center_lat_index + 5,
-                center_lon_index - 5 : center_lon_index + 5,
-            ] = 975.0  # Slight increase around the center
-            msl[center_lat_index, center_lon_index] = 970.0
+        msl_ambient = 101300.0  # Ambient pressure in Pa
+        msl_center = 98000.0  # Center pressure in Pa
+        msl = msl_ambient - (msl_ambient - msl_center) * torch.exp(
+            -(distance**2) / (2 * radius_km**2)
+        )
+
+        # Create 10m wind components with similar structure to 850hPa winds but lower amplitude
+        max_10m = 20
+        amplitude_10m = 5e3  # Lower amplitude for surface winds
+        u10m = (
+            amplitude_10m
+            * torch.sin(dlat)
+            * torch.exp(-(distance**2) / (2 * radius_km**2))
+        )
+        v10m = (
+            amplitude_10m
+            * torch.sin(dlon)
+            * torch.exp(-(distance**2) / (2 * radius_km**2))
+        )
+        u10m = torch.clamp(u10m, -max_10m, max_10m)
+        v10m = torch.clamp(v10m, -max_10m, max_10m)
+
+        x[t, 0] = u10m
+        x[t, 1] = v10m
         x[t, 2] = msl
+
+        # Increase the amplitude of u850 and v850 to ensure higher vorticity
+        amplitude = 1e4  # Amplitude to increase the magnitude of wind components
+        u850 = (
+            amplitude * torch.sin(dlat) * torch.exp(-(distance**2) / (2 * radius_km**2))
+        )
+        v850 = (
+            -amplitude
+            * torch.sin(dlon)
+            * torch.exp(-(distance**2) / (2 * radius_km**2))
+        )
+        x[t, 3] = u850
+        x[t, 4] = v850
 
         # Define local maximum of average temperatures between 200hPa and 500hPa
         # Tempertures need to decrease strongly with distance to the center
@@ -383,7 +514,7 @@ def test_cyclone_tracking(num_timesteps, tc_included, device):
         ] = 320
         t_dummy[center_lat_index, center_lon_index] = 340
         # Assign the same profile to all temperature variables
-        for var_index in range(6, 11):
+        for var_index in range(8, 13):
             x[t, var_index] = t_dummy
 
         # Define local local z200 - z850
@@ -393,306 +524,40 @@ def test_cyclone_tracking(num_timesteps, tc_included, device):
             center_lat_index - 5 : center_lat_index + 5,
             center_lon_index - 5 : center_lon_index + 5,
         ] = 1
-        x[t, 4] = z850
-        x[t, 5] = z200
+        x[t, 6] = z850
+        x[t, 7] = z200
 
     # Set up mock coordinates dictionary
     coords = {
         "time": np.array(list(range(0, num_timesteps))),
-        "variable": np.array(
-            [
-                "u850",
-                "v850",
-                "msl",
-                "z500",
-                "z850",
-                "z200",
-                "t500",
-                "t400",
-                "t300",
-                "t250",
-                "t200",
-            ]
-        ),
+        "variable": ct.input_coords()["variable"],
         "lat": lats,
         "lon": lons,
     }
 
     # Forward pass through the model
-    y, c = ct(x, coords)
+    for t in range(x.shape[0]):
+        y, c = ct(x[t : t + 1], coords)
 
-    # Define the expected center positions
-    if tc_included:
-        expected_lat_values = np.array(
-            [initial_center_lat + lat_movement[t] for t in range(num_timesteps)]
-        )
-        expected_lon_values = np.array(
-            [initial_center_lon + lon_movement[t] for t in range(num_timesteps)]
-        )
-    else:
-        expected_lat_values = np.empty((num_timesteps, 1))
-        expected_lat_values[:] = np.nan
-        expected_lon_values = np.empty((num_timesteps, 1))
-        expected_lon_values[:] = np.nan
+    if not tc_included:
+        assert torch.all(y.isnan())
+        assert np.all(c["step"] == np.arange(num_timesteps))
+        assert y.shape == (1, 1, num_timesteps, 4)
+        return
 
-    # Check expected coordinates
-    assert list(c["time"]) == list(range(0, num_timesteps))
-    assert list(c["coord"]) == ["lat", "lon"]
-
-    # Check expected values for each timestep
+    assert y.shape == (1, 1, num_timesteps, 4)
+    assert np.all(c["step"] == np.arange(num_timesteps))
+    # Check the tracking is close to expected
     for t in range(num_timesteps):
-        if not tc_included:
-            assert torch.all(torch.isnan(y[t, :]))
-        else:
-            assert pytest.approx(y[t, 0].item(), None, 2) == expected_lat_values[t]
-            assert pytest.approx(y[t, 1].item(), None, 2) == expected_lon_values[t]
-
-
-# import numpy as np
-# import pytest
-
-# from earth2studio.models.dx import (
-#     CycloneTracking,
-#     CycloneTrackingVorticity,
-# )
-# from earth2studio.utils.coords import map_coords
-
-
-# @pytest.mark.timeout(30)
-# @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
-# @pytest.mark.parametrize("tracker", ["T1", "T2"])
-# def test_tc_shapes(device, tracker):
-
-#     if tracker == "T1":
-#         CT = CycloneTracking()
-#     elif tracker == "T2":
-#         CT = CycloneTrackingVorticity()
-
-#     time = np.array(
-#         [
-#             np.datetime64("2023-08-29T00:00:00"),
-#             np.datetime64("2024-06-30T00:00:00"),
-#             np.datetime64("2024-07-04T00:00:00"),
-#         ]
-#     )
-#     variable = CT.input_coords()["variable"]
-
-#     gfs = GFS()
-#     da = gfs(time, variable)
-#     x, coords = prep_data_array(da, device=device)
-#     y, c = CT(x, coords)
-
-#     assert y.shape[0] == len(time)
-#     if tracker == "T1":
-#         assert y.shape[1] == 2
-#         assert y.shape[2] == 2
-#     elif tracker == "T2":
-#         assert y.shape[1] == 4
-#         assert y.shape[2] == 16
-
-#     assert "point" in c
-#     if tracker == "T1":
-#         assert all(c["point"] == np.arange(2))
-#     elif tracker == "T2":
-#         assert all(c["point"] == np.arange(16))
-
-#     if tracker == "T1":
-#         assert "coord" in c
-#         assert all(c["coord"] == np.array(["lat", "lon"]))
-#     elif tracker == "T2":
-#         assert "variable" in c
-#         assert all(c["variable"] == np.array(["tc_lat", "tc_lon", "tc_msl", "tc_w10m"]))
-
-#     assert "time" in c
-#     assert all(c["time"] == coords["time"])
-
-
-# @pytest.mark.timeout(30)
-# @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
-# @pytest.mark.parametrize("tracker", ["T1", "T2"])
-# def test_tc_shapes_ensemble(device, tracker):
-
-#     if tracker == "T1":
-#         CT = CycloneTracking()
-#     elif tracker == "T2":
-#         CT = CycloneTrackingVorticity()
-
-#     time = np.array(
-#         [
-#             np.datetime64("2023-08-29T00:00:00"),
-#             np.datetime64("2024-06-30T00:00:00"),
-#             np.datetime64("2024-07-04T00:00:00"),
-#         ]
-#     )
-#     variable = CT.input_coords()["variable"]
-
-#     gfs = GFS()
-#     da = gfs(time, variable)
-#     x, coords = prep_data_array(da, device=device)
-
-#     x = x.unsqueeze(0)
-#     coords = {"ensemble": np.arange(1)} | coords
-
-#     y, c = CT(x, coords)
-
-#     assert y.shape[0] == 1
-#     assert y.shape[1] == len(time)
-#     if tracker == "T1":
-#         assert y.shape[2] == 2
-#         assert y.shape[3] == 2
-#     elif tracker == "T2":
-#         assert y.shape[2] == 4
-#         assert y.shape[3] == 16
-
-#     assert "point" in c
-#     if tracker == "T1":
-#         assert all(c["point"] == np.arange(2))
-#     elif tracker == "T2":
-#         assert all(c["point"] == np.arange(16))
-
-#     if tracker == "T1":
-#         assert "coord" in c
-#         assert all(c["coord"] == np.array(["lat", "lon"]))
-#     elif tracker == "T2":
-#         assert "variable" in c
-#         assert all(c["variable"] == np.array(["tc_lat", "tc_lon", "tc_msl", "tc_w10m"]))
-
-#     assert "time" in c
-#     assert all(c["time"] == coords["time"])
-
-#     assert "ensemble" in c
-#     assert all(c["ensemble"] == coords["ensemble"])
-
-
-# @pytest.mark.ci_cache
-# @pytest.mark.timeout(30)
-# @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
-# def test_tc_non_rectangular(device, model_cache_context):
-
-#     with model_cache_context():
-#         package = CorrDiffTaiwan.load_default_package()
-#         dx = CorrDiffTaiwan.load_model(package).to(device)
-
-#     CT = CycloneTracking()
-
-#     time = np.array(
-#         [
-#             np.datetime64("2023-10-04T18:00:00"),
-#         ]
-#     )
-#     variable = CT.input_coords()["variable"]
-
-#     gfs = GFS()
-#     da = gfs(time, variable)
-#     x, coords = prep_data_array(da, device=device)
-
-#     # Map to non-rectangular lat, lon
-#     output_coords = dx.input_coords()
-#     output_coords.pop("variable")
-#     x, coords = map_coords(x, coords, output_coords)
-#     x = dx._interpolate(x)
-#     coords["lat"] = dx.out_lat
-#     coords["lon"] = dx.out_lon
-
-#     y, c = CT(x, coords)
-
-#     assert y.shape[0] == len(time)
-#     assert y.shape[1] == 2
-#     assert y.shape[2] == 1
-
-#     assert "point" in c
-#     assert all(c["point"] == np.arange(1))
-
-#     assert "coord" in c
-#     assert all(c["coord"] == np.array(["lat", "lon"]))
-
-#     assert "time" in c
-#     assert all(c["time"] == coords["time"])
-
-
-# @pytest.mark.timeout(30)
-# @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
-# @pytest.mark.parametrize("tracker", ["T1", "T2"])
-# def test_time_information(device, tracker):
-
-#     if tracker == "T1":
-#         CT = CycloneTracking()
-#     elif tracker == "T2":
-#         CT = CycloneTrackingVorticity()
-
-#     time = np.array(
-#         [
-#             np.datetime64("2024-09-26 12:00:00"),
-#             np.datetime64("2024-09-26 18:00:00"),
-#             np.datetime64("2024-09-27 00:00:00"),
-#         ]
-#     )
-#     variable = CT.input_coords()["variable"]
-
-#     gfs = GFS()
-#     da = gfs(time, variable)
-#     x, coords = prep_data_array(da, device=device)
-
-#     x = x.unsqueeze(0)
-#     coords = {"ensemble": np.arange(1)} | coords
-
-#     y, c = CT(x, coords)
-#     assert np.all(c["time"] == time)
-
-
-# @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
-# @pytest.mark.parametrize("tracker", ["T1", "T2"])
-# @pytest.mark.parametrize("case_name", ["mixed", "without"])
-# def test_time_without_tc(device, tracker, case_name):
-#     # Determine the appropriate tracker based on the parameters
-#     if tracker == "T1":
-#         CT = CycloneTracking()
-#     elif tracker == "T2":
-#         CT = CycloneTrackingVorticity()
-#     else:
-#         raise ValueError("Invalid tracker value. Must be 'T1' or 'T2'.")
-
-#     # Create the test times based on the case_name
-#     if tracker == "T2":
-#         times_mixed = [
-#             np.datetime64("2024-05-13 00:00:00"),
-#             np.datetime64("2024-05-13 06:00:00"),
-#         ]
-#         if case_name == "mixed":
-#             time = np.array(times_mixed)
-#         elif case_name == "without":
-#             time = np.array([times_mixed[1]])
-#         else:
-#             raise ValueError("Invalid case_name value. Must be 'mixed' or 'without'.")
-#     elif tracker == "T1":
-#         times_mixed = [
-#             np.datetime64("2024-05-13 18:00:00"),
-#             np.datetime64("2024-05-14 00:00:00"),
-#         ]
-#         if case_name == "mixed":
-#             time = np.array(times_mixed)
-#         elif case_name == "without":
-#             time = np.array([times_mixed[0]])
-#         else:
-#             raise ValueError("Invalid case_name value. Must be 'mixed' or 'without'.")
-#     # Get the input coordinates for the tracker and return the variable
-#     variable = CT.input_coords()["variable"]
-#     # get input data from GFS
-#     gfs = GFS()
-#     da = gfs(time, variable)
-#     x, coords = prep_data_array(da, device=device)
-
-#     x = x.unsqueeze(0)
-#     coords = {"ensemble": np.arange(1)} | coords
-
-#     # Run the tracker
-#     y, c = CT(x, coords)
-#     # Assert that the output shape matches the number of times
-#     assert y.shape[1] == len(time)
-#     # Assert that the coordinates match the input times
-#     assert len(c["time"]) == len(time)
-#     assert np.all(c["time"] == time)
-
-
-# if __name__ == "__main__":
-#     sp()
+        current_center_lat = initial_center_lat + lat_movement[t]
+        current_center_lon = initial_center_lon + lon_movement[t]
+        assert np.allclose(
+            y[0, 0, t, :2].cpu(),
+            np.array([current_center_lat, current_center_lon]),
+            rtol=1e-1,
+        )
+        assert np.allclose(y[0, 0, t, 2].cpu(), msl_center, rtol=1e-1)  # mls
+        assert np.allclose(
+            y[0, 0, t, 3].cpu(), np.sqrt([max_10m**2 + max_10m**2]), rtol=1e-1
+        )  # z
+    assert y.device == torch.device(device)

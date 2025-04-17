@@ -99,8 +99,8 @@ device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 tracker = tracker.to(device)
 
 # Land fall occured August 25th 2017
-times = [datetime(2017, 8, 25) + timedelta(hours=6 * i) for i in range(8)]
-
+times = [datetime(2017, 8, 25) + timedelta(hours=6 * i) for i in range(3)]
+print(tracker.path_buffer.shape)
 for time in times:
     da = data(time, tracker.input_coords()["variable"])
     input, input_coords = prep_data_array(da, device=device)

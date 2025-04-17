@@ -15,7 +15,6 @@
 # limitations under the License.
 
 from collections import OrderedDict
-from typing import Any
 
 try:
     import cupy as cp
@@ -24,6 +23,7 @@ try:
     from cucim.skimage.morphology import binary_erosion, remove_small_objects
     from skimage.feature import peak_local_max as skimage_peak_local_max
     from skimage.morphology import convex_hull_image
+    from sklearn.neighbors import BallTree
 except ImportError:
     cp = None
     cucim_peak_local_max = None
@@ -33,10 +33,10 @@ except ImportError:
     remove_small_objects = None
     skimage_peak_local_max = None
     convex_hull_image = None
+    BallTree = None
 
 import numpy as np
 import torch
-from pandas import DataFrame
 
 from earth2studio.models.batch import batch_coords, batch_func
 from earth2studio.utils import (
@@ -47,9 +47,11 @@ from earth2studio.utils.imports import check_extra_imports
 from earth2studio.utils.type import CoordSystem
 
 VARIABLES_TCV = [
+    "u10m",
+    "v10m",
+    "msl",
     "u850",
     "v850",
-    "msl",
     "z500",
     "z850",
     "z200",
@@ -59,21 +61,13 @@ VARIABLES_TCV = [
     "t250",
     "t200",
 ]
-VARIABLES_TCWD = ["u850", "v850", "u10m", "v10m", "msl"]
+VARIABLES_TCWD = ["u10m", "v10m", "msl", "u850", "v850"]
 OUT_VARIABLES = ["tc_lat", "tc_lon", "tc_msl", "tc_w10m"]
 
 
-class _CycloneTrackingBase(torch.nn.Module):
+class _TCTrackerBase:
 
-    def __init__(self) -> None:
-        super().__init__()
-        # History buffer is an internal buffer that holds past data to build paths
-        self.register_buffer("history_buffer", torch.empty(0))
-        self.tc_path_radius = 250
-
-    def reset_buffer(self) -> None:
-        """Resets the internal"""
-        self.history_buffer = torch.empty(0)
+    PATH_FILL_VALUE = 1000  # Should not be in lat/lon range for safety
 
     @classmethod
     def vorticity(
@@ -146,10 +140,10 @@ class _CycloneTrackingBase(torch.nn.Module):
         np.array
             Distance between two points [n]
         """
-        lat1 = p1[0]
-        lon1 = p1[1]
-        lat2 = p2[0]
-        lon2 = p2[1]
+        lon1 = p1[0]
+        lat1 = p1[1]
+        lon2 = p2[0]
+        lat2 = p2[1]
         lat1, lon1, lat2, lon2 = map(np.deg2rad, [lat1, lon1, lat2, lon2])
         dlon = lon2 - lon1
         dlat = lat2 - lat1
@@ -233,73 +227,101 @@ class _CycloneTrackingBase(torch.nn.Module):
     def append_paths(
         cls,
         frame: torch.Tensor,
-        history_buffer: torch.Tensor,
-        radius: float = 25,
+        path_buffer: torch.Tensor,
+        path_search_distance: float = 250,
+        path_search_window_size: int = 2,
     ) -> torch.Tensor:
         """Appends frame of TC centers into the track path history tensor
 
         Parameters
         ----------
         frame : torch.Tensor
-            batch list of [point_id, variable]
-        history_buffer : torch.Tensor
+            Instanteous frame of TC centers to append to existing list of paths of size
+            [batch, point_id, variable]
+        path_buffer : torch.Tensor
+            The current buffer of paths to append to with size
             [batch, path_id, step, variable]
-        radius : float, optional
-            Max haversine distance to connect to in km, by default 25
+        path_search_distance : float, optional
+            Max haversine search distance to connect to in km, by default 250
+        path_search_window_size: int, optional
+            The historical window size for a path to use when pairing. Namely, the
+            path search will use the specified number of historic points to connect a
+            new frame to the current set of paths, by default 2
 
         Returns
         -------
         torch.Tensor
             Updated history buffer of size [batch, path_id(+1), step+1, variable]
         """
-        if history_buffer.nelement() == 0:
+        if path_buffer.nelement() == 0:
             return frame.unsqueeze(2).clone()
 
-        if frame.shape[0] != history_buffer.shape[0]:
+        if path_search_window_size < 1:
+            raise ValueError("Path search window size must be greater than 1")
+
+        if path_search_distance <= 0:
+            raise ValueError("Path search distance must be greater than 0")
+
+        if frame.shape[0] != path_buffer.shape[0]:
             raise ValueError(
-                f"Error with updating TC tracker history buffer, input and history buffer need the same batch size. Got {frame.shape[0]} and {history_buffer.shape[0]}"
+                f"Error with updating TC tracker history buffer, input and history buffer need the same batch size. Got {frame.shape[0]} and {path_buffer.shape[0]}"
             )
 
-        # Yucky numpy
-        from sklearn.neighbors import BallTree
-
-        next_frame = torch.zeros_like(history_buffer[:, :, 0, :]).unsqueeze(2)
+        # Numpy only search...
+        next_frame = torch.full_like(
+            path_buffer[:, :, 0, :], cls.PATH_FILL_VALUE
+        ).unsqueeze(2)
         # Expand by one path for over flow / new paths
         # I.e. we have [batch, path id + 1, 1, variable]
-        next_frame = torch.cat([next_frame, torch.zeros_like(next_frame[:, :1])], dim=1)
+        next_frame = torch.cat(
+            [next_frame, torch.full_like(next_frame[:, :1], cls.PATH_FILL_VALUE)], dim=1
+        )
 
         for i in range(frame.shape[0]):
-            tree = BallTree(
-                history_buffer[i, :, -1, :2].cpu(), metric=cls.haversine_torch_np
+            # Stack all lat/lon features for window size into a [n,2] feature list
+            path_search_window_size = min(
+                [path_search_window_size, path_buffer.shape[2]]
             )
-            # Get distance of the last step
+            tree_features = (
+                path_buffer[i, :, -path_search_window_size:, :2].flip(-2).reshape(-1, 2)
+            )
+            # TODO: CuPy
+            tree = BallTree(tree_features.cpu(), metric=cls.haversine_torch_np)
+            # Ball tree search for nearest neighbor for current batch index
             dist, idx = tree.query(frame[i, :, :2].cpu(), k=1)
             for p in range(dist.shape[0]):
                 # If all variables are 0, its a filler from rnn.pad_sequence
-                if torch.sum(frame[i, p]) == 0:
+                if torch.all(frame[i, p] == cls.PATH_FILL_VALUE):
                     continue
-                if dist[p] < radius:
-                    next_frame[i, idx[p]] = frame[i, p]
+                # For steps that are further back in the window, increase radius
+                # Note, the `.flip(-2)` above make this calculation easier placing most
+                # recent step at index 0 instead of last
+                past_steps = idx[p] % path_search_window_size + 1
+                if dist[p, 0] < past_steps * path_search_distance:
+                    # Recall we have a window of points for each path
+                    # if any match, append to that path
+                    path_id = idx[p] // path_search_window_size
+                    next_frame[i, path_id] = frame[i, p]
                 # No match so looks like we need a new path
                 else:
                     next_frame[i, -1] = frame[i, p]
 
         # if theres nothing in the extra path row, get rid of it
-        if torch.sum(next_frame[:, -1]) == 0:
+        if torch.all(next_frame[:, -1] == cls.PATH_FILL_VALUE):
             next_frame = next_frame[:, :-1]
         else:
             # Expand the path_id dim by 1 for concat
             import torch.nn.functional as F
 
-            history_buffer = F.pad(
-                history_buffer, (0, 0, 0, 0, 0, 1, 0, 0), "constant", 0
+            path_buffer = F.pad(
+                path_buffer, (0, 0, 0, 0, 0, 1, 0, 0), "constant", cls.PATH_FILL_VALUE
             )
-        return torch.cat([history_buffer, next_frame], axis=2)
+        return torch.cat([path_buffer, next_frame], axis=2)
 
 
-@check_extra_imports("cyclone", ["cupy", "cucim", "skimage"])
-class TCTrackerWuDuan(_CycloneTrackingBase):
-    """Finds a list of tropical cyclone centers using an adaption of the method
+@check_extra_imports("cyclone", ["cupy", "cucim", "skimage", "sklearn"])
+class TCTrackerWuDuan(torch.nn.Module, _TCTrackerBase):
+    """Finds a list of tropical cyclone (TC) centers using an adaption of the method
     described in the conditions in Wu and Duan 2023. The algorithm converts vorticity
     from reanalysis data into a binary image using a defined critical threshold.
     Subsequent processing with connected component labeling and erosion identifies the
@@ -310,12 +332,39 @@ class TCTrackerWuDuan(_CycloneTrackingBase):
     For more information about this method see:
 
     - https://doi.org/10.1016/j.wace.2023.100626
+
+    Example
+    -------
+    The cyclone tracker will return a tensor of TC paths collected over a series of
+    forward passes which are held inside of the models state.
+    Namely given a time series of `n` snap shots, the tracker should be called for each
+    time-step resulting in a tensor consisting of a set number of paths with n steps.
+    Any non-valid / missing data will be `torch.nan` for filtering in post processing
+    steps.
+
+    >>> model = TCTrackerWuDuan()
+    >>> # Process each timestep
+    >>> for time in [datetime(2017, 8, 25) + timedelta(hours=6 * i) for i in range(3)]:
+    ...     da = data_source(time, tracker.input_coords()["variable"])
+    ...     input, input_coords = prep_data_array(da, device=device)
+    ...     output, output_coords = model(input, input_coords)
+    >>> # Final path_buffer shape: [batch, path_id, steps, variable]
+    >>> output.shape  # torch.Size([1, 6, 3, 4])
+    >>> model.path_buffer.shape  # torch.Size([1, 6, 3, 4])
+    >>> # Remove current paths from models state
+    >>> model.reset_path_buffer()
+    >>> model.path_buffer.shape  # torch.Size([0])
     """
 
-    def __init__(
-        self,
-    ) -> None:
+    def __init__(self) -> None:
         super().__init__()
+        self.register_buffer("path_buffer", torch.empty(0))
+        self.path_search_distance = 300
+        self.path_search_window_size = 2
+
+    def reset_path_buffer(self) -> None:
+        """Resets the internal"""
+        self.path_buffer = torch.empty(0)
 
     def input_coords(self) -> CoordSystem:
         """Input coordinate system of diagnostic model
@@ -373,8 +422,8 @@ class TCTrackerWuDuan(_CycloneTrackingBase):
         lat: torch.Tensor,
         lon: torch.Tensor,
         vort850: torch.Tensor,
-        w10m: torch.tensor,
-        msl: torch.tensor,
+        w10m: torch.Tensor,
+        msl: torch.Tensor,
         vort850_threshold: torch.Tensor = torch.tensor(1.4e-4),
     ) -> torch.Tensor:
         """Finds a list of tropical cyclone centers
@@ -391,7 +440,7 @@ class TCTrackerWuDuan(_CycloneTrackingBase):
         Returns
         -------
         torch.Tensor
-            List of TC centers, torch.Tensor of shape [2, N]
+            List of TC centers, torch.Tensor of shape [N, 4]
         """
 
         if vort850.is_cuda:
@@ -410,6 +459,7 @@ class TCTrackerWuDuan(_CycloneTrackingBase):
         x_ = v_ > vort850_threshold
         # Label regions
         x_label = label(x_)
+
         # Remove labels that are not of the the needed size (less than 18 pixels)
         x_label = remove_small_objects(x_label, min_size=18, connectivity=1)
         # Get region props (bounding box / axis)
@@ -501,10 +551,9 @@ class TCTrackerWuDuan(_CycloneTrackingBase):
                 )
 
         if len(centers) > 0:
-            return torch.stack(centers, dim=1)
+            return torch.stack(centers, dim=0)
         else:
-            x = torch.empty((1, 4), device=vort850.device)
-            x[:] = torch.nan
+            x = torch.full((1, 4), self.PATH_FILL_VALUE, device=vort850.device)
             return x
 
     @torch.inference_mode()
@@ -537,7 +586,7 @@ class TCTrackerWuDuan(_CycloneTrackingBase):
             msl = get_variable(x[i], "msl")
 
             # Calculate vorticity at 850 hPa
-            vort850 = _CycloneTrackingBase.vorticity(u850, v850)
+            vort850 = TCTrackerWuDuan.vorticity(u850, v850)
             vort850[361:] *= -1  # Invert southern hemisphere
 
             # Calculate wind speed at 10m height
@@ -546,25 +595,33 @@ class TCTrackerWuDuan(_CycloneTrackingBase):
             # identify position of tropical storm centers
             centers = self._find_centers(lat, lon, vort850, w10m, msl)
             # Pack [points, variables]
-            outs.append(centers.T)
+            outs.append(centers)
 
-        # Cursor found this amazing function!
+        # amazing function!
         # https://pytorch.org/docs/stable/generated/torch.nn.utils.rnn.pad_sequence.html
-        out = torch.nn.utils.rnn.pad_sequence(outs, padding_value=0, batch_first=True)
+        out = torch.nn.utils.rnn.pad_sequence(
+            outs, padding_value=self.PATH_FILL_VALUE, batch_first=True
+        )
         # [batch, path_id, step, variable]
-        self.history_buffer = self.append_paths(
-            out, self.history_buffer, self.tc_path_radius
+        self.path_buffer = self.append_paths(
+            out,
+            self.path_buffer,
+            self.path_search_distance,
+            self.path_search_window_size,
+        )
+        out = torch.where(
+            self.path_buffer == self.PATH_FILL_VALUE, torch.nan, self.path_buffer
         )
 
         output_coords = self.output_coords(coords)
-        output_coords["path_id"] = np.arange(self.history_buffer.shape[1])
-        output_coords["steps"] = np.arange(self.history_buffer.shape[2])
+        output_coords["path_id"] = np.arange(self.path_buffer.shape[1])
+        output_coords["step"] = np.arange(self.path_buffer.shape[2])
 
-        return self.history_buffer, output_coords
+        return out, output_coords
 
 
-@check_extra_imports("cyclone", ["cupy", "cucim", "skimage"])
-class TCTrackerVitart(_CycloneTrackingBase):
+@check_extra_imports("cyclone", ["cupy", "cucim", "skimage", "sklearn"])
+class TCTrackerVitart(torch.nn.Module, _TCTrackerBase):
     """Finds a list of tropical cyclone centers using the conditions in Vitart 1997
 
     Note
@@ -580,7 +637,7 @@ class TCTrackerVitart(_CycloneTrackingBase):
         tropical cyclone center is rejected, by default 3.5e-5 1/s
     mslp_threshold : float, optional
         The threshold for minimum sea level pressure for local minimums
-        to be considered tropical cyclonesb by default 990 hPa
+        to be considered tropical cyclone, by default 99000 Pa
     temp_dec_threshold : float, optional
         The value for which average temperature must decrease away from
         the warm core for a possible center to be considered a tropical
@@ -597,23 +654,53 @@ class TCTrackerVitart(_CycloneTrackingBase):
         that dimension. If True, takes the min_distance parameter as value.
         If zero or False, peaks are identified regardless of their distance
         from the border.
+
+    Example
+    -------
+    The cyclone tracker will return a tensor of TC paths collected over a series of
+    forward passes which are held inside of the models state.
+    Namely given a time series of `n` snap shots, the tracker should be called for each
+    time-step resulting in a tensor consisting of a set number of paths with n steps.
+    Any non-valid / missing data will be `torch.nan` for filtering in post processing
+    steps.
+
+    >>> model = TCTrackerVitart()
+    >>> # Process each timestep
+    >>> for time in [datetime(2017, 8, 25) + timedelta(hours=6 * i) for i in range(3)]:
+    ...     da = data_source(time, tracker.input_coords()["variable"])
+    ...     input, input_coords = prep_data_array(da, device=device)
+    ...     output, output_coords = model(input, input_coords)
+    >>> # Final path_buffer shape: [batch, path_id, steps, variable]
+    >>> output.shape  # torch.Size([1, 6, 3, 4])
+    >>> model.path_buffer.shape  # torch.Size([1, 6, 3, 4])
+    >>> # Remove current paths from models state
+    >>> model.reset_path_buffer()
+    >>> model.path_buffer.shape  # torch.Size([0])
     """
 
     def __init__(
         self,
         vorticity_threshold: float = 3.5e-5,
-        mslp_threshold: float = 990.0,
+        mslp_threshold: float = 99000.0,
         temp_dec_threshold: float = 0.5,
         lat_threshold: float = 60.0,
         exclude_border: bool | int = True,
     ) -> None:
         super().__init__()
-
+        # TC Center identification parameters
         self.vorticity_threshold = vorticity_threshold
         self.msl_threshold = mslp_threshold
         self.temp_dec_threshold = temp_dec_threshold
         self.lat_threshold = lat_threshold
         self.exclude_border = exclude_border
+        # TC path identification parameters
+        self.register_buffer("path_buffer", torch.empty(0))
+        self.path_search_distance = 300
+        self.path_search_window_size = 2
+
+    def reset_path_buffer(self) -> None:
+        """Resets the internal"""
+        self.path_buffer = torch.empty(0)
 
     def input_coords(self) -> CoordSystem:
         """Input coordinate system of diagnostic model
@@ -653,13 +740,15 @@ class TCTrackerVitart(_CycloneTrackingBase):
         handshake_dim(input_coords, "variable", 1)
         handshake_coords(input_coords, target_input_coords, "variable")
 
-        output_coords = input_coords.copy()
-        output_coords.pop("variable")
-        output_coords.pop("lat")
-        output_coords.pop("lon")
-        output_coords["coord"] = np.array(["lat", "lon"])
-        output_coords["id"] = np.arange(0)
-
+        # [batch, path_id, step, variable]
+        output_coords = OrderedDict(
+            [
+                ("batch", input_coords["batch"]),
+                ("path_id", np.empty(0)),
+                ("step", np.empty(0)),
+                ("variable", np.array(OUT_VARIABLES)),
+            ]
+        )
         return output_coords
 
     def _find_centers(
@@ -667,11 +756,12 @@ class TCTrackerVitart(_CycloneTrackingBase):
         lat: torch.Tensor,
         lon: torch.Tensor,
         msl: torch.Tensor,
+        w10m: torch.Tensor,
         vort850: torch.Tensor,
         t_200_500_mean: torch.Tensor,
         dz_200_850: torch.Tensor,
         vorticity_threshold: float = 3.5e-5,
-        mslp_threshold: float = 990.0,
+        mslp_threshold: float = 99000.0,
         temp_dec_threshold: float = 0.5,
         exclude_border: bool | int = True,
     ) -> torch.Tensor:
@@ -684,8 +774,9 @@ class TCTrackerVitart(_CycloneTrackingBase):
         lon : torch.Tensor
             mesh of longitudes tensors. [nlat, nlon]
         msl : torch.Tensor
-            Mean Sea Level Pressure tensor of dimension
-            [nlat, nlon].
+            Mean Sea Level Pressure tensor of dimension [nlat, nlon].
+        w10m : torch.Tensor
+            Surface wind tensor, just used to return surface wind at core
         vort850 : torch.Tensor
         850 hPa relative vorticity of dimension [nlat, nlon].
         t_200_500_mean : torch.Tensor
@@ -698,7 +789,7 @@ class TCTrackerVitart(_CycloneTrackingBase):
             tropical cyclone center is rejected. By default 3.5e-5 1/s
         mslp_threshold: float
             The threshold for minimum sea level pressure for local minimums
-            to be considered tropical cyclones. By default 990 hPa.
+            to be considered tropical cyclones. By default 990000 Pa.
         temp_dec_threshold: float
             The value for which average temperature must decrease away from
             the warm core for a possible center to be considered a tropical
@@ -719,11 +810,12 @@ class TCTrackerVitart(_CycloneTrackingBase):
             List of TC centers, torch.Tensor of shape [2, N]
         """
 
+        min_distance = 10
         # Get local max vorticity
         vlm = TCTrackerVitart.get_local_max(
             vort850,
             threshold_abs=vorticity_threshold,
-            min_distance=10,
+            min_distance=min_distance,
             exclude_border=exclude_border,
         )
         vlm_loc = torch.stack(
@@ -732,7 +824,7 @@ class TCTrackerVitart(_CycloneTrackingBase):
 
         # Get local maximum of average temperature between 500 and 200mb
         tlm = TCTrackerVitart.get_local_max(
-            t_200_500_mean, min_distance=10, exclude_border=exclude_border
+            t_200_500_mean, min_distance=min_distance, exclude_border=exclude_border
         )
         tlm_loc = torch.stack(
             (lat[tlm[:, 0], tlm[:, 1]], lon[tlm[:, 0], tlm[:, 1]]), dim=1
@@ -746,17 +838,23 @@ class TCTrackerVitart(_CycloneTrackingBase):
 
         # Get local min msl
         msllm = TCTrackerVitart.get_local_max(
-            -msl / 100,
+            -msl,
             threshold_abs=-mslp_threshold,
-            min_distance=10,
+            min_distance=min_distance,
             exclude_border=exclude_border,
         )
         mlm_loc = torch.stack(
             (lat[msllm[:, 0], msllm[:, 1]], lon[msllm[:, 0], msllm[:, 1]]), dim=1
         )
 
+        dzlm = TCTrackerVitart.get_local_max(dz_200_850, exclude_border=exclude_border)
+        dzlm_loc = torch.stack(
+            (lat[dzlm[:, 0], dzlm[:, 1]], lon[dzlm[:, 0], dzlm[:, 1]]), dim=1
+        )
+
         centers = []
-        for mins in mlm_loc:
+        for i, mins in enumerate(mlm_loc):
+            idx_lat, idx_lon = msllm[i]
             center0 = torch.as_tensor(mins, device=msl.device)
 
             # Vorticity filter
@@ -773,7 +871,7 @@ class TCTrackerVitart(_CycloneTrackingBase):
             if dist.min() > 2 * 25:  # Distance should be less than 2 degrees ~= 50 km
                 continue
 
-            ti = torch.argmin(dist)
+            ti = torch.argmin(dist)  # Get closest distance to core
             ti_loc = tlm_loc[ti]
             ti = tlm[ti]
 
@@ -812,12 +910,22 @@ class TCTrackerVitart(_CycloneTrackingBase):
             if dist.min() > 2 * 25:
                 continue
 
-            centers.append(center0)
+            w10m_max = torch.max(
+                w10m[
+                    idx_lat - min_distance : idx_lat + min_distance,
+                    idx_lon - min_distance : idx_lon + min_distance,
+                ]
+            )
+            centers.append(
+                torch.tensor([center0[0], center0[1], msl[ti[0], ti[1]], w10m_max]).to(
+                    msl.device
+                )
+            )
+
         if len(centers) > 0:
-            return torch.stack(centers, dim=-1)
+            return torch.stack(centers, dim=0)
         else:
-            x = torch.empty((2, 1), device=vort850.device)
-            x[:] = torch.nan
+            x = torch.full((1, 4), self.PATH_FILL_VALUE, device=vort850.device)
             return x
 
     @torch.inference_mode()
@@ -852,54 +960,57 @@ class TCTrackerVitart(_CycloneTrackingBase):
             lat = lat[indices].reshape(-1, nlon)
             lon = lon[indices].reshape(-1, nlon)
 
-        def get_variable(x: torch.Tensor, var: str) -> torch.Tensor:
+        def get_variable(x0: torch.Tensor, var: str) -> torch.Tensor:
             index = VARIABLES_TCV.index(var)
-            return x[index]
+            return x0[:, index]
 
         ####
         # First thing to do is to get MSL local minimums
         # extract MSL from x
         # x - [n, 8, nlat, nlon]
+
+        u10m = get_variable(x, "u10m")
+        v10m = get_variable(x, "v10m")
+        w10m = torch.sqrt(torch.pow(u10m, 2) + torch.pow(v10m, 2))
+
+        # Get vorticity
+        u850 = get_variable(x, "u850")
+        v850 = get_variable(x, "v850")
+        vort850 = TCTrackerVitart.vorticity(u850, v850)
+        vort850[:, 361:] *= -1
+        # Get MSL
+        msl = get_variable(x, "msl")
+        # Get average temp
+        t_200_500_mean = torch.mean(
+            torch.stack(
+                [
+                    get_variable(x, ti)
+                    for ti in ["t500", "t400", "t300", "t250", "t200"]
+                ],
+                dim=1,
+            ),
+            dim=1,
+        )
+        # Get z200 - z850 width
+        dz_200_850 = get_variable(x, "z200") - get_variable(x, "z850")
+
+        if self.lat_threshold is not None:
+            w10m = w10m[:, indices].reshape(x.shape[0], -1, nlon)
+            msl = msl[:, indices].reshape(x.shape[0], -1, nlon)
+            vort850 = vort850[:, indices].reshape(x.shape[0], -1, nlon)
+            t_200_500_mean = t_200_500_mean[:, indices].reshape(x.shape[0], -1, nlon)
+            dz_200_850 = dz_200_850[:, indices].reshape(x.shape[0], -1, nlon)
+
         outs = []
         for i in range(x.shape[0]):
-
-            # Get vorticity
-            u850 = get_variable(x[i], "u850")
-            v850 = get_variable(x[i], "v850")
-            vort850 = TCTrackerVitart.vorticity(u850, v850)
-            vort850[361:] *= -1
-
-            # Get MSL
-            msl = get_variable(x[i], "msl")
-
-            # Get average temp
-            t_200_500_mean = torch.mean(
-                torch.stack(
-                    [
-                        get_variable(x[i], ti)
-                        for ti in ["t500", "t400", "t300", "t250", "t200"]
-                    ],
-                    dim=0,
-                ),
-                dim=0,
-            )
-
-            # Get z200 - z850 width
-            dz_200_850 = get_variable(x[i], "z200") - get_variable(x[i], "z850")
-
-            if self.lat_threshold is not None:
-                msl = msl[indices].reshape(-1, nlon)
-                vort850 = vort850[indices].reshape(-1, nlon)
-                t_200_500_mean = t_200_500_mean[indices].reshape(-1, nlon)
-                dz_200_850 = dz_200_850[indices].reshape(-1, nlon)
-
             centers = self._find_centers(
                 lat,
                 lon,
-                msl,
-                vort850,
-                t_200_500_mean,
-                dz_200_850,
+                msl[i],
+                w10m[i],
+                vort850[i],
+                t_200_500_mean[i],
+                dz_200_850[i],
                 vorticity_threshold=self.vorticity_threshold,
                 mslp_threshold=self.msl_threshold,
                 temp_dec_threshold=self.temp_dec_threshold,
@@ -907,282 +1018,26 @@ class TCTrackerVitart(_CycloneTrackingBase):
             )
             outs.append(centers)
 
-        # Outs can be of different shapes (different numbers of TCs)
-        # Need to create padded tensor
-        out_tensor = torch.nested.nested_tensor(
-            outs, dtype=torch.float32, device=msl.device
+        # https://pytorch.org/docs/stable/generated/torch.nn.utils.rnn.pad_sequence.html
+        out = torch.nn.utils.rnn.pad_sequence(
+            outs, padding_value=self.PATH_FILL_VALUE, batch_first=True
         )
-        out_tensor = torch.nested.to_padded_tensor(out_tensor, torch.nan)
-        output_coords["id"] = np.arange(out_tensor.shape[-1])
-        return out_tensor, output_coords
-
-
-# The rest of this code is a workflow utility functions
-def get_tracks_from_positions(
-    y: torch.Tensor,
-    c: OrderedDict,
-    min_length: int = 1,
-    search_radius_km: float = 250,
-    max_skips: int = 1,
-) -> DataFrame:
-    """Given a list of possible tropical storms for every timestep this function connects positions to tracks
-
-    Parameters
-    ----------
-    y : torch.Tensor
-        Vector of latitudes for tensors.
-    c : torch.Tensor
-        Vector of longitudes for tensors.
-    min_length: int
-        Minimum length to consider a track. If the track is shorter than min_length steps it will be discarded
-    search_radius_km: float
-        Maximum distance of the successor to the current position
-    max_skips: int
-        Max allowed timesteps to skip (if no successor is find in the next timestep)
-
-    Returns
-    -------
-    tracks_df
-        A pandas dataframe containing all identified tracks
-    """
-
-    if min_length <= 0:
-        raise AssertionError("min_length needs to be larger than 0")
-
-    if search_radius_km <= 0:
-        raise AssertionError("search_radius_km needs be larger than zero")
-
-    if max_skips <= 0:
-        raise AssertionError("max_skips needs to be 0 or larger")
-
-    y = y.cpu().numpy()
-    # get list of tc center candidates for each timestep
-    y_lists = [
-        [
-            tuple(y[i, :, j])
-            for j in range(0, y[i, :].shape[1])
-            if (~np.isnan(y[i, :, j])).all()
-        ]
-        for i in range(0, y.shape[0])
-    ]
-
-    tracks: list = []
-
-    def search_candidate_row(
-        y_lists: list,
-        t_idx_now: int,
-        track_id_now: int,
-        min_length: int,
-        search_radius_km: float,
-        max_skips: int,
-    ) -> int:
-        """Searches for center candidates that can be connected to a track. Search starts at time index t_idx_now.
-        Starting with a position at t1 it searches for a successor at t2 that is within search_radius_km distance of the first position.
-        If no direct successor can be found search is extended to the second next time step t3 within 2*search_radius_km.
-        If still no successor can be found the track is completed and stored if the track consists at least of min_length elements. Shorter tracks are discarded.
-
-        Parameters
-        ----------
-        y_list : List of lists of tuples
-            Every tuple contains 4 elements that represent TC location and intensity: latitude, longitude, minimum SLP [Pa] and max windspeed at 10m height [m/s]
-            First list covers time dimension. Second list represents individual TC centres.
-        t_idx_now : int
-            index of time
-        track_id_now: int
-            current track id
-        min_length: int
-            Minimum length to consider a track. If the track is shorter than min_length steps it will be discarded
-        search_radius_km: float
-            Maximum distance of the successor to the current position
-        max_skips: int
-            Max allowed timesteps to skip (if no successor is find in the next timestep)
-
-        Returns
-        -------
-        track_id_now: int
-        """
-        while len(y_lists[t_idx_now]) > 0:
-            pos_now = y_lists[t_idx_now].pop(0)
-            t_idx_now_start = t_idx_now
-            track_temp: list[tuple[int, Any, int, Any]] = []
-            pos_number = 0
-            v = (t_idx_now, pos_now, pos_number, None)
-            pos_number = pos_number + 1
-            track_temp.append(v)
-            while v[0]:
-                next_candidates = y_lists[t_idx_now + 1 : t_idx_now + max_skips + 2]
-                v = get_next_position(
-                    next_candidates=next_candidates,
-                    pos_now=pos_now,
-                    t_idx_now=t_idx_now,
-                    search_radius_km=search_radius_km,
-                    max_skips=max_skips,
-                )
-                if v[0]:
-                    # Found next position; add to temporary track
-                    t_idx_next, pos_next, ind_next, _ = v
-                    track_temp.append((t_idx_next, pos_next, pos_number, ind_next))
-                    pos_number = pos_number + 1
-                    t_idx_now = t_idx_next
-                    pos_now = pos_next
-                else:
-                    # Could not find next position
-                    # decide if temporaray track can be become a final track
-                    # minimum duration is
-                    if len(track_temp) >= min_length:
-                        track = [
-                            (track_id_now,) + (c["time"][x[0]],) + x[1:3]
-                            for x in track_temp
-                        ]
-
-                        to_remove = [(x[0], x[3]) for x in track_temp]
-                        for i, j in to_remove:
-                            if j is not None:
-                                y_lists[i].pop(int(j))
-                        tracks.append(track)
-                        track_id_now += 1
-                    t_idx_now = t_idx_now_start
-        return track_id_now
-
-    current_track_id = 0
-    for t_idx_now in range(0, len(y_lists)):
-        current_track_id = search_candidate_row(
-            y_lists,
-            t_idx_now,
-            current_track_id,
-            min_length,
-            search_radius_km,
-            max_skips,
+        # [batch, path_id, step, variable]
+        self.path_buffer = self.append_paths(
+            out,
+            self.path_buffer,
+            self.path_search_distance,
+            self.path_search_window_size,
+        )
+        out = torch.where(
+            self.path_buffer == self.PATH_FILL_VALUE, torch.nan, self.path_buffer
         )
 
-    # Restructuring data to pandas dataframe
-    num_meteo_variables = y.shape[1] - 2
-    tracks_df = convert_tracks_to_dataframe(tracks, num_meteo_variables)
+        output_coords = self.output_coords(coords)
+        output_coords["path_id"] = np.arange(self.path_buffer.shape[1])
+        output_coords["step"] = np.arange(self.path_buffer.shape[2])
 
-    return tracks_df
-
-
-def get_tracks_df(
-    tracks_flattened: list, num_meteo_variables: int, track_columns: list
-) -> DataFrame:
-    """Convert individual track to data frame
-
-    Parameters
-    ----------
-    tracks_flattened : list
-        list of tracks
-    num_meteo_variables : int
-        number of variables to add to track
-    track_columns : list
-        list of column names
-
-    Returns
-    -------
-    tracks_df: pd.DataFrame
-    """
-    if num_meteo_variables in [0, 2]:
-        tracks_df = DataFrame(
-            tracks_flattened, columns=track_columns[: 5 + num_meteo_variables]
-        )
-    else:
-        raise NotImplementedError
-    return tracks_df
-
-
-def convert_tracks_to_dataframe(
-    track_list: list, num_meteo_variables: int
-) -> DataFrame:
-    """Convert tracks from list to pd data frame
-
-    Parameters
-    ----------
-    track_list : List
-        list of tracks
-    num_meteo_variables : int
-        number of variables to add to track
-
-    Returns
-    -------
-    tracks_df: pd.DataFrame
-    """
-    track_columns = [
-        "track_id",
-        "vt",
-        "point_number",
-        "tc_lat",
-        "tc_lon",
-        "tc_msl",
-        "tc_speed",
-    ]
-
-    tracks_flattened = []
-    if track_list:
-        for track in track_list:
-            for track_element in track:
-                tracks_flattened.append(
-                    [track_element[0], track_element[1], track_element[3]]
-                    + list(track_element[2])
-                )
-                tracks_df = get_tracks_df(
-                    tracks_flattened, num_meteo_variables, track_columns
-                )
-
-    else:
-        tracks_df = get_tracks_df(tracks_flattened, num_meteo_variables, track_columns)
-
-    return tracks_df
-
-
-def get_next_position(
-    next_candidates: list,
-    pos_now: tuple,
-    t_idx_now: int,
-    search_radius_km: float = 250,
-    max_skips: int = 1,
-) -> tuple:
-    """Parameters
-    ----------
-    next_candidates : List of tuples
-        Every tuple contains 4 elements that represent TC location and intensity: latitude, longitude, minimum SLP [Pa] and max windspeed at 10m height [m/s]
-    pos_now: tuple (float, float, float, float)
-        4 elements that represent TC location and intensity: latitude, longitude, minimum SLP [Pa] and max windspeed at 10m height [m/s]
-    t_idx_now : int
-        index of time now
-    search_radius_km: float
-        Maximum distance of the successor to the current position
-    max_skips: int
-        Max allowed timesteps to skip (if no successor is find in the next timestep)
-
-    Returns
-    -------
-    tuple containing 3 elements
-        t_idx_next: int
-            index of next time step
-        pos_next: tuple (float, float, float, float)
-            4 elements that represent TC location and intensity: latitude, longitude, minimum SLP [Pa] and max windspeed at 10m height [m/s]
-        ind_min: int
-            index of the candidate that got selected as the next location
-    """
-    success = False
-    for forward_search_step in range(0, min(len(next_candidates), max_skips + 1)):
-        t_idx_next = t_idx_now + forward_search_step + 1
-        lat1 = torch.tensor(pos_now[0])
-        lon1 = torch.tensor(pos_now[1])
-        if len(next_candidates[forward_search_step]) > 0:
-            lat2 = torch.tensor(next_candidates[forward_search_step])[:, 0]
-            lon2 = torch.tensor(next_candidates[forward_search_step])[:, 1]
-            dist = TCTrackerVitart.haversine_torch(lat1, lon1, lat2, lon2)
-        else:
-            continue
-        if torch.min(dist) < search_radius_km * (1 + forward_search_step):
-            success = True
-            ind_min = torch.argmin(dist)
-            pos_next = next_candidates[forward_search_step][ind_min]
-            break
-    if success:
-        return (t_idx_next, pos_next, ind_min, None)
-    else:
-        return (None, None, None, None)
+        return out, output_coords
 
 
 # def run_example() -> None:
