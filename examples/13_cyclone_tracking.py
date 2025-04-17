@@ -173,7 +173,7 @@ torch.save(sfno_tracks, "sfno.pt")
 # ID in the second dimension, thus that is what will determine the number of lines.
 # The lat/lon coords are the first two variables in the last dimension.
 # Lastly we just need to be mindful of the NaN filler values which can get easily
-# masked out.
+# masked out and any "path" that isnt over 2 points long
 # %%
 
 from datetime import datetime, timedelta
@@ -196,7 +196,6 @@ ax = plt.axes(projection=ccrs.PlateCarree())
 
 # Add map features
 ax.add_feature(cfeature.COASTLINE)
-ax.add_feature(cfeature.BORDERS, linestyle=":")
 ax.add_feature(cfeature.LAND, alpha=0.1)
 ax.gridlines(draw_labels=True)
 
@@ -206,13 +205,13 @@ for path in range(era5_paths.shape[1]):
     lats = era5_paths[0, path, :, 0]
     lons = era5_paths[0, path, :, 1]
     mask = ~np.isnan(lats) & ~np.isnan(lons)
-    if mask.any():
+    if mask.any() and len(lons[mask]) > 2:
         color = plt.cm.autumn(path / era5_paths.shape[1])
         ax.plot(
             lons[mask],
             lats[mask],
             color=color,
-            linestyle="-",
+            linestyle=".",
             marker="x",
             label="ERA5" if path == 0 else "",
             transform=ccrs.PlateCarree(),
@@ -224,7 +223,7 @@ for path in range(sfno_paths.shape[1]):
     lats = sfno_paths[0, path, :, 0]
     lons = sfno_paths[0, path, :, 1]
     mask = ~np.isnan(lats) & ~np.isnan(lons)
-    if mask.any():
+    if mask.any() and len(lons[mask]) > 2:
         color = plt.cm.winter(path / sfno_paths.shape[1])
         ax.plot(
             lons[mask],

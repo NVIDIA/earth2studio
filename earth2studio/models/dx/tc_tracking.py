@@ -269,7 +269,7 @@ class _TCTrackerBase:
 
         # Numpy only search...
         next_frame = torch.full_like(
-            path_buffer[:, :, 0, :], cls.PATH_FILL_VALUE
+            path_buffer[:, :, 0, :], cls.PATH_FILL_VALUE, dtype=frame.dtype
         ).unsqueeze(2)
         # Expand by one path for over flow / new paths
         # I.e. we have [batch, path id + 1, 1, variable]
@@ -714,8 +714,8 @@ class TCTrackerVitart(torch.nn.Module, _TCTrackerBase):
             {
                 "batch": np.empty(0),
                 "variable": np.array(VARIABLES_TCV),
-                "lat": np.empty(0),
-                "lon": np.empty(0),
+                "lat": np.linspace(90, -90, 721, endpoint=True),
+                "lon": np.linspace(0, 360, 1440, endpoint=False),
             }
         )
 
