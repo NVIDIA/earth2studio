@@ -67,7 +67,7 @@ OUT_VARIABLES = ["tc_lat", "tc_lon", "tc_msl", "tc_w10m"]
 
 class _TCTrackerBase:
 
-    PATH_FILL_VALUE = 1000  # Should not be in lat/lon range for safety
+    PATH_FILL_VALUE = -9999  # Should not be in lat/lon range for safety
 
     @classmethod
     def vorticity(
@@ -333,6 +333,14 @@ class TCTrackerWuDuan(torch.nn.Module, _TCTrackerBase):
 
     - https://doi.org/10.1016/j.wace.2023.100626
 
+     Parameters
+    ----------
+    path_search_distance: int, optional
+        The max radial distance two cyclone centers will be considered part of the same
+        path in km, by default 300
+    path_search_window_size: int, optional
+        The historical window size used when creating TC paths, by default 2
+
     Example
     -------
     The cyclone tracker will return a tensor of TC paths collected over a series of
@@ -356,11 +364,13 @@ class TCTrackerWuDuan(torch.nn.Module, _TCTrackerBase):
     >>> model.path_buffer.shape  # torch.Size([0])
     """
 
-    def __init__(self) -> None:
+    def __init__(
+        self, path_search_distance: int = 300, path_search_window_size: int = 2
+    ) -> None:
         super().__init__()
         self.register_buffer("path_buffer", torch.empty(0))
-        self.path_search_distance = 300
-        self.path_search_window_size = 2
+        self.path_search_distance = path_search_distance
+        self.path_search_window_size = path_search_window_size
 
     def reset_path_buffer(self) -> None:
         """Resets the internal"""
@@ -654,6 +664,11 @@ class TCTrackerVitart(torch.nn.Module, _TCTrackerBase):
         that dimension. If True, takes the min_distance parameter as value.
         If zero or False, peaks are identified regardless of their distance
         from the border.
+    path_search_distance: int, optional
+        The max radial distance two cyclone centers will be considered part of the same
+        path in km, by default 300
+    path_search_window_size: int, optional
+        The historical window size used when creating TC paths, by default 2
 
     Example
     -------
@@ -685,6 +700,8 @@ class TCTrackerVitart(torch.nn.Module, _TCTrackerBase):
         temp_dec_threshold: float = 0.5,
         lat_threshold: float = 60.0,
         exclude_border: bool | int = True,
+        path_search_distance: int = 300,
+        path_search_window_size: int = 2,
     ) -> None:
         super().__init__()
         # TC Center identification parameters
@@ -695,8 +712,8 @@ class TCTrackerVitart(torch.nn.Module, _TCTrackerBase):
         self.exclude_border = exclude_border
         # TC path identification parameters
         self.register_buffer("path_buffer", torch.empty(0))
-        self.path_search_distance = 300
-        self.path_search_window_size = 2
+        self.path_search_distance = path_search_distance
+        self.path_search_window_size = path_search_window_size
 
     def reset_path_buffer(self) -> None:
         """Resets the internal"""
