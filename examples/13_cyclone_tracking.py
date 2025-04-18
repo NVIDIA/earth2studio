@@ -248,7 +248,6 @@ plt.title(
 )
 plt.savefig(f"outputs/13_{start_time}_cyclone_tracks.jpg", bbox_inches="tight", dpi=300)
 
-
 # %%
 # In addition to filtering out the NaN values, users may want to apply other post
 # processing steps on the paths which may be enforcing path lengths are above a certain
