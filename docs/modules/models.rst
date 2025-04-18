@@ -67,6 +67,8 @@ etc.
    models.dx.DerivedWS
    models.dx.PrecipitationAFNO
    models.dx.PrecipitationAFNOv2
+   models.dx.TCTrackerWuDuan
+   models.dx.TCTrackerVitart
    models.dx.WindgustAFNO
    models.dx.Identity
 

@@ -24,16 +24,25 @@ forecasts from a base model to a finer time resolution.
 
 In this example you will learn:
 
-- How to load a base prognostic model (e.g., SFNO)
+- How to load a base prognostic model
 - How to load the InterpModAFNO model
-- How to run the interpolation model to get forecasts at a finer time resolution
+- How to run the interpolation model
 - How to visualize the results
 """
 
 # %%
 # Set Up
 # ------
-# First, let's import the necessary modules and set up our environment.
+# First, import the necessary modules and set up our environment and load the models.
+# We will use SFNO as the base prognostic model and the InterpModAFNO model to
+# interpolate its output to a finer time resolution.
+# The prognostic model must predict the needed variables in the interpolation model.
+#
+# This example needs the following:
+#
+# - Interpolation Model: :py:class:`earth2studio.models.px.InterpModAFNO`.
+# - Prognostic Base Model: Use SFNO model :py:class:`earth2studio.models.px.SFNO`.
+# - Datasource: Pull data from the GFS data api :py:class:`earth2studio.data.GFS`.
 
 # %%
 import os
@@ -47,15 +56,6 @@ from earth2studio.models.px import SFNO, InterpModAFNO
 # Create output directory
 os.makedirs("outputs", exist_ok=True)
 
-# %%
-# Load Models
-# -----------
-# We'll use SFNO as our base model and the InterpModAFNO model to
-# interpolate its output to a finer time resolution.
-
-# %%
-
-# Load the base model (SFNO)
 sfno_package = SFNO.load_default_package()
 base_model = SFNO.load_model(sfno_package)
 
@@ -73,7 +73,7 @@ io = ZarrBackend()
 # %%
 # Run the Interpolation Model
 # ---------------------------
-# Now we'll run the interpolation model to get forecasts at a finer time resolution.
+# Now run the interpolation model to get forecasts at a finer time resolution.
 # The base model (SFNO) produces forecasts at 6-hour intervals, and the
 # interpolation model will interpolate to 1-hour intervals.
 

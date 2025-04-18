@@ -19,3 +19,7 @@ RUN for PIP_CONF in "/etc/xdg/pip/pip.conf" "/root/.pip/pip.conf" "/usr/pip.conf
           sed -i 's/^no-cache-dir = true/#no-cache-dir = true/' "$PIP_CONF"; \
         fi; \
     done
+
+# Use the build argument
+ARG PYTHON_VERSION=3.12.9
+RUN /usr/bin/uv python install "${PYTHON_VERSION}"
