@@ -1345,7 +1345,7 @@ requires-dist = [
     { name = "torch-harmonics", marker = "extra == 'sfno'", specifier = ">=0.7.4" },
     { name = "tqdm", specifier = ">=4.65.0" },
     { name = "xarray", extras = ["parallel"], specifier = ">=2023.1.0" },
-    { name = "zarr", specifier = ">=2.14.2,<3.0.0" },
+    { name = "zarr", specifier = ">=2.14.2" },
 ]
 provides-extras = ["all", "aurora", "aurora-fork", "climatenet", "corrdiff", "cyclone", "data", "derived", "dlwp", "fcn", "fengwu", "interp-modafno", "pangu", "perturbation", "precip-afno", "precip-afno-v2", "sfno", "statistics", "stormcast", "windgust-afno"]
 
