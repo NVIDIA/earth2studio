@@ -14,12 +14,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-<<<<<<< HEAD
-from earth2studio.models.px.aifs import AIFS
-=======
 import warnings
 
->>>>>>> 83bfee02f0f60703e7928c647e45d348cb86fc2e
+from earth2studio.models.px.aifs import AIFS
 from earth2studio.models.px.aurora import Aurora
 from earth2studio.models.px.base import PrognosticModel
 from earth2studio.models.px.dlwp import DLWP

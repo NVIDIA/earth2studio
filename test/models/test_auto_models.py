@@ -49,6 +49,7 @@ from earth2studio.models.px import (
     Pangu3,
     Pangu6,
     Pangu24,
+    AIFS,
 )
 
 
@@ -72,6 +73,7 @@ from earth2studio.models.px import (
         WindgustAFNO,
         InterpModAFNO,
         PrecipitationAFNOv2,
+        AIFS,
     ],
 )
 def test_auto_model(model, model_cache_context):

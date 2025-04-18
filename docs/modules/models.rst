@@ -25,6 +25,7 @@ Thus are typically used to generate forecast predictions.
    :toctree: generated/models/px/
    :template: prognostic.rst
 
+   models.px.AIFS
    models.px.Aurora
    models.px.DLWP
    models.px.FCN

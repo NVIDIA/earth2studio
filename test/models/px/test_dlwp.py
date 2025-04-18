@@ -97,6 +97,7 @@ def test_dlwp_call(time, dlwp_phoo_cs_transform, device):
     variable = p.input_coords()["variable"]
     x, coords = fetch_data(r, time, variable, lead_time, device=device)
 
+    print(x.shape)
     out, out_coords = p(x, coords)
 
     if not isinstance(time, Iterable):

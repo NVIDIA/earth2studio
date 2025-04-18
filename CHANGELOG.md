@@ -10,6 +10,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added AIFS model wrapper with state caching functionality for improved performance
+
 ### Changed
 
 ### Deprecated
