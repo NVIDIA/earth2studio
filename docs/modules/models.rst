@@ -61,8 +61,6 @@ etc.
 
    models.dx.CorrDiffTaiwan
    models.dx.ClimateNet
-   models.dx.CycloneTracking
-   models.dx.CycloneTrackingVorticity
    models.dx.DerivedRH
    models.dx.DerivedRHDewpoint
    models.dx.DerivedVPD

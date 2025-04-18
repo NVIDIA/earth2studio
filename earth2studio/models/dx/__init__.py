@@ -19,10 +19,6 @@ import warnings
 from earth2studio.models.dx.base import DiagnosticModel
 from earth2studio.models.dx.climatenet import ClimateNet  # noqa
 from earth2studio.models.dx.corrdiff import CorrDiffTaiwan  # noqa
-from earth2studio.models.dx.cyclone_tracking import (
-    CycloneTracking,
-    CycloneTrackingVorticity,
-)
 from earth2studio.models.dx.derived import (
     DerivedRH,
     DerivedRHDewpoint,
