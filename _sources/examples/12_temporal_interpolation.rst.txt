@@ -26,18 +26,27 @@ forecasts from a base model to a finer time resolution.
 
 In this example you will learn:
 
-- How to load a base prognostic model (e.g., SFNO)
+- How to load a base prognostic model
 - How to load the InterpModAFNO model
-- How to run the interpolation model to get forecasts at a finer time resolution
+- How to run the interpolation model
 - How to visualize the results
 
-.. GENERATED FROM PYTHON SOURCE LINES 34-37
+.. GENERATED FROM PYTHON SOURCE LINES 34-46
 
 Set Up
 ------
-First, let's import the necessary modules and set up our environment.
+First, import the necessary modules and set up our environment and load the models.
+We will use SFNO as the base prognostic model and the InterpModAFNO model to
+interpolate its output to a finer time resolution.
+The prognostic model must predict the needed variables in the interpolation model.
 
-.. GENERATED FROM PYTHON SOURCE LINES 39-50
+This example needs the following:
+
+- Interpolation Model: :py:class:`earth2studio.models.px.InterpModAFNO`.
+- Prognostic Base Model: Use SFNO model :py:class:`earth2studio.models.px.SFNO`.
+- Datasource: Pull data from the GFS data api :py:class:`earth2studio.data.GFS`.
+
+.. GENERATED FROM PYTHON SOURCE LINES 48-73
 
 .. code-block:: Python
 
@@ -52,20 +61,6 @@ First, let's import the necessary modules and set up our environment.
     # Create output directory
     os.makedirs("outputs", exist_ok=True)
 
-
-.. GENERATED FROM PYTHON SOURCE LINES 51-55
-
-Load Models
------------
-We'll use SFNO as our base model and the InterpModAFNO model to
-interpolate its output to a finer time resolution.
-
-.. GENERATED FROM PYTHON SOURCE LINES 57-73
-
-.. code-block:: Python
-
-
-    # Load the base model (SFNO)
     sfno_package = SFNO.load_default_package()
     base_model = SFNO.load_model(sfno_package)
 
@@ -85,7 +80,7 @@ interpolate its output to a finer time resolution.
 
 Run the Interpolation Model
 ---------------------------
-Now we'll run the interpolation model to get forecasts at a finer time resolution.
+Now run the interpolation model to get forecasts at a finer time resolution.
 The base model (SFNO) produces forecasts at 6-hour intervals, and the
 interpolation model will interpolate to 1-hour intervals.
 
