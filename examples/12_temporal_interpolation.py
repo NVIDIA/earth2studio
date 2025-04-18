@@ -40,7 +40,7 @@ In this example you will learn:
 #
 # This example needs the following:
 #
-# - Interpolation Model: :py:class:`earth2studio.models.dx.InterpModAFNO`.
+# - Interpolation Model: :py:class:`earth2studio.models.px.InterpModAFNO`.
 # - Prognostic Base Model: Use SFNO model :py:class:`earth2studio.models.px.SFNO`.
 # - Datasource: Pull data from the GFS data api :py:class:`earth2studio.data.GFS`.
 
