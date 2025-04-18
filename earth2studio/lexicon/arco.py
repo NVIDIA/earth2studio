@@ -118,13 +118,6 @@ class ARCOLexicon(metaclass=LexiconType):
         "q850": "specific_humidity::850",
         "q925": "specific_humidity::925",
         "q1000": "specific_humidity::1000",
-        "skt": "skin_temperature::",
-        "slor": "slope_of_sub_gridscale_orography::",
-        "sdor": "standard_deviation_of_filtered_subgrid_orography::",
-        "swvl1": "volumetric_soil_water_layer_1::",
-        "swvl2": "volumetric_soil_water_layer_2::",
-        "stl1": "soil_temperature_level_1::",
-        "stl2": "soil_temperature_level_2::",
     }
 
     @classmethod
