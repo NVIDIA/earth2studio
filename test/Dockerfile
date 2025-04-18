@@ -1,5 +1,3 @@
-ARG PYTHON_VERSION=3.12.10
-
 FROM nvcr.io/nvidia/pytorch:25.03-py3
 # Install uv
 COPY --from=ghcr.io/astral-sh/uv:0.6.13 /uv /uvx /bin/
@@ -13,9 +11,6 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /app
 
-# Use the build argument
-RUN uv python install ${PYTHON_VERSION}
-
 # Disable contraint files in the container
 # PyTorch container started constraining packages which we don't want
 ENV PIP_CONSTRAINT=
@@ -24,3 +19,7 @@ RUN for PIP_CONF in "/etc/xdg/pip/pip.conf" "/root/.pip/pip.conf" "/usr/pip.conf
           sed -i 's/^no-cache-dir = true/#no-cache-dir = true/' "$PIP_CONF"; \
         fi; \
     done
+
+# Use the build argument
+ARG PYTHON_VERSION=3.12.9
+RUN /usr/bin/uv python install "${PYTHON_VERSION}"
