@@ -202,16 +202,6 @@ ax.set_extent([90, 170, 0, 50], crs=ccrs.PlateCarree())
 era5_cmap = plt.cm.autumn
 sfno_cmap = plt.cm.winter
 
-# %%
-# In addition to filtering out the NaN values, users may want to apply other post
-# processing steps on the paths which may be enforcing path lengths are above a certain
-# threshold or other geography based filters.
-#
-# No cyclone tracker is perfect, we encourage users to experiment and tune the tracker
-# as needed.
-
-# %%
-
 for path in range(era5_paths.shape[1]):
     # Get lat/lon coordinates, filtering out nans
     lats = era5_paths[0, path, :, 0]
@@ -257,3 +247,11 @@ plt.title(
     f'Tropical Cyclone Tracks\n{start_time.strftime("%Y-%m-%d")} to {end_time.strftime("%Y-%m-%d")}'
 )
 plt.savefig(f"outputs/13_{start_time}_cyclone_tracks.jpg", bbox_inches="tight", dpi=300)
+
+# %%
+# In addition to filtering out the NaN values, users may want to apply other post
+# processing steps on the paths which may be enforcing path lengths are above a certain
+# threshold or other geography based filters.
+#
+# No cyclone tracker is perfect, we encourage users to experiment and tune the tracker
+# as needed.
