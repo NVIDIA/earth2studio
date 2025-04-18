@@ -172,6 +172,7 @@ class _TCTrackerBase:
 
         - https://scikit-image.org/docs/stable/api/skimage.feature.html#skimage.feature.peak_local_max
 
+
         Parameters
         ----------
         x : torch.Tensor
@@ -340,7 +341,8 @@ class TCTrackerWuDuan(torch.nn.Module, _TCTrackerBase):
 
     - https://doi.org/10.1016/j.wace.2023.100626
 
-     Parameters
+
+    Parameters
     ----------
     path_search_distance: int, optional
         The max radial distance two cyclone centers will be considered part of the same
@@ -348,8 +350,8 @@ class TCTrackerWuDuan(torch.nn.Module, _TCTrackerBase):
     path_search_window_size: int, optional
         The historical window size used when creating TC paths, by default 2
 
-    Example
-    -------
+    Examples
+    --------
     The cyclone tracker will return a tensor of TC paths collected over a series of
     forward passes which are held inside of the models state.
     Namely given a time series of `n` snap shots, the tracker should be called for each
@@ -647,6 +649,7 @@ class TCTrackerVitart(torch.nn.Module, _TCTrackerBase):
 
     - https://doi.org/10.1175/1520-0442(1997)010%3C0745:SOIVOT%3E2.0.CO;2
 
+
     Parameters
     ----------
     vorticity_threshold : float, optional
@@ -677,8 +680,8 @@ class TCTrackerVitart(torch.nn.Module, _TCTrackerBase):
     path_search_window_size: int, optional
         The historical window size used when creating TC paths, by default 2
 
-    Example
-    -------
+    Examples
+    --------
     The cyclone tracker will return a tensor of TC paths collected over a series of
     forward passes which are held inside of the models state.
     Namely given a time series of `n` snap shots, the tracker should be called for each
