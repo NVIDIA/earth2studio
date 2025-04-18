@@ -21,7 +21,7 @@ dependencies = [
     "huggingface-hub>=0.4.0",
     "loguru",
     "netCDF4>=1.6.4",
-    "ngcsdk>=3.55.0",
+    "ngcsdk>=3.62.0",
     "nest_asyncio", # TODO Remove
     "python-dotenv",
     "s3fs>=2023.5.0",
