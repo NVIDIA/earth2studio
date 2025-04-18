@@ -14,12 +14,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import json
-import os
+import zipfile
 from collections import OrderedDict
 from collections.abc import Generator, Iterator
-from zoneinfo import ZoneInfo
-import zipfile
- 
+
 import numpy as np
 import torch
 
@@ -27,8 +25,7 @@ from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_coords, batch_func
 from earth2studio.models.px.base import PrognosticModel
 from earth2studio.models.px.utils import PrognosticMixin
-from earth2studio.utils import check_extra_imports, handshake_coords, handshake_dim
-from earth2studio.utils.time import timearray_to_datetime
+from earth2studio.utils import handshake_coords, handshake_dim
 from earth2studio.utils.type import CoordSystem
 
 VARIABLES = [
@@ -131,12 +128,12 @@ VARIABLES = [
 ##########################################3
 # Remove after debugging
 ##########################################3
-#import matplotlib.pyplot as plt
-#import cartopy.crs as ccrs
-#import cartopy.feature as cfeature
-#import matplotlib.tri as tri
+# import matplotlib.pyplot as plt
+# import cartopy.crs as ccrs
+# import cartopy.feature as cfeature
+# import matplotlib.tri as tri
 #
-#def plot_field(latitudes, longitudes, values, title):
+# def plot_field(latitudes, longitudes, values, title):
 #    def fix(lons):
 #        # Shift the longitudes from 0-360 to -180-180
 #        return np.where(lons > 180, lons - 360, lons)
@@ -148,6 +145,7 @@ VARIABLES = [
 #    cbar = fig.colorbar(contour, ax=ax, orientation="vertical", shrink=0.7, label="100u")
 #    plt.title(title)
 #    plt.show()
+
 
 class AIFS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     """AIFS global prognostic model.
@@ -174,22 +172,194 @@ class AIFS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self.register_buffer("latitudes", latitudes)
         self.register_buffer("longitudes", longitudes)
         self.register_buffer("interpolation_matrix", interpolation_matrix)
-        self.register_buffer("inverse_interpolation_matrix", inverse_interpolation_matrix)
+        self.register_buffer(
+            "inverse_interpolation_matrix", inverse_interpolation_matrix
+        )
 
         # Mask indices
         self.prognostic_output_mask = [
-            0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17,
-            18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35,
-            36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53,
-            54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71,
-            72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 96, 97, 99, 100
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            11,
+            12,
+            13,
+            14,
+            15,
+            16,
+            17,
+            18,
+            19,
+            20,
+            21,
+            22,
+            23,
+            24,
+            25,
+            26,
+            27,
+            28,
+            29,
+            30,
+            31,
+            32,
+            33,
+            34,
+            35,
+            36,
+            37,
+            38,
+            39,
+            40,
+            41,
+            42,
+            43,
+            44,
+            45,
+            46,
+            47,
+            48,
+            49,
+            50,
+            51,
+            52,
+            53,
+            54,
+            55,
+            56,
+            57,
+            58,
+            59,
+            60,
+            61,
+            62,
+            63,
+            64,
+            65,
+            66,
+            67,
+            68,
+            69,
+            70,
+            71,
+            72,
+            73,
+            74,
+            75,
+            76,
+            77,
+            78,
+            79,
+            80,
+            81,
+            82,
+            83,
+            84,
+            85,
+            96,
+            97,
+            99,
+            100,
         ]
         self.prognostic_input_mask = [
-            0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17,
-            18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35,
-            36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53,
-            54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71,
-            72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 83, 85, 87, 88, 99, 100, 101, 102
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            11,
+            12,
+            13,
+            14,
+            15,
+            16,
+            17,
+            18,
+            19,
+            20,
+            21,
+            22,
+            23,
+            24,
+            25,
+            26,
+            27,
+            28,
+            29,
+            30,
+            31,
+            32,
+            33,
+            34,
+            35,
+            36,
+            37,
+            38,
+            39,
+            40,
+            41,
+            42,
+            43,
+            44,
+            45,
+            46,
+            47,
+            48,
+            49,
+            50,
+            51,
+            52,
+            53,
+            54,
+            55,
+            56,
+            57,
+            58,
+            59,
+            60,
+            61,
+            62,
+            63,
+            64,
+            65,
+            66,
+            67,
+            68,
+            69,
+            70,
+            71,
+            72,
+            73,
+            74,
+            75,
+            76,
+            77,
+            78,
+            79,
+            80,
+            81,
+            83,
+            85,
+            87,
+            88,
+            99,
+            100,
+            101,
+            102,
         ]
 
     def __str__(self) -> str:
@@ -206,7 +376,9 @@ class AIFS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             {
                 "batch": np.empty(0),
                 "time": np.empty(0),
-                "lead_time": np.array([np.timedelta64(-6, "h"), np.timedelta64(0, "h")]),
+                "lead_time": np.array(
+                    [np.timedelta64(-6, "h"), np.timedelta64(0, "h")]
+                ),
                 "variable": np.array(self.variables),
                 "lat": np.linspace(90.0, -90.0, 721),
                 "lon": np.linspace(0, 360, 1440, endpoint=False),
@@ -238,7 +410,7 @@ class AIFS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         )
         if input_coords is None:
             return output_coords
-        
+
         test_coords = input_coords.copy()
         test_coords["lead_time"] = (
             test_coords["lead_time"] - input_coords["lead_time"][-1]
@@ -271,17 +443,13 @@ class AIFS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         return package
 
     @classmethod
-    def load_model(
-        cls, package: Package
-    ) -> PrognosticModel:
+    def load_model(cls, package: Package) -> PrognosticModel:
         """Load prognostic from package"""
 
         # Load model
         model_path = package.resolve("aifs-single-mse-1.0.ckpt")
         model = torch.load(
-            model_path,
-            weights_only=False,
-            map_location=torch.ones(1).device
+            model_path, weights_only=False, map_location=torch.ones(1).device
         )
         model.to(dtype=torch.bfloat16)
         model.eval()
@@ -290,7 +458,7 @@ class AIFS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         metadata_path = "inference-last/anemoi-metadata/ai-models.json"
 
         # Extract metadata and supporting arrays from the zip file
-        with zipfile.ZipFile(model_path, "r") as zipf: # NOTE: this is totally baffling
+        with zipfile.ZipFile(model_path, "r") as zipf:  # NOTE: this is totally baffling
             # Load metadata
             metadata = json.load(zipf.open(metadata_path))
 
@@ -307,66 +475,89 @@ class AIFS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         interpolation_package = Package(
             "https://get.ecmwf.int/repository/earthkit/regrid/db/1/mir_16_linear",
             cache_options={
-                "cache_storage": Package.default_cache("aifs-single-1.0_interpolation_matrix"),
+                "cache_storage": Package.default_cache(
+                    "aifs-single-1.0_interpolation_matrix"
+                ),
                 "same_names": True,
             },
         )
-        interpolation_matrix_path = interpolation_package.resolve("9533e90f8433424400ab53c7fafc87ba1a04453093311c0b5bd0b35fedc1fb83.npz")
+        interpolation_matrix_path = interpolation_package.resolve(
+            "9533e90f8433424400ab53c7fafc87ba1a04453093311c0b5bd0b35fedc1fb83.npz"
+        )
         interpolation_matrix = np.load(interpolation_matrix_path)
         torch_interpolation_matrix = torch.sparse_csr_tensor(
             crow_indices=torch.from_numpy(interpolation_matrix["indptr"]),
             col_indices=torch.from_numpy(interpolation_matrix["indices"]),
             values=torch.from_numpy(interpolation_matrix["data"]),
             size=(interpolation_matrix["shape"][0], interpolation_matrix["shape"][1]),
-            dtype=torch.float32
+            dtype=torch.float32,
         )
         inverse_interpolation_package = Package(
             "https://get.ecmwf.int/repository/earthkit/regrid/db/1/mir_16_linear/",
             cache_options={
-                "cache_storage": Package.default_cache("aifs-single-1.0_inverse_interpolation_matrix"),
+                "cache_storage": Package.default_cache(
+                    "aifs-single-1.0_inverse_interpolation_matrix"
+                ),
                 "same_names": True,
             },
         )
-        inverse_interpolation_matrix_path = inverse_interpolation_package.resolve("7f0be51c7c1f522592c7639e0d3f95bcbff8a044292aa281c1e73b842736d9bf.npz")
+        inverse_interpolation_matrix_path = inverse_interpolation_package.resolve(
+            "7f0be51c7c1f522592c7639e0d3f95bcbff8a044292aa281c1e73b842736d9bf.npz"
+        )
         inverse_interpolation_matrix = np.load(inverse_interpolation_matrix_path)
         torch_inverse_interpolation_matrix = torch.sparse_csr_tensor(
             crow_indices=torch.from_numpy(inverse_interpolation_matrix["indptr"]),
             col_indices=torch.from_numpy(inverse_interpolation_matrix["indices"]),
             values=torch.from_numpy(inverse_interpolation_matrix["data"]),
-            size=(inverse_interpolation_matrix["shape"][0], inverse_interpolation_matrix["shape"][1]),
-            dtype=torch.float32
+            size=(
+                inverse_interpolation_matrix["shape"][0],
+                inverse_interpolation_matrix["shape"][1],
+            ),
+            dtype=torch.float32,
         )
 
         return cls(
             model,
             latitudes=torch.Tensor(supporting_arrays["latitudes"]).reshape(1, 1, -1, 1),
-            longitudes=torch.Tensor(supporting_arrays["longitudes"]).reshape(1, 1, -1, 1),
+            longitudes=torch.Tensor(supporting_arrays["longitudes"]).reshape(
+                1, 1, -1, 1
+            ),
             interpolation_matrix=torch_interpolation_matrix,
             inverse_interpolation_matrix=torch_inverse_interpolation_matrix,
             variables=VARIABLES,
         )
-    
+
     def get_cos_sin_julian_day(
         self,
         time_array: np.datetime64,
         longitudes: torch.Tensor,
     ) -> tuple[torch.Tensor, torch.Tensor]:
         """Get cosine and sine of Julian day"""
-        days = (time_array.astype('datetime64[D]') - time_array.astype('datetime64[Y]')).astype(np.float32)
-        hours = (time_array.astype('datetime64[h]') - time_array.astype('datetime64[D]')).astype(np.float32)
+        days = (
+            time_array.astype("datetime64[D]") - time_array.astype("datetime64[Y]")
+        ).astype(np.float32)
+        hours = (
+            time_array.astype("datetime64[h]") - time_array.astype("datetime64[D]")
+        ).astype(np.float32)
         julian_days = days + (hours / 24.0)
         normalized = 2 * np.pi * (julian_days / 365.25)
-        cos_julian_day = torch.full_like(longitudes, np.cos(normalized), dtype=torch.float32)
-        sin_julian_day = torch.full_like(longitudes, np.sin(normalized), dtype=torch.float32)
+        cos_julian_day = torch.full_like(
+            longitudes, np.cos(normalized), dtype=torch.float32
+        )
+        sin_julian_day = torch.full_like(
+            longitudes, np.sin(normalized), dtype=torch.float32
+        )
         return cos_julian_day, sin_julian_day
-    
+
     def get_cos_sin_local_time(
         self,
         time_array: np.datetime64,
         longitudes: torch.Tensor,
     ) -> tuple[torch.Tensor, torch.Tensor]:
         """Get cosine and sine of local time"""
-        hours = (time_array.astype('datetime64[h]') - time_array.astype('datetime64[D]')).astype(np.float32)
+        hours = (
+            time_array.astype("datetime64[h]") - time_array.astype("datetime64[D]")
+        ).astype(np.float32)
         normalized_time = 2 * np.pi * (hours / 24.0)
         normalized_longitudes = 2 * np.pi * (longitudes / 360.0)
         tau = normalized_time + normalized_longitudes
@@ -383,13 +574,21 @@ class AIFS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         """Get cosine zenith fields for input time array"""
 
         # Get Julian day
-        days = (date.astype('datetime64[D]') - date.astype('datetime64[Y]')).astype(np.float32)
-        hours = (date.astype('datetime64[h]') - date.astype('datetime64[D]')).astype(np.float32)
-        seconds = (date.astype('datetime64[s]') - date.astype('datetime64[h]')).astype(np.float32)
+        days = (date.astype("datetime64[D]") - date.astype("datetime64[Y]")).astype(
+            np.float32
+        )
+        hours = (date.astype("datetime64[h]") - date.astype("datetime64[D]")).astype(
+            np.float32
+        )
+        seconds = (date.astype("datetime64[s]") - date.astype("datetime64[h]")).astype(
+            np.float32
+        )
         julian_day = days + seconds / 86400.0
-    
+
         # Convert angle to tensor
-        angle = torch.tensor(julian_day / 365.25 * torch.pi * 2, device=latitudes.device)
+        angle = torch.tensor(
+            julian_day / 365.25 * torch.pi * 2, device=latitudes.device
+        )
 
         # declination in [degrees]
         declination = (
@@ -409,7 +608,7 @@ class AIFS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             - 0.837378 * torch.cos(2 * angle)
             - 2.340475 * torch.sin(2 * angle)
         )
-    
+
         # Convert to radians
         declination = torch.deg2rad(declination)
         latitudes = torch.deg2rad(latitudes)
@@ -417,11 +616,11 @@ class AIFS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         # Calculate sine and cosine of declination and latitude
         sindec_sinlat = torch.sin(declination) * torch.sin(latitudes)
         cosdec_coslat = torch.cos(declination) * torch.cos(latitudes)
-    
+
         # Solar hour angle
         solar_angle = torch.deg2rad((hours - 12) * 15 + longitudes + time_correction)
         zenith_angle = sindec_sinlat + cosdec_coslat * torch.cos(solar_angle)
-    
+
         # Clip negative values
         return torch.clamp(zenith_angle, min=0.0)
 
@@ -430,8 +629,7 @@ class AIFS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         x: torch.Tensor,
         coords: CoordSystem,
     ) -> tuple[torch.Tensor, CoordSystem]:
-        """Prepare input tensor and coordinates for the AIFS model.
-        """
+        """Prepare input tensor and coordinates for the AIFS model."""
 
         # Interpolate the input tensor to the model grid
         shape = x.shape
@@ -455,38 +653,53 @@ class AIFS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         sin_longitude = torch.cat([sin_longitude, sin_longitude], dim=1)
 
         # Get cos, sin of Julian day
-        cos_julian_day_0, sin_julian_day_0 = self.get_cos_sin_julian_day(coords["time"][0] - np.timedelta64(6, "h"), self.longitudes)
-        cos_julian_day_1, sin_julian_day_1 = self.get_cos_sin_julian_day(coords["time"][0], self.longitudes)
+        cos_julian_day_0, sin_julian_day_0 = self.get_cos_sin_julian_day(
+            coords["time"][0] - np.timedelta64(6, "h"), self.longitudes
+        )
+        cos_julian_day_1, sin_julian_day_1 = self.get_cos_sin_julian_day(
+            coords["time"][0], self.longitudes
+        )
         cos_julian_day = torch.cat([cos_julian_day_0, cos_julian_day_1], dim=1)
         sin_julian_day = torch.cat([sin_julian_day_0, sin_julian_day_1], dim=1)
 
         # Get cos, sin local time
-        cos_local_time_0, sin_local_time_0 = self.get_cos_sin_local_time(coords["time"][0] - np.timedelta64(6, "h"), self.longitudes)
-        cos_local_time_1, sin_local_time_1 = self.get_cos_sin_local_time(coords["time"][0], self.longitudes)
+        cos_local_time_0, sin_local_time_0 = self.get_cos_sin_local_time(
+            coords["time"][0] - np.timedelta64(6, "h"), self.longitudes
+        )
+        cos_local_time_1, sin_local_time_1 = self.get_cos_sin_local_time(
+            coords["time"][0], self.longitudes
+        )
         cos_local_time = torch.cat([cos_local_time_0, cos_local_time_1], dim=1)
         sin_local_time = torch.cat([sin_local_time_0, sin_local_time_1], dim=1)
 
         # Get cosine zenith angle
         # Add insolation / cosine zenith angle
-        cos_zenith_angle_0 = self.get_cosine_zenith_fields(coords["time"][0] - np.timedelta64(6, "h"), self.latitudes, self.longitudes)
-        cos_zenith_angle_1 = self.get_cosine_zenith_fields(coords["time"][0], self.latitudes, self.longitudes)
+        cos_zenith_angle_0 = self.get_cosine_zenith_fields(
+            coords["time"][0] - np.timedelta64(6, "h"), self.latitudes, self.longitudes
+        )
+        cos_zenith_angle_1 = self.get_cosine_zenith_fields(
+            coords["time"][0], self.latitudes, self.longitudes
+        )
         cos_zenith_angle = torch.cat([cos_zenith_angle_0, cos_zenith_angle_1], dim=1)
 
         # Combine inputs
-        x = torch.cat([
-            x[:, :, :, :90],
-            cos_latitude.repeat(shape[0] * shape[1], 1, 1, 1),
-            cos_longitude.repeat(shape[0] * shape[1], 1, 1, 1),
-            sin_latitude.repeat(shape[0] * shape[1], 1, 1, 1),
-            sin_longitude.repeat(shape[0] * shape[1], 1, 1, 1),
-            cos_julian_day.repeat(shape[0] * shape[1], 1, 1, 1),
-            cos_local_time.repeat(shape[0] * shape[1], 1, 1, 1),
-            sin_julian_day.repeat(shape[0] * shape[1], 1, 1, 1),
-            sin_local_time.repeat(shape[0] * shape[1], 1, 1, 1),
-            cos_zenith_angle.repeat(shape[0] * shape[1], 1, 1, 1),
-            x[:, :, :, 90:],
-        ], dim=3)
-        #], dim=3).to(torch.bfloat16)
+        x = torch.cat(
+            [
+                x[:, :, :, :90],
+                cos_latitude.repeat(shape[0] * shape[1], 1, 1, 1),
+                cos_longitude.repeat(shape[0] * shape[1], 1, 1, 1),
+                sin_latitude.repeat(shape[0] * shape[1], 1, 1, 1),
+                sin_longitude.repeat(shape[0] * shape[1], 1, 1, 1),
+                cos_julian_day.repeat(shape[0] * shape[1], 1, 1, 1),
+                cos_local_time.repeat(shape[0] * shape[1], 1, 1, 1),
+                sin_julian_day.repeat(shape[0] * shape[1], 1, 1, 1),
+                sin_local_time.repeat(shape[0] * shape[1], 1, 1, 1),
+                cos_zenith_angle.repeat(shape[0] * shape[1], 1, 1, 1),
+                x[:, :, :, 90:],
+            ],
+            dim=3,
+        )
+        # ], dim=3).to(torch.bfloat16)
 
         return x
 
@@ -496,21 +709,26 @@ class AIFS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         y: torch.Tensor,
         coords: CoordSystem,
     ) -> torch.Tensor:
-        """Copy output tensor to input tensor following the AIFS model.
-        """
+        """Copy output tensor to input tensor following the AIFS model."""
 
         # Copy prognostic field output to the input tensor
         x = x.roll(-1, dims=1)
         x[:, -1, :, self.prognostic_input_mask] = y[..., self.prognostic_output_mask]
 
         # Get cos, sin of Julian day
-        cos_julian_day, sin_julian_day = self.get_cos_sin_julian_day(coords["time"][0], self.longitudes)
-        
+        cos_julian_day, sin_julian_day = self.get_cos_sin_julian_day(
+            coords["time"][0], self.longitudes
+        )
+
         # Get cos, sin of local time
-        cos_local_time, sin_local_time = self.get_cos_sin_local_time(coords["time"][0], self.longitudes)
+        cos_local_time, sin_local_time = self.get_cos_sin_local_time(
+            coords["time"][0], self.longitudes
+        )
 
         # Get cosine zenith angle
-        cos_zenith_angle = self.get_cosine_zenith_fields(coords["time"][0], self.latitudes, self.longitudes)
+        cos_zenith_angle = self.get_cosine_zenith_fields(
+            coords["time"][0], self.latitudes, self.longitudes
+        )
 
         # Add terms to x
         x[..., 94:95] = cos_julian_day
@@ -526,8 +744,7 @@ class AIFS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         x: torch.Tensor,
         coords: CoordSystem,
     ) -> tuple[torch.Tensor, CoordSystem]:
-        """Prepare input tensor and coordinates for the AIFS model.
-        """
+        """Prepare input tensor and coordinates for the AIFS model."""
 
         # Interpolate the model grid to the lat lon grid
         x = x[:, 1:2]
@@ -536,8 +753,18 @@ class AIFS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         x = x.flatten(start_dim=1)
         x = self.inverse_interpolation_matrix @ x
         x = torch.swapaxes(x, 0, 1)
-        x = torch.cat([x[:90], x[99:]], dim=0)
-        x = x.reshape([coords["batch"].shape[0], coords["time"].shape[0], coords["lead_time"].shape[0], coords["variable"].shape[0], coords["lat"].shape[0], coords["lon"].shape[0]])
+        x = torch.reshape(
+            x,
+            [
+                coords["batch"].shape[0],
+                coords["time"].shape[0],
+                coords["lead_time"].shape[0],
+                coords["variable"].shape[0] + 9,
+                coords["lat"].shape[0],
+                coords["lon"].shape[0],
+            ],
+        )
+        x = torch.cat([x[:, :, :, :90], x[:, :, :, 99:]], dim=3)
         return x
 
     @torch.inference_mode()
@@ -582,7 +809,7 @@ class AIFS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         coords = coords.copy()
         self.output_coords(coords)
         coords_out = coords.copy()
-        coords_out["lead_time"] = coords["lead_time"][1:] 
+        coords_out["lead_time"] = coords["lead_time"][1:]
         yield x[:, :, 1:], coords_out
 
         # Prepare input tensor

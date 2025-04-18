@@ -39,6 +39,7 @@ from earth2studio.models.dx import (
     WindgustAFNO,
 )
 from earth2studio.models.px import (
+    AIFS,
     DLWP,
     FCN,
     SFNO,
@@ -49,7 +50,6 @@ from earth2studio.models.px import (
     Pangu3,
     Pangu6,
     Pangu24,
-    AIFS,
 )
 
 

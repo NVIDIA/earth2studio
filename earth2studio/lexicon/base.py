@@ -168,8 +168,8 @@ E2STUDIO_VOCAB = {
     "skt": "skin temperature at surface",
     "slor": "slope of sub-grid scale orography",
     "sdor": "standard deviation of sub-grid scale orography",
-    "swvl1": "volumetric soil water layer 1 (m³/m³)", # Ask SAs for name confirmation, altertative (vsw?)
-    "swvl2": "volumetric soil water layer 2 (m³/m³)", # Ask SAs for name confirmation, altertative (vsw?)
-    "stl1": "soil temperature level 1 (K)", # Ask SAs for name confirmation, altertative (sot?!?!)
-    "stl2": "soil temperature level 2 (K)", # Ask SAs for name confirmation, altertative (sot?!?!)
+    "swvl1": "volumetric soil water layer 1 (m³/m³)",  # Ask SAs for name confirmation, altertative (vsw?)
+    "swvl2": "volumetric soil water layer 2 (m³/m³)",  # Ask SAs for name confirmation, altertative (vsw?)
+    "stl1": "soil temperature level 1 (K)",  # Ask SAs for name confirmation, altertative (sot?!?!)
+    "stl2": "soil temperature level 2 (K)",  # Ask SAs for name confirmation, altertative (sot?!?!)
 }

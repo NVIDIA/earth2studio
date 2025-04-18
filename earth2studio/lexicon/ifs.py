@@ -50,8 +50,8 @@ class IFSLexicon(metaclass=LexiconType):
             "skt": "skt::sfc::",
             "slor": "slor::sfc::",
             "sdor": "sdor::sfc::",
-            "lsm": "lsm::sfc::", # Should I remove this? Helps with debugging but not sure if it's needed
-            "zsl": "z::sfc::", # Same comment as above
+            "lsm": "lsm::sfc::",  # Should I remove this? Helps with debugging but not sure if it's needed
+            "zsl": "z::sfc::",  # Same comment as above
         }
         soil_variables = {
             "swvl1": "vsw::sl::1",
