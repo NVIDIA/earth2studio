@@ -76,7 +76,7 @@ from earth2studio.models.px import (
         AIFS,
     ],
 )
-def test_auto_model(model, model_cache_context):
+def test_auto_model_download(model, model_cache_context):
     """Automodel download test from remote stores for all models
     This should not be ran in a CI pipeline, rather reserved to periodic testing /
     manual tests. Can also be used to create a complete model cache.
