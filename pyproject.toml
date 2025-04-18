@@ -28,7 +28,7 @@ dependencies = [
     "torch>=2.5.0",
     "tqdm>=4.65.0",
     "xarray[parallel]>=2023.1.0",
-    "zarr>=2.14.2",
+    "zarr>=2.14.2,<3.0.0",
     "numcodecs<0.15.0", # TODO: Remove
 ]
 

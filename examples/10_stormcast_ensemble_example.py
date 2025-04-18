@@ -105,7 +105,7 @@ io = ZarrBackend()
 import earth2studio.run as run
 
 nsteps = 4
-nensemble = 8
+nensemble = 4
 batch_size = 2
 
 date = "2022-11-04T21:00:00"
