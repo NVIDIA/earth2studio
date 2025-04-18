@@ -1,0 +1,1604 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link href="../_static/favicon.ico" rel="icon" type="image/x-icon">
+    <title>Tropical Cyclone Tracking &#8212; Earth2Studio 0.7.0a0 documentation</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "light";
+  </script>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../_static/styles/theme.css?digest=8d27b9dea8ad943066ae" rel="stylesheet" />
+<link href="../_static/styles/bootstrap.css?digest=8d27b9dea8ad943066ae" rel="stylesheet" />
+<link href="../_static/styles/pydata-sphinx-theme.css?digest=8d27b9dea8ad943066ae" rel="stylesheet" />
+
+  
+  <link href="../_static/vendor/fontawesome/6.5.1/css/all.min.css?digest=8d27b9dea8ad943066ae" rel="stylesheet" />
+  <link rel="preload" as="font" type="font/woff2" crossorigin href="../_static/vendor/fontawesome/6.5.1/webfonts/fa-solid-900.woff2" />
+<link rel="preload" as="font" type="font/woff2" crossorigin href="../_static/vendor/fontawesome/6.5.1/webfonts/fa-brands-400.woff2" />
+<link rel="preload" as="font" type="font/woff2" crossorigin href="../_static/vendor/fontawesome/6.5.1/webfonts/fa-regular-400.woff2" />
+
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="../_static/togglebutton.css?v=13237357" />
+    <link rel="stylesheet" type="text/css" href="../_static/sg_gallery.css?v=d2d258e8" />
+    <link rel="stylesheet" type="text/css" href="../_static/sg_gallery-binder.css?v=f4aeca0c" />
+    <link rel="stylesheet" type="text/css" href="../_static/sg_gallery-dataframe.css?v=2082cf3c" />
+    <link rel="stylesheet" type="text/css" href="../_static/sg_gallery-rendered-html.css?v=1277b6f3" />
+    <link rel="stylesheet" type="text/css" href="../_static/sphinx-design.min.css?v=95c83b7e" />
+    <link rel="stylesheet" type="text/css" href="../_static/css/custom.css?v=94338acd" />
+  
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=8d27b9dea8ad943066ae" />
+<link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=8d27b9dea8ad943066ae" />
+  <script src="../_static/vendor/fontawesome/6.5.1/js/all.min.js?digest=8d27b9dea8ad943066ae"></script>
+
+    <script src="../_static/documentation_options.js?v=8f7eeaf6"></script>
+    <script src="../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script>let toggleHintShow = 'Click to show';</script>
+    <script>let toggleHintHide = 'Click to hide';</script>
+    <script>let toggleOpenOnPrint = 'true';</script>
+    <script src="../_static/togglebutton.js?v=4a39c7ea"></script>
+    <script src="../_static/design-tabs.js?v=f930bc37"></script>
+    <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'examples/13_cyclone_tracking';</script>
+    <script>
+        DOCUMENTATION_OPTIONS.theme_version = '0.15.2';
+        DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'https://raw.githubusercontent.com/NVIDIA/earth2studio/gh-pages/_static/switcher.json';
+        DOCUMENTATION_OPTIONS.theme_switcher_version_match = 'main';
+        DOCUMENTATION_OPTIONS.show_version_warning_banner = false;
+        </script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Extending Earth2Studio" href="extend/index.html" />
+    <link rel="prev" title="Temporal Interpolation" href="12_temporal_interpolation.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <a id="pst-skip-link" class="skip-link" href="#main-content">Skip to main content</a>
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>
+    Back to top
+  </button>
+
+  
+  <input type="checkbox"
+          class="sidebar-toggle"
+          name="__primary"
+          id="__primary"/>
+  <label class="overlay overlay-primary" for="__primary"></label>
+  
+  <input type="checkbox"
+          class="sidebar-toggle"
+          name="__secondary"
+          id="__secondary"/>
+  <label class="overlay overlay-secondary" for="__secondary"></label>
+  
+  <div class="search-button__wrapper">
+    <div class="search-button__overlay"></div>
+    <div class="search-button__search-container">
+<form class="bd-search d-flex align-items-center"
+      action="../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         id="search-input"
+         placeholder="Search the docs ..."
+         aria-label="Search the docs ..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form></div>
+  </div>
+  
+    <header class="bd-header navbar navbar-expand-lg bd-navbar">
+<div class="bd-header__inner bd-page-width">
+  <label class="sidebar-toggle primary-toggle" for="__primary">
+    <span class="fa-solid fa-bars"></span>
+  </label>
+  
+  
+  <div class="col-lg-3 navbar-header-items__start">
+    
+      <div class="navbar-item">
+
+  
+
+<a class="navbar-brand logo" href="../index.html">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="../_static/NVIDIA-Logo-V-ForScreen-ForLightBG.png" class="logo__image only-light" alt=""/>
+    <script>document.write(`<img src="../_static/NVIDIA-Logo-V-ForScreen-ForDarkBG.png" class="logo__image only-dark" alt=""/>`);</script>
+  
+  
+    <p class="title logo__title">Earth2Studio</p>
+  
+</a></div>
+    
+      <div class="navbar-item">
+<script>
+document.write(`
+  <div class="version-switcher__container dropdown">
+    <button id="pst-version-switcher-button-2"
+      type="button"
+      class="version-switcher__button btn btn-sm navbar-btn dropdown-toggle"
+      data-bs-toggle="dropdown"
+      aria-haspopup="listbox"
+      aria-controls="pst-version-switcher-list-2"
+      aria-label="Version switcher list"
+    >
+      Choose version  <!-- this text may get changed later by javascript -->
+      <span class="caret"></span>
+    </button>
+    <div id="pst-version-switcher-list-2"
+      class="version-switcher__menu dropdown-menu list-group-flush py-0"
+      role="listbox" aria-labelledby="pst-version-switcher-button-2">
+      <!-- dropdown will be populated by javascript on page load -->
+    </div>
+  </div>
+`);
+</script></div>
+    
+  </div>
+  
+  <div class="col-lg-9 navbar-header-items">
+    
+    <div class="me-auto navbar-header-items__center">
+      
+        <div class="navbar-item">
+<nav class="navbar-nav">
+  <ul class="bd-navbar-elements navbar-nav">
+    
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="../userguide/index.html">
+                        User Guide
+                      </a>
+                    </li>
+                
+
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="../modules/index.html">
+                        API
+                      </a>
+                    </li>
+                
+
+                    <li class="nav-item current active">
+                      <a class="nav-link nav-internal" href="index.html">
+                        Examples
+                      </a>
+                    </li>
+                
+
+                <li class="nav-item">
+                  <a class="nav-link nav-external" href="https://github.com/NVIDIA/earth2studio/blob/main/CHANGELOG.md">
+                    Changelog
+                  </a>
+                </li>
+                
+  </ul>
+</nav></div>
+      
+    </div>
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+ <script>
+ document.write(`
+   <button class="btn navbar-btn search-button-field search-button__button" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass"></i>
+    <span class="search-button__default-text">Search</span>
+    <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+   </button>
+ `);
+ </script>
+        </div>
+      
+      
+        <div class="navbar-item">
+
+<script>
+document.write(`
+  <button class="btn btn-sm navbar-btn theme-switch-button" title="light/dark" aria-label="light/dark" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <span class="theme-switch nav-link" data-mode="light"><i class="fa-solid fa-sun fa-lg"></i></span>
+    <span class="theme-switch nav-link" data-mode="dark"><i class="fa-solid fa-moon fa-lg"></i></span>
+    <span class="theme-switch nav-link" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg"></i></span>
+  </button>
+`);
+</script></div>
+      
+        <div class="navbar-item"><ul class="navbar-icon-links navbar-nav"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/NVIDIA/earth2studio" title="Github" class="nav-link" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><span><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i></span>
+            <span class="sr-only">Github</span></a>
+        </li>
+</ul></div>
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+
+ <script>
+ document.write(`
+   <button class="btn navbar-btn search-button-field search-button__button" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass"></i>
+    <span class="search-button__default-text">Search</span>
+    <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+   </button>
+ `);
+ </script>
+    </div>
+  
+
+  
+    <label class="sidebar-toggle secondary-toggle" for="__secondary" tabindex="0">
+      <span class="fa-solid fa-outdent"></span>
+    </label>
+  
+</div>
+
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+      <div class="bd-sidebar-primary bd-sidebar">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+      <div class="sidebar-header-items__center">
+        
+          <div class="navbar-item">
+<nav class="navbar-nav">
+  <ul class="bd-navbar-elements navbar-nav">
+    
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="../userguide/index.html">
+                        User Guide
+                      </a>
+                    </li>
+                
+
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="../modules/index.html">
+                        API
+                      </a>
+                    </li>
+                
+
+                    <li class="nav-item current active">
+                      <a class="nav-link nav-internal" href="index.html">
+                        Examples
+                      </a>
+                    </li>
+                
+
+                <li class="nav-item">
+                  <a class="nav-link nav-external" href="https://github.com/NVIDIA/earth2studio/blob/main/CHANGELOG.md">
+                    Changelog
+                  </a>
+                </li>
+                
+  </ul>
+</nav></div>
+        
+      </div>
+    
+    
+    
+      <div class="sidebar-header-items__end">
+        
+          <div class="navbar-item">
+
+<script>
+document.write(`
+  <button class="btn btn-sm navbar-btn theme-switch-button" title="light/dark" aria-label="light/dark" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <span class="theme-switch nav-link" data-mode="light"><i class="fa-solid fa-sun fa-lg"></i></span>
+    <span class="theme-switch nav-link" data-mode="dark"><i class="fa-solid fa-moon fa-lg"></i></span>
+    <span class="theme-switch nav-link" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg"></i></span>
+  </button>
+`);
+</script></div>
+        
+          <div class="navbar-item"><ul class="navbar-icon-links navbar-nav"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/NVIDIA/earth2studio" title="Github" class="nav-link" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><span><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i></span>
+            <span class="sr-only">Github</span></a>
+        </li>
+</ul></div>
+        
+      </div>
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item">
+<nav class="bd-docs-nav bd-links"
+     aria-label="Section Navigation">
+  <p class="bd-links__title" role="heading" aria-level="1">Section Navigation</p>
+  <div class="bd-toc-item navbar-nav"><ul class="current nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="01_deterministic_workflow.html">Running Deterministic Inference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="02_diagnostic_workflow.html">Running Diagnostic Inference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="03_ensemble_workflow.html">Running Ensemble Inference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="04_corrdiff_inference.html">Generative Downscaling</a></li>
+<li class="toctree-l1"><a class="reference internal" href="05_ensemble_workflow_extend.html">Single Variable Perturbation Method</a></li>
+<li class="toctree-l1"><a class="reference internal" href="06_model_perturbation_hook.html">Model Hook Injection: Perturbation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="07_seasonal_statistics.html">Statistical Inference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="08_distributed_manager.html">Distributed Manager Inference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="09_stormcast_example.html">Running StormCast Inference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="10_stormcast_ensemble_example.html">Running StormCast Ensemble Inference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="12_temporal_interpolation.html">Temporal Interpolation</a></li>
+<li class="toctree-l1 current active"><a class="current reference internal" href="#">Tropical Cyclone Tracking</a></li>
+</ul>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1 has-children"><a class="reference internal" href="extend/index.html">Extending Earth2Studio</a><input class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-1"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l2"><a class="reference internal" href="extend/01_custom_prognostic.html">Extending Prognostic Models</a></li>
+<li class="toctree-l2"><a class="reference internal" href="extend/02_custom_diagnostic.html">Extending Diagnostic Models</a></li>
+<li class="toctree-l2"><a class="reference internal" href="extend/03_custom_datasource.html">Extending Data Sources</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+  </div>
+  
+  <div id="rtd-footer-container"></div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main">
+        
+        
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item">
+
+
+
+<nav aria-label="Breadcrumb">
+  <ul class="bd-breadcrumbs">
+    
+    <li class="breadcrumb-item breadcrumb-home">
+      <a href="../index.html" class="nav-link" aria-label="Home">
+        <i class="fa-solid fa-home"></i>
+      </a>
+    </li>
+    
+    <li class="breadcrumb-item"><a href="index.html" class="nav-link">Examples</a></li>
+    
+    <li class="breadcrumb-item active" aria-current="page">Tropical...</li>
+  </ul>
+</nav>
+</div>
+      
+    </div>
+  
+  
+</div>
+</div>
+              
+              
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <div class="sphx-glr-download-link-note admonition note">
+<p class="admonition-title">Note</p>
+<p><a class="reference internal" href="#sphx-glr-download-examples-13-cyclone-tracking-py"><span class="std std-ref">Go to the end</span></a>
+to download the full example code.</p>
+</div>
+<section class="sphx-glr-example-title" id="tropical-cyclone-tracking">
+<span id="sphx-glr-examples-13-cyclone-tracking-py"></span><h1>Tropical Cyclone Tracking<a class="headerlink" href="#tropical-cyclone-tracking" title="Link to this heading">#</a></h1>
+<p>Tropical cyclone tracking with tracker diagnostic models</p>
+<p>This example will demonstrate how to use the tropical cyclone (TC) tracker diagnostic
+models for creating TC paths.
+The diagnostics used here can be combined with other AI weather models and ensemble
+methods to create complex inference workflow that enable downstream analysis.</p>
+<p>In this example you will learn:</p>
+<ul class="simple">
+<li><p>How to instantiate a TC tracker diagnostic</p></li>
+<li><p>How to apply the TC tracker to data</p></li>
+<li><p>How to couple the TC tracker to a prognostic model</p></li>
+<li><p>Post-processing results</p></li>
+</ul>
+<section id="set-up">
+<h2>Set Up<a class="headerlink" href="#set-up" title="Link to this heading">#</a></h2>
+<p>This example will look at tracking cyclones during August 2009, a moment in time when
+multiple tropical cyclones where impacting East Asia.
+Earth2Studio provides multiple variations of TC trackers such as <a class="reference internal" href="../modules/generated/models/dx/earth2studio.models.dx.TCTrackerVitart.html#earth2studio.models.dx.TCTrackerVitart" title="earth2studio.models.dx.TCTrackerVitart"><code class="xref py py-class docutils literal notranslate"><span class="pre">earth2studio.models.dx.TCTrackerVitart</span></code></a>
+and <a class="reference internal" href="../modules/generated/models/dx/earth2studio.models.dx.TCTrackerWuDuan.html#earth2studio.models.dx.TCTrackerWuDuan" title="earth2studio.models.dx.TCTrackerWuDuan"><code class="xref py py-class docutils literal notranslate"><span class="pre">earth2studio.models.dx.TCTrackerWuDuan</span></code></a>.
+The difference being the underlying algorithm used to identify the center.</p>
+<p>This example needs the following:</p>
+<ul class="simple">
+<li><p>Diagostic Model: Use the TC tracker <a class="reference internal" href="../modules/generated/models/dx/earth2studio.models.dx.TCTrackerWuDuan.html#earth2studio.models.dx.TCTrackerWuDuan" title="earth2studio.models.dx.TCTrackerWuDuan"><code class="xref py py-class docutils literal notranslate"><span class="pre">earth2studio.models.dx.TCTrackerWuDuan</span></code></a>.</p></li>
+<li><p>Datasource: Pull data from the WB2 ERA5 data api <a class="reference internal" href="../modules/generated/data/earth2studio.data.WB2ERA5.html#earth2studio.data.WB2ERA5" title="earth2studio.data.WB2ERA5"><code class="xref py py-class docutils literal notranslate"><span class="pre">earth2studio.data.WB2ERA5</span></code></a>.</p></li>
+<li><p>Prognostic Model: Use the built in FourCastNet Model <a class="reference internal" href="../modules/generated/models/px/earth2studio.models.px.FCN.html#earth2studio.models.px.FCN" title="earth2studio.models.px.FCN"><code class="xref py py-class docutils literal notranslate"><span class="pre">earth2studio.models.px.FCN</span></code></a>.</p></li>
+</ul>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+
+<span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="s2">&quot;outputs&quot;</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">dotenv</span><span class="w"> </span><span class="kn">import</span> <span class="n">load_dotenv</span>
+
+<span class="n">load_dotenv</span><span class="p">()</span>  <span class="c1"># TODO: make common example prep function</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">datetime</span><span class="w"> </span><span class="kn">import</span> <span class="n">datetime</span><span class="p">,</span> <span class="n">timedelta</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.data</span><span class="w"> </span><span class="kn">import</span> <span class="n">ARCO</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.models.dx</span><span class="w"> </span><span class="kn">import</span> <span class="n">TCTrackerWuDuan</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.models.px</span><span class="w"> </span><span class="kn">import</span> <span class="n">SFNO</span>
+
+<span class="c1"># Create tropical cyclone tracker</span>
+<span class="n">tracker</span> <span class="o">=</span> <span class="n">TCTrackerWuDuan</span><span class="p">()</span>
+
+<span class="c1"># Load the default model package which downloads the check point from NGC</span>
+<span class="n">package</span> <span class="o">=</span> <span class="n">SFNO</span><span class="o">.</span><span class="n">load_default_package</span><span class="p">()</span>
+<span class="n">prognostic</span> <span class="o">=</span> <span class="n">SFNO</span><span class="o">.</span><span class="n">load_model</span><span class="p">(</span><span class="n">package</span><span class="p">)</span>
+
+<span class="c1"># Create the data source</span>
+<span class="n">data</span> <span class="o">=</span> <span class="n">ARCO</span><span class="p">()</span>
+
+<span class="n">nsteps</span> <span class="o">=</span> <span class="mi">16</span>  <span class="c1"># Number of steps to run the tracker for into future</span>
+<span class="n">start_time</span> <span class="o">=</span> <span class="n">datetime</span><span class="p">(</span><span class="mi">2009</span><span class="p">,</span> <span class="mi">8</span><span class="p">,</span> <span class="mi">5</span><span class="p">)</span>  <span class="c1"># Start date for inference</span>
+</pre></div>
+</div>
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>2025-04-18 19:04:02.954 | WARNING  | earth2studio.data.arco:__init__:112 - Using Zarr 2.0 method for ARCO, this can be extremely slow with caching!
+</pre></div>
+</div>
+</section>
+<section id="tracking-analysis-data">
+<h2>Tracking Analysis Data<a class="headerlink" href="#tracking-analysis-data" title="Link to this heading">#</a></h2>
+<p>Before coupling the TC tracker with a prognostic model, we will first apply it to
+analysis data.
+We can fetch a small time range from the data source and provide it to our model.</p>
+<p>For the forecast we will predict for two days (these will get executed as a batch) for
+20 forecast steps which is 5 days.</p>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.data</span><span class="w"> </span><span class="kn">import</span> <span class="n">fetch_data</span><span class="p">,</span> <span class="n">prep_data_array</span>
+
+<span class="n">device</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">device</span><span class="p">(</span><span class="s2">&quot;cuda:0&quot;</span> <span class="k">if</span> <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">is_available</span><span class="p">()</span> <span class="k">else</span> <span class="s2">&quot;cpu&quot;</span><span class="p">)</span>
+<span class="n">tracker</span> <span class="o">=</span> <span class="n">tracker</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
+
+<span class="c1"># Land fall occured August 25th 2017</span>
+<span class="n">times</span> <span class="o">=</span> <span class="p">[</span><span class="n">start_time</span> <span class="o">+</span> <span class="n">timedelta</span><span class="p">(</span><span class="n">hours</span><span class="o">=</span><span class="mi">6</span> <span class="o">*</span> <span class="n">i</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">nsteps</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)]</span>
+<span class="k">for</span> <span class="n">step</span><span class="p">,</span> <span class="n">time</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">times</span><span class="p">):</span>
+    <span class="n">da</span> <span class="o">=</span> <span class="n">data</span><span class="p">(</span><span class="n">time</span><span class="p">,</span> <span class="n">tracker</span><span class="o">.</span><span class="n">input_coords</span><span class="p">()[</span><span class="s2">&quot;variable&quot;</span><span class="p">])</span>
+    <span class="n">x</span><span class="p">,</span> <span class="n">coords</span> <span class="o">=</span> <span class="n">prep_data_array</span><span class="p">(</span><span class="n">da</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">)</span>
+    <span class="n">output</span><span class="p">,</span> <span class="n">output_coords</span> <span class="o">=</span> <span class="n">tracker</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Step </span><span class="si">{</span><span class="n">step</span><span class="si">}</span><span class="s2">: ARCO tracks output shape </span><span class="si">{</span><span class="n">output</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+<span class="n">era5_tracks</span> <span class="o">=</span> <span class="n">output</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span>
+<span class="n">torch</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">era5_tracks</span><span class="p">,</span> <span class="s2">&quot;era5.pt&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+2025-04-18 19:04:16.439 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: u10m at 2009-08-05T00:00:00
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+2025-04-18 19:04:16.445 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: v10m at 2009-08-05T00:00:00
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+2025-04-18 19:04:16.450 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: msl at 2009-08-05T00:00:00
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+2025-04-18 19:04:16.454 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: u850 at 2009-08-05T00:00:00
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+2025-04-18 19:04:16.535 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: v850 at 2009-08-05T00:00:00
+
+Fetching ARCO data:  80%|████████  | 4/5 [00:00&lt;00:00, 41.06it/s]
+Fetching ARCO data: 100%|██████████| 5/5 [00:00&lt;00:00, 30.36it/s]
+Fetching ARCO data: 100%|██████████| 5/5 [00:00&lt;00:00, 30.31it/s]
+Step 0: ARCO tracks output shape torch.Size([1, 7, 1, 4])
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+2025-04-18 19:04:46.154 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: u10m at 2009-08-05T06:00:00
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+2025-04-18 19:04:46.157 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: v10m at 2009-08-05T06:00:00
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+2025-04-18 19:04:46.160 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: msl at 2009-08-05T06:00:00
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+2025-04-18 19:04:46.162 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: u850 at 2009-08-05T06:00:00
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+2025-04-18 19:04:46.219 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: v850 at 2009-08-05T06:00:00
+
+Fetching ARCO data:  80%|████████  | 4/5 [00:00&lt;00:00, 59.47it/s]
+Fetching ARCO data: 100%|██████████| 5/5 [00:00&lt;00:00, 28.38it/s]
+Fetching ARCO data: 100%|██████████| 5/5 [00:00&lt;00:00, 28.34it/s]
+Step 1: ARCO tracks output shape torch.Size([1, 7, 2, 4])
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+2025-04-18 19:04:46.478 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: u10m at 2009-08-05T12:00:00
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+2025-04-18 19:04:46.482 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: v10m at 2009-08-05T12:00:00
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+2025-04-18 19:04:46.485 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: msl at 2009-08-05T12:00:00
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+2025-04-18 19:04:46.487 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: u850 at 2009-08-05T12:00:00
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+2025-04-18 19:04:46.543 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: v850 at 2009-08-05T12:00:00
+
+Fetching ARCO data:  80%|████████  | 4/5 [00:00&lt;00:00, 60.43it/s]
+Fetching ARCO data: 100%|██████████| 5/5 [00:00&lt;00:00, 28.15it/s]
+Fetching ARCO data: 100%|██████████| 5/5 [00:00&lt;00:00, 28.12it/s]
+Step 2: ARCO tracks output shape torch.Size([1, 7, 3, 4])
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+2025-04-18 19:04:46.808 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: u10m at 2009-08-05T18:00:00
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+2025-04-18 19:04:46.811 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: v10m at 2009-08-05T18:00:00
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+2025-04-18 19:04:46.814 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: msl at 2009-08-05T18:00:00
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+2025-04-18 19:04:46.816 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: u850 at 2009-08-05T18:00:00
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+2025-04-18 19:04:46.870 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: v850 at 2009-08-05T18:00:00
+
+Fetching ARCO data:  80%|████████  | 4/5 [00:00&lt;00:00, 63.19it/s]
+Fetching ARCO data: 100%|██████████| 5/5 [00:00&lt;00:00, 28.73it/s]
+Fetching ARCO data: 100%|██████████| 5/5 [00:00&lt;00:00, 28.69it/s]
+Step 3: ARCO tracks output shape torch.Size([1, 8, 4, 4])
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+2025-04-18 19:04:47.126 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: u10m at 2009-08-06T00:00:00
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+2025-04-18 19:04:47.129 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: v10m at 2009-08-06T00:00:00
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+2025-04-18 19:04:47.132 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: msl at 2009-08-06T00:00:00
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+2025-04-18 19:04:47.135 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: u850 at 2009-08-06T00:00:00
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+2025-04-18 19:04:47.192 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: v850 at 2009-08-06T00:00:00
+
+Fetching ARCO data:  80%|████████  | 4/5 [00:00&lt;00:00, 59.34it/s]
+Fetching ARCO data: 100%|██████████| 5/5 [00:00&lt;00:00, 27.90it/s]
+Fetching ARCO data: 100%|██████████| 5/5 [00:00&lt;00:00, 27.86it/s]
+Step 4: ARCO tracks output shape torch.Size([1, 9, 5, 4])
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+2025-04-18 19:04:47.470 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: u10m at 2009-08-06T06:00:00
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+2025-04-18 19:04:47.473 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: v10m at 2009-08-06T06:00:00
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+2025-04-18 19:04:47.476 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: msl at 2009-08-06T06:00:00
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+2025-04-18 19:04:47.478 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: u850 at 2009-08-06T06:00:00
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+2025-04-18 19:04:47.535 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: v850 at 2009-08-06T06:00:00
+
+Fetching ARCO data:  80%|████████  | 4/5 [00:00&lt;00:00, 60.12it/s]
+Fetching ARCO data: 100%|██████████| 5/5 [00:00&lt;00:00, 28.07it/s]
+Fetching ARCO data: 100%|██████████| 5/5 [00:00&lt;00:00, 28.04it/s]
+Step 5: ARCO tracks output shape torch.Size([1, 10, 6, 4])
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+2025-04-18 19:04:51.603 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: u10m at 2009-08-06T12:00:00
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+2025-04-18 19:04:51.606 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: v10m at 2009-08-06T12:00:00
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+2025-04-18 19:04:51.609 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: msl at 2009-08-06T12:00:00
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+2025-04-18 19:04:51.612 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: u850 at 2009-08-06T12:00:00
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+Fetching ARCO data:  20%|██        | 1/5 [00:00&lt;00:00,  8.67it/s]
+
+2025-04-18 19:04:51.721 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: v850 at 2009-08-06T12:00:00
+
+Fetching ARCO data:  80%|████████  | 4/5 [00:00&lt;00:00,  8.67it/s]
+Fetching ARCO data: 100%|██████████| 5/5 [00:00&lt;00:00, 23.22it/s]
+Fetching ARCO data: 100%|██████████| 5/5 [00:00&lt;00:00, 21.08it/s]
+Step 6: ARCO tracks output shape torch.Size([1, 11, 7, 4])
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+2025-04-18 19:04:51.973 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: u10m at 2009-08-06T18:00:00
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+2025-04-18 19:04:51.976 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: v10m at 2009-08-06T18:00:00
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+2025-04-18 19:04:51.979 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: msl at 2009-08-06T18:00:00
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+2025-04-18 19:04:51.982 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: u850 at 2009-08-06T18:00:00
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+Fetching ARCO data:  20%|██        | 1/5 [00:00&lt;00:00,  8.49it/s]
+
+2025-04-18 19:04:52.094 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: v850 at 2009-08-06T18:00:00
+
+Fetching ARCO data:  80%|████████  | 4/5 [00:00&lt;00:00,  8.49it/s]
+Fetching ARCO data: 100%|██████████| 5/5 [00:00&lt;00:00, 23.49it/s]
+Fetching ARCO data: 100%|██████████| 5/5 [00:00&lt;00:00, 21.21it/s]
+Step 7: ARCO tracks output shape torch.Size([1, 12, 8, 4])
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+2025-04-18 19:04:52.347 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: u10m at 2009-08-07T00:00:00
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+2025-04-18 19:04:52.350 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: v10m at 2009-08-07T00:00:00
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+2025-04-18 19:04:52.353 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: msl at 2009-08-07T00:00:00
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+2025-04-18 19:04:52.355 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: u850 at 2009-08-07T00:00:00
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+Fetching ARCO data:  20%|██        | 1/5 [00:00&lt;00:00,  8.40it/s]
+
+2025-04-18 19:04:52.469 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: v850 at 2009-08-07T00:00:00
+
+Fetching ARCO data:  80%|████████  | 4/5 [00:00&lt;00:00,  8.40it/s]
+Fetching ARCO data: 100%|██████████| 5/5 [00:00&lt;00:00, 23.51it/s]
+Fetching ARCO data: 100%|██████████| 5/5 [00:00&lt;00:00, 21.20it/s]
+Step 8: ARCO tracks output shape torch.Size([1, 13, 9, 4])
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+2025-04-18 19:04:52.742 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: u10m at 2009-08-07T06:00:00
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+2025-04-18 19:04:52.745 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: v10m at 2009-08-07T06:00:00
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+2025-04-18 19:04:52.748 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: msl at 2009-08-07T06:00:00
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+2025-04-18 19:04:52.751 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: u850 at 2009-08-07T06:00:00
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+Fetching ARCO data:  20%|██        | 1/5 [00:00&lt;00:00,  8.54it/s]
+
+2025-04-18 19:04:52.862 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: v850 at 2009-08-07T06:00:00
+
+Fetching ARCO data:  80%|████████  | 4/5 [00:00&lt;00:00,  8.54it/s]
+Fetching ARCO data: 100%|██████████| 5/5 [00:00&lt;00:00, 23.54it/s]
+Fetching ARCO data: 100%|██████████| 5/5 [00:00&lt;00:00, 21.27it/s]
+Step 9: ARCO tracks output shape torch.Size([1, 14, 10, 4])
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+2025-04-18 19:04:53.126 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: u10m at 2009-08-07T12:00:00
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+2025-04-18 19:04:53.130 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: v10m at 2009-08-07T12:00:00
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+2025-04-18 19:04:53.133 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: msl at 2009-08-07T12:00:00
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+2025-04-18 19:04:53.135 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: u850 at 2009-08-07T12:00:00
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+Fetching ARCO data:  20%|██        | 1/5 [00:00&lt;00:00,  8.48it/s]
+
+2025-04-18 19:04:53.247 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: v850 at 2009-08-07T12:00:00
+
+Fetching ARCO data:  80%|████████  | 4/5 [00:00&lt;00:00,  8.48it/s]
+Fetching ARCO data: 100%|██████████| 5/5 [00:00&lt;00:00, 23.56it/s]
+Fetching ARCO data: 100%|██████████| 5/5 [00:00&lt;00:00, 21.26it/s]
+Step 10: ARCO tracks output shape torch.Size([1, 15, 11, 4])
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+2025-04-18 19:04:53.497 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: u10m at 2009-08-07T18:00:00
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+2025-04-18 19:04:53.500 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: v10m at 2009-08-07T18:00:00
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+2025-04-18 19:04:53.503 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: msl at 2009-08-07T18:00:00
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+2025-04-18 19:04:53.505 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: u850 at 2009-08-07T18:00:00
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+Fetching ARCO data:  20%|██        | 1/5 [00:00&lt;00:00,  8.48it/s]
+
+2025-04-18 19:04:53.617 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: v850 at 2009-08-07T18:00:00
+
+Fetching ARCO data:  80%|████████  | 4/5 [00:00&lt;00:00,  8.48it/s]
+Fetching ARCO data: 100%|██████████| 5/5 [00:00&lt;00:00, 23.55it/s]
+Fetching ARCO data: 100%|██████████| 5/5 [00:00&lt;00:00, 21.26it/s]
+Step 11: ARCO tracks output shape torch.Size([1, 16, 12, 4])
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+2025-04-18 19:04:53.871 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: u10m at 2009-08-08T00:00:00
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+2025-04-18 19:04:53.874 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: v10m at 2009-08-08T00:00:00
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+2025-04-18 19:04:53.877 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: msl at 2009-08-08T00:00:00
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+2025-04-18 19:04:53.879 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: u850 at 2009-08-08T00:00:00
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+Fetching ARCO data:  20%|██        | 1/5 [00:00&lt;00:00,  8.57it/s]
+
+2025-04-18 19:04:53.990 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: v850 at 2009-08-08T00:00:00
+
+Fetching ARCO data:  80%|████████  | 4/5 [00:00&lt;00:00,  8.57it/s]
+Fetching ARCO data: 100%|██████████| 5/5 [00:00&lt;00:00, 23.41it/s]
+Fetching ARCO data: 100%|██████████| 5/5 [00:00&lt;00:00, 21.18it/s]
+Step 12: ARCO tracks output shape torch.Size([1, 17, 13, 4])
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+2025-04-18 19:04:56.108 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: u10m at 2009-08-08T06:00:00
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+2025-04-18 19:04:56.111 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: v10m at 2009-08-08T06:00:00
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+2025-04-18 19:04:56.114 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: msl at 2009-08-08T06:00:00
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+2025-04-18 19:04:56.117 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: u850 at 2009-08-08T06:00:00
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+Fetching ARCO data:  20%|██        | 1/5 [00:00&lt;00:00,  8.55it/s]
+
+2025-04-18 19:04:56.228 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: v850 at 2009-08-08T06:00:00
+
+Fetching ARCO data:  80%|████████  | 4/5 [00:00&lt;00:00,  8.55it/s]
+Fetching ARCO data: 100%|██████████| 5/5 [00:00&lt;00:00, 23.55it/s]
+Fetching ARCO data: 100%|██████████| 5/5 [00:00&lt;00:00, 21.29it/s]
+Step 13: ARCO tracks output shape torch.Size([1, 18, 14, 4])
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+2025-04-18 19:04:56.481 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: u10m at 2009-08-08T12:00:00
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+2025-04-18 19:04:56.484 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: v10m at 2009-08-08T12:00:00
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+2025-04-18 19:04:56.487 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: msl at 2009-08-08T12:00:00
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+2025-04-18 19:04:56.489 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: u850 at 2009-08-08T12:00:00
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+Fetching ARCO data:  20%|██        | 1/5 [00:00&lt;00:00,  8.63it/s]
+
+2025-04-18 19:04:56.599 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: v850 at 2009-08-08T12:00:00
+
+Fetching ARCO data:  80%|████████  | 4/5 [00:00&lt;00:00,  8.63it/s]
+Fetching ARCO data: 100%|██████████| 5/5 [00:00&lt;00:00, 23.78it/s]
+Fetching ARCO data: 100%|██████████| 5/5 [00:00&lt;00:00, 21.49it/s]
+Step 14: ARCO tracks output shape torch.Size([1, 19, 15, 4])
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+2025-04-18 19:04:56.843 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: u10m at 2009-08-08T18:00:00
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+2025-04-18 19:04:56.846 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: v10m at 2009-08-08T18:00:00
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+2025-04-18 19:04:56.849 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: msl at 2009-08-08T18:00:00
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+2025-04-18 19:04:56.851 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: u850 at 2009-08-08T18:00:00
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+Fetching ARCO data:  20%|██        | 1/5 [00:00&lt;00:00,  8.58it/s]
+
+2025-04-18 19:04:56.962 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: v850 at 2009-08-08T18:00:00
+
+Fetching ARCO data:  80%|████████  | 4/5 [00:00&lt;00:00,  8.58it/s]
+Fetching ARCO data: 100%|██████████| 5/5 [00:00&lt;00:00, 23.73it/s]
+Fetching ARCO data: 100%|██████████| 5/5 [00:00&lt;00:00, 21.44it/s]
+Step 15: ARCO tracks output shape torch.Size([1, 20, 16, 4])
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+2025-04-18 19:04:57.217 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: u10m at 2009-08-09T00:00:00
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+2025-04-18 19:04:57.220 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: v10m at 2009-08-09T00:00:00
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+2025-04-18 19:04:57.223 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: msl at 2009-08-09T00:00:00
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+2025-04-18 19:04:57.226 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: u850 at 2009-08-09T00:00:00
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+Fetching ARCO data:  20%|██        | 1/5 [00:00&lt;00:00,  8.53it/s]
+
+2025-04-18 19:04:57.337 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: v850 at 2009-08-09T00:00:00
+
+Fetching ARCO data:  80%|████████  | 4/5 [00:00&lt;00:00,  8.53it/s]
+Fetching ARCO data: 100%|██████████| 5/5 [00:00&lt;00:00, 23.68it/s]
+Fetching ARCO data: 100%|██████████| 5/5 [00:00&lt;00:00, 21.37it/s]
+Step 16: ARCO tracks output shape torch.Size([1, 21, 17, 4])
+</pre></div>
+</div>
+<p>Notice that the output tensor grows as iterations are performed.
+This is because the tracker builds tracks based on previous forward passes returning
+a tensor with the dimensions [batch, path, step, variable].
+Not all paths are garenteed to be the same length or have the same start / stop time
+so any missing data is populated with a nan value.</p>
+<p>Up next lets also repeat the same process using the prognostic AI model.
+One could use one of the build in workflows but here we will manually implement the
+inference loop.</p>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">tqdm</span><span class="w"> </span><span class="kn">import</span> <span class="n">tqdm</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.utils.coords</span><span class="w"> </span><span class="kn">import</span> <span class="n">map_coords</span>
+
+<span class="n">prognostic</span> <span class="o">=</span> <span class="n">prognostic</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
+<span class="c1"># Reset the internal path buffer of tracker</span>
+<span class="n">tracker</span><span class="o">.</span><span class="n">reset_path_buffer</span><span class="p">()</span>
+
+<span class="c1"># Load the initial state</span>
+<span class="n">x</span><span class="p">,</span> <span class="n">coords</span> <span class="o">=</span> <span class="n">fetch_data</span><span class="p">(</span>
+    <span class="n">source</span><span class="o">=</span><span class="n">data</span><span class="p">,</span>
+    <span class="n">time</span><span class="o">=</span><span class="p">[</span><span class="n">start_time</span><span class="p">],</span>
+    <span class="n">variable</span><span class="o">=</span><span class="n">prognostic</span><span class="o">.</span><span class="n">input_coords</span><span class="p">()[</span><span class="s2">&quot;variable&quot;</span><span class="p">],</span>
+    <span class="n">lead_time</span><span class="o">=</span><span class="n">prognostic</span><span class="o">.</span><span class="n">input_coords</span><span class="p">()[</span><span class="s2">&quot;lead_time&quot;</span><span class="p">],</span>
+    <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="c1"># Create prognostic iterator</span>
+<span class="n">model</span> <span class="o">=</span> <span class="n">prognostic</span><span class="o">.</span><span class="n">create_iterator</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="p">)</span>
+<span class="k">with</span> <span class="n">tqdm</span><span class="p">(</span><span class="n">total</span><span class="o">=</span><span class="n">nsteps</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">desc</span><span class="o">=</span><span class="s2">&quot;Running inference&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">pbar</span><span class="p">:</span>
+    <span class="k">for</span> <span class="n">step</span><span class="p">,</span> <span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">model</span><span class="p">):</span>
+        <span class="c1"># Run tracker</span>
+        <span class="n">x</span><span class="p">,</span> <span class="n">coords</span> <span class="o">=</span> <span class="n">map_coords</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="p">,</span> <span class="n">tracker</span><span class="o">.</span><span class="n">input_coords</span><span class="p">())</span>
+        <span class="n">output</span><span class="p">,</span> <span class="n">output_coords</span> <span class="o">=</span> <span class="n">tracker</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="p">)</span>
+        <span class="c1"># lets remove the lead time dim</span>
+        <span class="n">output</span> <span class="o">=</span> <span class="n">output</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Step </span><span class="si">{</span><span class="n">step</span><span class="si">}</span><span class="s2">: SFNO tracks output shape </span><span class="si">{</span><span class="n">output</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+        <span class="n">pbar</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">step</span> <span class="o">==</span> <span class="n">nsteps</span><span class="p">:</span>
+            <span class="k">break</span>
+
+<span class="n">sfno_tracks</span> <span class="o">=</span> <span class="n">output</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span>
+<span class="n">torch</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">sfno_tracks</span><span class="p">,</span> <span class="s2">&quot;sfno.pt&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2025-04-18 19:04:57.933 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: u10m at 2009-08-05T00:00:00
+
+Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2025-04-18 19:04:57.936 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: v10m at 2009-08-05T00:00:00
+
+Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2025-04-18 19:04:57.940 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: u100m at 2009-08-05T00:00:00
+
+Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2025-04-18 19:04:57.942 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: v100m at 2009-08-05T00:00:00
+
+Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2025-04-18 19:04:57.950 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: t2m at 2009-08-05T00:00:00
+
+Fetching ARCO data:   5%|▌         | 4/73 [00:00&lt;00:00, 219.21it/s]
+
+2025-04-18 19:04:57.954 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: sp at 2009-08-05T00:00:00
+
+Fetching ARCO data:   5%|▌         | 4/73 [00:00&lt;00:00, 187.19it/s]
+
+2025-04-18 19:04:57.956 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: msl at 2009-08-05T00:00:00
+
+Fetching ARCO data:   5%|▌         | 4/73 [00:00&lt;00:00, 165.74it/s]
+
+2025-04-18 19:04:57.959 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: tcwv at 2009-08-05T00:00:00
+
+Fetching ARCO data:   5%|▌         | 4/73 [00:00&lt;00:00, 149.12it/s]
+
+2025-04-18 19:04:57.966 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: u50 at 2009-08-05T00:00:00
+
+Fetching ARCO data:  11%|█         | 8/73 [00:00&lt;00:00, 232.84it/s]
+
+2025-04-18 19:04:58.020 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: u100 at 2009-08-05T00:00:00
+
+Fetching ARCO data:  11%|█         | 8/73 [00:00&lt;00:00, 90.89it/s]
+
+2025-04-18 19:04:58.078 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: u150 at 2009-08-05T00:00:00
+
+Fetching ARCO data:  11%|█         | 8/73 [00:00&lt;00:01, 54.90it/s]
+
+2025-04-18 19:04:58.136 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: u200 at 2009-08-05T00:00:00
+
+Fetching ARCO data:  11%|█         | 8/73 [00:00&lt;00:01, 39.30it/s]
+Fetching ARCO data:  12%|█▏        | 9/73 [00:00&lt;00:01, 34.37it/s]
+
+2025-04-18 19:04:58.199 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: u250 at 2009-08-05T00:00:00
+
+Fetching ARCO data:  16%|█▋        | 12/73 [00:00&lt;00:01, 34.37it/s]
+
+2025-04-18 19:04:58.257 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: u300 at 2009-08-05T00:00:00
+
+Fetching ARCO data:  16%|█▋        | 12/73 [00:00&lt;00:01, 34.37it/s]
+
+2025-04-18 19:04:58.315 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: u400 at 2009-08-05T00:00:00
+
+Fetching ARCO data:  16%|█▋        | 12/73 [00:00&lt;00:01, 34.37it/s]
+
+2025-04-18 19:04:58.372 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: u500 at 2009-08-05T00:00:00
+
+Fetching ARCO data:  16%|█▋        | 12/73 [00:00&lt;00:01, 34.37it/s]
+Fetching ARCO data:  18%|█▊        | 13/73 [00:00&lt;00:02, 24.57it/s]
+
+2025-04-18 19:04:58.435 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: u600 at 2009-08-05T00:00:00
+
+Fetching ARCO data:  22%|██▏       | 16/73 [00:00&lt;00:02, 24.57it/s]
+
+2025-04-18 19:04:58.492 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: u700 at 2009-08-05T00:00:00
+
+Fetching ARCO data:  22%|██▏       | 16/73 [00:00&lt;00:02, 24.57it/s]
+
+2025-04-18 19:04:58.548 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: u850 at 2009-08-05T00:00:00
+
+Fetching ARCO data:  22%|██▏       | 16/73 [00:00&lt;00:02, 24.57it/s]
+
+2025-04-18 19:04:58.605 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: u925 at 2009-08-05T00:00:00
+
+Fetching ARCO data:  22%|██▏       | 16/73 [00:00&lt;00:02, 24.57it/s]
+Fetching ARCO data:  23%|██▎       | 17/73 [00:00&lt;00:02, 21.37it/s]
+
+2025-04-18 19:04:58.666 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: u1000 at 2009-08-05T00:00:00
+
+Fetching ARCO data:  27%|██▋       | 20/73 [00:00&lt;00:02, 21.37it/s]
+
+2025-04-18 19:04:58.723 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: v50 at 2009-08-05T00:00:00
+
+Fetching ARCO data:  27%|██▋       | 20/73 [00:00&lt;00:02, 21.37it/s]
+
+2025-04-18 19:04:58.781 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: v100 at 2009-08-05T00:00:00
+
+Fetching ARCO data:  27%|██▋       | 20/73 [00:00&lt;00:02, 21.37it/s]
+
+2025-04-18 19:04:58.839 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: v150 at 2009-08-05T00:00:00
+
+Fetching ARCO data:  27%|██▋       | 20/73 [00:00&lt;00:02, 21.37it/s]
+Fetching ARCO data:  29%|██▉       | 21/73 [00:00&lt;00:02, 19.64it/s]
+
+2025-04-18 19:04:58.902 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: v200 at 2009-08-05T00:00:00
+
+Fetching ARCO data:  33%|███▎      | 24/73 [00:00&lt;00:02, 19.64it/s]
+
+2025-04-18 19:04:58.961 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: v250 at 2009-08-05T00:00:00
+
+Fetching ARCO data:  33%|███▎      | 24/73 [00:01&lt;00:02, 19.64it/s]
+
+2025-04-18 19:04:59.019 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: v300 at 2009-08-05T00:00:00
+
+Fetching ARCO data:  33%|███▎      | 24/73 [00:01&lt;00:02, 19.64it/s]
+
+2025-04-18 19:04:59.077 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: v400 at 2009-08-05T00:00:00
+
+Fetching ARCO data:  33%|███▎      | 24/73 [00:01&lt;00:02, 19.64it/s]
+Fetching ARCO data:  34%|███▍      | 25/73 [00:01&lt;00:02, 18.63it/s]
+
+2025-04-18 19:04:59.140 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: v500 at 2009-08-05T00:00:00
+
+Fetching ARCO data:  38%|███▊      | 28/73 [00:01&lt;00:02, 18.63it/s]
+
+2025-04-18 19:04:59.198 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: v600 at 2009-08-05T00:00:00
+
+Fetching ARCO data:  38%|███▊      | 28/73 [00:01&lt;00:02, 18.63it/s]
+
+2025-04-18 19:04:59.256 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: v700 at 2009-08-05T00:00:00
+
+Fetching ARCO data:  38%|███▊      | 28/73 [00:01&lt;00:02, 18.63it/s]
+
+2025-04-18 19:04:59.314 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: v850 at 2009-08-05T00:00:00
+
+Fetching ARCO data:  38%|███▊      | 28/73 [00:01&lt;00:02, 18.63it/s]
+Fetching ARCO data:  40%|███▉      | 29/73 [00:01&lt;00:02, 18.04it/s]
+
+2025-04-18 19:04:59.377 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: v925 at 2009-08-05T00:00:00
+
+Fetching ARCO data:  44%|████▍     | 32/73 [00:01&lt;00:02, 18.04it/s]
+
+2025-04-18 19:04:59.434 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: v1000 at 2009-08-05T00:00:00
+
+Fetching ARCO data:  44%|████▍     | 32/73 [00:01&lt;00:02, 18.04it/s]
+
+2025-04-18 19:04:59.491 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: z50 at 2009-08-05T00:00:00
+
+Fetching ARCO data:  44%|████▍     | 32/73 [00:01&lt;00:02, 18.04it/s]
+
+2025-04-18 19:04:59.544 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: z100 at 2009-08-05T00:00:00
+
+Fetching ARCO data:  44%|████▍     | 32/73 [00:01&lt;00:02, 18.04it/s]
+Fetching ARCO data:  45%|████▌     | 33/73 [00:01&lt;00:02, 17.95it/s]
+
+2025-04-18 19:04:59.603 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: z150 at 2009-08-05T00:00:00
+
+Fetching ARCO data:  49%|████▉     | 36/73 [00:01&lt;00:02, 17.95it/s]
+
+2025-04-18 19:04:59.655 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: z200 at 2009-08-05T00:00:00
+
+Fetching ARCO data:  49%|████▉     | 36/73 [00:01&lt;00:02, 17.95it/s]
+
+2025-04-18 19:04:59.706 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: z250 at 2009-08-05T00:00:00
+
+Fetching ARCO data:  49%|████▉     | 36/73 [00:01&lt;00:02, 17.95it/s]
+
+2025-04-18 19:04:59.759 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: z300 at 2009-08-05T00:00:00
+
+Fetching ARCO data:  49%|████▉     | 36/73 [00:01&lt;00:02, 17.95it/s]
+Fetching ARCO data:  51%|█████     | 37/73 [00:01&lt;00:01, 18.19it/s]
+
+2025-04-18 19:04:59.815 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: z400 at 2009-08-05T00:00:00
+
+Fetching ARCO data:  55%|█████▍    | 40/73 [00:01&lt;00:01, 18.19it/s]
+
+2025-04-18 19:04:59.867 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: z500 at 2009-08-05T00:00:00
+
+Fetching ARCO data:  55%|█████▍    | 40/73 [00:01&lt;00:01, 18.19it/s]
+
+2025-04-18 19:04:59.919 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: z600 at 2009-08-05T00:00:00
+
+Fetching ARCO data:  55%|█████▍    | 40/73 [00:01&lt;00:01, 18.19it/s]
+
+2025-04-18 19:04:59.970 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: z700 at 2009-08-05T00:00:00
+
+Fetching ARCO data:  55%|█████▍    | 40/73 [00:02&lt;00:01, 18.19it/s]
+Fetching ARCO data:  56%|█████▌    | 41/73 [00:02&lt;00:01, 18.40it/s]
+
+2025-04-18 19:05:00.027 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: z850 at 2009-08-05T00:00:00
+
+Fetching ARCO data:  60%|██████    | 44/73 [00:02&lt;00:01, 18.40it/s]
+
+2025-04-18 19:05:00.079 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: z925 at 2009-08-05T00:00:00
+
+Fetching ARCO data:  60%|██████    | 44/73 [00:02&lt;00:01, 18.40it/s]
+
+2025-04-18 19:05:00.131 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: z1000 at 2009-08-05T00:00:00
+
+Fetching ARCO data:  60%|██████    | 44/73 [00:02&lt;00:01, 18.40it/s]
+
+2025-04-18 19:05:00.183 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: t50 at 2009-08-05T00:00:00
+
+Fetching ARCO data:  60%|██████    | 44/73 [00:02&lt;00:01, 18.40it/s]
+Fetching ARCO data:  62%|██████▏   | 45/73 [00:02&lt;00:01, 18.43it/s]
+
+2025-04-18 19:05:00.243 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: t100 at 2009-08-05T00:00:00
+
+Fetching ARCO data:  66%|██████▌   | 48/73 [00:02&lt;00:01, 18.43it/s]
+
+2025-04-18 19:05:00.297 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: t150 at 2009-08-05T00:00:00
+
+Fetching ARCO data:  66%|██████▌   | 48/73 [00:02&lt;00:01, 18.43it/s]
+
+2025-04-18 19:05:00.351 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: t200 at 2009-08-05T00:00:00
+
+Fetching ARCO data:  66%|██████▌   | 48/73 [00:02&lt;00:01, 18.43it/s]
+
+2025-04-18 19:05:00.406 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: t250 at 2009-08-05T00:00:00
+
+Fetching ARCO data:  66%|██████▌   | 48/73 [00:02&lt;00:01, 18.43it/s]
+Fetching ARCO data:  67%|██████▋   | 49/73 [00:02&lt;00:01, 18.31it/s]
+
+2025-04-18 19:05:00.465 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: t300 at 2009-08-05T00:00:00
+
+Fetching ARCO data:  71%|███████   | 52/73 [00:02&lt;00:01, 18.31it/s]
+
+2025-04-18 19:05:00.518 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: t400 at 2009-08-05T00:00:00
+
+Fetching ARCO data:  71%|███████   | 52/73 [00:02&lt;00:01, 18.31it/s]
+
+2025-04-18 19:05:00.571 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: t500 at 2009-08-05T00:00:00
+
+Fetching ARCO data:  71%|███████   | 52/73 [00:02&lt;00:01, 18.31it/s]
+
+2025-04-18 19:05:00.625 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: t600 at 2009-08-05T00:00:00
+
+Fetching ARCO data:  71%|███████   | 52/73 [00:02&lt;00:01, 18.31it/s]
+Fetching ARCO data:  73%|███████▎  | 53/73 [00:02&lt;00:01, 18.32it/s]
+
+2025-04-18 19:05:00.683 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: t700 at 2009-08-05T00:00:00
+
+Fetching ARCO data:  77%|███████▋  | 56/73 [00:02&lt;00:00, 18.32it/s]
+
+2025-04-18 19:05:00.736 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: t850 at 2009-08-05T00:00:00
+
+Fetching ARCO data:  77%|███████▋  | 56/73 [00:02&lt;00:00, 18.32it/s]
+
+2025-04-18 19:05:00.790 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: t925 at 2009-08-05T00:00:00
+
+Fetching ARCO data:  77%|███████▋  | 56/73 [00:02&lt;00:00, 18.32it/s]
+
+2025-04-18 19:05:00.843 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: t1000 at 2009-08-05T00:00:00
+
+Fetching ARCO data:  77%|███████▋  | 56/73 [00:02&lt;00:00, 18.32it/s]
+Fetching ARCO data:  78%|███████▊  | 57/73 [00:02&lt;00:00, 18.32it/s]
+
+2025-04-18 19:05:00.902 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: q50 at 2009-08-05T00:00:00
+
+Fetching ARCO data:  82%|████████▏ | 60/73 [00:02&lt;00:00, 18.32it/s]
+
+2025-04-18 19:05:00.957 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: q100 at 2009-08-05T00:00:00
+
+Fetching ARCO data:  82%|████████▏ | 60/73 [00:03&lt;00:00, 18.32it/s]
+
+2025-04-18 19:05:01.014 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: q150 at 2009-08-05T00:00:00
+
+Fetching ARCO data:  82%|████████▏ | 60/73 [00:03&lt;00:00, 18.32it/s]
+
+2025-04-18 19:05:01.070 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: q200 at 2009-08-05T00:00:00
+
+Fetching ARCO data:  82%|████████▏ | 60/73 [00:03&lt;00:00, 18.32it/s]
+Fetching ARCO data:  84%|████████▎ | 61/73 [00:03&lt;00:00, 18.03it/s]
+
+2025-04-18 19:05:01.132 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: q250 at 2009-08-05T00:00:00
+
+Fetching ARCO data:  88%|████████▊ | 64/73 [00:03&lt;00:00, 18.03it/s]
+
+2025-04-18 19:05:01.188 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: q300 at 2009-08-05T00:00:00
+
+Fetching ARCO data:  88%|████████▊ | 64/73 [00:03&lt;00:00, 18.03it/s]
+
+2025-04-18 19:05:01.245 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: q400 at 2009-08-05T00:00:00
+
+Fetching ARCO data:  88%|████████▊ | 64/73 [00:03&lt;00:00, 18.03it/s]
+
+2025-04-18 19:05:01.301 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: q500 at 2009-08-05T00:00:00
+
+Fetching ARCO data:  88%|████████▊ | 64/73 [00:03&lt;00:00, 18.03it/s]
+Fetching ARCO data:  89%|████████▉ | 65/73 [00:03&lt;00:00, 17.82it/s]
+
+2025-04-18 19:05:01.362 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: q600 at 2009-08-05T00:00:00
+
+Fetching ARCO data:  93%|█████████▎| 68/73 [00:03&lt;00:00, 17.82it/s]
+
+2025-04-18 19:05:01.419 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: q700 at 2009-08-05T00:00:00
+
+Fetching ARCO data:  93%|█████████▎| 68/73 [00:03&lt;00:00, 17.82it/s]
+
+2025-04-18 19:05:01.475 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: q850 at 2009-08-05T00:00:00
+
+Fetching ARCO data:  93%|█████████▎| 68/73 [00:03&lt;00:00, 17.82it/s]
+
+2025-04-18 19:05:01.531 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: q925 at 2009-08-05T00:00:00
+
+Fetching ARCO data:  93%|█████████▎| 68/73 [00:03&lt;00:00, 17.82it/s]
+Fetching ARCO data:  95%|█████████▍| 69/73 [00:03&lt;00:00, 17.67it/s]
+
+2025-04-18 19:05:01.593 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: q1000 at 2009-08-05T00:00:00
+
+Fetching ARCO data:  99%|█████████▊| 72/73 [00:03&lt;00:00, 17.67it/s]
+Fetching ARCO data: 100%|██████████| 73/73 [00:03&lt;00:00, 19.64it/s]
+
+Running inference:   0%|          | 0/17 [00:00&lt;?, ?it/s]Step 0: SFNO tracks output shape torch.Size([1, 7, 1, 4])
+
+Running inference:   6%|▌         | 1/17 [00:00&lt;00:02,  6.31it/s]Step 1: SFNO tracks output shape torch.Size([1, 8, 2, 4])
+
+Running inference:  12%|█▏        | 2/17 [00:00&lt;00:05,  2.80it/s]Step 2: SFNO tracks output shape torch.Size([1, 8, 3, 4])
+
+Running inference:  18%|█▊        | 3/17 [00:01&lt;00:05,  2.40it/s]Step 3: SFNO tracks output shape torch.Size([1, 9, 4, 4])
+
+Running inference:  24%|██▎       | 4/17 [00:01&lt;00:05,  2.28it/s]Step 4: SFNO tracks output shape torch.Size([1, 10, 5, 4])
+
+Running inference:  29%|██▉       | 5/17 [00:02&lt;00:05,  2.20it/s]Step 5: SFNO tracks output shape torch.Size([1, 10, 6, 4])
+
+Running inference:  35%|███▌      | 6/17 [00:02&lt;00:05,  2.14it/s]Step 6: SFNO tracks output shape torch.Size([1, 10, 7, 4])
+
+Running inference:  41%|████      | 7/17 [00:03&lt;00:04,  2.14it/s]Step 7: SFNO tracks output shape torch.Size([1, 11, 8, 4])
+
+Running inference:  47%|████▋     | 8/17 [00:03&lt;00:04,  2.11it/s]Step 8: SFNO tracks output shape torch.Size([1, 12, 9, 4])
+
+Running inference:  53%|█████▎    | 9/17 [00:04&lt;00:03,  2.09it/s]Step 9: SFNO tracks output shape torch.Size([1, 13, 10, 4])
+
+Running inference:  59%|█████▉    | 10/17 [00:04&lt;00:03,  2.11it/s]Step 10: SFNO tracks output shape torch.Size([1, 13, 11, 4])
+
+Running inference:  65%|██████▍   | 11/17 [00:04&lt;00:02,  2.14it/s]Step 11: SFNO tracks output shape torch.Size([1, 14, 12, 4])
+
+Running inference:  71%|███████   | 12/17 [00:05&lt;00:02,  2.14it/s]Step 12: SFNO tracks output shape torch.Size([1, 15, 13, 4])
+
+Running inference:  76%|███████▋  | 13/17 [00:05&lt;00:01,  2.12it/s]Step 13: SFNO tracks output shape torch.Size([1, 16, 14, 4])
+
+Running inference:  82%|████████▏ | 14/17 [00:06&lt;00:01,  2.10it/s]Step 14: SFNO tracks output shape torch.Size([1, 17, 15, 4])
+
+Running inference:  88%|████████▊ | 15/17 [00:06&lt;00:00,  2.13it/s]Step 15: SFNO tracks output shape torch.Size([1, 17, 16, 4])
+
+Running inference:  94%|█████████▍| 16/17 [00:07&lt;00:00,  2.12it/s]Step 16: SFNO tracks output shape torch.Size([1, 18, 17, 4])
+
+Running inference: 100%|██████████| 17/17 [00:07&lt;00:00,  2.09it/s]
+Running inference: 100%|██████████| 17/17 [00:07&lt;00:00,  2.18it/s]
+</pre></div>
+</div>
+<p>Note that before the inference loop of the AI model, the path buffer of the tracker
+was reset which refreshes the tracker’s path state starting from scratch.
+Otherwise, it would attempt to append to the existing tracks from the data source
+loop in the previous section.</p>
+<p>Finally we can plot the results to compare the track ground truths from ERA5 with
+those produced by SFNO.
+Recall the outputs of <a class="reference internal" href="../modules/generated/models/dx/earth2studio.models.dx.TCTrackerWuDuan.html#earth2studio.models.dx.TCTrackerWuDuan" title="earth2studio.models.dx.TCTrackerWuDuan"><code class="xref py py-class docutils literal notranslate"><span class="pre">earth2studio.models.dx.TCTrackerWuDuan</span></code></a> has the path
+ID in the second dimension, thus that is what will determine the number of lines.
+The lat/lon coords are the first two variables in the last dimension.
+Lastly we just need to be mindful of the NaN filler values which can get easily
+masked out and any “path” that isnt over 2 points long</p>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">datetime</span><span class="w"> </span><span class="kn">import</span> <span class="n">datetime</span><span class="p">,</span> <span class="n">timedelta</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">cartopy.crs</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">ccrs</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">cartopy.feature</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">cfeature</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.patches</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">mpatches</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+
+<span class="c1"># Convert tracks from tensors to numpy arrays</span>
+<span class="n">era5_paths</span> <span class="o">=</span> <span class="n">era5_tracks</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span>
+<span class="n">sfno_paths</span> <span class="o">=</span> <span class="n">sfno_tracks</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span>
+
+<span class="c1"># Calculate end date</span>
+<span class="n">end_time</span> <span class="o">=</span> <span class="n">start_time</span> <span class="o">+</span> <span class="n">timedelta</span><span class="p">(</span><span class="n">hours</span><span class="o">=</span><span class="mi">6</span> <span class="o">*</span> <span class="n">nsteps</span><span class="p">)</span>
+
+<span class="c1"># Create figure with cartopy projection</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">8</span><span class="p">))</span>
+<span class="n">projection</span> <span class="o">=</span> <span class="n">ccrs</span><span class="o">.</span><span class="n">LambertConformal</span><span class="p">(</span>
+    <span class="n">central_longitude</span><span class="o">=</span><span class="mf">130.0</span><span class="p">,</span> <span class="n">central_latitude</span><span class="o">=</span><span class="mf">30.0</span><span class="p">,</span> <span class="n">standard_parallels</span><span class="o">=</span><span class="p">(</span><span class="mf">20.0</span><span class="p">,</span> <span class="mf">40.0</span><span class="p">)</span>
+<span class="p">)</span>
+<span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">axes</span><span class="p">(</span><span class="n">projection</span><span class="o">=</span><span class="n">projection</span><span class="p">)</span>
+
+<span class="c1"># Add map features</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">add_feature</span><span class="p">(</span><span class="n">cfeature</span><span class="o">.</span><span class="n">COASTLINE</span><span class="p">)</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">add_feature</span><span class="p">(</span><span class="n">cfeature</span><span class="o">.</span><span class="n">LAND</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.1</span><span class="p">)</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">gridlines</span><span class="p">(</span><span class="n">draw_labels</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.6</span><span class="p">)</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">set_extent</span><span class="p">([</span><span class="mi">90</span><span class="p">,</span> <span class="mi">170</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">50</span><span class="p">],</span> <span class="n">crs</span><span class="o">=</span><span class="n">ccrs</span><span class="o">.</span><span class="n">PlateCarree</span><span class="p">())</span>
+
+<span class="n">era5_cmap</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">cm</span><span class="o">.</span><span class="n">autumn</span>
+<span class="n">sfno_cmap</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">cm</span><span class="o">.</span><span class="n">winter</span>
+
+<span class="k">for</span> <span class="n">path</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">era5_paths</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]):</span>
+    <span class="c1"># Get lat/lon coordinates, filtering out nans</span>
+    <span class="n">lats</span> <span class="o">=</span> <span class="n">era5_paths</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="n">path</span><span class="p">,</span> <span class="p">:,</span> <span class="mi">0</span><span class="p">]</span>
+    <span class="n">lons</span> <span class="o">=</span> <span class="n">era5_paths</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="n">path</span><span class="p">,</span> <span class="p">:,</span> <span class="mi">1</span><span class="p">]</span>
+    <span class="n">mask</span> <span class="o">=</span> <span class="o">~</span><span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">lats</span><span class="p">)</span> <span class="o">&amp;</span> <span class="o">~</span><span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">lons</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">mask</span><span class="o">.</span><span class="n">any</span><span class="p">()</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">lons</span><span class="p">[</span><span class="n">mask</span><span class="p">])</span> <span class="o">&gt;</span> <span class="mi">2</span><span class="p">:</span>
+        <span class="n">color</span> <span class="o">=</span> <span class="n">era5_cmap</span><span class="p">(</span><span class="n">path</span> <span class="o">/</span> <span class="n">era5_paths</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span>
+            <span class="n">lons</span><span class="p">[</span><span class="n">mask</span><span class="p">],</span>
+            <span class="n">lats</span><span class="p">[</span><span class="n">mask</span><span class="p">],</span>
+            <span class="n">color</span><span class="o">=</span><span class="n">color</span><span class="p">,</span>
+            <span class="n">linestyle</span><span class="o">=</span><span class="s2">&quot;-.&quot;</span><span class="p">,</span>
+            <span class="n">marker</span><span class="o">=</span><span class="s2">&quot;x&quot;</span><span class="p">,</span>
+            <span class="n">label</span><span class="o">=</span><span class="s2">&quot;ERA5&quot;</span> <span class="k">if</span> <span class="n">path</span> <span class="o">==</span> <span class="mi">0</span> <span class="k">else</span> <span class="s2">&quot;&quot;</span><span class="p">,</span>
+            <span class="n">transform</span><span class="o">=</span><span class="n">ccrs</span><span class="o">.</span><span class="n">PlateCarree</span><span class="p">(),</span>
+        <span class="p">)</span>
+
+<span class="k">for</span> <span class="n">path</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">sfno_paths</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]):</span>
+    <span class="c1"># Get lat/lon coordinates, filtering out nans</span>
+    <span class="n">lats</span> <span class="o">=</span> <span class="n">sfno_paths</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="n">path</span><span class="p">,</span> <span class="p">:,</span> <span class="mi">0</span><span class="p">]</span>
+    <span class="n">lons</span> <span class="o">=</span> <span class="n">sfno_paths</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="n">path</span><span class="p">,</span> <span class="p">:,</span> <span class="mi">1</span><span class="p">]</span>
+    <span class="n">mask</span> <span class="o">=</span> <span class="o">~</span><span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">lats</span><span class="p">)</span> <span class="o">&amp;</span> <span class="o">~</span><span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">lons</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">mask</span><span class="o">.</span><span class="n">any</span><span class="p">()</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">lons</span><span class="p">[</span><span class="n">mask</span><span class="p">])</span> <span class="o">&gt;</span> <span class="mi">2</span><span class="p">:</span>
+        <span class="n">color</span> <span class="o">=</span> <span class="n">sfno_cmap</span><span class="p">(</span><span class="n">path</span> <span class="o">/</span> <span class="n">sfno_paths</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span>
+            <span class="n">lons</span><span class="p">[</span><span class="n">mask</span><span class="p">],</span>
+            <span class="n">lats</span><span class="p">[</span><span class="n">mask</span><span class="p">],</span>
+            <span class="n">color</span><span class="o">=</span><span class="n">color</span><span class="p">,</span>
+            <span class="n">linestyle</span><span class="o">=</span><span class="s2">&quot;-&quot;</span><span class="p">,</span>
+            <span class="n">label</span><span class="o">=</span><span class="s2">&quot;SFNO&quot;</span> <span class="k">if</span> <span class="n">path</span> <span class="o">==</span> <span class="mi">0</span> <span class="k">else</span> <span class="s2">&quot;&quot;</span><span class="p">,</span>
+            <span class="n">transform</span><span class="o">=</span><span class="n">ccrs</span><span class="o">.</span><span class="n">PlateCarree</span><span class="p">(),</span>
+        <span class="p">)</span>
+
+<span class="n">era5_patch</span> <span class="o">=</span> <span class="n">mpatches</span><span class="o">.</span><span class="n">Rectangle</span><span class="p">(</span>
+    <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">fc</span><span class="o">=</span><span class="n">era5_cmap</span><span class="p">(</span><span class="mf">0.3</span><span class="p">),</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.9</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s2">&quot;ERA5&quot;</span>
+<span class="p">)</span>
+<span class="n">sfno_patch</span> <span class="o">=</span> <span class="n">mpatches</span><span class="o">.</span><span class="n">Rectangle</span><span class="p">(</span>
+    <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">fc</span><span class="o">=</span><span class="n">sfno_cmap</span><span class="p">(</span><span class="mf">0.3</span><span class="p">),</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.9</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s2">&quot;SFNO&quot;</span>
+<span class="p">)</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">legend</span><span class="p">(</span><span class="n">handles</span><span class="o">=</span><span class="p">[</span><span class="n">era5_patch</span><span class="p">,</span> <span class="n">sfno_patch</span><span class="p">],</span> <span class="n">loc</span><span class="o">=</span><span class="s2">&quot;upper right&quot;</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="s2">&quot;Cyclone Tracks&quot;</span><span class="p">)</span>
+
+<span class="n">plt</span><span class="o">.</span><span class="n">title</span><span class="p">(</span>
+    <span class="sa">f</span><span class="s1">&#39;Tropical Cyclone Tracks</span><span class="se">\n</span><span class="si">{</span><span class="n">start_time</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="s2">&quot;%Y-%m-</span><span class="si">%d</span><span class="s2">&quot;</span><span class="p">)</span><span class="si">}</span><span class="s1"> to </span><span class="si">{</span><span class="n">end_time</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="s2">&quot;%Y-%m-</span><span class="si">%d</span><span class="s2">&quot;</span><span class="p">)</span><span class="si">}</span><span class="s1">&#39;</span>
+<span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;outputs/13_</span><span class="si">{</span><span class="n">start_time</span><span class="si">}</span><span class="s2">_cyclone_tracks.jpg&quot;</span><span class="p">,</span> <span class="n">bbox_inches</span><span class="o">=</span><span class="s2">&quot;tight&quot;</span><span class="p">,</span> <span class="n">dpi</span><span class="o">=</span><span class="mi">300</span><span class="p">)</span>
+</pre></div>
+</div>
+<img src="../_images/sphx_glr_13_cyclone_tracking_001.png" srcset="../_images/sphx_glr_13_cyclone_tracking_001.png" alt="Tropical Cyclone Tracks 2009-08-05 to 2009-08-09" class = "sphx-glr-single-img"/><p>In addition to filtering out the NaN values, users may want to apply other post
+processing steps on the paths which may be enforcing path lengths are above a certain
+threshold or other geography based filters.</p>
+<p>No cyclone tracker is perfect, we encourage users to experiment and tune the tracker
+as needed.</p>
+<p class="sphx-glr-timing"><strong>Total running time of the script:</strong> (1 minutes 17.001 seconds)</p>
+<div class="sphx-glr-footer sphx-glr-footer-example docutils container" id="sphx-glr-download-examples-13-cyclone-tracking-py">
+<div class="sphx-glr-download sphx-glr-download-jupyter docutils container">
+<p><a class="reference download internal" download="" href="../_downloads/6d897d8f50be68ecc57b02ba668d45cb/13_cyclone_tracking.ipynb"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">Jupyter</span> <span class="pre">notebook:</span> <span class="pre">13_cyclone_tracking.ipynb</span></code></a></p>
+</div>
+<div class="sphx-glr-download sphx-glr-download-python docutils container">
+<p><a class="reference download internal" download="" href="../_downloads/6aca84c2c01e53bb0dbf238aba7916d6/13_cyclone_tracking.py"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">Python</span> <span class="pre">source</span> <span class="pre">code:</span> <span class="pre">13_cyclone_tracking.py</span></code></a></p>
+</div>
+<div class="sphx-glr-download sphx-glr-download-zip docutils container">
+<p><a class="reference download internal" download="" href="../_downloads/75553434c16730f7cc3b1cc1f5e91713/13_cyclone_tracking.zip"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">zipped:</span> <span class="pre">13_cyclone_tracking.zip</span></code></a></p>
+</div>
+</div>
+<p class="sphx-glr-signature"><a class="reference external" href="https://sphinx-gallery.github.io">Gallery generated by Sphinx-Gallery</a></p>
+</section>
+</section>
+
+
+                </article>
+              
+              
+              
+              
+              
+                <footer class="prev-next-footer">
+                  
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="12_temporal_interpolation.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">Temporal Interpolation</p>
+      </div>
+    </a>
+    <a class="right-next"
+       href="extend/index.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">Extending Earth2Studio</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+                <div class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item">
+<div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> On this page
+  </div>
+  <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#set-up">Set Up</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#tracking-analysis-data">Tracking Analysis Data</a></li>
+</ul>
+  </nav></div>
+
+  <div class="sidebar-secondary-item">
+
+  <div class="tocsection sourcelink">
+    <a href="../_sources/examples/13_cyclone_tracking.rst.txt">
+      <i class="fa-solid fa-file-lines"></i> Show Source
+    </a>
+  </div>
+</div>
+
+</div></div>
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+          </footer>
+        
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script src="../_static/scripts/bootstrap.js?digest=8d27b9dea8ad943066ae"></script>
+<script src="../_static/scripts/pydata-sphinx-theme.js?digest=8d27b9dea8ad943066ae"></script>
+
+  <footer class="bd-footer">
+<div class="bd-footer__inner bd-page-width">
+  
+    <div class="footer-items__start">
+      
+        <div class="footer-item">
+
+  <p class="copyright">
+    
+      © Copyright 2025, NVIDIA.
+      <br/>
+    
+  </p>
+</div>
+      
+        <div class="footer-item">
+
+  <p class="sphinx-version">
+    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 8.2.3.
+    <br/>
+  </p>
+</div>
+      
+    </div>
+  
+  
+  
+    <div class="footer-items__end">
+      
+        <div class="footer-item">
+<p class="theme-version">
+  Built with the <a href="https://pydata-sphinx-theme.readthedocs.io/en/stable/index.html">PyData Sphinx Theme</a> 0.15.2.
+</p></div>
+      
+    </div>
+  
+</div>
+
+  </footer>
+  </body>
+</html>
