@@ -1062,38 +1062,3 @@ class TCTrackerVitart(torch.nn.Module, _TCTrackerBase):
         output_coords["step"] = np.arange(self.path_buffer.shape[2])
 
         return out, output_coords
-
-
-# def run_example() -> None:
-#     """Demonstrates the functionality of the CycloneTracking model by running it on a sample dataset and
-#     connecting the identified tropical cyclone positions to tracks."""
-#     import pandas as pd
-
-#     from earth2studio.data import GFS, prep_data_array
-
-#     # Initialize the CycloneTracking model
-#     CT = CycloneTracking()
-
-#     # Define the timestamps to analyze
-#     time = np.array(pd.date_range("2024-08-26", "2024-08-29", freq="6H"))
-
-#     # Load the required weather data from GFS analysis
-#     gfs = GFS()
-#     variable = CT.input_coords()["variable"]
-#     da = gfs(time, variable)
-#     x, coords = prep_data_array(da)
-
-#     # Run the tropical cyclone tracker
-#     y, c = CT(x, coords)
-
-#     # Connect positions to tracks
-#     df_tracks = get_tracks_from_positions(
-#         y, c, min_length=3, search_radius_km=250, max_skips=1
-#     )
-
-#     # Display the tracks DataFrame
-#     print(df_tracks)
-
-
-# if __name__ == "__main__":
-#     run_example()

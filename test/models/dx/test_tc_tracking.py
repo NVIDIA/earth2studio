@@ -74,7 +74,7 @@ def test_haversine_torch(device):
     lon2 = torch.tensor(120, dtype=torch.float32, device=device)
 
     # Known expected distance in kilometers (approximate)
-    expected_distance = torch.tensor(12860.0)
+    expected_distance = torch.tensor(12860.0).to(device)
     dist = TCTrackerVitart.haversine_torch(lat1, lon1, lat2, lon2)
 
     torch.testing.assert_close(expected_distance, dist, rtol=1e-3, atol=1e-3)
