@@ -212,11 +212,15 @@ def map_coords(
     mapped_coords = input_coords.copy()
 
     for key, value in output_coords.items():
-        if key in [
-            "batch",
-            "time",
-            "lead_time",
-        ]:  # TODO: Need better solution, time is numeric
+        if (
+            key
+            in [
+                "batch",
+                "time",
+                "lead_time",
+            ]
+            or len(value) == 0
+        ):  # TODO: Need better solution, time is numeric
             continue
 
         if key not in input_coords:
@@ -302,19 +306,6 @@ def map_coords(
             continue
         else:
             raise ValueError(f"Map method {method} not supported")
-            # TODO: Linear
-            # c = np.pad(array, pad_width=1, mode='edge')
-            # idx2 = numpy.where(c[idx+2] < c[idx] , idx+1, idx-1)
-
-            # a = torch.Tensor(input_coords[key][idx2] - input_coords[key][idx], device=x.device)
-
-            # y0 = torch.index_select(x, i, torch.IntTensor(idx, device=x.device))
-            # y1 = torch.index_select(x, i, torch.IntTensor(idx2, device=x.device))
-
-            # x0 = torch.Tensor(value - input_coords[key][idx], device=x.device)
-            # x1 = torch.Tensor(input_coords[key][idx2] - value, device=x.device)
-
-            # x = torch.where(a == 0, y0, (x1*y0 + x0*y1)/a)
 
     return x, mapped_coords
 

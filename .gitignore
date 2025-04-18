@@ -91,6 +91,7 @@ cache/
 outputs/
 multirun/
 !examples/.env
+cufile.log
 
 # Sphinx
 _build
