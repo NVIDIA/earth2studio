@@ -21,14 +21,14 @@ dependencies = [
     "huggingface-hub>=0.4.0",
     "loguru",
     "netCDF4>=1.6.4",
-    "ngcsdk>=3.55.0",
+    "ngcsdk>=3.62.0",
     "nest_asyncio", # TODO Remove
     "python-dotenv",
     "s3fs>=2023.5.0",
     "torch>=2.5.0",
     "tqdm>=4.65.0",
     "xarray[parallel]>=2023.1.0",
-    "zarr>=2.14.2",
+    "zarr>=2.14.2,<3.0.0",
     "numcodecs<0.15.0", # TODO: Remove
 ]
 
@@ -126,8 +126,7 @@ corrdiff = [
     "scipy>=1.15.2",
 ]
 cyclone = [
-    "cucim>=23.10.0",
-    "cupy>=13.4.1",
+    "cucim-cu12>=25.4.0 ; python_full_version < '3.13'",
     "scikit-image>=0.25.2",
 ]
 derived = []
@@ -180,7 +179,7 @@ conflicts = [
     [
       { extra = "aurora" },
       { extra = "aurora-fork" },
-    ],
+    ]
 ]
 # Force onnx to only try to install when below 3.13, otherwise we will use onnx weekly
 override-dependencies = ["onnx; python_full_version < '3.13'"]

@@ -1,8 +1,10 @@
 install:
+	uv venv --python=3.12
 	uv sync --extra all
 
 .PHONY: setup-ci
 setup-ci:
+	uv venv --python=3.12
 	uv sync
 	uv run pre-commit install --install-hooks
 

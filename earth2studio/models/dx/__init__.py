@@ -32,6 +32,10 @@ from earth2studio.models.dx.derived import (
 from earth2studio.models.dx.identity import Identity  # noqa
 from earth2studio.models.dx.precipitation_afno import PrecipitationAFNO  # noqa
 from earth2studio.models.dx.precipitation_afno_v2 import PrecipitationAFNOv2  # noqa
+from earth2studio.models.dx.tc_tracking import (
+    TCTrackerVitart,
+    TCTrackerWuDuan,
+)
 from earth2studio.models.dx.wind_gust import WindgustAFNO  # noqa
 
 # TODO: Remove upon physics-nemo update...
