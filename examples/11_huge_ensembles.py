@@ -161,7 +161,7 @@ for i, package in enumerate([model_package_1, model_package_2]):
         data,
         io,
         perturbation,
-        batch_size=2,
+        batch_size=1,
         output_coords={"variable": np.array(["u10m", "v10m"])},
     )
     print(io.tree())

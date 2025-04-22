@@ -114,7 +114,7 @@ def test_hem_cen_bred_vec(
     x = torch.randn(batch, 1, 1, len(variable), 16, 16).to(device)
     coords = OrderedDict(
         [
-            ("ensemble", np.arange(batch)),
+            ("ensemble", np.arange(batch + 1)),
             ("time", np.array([time])),
             ("lead_time", np.array([np.timedelta64(0, "h")])),
             ("variable", np.array(variable)),
@@ -125,7 +125,6 @@ def test_hem_cen_bred_vec(
     prtb = HemisphericCentredBredVector(
         model=model,
         data=data_source,
-        time=time,
         seeding_perturbation_method=seeding_perturbation_method,
         noise_amplitude=amplitude,
         integration_steps=steps,
