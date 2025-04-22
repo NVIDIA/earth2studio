@@ -59,7 +59,7 @@ In this example you will learn:
 # HENS has checkpoints conveniently stored on `HuggingFace <https://huggingface.co/datasets/maheshankur10/hens/tree/main/earth2mip_prod_registry>`_
 # that we will use.
 # Rather than loading the default checkpoint from the original SFNO paper, create a
-# model package that points to the specific checkpoint we want to use instead.
+# model package that points to the specific HENS checkpoint we want to use instead.
 #
 # This example also needs the following:
 #
