@@ -75,7 +75,7 @@ class HemisphericCentredBredVector:
             if isinstance(noise_amplitude, torch.Tensor)
             else torch.Tensor(
                 [noise_amplitude] * len(self.model.input_coords()["variable"])
-            )[:,None,None]
+            )[:, None, None]
         )
         self.integration_steps = integration_steps
         self.seeding_perturbation_method = seeding_perturbation_method
@@ -141,9 +141,6 @@ class HemisphericCentredBredVector:
                 )
                 coords["time"] = data_coords["time"][ii + 1 : ii + 2]
                 xper = xunp + dx
-
-            # xper = self.force_non_neg(xper)  # apply at every iteration?
-            # xper_neg = self.force_non_neg(xunp - dx) # Negative perturbation
 
             # Yield single batches in alternating order to keep perturbation centered
             for i in range(batch_size):

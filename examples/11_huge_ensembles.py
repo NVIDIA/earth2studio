@@ -104,13 +104,6 @@ model_package_2 = Package(
         "same_names": True,
     },
 )
-skill_package = Package(
-    "hf://datasets/maheshankur10/hens",
-    cache_options={
-        "cache_storage": Package.default_cache("hens_skill"),
-        "same_names": True,
-    },
-)
 
 # Create the data source
 data = GFS()
@@ -133,6 +126,7 @@ data = GFS()
 
 # %%
 
+import gc
 from datetime import datetime, timedelta
 
 import numpy as np
@@ -146,14 +140,12 @@ for i, package in enumerate([model_package_1, model_package_2]):
     # Load SFNO model from package
     # HENS checkpoints use different inputs than default SFNO (inclusion of d2m)
     # Can find this in the config.json, the load_model function in SFNO handles this
-    package = SFNO.load_default_package()
     model = SFNO.load_model(package)
 
     # Perturbation method
     # Here we will simplify the process thats in the original paper for conciseness
     noise_amplification = torch.zeros(model.input_coords()["variable"].shape[0])
-    noise_amplification[40] = 0.3  # z500
-
+    noise_amplification[40] = 1.0  # z500
     noise_amplification = noise_amplification.reshape(1, 1, 1, -1, 1, 1)
 
     seed_perturbation = CorrelatedSphericalGaussian(noise_amplitude=noise_amplification)
@@ -179,7 +171,13 @@ for i, package in enumerate([model_package_1, model_package_2]):
         batch_size=1,
         output_coords={"variable": np.array(["u10m", "v10m"])},
     )
+
     print(io.root.tree())
+    # Do some manual clean up to free up VRAM
+    del model
+    del perturbation
+    gc.collect()
+    torch.cuda.empty_cache()
 
 # %%
 # Post Processing
@@ -222,7 +220,7 @@ p1 = ax1.contourf(
     mean_wind.coords["lon"],
     mean_wind.coords["lat"],
     mean_wind,
-    levels=5,
+    levels=10,
     transform=ccrs.PlateCarree(),
     cmap="turbo",
 )
@@ -235,7 +233,7 @@ p2 = ax2.contourf(
     std_wind.coords["lon"],
     std_wind.coords["lat"],
     std_wind,
-    levels=5,
+    levels=10,
     transform=ccrs.PlateCarree(),
     cmap="turbo",
 )
