@@ -40,7 +40,7 @@ For the complete HENS workflow, we encourage users to have a look at the HENS re
 which provides a end-to-end solution to leverage HENS for downstream analysis such as
 tropical cyclone tracking:
 
-- coming Soon
+- coming soon
 
 In this example you will learn:
 
