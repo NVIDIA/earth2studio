@@ -15,7 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Hemispheric centred bred vector perturbation now support single/odd batch sizes
+- Hemispheric centred bred vector perturbation now supports single/odd batch sizes
 
 ### Deprecated
 
