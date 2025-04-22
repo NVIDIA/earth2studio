@@ -114,7 +114,7 @@ def test_hem_cen_bred_vec(
     x = torch.randn(batch, 1, 1, len(variable), 16, 16).to(device)
     coords = OrderedDict(
         [
-            ("ensemble", np.arange(batch + 1)),
+            ("ensemble", np.arange(batch)),
             ("time", np.array([time])),
             ("lead_time", np.array([np.timedelta64(0, "h")])),
             ("variable", np.array(variable)),
