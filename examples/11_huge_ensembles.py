@@ -104,6 +104,13 @@ model_package_2 = Package(
         "same_names": True,
     },
 )
+skill_package = Package(
+    "hf://datasets/maheshankur10/hens",
+    cache_options={
+        "cache_storage": Package.default_cache("hens_skill"),
+        "same_names": True,
+    },
+)
 
 # Create the data source
 data = GFS()
@@ -129,6 +136,7 @@ data = GFS()
 from datetime import datetime, timedelta
 
 import numpy as np
+import torch
 
 start_date = datetime(2024, 1, 1)
 nsteps = 4
@@ -138,14 +146,21 @@ for i, package in enumerate([model_package_1, model_package_2]):
     # Load SFNO model from package
     # HENS checkpoints use different inputs than default SFNO (inclusion of d2m)
     # Can find this in the config.json, the load_model function in SFNO handles this
+    package = SFNO.load_default_package()
     model = SFNO.load_model(package)
 
     # Perturbation method
     # Here we will simplify the process thats in the original paper for conciseness
-    seed_perturbation = CorrelatedSphericalGaussian(0.1)
+    noise_amplification = torch.zeros(model.input_coords()["variable"].shape[0])
+    noise_amplification[40] = 0.3  # z500
+
+    noise_amplification = noise_amplification.reshape(1, 1, 1, -1, 1, 1)
+
+    seed_perturbation = CorrelatedSphericalGaussian(noise_amplitude=noise_amplification)
     perturbation = HemisphericCentredBredVector(
-        model, data, start_date, seed_perturbation
+        model, data, seed_perturbation, noise_amplitude=noise_amplification
     )
+
     # IO object
     io = ZarrBackend(
         file_name=f"outputs/11_hens_{i}.zarr",
@@ -164,7 +179,7 @@ for i, package in enumerate([model_package_1, model_package_2]):
         batch_size=1,
         output_coords={"variable": np.array(["u10m", "v10m"])},
     )
-    print(io.tree())
+    print(io.root.tree())
 
 # %%
 # Post Processing
@@ -204,9 +219,10 @@ fig, (ax1, ax2) = plt.subplots(
 
 # Plot mean
 p1 = ax1.contourf(
-    mean_wind.longitude,
-    mean_wind.latitude,
+    mean_wind.coords["lon"],
+    mean_wind.coords["lat"],
     mean_wind,
+    levels=5,
     transform=ccrs.PlateCarree(),
     cmap="turbo",
 )
@@ -216,9 +232,10 @@ fig.colorbar(p1, ax=ax1, label="m/s")
 
 # Plot standard deviation
 p2 = ax2.contourf(
-    std_wind.longitude,
-    std_wind.latitude,
+    std_wind.coords["lon"],
+    std_wind.coords["lat"],
     std_wind,
+    levels=5,
     transform=ccrs.PlateCarree(),
     cmap="turbo",
 )

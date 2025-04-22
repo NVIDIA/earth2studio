@@ -81,6 +81,7 @@ class HemisphericCentredBredVector:
         self.seeding_perturbation_method = seeding_perturbation_method
         self.set_clip_indices()
         self.generator: Generator | None = None
+        self.device = "cpu"
 
     @torch.inference_mode()
     def create_generator(
@@ -109,8 +110,8 @@ class HemisphericCentredBredVector:
         while True:
             # get unperturbed intital state, assuming tensor always has 6 dims
             xunp = input_data[:1].repeat(batch_size, 1, 1, 1, 1, 1).to(self.device)
-            # Commenting here, that this will not work for any model that needs a
-            # history window greater than one
+            # Commenting here, not tested for when multiple lead times are needed
+            # May work...
             coords["time"] = data_coords["time"][:1]
 
             # generate perturbed initial state
@@ -130,7 +131,7 @@ class HemisphericCentredBredVector:
                     )
 
                 # scale dx
-                dx = self.noise_amplitude[:, None, None] * (dx / hem_norm)
+                dx = self.noise_amplitude * (dx / hem_norm)
 
                 xunp = (
                     input_data[ii + 1]
