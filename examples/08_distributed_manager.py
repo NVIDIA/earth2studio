@@ -19,7 +19,7 @@
 Distributed Manager Inference
 =============================
 
-Setting up distributed manager for parallel inference
+Setting up distributed manager for parallel inference.
 
 Many inference workflows are embarrassingly parallel and can be easily sharded across
 multiple devices.

@@ -16,12 +16,12 @@
 
 # %%
 """
-Huge Ensembles (HENS)
-=====================
+Huge Ensembles (HENS) Checkpoints
+=================================
 
-Multi-checkpoint Huge Ensembles (HENS) inference workflow.
+Basic multi-checkpoint Huge Ensembles (HENS) inference workflow.
 
-This example provides a basic example to user the Huge Ensemble checkpoints to perform
+This example provides a basic example to load the Huge Ensemble checkpoints to perform
 ensemble inference.
 This notebook aims to demonstrate the foundations of running a multi-checkpoint workflow
 from Earth2Studio components.
@@ -31,17 +31,16 @@ For more details about HENS, see:
 - https://github.com/ankurmahesh/earth2mip-fork
 
 
-:::{admonition} HENS checkpoints
-:class: warning
-We encourage users to familiarize themselves with the license restrictions of this
-model's checkpoints.
-:::
+.. warning::
+
+    We encourage users to familiarize themselves with the license restrictions of this
+    model's checkpoints.
 
 For the complete HENS workflow, we encourage users to have a look at the HENS recipe
-which provides a end-to-end solution to leverage HENS for downstream anlysis such as
+which provides a end-to-end solution to leverage HENS for downstream analysis such as
 tropical cyclone tracking:
 
--
+- coming Soon
 
 In this example you will learn:
 
@@ -57,8 +56,8 @@ In this example you will learn:
 # ------
 # First, import the necessary modules and set up our environment and load the required
 # modules.
-# HENS has checkpoints conviently stored on [HuggingFace](https://huggingface.co/datasets/maheshankur10/hens/tree/main/earth2mip_prod_registry)
-# that we will used.
+# HENS has checkpoints conveniently stored on `HuggingFace <https://huggingface.co/datasets/maheshankur10/hens/tree/main/earth2mip_prod_registry>`_
+# that we will use.
 # Rather than loading the default checkpoint from the original SFNO paper, create a
 # model package that points to the specific checkpoint we want to use instead.
 #
@@ -67,7 +66,7 @@ In this example you will learn:
 # - Prognostic Base Model: Use SFNO model architecture :py:class:`earth2studio.models.px.SFNO`.
 # - Datasource: Pull data from the GFS data api :py:class:`earth2studio.data.GFS`.
 # - Perturbation Method: HENS uses a novel perturbation method :py:class:`earth2studio.perturbation.HemisphericCentredBredVector`.
-# - Seeding Perturbation Method: Perturbation method to seed the Bred Vector:py:class:`earth2studio.perturbation.CorrelatedSphericalGaussian`.
+# - Seeding Perturbation Method: Perturbation method to seed the Bred Vector :py:class:`earth2studio.perturbation.CorrelatedSphericalGaussian`.
 
 # %%
 import os
@@ -87,7 +86,7 @@ from earth2studio.perturbation import (
 )
 from earth2studio.run import ensemble
 
-# Set up two model packages for eache checkpoint
+# Set up two model packages for each checkpoint
 # Note the modification of the cache location to avoid overwriting
 model_package_1 = Package(
     "hf://datasets/maheshankur10/hens/earth2mip_prod_registry/sfno_linear_74chq_sc2_layers8_edim620_wstgl2-epoch70_seed102",
@@ -118,11 +117,11 @@ data = GFS()
 #
 # - Initialize the SFNO model from checkpoint
 # - Correct the input variable such that the coordinate systems will match the weights
-# - Initialize the perturbation method with the intialized model
+# - Initialize the perturbation method with the initialized model
 # - Initialize the IO zarr store for this model
 #
-# If multiple GPUs are being used, one could parallelize inference between with
-# different checkpoint on each card.
+# If multiple GPUs are being used, one could parallelize inference using different
+# checkpoints on each card.
 
 # %%
 
@@ -143,7 +142,7 @@ for i, package in enumerate([model_package_1, model_package_2]):
     model = SFNO.load_model(package)
 
     # Perturbation method
-    # Here we will simplify the process thats in the original paper for conciseness
+    # Here we will simplify the process that's in the original paper for conciseness
     noise_amplification = torch.zeros(model.input_coords()["variable"].shape[0])
     noise_amplification[40] = 1.0  # z500
     noise_amplification = noise_amplification.reshape(1, 1, 1, -1, 1, 1)
@@ -212,7 +211,7 @@ std_wind = wind_speed.isel(time=0, lead_time=lead_time).std(dim="ensemble")
 
 # Create figure with two subplots
 fig, (ax1, ax2) = plt.subplots(
-    1, 2, figsize=(15, 5), subplot_kw={"projection": ccrs.PlateCarree()}
+    1, 2, figsize=(15, 4), subplot_kw={"projection": ccrs.PlateCarree()}
 )
 
 # Plot mean
@@ -220,9 +219,9 @@ p1 = ax1.contourf(
     mean_wind.coords["lon"],
     mean_wind.coords["lat"],
     mean_wind,
-    levels=10,
+    levels=15,
     transform=ccrs.PlateCarree(),
-    cmap="turbo",
+    cmap="nipy_spectral",
 )
 ax1.coastlines()
 ax1.set_title(f'Mean Wind Speed\n{plot_date.strftime("%Y-%m-%d %H:%M UTC")}')
@@ -233,9 +232,9 @@ p2 = ax2.contourf(
     std_wind.coords["lon"],
     std_wind.coords["lat"],
     std_wind,
-    levels=10,
+    levels=15,
     transform=ccrs.PlateCarree(),
-    cmap="turbo",
+    cmap="viridis",
 )
 ax2.coastlines()
 ax2.set_title(

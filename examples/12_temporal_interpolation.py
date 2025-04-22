@@ -19,8 +19,14 @@
 Temporal Interpolation
 ======================
 
+Temporal Interpolation inference using InterpModAFNO model.
+
 This example demonstrates how to use the InterpModAFNO model to interpolate
 forecasts from a base model to a finer time resolution.
+Many of the existing prognostic models have a step size of 6 hours which may prove
+insufficient for some applications.
+InterpModAFNO provides a AI driven method for getting hourly resolution given 6 hour
+predictions.
 
 In this example you will learn:
 
@@ -110,7 +116,7 @@ for step in range(min([n_steps, 6])):
     im = axs[step].imshow(
         io["tcwv"][0, step], cmap="twilight_shifted", aspect="auto", vmin=0, vmax=85
     )
-    axs[step].set_title(f"Water Vapour - Step: {step}hrs")
+    axs[step].set_title(f"Water Vapour - Step: {step} hrs")
     fig.colorbar(im, ax=axs[step], label="kg/m^2")
 
 plt.tight_layout()
