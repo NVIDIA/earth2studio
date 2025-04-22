@@ -113,11 +113,10 @@ data = GFS()
 # Next we execute the ensemble workflow for each model but loop through each checkpoint.
 # Note that the models themselves have not been loaded into memory yet, this will be
 # done one at a time to minimize the memory footprint of inference on a GPU.
-# Before the workflow can get executed the following set up is needed:
+# Before the ensemble workflow can get executed the following set up is needed:
 #
 # - Initialize the SFNO model from checkpoint
-# - Correct the input variable such that the coordinate systems will match the weights
-# - Initialize the perturbation method with the initialized model
+# - Initialize the perturbation method with the prognostic model
 # - Initialize the IO zarr store for this model
 #
 # If multiple GPUs are being used, one could parallelize inference using different
