@@ -21,8 +21,14 @@
 Temporal Interpolation
 ======================
 
+Temporal Interpolation inference using InterpModAFNO model.
+
 This example demonstrates how to use the InterpModAFNO model to interpolate
 forecasts from a base model to a finer time resolution.
+Many of the existing prognostic models have a step size of 6 hours which may prove
+insufficient for some applications.
+InterpModAFNO provides a AI driven method for getting hourly resolution given 6 hour
+predictions.
 
 In this example you will learn:
 
@@ -31,7 +37,7 @@ In this example you will learn:
 - How to run the interpolation model
 - How to visualize the results
 
-.. GENERATED FROM PYTHON SOURCE LINES 34-46
+.. GENERATED FROM PYTHON SOURCE LINES 40-52
 
 Set Up
 ------
@@ -46,7 +52,7 @@ This example needs the following:
 - Prognostic Base Model: Use SFNO model :py:class:`earth2studio.models.px.SFNO`.
 - Datasource: Pull data from the GFS data api :py:class:`earth2studio.data.GFS`.
 
-.. GENERATED FROM PYTHON SOURCE LINES 48-73
+.. GENERATED FROM PYTHON SOURCE LINES 54-79
 
 .. code-block:: Python
 
@@ -76,7 +82,7 @@ This example needs the following:
     io = ZarrBackend()
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 74-79
+.. GENERATED FROM PYTHON SOURCE LINES 80-85
 
 Run the Interpolation Model
 ---------------------------
@@ -84,7 +90,7 @@ Now run the interpolation model to get forecasts at a finer time resolution.
 The base model (SFNO) produces forecasts at 6-hour intervals, and the
 interpolation model will interpolate to 1-hour intervals.
 
-.. GENERATED FROM PYTHON SOURCE LINES 81-93
+.. GENERATED FROM PYTHON SOURCE LINES 87-99
 
 .. code-block:: Python
 
@@ -101,14 +107,14 @@ interpolation model will interpolate to 1-hour intervals.
     print(io.root.tree())
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 94-98
+.. GENERATED FROM PYTHON SOURCE LINES 100-104
 
 Visualize Results
 -----------------
 Let's visualize the total column water vapour (tcwv) at each time step
 and save them as separate files.
 
-.. GENERATED FROM PYTHON SOURCE LINES 100-119
+.. GENERATED FROM PYTHON SOURCE LINES 106-125
 
 .. code-block:: Python
 
@@ -125,7 +131,7 @@ and save them as separate files.
         im = axs[step].imshow(
             io["tcwv"][0, step], cmap="twilight_shifted", aspect="auto", vmin=0, vmax=85
         )
-        axs[step].set_title(f"Water Vapour - Step: {step}hrs")
+        axs[step].set_title(f"Water Vapour - Step: {step} hrs")
         fig.colorbar(im, ax=axs[step], label="kg/m^2")
 
     plt.tight_layout()

@@ -1,0 +1,20 @@
+﻿:mod:`earth2studio.perturbation`.CorrelatedSphericalGaussian
+===================================================================
+
+.. currentmodule:: earth2studio.perturbation
+
+.. autoclass:: CorrelatedSphericalGaussian
+
+   
+    .. automethod:: __call__
+   
+
+.. _sphx_glr_backref_earth2studio.perturbation.CorrelatedSphericalGaussian:
+
+.. minigallery:: earth2studio.perturbation.CorrelatedSphericalGaussian
+      :add-heading:
+      :heading-level: ^
+
+.. raw:: html
+
+    <div class="clearer"></div>

@@ -21,7 +21,7 @@
 Tropical Cyclone Tracking
 =========================
 
-Tropical cyclone tracking with tracker diagnostic models
+Tropical cyclone tracking with tracker diagnostic models.
 
 This example will demonstrate how to use the tropical cyclone (TC) tracker diagnostic
 models for creating TC paths.

@@ -437,7 +437,8 @@ document.write(`
 <span class="c1"># See the License for the specific language governing permissions and</span>
 <span class="c1"># limitations under the License.</span>
 
-<span class="kn">from</span><span class="w"> </span><span class="nn">datetime</span><span class="w"> </span><span class="kn">import</span> <span class="n">datetime</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">collections</span><span class="w"> </span><span class="kn">import</span> <span class="n">OrderedDict</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Generator</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
@@ -447,7 +448,7 @@ document.write(`
 <span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.perturbation.base</span><span class="w"> </span><span class="kn">import</span> <span class="n">Perturbation</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">handshake_dim</span><span class="p">,</span> <span class="n">handshake_size</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.utils.time</span><span class="w"> </span><span class="kn">import</span> <span class="n">to_time_array</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.utils.type</span><span class="w"> </span><span class="kn">import</span> <span class="n">CoordSystem</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.utils.type</span><span class="w"> </span><span class="kn">import</span> <span class="n">CoordSystem</span><span class="p">,</span> <span class="n">TimeArray</span>
 
 
 <div class="viewcode-block" id="HemisphericCentredBredVector">
@@ -467,8 +468,6 @@ document.write(`
 <span class="sd">        Dynamical model, typically this is the prognostic AI model</span>
 <span class="sd">    data : DataSource</span>
 <span class="sd">        data source for obtaining warmup time steps</span>
-<span class="sd">    time : datetime</span>
-<span class="sd">        Time from which initial conditions are taken</span>
 <span class="sd">    seeding_perturbation_method : Perturbation, optional</span>
 <span class="sd">        Method to seed the Bred Vector perturbation</span>
 <span class="sd">    noise_amplitude : float | Tensor, optional</span>
@@ -490,7 +489,6 @@ document.write(`
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">model</span><span class="p">:</span> <span class="n">PrognosticModel</span><span class="p">,</span>
         <span class="n">data</span><span class="p">:</span> <span class="n">DataSource</span><span class="p">,</span>
-        <span class="n">time</span><span class="p">:</span> <span class="n">datetime</span><span class="p">,</span>
         <span class="n">seeding_perturbation_method</span><span class="p">:</span> <span class="n">Perturbation</span><span class="p">,</span>
         <span class="n">noise_amplitude</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span> <span class="o">=</span> <span class="mf">0.35</span><span class="p">,</span>
         <span class="n">integration_steps</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">3</span><span class="p">,</span>
@@ -502,40 +500,76 @@ document.write(`
             <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">noise_amplitude</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span>
             <span class="k">else</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">(</span>
                 <span class="p">[</span><span class="n">noise_amplitude</span><span class="p">]</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">input_coords</span><span class="p">()[</span><span class="s2">&quot;variable&quot;</span><span class="p">])</span>
-            <span class="p">)</span>
+            <span class="p">)[:,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">]</span>
         <span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">integration_steps</span> <span class="o">=</span> <span class="n">integration_steps</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">seeding_perturbation_method</span> <span class="o">=</span> <span class="n">seeding_perturbation_method</span>
-
-        <span class="bp">self</span><span class="o">.</span><span class="n">fetch_warmup_ics</span><span class="p">(</span><span class="n">time</span><span class="p">)</span>  <span class="c1"># make work with ic_block</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">set_clip_indices</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">generator</span><span class="p">:</span> <span class="n">Generator</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">fetch_warmup_ics</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">time</span><span class="p">:</span> <span class="n">datetime</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Method for obtaining ICs for warmup steps</span>
-
-<span class="sd">        Parameters</span>
-<span class="sd">        ----------</span>
-<span class="sd">        time : datetime</span>
-<span class="sd">            Time from which initial conditions are taken</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-
-        <span class="n">inco</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">input_coords</span><span class="p">()</span>
-
-        <span class="n">time</span> <span class="o">=</span> <span class="n">to_time_array</span><span class="p">([</span><span class="n">time</span><span class="p">])</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">warmup_times</span> <span class="o">=</span> <span class="p">(</span>
+    <span class="nd">@torch</span><span class="o">.</span><span class="n">inference_mode</span><span class="p">()</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">create_generator</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">time</span><span class="p">:</span> <span class="n">TimeArray</span><span class="p">,</span> <span class="n">batch_size</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span> <span class="n">device</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">device</span> <span class="o">=</span> <span class="s2">&quot;cpu&quot;</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Generator</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Creates and initializes the perturbation generator&quot;&quot;&quot;</span>
+        <span class="c1"># Initialize your IC or @torch.inference_mode()other necessary components</span>
+        <span class="n">input_coords</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">input_coords</span><span class="p">()</span>
+        <span class="n">time</span> <span class="o">=</span> <span class="n">to_time_array</span><span class="p">(</span><span class="n">time</span><span class="p">)</span>
+        <span class="n">warmup_times</span> <span class="o">=</span> <span class="p">(</span>
             <span class="n">time</span>
             <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="o">-</span><span class="bp">self</span><span class="o">.</span><span class="n">integration_steps</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
-            <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">output_coords</span><span class="p">(</span><span class="n">inco</span><span class="p">)[</span><span class="s2">&quot;lead_time&quot;</span><span class="p">]</span>
+            <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">output_coords</span><span class="p">(</span><span class="n">input_coords</span><span class="p">)[</span><span class="s2">&quot;lead_time&quot;</span><span class="p">]</span>
         <span class="p">)</span>
-
-        <span class="bp">self</span><span class="o">.</span><span class="n">ics</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">fetch_data</span><span class="p">(</span>
+        <span class="n">input_data</span><span class="p">,</span> <span class="n">data_coords</span> <span class="o">=</span> <span class="n">fetch_data</span><span class="p">(</span>
             <span class="n">source</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">,</span>
-            <span class="n">time</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">warmup_times</span><span class="p">,</span>
-            <span class="n">variable</span><span class="o">=</span><span class="n">inco</span><span class="p">[</span><span class="s2">&quot;variable&quot;</span><span class="p">],</span>
-            <span class="n">lead_time</span><span class="o">=</span><span class="n">inco</span><span class="p">[</span><span class="s2">&quot;lead_time&quot;</span><span class="p">],</span>
+            <span class="n">time</span><span class="o">=</span><span class="n">warmup_times</span><span class="p">,</span>
+            <span class="n">variable</span><span class="o">=</span><span class="n">input_coords</span><span class="p">[</span><span class="s2">&quot;variable&quot;</span><span class="p">],</span>
+            <span class="n">lead_time</span><span class="o">=</span><span class="n">input_coords</span><span class="p">[</span><span class="s2">&quot;lead_time&quot;</span><span class="p">],</span>
             <span class="n">device</span><span class="o">=</span><span class="s2">&quot;cpu&quot;</span><span class="p">,</span>
         <span class="p">)</span>
-        <span class="k">return</span>
+        <span class="n">coords</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">(</span>
+            <span class="p">[(</span><span class="s2">&quot;batch&quot;</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">batch_size</span><span class="p">))]</span> <span class="o">+</span> <span class="nb">list</span><span class="p">(</span><span class="n">data_coords</span><span class="o">.</span><span class="n">items</span><span class="p">())</span>
+        <span class="p">)</span>
+
+        <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
+            <span class="c1"># get unperturbed intital state, assuming tensor always has 6 dims</span>
+            <span class="n">xunp</span> <span class="o">=</span> <span class="n">input_data</span><span class="p">[:</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">repeat</span><span class="p">(</span><span class="n">batch_size</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
+            <span class="c1"># Commenting here, not tested for when multiple lead times are needed</span>
+            <span class="c1"># May work...</span>
+            <span class="n">coords</span><span class="p">[</span><span class="s2">&quot;time&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">data_coords</span><span class="p">[</span><span class="s2">&quot;time&quot;</span><span class="p">][:</span><span class="mi">1</span><span class="p">]</span>
+
+            <span class="c1"># generate perturbed initial state</span>
+            <span class="n">xper</span><span class="p">,</span> <span class="n">coords</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">seeding_perturbation_method</span><span class="p">(</span><span class="n">xunp</span><span class="p">,</span> <span class="n">coords</span><span class="p">)</span>
+
+            <span class="k">for</span> <span class="n">ii</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">integration_steps</span><span class="p">):</span>
+                <span class="n">xunp</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">(</span><span class="n">xunp</span><span class="p">,</span> <span class="n">coords</span><span class="p">)</span>
+                <span class="n">xper</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">(</span><span class="n">xper</span><span class="p">,</span> <span class="n">coords</span><span class="p">)</span>
+
+                <span class="n">dx</span> <span class="o">=</span> <span class="n">xper</span> <span class="o">-</span> <span class="n">xunp</span>
+                <span class="n">hem_norm</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">hemispheric_norm</span><span class="p">(</span><span class="n">dx</span><span class="p">,</span> <span class="n">device</span><span class="p">)</span>
+
+                <span class="c1"># if zero elements are requierd, replace NaNs in scaled dx with 0</span>
+                <span class="k">if</span> <span class="p">(</span><span class="n">hem_norm</span> <span class="o">==</span> <span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">any</span><span class="p">():</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                        <span class="s2">&quot;zero element in hemispheric norm, maybe noise amplification too small?&quot;</span>
+                    <span class="p">)</span>
+
+                <span class="c1"># scale dx</span>
+                <span class="n">dx</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">noise_amplitude</span> <span class="o">*</span> <span class="p">(</span><span class="n">dx</span> <span class="o">/</span> <span class="n">hem_norm</span><span class="p">)</span>
+
+                <span class="n">xunp</span> <span class="o">=</span> <span class="p">(</span>
+                    <span class="n">input_data</span><span class="p">[</span><span class="n">ii</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span>
+                    <span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+                    <span class="o">.</span><span class="n">repeat</span><span class="p">(</span><span class="n">batch_size</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+                    <span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
+                <span class="p">)</span>
+                <span class="n">coords</span><span class="p">[</span><span class="s2">&quot;time&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">data_coords</span><span class="p">[</span><span class="s2">&quot;time&quot;</span><span class="p">][</span><span class="n">ii</span> <span class="o">+</span> <span class="mi">1</span> <span class="p">:</span> <span class="n">ii</span> <span class="o">+</span> <span class="mi">2</span><span class="p">]</span>
+                <span class="n">xper</span> <span class="o">=</span> <span class="n">xunp</span> <span class="o">+</span> <span class="n">dx</span>
+
+            <span class="c1"># Yield single batches in alternating order to keep perturbation centered</span>
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">batch_size</span><span class="p">):</span>
+                <span class="k">yield</span> <span class="bp">self</span><span class="o">.</span><span class="n">force_non_neg</span><span class="p">(</span><span class="n">xper</span><span class="p">[</span><span class="n">i</span> <span class="p">:</span> <span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">])</span>
+                <span class="k">yield</span> <span class="bp">self</span><span class="o">.</span><span class="n">force_non_neg</span><span class="p">(</span><span class="n">xunp</span><span class="p">[</span><span class="n">i</span> <span class="p">:</span> <span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">dx</span><span class="p">[</span><span class="n">i</span> <span class="p">:</span> <span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">])</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">set_clip_indices</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;If humidity and tcwv in variable set, add to list of variables to clip&quot;&quot;&quot;</span>
@@ -545,7 +579,7 @@ document.write(`
                 <span class="bp">self</span><span class="o">.</span><span class="n">clip_idcs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ii</span><span class="p">)</span>
         <span class="k">return</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">hemispheric_norm</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">hemispheric_norm</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">device</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">device</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Calculate norm of fields speperately in northern and southern extra-tropics</span>
 
 <span class="sd">        Parameters</span>
@@ -559,7 +593,7 @@ document.write(`
         <span class="p">)</span>  <span class="c1"># using 70deg for extra-tropics like in hens publication</span>
         <span class="n">in_tropic</span> <span class="o">=</span> <span class="n">nlat</span> <span class="o">-</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">ex_tropic</span>
 
-        <span class="n">jac</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">pi</span><span class="p">,</span> <span class="n">nlat</span><span class="p">))[:,</span> <span class="kc">None</span><span class="p">]</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+        <span class="n">jac</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">pi</span><span class="p">,</span> <span class="n">nlat</span><span class="p">))[:,</span> <span class="kc">None</span><span class="p">]</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
         <span class="n">weights</span> <span class="o">=</span> <span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">pi</span> <span class="o">/</span> <span class="n">nlat</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">torch</span><span class="o">.</span><span class="n">pi</span> <span class="o">/</span> <span class="n">nlon</span><span class="p">)</span> <span class="o">*</span> <span class="n">jac</span>
         <span class="n">weights</span> <span class="o">=</span> <span class="n">weights</span> <span class="o">/</span> <span class="n">weights</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span>
 
@@ -575,7 +609,7 @@ document.write(`
         <span class="p">)</span>
 
         <span class="c1"># interpolate in tropics</span>
-        <span class="n">tropic</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">north</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">nvar</span><span class="p">,</span> <span class="n">in_tropic</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+        <span class="n">tropic</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">north</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">nvar</span><span class="p">,</span> <span class="n">in_tropic</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
         <span class="k">for</span> <span class="n">batch</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">north</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]):</span>
             <span class="k">for</span> <span class="n">var</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">nvar</span><span class="p">):</span>
                 <span class="n">tropic</span><span class="p">[</span><span class="n">batch</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">var</span><span class="p">]</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span>
@@ -636,53 +670,18 @@ document.write(`
         <span class="n">handshake_size</span><span class="p">(</span><span class="n">coords</span><span class="p">,</span> <span class="n">required_dim</span><span class="o">=</span><span class="s2">&quot;lead_time&quot;</span><span class="p">,</span> <span class="n">required_size</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
         <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">shape</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">6</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Input tensor and coords need 6 dimensions&quot;</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">%</span> <span class="mi">2</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                <span class="s2">&quot;batch size and ensemble size have to be even for centred perturbation&quot;</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">noise_amplitude</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">noise_amplitude</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+
+        <span class="c1"># Create generator if it doesn&#39;t exist</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">generator</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">generator</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">create_generator</span><span class="p">(</span>
+                <span class="n">coords</span><span class="p">[</span><span class="s2">&quot;time&quot;</span><span class="p">],</span> <span class="n">batch_size</span><span class="o">=</span><span class="nb">int</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">//</span> <span class="mi">2</span> <span class="o">+</span> <span class="mi">1</span><span class="p">),</span> <span class="n">device</span><span class="o">=</span><span class="n">x</span><span class="o">.</span><span class="n">device</span>
             <span class="p">)</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">device</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">device</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">noise_amplitude</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">noise_amplitude</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
-
-        <span class="c1"># get unperturbed intital state</span>
-
-        <span class="n">xunp</span> <span class="o">=</span> <span class="p">(</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">ics</span><span class="p">[:</span><span class="mi">1</span><span class="p">]</span>
-            <span class="o">.</span><span class="n">repeat</span><span class="p">(</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">//</span> <span class="mi">2</span><span class="p">,</span> <span class="o">*</span><span class="p">[</span><span class="mi">1</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">shape</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)])</span>
-            <span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
-        <span class="p">)</span>
-
-        <span class="c1"># generate perturbed initial state</span>
-        <span class="n">xper</span><span class="p">,</span> <span class="n">coords</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">seeding_perturbation_method</span><span class="p">(</span><span class="n">xunp</span><span class="p">,</span> <span class="n">coords</span><span class="p">)</span>
-
-        <span class="k">for</span> <span class="n">ii</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">integration_steps</span><span class="p">):</span>
-            <span class="n">xunp</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">(</span><span class="n">xunp</span><span class="p">,</span> <span class="n">coords</span><span class="p">)</span>
-            <span class="n">xper</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">(</span><span class="n">xper</span><span class="p">,</span> <span class="n">coords</span><span class="p">)</span>
-
-            <span class="n">dx</span> <span class="o">=</span> <span class="n">xper</span> <span class="o">-</span> <span class="n">xunp</span>
-            <span class="n">hem_norm</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">hemispheric_norm</span><span class="p">(</span><span class="n">dx</span><span class="p">)</span>
-
-            <span class="c1"># if zero elements are requierd, replace NaNs in scaled dx with 0</span>
-            <span class="k">if</span> <span class="p">(</span><span class="n">hem_norm</span> <span class="o">==</span> <span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">any</span><span class="p">():</span>
-                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                    <span class="s2">&quot;zero element in hemispheric norm, maybe noise amplification too small?&quot;</span>
-                <span class="p">)</span>
-
-            <span class="c1"># scale dx</span>
-            <span class="n">dx</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">noise_amplitude</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="n">dx</span> <span class="o">/</span> <span class="n">hem_norm</span><span class="p">)</span>
-
-            <span class="n">xunp</span> <span class="o">=</span> <span class="p">(</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">ics</span><span class="p">[</span><span class="n">ii</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span>
-                <span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
-                <span class="o">.</span><span class="n">repeat</span><span class="p">(</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">//</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
-                <span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
-            <span class="p">)</span>
-            <span class="n">xper</span> <span class="o">=</span> <span class="n">xunp</span> <span class="o">+</span> <span class="n">dx</span>
-
-        <span class="n">xper</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">force_non_neg</span><span class="p">(</span><span class="n">xper</span><span class="p">)</span>  <span class="c1"># apply at every iteration?</span>
-        <span class="n">xper_neg</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">force_non_neg</span><span class="p">(</span><span class="n">xunp</span> <span class="o">-</span> <span class="n">dx</span><span class="p">)</span>
-
-        <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">((</span><span class="n">xper</span><span class="p">,</span> <span class="n">xper_neg</span><span class="p">)),</span> <span class="n">coords</span></div>
+        <span class="c1"># Generate noise, and concat in batch dimension</span>
+        <span class="n">noise</span> <span class="o">=</span> <span class="p">[</span><span class="nb">next</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">generator</span><span class="p">)</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">])]</span>
+        <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">(</span><span class="n">noise</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">),</span> <span class="n">coords</span></div>
 </div>
 
 </pre></div>

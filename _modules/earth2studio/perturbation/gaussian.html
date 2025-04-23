@@ -500,6 +500,8 @@ document.write(`
 
 
 
+<div class="viewcode-block" id="CorrelatedSphericalGaussian">
+<a class="viewcode-back" href="../../../modules/generated/perturbation/earth2studio.perturbation.CorrelatedSphericalGaussian.html#earth2studio.perturbation.CorrelatedSphericalGaussian">[docs]</a>
 <span class="nd">@check_extra_imports</span><span class="p">(</span><span class="s2">&quot;perturbation&quot;</span><span class="p">,</span> <span class="p">[</span><span class="n">InverseRealSHT</span><span class="p">])</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">CorrelatedSphericalGaussian</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Produces Gaussian random field on the sphere with Matern</span>
@@ -541,6 +543,8 @@ document.write(`
             <span class="k">else</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">([</span><span class="n">noise_amplitude</span><span class="p">])</span>
         <span class="p">)</span>
 
+<div class="viewcode-block" id="CorrelatedSphericalGaussian.__call__">
+<a class="viewcode-back" href="../../../modules/generated/perturbation/earth2studio.perturbation.CorrelatedSphericalGaussian.html#earth2studio.perturbation.CorrelatedSphericalGaussian.__call__">[docs]</a>
     <span class="nd">@torch</span><span class="o">.</span><span class="n">inference_mode</span><span class="p">()</span>
     <span class="k">def</span><span class="w"> </span><span class="fm">__call__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
@@ -593,7 +597,9 @@ document.write(`
             <span class="n">noise</span> <span class="o">=</span> <span class="n">sample_noise</span>
 
         <span class="n">noise_amplitude</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">noise_amplitude</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">x</span> <span class="o">+</span> <span class="n">noise_amplitude</span> <span class="o">*</span> <span class="n">noise</span><span class="p">,</span> <span class="n">coords</span>
+        <span class="k">return</span> <span class="n">x</span> <span class="o">+</span> <span class="n">noise_amplitude</span> <span class="o">*</span> <span class="n">noise</span><span class="p">,</span> <span class="n">coords</span></div>
+</div>
+
 
 
 <span class="k">class</span><span class="w"> </span><span class="nc">CorrelatedSphericalField</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>

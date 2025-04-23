@@ -442,6 +442,7 @@ document.write(`
 <li class="toctree-l1 current active has-children"><a class="reference internal" href="../../perturbation.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.perturbation</span></code>: Perturbations</a><input checked="" class="toctree-checkbox" id="toctree-checkbox-4" name="toctree-checkbox-4" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-4"><i class="fa-solid fa-chevron-down"></i></label><ul class="current">
 <li class="toctree-l2"><a class="reference internal" href="earth2studio.perturbation.Brown.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.perturbation</span></code>.Brown</a></li>
 <li class="toctree-l2"><a class="reference internal" href="earth2studio.perturbation.BredVector.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.perturbation</span></code>.BredVector</a></li>
+<li class="toctree-l2"><a class="reference internal" href="earth2studio.perturbation.CorrelatedSphericalGaussian.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.perturbation</span></code>.CorrelatedSphericalGaussian</a></li>
 <li class="toctree-l2"><a class="reference internal" href="earth2studio.perturbation.Gaussian.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.perturbation</span></code>.Gaussian</a></li>
 <li class="toctree-l2 current active"><a class="current reference internal" href="#"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.perturbation</span></code>.HemisphericCentredBredVector</a></li>
 <li class="toctree-l2"><a class="reference internal" href="earth2studio.perturbation.LaggedEnsemble.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.perturbation</span></code>.LaggedEnsemble</a></li>
@@ -542,7 +543,7 @@ document.write(`
 <h1><a class="reference internal" href="../../perturbation.html#module-earth2studio.perturbation" title="earth2studio.perturbation"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.perturbation</span></code></a>.HemisphericCentredBredVector<a class="headerlink" href="#earth2studio-perturbation-hemisphericcentredbredvector" title="Link to this heading">#</a></h1>
 <dl class="py class">
 <dt class="sig sig-object py" id="earth2studio.perturbation.HemisphericCentredBredVector">
-<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">earth2studio.perturbation.</span></span><span class="sig-name descname"><span class="pre">HemisphericCentredBredVector</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">model</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">time</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">seeding_perturbation_method</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">noise_amplitude</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.35</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">integration_steps</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">3</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/earth2studio/perturbation/hcbv.html#HemisphericCentredBredVector"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.perturbation.HemisphericCentredBredVector" title="Link to this definition">#</a></dt>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">earth2studio.perturbation.</span></span><span class="sig-name descname"><span class="pre">HemisphericCentredBredVector</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">model</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">seeding_perturbation_method</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">noise_amplitude</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.35</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">integration_steps</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">3</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/earth2studio/perturbation/hcbv.html#HemisphericCentredBredVector"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.perturbation.HemisphericCentredBredVector" title="Link to this definition">#</a></dt>
 <dd><p>Bred Vector perturbation method, following the approach introduced in
 ‘Huge Ensembles Part I: Design of Ensemble Weather Forecasts using Spherical Fourier
 Neural Operators’. The vector is bred by advancing in time. The bred vector is
@@ -554,7 +555,6 @@ perturbed stated by adding and subtracting the bred vector, respecitvely.</p>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>model</strong> (<em>PrognosticModel</em>) – Dynamical model, typically this is the prognostic AI model</p></li>
 <li><p><strong>data</strong> (<em>DataSource</em>) – data source for obtaining warmup time steps</p></li>
-<li><p><strong>time</strong> (<em>datetime</em>) – Time from which initial conditions are taken</p></li>
 <li><p><strong>seeding_perturbation_method</strong> (<em>Perturbation</em><em>, </em><em>optional</em>) – Method to seed the Bred Vector perturbation</p></li>
 <li><p><strong>noise_amplitude</strong> (<em>float</em><em> | </em><em>Tensor</em><em>, </em><em>optional</em>) – Noise amplitude, by default 0.05. If a tensor, this must be broadcastable with
 the input data</p></li>
@@ -595,7 +595,13 @@ Must contain coordinates (Any, “time”, “lead_time”, “variable”, “l
 
 </dd></dl>
 
-<div class="clearer"></div></section>
+<section id="examples-using-earth2studio-perturbation-hemisphericcentredbredvector">
+<span id="sphx-glr-backref-earth2studio-perturbation-hemisphericcentredbredvector"></span><h2>Examples using <code class="docutils literal notranslate"><span class="pre">earth2studio.perturbation.HemisphericCentredBredVector</span></code><a class="headerlink" href="#examples-using-earth2studio-perturbation-hemisphericcentredbredvector" title="Link to this heading">#</a></h2>
+<div class="sphx-glr-thumbnails"><div class="sphx-glr-thumbcontainer" tooltip="Basic multi-checkpoint Huge Ensembles (HENS) inference workflow."><img alt="" src="../../../_images/sphx_glr_11_huge_ensembles_thumb.png" />
+<p><a class="reference internal" href="../../../examples/11_huge_ensembles.html#sphx-glr-examples-11-huge-ensembles-py"><span class="std std-ref">Huge Ensembles (HENS) Checkpoints</span></a></p>
+  <div class="sphx-glr-thumbnail-title">Huge Ensembles (HENS) Checkpoints</div>
+</div></div><div class="clearer"></div></section>
+</section>
 
 
                 </article>
@@ -647,6 +653,7 @@ Must contain coordinates (Any, “time”, “lead_time”, “variable”, “l
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.perturbation.HemisphericCentredBredVector.__call__"><code class="docutils literal notranslate"><span class="pre">HemisphericCentredBredVector.__call__()</span></code></a></li>
 </ul>
 </li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#examples-using-earth2studio-perturbation-hemisphericcentredbredvector">Examples using <code class="docutils literal notranslate"><span class="pre">earth2studio.perturbation.HemisphericCentredBredVector</span></code></a></li>
 </ul>
   </nav></div>
 
