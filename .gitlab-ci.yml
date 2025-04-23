@@ -155,17 +155,13 @@ pytest-perturbation:
 pytest-run:
   extends:
     - pytest-data
+  variables:
+    COVERAGE_SOURCE: earth2studio.run
+    PYTEST_SOURCE: test/run
   rules:
     - if: $PIPELINE_TEST_ALL != "true"
       when: on_success
     - when: never
-  script:
-    - make install
-    - |
-      uv run coverage run --include="run.py" \
-      -m pytest --ci-cache --slow test/run 2>&1 | tee ../pytest.log.full
-    - grep -A 9999 "=.*short test summary info.*=" ../pytest.log.full > ../blossom.log
-    - rm ../pytest.log.full || true
 
 pytest-statistics:
   extends:
