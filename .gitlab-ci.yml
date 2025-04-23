@@ -162,11 +162,8 @@ pytest-run:
   script:
     - make install
     - |
-      uv run coverage run \
-      --source="earth2studio/" \
-      --include="run.py" \
-      -m pytest --ci-cache --slow \
-      $(PYTEST_SOURCE) 2>&1 | tee ../pytest.log.full
+      uv run coverage run --include="run.py" \
+      -m pytest --ci-cache --slow test/run 2>&1 | tee ../pytest.log.full
     - grep -A 9999 "=.*short test summary info.*=" ../pytest.log.full > ../blossom.log
     - rm ../pytest.log.full || true
 
