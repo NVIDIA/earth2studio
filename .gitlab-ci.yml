@@ -122,7 +122,7 @@ pytest-data:
     - make install
     - make pytest-submodule 2>&1 | tee ../pytest.log.full
     - grep -A 9999 "=.*short test summary info.*=" ../pytest.log.full > ../blossom.log
-    - rm ../pytest.log.full
+    - rm ../pytest.log.full || true
 
 pytest-io:
   extends:
