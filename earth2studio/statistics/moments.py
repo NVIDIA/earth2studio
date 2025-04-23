@@ -62,6 +62,8 @@ class mean:
         if self.batch_update:
             self.n = 0
 
+        print("here")
+
     def __str__(self) -> str:
         return "_".join(self._reduction_dimensions + ["mean"])
 

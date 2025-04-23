@@ -113,6 +113,7 @@ pytest-data:
     - if: $PIPELINE_TEST_ALL != "true"
       changes:
         - $COVERAGE_SOURCE/**/*
+        - $PYTEST_SOURCE/**/*
       when: on_success
     - when: never
   script:
