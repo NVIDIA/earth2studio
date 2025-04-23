@@ -81,11 +81,10 @@ class HemisphericCentredBredVector:
         self.seeding_perturbation_method = seeding_perturbation_method
         self.set_clip_indices()
         self.generator: Generator | None = None
-        self.device = "cpu"
 
     @torch.inference_mode()
     def create_generator(
-        self, time: TimeArray, batch_size: int = 1
+        self, time: TimeArray, batch_size: int = 1, device: torch.device = "cpu"
     ) -> Generator[torch.Tensor, None, None]:
         """Creates and initializes the perturbation generator"""
         # Initialize your IC or @torch.inference_mode()other necessary components
@@ -109,7 +108,7 @@ class HemisphericCentredBredVector:
 
         while True:
             # get unperturbed intital state, assuming tensor always has 6 dims
-            xunp = input_data[:1].repeat(batch_size, 1, 1, 1, 1, 1).to(self.device)
+            xunp = input_data[:1].repeat(batch_size, 1, 1, 1, 1, 1).to(device)
             # Commenting here, not tested for when multiple lead times are needed
             # May work...
             coords["time"] = data_coords["time"][:1]
@@ -122,7 +121,7 @@ class HemisphericCentredBredVector:
                 xper, _ = self.model(xper, coords)
 
                 dx = xper - xunp
-                hem_norm = self.hemispheric_norm(dx)
+                hem_norm = self.hemispheric_norm(dx, device)
 
                 # if zero elements are requierd, replace NaNs in scaled dx with 0
                 if (hem_norm == 0).any():
@@ -137,7 +136,7 @@ class HemisphericCentredBredVector:
                     input_data[ii + 1]
                     .unsqueeze(dim=0)
                     .repeat(batch_size, 1, 1, 1, 1, 1)
-                    .to(self.device)
+                    .to(device)
                 )
                 coords["time"] = data_coords["time"][ii + 1 : ii + 2]
                 xper = xunp + dx
@@ -155,7 +154,7 @@ class HemisphericCentredBredVector:
                 self.clip_idcs.append(ii)
         return
 
-    def hemispheric_norm(self, x: torch.Tensor) -> torch.Tensor:
+    def hemispheric_norm(self, x: torch.Tensor, device: torch.device) -> torch.Tensor:
         """Calculate norm of fields speperately in northern and southern extra-tropics
 
         Parameters
@@ -169,7 +168,7 @@ class HemisphericCentredBredVector:
         )  # using 70deg for extra-tropics like in hens publication
         in_tropic = nlat - 2 * ex_tropic
 
-        jac = torch.sin(torch.linspace(0, torch.pi, nlat))[:, None].to(self.device)
+        jac = torch.sin(torch.linspace(0, torch.pi, nlat))[:, None].to(device)
         weights = (torch.pi / nlat) * (2 * torch.pi / nlon) * jac
         weights = weights / weights.mean()
 
@@ -185,7 +184,7 @@ class HemisphericCentredBredVector:
         )
 
         # interpolate in tropics
-        tropic = torch.zeros(north.shape[0], 1, 1, nvar, in_tropic).to(self.device)
+        tropic = torch.zeros(north.shape[0], 1, 1, nvar, in_tropic).to(device)
         for batch in range(north.shape[0]):
             for var in range(nvar):
                 tropic[batch, 0, 0, var] = torch.linspace(
@@ -245,13 +244,12 @@ class HemisphericCentredBredVector:
         if len(shape) != 6:
             raise ValueError("Input tensor and coords need 6 dimensions")
 
-        self.device = x.device
-        self.noise_amplitude = self.noise_amplitude.to(self.device)
+        self.noise_amplitude = self.noise_amplitude.to(x.device)
 
         # Create generator if it doesn't exist
         if self.generator is None:
             self.generator = self.create_generator(
-                coords["time"], batch_size=int(x.shape[0] // 2 + 1)
+                coords["time"], batch_size=int(x.shape[0] // 2 + 1), device=x.device
             )
 
         # Generate noise, and concat in batch dimension
