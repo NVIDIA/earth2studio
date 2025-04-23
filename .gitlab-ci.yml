@@ -93,11 +93,86 @@ pytest:
   extends:
     - .earth2studio:test:base
     - .test:cache
+  rules:
+    - if: $PIPELINE_TEST_ALL == "true"
+      when: on_success
+    - when: never
   script:
     - make install
     - make pytest 2>&1 | tee ../pytest.log.full
     - grep -A 9999 "=.*short test summary info.*=" ../pytest.log.full > ../blossom.log
     - rm ../pytest.log.full
+
+pytest-data:
+  extends:
+    - pytest
+  variables:
+    COVERAGE_SOURCE: earth2studio/data
+    PYTEST_SOURCE: test/data
+  rules:
+    - if: $PIPELINE_TEST_ALL != "true"
+      changes:
+        - $COVERAGE_SOURCE/**/*
+      when: on_success
+    - when: never
+  script:
+    - make install
+    - make pytest-submodule 2>&1 | tee ../pytest.log.full
+    - grep -A 9999 "=.*short test summary info.*=" ../pytest.log.full > ../blossom.log
+    - rm ../pytest.log.full
+
+pytest-io:
+  extends:
+    - pytest-data
+  variables:
+    COVERAGE_SOURCE: earth2studio/io
+    PYTEST_SOURCE: test/io
+
+pytest-lexicon:
+  extends:
+    - pytest-data
+  variables:
+    COVERAGE_SOURCE: earth2studio/lexicon
+    PYTEST_SOURCE: test/lexicon
+
+pytest-models:
+  extends:
+    - pytest-data
+  variables:
+    COVERAGE_SOURCE: earth2studio/models
+    PYTEST_SOURCE: test/models
+
+pytest-perturbation:
+  extends:
+    - pytest-data
+  variables:
+    COVERAGE_SOURCE: earth2studio/perturbation
+    PYTEST_SOURCE: test/perturbation
+
+pytest-run:
+  extends:
+    - pytest-data
+  variables:
+    COVERAGE_SOURCE: earth2studio/run.py
+    PYTEST_SOURCE: test/run
+  rules:
+    - if: $PIPELINE_TEST_ALL != "true"
+      when: on_success
+    - when: never
+
+pytest-statistics:
+  extends:
+    - pytest-data
+  variables:
+    COVERAGE_SOURCE: earth2studio/statistics
+    PYTEST_SOURCE: test/statistics
+
+pytest-utils:
+  extends:
+    - pytest-data
+  variables:
+    COVERAGE_SOURCE: earth2studio/utils
+    PYTEST_SOURCE: test/utils
 
 coverage:
   stage: report
