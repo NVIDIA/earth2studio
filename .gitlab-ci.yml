@@ -112,8 +112,10 @@ pytest-data:
   rules:
     - if: $PIPELINE_TEST_ALL != "true"
       changes:
-        - $COVERAGE_SOURCE/**/*
-        - $PYTEST_SOURCE/**/*
+        paths:
+          - $COVERAGE_SOURCE/**/*
+          - $PYTEST_SOURCE/**/*
+        compare_to: 'refs/heads/main'
       when: on_success
     - when: never
   script:
