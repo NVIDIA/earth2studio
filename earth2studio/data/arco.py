@@ -99,7 +99,6 @@ class ARCO:
             # Fallback to older method if version check fails
             zarr_major_version = 2  # Assume older version if we can't determine
 
-        print("here")
         if zarr_major_version >= 3:
             # Zarr 3.0+ method
             zstore = zarr.storage.FsspecStore(
