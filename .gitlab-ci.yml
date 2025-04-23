@@ -179,6 +179,31 @@ coverage:
   needs:
     - job: pytest
       artifacts: true
+      optional: true
+    - job: pytest-data
+      artifacts: true
+      optional: true
+    - job: pytest-io
+      artifacts: true
+      optional: true
+    - job: pytest-models
+      artifacts: true
+      optional: true
+    - job: pytest-data
+      artifacts: true
+      optional: true
+    - job: pytest-perturbation
+      artifacts: true
+      optional: true
+    - job: pytest-run
+      artifacts: true
+      optional: true
+    - job: pytest-statistics
+      artifacts: true
+      optional: true
+    - job: pytest-utils
+      artifacts: true
+      optional: true
   tags:
   - docker
   extends:
