@@ -154,7 +154,7 @@ pytest-run:
   extends:
     - pytest-data
   variables:
-    COVERAGE_SOURCE: earth2studio/run.py
+    COVERAGE_SOURCE: earth2studio/
     PYTEST_SOURCE: test/run
   rules:
     - if: $PIPELINE_TEST_ALL != "true"
