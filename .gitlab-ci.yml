@@ -121,8 +121,8 @@ pytest-data:
   script:
     - make install
     - make pytest-submodule 2>&1 | tee ../pytest.log.full
-    - grep -A 9999 "=.*short test summary info.*=" ../pytest.log.full > ../blossom.log
-    - rm ../pytest.log.full || true
+    # - grep -A 9999 "=.*short test summary info.*=" ../pytest.log.full > ../blossom.log
+    # - rm ../pytest.log.full || true
 
 pytest-io:
   extends:
@@ -155,13 +155,20 @@ pytest-perturbation:
 pytest-run:
   extends:
     - pytest-data
-  variables:
-    COVERAGE_SOURCE: earth2studio/
-    PYTEST_SOURCE: test/run
   rules:
     - if: $PIPELINE_TEST_ALL != "true"
       when: on_success
     - when: never
+  script:
+    - make install
+    - |
+      uv run coverage run \
+      --source="earth2studio/" \
+      --include="run.py" \
+      -m pytest --ci-cache --slow \
+      $(PYTEST_SOURCE) 2>&1 | tee ../pytest.log.full
+    - grep -A 9999 "=.*short test summary info.*=" ../pytest.log.full > ../blossom.log
+    - rm ../pytest.log.full || true
 
 pytest-statistics:
   extends:
