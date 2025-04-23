@@ -189,9 +189,6 @@ coverage:
     - job: pytest-models
       artifacts: true
       optional: true
-    - job: pytest-data
-      artifacts: true
-      optional: true
     - job: pytest-perturbation
       artifacts: true
       optional: true
