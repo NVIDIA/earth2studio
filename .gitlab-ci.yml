@@ -213,8 +213,6 @@ coverage:
     - ls -a
     - make setup-ci
     - make coverage 2>&1 | tee ../blossom.log
-  dependencies:
-    - pytest
 
 pages:
   tags:
