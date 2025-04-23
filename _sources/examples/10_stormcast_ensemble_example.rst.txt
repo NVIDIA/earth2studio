@@ -99,18 +99,6 @@ could also be used with appropriate time stamps.
     io = ZarrBackend()
 
 
-
-
-
-.. rst-class:: sphx-glr-script-out
-
- .. code-block:: none
-
-    2025-04-23 18:27:08.264 | WARNING  | earth2studio.data.arco:__init__:112 - Using Zarr 2.0 method for ARCO, this can be extremely slow with caching!
-
-
-
-
 .. GENERATED FROM PYTHON SOURCE LINES 95-103
 
 Execute the Workflow
@@ -146,1623 +134,6 @@ For the forecast we will predict for 4 hours
     )
 
     print(io.root.tree())
-
-
-
-
-
-.. rst-class:: sphx-glr-script-out
-
- .. code-block:: none
-
-    2025-04-23 18:27:19.080 | INFO     | earth2studio.run:ensemble:315 - Running ensemble inference!
-    2025-04-23 18:27:19.081 | INFO     | earth2studio.run:ensemble:323 - Inference device: cuda
-    Fetching HRRR data:   0%|          | 0/99 [00:00<?, ?it/s]👨🏻‍🏭 Created directory: [/builds/modulus/earth-2/earth2studio/.earth2studio-cache/hrrr/hrrr/20221104]
-    Fetching HRRR data:   1%|          | 1/99 [00:01<02:53,  1.77s/it]    Fetching HRRR data:   2%|▏         | 2/99 [00:03<02:44,  1.70s/it]    Fetching HRRR data:   3%|▎         | 3/99 [00:04<02:29,  1.56s/it]    Fetching HRRR data:   4%|▍         | 4/99 [00:06<02:20,  1.48s/it]    Fetching HRRR data:   5%|▌         | 5/99 [00:07<02:24,  1.54s/it]    Fetching HRRR data:   6%|▌         | 6/99 [00:09<02:24,  1.55s/it]    Fetching HRRR data:   7%|▋         | 7/99 [00:10<02:20,  1.53s/it]    Fetching HRRR data:   8%|▊         | 8/99 [00:12<02:17,  1.51s/it]    Fetching HRRR data:   9%|▉         | 9/99 [00:13<02:15,  1.51s/it]    Fetching HRRR data:  10%|█         | 10/99 [00:15<02:15,  1.52s/it]    Fetching HRRR data:  11%|█         | 11/99 [00:17<02:19,  1.59s/it]    Fetching HRRR data:  12%|█▏        | 12/99 [00:18<02:14,  1.55s/it]    Fetching HRRR data:  13%|█▎        | 13/99 [00:20<02:12,  1.54s/it]    Fetching HRRR data:  14%|█▍        | 14/99 [00:21<02:13,  1.57s/it]    Fetching HRRR data:  15%|█▌        | 15/99 [00:23<02:11,  1.56s/it]    Fetching HRRR data:  16%|█▌        | 16/99 [00:24<02:07,  1.54s/it]    Fetching HRRR data:  17%|█▋        | 17/99 [00:26<02:04,  1.52s/it]    Fetching HRRR data:  18%|█▊        | 18/99 [00:27<02:03,  1.53s/it]    Fetching HRRR data:  19%|█▉        | 19/99 [00:29<02:03,  1.55s/it]    Fetching HRRR data:  20%|██        | 20/99 [00:30<02:01,  1.54s/it]    Fetching HRRR data:  21%|██        | 21/99 [00:32<01:58,  1.52s/it]    Fetching HRRR data:  22%|██▏       | 22/99 [00:33<01:56,  1.51s/it]    Fetching HRRR data:  23%|██▎       | 23/99 [00:35<01:54,  1.50s/it]    Fetching HRRR data:  24%|██▍       | 24/99 [00:36<01:50,  1.47s/it]    Fetching HRRR data:  25%|██▌       | 25/99 [00:38<01:48,  1.46s/it]    Fetching HRRR data:  26%|██▋       | 26/99 [00:39<01:46,  1.46s/it]    Fetching HRRR data:  27%|██▋       | 27/99 [00:41<01:43,  1.44s/it]    Fetching HRRR data:  28%|██▊       | 28/99 [00:42<01:43,  1.46s/it]    Fetching HRRR data:  29%|██▉       | 29/99 [00:43<01:41,  1.45s/it]    Fetching HRRR data:  30%|███       | 30/99 [00:45<01:40,  1.45s/it]    Fetching HRRR data:  31%|███▏      | 31/99 [00:46<01:38,  1.45s/it]    Fetching HRRR data:  32%|███▏      | 32/99 [00:48<01:37,  1.46s/it]    Fetching HRRR data:  33%|███▎      | 33/99 [00:49<01:35,  1.45s/it]    Fetching HRRR data:  34%|███▍      | 34/99 [00:51<01:34,  1.46s/it]    Fetching HRRR data:  35%|███▌      | 35/99 [00:52<01:34,  1.47s/it]    Fetching HRRR data:  36%|███▋      | 36/99 [00:54<01:31,  1.45s/it]    Fetching HRRR data:  37%|███▋      | 37/99 [00:55<01:29,  1.44s/it]    Fetching HRRR data:  38%|███▊      | 38/99 [00:57<01:29,  1.47s/it]    Fetching HRRR data:  39%|███▉      | 39/99 [00:58<01:27,  1.46s/it]    Fetching HRRR data:  40%|████      | 40/99 [01:00<01:28,  1.50s/it]    Fetching HRRR data:  41%|████▏     | 41/99 [01:01<01:27,  1.51s/it]    Fetching HRRR data:  42%|████▏     | 42/99 [01:03<01:26,  1.52s/it]    Fetching HRRR data:  43%|████▎     | 43/99 [01:04<01:24,  1.51s/it]    Fetching HRRR data:  44%|████▍     | 44/99 [01:06<01:22,  1.50s/it]    Fetching HRRR data:  45%|████▌     | 45/99 [01:07<01:21,  1.51s/it]    Fetching HRRR data:  46%|████▋     | 46/99 [01:09<01:19,  1.50s/it]    Fetching HRRR data:  47%|████▋     | 47/99 [01:10<01:18,  1.51s/it]    Fetching HRRR data:  48%|████▊     | 48/99 [01:12<01:17,  1.52s/it]    Fetching HRRR data:  49%|████▉     | 49/99 [01:13<01:16,  1.53s/it]    Fetching HRRR data:  51%|█████     | 50/99 [01:15<01:14,  1.52s/it]    Fetching HRRR data:  52%|█████▏    | 51/99 [01:16<01:12,  1.50s/it]    Fetching HRRR data:  53%|█████▎    | 52/99 [01:18<01:15,  1.60s/it]    Fetching HRRR data:  54%|█████▎    | 53/99 [01:20<01:10,  1.54s/it]    Fetching HRRR data:  55%|█████▍    | 54/99 [01:21<01:08,  1.53s/it]    Fetching HRRR data:  56%|█████▌    | 55/99 [01:22<01:06,  1.50s/it]    Fetching HRRR data:  57%|█████▋    | 56/99 [01:24<01:03,  1.49s/it]    Fetching HRRR data:  58%|█████▊    | 57/99 [01:25<01:02,  1.49s/it]    Fetching HRRR data:  59%|█████▊    | 58/99 [01:27<01:01,  1.49s/it]    Fetching HRRR data:  60%|█████▉    | 59/99 [01:28<00:59,  1.50s/it]    Fetching HRRR data:  61%|██████    | 60/99 [01:30<00:57,  1.48s/it]    Fetching HRRR data:  62%|██████▏   | 61/99 [01:31<00:56,  1.47s/it]    Fetching HRRR data:  63%|██████▎   | 62/99 [01:33<00:55,  1.49s/it]    Fetching HRRR data:  64%|██████▎   | 63/99 [01:34<00:54,  1.51s/it]    Fetching HRRR data:  65%|██████▍   | 64/99 [01:36<00:52,  1.50s/it]    Fetching HRRR data:  66%|██████▌   | 65/99 [01:37<00:51,  1.51s/it]    Fetching HRRR data:  67%|██████▋   | 66/99 [01:39<00:49,  1.51s/it]    Fetching HRRR data:  68%|██████▊   | 67/99 [01:40<00:47,  1.50s/it]    Fetching HRRR data:  69%|██████▊   | 68/99 [01:42<00:45,  1.48s/it]    Fetching HRRR data:  70%|██████▉   | 69/99 [01:43<00:45,  1.50s/it]    Fetching HRRR data:  71%|███████   | 70/99 [01:45<00:44,  1.52s/it]    Fetching HRRR data:  72%|███████▏  | 71/99 [01:46<00:42,  1.52s/it]    Fetching HRRR data:  73%|███████▎  | 72/99 [01:48<00:41,  1.52s/it]    Fetching HRRR data:  74%|███████▎  | 73/99 [01:52<01:00,  2.31s/it]    Fetching HRRR data:  75%|███████▍  | 74/99 [01:54<00:52,  2.10s/it]    Fetching HRRR data:  76%|███████▌  | 75/99 [01:57<00:57,  2.41s/it]    Fetching HRRR data:  77%|███████▋  | 76/99 [01:58<00:49,  2.16s/it]    Fetching HRRR data:  78%|███████▊  | 77/99 [02:00<00:43,  1.96s/it]    Fetching HRRR data:  79%|███████▉  | 78/99 [02:01<00:38,  1.84s/it]    Fetching HRRR data:  80%|███████▉  | 79/99 [02:03<00:35,  1.78s/it]    Fetching HRRR data:  81%|████████  | 80/99 [02:06<00:40,  2.13s/it]    Fetching HRRR data:  82%|████████▏ | 81/99 [02:08<00:35,  1.95s/it]    Fetching HRRR data:  83%|████████▎ | 82/99 [02:09<00:30,  1.82s/it]    Fetching HRRR data:  84%|████████▍ | 83/99 [02:11<00:28,  1.76s/it]    Fetching HRRR data:  85%|████████▍ | 84/99 [02:12<00:25,  1.70s/it]    Fetching HRRR data:  86%|████████▌ | 85/99 [02:14<00:23,  1.65s/it]    Fetching HRRR data:  87%|████████▋ | 86/99 [02:15<00:21,  1.62s/it]    Fetching HRRR data:  88%|████████▊ | 87/99 [02:17<00:19,  1.60s/it]    Fetching HRRR data:  89%|████████▉ | 88/99 [02:19<00:17,  1.60s/it]    Fetching HRRR data:  90%|████████▉ | 89/99 [02:20<00:16,  1.62s/it]    Fetching HRRR data:  91%|█████████ | 90/99 [02:22<00:14,  1.61s/it]    Fetching HRRR data:  92%|█████████▏| 91/99 [02:23<00:12,  1.61s/it]    Fetching HRRR data:  93%|█████████▎| 92/99 [02:25<00:11,  1.58s/it]    Fetching HRRR data:  94%|█████████▍| 93/99 [02:26<00:09,  1.57s/it]    Fetching HRRR data:  95%|█████████▍| 94/99 [02:28<00:07,  1.55s/it]    Fetching HRRR data:  96%|█████████▌| 95/99 [02:30<00:06,  1.56s/it]    Fetching HRRR data:  97%|█████████▋| 96/99 [02:31<00:04,  1.58s/it]    Fetching HRRR data:  98%|█████████▊| 97/99 [02:33<00:03,  1.56s/it]    Fetching HRRR data:  99%|█████████▉| 98/99 [02:34<00:01,  1.56s/it]    Fetching HRRR data: 100%|██████████| 99/99 [02:36<00:00,  1.51s/it]    Fetching HRRR data: 100%|██████████| 99/99 [02:36<00:00,  1.58s/it]
-    2025-04-23 18:30:41.164 | SUCCESS  | earth2studio.run:ensemble:345 - Fetched data from HRRR
-    2025-04-23 18:30:41.169 | INFO     | earth2studio.run:ensemble:367 - Starting 4 Member Ensemble Inference with             2 number of batches.
-    Total Ensemble Batches:   0%|          | 0/2 [00:00<?, ?it/s]
-    Running batch 0 inference:   0%|          | 0/5 [00:00<?, ?it/s]
-
-    Fetching ARCO data:   0%|          | 0/26 [00:00<?, ?it/s]
-                                                                                                                                 
-
-                                                              2025-04-23 18:30:41.587 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: u10m at 2022-11-04T21:00:00
-
-    Running batch 0 inference:  20%|██        | 1/5 [00:00<00:01,  2.59it/s]    Total Ensemble Batches:   0%|          | 0/2 [00:00<?, ?it/s]
-
-    Fetching ARCO data:   0%|          | 0/26 [00:00<?, ?it/s]
-                                                                                                                                         
-
-                                                              2025-04-23 18:30:42.374 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: v10m at 2022-11-04T21:00:00
-
-    Running batch 0 inference:  20%|██        | 1/5 [00:01<00:04,  1.17s/it]    Total Ensemble Batches:   0%|          | 0/2 [00:01<?, ?it/s]
-
-    Fetching ARCO data:   0%|          | 0/26 [00:01<?, ?it/s]
-                                                                                                                                         
-
-                                                              2025-04-23 18:30:43.072 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: t2m at 2022-11-04T21:00:00
-
-    Running batch 0 inference:  20%|██        | 1/5 [00:01<00:07,  1.87s/it]    Total Ensemble Batches:   0%|          | 0/2 [00:01<?, ?it/s]
-
-    Fetching ARCO data:   0%|          | 0/26 [00:01<?, ?it/s]
-                                                                                                                                         
-
-                                                              2025-04-23 18:30:43.888 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: tcwv at 2022-11-04T21:00:00
-
-    Running batch 0 inference:  20%|██        | 1/5 [00:02<00:10,  2.69s/it]    Total Ensemble Batches:   0%|          | 0/2 [00:02<?, ?it/s]
-
-    Fetching ARCO data:   0%|          | 0/26 [00:02<?, ?it/s]
-
-    Fetching ARCO data:   4%|▍         | 1/26 [00:03<01:22,  3.30s/it]
-                                                                                                                                         
-
-                                                                      2025-04-23 18:30:44.556 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: msl at 2022-11-04T21:00:00
-
-    Running batch 0 inference:  20%|██        | 1/5 [00:03<00:13,  3.36s/it]    Total Ensemble Batches:   0%|          | 0/2 [00:03<?, ?it/s]
-
-    Fetching ARCO data:  15%|█▌        | 4/26 [00:03<01:12,  3.30s/it]
-                                                                                                                                         
-
-                                                                      2025-04-23 18:30:45.241 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: sp at 2022-11-04T21:00:00
-
-    Running batch 0 inference:  20%|██        | 1/5 [00:04<00:16,  4.04s/it]    Total Ensemble Batches:   0%|          | 0/2 [00:04<?, ?it/s]
-
-    Fetching ARCO data:  15%|█▌        | 4/26 [00:03<01:12,  3.30s/it]
-                                                                                                                                         
-
-                                                                      2025-04-23 18:30:45.988 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: u1000 at 2022-11-04T21:00:00
-
-    Running batch 0 inference:  20%|██        | 1/5 [00:04<00:19,  4.79s/it]    Total Ensemble Batches:   0%|          | 0/2 [00:04<?, ?it/s]
-
-    Fetching ARCO data:  15%|█▌        | 4/26 [00:04<01:12,  3.30s/it]
-                                                                                                                                         
-
-                                                                      2025-04-23 18:30:48.633 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: u850 at 2022-11-04T21:00:00
-
-    Running batch 0 inference:  20%|██        | 1/5 [00:07<00:29,  7.43s/it]    Total Ensemble Batches:   0%|          | 0/2 [00:07<?, ?it/s]
-
-    Fetching ARCO data:  15%|█▌        | 4/26 [00:07<01:12,  3.30s/it]
-
-    Fetching ARCO data:  19%|█▉        | 5/26 [00:07<00:29,  1.38s/it]
-                                                                                                                                         
-
-                                                                      2025-04-23 18:30:48.749 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: u500 at 2022-11-04T21:00:00
-
-    Running batch 0 inference:  20%|██        | 1/5 [00:07<00:30,  7.55s/it]    Total Ensemble Batches:   0%|          | 0/2 [00:07<?, ?it/s]
-
-    Fetching ARCO data:  31%|███       | 8/26 [00:07<00:24,  1.38s/it]
-                                                                                                                                         
-
-                                                                      2025-04-23 18:30:48.859 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: u250 at 2022-11-04T21:00:00
-
-    Running batch 0 inference:  20%|██        | 1/5 [00:07<00:30,  7.66s/it]    Total Ensemble Batches:   0%|          | 0/2 [00:07<?, ?it/s]
-
-    Fetching ARCO data:  31%|███       | 8/26 [00:07<00:24,  1.38s/it]
-                                                                                                                                         
-
-                                                                      2025-04-23 18:30:48.970 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: v1000 at 2022-11-04T21:00:00
-
-    Running batch 0 inference:  20%|██        | 1/5 [00:07<00:31,  7.77s/it]    Total Ensemble Batches:   0%|          | 0/2 [00:07<?, ?it/s]
-
-    Fetching ARCO data:  31%|███       | 8/26 [00:07<00:24,  1.38s/it]
-                                                                                                                                         
-
-                                                                      2025-04-23 18:30:51.449 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: v850 at 2022-11-04T21:00:00
-
-    Running batch 0 inference:  20%|██        | 1/5 [00:10<00:40, 10.25s/it]    Total Ensemble Batches:   0%|          | 0/2 [00:10<?, ?it/s]
-
-    Fetching ARCO data:  31%|███       | 8/26 [00:10<00:24,  1.38s/it]
-
-    Fetching ARCO data:  35%|███▍      | 9/26 [00:10<00:17,  1.01s/it]
-                                                                                                                                         
-
-                                                                      2025-04-23 18:30:51.566 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: v500 at 2022-11-04T21:00:00
-
-    Running batch 0 inference:  20%|██        | 1/5 [00:10<00:41, 10.36s/it]    Total Ensemble Batches:   0%|          | 0/2 [00:10<?, ?it/s]
-
-    Fetching ARCO data:  46%|████▌     | 12/26 [00:10<00:14,  1.01s/it]
-                                                                                                                                         
-
-                                                                       2025-04-23 18:30:51.679 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: v250 at 2022-11-04T21:00:00
-
-    Running batch 0 inference:  20%|██        | 1/5 [00:10<00:41, 10.48s/it]    Total Ensemble Batches:   0%|          | 0/2 [00:10<?, ?it/s]
-
-    Fetching ARCO data:  46%|████▌     | 12/26 [00:10<00:14,  1.01s/it]
-                                                                                                                                         
-
-                                                                       2025-04-23 18:30:51.792 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: z1000 at 2022-11-04T21:00:00
-
-    Running batch 0 inference:  20%|██        | 1/5 [00:10<00:42, 10.59s/it]    Total Ensemble Batches:   0%|          | 0/2 [00:10<?, ?it/s]
-
-    Fetching ARCO data:  46%|████▌     | 12/26 [00:10<00:14,  1.01s/it]
-                                                                                                                                         
-
-                                                                       2025-04-23 18:30:53.559 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: z850 at 2022-11-04T21:00:00
-
-    Running batch 0 inference:  20%|██        | 1/5 [00:12<00:49, 12.36s/it]    Total Ensemble Batches:   0%|          | 0/2 [00:12<?, ?it/s]
-
-    Fetching ARCO data:  46%|████▌     | 12/26 [00:12<00:14,  1.01s/it]
-
-    Fetching ARCO data:  50%|█████     | 13/26 [00:12<00:10,  1.26it/s]
-                                                                                                                                         
-
-                                                                       2025-04-23 18:30:53.637 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: z500 at 2022-11-04T21:00:00
-
-    Running batch 0 inference:  20%|██        | 1/5 [00:12<00:49, 12.44s/it]    Total Ensemble Batches:   0%|          | 0/2 [00:12<?, ?it/s]
-
-    Fetching ARCO data:  62%|██████▏   | 16/26 [00:12<00:07,  1.26it/s]
-                                                                                                                                         
-
-                                                                       2025-04-23 18:30:53.700 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: z250 at 2022-11-04T21:00:00
-
-    Running batch 0 inference:  20%|██        | 1/5 [00:12<00:49, 12.50s/it]    Total Ensemble Batches:   0%|          | 0/2 [00:12<?, ?it/s]
-
-    Fetching ARCO data:  62%|██████▏   | 16/26 [00:12<00:07,  1.26it/s]
-                                                                                                                                         
-
-                                                                       2025-04-23 18:30:53.763 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: t1000 at 2022-11-04T21:00:00
-
-    Running batch 0 inference:  20%|██        | 1/5 [00:12<00:50, 12.56s/it]    Total Ensemble Batches:   0%|          | 0/2 [00:12<?, ?it/s]
-
-    Fetching ARCO data:  62%|██████▏   | 16/26 [00:12<00:07,  1.26it/s]
-                                                                                                                                         
-
-                                                                       2025-04-23 18:30:55.629 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: t850 at 2022-11-04T21:00:00
-
-    Running batch 0 inference:  20%|██        | 1/5 [00:14<00:57, 14.43s/it]    Total Ensemble Batches:   0%|          | 0/2 [00:14<?, ?it/s]
-
-    Fetching ARCO data:  62%|██████▏   | 16/26 [00:14<00:07,  1.26it/s]
-
-    Fetching ARCO data:  65%|██████▌   | 17/26 [00:14<00:06,  1.45it/s]
-                                                                                                                                         
-
-                                                                       2025-04-23 18:30:55.711 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: t500 at 2022-11-04T21:00:00
-
-    Running batch 0 inference:  20%|██        | 1/5 [00:14<00:58, 14.51s/it]    Total Ensemble Batches:   0%|          | 0/2 [00:14<?, ?it/s]
-
-    Fetching ARCO data:  77%|███████▋  | 20/26 [00:14<00:04,  1.45it/s]
-                                                                                                                                         
-
-                                                                       2025-04-23 18:30:55.774 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: t250 at 2022-11-04T21:00:00
-
-    Running batch 0 inference:  20%|██        | 1/5 [00:14<00:58, 14.57s/it]    Total Ensemble Batches:   0%|          | 0/2 [00:14<?, ?it/s]
-
-    Fetching ARCO data:  77%|███████▋  | 20/26 [00:14<00:04,  1.45it/s]
-                                                                                                                                         
-
-                                                                       2025-04-23 18:30:55.837 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: q1000 at 2022-11-04T21:00:00
-
-    Running batch 0 inference:  20%|██        | 1/5 [00:14<00:58, 14.64s/it]    Total Ensemble Batches:   0%|          | 0/2 [00:14<?, ?it/s]
-
-    Fetching ARCO data:  77%|███████▋  | 20/26 [00:14<00:04,  1.45it/s]
-                                                                                                                                         
-
-                                                                       2025-04-23 18:30:58.154 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: q850 at 2022-11-04T21:00:00
-
-    Running batch 0 inference:  20%|██        | 1/5 [00:16<01:07, 16.95s/it]    Total Ensemble Batches:   0%|          | 0/2 [00:16<?, ?it/s]
-
-    Fetching ARCO data:  77%|███████▋  | 20/26 [00:16<00:04,  1.45it/s]
-
-    Fetching ARCO data:  81%|████████  | 21/26 [00:16<00:03,  1.50it/s]
-                                                                                                                                         
-
-                                                                       2025-04-23 18:30:58.237 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: q500 at 2022-11-04T21:00:00
-
-    Running batch 0 inference:  20%|██        | 1/5 [00:17<01:08, 17.04s/it]    Total Ensemble Batches:   0%|          | 0/2 [00:17<?, ?it/s]
-
-    Fetching ARCO data:  92%|█████████▏| 24/26 [00:16<00:01,  1.50it/s]
-                                                                                                                                         
-
-                                                                       2025-04-23 18:30:58.300 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: q250 at 2022-11-04T21:00:00
-
-    Running batch 0 inference:  20%|██        | 1/5 [00:17<01:08, 17.10s/it]    Total Ensemble Batches:   0%|          | 0/2 [00:17<?, ?it/s]
-
-    Fetching ARCO data:  92%|█████████▏| 24/26 [00:17<00:01,  1.50it/s]
-
-    Fetching ARCO data:  96%|█████████▌| 25/26 [00:17<00:00,  2.20it/s]    Fetching ARCO data: 100%|██████████| 26/26 [00:17<00:00,  1.52it/s]
-
-    Running batch 0 inference:  40%|████      | 2/5 [00:37<00:56, 18.86s/it]
-
-    Fetching ARCO data:   0%|          | 0/26 [00:00<?, ?it/s]
-                                                                                                                                         
-
-                                                              2025-04-23 18:31:18.934 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: u10m at 2022-11-04T22:00:00
-
-    Running batch 0 inference:  40%|████      | 2/5 [00:37<00:56, 18.86s/it]    Total Ensemble Batches:   0%|          | 0/2 [00:37<?, ?it/s]
-
-    Fetching ARCO data:   0%|          | 0/26 [00:00<?, ?it/s]
-                                                                                                                                         
-
-                                                              2025-04-23 18:31:19.462 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: v10m at 2022-11-04T22:00:00
-
-    Running batch 0 inference:  40%|████      | 2/5 [00:38<00:56, 18.86s/it]    Total Ensemble Batches:   0%|          | 0/2 [00:38<?, ?it/s]
-
-    Fetching ARCO data:   0%|          | 0/26 [00:00<?, ?it/s]
-                                                                                                                                         
-
-                                                              2025-04-23 18:31:20.159 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: t2m at 2022-11-04T22:00:00
-
-    Running batch 0 inference:  40%|████      | 2/5 [00:38<00:56, 18.86s/it]    Total Ensemble Batches:   0%|          | 0/2 [00:38<?, ?it/s]
-
-    Fetching ARCO data:   0%|          | 0/26 [00:01<?, ?it/s]
-                                                                                                                                         
-
-                                                              2025-04-23 18:31:20.859 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: tcwv at 2022-11-04T22:00:00
-
-    Running batch 0 inference:  40%|████      | 2/5 [00:39<00:56, 18.86s/it]    Total Ensemble Batches:   0%|          | 0/2 [00:39<?, ?it/s]
-
-    Fetching ARCO data:   0%|          | 0/26 [00:01<?, ?it/s]
-
-    Fetching ARCO data:   4%|▍         | 1/26 [00:02<00:56,  2.27s/it]
-                                                                                                                                         
-
-                                                                      2025-04-23 18:31:21.217 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: msl at 2022-11-04T22:00:00
-
-    Running batch 0 inference:  40%|████      | 2/5 [00:40<00:56, 18.86s/it]    Total Ensemble Batches:   0%|          | 0/2 [00:40<?, ?it/s]
-
-    Fetching ARCO data:  15%|█▌        | 4/26 [00:02<00:50,  2.27s/it]
-                                                                                                                                         
-
-                                                                      2025-04-23 18:31:21.607 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: sp at 2022-11-04T22:00:00
-
-    Running batch 0 inference:  40%|████      | 2/5 [00:40<00:56, 18.86s/it]    Total Ensemble Batches:   0%|          | 0/2 [00:40<?, ?it/s]
-
-    Fetching ARCO data:  15%|█▌        | 4/26 [00:02<00:50,  2.27s/it]
-                                                                                                                                         
-
-                                                                      2025-04-23 18:31:22.172 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: u1000 at 2022-11-04T22:00:00
-
-    Running batch 0 inference:  40%|████      | 2/5 [00:40<00:56, 18.86s/it]    Total Ensemble Batches:   0%|          | 0/2 [00:41<?, ?it/s]
-
-    Fetching ARCO data:  15%|█▌        | 4/26 [00:03<00:50,  2.27s/it]
-                                                                                                                                         
-
-                                                                      2025-04-23 18:31:25.014 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: u850 at 2022-11-04T22:00:00
-
-    Running batch 0 inference:  40%|████      | 2/5 [00:43<00:56, 18.86s/it]    Total Ensemble Batches:   0%|          | 0/2 [00:43<?, ?it/s]
-
-    Fetching ARCO data:  15%|█▌        | 4/26 [00:06<00:50,  2.27s/it]
-
-    Fetching ARCO data:  19%|█▉        | 5/26 [00:06<00:24,  1.16s/it]
-                                                                                                                                         
-
-                                                                      2025-04-23 18:31:25.088 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: u500 at 2022-11-04T22:00:00
-
-    Running batch 0 inference:  40%|████      | 2/5 [00:43<00:56, 18.86s/it]    Total Ensemble Batches:   0%|          | 0/2 [00:43<?, ?it/s]
-
-    Fetching ARCO data:  31%|███       | 8/26 [00:06<00:20,  1.16s/it]
-                                                                                                                                         
-
-                                                                      2025-04-23 18:31:25.145 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: u250 at 2022-11-04T22:00:00
-
-    Running batch 0 inference:  40%|████      | 2/5 [00:43<00:56, 18.86s/it]    Total Ensemble Batches:   0%|          | 0/2 [00:43<?, ?it/s]
-
-    Fetching ARCO data:  31%|███       | 8/26 [00:06<00:20,  1.16s/it]
-                                                                                                                                         
-
-                                                                      2025-04-23 18:31:25.198 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: v1000 at 2022-11-04T22:00:00
-
-    Running batch 0 inference:  40%|████      | 2/5 [00:43<00:56, 18.86s/it]    Total Ensemble Batches:   0%|          | 0/2 [00:44<?, ?it/s]
-
-    Fetching ARCO data:  31%|███       | 8/26 [00:06<00:20,  1.16s/it]
-                                                                                                                                         
-
-                                                                      2025-04-23 18:31:27.555 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: v850 at 2022-11-04T22:00:00
-
-    Running batch 0 inference:  40%|████      | 2/5 [00:46<00:56, 18.86s/it]    Total Ensemble Batches:   0%|          | 0/2 [00:46<?, ?it/s]
-
-    Fetching ARCO data:  31%|███       | 8/26 [00:08<00:20,  1.16s/it]
-
-    Fetching ARCO data:  35%|███▍      | 9/26 [00:08<00:14,  1.14it/s]
-                                                                                                                                         
-
-                                                                      2025-04-23 18:31:27.632 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: v500 at 2022-11-04T22:00:00
-
-    Running batch 0 inference:  40%|████      | 2/5 [00:46<00:56, 18.86s/it]    Total Ensemble Batches:   0%|          | 0/2 [00:46<?, ?it/s]
-
-    Fetching ARCO data:  46%|████▌     | 12/26 [00:08<00:12,  1.14it/s]
-                                                                                                                                         
-
-                                                                       2025-04-23 18:31:27.690 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: v250 at 2022-11-04T22:00:00
-
-    Running batch 0 inference:  40%|████      | 2/5 [00:46<00:56, 18.86s/it]    Total Ensemble Batches:   0%|          | 0/2 [00:46<?, ?it/s]
-
-    Fetching ARCO data:  46%|████▌     | 12/26 [00:08<00:12,  1.14it/s]
-                                                                                                                                         
-
-                                                                       2025-04-23 18:31:27.744 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: z1000 at 2022-11-04T22:00:00
-
-    Running batch 0 inference:  40%|████      | 2/5 [00:46<00:56, 18.86s/it]    Total Ensemble Batches:   0%|          | 0/2 [00:46<?, ?it/s]
-
-    Fetching ARCO data:  46%|████▌     | 12/26 [00:08<00:12,  1.14it/s]
-                                                                                                                                         
-
-                                                                       2025-04-23 18:31:30.475 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: z850 at 2022-11-04T22:00:00
-
-    Running batch 0 inference:  40%|████      | 2/5 [00:49<00:56, 18.86s/it]    Total Ensemble Batches:   0%|          | 0/2 [00:49<?, ?it/s]
-
-    Fetching ARCO data:  46%|████▌     | 12/26 [00:11<00:12,  1.14it/s]
-
-    Fetching ARCO data:  50%|█████     | 13/26 [00:11<00:10,  1.23it/s]
-                                                                                                                                         
-
-                                                                       2025-04-23 18:31:30.554 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: z500 at 2022-11-04T22:00:00
-
-    Running batch 0 inference:  40%|████      | 2/5 [00:49<00:56, 18.86s/it]    Total Ensemble Batches:   0%|          | 0/2 [00:49<?, ?it/s]
-
-    Fetching ARCO data:  62%|██████▏   | 16/26 [00:11<00:08,  1.23it/s]
-                                                                                                                                         
-
-                                                                       2025-04-23 18:31:30.616 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: z250 at 2022-11-04T22:00:00
-
-    Running batch 0 inference:  40%|████      | 2/5 [00:49<00:56, 18.86s/it]    Total Ensemble Batches:   0%|          | 0/2 [00:49<?, ?it/s]
-
-    Fetching ARCO data:  62%|██████▏   | 16/26 [00:11<00:08,  1.23it/s]
-                                                                                                                                         
-
-                                                                       2025-04-23 18:31:30.677 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: t1000 at 2022-11-04T22:00:00
-
-    Running batch 0 inference:  40%|████      | 2/5 [00:49<00:56, 18.86s/it]    Total Ensemble Batches:   0%|          | 0/2 [00:49<?, ?it/s]
-
-    Fetching ARCO data:  62%|██████▏   | 16/26 [00:11<00:08,  1.23it/s]
-                                                                                                                                         
-
-                                                                       2025-04-23 18:31:33.324 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: t850 at 2022-11-04T22:00:00
-
-    Running batch 0 inference:  40%|████      | 2/5 [00:52<00:56, 18.86s/it]    Total Ensemble Batches:   0%|          | 0/2 [00:52<?, ?it/s]
-
-    Fetching ARCO data:  62%|██████▏   | 16/26 [00:14<00:08,  1.23it/s]
-
-    Fetching ARCO data:  65%|██████▌   | 17/26 [00:14<00:06,  1.29it/s]
-                                                                                                                                         
-
-                                                                       2025-04-23 18:31:33.405 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: t500 at 2022-11-04T22:00:00
-
-    Running batch 0 inference:  40%|████      | 2/5 [00:52<00:56, 18.86s/it]    Total Ensemble Batches:   0%|          | 0/2 [00:52<?, ?it/s]
-
-    Fetching ARCO data:  77%|███████▋  | 20/26 [00:14<00:04,  1.29it/s]
-                                                                                                                                         
-
-                                                                       2025-04-23 18:31:33.469 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: t250 at 2022-11-04T22:00:00
-
-    Running batch 0 inference:  40%|████      | 2/5 [00:52<00:56, 18.86s/it]    Total Ensemble Batches:   0%|          | 0/2 [00:52<?, ?it/s]
-
-    Fetching ARCO data:  77%|███████▋  | 20/26 [00:14<00:04,  1.29it/s]
-                                                                                                                                         
-
-                                                                       2025-04-23 18:31:33.531 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: q1000 at 2022-11-04T22:00:00
-
-    Running batch 0 inference:  40%|████      | 2/5 [00:52<00:56, 18.86s/it]    Total Ensemble Batches:   0%|          | 0/2 [00:52<?, ?it/s]
-
-    Fetching ARCO data:  77%|███████▋  | 20/26 [00:14<00:04,  1.29it/s]
-                                                                                                                                         
-
-                                                                       2025-04-23 18:31:35.658 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: q850 at 2022-11-04T22:00:00
-
-    Running batch 0 inference:  40%|████      | 2/5 [00:54<00:56, 18.86s/it]    Total Ensemble Batches:   0%|          | 0/2 [00:54<?, ?it/s]
-
-    Fetching ARCO data:  77%|███████▋  | 20/26 [00:16<00:04,  1.29it/s]
-
-    Fetching ARCO data:  81%|████████  | 21/26 [00:16<00:03,  1.42it/s]
-                                                                                                                                         
-
-                                                                       2025-04-23 18:31:35.729 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: q500 at 2022-11-04T22:00:00
-
-    Running batch 0 inference:  40%|████      | 2/5 [00:54<00:56, 18.86s/it]    Total Ensemble Batches:   0%|          | 0/2 [00:54<?, ?it/s]
-
-    Fetching ARCO data:  92%|█████████▏| 24/26 [00:16<00:01,  1.42it/s]
-                                                                                                                                         
-
-                                                                       2025-04-23 18:31:35.792 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: q250 at 2022-11-04T22:00:00
-
-    Running batch 0 inference:  40%|████      | 2/5 [00:54<00:56, 18.86s/it]    Total Ensemble Batches:   0%|          | 0/2 [00:54<?, ?it/s]
-
-    Fetching ARCO data:  92%|█████████▏| 24/26 [00:16<00:01,  1.42it/s]
-
-    Fetching ARCO data:  96%|█████████▌| 25/26 [00:16<00:00,  2.09it/s]    Fetching ARCO data: 100%|██████████| 26/26 [00:16<00:00,  1.54it/s]
-
-    Running batch 0 inference:  60%|██████    | 3/5 [01:15<00:53, 26.63s/it]
-
-    Fetching ARCO data:   0%|          | 0/26 [00:00<?, ?it/s]
-                                                                                                                                         
-
-                                                              2025-04-23 18:31:56.431 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: u10m at 2022-11-04T23:00:00
-
-    Running batch 0 inference:  60%|██████    | 3/5 [01:15<00:53, 26.63s/it]    Total Ensemble Batches:   0%|          | 0/2 [01:15<?, ?it/s]
-
-    Fetching ARCO data:   0%|          | 0/26 [00:00<?, ?it/s]
-                                                                                                                                         
-
-                                                              2025-04-23 18:31:57.049 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: v10m at 2022-11-04T23:00:00
-
-    Running batch 0 inference:  60%|██████    | 3/5 [01:15<00:53, 26.63s/it]    Total Ensemble Batches:   0%|          | 0/2 [01:15<?, ?it/s]
-
-    Fetching ARCO data:   0%|          | 0/26 [00:00<?, ?it/s]
-                                                                                                                                         
-
-                                                              2025-04-23 18:31:57.667 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: t2m at 2022-11-04T23:00:00
-
-    Running batch 0 inference:  60%|██████    | 3/5 [01:16<00:53, 26.63s/it]    Total Ensemble Batches:   0%|          | 0/2 [01:16<?, ?it/s]
-
-    Fetching ARCO data:   0%|          | 0/26 [00:01<?, ?it/s]
-                                                                                                                                         
-
-                                                              2025-04-23 18:31:58.192 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: tcwv at 2022-11-04T23:00:00
-
-    Running batch 0 inference:  60%|██████    | 3/5 [01:16<00:53, 26.63s/it]    Total Ensemble Batches:   0%|          | 0/2 [01:17<?, ?it/s]
-
-    Fetching ARCO data:   0%|          | 0/26 [00:01<?, ?it/s]
-
-    Fetching ARCO data:   4%|▍         | 1/26 [00:02<01:00,  2.44s/it]
-                                                                                                                                         
-
-                                                                      2025-04-23 18:31:58.877 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: msl at 2022-11-04T23:00:00
-
-    Running batch 0 inference:  60%|██████    | 3/5 [01:17<00:53, 26.63s/it]    Total Ensemble Batches:   0%|          | 0/2 [01:17<?, ?it/s]
-
-    Fetching ARCO data:  15%|█▌        | 4/26 [00:02<00:53,  2.44s/it]
-                                                                                                                                         
-
-                                                                      2025-04-23 18:31:59.417 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: sp at 2022-11-04T23:00:00
-
-    Running batch 0 inference:  60%|██████    | 3/5 [01:18<00:53, 26.63s/it]    Total Ensemble Batches:   0%|          | 0/2 [01:18<?, ?it/s]
-
-    Fetching ARCO data:  15%|█▌        | 4/26 [00:02<00:53,  2.44s/it]
-                                                                                                                                         
-
-                                                                      2025-04-23 18:32:00.004 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: u1000 at 2022-11-04T23:00:00
-
-    Running batch 0 inference:  60%|██████    | 3/5 [01:18<00:53, 26.63s/it]    Total Ensemble Batches:   0%|          | 0/2 [01:18<?, ?it/s]
-
-    Fetching ARCO data:  15%|█▌        | 4/26 [00:03<00:53,  2.44s/it]
-                                                                                                                                         
-
-                                                                      2025-04-23 18:32:02.571 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: u850 at 2022-11-04T23:00:00
-
-    Running batch 0 inference:  60%|██████    | 3/5 [01:21<00:53, 26.63s/it]    Total Ensemble Batches:   0%|          | 0/2 [01:21<?, ?it/s]
-
-    Fetching ARCO data:  15%|█▌        | 4/26 [00:06<00:53,  2.44s/it]
-
-    Fetching ARCO data:  19%|█▉        | 5/26 [00:06<00:24,  1.17s/it]
-                                                                                                                                         
-
-                                                                      2025-04-23 18:32:02.645 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: u500 at 2022-11-04T23:00:00
-
-    Running batch 0 inference:  60%|██████    | 3/5 [01:21<00:53, 26.63s/it]    Total Ensemble Batches:   0%|          | 0/2 [01:21<?, ?it/s]
-
-    Fetching ARCO data:  31%|███       | 8/26 [00:06<00:20,  1.17s/it]
-                                                                                                                                         
-
-                                                                      2025-04-23 18:32:02.703 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: u250 at 2022-11-04T23:00:00
-
-    Running batch 0 inference:  60%|██████    | 3/5 [01:21<00:53, 26.63s/it]    Total Ensemble Batches:   0%|          | 0/2 [01:21<?, ?it/s]
-
-    Fetching ARCO data:  31%|███       | 8/26 [00:06<00:20,  1.17s/it]
-                                                                                                                                         
-
-                                                                      2025-04-23 18:32:02.758 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: v1000 at 2022-11-04T23:00:00
-
-    Running batch 0 inference:  60%|██████    | 3/5 [01:21<00:53, 26.63s/it]    Total Ensemble Batches:   0%|          | 0/2 [01:21<?, ?it/s]
-
-    Fetching ARCO data:  31%|███       | 8/26 [00:06<00:20,  1.17s/it]
-                                                                                                                                         
-
-                                                                      2025-04-23 18:32:05.415 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: v850 at 2022-11-04T23:00:00
-
-    Running batch 0 inference:  60%|██████    | 3/5 [01:24<00:53, 26.63s/it]    Total Ensemble Batches:   0%|          | 0/2 [01:24<?, ?it/s]
-
-    Fetching ARCO data:  31%|███       | 8/26 [00:08<00:20,  1.17s/it]
-
-    Fetching ARCO data:  35%|███▍      | 9/26 [00:09<00:15,  1.09it/s]
-                                                                                                                                         
-
-                                                                      2025-04-23 18:32:05.491 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: v500 at 2022-11-04T23:00:00
-
-    Running batch 0 inference:  60%|██████    | 3/5 [01:24<00:53, 26.63s/it]    Total Ensemble Batches:   0%|          | 0/2 [01:24<?, ?it/s]
-
-    Fetching ARCO data:  46%|████▌     | 12/26 [00:09<00:12,  1.09it/s]
-                                                                                                                                         
-
-                                                                       2025-04-23 18:32:05.549 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: v250 at 2022-11-04T23:00:00
-
-    Running batch 0 inference:  60%|██████    | 3/5 [01:24<00:53, 26.63s/it]    Total Ensemble Batches:   0%|          | 0/2 [01:24<?, ?it/s]
-
-    Fetching ARCO data:  46%|████▌     | 12/26 [00:09<00:12,  1.09it/s]
-                                                                                                                                         
-
-                                                                       2025-04-23 18:32:05.605 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: z1000 at 2022-11-04T23:00:00
-
-    Running batch 0 inference:  60%|██████    | 3/5 [01:24<00:53, 26.63s/it]    Total Ensemble Batches:   0%|          | 0/2 [01:24<?, ?it/s]
-
-    Fetching ARCO data:  46%|████▌     | 12/26 [00:09<00:12,  1.09it/s]
-                                                                                                                                         
-
-                                                                       2025-04-23 18:32:07.501 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: z850 at 2022-11-04T23:00:00
-
-    Running batch 0 inference:  60%|██████    | 3/5 [01:26<00:53, 26.63s/it]    Total Ensemble Batches:   0%|          | 0/2 [01:26<?, ?it/s]
-
-    Fetching ARCO data:  46%|████▌     | 12/26 [00:11<00:12,  1.09it/s]
-
-    Fetching ARCO data:  50%|█████     | 13/26 [00:11<00:09,  1.35it/s]
-                                                                                                                                         
-
-                                                                       2025-04-23 18:32:07.581 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: z500 at 2022-11-04T23:00:00
-
-    Running batch 0 inference:  60%|██████    | 3/5 [01:26<00:53, 26.63s/it]    Total Ensemble Batches:   0%|          | 0/2 [01:26<?, ?it/s]
-
-    Fetching ARCO data:  62%|██████▏   | 16/26 [00:11<00:07,  1.35it/s]
-                                                                                                                                         
-
-                                                                       2025-04-23 18:32:07.643 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: z250 at 2022-11-04T23:00:00
-
-    Running batch 0 inference:  60%|██████    | 3/5 [01:26<00:53, 26.63s/it]    Total Ensemble Batches:   0%|          | 0/2 [01:26<?, ?it/s]
-
-    Fetching ARCO data:  62%|██████▏   | 16/26 [00:11<00:07,  1.35it/s]
-                                                                                                                                         
-
-                                                                       2025-04-23 18:32:07.704 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: t1000 at 2022-11-04T23:00:00
-
-    Running batch 0 inference:  60%|██████    | 3/5 [01:26<00:53, 26.63s/it]    Total Ensemble Batches:   0%|          | 0/2 [01:26<?, ?it/s]
-
-    Fetching ARCO data:  62%|██████▏   | 16/26 [00:11<00:07,  1.35it/s]
-                                                                                                                                         
-
-                                                                       2025-04-23 18:32:10.247 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: t850 at 2022-11-04T23:00:00
-
-    Running batch 0 inference:  60%|██████    | 3/5 [01:29<00:53, 26.63s/it]    Total Ensemble Batches:   0%|          | 0/2 [01:29<?, ?it/s]
-
-    Fetching ARCO data:  62%|██████▏   | 16/26 [00:13<00:07,  1.35it/s]
-
-    Fetching ARCO data:  65%|██████▌   | 17/26 [00:13<00:06,  1.39it/s]
-                                                                                                                                         
-
-                                                                       2025-04-23 18:32:10.328 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: t500 at 2022-11-04T23:00:00
-
-    Running batch 0 inference:  60%|██████    | 3/5 [01:29<00:53, 26.63s/it]    Total Ensemble Batches:   0%|          | 0/2 [01:29<?, ?it/s]
-
-    Fetching ARCO data:  77%|███████▋  | 20/26 [00:13<00:04,  1.39it/s]
-                                                                                                                                         
-
-                                                                       2025-04-23 18:32:10.388 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: t250 at 2022-11-04T23:00:00
-
-    Running batch 0 inference:  60%|██████    | 3/5 [01:29<00:53, 26.63s/it]    Total Ensemble Batches:   0%|          | 0/2 [01:29<?, ?it/s]
-
-    Fetching ARCO data:  77%|███████▋  | 20/26 [00:13<00:04,  1.39it/s]
-                                                                                                                                         
-
-                                                                       2025-04-23 18:32:10.450 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: q1000 at 2022-11-04T23:00:00
-
-    Running batch 0 inference:  60%|██████    | 3/5 [01:29<00:53, 26.63s/it]    Total Ensemble Batches:   0%|          | 0/2 [01:29<?, ?it/s]
-
-    Fetching ARCO data:  77%|███████▋  | 20/26 [00:14<00:04,  1.39it/s]
-                                                                                                                                         
-
-                                                                       2025-04-23 18:32:12.674 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: q850 at 2022-11-04T23:00:00
-
-    Running batch 0 inference:  60%|██████    | 3/5 [01:31<00:53, 26.63s/it]    Total Ensemble Batches:   0%|          | 0/2 [01:31<?, ?it/s]
-
-    Fetching ARCO data:  77%|███████▋  | 20/26 [00:16<00:04,  1.39it/s]
-
-    Fetching ARCO data:  81%|████████  | 21/26 [00:16<00:03,  1.47it/s]
-                                                                                                                                         
-
-                                                                       2025-04-23 18:32:12.757 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: q500 at 2022-11-04T23:00:00
-
-    Running batch 0 inference:  60%|██████    | 3/5 [01:31<00:53, 26.63s/it]    Total Ensemble Batches:   0%|          | 0/2 [01:31<?, ?it/s]
-
-    Fetching ARCO data:  92%|█████████▏| 24/26 [00:16<00:01,  1.47it/s]
-                                                                                                                                         
-
-                                                                       2025-04-23 18:32:12.822 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: q250 at 2022-11-04T23:00:00
-
-    Running batch 0 inference:  60%|██████    | 3/5 [01:31<00:53, 26.63s/it]    Total Ensemble Batches:   0%|          | 0/2 [01:31<?, ?it/s]
-
-    Fetching ARCO data:  92%|█████████▏| 24/26 [00:16<00:01,  1.47it/s]
-
-    Fetching ARCO data:  96%|█████████▌| 25/26 [00:16<00:00,  2.16it/s]    Fetching ARCO data: 100%|██████████| 26/26 [00:16<00:00,  1.58it/s]
-
-    Running batch 0 inference:  80%|████████  | 4/5 [01:52<00:30, 30.52s/it]
-
-    Fetching ARCO data:   0%|          | 0/26 [00:00<?, ?it/s]
-                                                                                                                                         
-
-                                                              2025-04-23 18:32:33.480 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: u10m at 2022-11-05T00:00:00
-
-    Running batch 0 inference:  80%|████████  | 4/5 [01:52<00:30, 30.52s/it]    Total Ensemble Batches:   0%|          | 0/2 [01:52<?, ?it/s]
-
-    Fetching ARCO data:   0%|          | 0/26 [00:00<?, ?it/s]
-                                                                                                                                         
-
-                                                              2025-04-23 18:32:34.082 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: v10m at 2022-11-05T00:00:00
-
-    Running batch 0 inference:  80%|████████  | 4/5 [01:52<00:30, 30.52s/it]    Total Ensemble Batches:   0%|          | 0/2 [01:52<?, ?it/s]
-
-    Fetching ARCO data:   0%|          | 0/26 [00:00<?, ?it/s]
-                                                                                                                                         
-
-                                                              2025-04-23 18:32:34.653 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: t2m at 2022-11-05T00:00:00
-
-    Running batch 0 inference:  80%|████████  | 4/5 [01:53<00:30, 30.52s/it]    Total Ensemble Batches:   0%|          | 0/2 [01:53<?, ?it/s]
-
-    Fetching ARCO data:   0%|          | 0/26 [00:01<?, ?it/s]
-                                                                                                                                         
-
-                                                              2025-04-23 18:32:35.184 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: tcwv at 2022-11-05T00:00:00
-
-    Running batch 0 inference:  80%|████████  | 4/5 [01:53<00:30, 30.52s/it]    Total Ensemble Batches:   0%|          | 0/2 [01:54<?, ?it/s]
-
-    Fetching ARCO data:   0%|          | 0/26 [00:01<?, ?it/s]
-
-    Fetching ARCO data:   4%|▍         | 1/26 [00:02<00:56,  2.28s/it]
-                                                                                                                                         
-
-                                                                      2025-04-23 18:32:35.763 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: msl at 2022-11-05T00:00:00
-
-    Running batch 0 inference:  80%|████████  | 4/5 [01:54<00:30, 30.52s/it]    Total Ensemble Batches:   0%|          | 0/2 [01:54<?, ?it/s]
-
-    Fetching ARCO data:  15%|█▌        | 4/26 [00:02<00:50,  2.28s/it]
-                                                                                                                                         
-
-                                                                      2025-04-23 18:32:36.321 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: sp at 2022-11-05T00:00:00
-
-    Running batch 0 inference:  80%|████████  | 4/5 [01:55<00:30, 30.52s/it]    Total Ensemble Batches:   0%|          | 0/2 [01:55<?, ?it/s]
-
-    Fetching ARCO data:  15%|█▌        | 4/26 [00:02<00:50,  2.28s/it]
-                                                                                                                                         
-
-                                                                      2025-04-23 18:32:36.907 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: u1000 at 2022-11-05T00:00:00
-
-    Running batch 0 inference:  80%|████████  | 4/5 [01:55<00:30, 30.52s/it]    Total Ensemble Batches:   0%|          | 0/2 [01:55<?, ?it/s]
-
-    Fetching ARCO data:  15%|█▌        | 4/26 [00:03<00:50,  2.28s/it]
-                                                                                                                                         
-
-                                                                      2025-04-23 18:32:39.835 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: u850 at 2022-11-05T00:00:00
-
-    Running batch 0 inference:  80%|████████  | 4/5 [01:58<00:30, 30.52s/it]    Total Ensemble Batches:   0%|          | 0/2 [01:58<?, ?it/s]
-
-    Fetching ARCO data:  15%|█▌        | 4/26 [00:06<00:50,  2.28s/it]
-
-    Fetching ARCO data:  19%|█▉        | 5/26 [00:06<00:25,  1.22s/it]
-                                                                                                                                         
-
-                                                                      2025-04-23 18:32:39.913 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: u500 at 2022-11-05T00:00:00
-
-    Running batch 0 inference:  80%|████████  | 4/5 [01:58<00:30, 30.52s/it]    Total Ensemble Batches:   0%|          | 0/2 [01:58<?, ?it/s]
-
-    Fetching ARCO data:  31%|███       | 8/26 [00:06<00:22,  1.22s/it]
-                                                                                                                                         
-
-                                                                      2025-04-23 18:32:39.978 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: u250 at 2022-11-05T00:00:00
-
-    Running batch 0 inference:  80%|████████  | 4/5 [01:58<00:30, 30.52s/it]    Total Ensemble Batches:   0%|          | 0/2 [01:58<?, ?it/s]
-
-    Fetching ARCO data:  31%|███       | 8/26 [00:06<00:22,  1.22s/it]
-                                                                                                                                         
-
-                                                                      2025-04-23 18:32:40.035 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: v1000 at 2022-11-05T00:00:00
-
-    Running batch 0 inference:  80%|████████  | 4/5 [01:58<00:30, 30.52s/it]    Total Ensemble Batches:   0%|          | 0/2 [01:58<?, ?it/s]
-
-    Fetching ARCO data:  31%|███       | 8/26 [00:06<00:22,  1.22s/it]
-                                                                                                                                         
-
-                                                                      2025-04-23 18:32:42.829 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: v850 at 2022-11-05T00:00:00
-
-    Running batch 0 inference:  80%|████████  | 4/5 [02:01<00:30, 30.52s/it]    Total Ensemble Batches:   0%|          | 0/2 [02:01<?, ?it/s]
-
-    Fetching ARCO data:  31%|███       | 8/26 [00:09<00:22,  1.22s/it]
-
-    Fetching ARCO data:  35%|███▍      | 9/26 [00:09<00:16,  1.04it/s]
-                                                                                                                                         
-
-                                                                      2025-04-23 18:32:42.906 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: v500 at 2022-11-05T00:00:00
-
-    Running batch 0 inference:  80%|████████  | 4/5 [02:01<00:30, 30.52s/it]    Total Ensemble Batches:   0%|          | 0/2 [02:01<?, ?it/s]
-
-    Fetching ARCO data:  46%|████▌     | 12/26 [00:09<00:13,  1.04it/s]
-                                                                                                                                         
-
-                                                                       2025-04-23 18:32:42.964 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: v250 at 2022-11-05T00:00:00
-
-    Running batch 0 inference:  80%|████████  | 4/5 [02:01<00:30, 30.52s/it]    Total Ensemble Batches:   0%|          | 0/2 [02:01<?, ?it/s]
-
-    Fetching ARCO data:  46%|████▌     | 12/26 [00:09<00:13,  1.04it/s]
-                                                                                                                                         
-
-                                                                       2025-04-23 18:32:43.018 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: z1000 at 2022-11-05T00:00:00
-
-    Running batch 0 inference:  80%|████████  | 4/5 [02:01<00:30, 30.52s/it]    Total Ensemble Batches:   0%|          | 0/2 [02:01<?, ?it/s]
-
-    Fetching ARCO data:  46%|████▌     | 12/26 [00:09<00:13,  1.04it/s]
-                                                                                                                                         
-
-                                                                       2025-04-23 18:32:45.358 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: z850 at 2022-11-05T00:00:00
-
-    Running batch 0 inference:  80%|████████  | 4/5 [02:04<00:30, 30.52s/it]    Total Ensemble Batches:   0%|          | 0/2 [02:04<?, ?it/s]
-
-    Fetching ARCO data:  46%|████▌     | 12/26 [00:11<00:13,  1.04it/s]
-
-    Fetching ARCO data:  50%|█████     | 13/26 [00:11<00:10,  1.22it/s]
-                                                                                                                                         
-
-                                                                       2025-04-23 18:32:45.437 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: z500 at 2022-11-05T00:00:00
-
-    Running batch 0 inference:  80%|████████  | 4/5 [02:04<00:30, 30.52s/it]    Total Ensemble Batches:   0%|          | 0/2 [02:04<?, ?it/s]
-
-    Fetching ARCO data:  62%|██████▏   | 16/26 [00:11<00:08,  1.22it/s]
-                                                                                                                                         
-
-                                                                       2025-04-23 18:32:45.499 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: z250 at 2022-11-05T00:00:00
-
-    Running batch 0 inference:  80%|████████  | 4/5 [02:04<00:30, 30.52s/it]    Total Ensemble Batches:   0%|          | 0/2 [02:04<?, ?it/s]
-
-    Fetching ARCO data:  62%|██████▏   | 16/26 [00:12<00:08,  1.22it/s]
-                                                                                                                                         
-
-                                                                       2025-04-23 18:32:45.560 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: t1000 at 2022-11-05T00:00:00
-
-    Running batch 0 inference:  80%|████████  | 4/5 [02:04<00:30, 30.52s/it]    Total Ensemble Batches:   0%|          | 0/2 [02:04<?, ?it/s]
-
-    Fetching ARCO data:  62%|██████▏   | 16/26 [00:12<00:08,  1.22it/s]
-                                                                                                                                         
-
-                                                                       2025-04-23 18:32:47.620 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: t850 at 2022-11-05T00:00:00
-
-    Running batch 0 inference:  80%|████████  | 4/5 [02:06<00:30, 30.52s/it]    Total Ensemble Batches:   0%|          | 0/2 [02:06<?, ?it/s]
-
-    Fetching ARCO data:  62%|██████▏   | 16/26 [00:14<00:08,  1.22it/s]
-
-    Fetching ARCO data:  65%|██████▌   | 17/26 [00:14<00:06,  1.39it/s]
-                                                                                                                                         
-
-                                                                       2025-04-23 18:32:47.700 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: t500 at 2022-11-05T00:00:00
-
-    Running batch 0 inference:  80%|████████  | 4/5 [02:06<00:30, 30.52s/it]    Total Ensemble Batches:   0%|          | 0/2 [02:06<?, ?it/s]
-
-    Fetching ARCO data:  77%|███████▋  | 20/26 [00:14<00:04,  1.39it/s]
-                                                                                                                                         
-
-                                                                       2025-04-23 18:32:47.763 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: t250 at 2022-11-05T00:00:00
-
-    Running batch 0 inference:  80%|████████  | 4/5 [02:06<00:30, 30.52s/it]    Total Ensemble Batches:   0%|          | 0/2 [02:06<?, ?it/s]
-
-    Fetching ARCO data:  77%|███████▋  | 20/26 [00:14<00:04,  1.39it/s]
-                                                                                                                                         
-
-                                                                       2025-04-23 18:32:47.825 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: q1000 at 2022-11-05T00:00:00
-
-    Running batch 0 inference:  80%|████████  | 4/5 [02:06<00:30, 30.52s/it]    Total Ensemble Batches:   0%|          | 0/2 [02:06<?, ?it/s]
-
-    Fetching ARCO data:  77%|███████▋  | 20/26 [00:14<00:04,  1.39it/s]
-                                                                                                                                         
-
-                                                                       2025-04-23 18:32:50.501 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: q850 at 2022-11-05T00:00:00
-
-    Running batch 0 inference:  80%|████████  | 4/5 [02:09<00:30, 30.52s/it]    Total Ensemble Batches:   0%|          | 0/2 [02:09<?, ?it/s]
-
-    Fetching ARCO data:  77%|███████▋  | 20/26 [00:17<00:04,  1.39it/s]
-
-    Fetching ARCO data:  81%|████████  | 21/26 [00:17<00:03,  1.39it/s]
-                                                                                                                                         
-
-                                                                       2025-04-23 18:32:50.581 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: q500 at 2022-11-05T00:00:00
-
-    Running batch 0 inference:  80%|████████  | 4/5 [02:09<00:30, 30.52s/it]    Total Ensemble Batches:   0%|          | 0/2 [02:09<?, ?it/s]
-
-    Fetching ARCO data:  92%|█████████▏| 24/26 [00:17<00:01,  1.39it/s]
-                                                                                                                                         
-
-                                                                       2025-04-23 18:32:50.644 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: q250 at 2022-11-05T00:00:00
-
-    Running batch 0 inference:  80%|████████  | 4/5 [02:09<00:30, 30.52s/it]    Total Ensemble Batches:   0%|          | 0/2 [02:09<?, ?it/s]
-
-    Fetching ARCO data:  92%|█████████▏| 24/26 [00:17<00:01,  1.39it/s]
-
-    Fetching ARCO data:  96%|█████████▌| 25/26 [00:17<00:00,  2.04it/s]    Fetching ARCO data: 100%|██████████| 26/26 [00:17<00:00,  1.51it/s]
-
-    Running batch 0 inference: 100%|██████████| 5/5 [02:30<00:00, 33.06s/it]
-                                                                                Total Ensemble Batches:  50%|█████     | 1/2 [02:30<02:30, 150.13s/it]
-    Running batch 2 inference:   0%|          | 0/5 [00:00<?, ?it/s]
-
-    Fetching ARCO data:   0%|          | 0/26 [00:00<?, ?it/s]
-
-                                                                                                                                    
-                                                                    2025-04-23 18:33:11.380 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: u10m at 2022-11-04T21:00:00
-
-
-    Fetching ARCO data:   0%|          | 0/26 [00:00<?, ?it/s]    Total Ensemble Batches:  50%|█████     | 1/2 [02:30<02:30, 150.13s/it]
-    Running batch 2 inference:  20%|██        | 1/5 [00:00<00:00, 19.12it/s]
-
-                                                                                                                                    
-                                                                            2025-04-23 18:33:11.383 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: v10m at 2022-11-04T21:00:00
-
-
-    Fetching ARCO data:   0%|          | 0/26 [00:00<?, ?it/s]    Total Ensemble Batches:  50%|█████     | 1/2 [02:30<02:30, 150.13s/it]
-    Running batch 2 inference:  20%|██        | 1/5 [00:00<00:00, 17.97it/s]
-
-                                                                                                                                    
-                                                                            2025-04-23 18:33:11.386 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: t2m at 2022-11-04T21:00:00
-
-
-    Fetching ARCO data:   0%|          | 0/26 [00:00<?, ?it/s]    Total Ensemble Batches:  50%|█████     | 1/2 [02:30<02:30, 150.13s/it]
-    Running batch 2 inference:  20%|██        | 1/5 [00:00<00:00, 16.99it/s]
-
-                                                                                                                                    
-                                                                            2025-04-23 18:33:11.389 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: tcwv at 2022-11-04T21:00:00
-
-
-    Fetching ARCO data:   0%|          | 0/26 [00:00<?, ?it/s]    Total Ensemble Batches:  50%|█████     | 1/2 [02:30<02:30, 150.13s/it]
-    Running batch 2 inference:  20%|██        | 1/5 [00:00<00:00, 16.18it/s]
-
-                                                                                                                                    
-                                                                            2025-04-23 18:33:11.398 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: msl at 2022-11-04T21:00:00
-
-
-    Fetching ARCO data:  15%|█▌        | 4/26 [00:00<00:00, 197.09it/s]    Total Ensemble Batches:  50%|█████     | 1/2 [02:30<02:30, 150.13s/it]
-    Running batch 2 inference:  20%|██        | 1/5 [00:00<00:00, 14.13it/s]
-
-                                                                                                                                             
-                                                                            2025-04-23 18:33:11.401 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: sp at 2022-11-04T21:00:00
-
-
-    Fetching ARCO data:  15%|█▌        | 4/26 [00:00<00:00, 172.99it/s]    Total Ensemble Batches:  50%|█████     | 1/2 [02:30<02:30, 150.13s/it]
-    Running batch 2 inference:  20%|██        | 1/5 [00:00<00:00, 13.59it/s]
-
-                                                                                                                                             
-                                                                            2025-04-23 18:33:11.404 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: u1000 at 2022-11-04T21:00:00
-
-
-    Fetching ARCO data:  15%|█▌        | 4/26 [00:00<00:00, 152.85it/s]    Total Ensemble Batches:  50%|█████     | 1/2 [02:30<02:30, 150.13s/it]
-    Running batch 2 inference:  20%|██        | 1/5 [00:00<00:00, 13.05it/s]
-
-                                                                                                                                             
-                                                                            2025-04-23 18:33:11.455 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: u850 at 2022-11-04T21:00:00
-
-
-    Fetching ARCO data:  15%|█▌        | 4/26 [00:00<00:00, 52.03it/s]    Total Ensemble Batches:  50%|█████     | 1/2 [02:30<02:30, 150.13s/it]
-    Running batch 2 inference:  20%|██        | 1/5 [00:00<00:00,  7.85it/s]
-
-    Fetching ARCO data:  19%|█▉        | 5/26 [00:00<00:00, 37.98it/s]
-
-                                                                                                                                            
-                                                                            2025-04-23 18:33:11.515 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: u500 at 2022-11-04T21:00:00
-
-
-    Fetching ARCO data:  31%|███       | 8/26 [00:00<00:00, 37.98it/s]    Total Ensemble Batches:  50%|█████     | 1/2 [02:30<02:30, 150.13s/it]
-    Running batch 2 inference:  20%|██        | 1/5 [00:00<00:00,  5.34it/s]
-
-                                                                                                                                            
-                                                                            2025-04-23 18:33:11.570 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: u250 at 2022-11-04T21:00:00
-
-
-    Fetching ARCO data:  31%|███       | 8/26 [00:00<00:00, 37.98it/s]    Total Ensemble Batches:  50%|█████     | 1/2 [02:30<02:30, 150.13s/it]
-    Running batch 2 inference:  20%|██        | 1/5 [00:00<00:00,  4.12it/s]
-
-                                                                                                                                            
-                                                                            2025-04-23 18:33:11.625 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: v1000 at 2022-11-04T21:00:00
-
-
-    Fetching ARCO data:  31%|███       | 8/26 [00:00<00:00, 37.98it/s]    Total Ensemble Batches:  50%|█████     | 1/2 [02:30<02:30, 150.13s/it]
-    Running batch 2 inference:  20%|██        | 1/5 [00:00<00:01,  3.36it/s]
-
-                                                                                                                                            
-                                                                            2025-04-23 18:33:11.682 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: v850 at 2022-11-04T21:00:00
-
-
-    Fetching ARCO data:  31%|███       | 8/26 [00:00<00:00, 37.98it/s]    Total Ensemble Batches:  50%|█████     | 1/2 [02:30<02:30, 150.13s/it]
-    Running batch 2 inference:  20%|██        | 1/5 [00:00<00:01,  2.82it/s]
-
-    Fetching ARCO data:  35%|███▍      | 9/26 [00:00<00:00, 23.43it/s]
-
-                                                                                                                                            
-                                                                            2025-04-23 18:33:11.743 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: v500 at 2022-11-04T21:00:00
-
-
-    Fetching ARCO data:  46%|████▌     | 12/26 [00:00<00:00, 23.43it/s]    Total Ensemble Batches:  50%|█████     | 1/2 [02:30<02:30, 150.13s/it]
-    Running batch 2 inference:  20%|██        | 1/5 [00:00<00:01,  2.41it/s]
-
-                                                                                                                                             
-                                                                            2025-04-23 18:33:11.799 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: v250 at 2022-11-04T21:00:00
-
-
-    Fetching ARCO data:  46%|████▌     | 12/26 [00:00<00:00, 23.43it/s]    Total Ensemble Batches:  50%|█████     | 1/2 [02:30<02:30, 150.13s/it]
-    Running batch 2 inference:  20%|██        | 1/5 [00:00<00:01,  2.12it/s]
-
-                                                                                                                                             
-                                                                            2025-04-23 18:33:11.855 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: z1000 at 2022-11-04T21:00:00
-
-
-    Fetching ARCO data:  46%|████▌     | 12/26 [00:00<00:00, 23.43it/s]    Total Ensemble Batches:  50%|█████     | 1/2 [02:30<02:30, 150.13s/it]
-    Running batch 2 inference:  20%|██        | 1/5 [00:00<00:02,  1.89it/s]
-
-                                                                                                                                             
-                                                                            2025-04-23 18:33:11.903 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: z850 at 2022-11-04T21:00:00
-
-
-    Fetching ARCO data:  46%|████▌     | 12/26 [00:00<00:00, 23.43it/s]    Total Ensemble Batches:  50%|█████     | 1/2 [02:30<02:30, 150.13s/it]
-    Running batch 2 inference:  20%|██        | 1/5 [00:00<00:02,  1.74it/s]
-
-    Fetching ARCO data:  50%|█████     | 13/26 [00:00<00:00, 21.02it/s]
-
-                                                                                                                                             
-                                                                            2025-04-23 18:33:11.959 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: z500 at 2022-11-04T21:00:00
-
-
-    Fetching ARCO data:  62%|██████▏   | 16/26 [00:00<00:00, 21.02it/s]    Total Ensemble Batches:  50%|█████     | 1/2 [02:30<02:30, 150.13s/it]
-    Running batch 2 inference:  20%|██        | 1/5 [00:00<00:02,  1.58it/s]
-
-                                                                                                                                             
-                                                                            2025-04-23 18:33:12.009 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: z250 at 2022-11-04T21:00:00
-
-
-    Fetching ARCO data:  62%|██████▏   | 16/26 [00:00<00:00, 21.02it/s]    Total Ensemble Batches:  50%|█████     | 1/2 [02:30<02:30, 150.13s/it]
-    Running batch 2 inference:  20%|██        | 1/5 [00:00<00:02,  1.47it/s]
-
-                                                                                                                                             
-                                                                            2025-04-23 18:33:12.060 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: t1000 at 2022-11-04T21:00:00
-
-
-    Fetching ARCO data:  62%|██████▏   | 16/26 [00:00<00:00, 21.02it/s]    Total Ensemble Batches:  50%|█████     | 1/2 [02:30<02:30, 150.13s/it]
-    Running batch 2 inference:  20%|██        | 1/5 [00:00<00:02,  1.36it/s]
-
-                                                                                                                                             
-                                                                            2025-04-23 18:33:12.112 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: t850 at 2022-11-04T21:00:00
-
-
-    Fetching ARCO data:  62%|██████▏   | 16/26 [00:00<00:00, 21.02it/s]    Total Ensemble Batches:  50%|█████     | 1/2 [02:30<02:30, 150.13s/it]
-    Running batch 2 inference:  20%|██        | 1/5 [00:00<00:03,  1.27it/s]
-
-    Fetching ARCO data:  65%|██████▌   | 17/26 [00:00<00:00, 20.22it/s]
-
-                                                                                                                                             
-                                                                            2025-04-23 18:33:12.169 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: t500 at 2022-11-04T21:00:00
-
-
-    Fetching ARCO data:  77%|███████▋  | 20/26 [00:00<00:00, 20.22it/s]    Total Ensemble Batches:  50%|█████     | 1/2 [02:31<02:30, 150.13s/it]
-    Running batch 2 inference:  20%|██        | 1/5 [00:00<00:03,  1.19it/s]
-
-                                                                                                                                             
-                                                                            2025-04-23 18:33:12.220 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: t250 at 2022-11-04T21:00:00
-
-
-    Fetching ARCO data:  77%|███████▋  | 20/26 [00:00<00:00, 20.22it/s]    Total Ensemble Batches:  50%|█████     | 1/2 [02:31<02:30, 150.13s/it]
-    Running batch 2 inference:  20%|██        | 1/5 [00:00<00:03,  1.12it/s]
-
-                                                                                                                                             
-                                                                            2025-04-23 18:33:12.272 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: q1000 at 2022-11-04T21:00:00
-
-
-    Fetching ARCO data:  77%|███████▋  | 20/26 [00:00<00:00, 20.22it/s]    Total Ensemble Batches:  50%|█████     | 1/2 [02:31<02:30, 150.13s/it]
-    Running batch 2 inference:  20%|██        | 1/5 [00:00<00:03,  1.06it/s]
-
-                                                                                                                                             
-                                                                            2025-04-23 18:33:12.317 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: q850 at 2022-11-04T21:00:00
-
-
-    Fetching ARCO data:  77%|███████▋  | 20/26 [00:00<00:00, 20.22it/s]    Total Ensemble Batches:  50%|█████     | 1/2 [02:31<02:30, 150.13s/it]
-    Running batch 2 inference:  20%|██        | 1/5 [00:00<00:03,  1.01it/s]
-
-    Fetching ARCO data:  81%|████████  | 21/26 [00:00<00:00, 20.14it/s]
-
-                                                                                                                                             
-                                                                            2025-04-23 18:33:12.369 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: q500 at 2022-11-04T21:00:00
-
-
-    Fetching ARCO data:  92%|█████████▏| 24/26 [00:00<00:00, 20.14it/s]    Total Ensemble Batches:  50%|█████     | 1/2 [02:31<02:30, 150.13s/it]
-    Running batch 2 inference:  20%|██        | 1/5 [00:01<00:04,  1.04s/it]
-
-                                                                                                                                             
-                                                                            2025-04-23 18:33:12.415 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: q250 at 2022-11-04T21:00:00
-
-
-    Fetching ARCO data:  92%|█████████▏| 24/26 [00:01<00:00, 20.14it/s]    Total Ensemble Batches:  50%|█████     | 1/2 [02:31<02:30, 150.13s/it]
-    Running batch 2 inference:  20%|██        | 1/5 [00:01<00:04,  1.09s/it]    Fetching ARCO data: 100%|██████████| 26/26 [00:01<00:00, 23.96it/s]
-
-    Running batch 2 inference:  40%|████      | 2/5 [00:21<00:32, 10.87s/it]
-
-    Fetching ARCO data:   0%|          | 0/26 [00:00<?, ?it/s]
-
-                                                                                                                                    
-                                                                            2025-04-23 18:33:33.078 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: u10m at 2022-11-04T22:00:00
-
-
-    Fetching ARCO data:   0%|          | 0/26 [00:00<?, ?it/s]    Total Ensemble Batches:  50%|█████     | 1/2 [02:51<02:30, 150.13s/it]
-    Running batch 2 inference:  40%|████      | 2/5 [00:21<00:32, 10.87s/it]
-
-                                                                                                                                    
-                                                                            2025-04-23 18:33:33.081 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: v10m at 2022-11-04T22:00:00
-
-
-    Fetching ARCO data:   0%|          | 0/26 [00:00<?, ?it/s]    Total Ensemble Batches:  50%|█████     | 1/2 [02:51<02:30, 150.13s/it]
-    Running batch 2 inference:  40%|████      | 2/5 [00:21<00:32, 10.87s/it]
-
-                                                                                                                                    
-                                                                            2025-04-23 18:33:33.085 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: t2m at 2022-11-04T22:00:00
-
-
-    Fetching ARCO data:   0%|          | 0/26 [00:00<?, ?it/s]    Total Ensemble Batches:  50%|█████     | 1/2 [02:51<02:30, 150.13s/it]
-    Running batch 2 inference:  40%|████      | 2/5 [00:21<00:32, 10.87s/it]
-
-                                                                                                                                    
-                                                                            2025-04-23 18:33:33.087 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: tcwv at 2022-11-04T22:00:00
-
-
-    Fetching ARCO data:   0%|          | 0/26 [00:00<?, ?it/s]    Total Ensemble Batches:  50%|█████     | 1/2 [02:51<02:30, 150.13s/it]
-    Running batch 2 inference:  40%|████      | 2/5 [00:21<00:32, 10.87s/it]
-
-                                                                                                                                    
-                                                                            2025-04-23 18:33:33.097 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: msl at 2022-11-04T22:00:00
-
-
-    Fetching ARCO data:  15%|█▌        | 4/26 [00:00<00:00, 198.38it/s]    Total Ensemble Batches:  50%|█████     | 1/2 [02:51<02:30, 150.13s/it]
-    Running batch 2 inference:  40%|████      | 2/5 [00:21<00:32, 10.87s/it]
-
-                                                                                                                                             
-                                                                            2025-04-23 18:33:33.100 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: sp at 2022-11-04T22:00:00
-
-
-    Fetching ARCO data:  15%|█▌        | 4/26 [00:00<00:00, 173.95it/s]    Total Ensemble Batches:  50%|█████     | 1/2 [02:51<02:30, 150.13s/it]
-    Running batch 2 inference:  40%|████      | 2/5 [00:21<00:32, 10.87s/it]
-
-                                                                                                                                             
-                                                                            2025-04-23 18:33:33.102 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: u1000 at 2022-11-04T22:00:00
-
-
-    Fetching ARCO data:  15%|█▌        | 4/26 [00:00<00:00, 154.35it/s]    Total Ensemble Batches:  50%|█████     | 1/2 [02:51<02:30, 150.13s/it]
-    Running batch 2 inference:  40%|████      | 2/5 [00:21<00:32, 10.87s/it]
-
-                                                                                                                                             
-                                                                            2025-04-23 18:33:33.153 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: u850 at 2022-11-04T22:00:00
-
-
-    Fetching ARCO data:  15%|█▌        | 4/26 [00:00<00:00, 51.94it/s]    Total Ensemble Batches:  50%|█████     | 1/2 [02:51<02:30, 150.13s/it]
-    Running batch 2 inference:  40%|████      | 2/5 [00:21<00:32, 10.87s/it]
-
-    Fetching ARCO data:  19%|█▉        | 5/26 [00:00<00:00, 37.53it/s]
-
-                                                                                                                                            
-                                                                            2025-04-23 18:33:33.215 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: u500 at 2022-11-04T22:00:00
-
-
-    Fetching ARCO data:  31%|███       | 8/26 [00:00<00:00, 37.53it/s]    Total Ensemble Batches:  50%|█████     | 1/2 [02:52<02:30, 150.13s/it]
-    Running batch 2 inference:  40%|████      | 2/5 [00:21<00:32, 10.87s/it]
-
-                                                                                                                                            
-                                                                            2025-04-23 18:33:33.270 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: u250 at 2022-11-04T22:00:00
-
-
-    Fetching ARCO data:  31%|███       | 8/26 [00:00<00:00, 37.53it/s]    Total Ensemble Batches:  50%|█████     | 1/2 [02:52<02:30, 150.13s/it]
-    Running batch 2 inference:  40%|████      | 2/5 [00:21<00:32, 10.87s/it]
-
-                                                                                                                                            
-                                                                            2025-04-23 18:33:33.326 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: v1000 at 2022-11-04T22:00:00
-
-
-    Fetching ARCO data:  31%|███       | 8/26 [00:00<00:00, 37.53it/s]    Total Ensemble Batches:  50%|█████     | 1/2 [02:52<02:30, 150.13s/it]
-    Running batch 2 inference:  40%|████      | 2/5 [00:21<00:32, 10.87s/it]
-
-                                                                                                                                            
-                                                                            2025-04-23 18:33:33.382 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: v850 at 2022-11-04T22:00:00
-
-
-    Fetching ARCO data:  31%|███       | 8/26 [00:00<00:00, 37.53it/s]    Total Ensemble Batches:  50%|█████     | 1/2 [02:52<02:30, 150.13s/it]
-    Running batch 2 inference:  40%|████      | 2/5 [00:22<00:32, 10.87s/it]
-
-    Fetching ARCO data:  35%|███▍      | 9/26 [00:00<00:00, 23.29it/s]
-
-                                                                                                                                            
-                                                                            2025-04-23 18:33:33.444 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: v500 at 2022-11-04T22:00:00
-
-
-    Fetching ARCO data:  46%|████▌     | 12/26 [00:00<00:00, 23.29it/s]    Total Ensemble Batches:  50%|█████     | 1/2 [02:52<02:30, 150.13s/it]
-    Running batch 2 inference:  40%|████      | 2/5 [00:22<00:32, 10.87s/it]
-
-                                                                                                                                             
-                                                                            2025-04-23 18:33:33.500 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: v250 at 2022-11-04T22:00:00
-
-
-    Fetching ARCO data:  46%|████▌     | 12/26 [00:00<00:00, 23.29it/s]    Total Ensemble Batches:  50%|█████     | 1/2 [02:52<02:30, 150.13s/it]
-    Running batch 2 inference:  40%|████      | 2/5 [00:22<00:32, 10.87s/it]
-
-                                                                                                                                             
-                                                                            2025-04-23 18:33:33.557 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: z1000 at 2022-11-04T22:00:00
-
-
-    Fetching ARCO data:  46%|████▌     | 12/26 [00:00<00:00, 23.29it/s]    Total Ensemble Batches:  50%|█████     | 1/2 [02:52<02:30, 150.13s/it]
-    Running batch 2 inference:  40%|████      | 2/5 [00:22<00:32, 10.87s/it]
-
-                                                                                                                                             
-                                                                            2025-04-23 18:33:33.606 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: z850 at 2022-11-04T22:00:00
-
-
-    Fetching ARCO data:  46%|████▌     | 12/26 [00:00<00:00, 23.29it/s]    Total Ensemble Batches:  50%|█████     | 1/2 [02:52<02:30, 150.13s/it]
-    Running batch 2 inference:  40%|████      | 2/5 [00:22<00:32, 10.87s/it]
-
-    Fetching ARCO data:  50%|█████     | 13/26 [00:00<00:00, 20.85it/s]
-
-                                                                                                                                             
-                                                                            2025-04-23 18:33:33.662 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: z500 at 2022-11-04T22:00:00
-
-
-    Fetching ARCO data:  62%|██████▏   | 16/26 [00:00<00:00, 20.85it/s]    Total Ensemble Batches:  50%|█████     | 1/2 [02:52<02:30, 150.13s/it]
-    Running batch 2 inference:  40%|████      | 2/5 [00:22<00:32, 10.87s/it]
-
-                                                                                                                                             
-                                                                            2025-04-23 18:33:33.712 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: z250 at 2022-11-04T22:00:00
-
-
-    Fetching ARCO data:  62%|██████▏   | 16/26 [00:00<00:00, 20.85it/s]    Total Ensemble Batches:  50%|█████     | 1/2 [02:52<02:30, 150.13s/it]
-    Running batch 2 inference:  40%|████      | 2/5 [00:22<00:32, 10.87s/it]
-
-                                                                                                                                             
-                                                                            2025-04-23 18:33:33.763 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: t1000 at 2022-11-04T22:00:00
-
-
-    Fetching ARCO data:  62%|██████▏   | 16/26 [00:00<00:00, 20.85it/s]    Total Ensemble Batches:  50%|█████     | 1/2 [02:52<02:30, 150.13s/it]
-    Running batch 2 inference:  40%|████      | 2/5 [00:22<00:32, 10.87s/it]
-
-                                                                                                                                             
-                                                                            2025-04-23 18:33:33.814 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: t850 at 2022-11-04T22:00:00
-
-
-    Fetching ARCO data:  62%|██████▏   | 16/26 [00:00<00:00, 20.85it/s]    Total Ensemble Batches:  50%|█████     | 1/2 [02:52<02:30, 150.13s/it]
-    Running batch 2 inference:  40%|████      | 2/5 [00:22<00:32, 10.87s/it]
-
-    Fetching ARCO data:  65%|██████▌   | 17/26 [00:00<00:00, 20.20it/s]
-
-                                                                                                                                             
-                                                                            2025-04-23 18:33:33.870 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: t500 at 2022-11-04T22:00:00
-
-
-    Fetching ARCO data:  77%|███████▋  | 20/26 [00:00<00:00, 20.20it/s]    Total Ensemble Batches:  50%|█████     | 1/2 [02:52<02:30, 150.13s/it]
-    Running batch 2 inference:  40%|████      | 2/5 [00:22<00:32, 10.87s/it]
-
-                                                                                                                                             
-                                                                            2025-04-23 18:33:33.918 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: t250 at 2022-11-04T22:00:00
-
-
-    Fetching ARCO data:  77%|███████▋  | 20/26 [00:00<00:00, 20.20it/s]    Total Ensemble Batches:  50%|█████     | 1/2 [02:52<02:30, 150.13s/it]
-    Running batch 2 inference:  40%|████      | 2/5 [00:22<00:32, 10.87s/it]
-
-                                                                                                                                             
-                                                                            2025-04-23 18:33:33.965 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: q1000 at 2022-11-04T22:00:00
-
-
-    Fetching ARCO data:  77%|███████▋  | 20/26 [00:00<00:00, 20.20it/s]    Total Ensemble Batches:  50%|█████     | 1/2 [02:52<02:30, 150.13s/it]
-    Running batch 2 inference:  40%|████      | 2/5 [00:22<00:32, 10.87s/it]
-
-                                                                                                                                             
-                                                                            2025-04-23 18:33:34.007 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: q850 at 2022-11-04T22:00:00
-
-
-    Fetching ARCO data:  77%|███████▋  | 20/26 [00:00<00:00, 20.20it/s]    Total Ensemble Batches:  50%|█████     | 1/2 [02:52<02:30, 150.13s/it]
-    Running batch 2 inference:  40%|████      | 2/5 [00:22<00:32, 10.87s/it]
-
-    Fetching ARCO data:  81%|████████  | 21/26 [00:00<00:00, 20.53it/s]
-
-                                                                                                                                             
-                                                                            2025-04-23 18:33:34.059 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: q500 at 2022-11-04T22:00:00
-
-
-    Fetching ARCO data:  92%|█████████▏| 24/26 [00:00<00:00, 20.53it/s]    Total Ensemble Batches:  50%|█████     | 1/2 [02:52<02:30, 150.13s/it]
-    Running batch 2 inference:  40%|████      | 2/5 [00:22<00:32, 10.87s/it]
-
-                                                                                                                                             
-                                                                            2025-04-23 18:33:34.105 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: q250 at 2022-11-04T22:00:00
-
-
-    Fetching ARCO data:  92%|█████████▏| 24/26 [00:01<00:00, 20.53it/s]    Total Ensemble Batches:  50%|█████     | 1/2 [02:52<02:30, 150.13s/it]
-    Running batch 2 inference:  40%|████      | 2/5 [00:22<00:32, 10.87s/it]    Fetching ARCO data: 100%|██████████| 26/26 [00:01<00:00, 24.14it/s]
-
-    Running batch 2 inference:  60%|██████    | 3/5 [00:43<00:30, 15.39s/it]
-
-    Fetching ARCO data:   0%|          | 0/26 [00:00<?, ?it/s]
-
-                                                                                                                                    
-                                                                            2025-04-23 18:33:54.782 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: u10m at 2022-11-04T23:00:00
-
-
-    Fetching ARCO data:   0%|          | 0/26 [00:00<?, ?it/s]    Total Ensemble Batches:  50%|█████     | 1/2 [03:13<02:30, 150.13s/it]
-    Running batch 2 inference:  60%|██████    | 3/5 [00:43<00:30, 15.39s/it]
-
-                                                                                                                                    
-                                                                            2025-04-23 18:33:54.785 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: v10m at 2022-11-04T23:00:00
-
-
-    Fetching ARCO data:   0%|          | 0/26 [00:00<?, ?it/s]    Total Ensemble Batches:  50%|█████     | 1/2 [03:13<02:30, 150.13s/it]
-    Running batch 2 inference:  60%|██████    | 3/5 [00:43<00:30, 15.39s/it]
-
-                                                                                                                                    
-                                                                            2025-04-23 18:33:54.788 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: t2m at 2022-11-04T23:00:00
-
-
-    Fetching ARCO data:   0%|          | 0/26 [00:00<?, ?it/s]    Total Ensemble Batches:  50%|█████     | 1/2 [03:13<02:30, 150.13s/it]
-    Running batch 2 inference:  60%|██████    | 3/5 [00:43<00:30, 15.39s/it]
-
-                                                                                                                                    
-                                                                            2025-04-23 18:33:54.791 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: tcwv at 2022-11-04T23:00:00
-
-
-    Fetching ARCO data:   0%|          | 0/26 [00:00<?, ?it/s]    Total Ensemble Batches:  50%|█████     | 1/2 [03:13<02:30, 150.13s/it]
-    Running batch 2 inference:  60%|██████    | 3/5 [00:43<00:30, 15.39s/it]
-
-                                                                                                                                    
-                                                                            2025-04-23 18:33:54.800 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: msl at 2022-11-04T23:00:00
-
-
-    Fetching ARCO data:  15%|█▌        | 4/26 [00:00<00:00, 206.65it/s]    Total Ensemble Batches:  50%|█████     | 1/2 [03:13<02:30, 150.13s/it]
-    Running batch 2 inference:  60%|██████    | 3/5 [00:43<00:30, 15.39s/it]
-
-                                                                                                                                             
-                                                                            2025-04-23 18:33:54.803 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: sp at 2022-11-04T23:00:00
-
-
-    Fetching ARCO data:  15%|█▌        | 4/26 [00:00<00:00, 180.46it/s]    Total Ensemble Batches:  50%|█████     | 1/2 [03:13<02:30, 150.13s/it]
-    Running batch 2 inference:  60%|██████    | 3/5 [00:43<00:30, 15.39s/it]
-
-                                                                                                                                             
-                                                                            2025-04-23 18:33:54.806 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: u1000 at 2022-11-04T23:00:00
-
-
-    Fetching ARCO data:  15%|█▌        | 4/26 [00:00<00:00, 158.94it/s]    Total Ensemble Batches:  50%|█████     | 1/2 [03:13<02:30, 150.13s/it]
-    Running batch 2 inference:  60%|██████    | 3/5 [00:43<00:30, 15.39s/it]
-
-                                                                                                                                             
-                                                                            2025-04-23 18:33:54.856 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: u850 at 2022-11-04T23:00:00
-
-
-    Fetching ARCO data:  15%|█▌        | 4/26 [00:00<00:00, 53.15it/s]    Total Ensemble Batches:  50%|█████     | 1/2 [03:13<02:30, 150.13s/it]
-    Running batch 2 inference:  60%|██████    | 3/5 [00:43<00:30, 15.39s/it]
-
-    Fetching ARCO data:  19%|█▉        | 5/26 [00:00<00:00, 38.42it/s]
-
-                                                                                                                                            
-                                                                            2025-04-23 18:33:54.915 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: u500 at 2022-11-04T23:00:00
-
-
-    Fetching ARCO data:  31%|███       | 8/26 [00:00<00:00, 38.42it/s]    Total Ensemble Batches:  50%|█████     | 1/2 [03:13<02:30, 150.13s/it]
-    Running batch 2 inference:  60%|██████    | 3/5 [00:43<00:30, 15.39s/it]
-
-                                                                                                                                            
-                                                                            2025-04-23 18:33:54.970 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: u250 at 2022-11-04T23:00:00
-
-
-    Fetching ARCO data:  31%|███       | 8/26 [00:00<00:00, 38.42it/s]    Total Ensemble Batches:  50%|█████     | 1/2 [03:13<02:30, 150.13s/it]
-    Running batch 2 inference:  60%|██████    | 3/5 [00:43<00:30, 15.39s/it]
-
-                                                                                                                                            
-                                                                            2025-04-23 18:33:55.025 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: v1000 at 2022-11-04T23:00:00
-
-
-    Fetching ARCO data:  31%|███       | 8/26 [00:00<00:00, 38.42it/s]    Total Ensemble Batches:  50%|█████     | 1/2 [03:13<02:30, 150.13s/it]
-    Running batch 2 inference:  60%|██████    | 3/5 [00:43<00:30, 15.39s/it]
-
-                                                                                                                                            
-                                                                            2025-04-23 18:33:55.080 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: v850 at 2022-11-04T23:00:00
-
-
-    Fetching ARCO data:  31%|███       | 8/26 [00:00<00:00, 38.42it/s]    Total Ensemble Batches:  50%|█████     | 1/2 [03:13<02:30, 150.13s/it]
-    Running batch 2 inference:  60%|██████    | 3/5 [00:43<00:30, 15.39s/it]
-
-    Fetching ARCO data:  35%|███▍      | 9/26 [00:00<00:00, 23.68it/s]
-
-                                                                                                                                            
-                                                                            2025-04-23 18:33:55.141 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: v500 at 2022-11-04T23:00:00
-
-
-    Fetching ARCO data:  46%|████▌     | 12/26 [00:00<00:00, 23.68it/s]    Total Ensemble Batches:  50%|█████     | 1/2 [03:13<02:30, 150.13s/it]
-    Running batch 2 inference:  60%|██████    | 3/5 [00:43<00:30, 15.39s/it]
-
-                                                                                                                                             
-                                                                            2025-04-23 18:33:55.197 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: v250 at 2022-11-04T23:00:00
-
-
-    Fetching ARCO data:  46%|████▌     | 12/26 [00:00<00:00, 23.68it/s]    Total Ensemble Batches:  50%|█████     | 1/2 [03:14<02:30, 150.13s/it]
-    Running batch 2 inference:  60%|██████    | 3/5 [00:43<00:30, 15.39s/it]
-
-                                                                                                                                             
-                                                                            2025-04-23 18:33:55.252 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: z1000 at 2022-11-04T23:00:00
-
-
-    Fetching ARCO data:  46%|████▌     | 12/26 [00:00<00:00, 23.68it/s]    Total Ensemble Batches:  50%|█████     | 1/2 [03:14<02:30, 150.13s/it]
-    Running batch 2 inference:  60%|██████    | 3/5 [00:43<00:30, 15.39s/it]
-
-                                                                                                                                             
-                                                                            2025-04-23 18:33:55.299 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: z850 at 2022-11-04T23:00:00
-
-
-    Fetching ARCO data:  46%|████▌     | 12/26 [00:00<00:00, 23.68it/s]    Total Ensemble Batches:  50%|█████     | 1/2 [03:14<02:30, 150.13s/it]
-    Running batch 2 inference:  60%|██████    | 3/5 [00:43<00:30, 15.39s/it]
-
-    Fetching ARCO data:  50%|█████     | 13/26 [00:00<00:00, 21.26it/s]
-
-                                                                                                                                             
-                                                                            2025-04-23 18:33:55.355 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: z500 at 2022-11-04T23:00:00
-
-
-    Fetching ARCO data:  62%|██████▏   | 16/26 [00:00<00:00, 21.26it/s]    Total Ensemble Batches:  50%|█████     | 1/2 [03:14<02:30, 150.13s/it]
-    Running batch 2 inference:  60%|██████    | 3/5 [00:44<00:30, 15.39s/it]
-
-                                                                                                                                             
-                                                                            2025-04-23 18:33:55.404 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: z250 at 2022-11-04T23:00:00
-
-
-    Fetching ARCO data:  62%|██████▏   | 16/26 [00:00<00:00, 21.26it/s]    Total Ensemble Batches:  50%|█████     | 1/2 [03:14<02:30, 150.13s/it]
-    Running batch 2 inference:  60%|██████    | 3/5 [00:44<00:30, 15.39s/it]
-
-                                                                                                                                             
-                                                                            2025-04-23 18:33:55.454 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: t1000 at 2022-11-04T23:00:00
-
-
-    Fetching ARCO data:  62%|██████▏   | 16/26 [00:00<00:00, 21.26it/s]    Total Ensemble Batches:  50%|█████     | 1/2 [03:14<02:30, 150.13s/it]
-    Running batch 2 inference:  60%|██████    | 3/5 [00:44<00:30, 15.39s/it]
-
-                                                                                                                                             
-                                                                            2025-04-23 18:33:55.505 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: t850 at 2022-11-04T23:00:00
-
-
-    Fetching ARCO data:  62%|██████▏   | 16/26 [00:00<00:00, 21.26it/s]    Total Ensemble Batches:  50%|█████     | 1/2 [03:14<02:30, 150.13s/it]
-    Running batch 2 inference:  60%|██████    | 3/5 [00:44<00:30, 15.39s/it]
-
-    Fetching ARCO data:  65%|██████▌   | 17/26 [00:00<00:00, 20.49it/s]
-
-                                                                                                                                             
-                                                                            2025-04-23 18:33:55.561 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: t500 at 2022-11-04T23:00:00
-
-
-    Fetching ARCO data:  77%|███████▋  | 20/26 [00:00<00:00, 20.49it/s]    Total Ensemble Batches:  50%|█████     | 1/2 [03:14<02:30, 150.13s/it]
-    Running batch 2 inference:  60%|██████    | 3/5 [00:44<00:30, 15.39s/it]
-
-                                                                                                                                             
-                                                                            2025-04-23 18:33:55.609 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: t250 at 2022-11-04T23:00:00
-
-
-    Fetching ARCO data:  77%|███████▋  | 20/26 [00:00<00:00, 20.49it/s]    Total Ensemble Batches:  50%|█████     | 1/2 [03:14<02:30, 150.13s/it]
-    Running batch 2 inference:  60%|██████    | 3/5 [00:44<00:30, 15.39s/it]
-
-                                                                                                                                             
-                                                                            2025-04-23 18:33:55.660 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: q1000 at 2022-11-04T23:00:00
-
-
-    Fetching ARCO data:  77%|███████▋  | 20/26 [00:00<00:00, 20.49it/s]    Total Ensemble Batches:  50%|█████     | 1/2 [03:14<02:30, 150.13s/it]
-    Running batch 2 inference:  60%|██████    | 3/5 [00:44<00:30, 15.39s/it]
-
-                                                                                                                                             
-                                                                            2025-04-23 18:33:55.702 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: q850 at 2022-11-04T23:00:00
-
-
-    Fetching ARCO data:  77%|███████▋  | 20/26 [00:00<00:00, 20.49it/s]    Total Ensemble Batches:  50%|█████     | 1/2 [03:14<02:30, 150.13s/it]
-    Running batch 2 inference:  60%|██████    | 3/5 [00:44<00:30, 15.39s/it]
-
-    Fetching ARCO data:  81%|████████  | 21/26 [00:00<00:00, 20.59it/s]
-
-                                                                                                                                             
-                                                                            2025-04-23 18:33:55.754 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: q500 at 2022-11-04T23:00:00
-
-
-    Fetching ARCO data:  92%|█████████▏| 24/26 [00:00<00:00, 20.59it/s]    Total Ensemble Batches:  50%|█████     | 1/2 [03:14<02:30, 150.13s/it]
-    Running batch 2 inference:  60%|██████    | 3/5 [00:44<00:30, 15.39s/it]
-
-                                                                                                                                             
-                                                                            2025-04-23 18:33:55.800 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: q250 at 2022-11-04T23:00:00
-
-
-    Fetching ARCO data:  92%|█████████▏| 24/26 [00:01<00:00, 20.59it/s]    Total Ensemble Batches:  50%|█████     | 1/2 [03:14<02:30, 150.13s/it]
-    Running batch 2 inference:  60%|██████    | 3/5 [00:44<00:30, 15.39s/it]    Fetching ARCO data: 100%|██████████| 26/26 [00:01<00:00, 24.35it/s]
-
-    Running batch 2 inference:  80%|████████  | 4/5 [01:05<00:17, 17.74s/it]
-
-    Fetching ARCO data:   0%|          | 0/26 [00:00<?, ?it/s]
-
-                                                                                                                                    
-                                                                            2025-04-23 18:34:16.484 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: u10m at 2022-11-05T00:00:00
-
-
-    Fetching ARCO data:   0%|          | 0/26 [00:00<?, ?it/s]    Total Ensemble Batches:  50%|█████     | 1/2 [03:35<02:30, 150.13s/it]
-    Running batch 2 inference:  80%|████████  | 4/5 [01:05<00:17, 17.74s/it]
-
-                                                                                                                                    
-                                                                            2025-04-23 18:34:16.486 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: v10m at 2022-11-05T00:00:00
-
-
-    Fetching ARCO data:   0%|          | 0/26 [00:00<?, ?it/s]    Total Ensemble Batches:  50%|█████     | 1/2 [03:35<02:30, 150.13s/it]
-    Running batch 2 inference:  80%|████████  | 4/5 [01:05<00:17, 17.74s/it]
-
-                                                                                                                                    
-                                                                            2025-04-23 18:34:16.489 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: t2m at 2022-11-05T00:00:00
-
-
-    Fetching ARCO data:   0%|          | 0/26 [00:00<?, ?it/s]    Total Ensemble Batches:  50%|█████     | 1/2 [03:35<02:30, 150.13s/it]
-    Running batch 2 inference:  80%|████████  | 4/5 [01:05<00:17, 17.74s/it]
-
-                                                                                                                                    
-                                                                            2025-04-23 18:34:16.491 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: tcwv at 2022-11-05T00:00:00
-
-
-    Fetching ARCO data:   0%|          | 0/26 [00:00<?, ?it/s]    Total Ensemble Batches:  50%|█████     | 1/2 [03:35<02:30, 150.13s/it]
-    Running batch 2 inference:  80%|████████  | 4/5 [01:05<00:17, 17.74s/it]
-
-                                                                                                                                    
-                                                                            2025-04-23 18:34:16.499 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: msl at 2022-11-05T00:00:00
-
-
-    Fetching ARCO data:  15%|█▌        | 4/26 [00:00<00:00, 235.01it/s]    Total Ensemble Batches:  50%|█████     | 1/2 [03:35<02:30, 150.13s/it]
-    Running batch 2 inference:  80%|████████  | 4/5 [01:05<00:17, 17.74s/it]
-
-                                                                                                                                             
-                                                                            2025-04-23 18:34:16.501 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: sp at 2022-11-05T00:00:00
-
-
-    Fetching ARCO data:  15%|█▌        | 4/26 [00:00<00:00, 208.42it/s]    Total Ensemble Batches:  50%|█████     | 1/2 [03:35<02:30, 150.13s/it]
-    Running batch 2 inference:  80%|████████  | 4/5 [01:05<00:17, 17.74s/it]
-
-                                                                                                                                             
-                                                                            2025-04-23 18:34:16.504 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: u1000 at 2022-11-05T00:00:00
-
-
-    Fetching ARCO data:  15%|█▌        | 4/26 [00:00<00:00, 185.95it/s]    Total Ensemble Batches:  50%|█████     | 1/2 [03:35<02:30, 150.13s/it]
-    Running batch 2 inference:  80%|████████  | 4/5 [01:05<00:17, 17.74s/it]
-
-                                                                                                                                             
-                                                                            2025-04-23 18:34:16.553 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: u850 at 2022-11-05T00:00:00
-
-
-    Fetching ARCO data:  15%|█▌        | 4/26 [00:00<00:00, 56.33it/s]    Total Ensemble Batches:  50%|█████     | 1/2 [03:35<02:30, 150.13s/it]
-    Running batch 2 inference:  80%|████████  | 4/5 [01:05<00:17, 17.74s/it]
-
-    Fetching ARCO data:  19%|█▉        | 5/26 [00:00<00:00, 39.83it/s]
-
-                                                                                                                                            
-                                                                            2025-04-23 18:34:16.612 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: u500 at 2022-11-05T00:00:00
-
-
-    Fetching ARCO data:  31%|███       | 8/26 [00:00<00:00, 39.83it/s]    Total Ensemble Batches:  50%|█████     | 1/2 [03:35<02:30, 150.13s/it]
-    Running batch 2 inference:  80%|████████  | 4/5 [01:05<00:17, 17.74s/it]
-
-                                                                                                                                            
-                                                                            2025-04-23 18:34:16.666 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: u250 at 2022-11-05T00:00:00
-
-
-    Fetching ARCO data:  31%|███       | 8/26 [00:00<00:00, 39.83it/s]    Total Ensemble Batches:  50%|█████     | 1/2 [03:35<02:30, 150.13s/it]
-    Running batch 2 inference:  80%|████████  | 4/5 [01:05<00:17, 17.74s/it]
-
-                                                                                                                                            
-                                                                            2025-04-23 18:34:16.721 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: v1000 at 2022-11-05T00:00:00
-
-
-    Fetching ARCO data:  31%|███       | 8/26 [00:00<00:00, 39.83it/s]    Total Ensemble Batches:  50%|█████     | 1/2 [03:35<02:30, 150.13s/it]
-    Running batch 2 inference:  80%|████████  | 4/5 [01:05<00:17, 17.74s/it]
-
-                                                                                                                                            
-                                                                            2025-04-23 18:34:16.776 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: v850 at 2022-11-05T00:00:00
-
-
-    Fetching ARCO data:  31%|███       | 8/26 [00:00<00:00, 39.83it/s]    Total Ensemble Batches:  50%|█████     | 1/2 [03:35<02:30, 150.13s/it]
-    Running batch 2 inference:  80%|████████  | 4/5 [01:05<00:17, 17.74s/it]
-
-    Fetching ARCO data:  35%|███▍      | 9/26 [00:00<00:00, 23.97it/s]
-
-                                                                                                                                            
-                                                                            2025-04-23 18:34:16.838 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: v500 at 2022-11-05T00:00:00
-
-
-    Fetching ARCO data:  46%|████▌     | 12/26 [00:00<00:00, 23.97it/s]    Total Ensemble Batches:  50%|█████     | 1/2 [03:35<02:30, 150.13s/it]
-    Running batch 2 inference:  80%|████████  | 4/5 [01:05<00:17, 17.74s/it]
-
-                                                                                                                                             
-                                                                            2025-04-23 18:34:16.893 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: v250 at 2022-11-05T00:00:00
-
-
-    Fetching ARCO data:  46%|████▌     | 12/26 [00:00<00:00, 23.97it/s]    Total Ensemble Batches:  50%|█████     | 1/2 [03:35<02:30, 150.13s/it]
-    Running batch 2 inference:  80%|████████  | 4/5 [01:05<00:17, 17.74s/it]
-
-                                                                                                                                             
-                                                                            2025-04-23 18:34:16.948 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: z1000 at 2022-11-05T00:00:00
-
-
-    Fetching ARCO data:  46%|████▌     | 12/26 [00:00<00:00, 23.97it/s]    Total Ensemble Batches:  50%|█████     | 1/2 [03:35<02:30, 150.13s/it]
-    Running batch 2 inference:  80%|████████  | 4/5 [01:05<00:17, 17.74s/it]
-
-                                                                                                                                             
-                                                                            2025-04-23 18:34:16.995 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: z850 at 2022-11-05T00:00:00
-
-
-    Fetching ARCO data:  46%|████▌     | 12/26 [00:00<00:00, 23.97it/s]    Total Ensemble Batches:  50%|█████     | 1/2 [03:35<02:30, 150.13s/it]
-    Running batch 2 inference:  80%|████████  | 4/5 [01:05<00:17, 17.74s/it]
-
-    Fetching ARCO data:  50%|█████     | 13/26 [00:00<00:00, 21.45it/s]
-
-                                                                                                                                             
-                                                                            2025-04-23 18:34:17.050 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: z500 at 2022-11-05T00:00:00
-
-
-    Fetching ARCO data:  62%|██████▏   | 16/26 [00:00<00:00, 21.45it/s]    Total Ensemble Batches:  50%|█████     | 1/2 [03:35<02:30, 150.13s/it]
-    Running batch 2 inference:  80%|████████  | 4/5 [01:05<00:17, 17.74s/it]
-
-                                                                                                                                             
-                                                                            2025-04-23 18:34:17.096 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: z250 at 2022-11-05T00:00:00
-
-
-    Fetching ARCO data:  62%|██████▏   | 16/26 [00:00<00:00, 21.45it/s]    Total Ensemble Batches:  50%|█████     | 1/2 [03:35<02:30, 150.13s/it]
-    Running batch 2 inference:  80%|████████  | 4/5 [01:05<00:17, 17.74s/it]
-
-                                                                                                                                             
-                                                                            2025-04-23 18:34:17.146 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: t1000 at 2022-11-05T00:00:00
-
-
-    Fetching ARCO data:  62%|██████▏   | 16/26 [00:00<00:00, 21.45it/s]    Total Ensemble Batches:  50%|█████     | 1/2 [03:35<02:30, 150.13s/it]
-    Running batch 2 inference:  80%|████████  | 4/5 [01:05<00:17, 17.74s/it]
-
-                                                                                                                                             
-                                                                            2025-04-23 18:34:17.193 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: t850 at 2022-11-05T00:00:00
-
-
-    Fetching ARCO data:  62%|██████▏   | 16/26 [00:00<00:00, 21.45it/s]    Total Ensemble Batches:  50%|█████     | 1/2 [03:36<02:30, 150.13s/it]
-    Running batch 2 inference:  80%|████████  | 4/5 [01:05<00:17, 17.74s/it]
-
-    Fetching ARCO data:  65%|██████▌   | 17/26 [00:00<00:00, 21.16it/s]
-
-                                                                                                                                             
-                                                                            2025-04-23 18:34:17.243 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: t500 at 2022-11-05T00:00:00
-
-
-    Fetching ARCO data:  77%|███████▋  | 20/26 [00:00<00:00, 21.16it/s]    Total Ensemble Batches:  50%|█████     | 1/2 [03:36<02:30, 150.13s/it]
-    Running batch 2 inference:  80%|████████  | 4/5 [01:05<00:17, 17.74s/it]
-
-                                                                                                                                             
-                                                                            2025-04-23 18:34:17.286 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: t250 at 2022-11-05T00:00:00
-
-
-    Fetching ARCO data:  77%|███████▋  | 20/26 [00:00<00:00, 21.16it/s]    Total Ensemble Batches:  50%|█████     | 1/2 [03:36<02:30, 150.13s/it]
-    Running batch 2 inference:  80%|████████  | 4/5 [01:05<00:17, 17.74s/it]
-
-                                                                                                                                             
-                                                                            2025-04-23 18:34:17.331 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: q1000 at 2022-11-05T00:00:00
-
-
-    Fetching ARCO data:  77%|███████▋  | 20/26 [00:00<00:00, 21.16it/s]    Total Ensemble Batches:  50%|█████     | 1/2 [03:36<02:30, 150.13s/it]
-    Running batch 2 inference:  80%|████████  | 4/5 [01:06<00:17, 17.74s/it]
-
-                                                                                                                                             
-                                                                            2025-04-23 18:34:17.374 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: q850 at 2022-11-05T00:00:00
-
-
-    Fetching ARCO data:  77%|███████▋  | 20/26 [00:00<00:00, 21.16it/s]    Total Ensemble Batches:  50%|█████     | 1/2 [03:36<02:30, 150.13s/it]
-    Running batch 2 inference:  80%|████████  | 4/5 [01:06<00:17, 17.74s/it]
-
-    Fetching ARCO data:  81%|████████  | 21/26 [00:00<00:00, 21.41it/s]
-
-                                                                                                                                             
-                                                                            2025-04-23 18:34:17.426 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: q500 at 2022-11-05T00:00:00
-
-
-    Fetching ARCO data:  92%|█████████▏| 24/26 [00:00<00:00, 21.41it/s]    Total Ensemble Batches:  50%|█████     | 1/2 [03:36<02:30, 150.13s/it]
-    Running batch 2 inference:  80%|████████  | 4/5 [01:06<00:17, 17.74s/it]
-
-                                                                                                                                             
-                                                                            2025-04-23 18:34:17.472 | DEBUG    | earth2studio.data.arco:fetch_array:253 - Fetching ARCO zarr array for variable: q250 at 2022-11-05T00:00:00
-
-
-    Fetching ARCO data:  92%|█████████▏| 24/26 [00:00<00:00, 21.41it/s]    Total Ensemble Batches:  50%|█████     | 1/2 [03:36<02:30, 150.13s/it]
-    Running batch 2 inference:  80%|████████  | 4/5 [01:06<00:17, 17.74s/it]    Fetching ARCO data: 100%|██████████| 26/26 [00:01<00:00, 25.07it/s]
-
-    Running batch 2 inference: 100%|██████████| 5/5 [01:26<00:00, 19.11s/it]
-                                                                                Total Ensemble Batches: 100%|██████████| 2/2 [03:56<00:00, 112.92s/it]    Total Ensemble Batches: 100%|██████████| 2/2 [03:56<00:00, 118.50s/it]
-    2025-04-23 18:34:38.167 | SUCCESS  | earth2studio.run:ensemble:412 - Inference complete
-    /
-     ├── ensemble (4,) int64
-     ├── ilat (512,) int64
-     ├── ilon (640,) int64
-     ├── lat (512, 640) float32
-     ├── lead_time (5,) timedelta64[h]
-     ├── lon (512, 640) float32
-     ├── refc (4, 1, 5, 512, 640) float32
-     ├── t2m (4, 1, 5, 512, 640) float32
-     └── time (1,) datetime64[ns]
-
-
 
 
 .. GENERATED FROM PYTHON SOURCE LINES 127-134
@@ -1887,22 +258,6 @@ Notice that the Zarr IO function has additional APIs to interact with the stored
         vmax=60,
     )
     plt.savefig(f"outputs/10_{date}_{variable}_{step}_ensemble.jpg")
-
-
-
-.. image-sg:: /examples/images/sphx_glr_10_stormcast_ensemble_example_001.png
-   :alt: 2022-11-04T21:00:00 - Lead time: 4hrs - Member: 0, 2022-11-04T21:00:00 - Lead time: 4hrs - Member: 1, 2022-11-04T21:00:00 - Lead time: 4hrs - Std
-   :srcset: /examples/images/sphx_glr_10_stormcast_ensemble_example_001.png
-   :class: sphx-glr-single-img
-
-
-
-
-
-
-.. rst-class:: sphx-glr-timing
-
-   **Total running time of the script:** (7 minutes 37.018 seconds)
 
 
 .. _sphx_glr_download_examples_10_stormcast_ensemble_example.py:
