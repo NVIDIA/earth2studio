@@ -346,6 +346,9 @@ class GraphCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             yield from self._default_generator(x, coords)
 
     def iterator_result_to_tensor(self, dataset: xr.Dataset) -> torch.Tensor:
+        """
+        Convert a iterator result to a tensor
+        """
         for var in dataset.data_vars:
             if "level" in dataset[var].dims:
                 for level in dataset[var].level:
@@ -379,6 +382,9 @@ class GraphCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     @staticmethod
     def get_jax_device_from_tensor(x: torch.Tensor) -> jax.Device:
+        """
+        From a tensor, get device and corresponding jax device
+        """
         device_id = x.get_device()
         if device_id == -1:  # -1 is CPU
             device = jax.devices("cpu")[0]
@@ -444,12 +450,15 @@ class GraphCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def from_dataarray_to_dataset(
         self, data: xr.DataArray, lead_time: int = 6, hour_steps: int = 6
     ) -> xr.Dataset:
+        """
+        From a datarray get a dataset
+        """
         # time
         if "lead_time" in data.dims:
             data["lead_time"] = [
                 data.time.values[0] + level for level in data.lead_time.values
             ]
-            data = data.drop_vars("time").squeeze()
+            data = data.isel(time=0).reset_coords("time", drop=True)
             data = data.rename({"lead_time": "time"})
 
         lead_times = range(hour_steps, lead_time + hour_steps, hour_steps)
@@ -509,7 +518,8 @@ class GraphCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         # add batch dimension
         for var in out_data.data_vars:
             if var not in STATIC_VARS:
-                out_data[var] = out_data[var].expand_dims(dict(batch=1))
+                if "batch" not in out_data[var].dims:
+                    out_data[var] = out_data[var].expand_dims(dict(batch=1))
 
         # pad times for target
         out_data = out_data.pad(pad_width=dict(time=(0, len(lead_times))))
@@ -603,6 +613,9 @@ class GraphCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         return cls(ckpt, diffs_stddev_by_level, mean_by_level, stddev_by_level)
 
     def set_nsteps(self, nsteps: int) -> PrognosticModel:
+        """
+        Set nsteps in model
+        """
         ret = copy.deepcopy(self)
         ret.nsteps = nsteps
         return ret
