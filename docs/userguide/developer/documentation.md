@@ -87,6 +87,8 @@ class Random:
         # ...
 ```
 
+(examples_userguide)=
+
 ## Example Documentation
 
 Examples in Earth2Studio are created with the intent to teach / demonstrate a specific
@@ -177,8 +179,8 @@ import earth2studio.run as run
 import cartopy.crs as ccrs
 import matplotlib.pyplot as plt
 
-# Some post processing part
-
+# Some post processing part, save figure to outputs folder
+plt.savefig("outputs/XX_my_example.jpg")
 ```
 
 Examples should always have at least one or more graphics.

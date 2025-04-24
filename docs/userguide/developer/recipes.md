@@ -14,7 +14,7 @@ Here's how they differ:
 
 ### Examples
 
-- Self-contained Jupytext format
+- Self-contained [JupyText](https://jupytext.readthedocs.io/en/latest/) format
 - Focus on demonstrating specific features
 - Include graphical output for sphinx gallery
 - Requirements must be part of earth2studio + docs dep group
@@ -29,6 +29,8 @@ Here's how they differ:
 - Pythonic interaction through main.py
 - Requirements provided in pyproject.toml
 - May require more specific hardware or system dependencies
+
+See {ref}`examples_userguide` for more information on creating an example.
 
 ## Recipe Structure
 
