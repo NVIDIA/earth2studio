@@ -20,6 +20,7 @@ creating ensemble forecasts.
 
    perturbation.Brown
    perturbation.BredVector
+   perturbation.CorrelatedSphericalGaussian
    perturbation.Gaussian
    perturbation.HemisphericCentredBredVector
    perturbation.LaggedEnsemble

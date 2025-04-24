@@ -127,7 +127,6 @@ def test_hem_cen_bred_vec(
     prtb = HemisphericCentredBredVector(
         model=model,
         data=data_source,
-        time=time,
         seeding_perturbation_method=seeding_perturbation_method,
         noise_amplitude=amplitude,
         integration_steps=steps,
