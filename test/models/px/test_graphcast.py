@@ -27,11 +27,12 @@ def mocked_chunked_prediction_generator(
     verbose=None,
 ):
     # iterator returns 1 template lead time at a time
+    yield targets_template.isel(time=[0])
     while True:
-        if "ensemble" in targets_template.dims:
-            targets_template = targets_template.squeeze("batch").rename(
-                {"ensemble": "batch"}
-            )
+        # if "ensemble" in targets_template.dims:
+        #    targets_template = targets_template.squeeze("batch").rename(
+        #        {"ensemble": "batch"}
+        #    )
         yield targets_template.isel(time=[0])
 
 

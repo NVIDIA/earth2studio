@@ -368,15 +368,27 @@ class GraphCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             dataset["2m_temperature::"]
         )
 
+        if "ensemble" in dataset.dims:
+            dataset = dataset.squeeze("batch", drop=True)
+
         dataset = dataset.rename(
             {key: ARCOExtraLexicon.INV_VOCAB[key] for key in dataset.data_vars}
         )
 
-        dataarray = (
-            dataset[VARIABLES]
-            .to_dataarray()
-            .T.transpose(..., "batch", "time", "lead_time", "variable", "lat", "lon")
-        )
+        if "batch" in dataset.dims:
+            dataarray = (
+                dataset[VARIABLES]
+                .to_dataarray()
+                .T.transpose(
+                    ..., "batch", "time", "lead_time", "variable", "lat", "lon"
+                )
+            )
+        else:
+            dataarray = (
+                dataset[VARIABLES]
+                .to_dataarray()
+                .T.transpose(..., "time", "lead_time", "variable", "lat", "lon")
+            )
 
         return torch.from_numpy(dataarray.to_numpy().copy())
 
