@@ -81,6 +81,7 @@ For more options see [template.yml](cfg/template.yml).
 
 ## References
 
+- [Recipe Guide](https://nvidia.github.io/earth2studio/userguide/developer/recipes.html)
 - Relevant papers
 - Blog posts
 - Repos
