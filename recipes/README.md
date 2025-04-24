@@ -16,6 +16,9 @@ Recipes are not installable packages.
 Users are expected to clone the repository and then interact with the source files
 directly.
 
+> [!WARNING]
+> Earth2Studio recipes are in beta, thus may dramatically change / get moved.
+
 ## Recipe Prerequisites
 
 - Basic knowledge / understanding of Earth2Studio APIs
