@@ -22,15 +22,13 @@ github-clone:
 gitlab-clone:
   stage: pre
   rules:
-    - if: $PIPELINE_REPO_SOURCE == "github" && $CI_PIPELINE_SOURCE == "api"
+    - if: $PIPELINE_REPO_SOURCE == "github"
       when: always
     - if: $PIPELINE_REPO_SOURCE != "github" && $CI_PIPELINE_SOURCE == "merge_request_event"
       when: always
     - if: $PIPELINE_REPO_SOURCE != "github" && $CI_COMMIT_BRANCH == "main" && $CI_PIPELINE_SOURCE == "push"
       when: always
-    - if: $PIPELINE_REPO_SOURCE != "github"
-      when: manual
-    - when: never
+    - when: manual
   tags:
   - docker
   extends:
