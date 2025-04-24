@@ -30,7 +30,8 @@ from utilities import get_batchid_from_ensid
 from earth2studio.data import DataSource, fetch_data
 from earth2studio.io import IOBackend
 from earth2studio.models.dx import DiagnosticModel
-from earth2studio.models.dx.cyclone_tracking import get_tracks_from_positions
+
+# from earth2studio.models.dx.cyclone_tracking import get_tracks_from_positions
 from earth2studio.models.px import PrognosticModel
 from earth2studio.perturbation import Perturbation
 from earth2studio.utils.coords import CoordSystem, map_coords, split_coords
@@ -274,7 +275,7 @@ class EnsembleBase:
         # calculate mini batch size and define coords for ensemble
         num_batches_per_ic = int(np.ceil(self.nensemble / self.batch_size))
         mini_batch_sizes = [
-            min((self.nensemble - ii * self.batch_size), 2)
+            min((self.nensemble - ii * self.batch_size), self.batch_size)
             for ii in range(num_batches_per_ic)
         ]
         batch_id_ic = batch_id % num_batches_per_ic
@@ -371,12 +372,12 @@ class EnsembleBase:
                     if step == self.nsteps:
                         break
 
-                if self.cyclone_tracking:
-                    # combine track elements to get full tracks (includes threading)
-                    df_tracks_dict = self.connect_centres_to_tracks(track_element_dict)
-                    for k, df_tracks in df_tracks_dict.items():
-                        df_tracks = self.add_meta_data_to_trackds_df(df_tracks)
-                        tracks_dict[k].append(df_tracks)
+                # if self.cyclone_tracking:
+                #     # combine track elements to get full tracks (includes threading)
+                #     df_tracks_dict = self.connect_centres_to_tracks(track_element_dict)
+                #     for k, df_tracks in df_tracks_dict.items():
+                #         df_tracks = self.add_meta_data_to_trackds_df(df_tracks)
+                #         tracks_dict[k].append(df_tracks)
         df_tracks_dict = self.concat_tracks_for_each_region(tracks_dict)
         logger.success("Inference complete")
 
@@ -586,17 +587,17 @@ class EnsembleBase:
         for k in self.output_coords_dict.keys():
             tracks_dict[k] = []
         # iterate over individual ensemble members
-        for i_member in range(tt.shape[0]):
-            tt_mem = tt[i_member]
-            tt_mem_filtered_dict = self.adjust_geographic_extent(tt_mem)
+        # for i_member in range(tt.shape[0]):
+        # tt_mem = tt[i_member]
+        # tt_mem_filtered_dict = self.adjust_geographic_extent(tt_mem)
 
-            for k, tt_mem_filtered in tt_mem_filtered_dict.items():
-                # threading/combine center locations to tracks
-                tracks_df = get_tracks_from_positions(
-                    tt_mem_filtered, track_coords_final
-                )
-                tracks_df.insert(0, "ens_member", member_ids[i_member])
-                tracks_dict[k].append(tracks_df)
+        # for k, tt_mem_filtered in tt_mem_filtered_dict.items():
+        # threading/combine center locations to tracks
+        # tracks_df = get_tracks_from_positions(
+        #     tt_mem_filtered, track_coords_final
+        # )
+        # tracks_df.insert(0, "ens_member", member_ids[i_member])
+        # tracks_dict[k].append(tracks_df)
 
         df_tracks_dict = {}
         for k in tracks_dict.keys():

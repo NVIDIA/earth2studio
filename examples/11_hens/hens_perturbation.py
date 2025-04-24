@@ -67,7 +67,7 @@ class HENSPerturbation:
         self.perturbation = HemisphericCentredBredVector(
             model=model,
             data=data,
-            time=start_time,
+            # time=start_time,
             noise_amplitude=noise_amp_iter,
             integration_steps=integration_steps,  # use cfg.breeding_steps
             seeding_perturbation_method=seed_perturbation,

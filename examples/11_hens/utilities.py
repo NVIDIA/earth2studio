@@ -33,7 +33,7 @@ from reproduce_utilities import ensure_all_torch_seeds_are_unique
 from earth2studio.data import DataSource
 from earth2studio.io import IOBackend, KVBackend, XarrayBackend
 from earth2studio.models.auto import Package
-from earth2studio.models.dx import CycloneTrackingVorticity
+from earth2studio.models.dx import TCTrackerWuDuan
 from earth2studio.models.px import PrognosticModel
 from earth2studio.perturbation import Perturbation
 from earth2studio.utils.time import to_time_array
@@ -349,7 +349,7 @@ def initialise(cfg: DictConfig) -> tuple[list, dict, DataSource, OrderedDict]:
         - ensemble_configs: list of tuples containing model package configurations.
         - model_dict: dictionary containing the model, model class, and package name.
         - dx_model_dict: dictionary containing diagnostic models.
-        - cyclone_tracking: instance of CycloneTrackingVorticity if enabled, otherwise None.
+        - cyclone_tracking: instance of TCTrackerWuDuan if enabled, otherwise None.
         - data: DataSource object for obtaining initial conditions.
         - output_coords_dict: dictionary of output coordinates for different cropbox areas.
         - base_random_seed: base random seed for reproducibility.
@@ -414,7 +414,9 @@ def initialise(cfg: DictConfig) -> tuple[list, dict, DataSource, OrderedDict]:
 
     # initialize cyclone tracking
     if "cyclone_tracking" in cfg:
-        cyclone_tracking = CycloneTrackingVorticity()
+        cyclone_tracking = (
+            TCTrackerWuDuan()
+        )  # TODO choose and configure TC tracker in config
 
     else:
         cyclone_tracking = None

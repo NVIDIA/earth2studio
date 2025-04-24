@@ -70,9 +70,13 @@ class HemisphericCentredBredVector:
     ) -> None:
         self.model = model
         self.data = data
-        self.noise_amplitude = torch.Tensor(
-            [noise_amplitude] * len(self.model.input_coords()["variable"])
-        )[:, None, None]
+        self.noise_amplitude = (
+            noise_amplitude
+            if isinstance(noise_amplitude, torch.Tensor)
+            else torch.Tensor(
+                [noise_amplitude] * len(self.model.input_coords()["variable"])
+            )[:, None, None]
+        )
         self.integration_steps = integration_steps
         self.seeding_perturbation_method = seeding_perturbation_method
         self.set_clip_indices()
