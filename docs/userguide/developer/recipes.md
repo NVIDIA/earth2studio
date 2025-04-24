@@ -8,7 +8,7 @@ and familiarity with the codebase.
 
 While examples demonstrate how to use features, recipes focus on how to solve specific
 problems.
-Recipes are not intended to be turn-key solutions with every potential option; rather
+Recipes are not intended to be turnkey solutions with every potential option; rather
 reference or boilerplate projects for different common use cases.
 Here's how they differ:
 
