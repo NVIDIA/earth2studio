@@ -324,27 +324,26 @@ class GraphCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         if self.nsteps is None:
             raise TypeError("nsteps is not set. Run model.set_nsteps(nsteps).")
 
-        batch, target_lead_times = self.from_dataarray_to_dataset(
-            xr.DataArray(x.cpu(), coords=coords), 6 * self.nsteps
-        )
+        with jax.default_device(self.get_jax_device_from_tensor(x)):
+            batch, target_lead_times = self.from_dataarray_to_dataset(
+                xr.DataArray(x.cpu(), coords=coords), 6 * self.nsteps
+            )
 
-        inputs, targets, forcings = data_utils.extract_inputs_targets_forcings(
-            batch,
-            target_lead_times=target_lead_times,
-            **dataclasses.asdict(self.ckpt.task_config),
-        )
+            inputs, targets, forcings = data_utils.extract_inputs_targets_forcings(
+                batch,
+                target_lead_times=target_lead_times,
+                **dataclasses.asdict(self.ckpt.task_config),
+            )
 
-        # with jax.default_device(cpu_device) x.device
+            self.iterator = rollout.chunked_prediction_generator(
+                predictor_fn=self.run_forward,
+                rng=self.prng_key,
+                inputs=inputs,
+                targets_template=targets * np.nan,
+                forcings=forcings,
+            )
 
-        self.iterator = rollout.chunked_prediction_generator(
-            predictor_fn=self.run_forward,
-            rng=self.prng_key,
-            inputs=inputs,
-            targets_template=targets * np.nan,
-            forcings=forcings,
-        )
-
-        yield from self._default_generator(x, coords)
+            yield from self._default_generator(x, coords)
 
     def iterator_result_to_tensor(self, dataset: xr.Dataset) -> torch.Tensor:
         for var in dataset.data_vars:
@@ -378,6 +377,16 @@ class GraphCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         return torch.from_numpy(dataarray.to_numpy().copy())
 
+    @staticmethod
+    def get_jax_device_from_tensor(x: torch.Tensor) -> jax.Device:
+        device_id = x.get_device()
+        if device_id == -1:  # -1 is CPU
+            device = jax.devices("cpu")[0]
+        else:
+            device = jax.devices("gpu")[device_id]
+        print(f"Using device: {device}")
+        return device
+
     @batch_func()
     def __call__(
         self,
@@ -398,40 +407,39 @@ class GraphCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         tuple[torch.Tensor, CoordSystem]:
             Output tensor and respective coordinate system dictionary
         """
-        # Map lat and lon if needed
-        x, coords = map_coords(x, coords, self.input_coords())
+        with jax.default_device(self.get_jax_device_from_tensor(x)):
+            # Map lat and lon if needed
+            x, coords = map_coords(x, coords, self.input_coords())
 
-        if self.nsteps is None:
-            raise TypeError("nsteps is not set. Run model.set_nsteps(nsteps).")
+            if self.nsteps is None:
+                raise TypeError("nsteps is not set. Run model.set_nsteps(nsteps).")
 
-        data, target_lead_times = self.from_dataarray_to_dataset(
-            xr.DataArray(x.cpu(), coords=coords), 6 * self.nsteps
-        )
+            data, target_lead_times = self.from_dataarray_to_dataset(
+                xr.DataArray(x.cpu(), coords=coords), 6 * self.nsteps
+            )
 
-        inputs, targets, forcings = data_utils.extract_inputs_targets_forcings(
-            data,
-            target_lead_times=target_lead_times,
-            **dataclasses.asdict(self.ckpt.task_config),
-        )
+            inputs, targets, forcings = data_utils.extract_inputs_targets_forcings(
+                data,
+                target_lead_times=target_lead_times,
+                **dataclasses.asdict(self.ckpt.task_config),
+            )
 
-        # with jax.default_device(cpu_device) x.device
+            predictions = rollout.chunked_prediction(
+                self.run_forward,
+                rng=self.prng_key,
+                inputs=inputs,
+                targets_template=targets * np.nan,
+                forcings=forcings,
+            )
+            torch_pred = self.iterator_result_to_tensor(predictions)
+            out = torch.concat([x.cpu()[:, :, 1:, ...], torch_pred], dim=2)
+            output_coords = self.output_coords(coords)
 
-        predictions = rollout.chunked_prediction(
-            self.run_forward,
-            rng=self.prng_key,
-            inputs=inputs,
-            targets_template=targets * np.nan,
-            forcings=forcings,
-        )
-        torch_pred = self.iterator_result_to_tensor(predictions)
-        out = torch.concat([x.cpu()[:, :, 1:, ...], torch_pred], dim=2)
-        output_coords = self.output_coords(coords)
+            output_coords["lead_time"] = np.array(
+                [np.timedelta64(h, "h") for h in range(0, 6 + (self.nsteps * 6), 6)]
+            )
 
-        output_coords["lead_time"] = np.array(
-            [np.timedelta64(h, "h") for h in range(0, 6 + (self.nsteps * 6), 6)]
-        )
-
-        return out, output_coords
+            return out, output_coords
 
     def from_dataarray_to_dataset(
         self, data: xr.DataArray, lead_time: int = 6, hour_steps: int = 6
