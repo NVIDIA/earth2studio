@@ -17,7 +17,8 @@
 from datetime import datetime
 
 import hydra
-import pandas as pd
+
+# import pandas as pd
 from dotenv import load_dotenv
 from ensemble_utilities import EnsembleBase
 from loguru import logger
@@ -28,7 +29,7 @@ from utilities import (
     initialise,
     initialise_output,
     initialise_perturbation,
-    store_tracks,
+    # store_tracks,
     update_model_dict,
     write_to_disk,
 )
@@ -68,6 +69,7 @@ def main(cfg: DictConfig) -> None:
 
     # run forecasts
     then = datetime.now()
+    track_list = []
 
     for pkg, ic, ens_idx, batch_ids_produce in ensemble_configs:
         # TODO: add start time as optional call, so it works for run.ensemble and run_hens
@@ -98,10 +100,13 @@ def main(cfg: DictConfig) -> None:
             batch_ids_produce=batch_ids_produce,
             base_seed_string=base_seed_string,
         )
-        df_tracks_dict, io_dict = run_hens()
-        for k, v in df_tracks_dict.items():
-            v["ic"] = pd.to_datetime(ic)
-            all_tracks_dict[k].append(v)
+        tracks, io_dict = run_hens()
+        track_list.append(tracks)
+        # TODO collect cyclone tracks over all members
+
+        # for k, v in df_tracks_dict.items():
+        #     v["ic"] = pd.to_datetime(ic)
+        #     all_tracks_dict[k].append(v)
 
         # if in-memory flavour of io backend was chosen, write content to disk now
         if io_dict:
@@ -121,10 +126,12 @@ def main(cfg: DictConfig) -> None:
         + f"{cfg.nsteps} steps rollout with ensemble size {cfg.nensemble}."
     )
 
+    # TODO update output for new track object
+
     # Output summaries of cyclone tracks if required
-    if "cyclone_tracking" in cfg:
-        for area_name, all_tracks in all_tracks_dict.items():
-            store_tracks(area_name, all_tracks, cfg)
+    # if "cyclone_tracking" in cfg:
+    #     for area_name, all_tracks in all_tracks_dict.items():
+    #         store_tracks(area_name, all_tracks, cfg)
 
     if writer_executor is not None:
         for thread in list(writer_threads):

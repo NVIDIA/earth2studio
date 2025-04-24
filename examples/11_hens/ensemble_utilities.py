@@ -327,7 +327,7 @@ class EnsembleBase:
             + f" {len(self.batch_ids_produce)} number of batches."
         )
 
-        tracks_dict = {kk: [] for kk in self.output_coords_dict.keys()}
+        # tracks_dict = {kk: [] for kk in self.output_coords_dict.keys()}
         for batch_id in tqdm(
             self.batch_ids_produce,
             total=len(self.batch_ids_produce),
@@ -340,12 +340,12 @@ class EnsembleBase:
                 desc=f"Inferencing batch {batch_id} ({nsamples} samples)",
                 leave=False,
             ) as pbar:
-                if self.cyclone_tracking:
-                    track_element_dict = {
-                        "track_element_list": [],
-                        "track_coords_list": [],
-                        "time_list": [],
-                    }
+                # if self.cyclone_tracking:
+                #     track_element_dict = {
+                #         "track_element_list": [],
+                #         "track_coords_list": [],
+                #         "time_list": [],
+                #     }
                 for step, (xx, coords) in enumerate(model):
 
                     for dx_name, dx_model in self.dx_model_dict.items():
@@ -358,9 +358,7 @@ class EnsembleBase:
 
                     if self.cyclone_tracking:
                         # get and collect track elements for each time step
-                        track_element_dict = self.detect_tc_centres(
-                            xx, coords, track_element_dict
-                        )
+                        tracks = self.detect_tc_centres(xx, coords, None)
 
                     # pass output variables to io backend
                     for k in self.io_dict.keys():
@@ -378,10 +376,10 @@ class EnsembleBase:
                 #     for k, df_tracks in df_tracks_dict.items():
                 #         df_tracks = self.add_meta_data_to_trackds_df(df_tracks)
                 #         tracks_dict[k].append(df_tracks)
-        df_tracks_dict = self.concat_tracks_for_each_region(tracks_dict)
+        # df_tracks_dict = self.concat_tracks_for_each_region(tracks_dict)
         logger.success("Inference complete")
 
-        return df_tracks_dict, self.io_dict
+        return tracks, self.io_dict
 
     @staticmethod
     def concat_tracks_for_each_region(
@@ -504,16 +502,17 @@ class EnsembleBase:
         lt = coords2["lead_time"][0]  # lead time
         vt = rt + lt  # verification time
 
-        track_element_dict["time_list"].append(vt)
+        # track_element_dict["time_list"].append(vt)
 
         coords2["time"] = vt
 
-        track_value, track_coords = self.cyclone_tracking(xx2, coords2)
-        del track_coords["lead_time"]
-        track_value = track_value.squeeze(2)
-        track_element_dict["track_element_list"].append(track_value)
-        track_element_dict["track_coords_list"].append(track_coords)
-        return track_element_dict
+        track_value, _ = self.cyclone_tracking(xx2, coords2)
+        # del track_coords["lead_time"]
+        # track_value = track_value.squeeze(2)
+        # track_element_dict["track_element_list"].append(track_value)
+        # track_element_dict["track_coords_list"].append(track_coords)
+        # return track_element_dict
+        return track_value
 
     def combine_track_elements(
         self,
