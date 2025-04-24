@@ -36,6 +36,8 @@ units_map = {
 }
 rev_units_map = {v: k for k, v in units_map.items()}
 
+print("test")
+
 
 class NetCDF4Backend:
     """A backend that supports the NetCDF4 format.
