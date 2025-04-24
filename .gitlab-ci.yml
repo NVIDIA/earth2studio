@@ -12,7 +12,7 @@ workflow:
 github-clone:
   stage: pre
   rules:
-    - if: $PIPELINE_REPO_SOURCE == "github"
+    - when: never
   tags:
   - docker
   extends:
@@ -22,6 +22,8 @@ github-clone:
 gitlab-clone:
   stage: pre
   rules:
+    - if: $PIPELINE_REPO_SOURCE == "github" && $CI_PIPELINE_SOURCE == "api"
+      when: always
     - if: $PIPELINE_REPO_SOURCE != "github" && $CI_PIPELINE_SOURCE == "merge_request_event"
       when: always
     - if: $PIPELINE_REPO_SOURCE != "github" && $CI_COMMIT_BRANCH == "main" && $CI_PIPELINE_SOURCE == "push"
