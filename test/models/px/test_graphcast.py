@@ -110,7 +110,7 @@ def mock_graphcast_model():
         np.array([np.datetime64("1993-04-05T00:00")]),
         np.array(
             [np.datetime64("2001-06-04T00:00")]
-        ),  # Only len 1 time array is supported by Auroral model
+        ),  # Only len 1 time array is supported by GraphCast model
     ],
 )
 @pytest.mark.parametrize("device", ["cpu", f"cuda:{CUDA_DEVICE}"])

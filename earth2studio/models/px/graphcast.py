@@ -453,6 +453,8 @@ class GraphCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         """
         From a datarray get a dataset
         """
+        if len(data.time.values) > 1:
+            raise TypeError("GraphCast model only supports 1 init_time.")
         # time
         if "lead_time" in data.dims:
             data["lead_time"] = [
