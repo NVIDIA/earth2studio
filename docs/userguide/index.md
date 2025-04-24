@@ -67,6 +67,7 @@ run(["2024-01-01"], 10, model, ds, io)
 - [Documentation](developer/documentation)
 - [Testing](developer/testing)
 - [Build](developer/build)
+- [Recipes](developer/recipes)
 
 ## Support
 
@@ -118,6 +119,7 @@ developer/style
 developer/documentation
 developer/testing
 developer/build
+developer/recipes
 ```
 
 ```{toctree}

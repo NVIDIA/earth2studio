@@ -4,7 +4,7 @@ This is a template designed to be boiler plate.
 It is expected all recipes follow the same template with best effort.
 For more information on *what* a recipe is, refer to the [developer documentation](https://nvidia.github.io/earth2studio/userguide/developer/overview.html).
 
-Recipe Description Here, keep it
+Recipe description here, keep it around a single paragraph.
 
 ## Prerequisites
 
@@ -38,11 +38,46 @@ If applicable, e.g.
 ## Quick Start
 
 Add a quick start to get the user running with the user up and running as fast as
-possible.
+possible, e.g.
+
+Start by installing the required packages with pip:
+
+```bash
+pip install -r requirements.txt
+```
+
+Or set up a uv virtual environment:
+
+```bash
+uv sync
+```
+
+Run the template
+
+```bash
+uv run python main.py
+
+>> Hello
+>> 0.6.0rc0
+
+uv run python main.py print.hello False
+
+>> 0.6.0rc0
+```
 
 ## Documentation
 
 Any additional documentation needed to explain to the user different options, APIs, etc.
+This can be as extensive or brief as desired.
+It is expected for users to interact / modify the source code.
+E.g.
+
+Possble options for this template include:
+
+- print.hello : print "Hello"
+- print.version : print the version of Earth2Studio package
+
+For more options see [template.yml](cfg/template.yml).
 
 ## References
 
