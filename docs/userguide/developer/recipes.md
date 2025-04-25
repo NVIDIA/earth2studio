@@ -4,6 +4,12 @@ Earth2Studio recipes are reference solutions that focus on solving specific use 
 Recipes provide more complex implementations that may require deeper domain knowledge
 and familiarity with the codebase.
 
+:::{admonition} Warning
+:class: warning
+
+Earth2Studio recipes are in beta, thus may dramatically change/get moved.
+:::
+
 ## What is a Recipe?
 
 While examples demonstrate how to use features, recipes focus on how to solve specific
@@ -19,7 +25,7 @@ Here's how they differ:
 - Include graphical output for sphinx gallery
 - Requirements must be part of earth2studio + docs dep group
 - Single GPU, A100 (40G) max resource requirement
-- Run in less than 10 minutes
+- Runs in less than 10 minutes
 
 ### Recipes
 
@@ -126,5 +132,5 @@ uv add cartopy
 uv export --format requirements-txt --no-hashes >> requirements.txt
 ```
 
-Due to the longer form recipes are, expect a longer review timeline.
+Because recipes are more extensive, expect a longer review timeline.
 Making iterative updates expanding functionality is preferred.

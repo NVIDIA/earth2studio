@@ -1,7 +1,7 @@
 # Earth2Studio Recipe Template
 
 This is a template designed to be boiler plate.
-It is expected all recipes follow the same template with best effort.
+All recipes should follow this template as closely as possible
 For more information on *what* a recipe is, refer to the [developer documentation](https://nvidia.github.io/earth2studio/userguide/developer/overview.html).
 
 Recipe description here, keep it around a single paragraph.
@@ -9,7 +9,7 @@ Recipe description here, keep it around a single paragraph.
 ## Prerequisites
 
 List anything specific a user is expected to have installed / accessible here.
-This could be things such as domain knowledge, data of certainer type, model checkpoints
+This could be things such as domain knowledge, data of certain type, model checkpoints
 etc.
 
 ### Software
@@ -72,7 +72,7 @@ This can be as extensive or brief as desired.
 It is expected for users to interact / modify the source code.
 E.g.
 
-Possble options for this template include:
+Possible options for this template include:
 
 - print.hello : print "Hello"
 - print.version : print the version of Earth2Studio package

@@ -123,7 +123,7 @@ To create an example, the best method is to copy an existing example and follow 
 Example Title
 ==============
 
-Brief one liner of what this will do (used on hover of thumbnail in docs)
+Brief one-liner of what this will do (used on hover of thumbnail in docs)
 
 Then add a more verbose description on a new line here.
 This can be multiply lines with references if needed
@@ -184,7 +184,7 @@ plt.savefig("outputs/XX_my_example.jpg")
 ```
 
 Examples should always have at least one or more graphics.
-The first will be always be the thumbnail.
+The first will always be the thumbnail.
 Animations are not supported.
 
 ## Building Documentation
