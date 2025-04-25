@@ -142,7 +142,7 @@ In this example you will learn:
 # ------
 # RST section briefly describing set up of the needed components
 #
-# This should include a explicit list of key features like so, this enable cross-referencing
+# This should include an explicit list of key features like so, this enable cross-referencing
 # in the API docs.
 #
 # - Prognostic Model: Use the built in FourCastNet Model :py:class:`earth2studio.models.px.FCN`.
@@ -171,7 +171,7 @@ import earth2studio.run as run
 # Execute inference
 
 # %%
-# Post Processing
+# Post-Processing
 # ---------------
 # RST section briefly describing what will be plotted
 
@@ -179,7 +179,7 @@ import earth2studio.run as run
 import cartopy.crs as ccrs
 import matplotlib.pyplot as plt
 
-# Some post processing part, save figure to outputs folder
+# Some post-processing part, save figure to outputs folder
 plt.savefig("outputs/XX_my_example.jpg")
 ```
 
