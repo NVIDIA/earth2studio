@@ -116,7 +116,7 @@ class ARCO:
             self.zarr_group = zarr.open(fs_map, mode="r")
 
         self.async_timeout = async_timeout
-        self.async_process_limit = 128
+        self.async_concurrency_limit = 128
 
     def __call__(
         self,
@@ -197,7 +197,8 @@ class ARCO:
             },
         )
 
-        sem = asyncio.Semaphore(self.async_process_limit)
+        # Alternatives: https://death.andgravity.com/limit-concurrency
+        sem = asyncio.Semaphore(self.async_concurrency_limit)
         args = [
             (t, i, v, j) for j, v in enumerate(variable) for i, t in enumerate(time)
         ]
