@@ -438,6 +438,7 @@ document.write(`
 <span class="c1"># limitations under the License.</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">asyncio</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">functools</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">pathlib</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">shutil</span>
@@ -446,18 +447,15 @@ document.write(`
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">fsspec</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">gcsfs</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">nest_asyncio</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">xarray</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">xr</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">zarr</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fsspec.implementations.cached</span><span class="w"> </span><span class="kn">import</span> <span class="n">WholeFileCacheFileSystem</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">loguru</span><span class="w"> </span><span class="kn">import</span> <span class="n">logger</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">tqdm</span><span class="w"> </span><span class="kn">import</span> <span class="n">tqdm</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">tqdm.asyncio</span><span class="w"> </span><span class="kn">import</span> <span class="n">tqdm</span>
 
-<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.data.utils</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
-    <span class="n">datasource_cache_root</span><span class="p">,</span>
-    <span class="n">prep_data_inputs</span><span class="p">,</span>
-    <span class="n">unordered_generator</span><span class="p">,</span>
-<span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.data.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">datasource_cache_root</span><span class="p">,</span> <span class="n">prep_data_inputs</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.lexicon</span><span class="w"> </span><span class="kn">import</span> <span class="n">ARCOLexicon</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.utils.type</span><span class="w"> </span><span class="kn">import</span> <span class="n">TimeArray</span><span class="p">,</span> <span class="n">VariableArray</span>
 
@@ -519,18 +517,19 @@ document.write(`
         <span class="c1"># Check Zarr version and use appropriate method</span>
         <span class="k">try</span><span class="p">:</span>
             <span class="n">zarr_version</span> <span class="o">=</span> <span class="n">version</span><span class="p">(</span><span class="s2">&quot;zarr&quot;</span><span class="p">)</span>
-            <span class="n">zarr_major_version</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">zarr_version</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;.&quot;</span><span class="p">)[</span><span class="mi">0</span><span class="p">])</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">zarr_major_version</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">zarr_version</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;.&quot;</span><span class="p">)[</span><span class="mi">0</span><span class="p">])</span>
         <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
             <span class="c1"># Fallback to older method if version check fails</span>
-            <span class="n">zarr_major_version</span> <span class="o">=</span> <span class="mi">2</span>  <span class="c1"># Assume older version if we can&#39;t determine</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">zarr_major_version</span> <span class="o">=</span> <span class="mi">2</span>  <span class="c1"># Assume older version if we can&#39;t determine</span>
 
-        <span class="k">if</span> <span class="n">zarr_major_version</span> <span class="o">&gt;=</span> <span class="mi">3</span><span class="p">:</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">zarr_major_version</span> <span class="o">&gt;=</span> <span class="mi">3</span><span class="p">:</span>
             <span class="c1"># Zarr 3.0+ method</span>
             <span class="n">zstore</span> <span class="o">=</span> <span class="n">zarr</span><span class="o">.</span><span class="n">storage</span><span class="o">.</span><span class="n">FsspecStore</span><span class="p">(</span>
                 <span class="n">fs</span><span class="p">,</span>
                 <span class="n">path</span><span class="o">=</span><span class="s2">&quot;/gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3&quot;</span><span class="p">,</span>
             <span class="p">)</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">zarr_group</span> <span class="o">=</span> <span class="n">zarr</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="n">zstore</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;r&quot;</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">zarr_group</span> <span class="o">=</span> <span class="n">zarr</span><span class="o">.</span><span class="n">api</span><span class="o">.</span><span class="n">asynchronous</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="n">store</span><span class="o">=</span><span class="n">zstore</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;r&quot;</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">level_coords</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="c1"># Legacy method for Zarr &lt; 3.0</span>
             <span class="c1"># TODO: Remove this option eventually</span>
@@ -541,9 +540,9 @@ document.write(`
                 <span class="s2">&quot;gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3&quot;</span><span class="p">,</span> <span class="n">fs</span>
             <span class="p">)</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">zarr_group</span> <span class="o">=</span> <span class="n">zarr</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="n">fs_map</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;r&quot;</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">level_coords</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">zarr_group</span><span class="p">[</span><span class="s2">&quot;level&quot;</span><span class="p">][:]</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">async_timeout</span> <span class="o">=</span> <span class="n">async_timeout</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">async_process_limit</span> <span class="o">=</span> <span class="mi">4</span>
 
 <div class="viewcode-block" id="ARCO.__call__">
 <a class="viewcode-back" href="../../../modules/generated/data/earth2studio.data.ARCO.html#earth2studio.data.ARCO.__call__">[docs]</a>
@@ -552,7 +551,47 @@ document.write(`
         <span class="n">time</span><span class="p">:</span> <span class="n">datetime</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="n">datetime</span><span class="p">]</span> <span class="o">|</span> <span class="n">TimeArray</span><span class="p">,</span>
         <span class="n">variable</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="n">VariableArray</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Function to get data.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Function to get data</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        time : datetime | list[datetime] | TimeArray</span>
+<span class="sd">            Timestamps to return data for (UTC).</span>
+<span class="sd">        variable : str | list[str] | VariableArray</span>
+<span class="sd">            String, list of strings or array of strings that refer to variables to</span>
+<span class="sd">            return. Must be in the ARCO lexicon.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        xr.DataArray</span>
+<span class="sd">            ERA5 weather data array from ARCO</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">nest_asyncio</span><span class="o">.</span><span class="n">apply</span><span class="p">()</span>  <span class="c1"># Patch asyncio to work in notebooks</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">loop</span> <span class="o">=</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">get_event_loop</span><span class="p">()</span>
+        <span class="k">except</span> <span class="ne">RuntimeError</span><span class="p">:</span>
+            <span class="c1"># If no event loop exists, create one</span>
+            <span class="n">loop</span> <span class="o">=</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">new_event_loop</span><span class="p">()</span>
+            <span class="n">asyncio</span><span class="o">.</span><span class="n">set_event_loop</span><span class="p">(</span><span class="n">loop</span><span class="p">)</span>
+
+        <span class="n">xr_array</span> <span class="o">=</span> <span class="n">loop</span><span class="o">.</span><span class="n">run_until_complete</span><span class="p">(</span>
+            <span class="n">asyncio</span><span class="o">.</span><span class="n">wait_for</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fetch</span><span class="p">(</span><span class="n">time</span><span class="p">,</span> <span class="n">variable</span><span class="p">),</span> <span class="n">timeout</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">async_timeout</span><span class="p">)</span>
+        <span class="p">)</span>
+
+        <span class="c1"># Delete cache if needed</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span><span class="p">:</span>
+            <span class="n">shutil</span><span class="o">.</span><span class="n">rmtree</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cache</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">xr_array</span></div>
+
+
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">fetch</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">time</span><span class="p">:</span> <span class="n">datetime</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="n">datetime</span><span class="p">]</span> <span class="o">|</span> <span class="n">TimeArray</span><span class="p">,</span>
+        <span class="n">variable</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="n">VariableArray</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Async function to get data</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
@@ -574,54 +613,6 @@ document.write(`
         <span class="c1"># Make sure input time is valid</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_validate_time</span><span class="p">(</span><span class="n">time</span><span class="p">)</span>
 
-        <span class="k">try</span><span class="p">:</span>
-            <span class="kn">import</span><span class="w"> </span><span class="nn">nest_asyncio</span>
-
-            <span class="n">nest_asyncio</span><span class="o">.</span><span class="n">apply</span><span class="p">()</span>  <span class="c1"># Patch asyncio to work in notebooks</span>
-        <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ImportError</span><span class="p">(</span>
-                <span class="s2">&quot;Some data dependencies are missing (nest_asyncio). Please install them using &#39;pip install earth2studio[data]&#39;&quot;</span>
-            <span class="p">)</span>
-
-        <span class="k">try</span><span class="p">:</span>
-            <span class="n">loop</span> <span class="o">=</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">get_event_loop</span><span class="p">()</span>
-        <span class="k">except</span> <span class="ne">RuntimeError</span><span class="p">:</span>
-            <span class="c1"># If no event loop exists, create one</span>
-            <span class="n">loop</span> <span class="o">=</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">new_event_loop</span><span class="p">()</span>
-            <span class="n">asyncio</span><span class="o">.</span><span class="n">set_event_loop</span><span class="p">(</span><span class="n">loop</span><span class="p">)</span>
-
-        <span class="n">xr_array</span> <span class="o">=</span> <span class="n">loop</span><span class="o">.</span><span class="n">run_until_complete</span><span class="p">(</span>
-            <span class="n">asyncio</span><span class="o">.</span><span class="n">wait_for</span><span class="p">(</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">create_data_array</span><span class="p">(</span><span class="n">time</span><span class="p">,</span> <span class="n">variable</span><span class="p">),</span> <span class="n">timeout</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">async_timeout</span>
-            <span class="p">)</span>
-        <span class="p">)</span>
-
-        <span class="c1"># Delete cache if needed</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span><span class="p">:</span>
-            <span class="n">shutil</span><span class="o">.</span><span class="n">rmtree</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cache</span><span class="p">)</span>
-
-        <span class="k">return</span> <span class="n">xr_array</span></div>
-
-
-    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">create_data_array</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span> <span class="n">time</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">datetime</span><span class="p">],</span> <span class="n">variable</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Async function that creates and populates an xarray data array with requested</span>
-<span class="sd">        ARCO data. Asyncio tasks are created for each data array enabling concurrent</span>
-<span class="sd">        fetching.</span>
-
-<span class="sd">        Parameters</span>
-<span class="sd">        ----------</span>
-<span class="sd">        time : list[datetime]</span>
-<span class="sd">            Time list to fetch</span>
-<span class="sd">        variable : list[str]</span>
-<span class="sd">            Variable list to fetch</span>
-
-<span class="sd">        Returns</span>
-<span class="sd">        -------</span>
-<span class="sd">        xr.DataArray</span>
-<span class="sd">            Xarray data array</span>
-<span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">xr_array</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">(</span>
             <span class="n">data</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span>
                 <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">time</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="n">variable</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ARCO_LAT</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ARCO_LON</span><span class="p">))</span>
@@ -635,30 +626,33 @@ document.write(`
             <span class="p">},</span>
         <span class="p">)</span>
 
-        <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">fetch_wrapper</span><span class="p">(</span>
-            <span class="n">e</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">datetime</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="nb">str</span><span class="p">,</span> <span class="nb">int</span><span class="p">],</span>
-        <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
-<span class="w">            </span><span class="sd">&quot;&quot;&quot;Small wrapper that is awaitable for async generator&quot;&quot;&quot;</span>
-            <span class="k">return</span> <span class="n">e</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">e</span><span class="p">[</span><span class="mi">3</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">fetch_array</span><span class="p">(</span><span class="n">e</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">e</span><span class="p">[</span><span class="mi">2</span><span class="p">])</span>
-
         <span class="n">args</span> <span class="o">=</span> <span class="p">[</span>
             <span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">j</span><span class="p">)</span> <span class="k">for</span> <span class="n">j</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">variable</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">t</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">time</span><span class="p">)</span>
         <span class="p">]</span>
-        <span class="n">func_map</span> <span class="o">=</span> <span class="nb">map</span><span class="p">(</span><span class="n">fetch_wrapper</span><span class="p">,</span> <span class="n">args</span><span class="p">)</span>
+        <span class="n">func_map</span> <span class="o">=</span> <span class="nb">map</span><span class="p">(</span><span class="n">functools</span><span class="o">.</span><span class="n">partial</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fetch_wrapper</span><span class="p">,</span> <span class="n">xr_array</span><span class="o">=</span><span class="n">xr_array</span><span class="p">),</span> <span class="n">args</span><span class="p">)</span>
 
-        <span class="n">pbar</span> <span class="o">=</span> <span class="n">tqdm</span><span class="p">(</span>
-            <span class="n">total</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">args</span><span class="p">),</span> <span class="n">desc</span><span class="o">=</span><span class="s2">&quot;Fetching ARCO data&quot;</span><span class="p">,</span> <span class="n">disable</span><span class="o">=</span><span class="p">(</span><span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_verbose</span><span class="p">)</span>
+        <span class="c1"># Before anything wait until the group gets opened</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">zarr_major_version</span> <span class="o">&gt;=</span> <span class="mi">3</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">zarr_group</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">zarr_group</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">level_coords</span> <span class="o">=</span> <span class="k">await</span> <span class="p">(</span><span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">zarr_group</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;level&quot;</span><span class="p">))</span><span class="o">.</span><span class="n">getitem</span><span class="p">(</span>
+                <span class="nb">slice</span><span class="p">(</span><span class="kc">None</span><span class="p">)</span>
+            <span class="p">)</span>
+        <span class="c1"># Launch all fetch requests</span>
+        <span class="k">await</span> <span class="n">tqdm</span><span class="o">.</span><span class="n">gather</span><span class="p">(</span>
+            <span class="o">*</span><span class="n">func_map</span><span class="p">,</span> <span class="n">desc</span><span class="o">=</span><span class="s2">&quot;Fetching ARCO data&quot;</span><span class="p">,</span> <span class="n">disable</span><span class="o">=</span><span class="p">(</span><span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_verbose</span><span class="p">)</span>
         <span class="p">)</span>
-        <span class="c1"># Mypy will struggle here because the async generator uses a generic type</span>
-        <span class="k">async</span> <span class="k">for</span> <span class="n">t</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">data</span> <span class="ow">in</span> <span class="n">unordered_generator</span><span class="p">(</span>  <span class="c1"># type: ignore[misc,unused-ignore]</span>
-            <span class="n">func_map</span><span class="p">,</span> <span class="n">limit</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">async_process_limit</span>
-        <span class="p">):</span>
-            <span class="n">xr_array</span><span class="p">[</span><span class="n">t</span><span class="p">,</span> <span class="n">v</span><span class="p">]</span> <span class="o">=</span> <span class="n">data</span>  <span class="c1"># type: ignore[has-type,unused-ignore]</span>
-            <span class="n">pbar</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
-
         <span class="k">return</span> <span class="n">xr_array</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">fetch_array</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">time</span><span class="p">:</span> <span class="n">datetime</span><span class="p">,</span> <span class="n">variable</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">fetch_wrapper</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">e</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">datetime</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="nb">str</span><span class="p">,</span> <span class="nb">int</span><span class="p">],</span>
+        <span class="n">xr_array</span><span class="p">:</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Small wrapper to pack arrays into the DataArray&quot;&quot;&quot;</span>
+        <span class="n">out</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">fetch_array</span><span class="p">(</span><span class="n">e</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">e</span><span class="p">[</span><span class="mi">2</span><span class="p">])</span>
+        <span class="n">xr_array</span><span class="p">[</span><span class="n">e</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">e</span><span class="p">[</span><span class="mi">3</span><span class="p">]]</span> <span class="o">=</span> <span class="n">out</span>
+
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">fetch_array</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">time</span><span class="p">:</span> <span class="n">datetime</span><span class="p">,</span> <span class="n">variable</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Fetches requested array from remote store</span>
 
 <span class="sd">        Parameters</span>
@@ -673,11 +667,8 @@ document.write(`
 <span class="sd">        np.ndarray</span>
 <span class="sd">            Data</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="c1"># Load levels coordinate system from Zarr store and check</span>
-        <span class="n">level_coords</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">zarr_group</span><span class="p">[</span><span class="s2">&quot;level&quot;</span><span class="p">][:]</span>
         <span class="c1"># Get time index (vanilla zarr doesnt support date indices)</span>
         <span class="n">time_index</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_time_index</span><span class="p">(</span><span class="n">time</span><span class="p">)</span>
-
         <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
             <span class="sa">f</span><span class="s2">&quot;Fetching ARCO zarr array for variable: </span><span class="si">{</span><span class="n">variable</span><span class="si">}</span><span class="s2"> at </span><span class="si">{</span><span class="n">time</span><span class="o">.</span><span class="n">isoformat</span><span class="p">()</span><span class="si">}</span><span class="s2">&quot;</span>
         <span class="p">)</span>
@@ -688,18 +679,38 @@ document.write(`
             <span class="k">raise</span> <span class="n">e</span>
 
         <span class="n">arco_variable</span><span class="p">,</span> <span class="n">level</span> <span class="o">=</span> <span class="n">arco_name</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;::&quot;</span><span class="p">)</span>
-
-        <span class="n">shape</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">zarr_group</span><span class="p">[</span><span class="n">arco_variable</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span>
-        <span class="c1"># Static variables</span>
-        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">shape</span><span class="p">)</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
-            <span class="n">output</span> <span class="o">=</span> <span class="n">modifier</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">zarr_group</span><span class="p">[</span><span class="n">arco_variable</span><span class="p">][:])</span>
-        <span class="c1"># Surface variable</span>
-        <span class="k">elif</span> <span class="nb">len</span><span class="p">(</span><span class="n">shape</span><span class="p">)</span> <span class="o">==</span> <span class="mi">3</span><span class="p">:</span>
-            <span class="n">output</span> <span class="o">=</span> <span class="n">modifier</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">zarr_group</span><span class="p">[</span><span class="n">arco_variable</span><span class="p">][</span><span class="n">time_index</span><span class="p">])</span>
-        <span class="c1"># Atmospheric variable</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">zarr_major_version</span> <span class="o">&gt;=</span> <span class="mi">3</span><span class="p">:</span>
+            <span class="n">zarr_array</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">zarr_group</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">arco_variable</span><span class="p">)</span>
+            <span class="n">shape</span> <span class="o">=</span> <span class="n">zarr_array</span><span class="o">.</span><span class="n">shape</span>
+            <span class="c1"># Static variables</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">shape</span><span class="p">)</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+                <span class="n">data</span> <span class="o">=</span> <span class="k">await</span> <span class="n">zarr_array</span><span class="o">.</span><span class="n">getitem</span><span class="p">(</span><span class="nb">slice</span><span class="p">(</span><span class="kc">None</span><span class="p">))</span>
+                <span class="n">output</span> <span class="o">=</span> <span class="n">modifier</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+            <span class="c1"># Surface variable</span>
+            <span class="k">elif</span> <span class="nb">len</span><span class="p">(</span><span class="n">shape</span><span class="p">)</span> <span class="o">==</span> <span class="mi">3</span><span class="p">:</span>
+                <span class="n">data</span> <span class="o">=</span> <span class="k">await</span> <span class="n">zarr_array</span><span class="o">.</span><span class="n">getitem</span><span class="p">(</span><span class="n">time_index</span><span class="p">)</span>
+                <span class="n">output</span> <span class="o">=</span> <span class="n">modifier</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+            <span class="c1"># Atmospheric variable</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="c1"># Load levels coordinate system from Zarr store and check</span>
+                <span class="n">level_index</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">searchsorted</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">level_coords</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="n">level</span><span class="p">))</span>
+                <span class="n">data</span> <span class="o">=</span> <span class="k">await</span> <span class="n">zarr_array</span><span class="o">.</span><span class="n">getitem</span><span class="p">((</span><span class="n">time_index</span><span class="p">,</span> <span class="n">level_index</span><span class="p">))</span>
+                <span class="n">output</span> <span class="o">=</span> <span class="n">modifier</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="n">level_index</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">level_coords</span> <span class="o">==</span> <span class="nb">int</span><span class="p">(</span><span class="n">level</span><span class="p">))[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
-            <span class="n">output</span> <span class="o">=</span> <span class="n">modifier</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">zarr_group</span><span class="p">[</span><span class="n">arco_variable</span><span class="p">][</span><span class="n">time_index</span><span class="p">,</span> <span class="n">level_index</span><span class="p">])</span>
+            <span class="c1"># Zarr 2.0 fall back</span>
+            <span class="n">shape</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">zarr_group</span><span class="p">[</span><span class="n">arco_variable</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span>
+            <span class="c1"># Static variables</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">shape</span><span class="p">)</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+                <span class="n">output</span> <span class="o">=</span> <span class="n">modifier</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">zarr_group</span><span class="p">[</span><span class="n">arco_variable</span><span class="p">][:])</span>
+            <span class="c1"># Surface variable</span>
+            <span class="k">elif</span> <span class="nb">len</span><span class="p">(</span><span class="n">shape</span><span class="p">)</span> <span class="o">==</span> <span class="mi">3</span><span class="p">:</span>
+                <span class="n">output</span> <span class="o">=</span> <span class="n">modifier</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">zarr_group</span><span class="p">[</span><span class="n">arco_variable</span><span class="p">][</span><span class="n">time_index</span><span class="p">])</span>
+            <span class="c1"># Atmospheric variable</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">level_index</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">level_coords</span> <span class="o">==</span> <span class="nb">int</span><span class="p">(</span><span class="n">level</span><span class="p">))[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+                <span class="n">output</span> <span class="o">=</span> <span class="n">modifier</span><span class="p">(</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">zarr_group</span><span class="p">[</span><span class="n">arco_variable</span><span class="p">][</span><span class="n">time_index</span><span class="p">,</span> <span class="n">level_index</span><span class="p">]</span>
+                <span class="p">)</span>
 
         <span class="k">return</span> <span class="n">output</span>
 

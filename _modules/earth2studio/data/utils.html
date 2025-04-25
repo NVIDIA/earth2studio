@@ -437,15 +437,13 @@ document.write(`
 <span class="c1"># See the License for the specific language governing permissions and</span>
 <span class="c1"># limitations under the License.</span>
 
-<span class="kn">import</span><span class="w"> </span><span class="nn">asyncio</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">tempfile</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">collections</span><span class="w"> </span><span class="kn">import</span> <span class="n">OrderedDict</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">AsyncGenerator</span><span class="p">,</span> <span class="n">Awaitable</span><span class="p">,</span> <span class="n">Iterator</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">datetime</span><span class="w"> </span><span class="kn">import</span> <span class="n">datetime</span><span class="p">,</span> <span class="n">timedelta</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">inspect</span><span class="w"> </span><span class="kn">import</span> <span class="n">signature</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Literal</span><span class="p">,</span> <span class="n">TypeVar</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Literal</span><span class="p">,</span> <span class="n">TypeVar</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
@@ -780,63 +778,6 @@ document.write(`
 
 
 <span class="n">T</span> <span class="o">=</span> <span class="n">TypeVar</span><span class="p">(</span><span class="s2">&quot;T&quot;</span><span class="p">)</span>
-
-
-<span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">unordered_generator</span><span class="p">(</span>
-    <span class="n">func_map</span><span class="p">:</span> <span class="n">Iterator</span><span class="p">[</span><span class="n">Awaitable</span><span class="p">[</span><span class="n">Any</span><span class="p">]],</span> <span class="n">limit</span><span class="p">:</span> <span class="nb">int</span>
-<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">AsyncGenerator</span><span class="p">[</span><span class="n">T</span><span class="p">,</span> <span class="kc">None</span><span class="p">]:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Creates an async unordered generator</span>
-
-<span class="sd">    Parameters</span>
-<span class="sd">    ----------</span>
-<span class="sd">    func_map : Iterator[Awaitable[Any]]</span>
-<span class="sd">        Function map to get exectured. Such as the output of map(func, args)</span>
-<span class="sd">    limit : int</span>
-<span class="sd">        Limit of concurrent async processes</span>
-
-<span class="sd">    Yields</span>
-<span class="sd">    ------</span>
-<span class="sd">    AsyncGenerator[T, None]</span>
-<span class="sd">        Unordered async generator</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="k">async</span> <span class="k">for</span> <span class="n">task</span> <span class="ow">in</span> <span class="n">_limit_concurrency</span><span class="p">(</span><span class="n">func_map</span><span class="p">,</span> <span class="n">limit</span><span class="p">):</span>
-        <span class="k">yield</span> <span class="k">await</span> <span class="n">task</span>
-
-
-<span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">_limit_concurrency</span><span class="p">(</span>
-    <span class="n">aws</span><span class="p">:</span> <span class="n">Iterator</span><span class="p">[</span><span class="n">Awaitable</span><span class="p">[</span><span class="n">T</span><span class="p">]],</span> <span class="n">limit</span><span class="p">:</span> <span class="nb">int</span>
-<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">AsyncGenerator</span><span class="p">[</span><span class="n">T</span><span class="p">,</span> <span class="kc">None</span><span class="p">]:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Limited concurrency async generator. Throttles number of async io processes</span>
-
-<span class="sd">    Note</span>
-<span class="sd">    ----</span>
-<span class="sd">    Taken from: https://death.andgravity.com/limit-concurrency</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="k">try</span><span class="p">:</span>
-        <span class="n">aws</span> <span class="o">=</span> <span class="nb">aiter</span><span class="p">(</span><span class="n">aws</span><span class="p">)</span>  <span class="c1"># type: ignore</span>
-        <span class="n">is_async</span> <span class="o">=</span> <span class="kc">True</span>
-    <span class="k">except</span> <span class="ne">TypeError</span><span class="p">:</span>
-        <span class="n">aws</span> <span class="o">=</span> <span class="nb">iter</span><span class="p">(</span><span class="n">aws</span><span class="p">)</span>
-        <span class="n">is_async</span> <span class="o">=</span> <span class="kc">False</span>
-
-    <span class="n">aws_ended</span> <span class="o">=</span> <span class="kc">False</span>
-    <span class="n">pending</span><span class="p">:</span> <span class="nb">set</span><span class="p">[</span><span class="n">asyncio</span><span class="o">.</span><span class="n">Future</span><span class="p">]</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
-
-    <span class="k">while</span> <span class="n">pending</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">aws_ended</span><span class="p">:</span>
-        <span class="k">while</span> <span class="nb">len</span><span class="p">(</span><span class="n">pending</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">limit</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">aws_ended</span><span class="p">:</span>
-            <span class="k">try</span><span class="p">:</span>
-                <span class="n">aw</span> <span class="o">=</span> <span class="k">await</span> <span class="n">anext</span><span class="p">(</span><span class="n">aws</span><span class="p">)</span> <span class="k">if</span> <span class="n">is_async</span> <span class="k">else</span> <span class="nb">next</span><span class="p">(</span><span class="n">aws</span><span class="p">)</span>  <span class="c1"># type: ignore</span>
-            <span class="k">except</span> <span class="ne">StopAsyncIteration</span> <span class="k">if</span> <span class="n">is_async</span> <span class="k">else</span> <span class="ne">StopIteration</span><span class="p">:</span>  <span class="c1"># noqa</span>
-                <span class="n">aws_ended</span> <span class="o">=</span> <span class="kc">True</span>
-            <span class="k">else</span><span class="p">:</span>
-                <span class="n">pending</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">asyncio</span><span class="o">.</span><span class="n">ensure_future</span><span class="p">(</span><span class="n">aw</span><span class="p">))</span>
-
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">pending</span><span class="p">:</span>
-            <span class="k">return</span>
-
-        <span class="n">done</span><span class="p">,</span> <span class="n">pending</span> <span class="o">=</span> <span class="k">await</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">wait</span><span class="p">(</span><span class="n">pending</span><span class="p">,</span> <span class="n">return_when</span><span class="o">=</span><span class="n">asyncio</span><span class="o">.</span><span class="n">FIRST_COMPLETED</span><span class="p">)</span>
-        <span class="k">while</span> <span class="n">done</span><span class="p">:</span>
-            <span class="k">yield</span> <span class="n">done</span><span class="o">.</span><span class="n">pop</span><span class="p">()</span>
 </pre></div>
 
                 </article>
