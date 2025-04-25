@@ -15,6 +15,7 @@
 # limitations under the License.
 
 import asyncio
+import functools
 import os
 import pathlib
 import shutil
@@ -28,13 +29,9 @@ import xarray as xr
 import zarr
 from fsspec.implementations.cached import WholeFileCacheFileSystem
 from loguru import logger
-from tqdm import tqdm
+from tqdm.asyncio import tqdm
 
-from earth2studio.data.utils import (
-    datasource_cache_root,
-    prep_data_inputs,
-    unordered_generator,
-)
+from earth2studio.data.utils import datasource_cache_root, prep_data_inputs
 from earth2studio.lexicon import ARCOLexicon
 from earth2studio.utils.type import TimeArray, VariableArray
 
@@ -94,18 +91,18 @@ class ARCO:
         # Check Zarr version and use appropriate method
         try:
             zarr_version = version("zarr")
-            zarr_major_version = int(zarr_version.split(".")[0])
+            self.zarr_major_version = int(zarr_version.split(".")[0])
         except Exception:
             # Fallback to older method if version check fails
-            zarr_major_version = 2  # Assume older version if we can't determine
+            self.zarr_major_version = 2  # Assume older version if we can't determine
 
-        if zarr_major_version >= 3:
+        if self.zarr_major_version >= 3:
             # Zarr 3.0+ method
             zstore = zarr.storage.FsspecStore(
                 fs,
                 path="/gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3",
             )
-            self.zarr_group = zarr.open(zstore, mode="r")
+            self.zarr_group = zarr.api.asynchronous.open(store=zstore, mode="r")
         else:
             # Legacy method for Zarr < 3.0
             # TODO: Remove this option eventually
@@ -118,7 +115,7 @@ class ARCO:
             self.zarr_group = zarr.open(fs_map, mode="r")
 
         self.async_timeout = async_timeout
-        self.async_process_limit = 4
+        self.async_process_limit = 32
 
     def __call__(
         self,
@@ -207,30 +204,35 @@ class ARCO:
             },
         )
 
-        async def fetch_wrapper(
-            e: tuple[datetime, int, str, int],
-        ) -> tuple[int, int, np.ndarray]:
-            """Small wrapper that is awaitable for async generator"""
-            return e[1], e[3], self.fetch_array(e[0], e[2])
-
+        sem = asyncio.Semaphore(self.async_process_limit)
         args = [
             (t, i, v, j) for j, v in enumerate(variable) for i, t in enumerate(time)
         ]
-        func_map = map(fetch_wrapper, args)
-
-        pbar = tqdm(
-            total=len(args), desc="Fetching ARCO data", disable=(not self._verbose)
+        func_map = map(
+            functools.partial(self.fetch_wrapper, xr_array=xr_array, sem=sem), args
         )
-        # Mypy will struggle here because the async generator uses a generic type
-        async for t, v, data in unordered_generator(  # type: ignore[misc,unused-ignore]
-            func_map, limit=self.async_process_limit
-        ):
-            xr_array[t, v] = data  # type: ignore[has-type,unused-ignore]
-            pbar.update(1)
 
+        # Before anything wait until the group gets opened
+        if self.zarr_major_version >= 3:
+            self.zarr_group = await self.zarr_group
+        # Launch all fetch requests
+        await tqdm.gather(
+            *func_map, desc="Fetching ARCO data", disable=(not self._verbose)
+        )
         return xr_array
 
-    def fetch_array(self, time: datetime, variable: str) -> np.ndarray:
+    async def fetch_wrapper(
+        self,
+        e: tuple[datetime, int, str, int],
+        xr_array: xr.DataArray,
+        sem: asyncio.Semaphore,
+    ) -> None:
+        """Small wrapper that is awaitable for async generator"""
+        async with sem:
+            out = await self.fetch_array(e[0], e[2])
+            xr_array[e[1], e[3]] = out
+
+    async def fetch_array(self, time: datetime, variable: str) -> np.ndarray:
         """Fetches requested array from remote store
 
         Parameters
@@ -245,11 +247,8 @@ class ARCO:
         np.ndarray
             Data
         """
-        # Load levels coordinate system from Zarr store and check
-        level_coords = self.zarr_group["level"][:]
         # Get time index (vanilla zarr doesnt support date indices)
         time_index = self._get_time_index(time)
-
         logger.debug(
             f"Fetching ARCO zarr array for variable: {variable} at {time.isoformat()}"
         )
@@ -260,18 +259,42 @@ class ARCO:
             raise e
 
         arco_variable, level = arco_name.split("::")
-
-        shape = self.zarr_group[arco_variable].shape
-        # Static variables
-        if len(shape) == 2:
-            output = modifier(self.zarr_group[arco_variable][:])
-        # Surface variable
-        elif len(shape) == 3:
-            output = modifier(self.zarr_group[arco_variable][time_index])
-        # Atmospheric variable
+        if self.zarr_major_version >= 3:
+            zarr_array = await self.zarr_group.get(arco_variable)
+            shape = zarr_array.shape
+            # Static variables
+            if len(shape) == 2:
+                data = await zarr_array.getitem(slice(None))
+                output = modifier(data)
+            # Surface variable
+            elif len(shape) == 3:
+                data = await zarr_array.getitem(time_index)
+                output = modifier(data)
+            # Atmospheric variable
+            else:
+                # Load levels coordinate system from Zarr store and check
+                level_coords = await (await self.zarr_group.get("level")).getitem(
+                    slice(None)
+                )
+                level_index = np.searchsorted(level_coords, int(level))
+                data = await zarr_array.getitem((time_index, level_index))
+                output = modifier(data)
         else:
-            level_index = np.where(level_coords == int(level))[0][0]
-            output = modifier(self.zarr_group[arco_variable][time_index, level_index])
+            # Zarr 2.0 fall back
+            shape = self.zarr_group[arco_variable].shape
+            # Static variables
+            if len(shape) == 2:
+                output = modifier(self.zarr_group[arco_variable][:])
+            # Surface variable
+            elif len(shape) == 3:
+                output = modifier(self.zarr_group[arco_variable][time_index])
+            # Atmospheric variable
+            else:
+                level_coords = self.zarr_group["level"][:]
+                level_index = np.where(level_coords == int(level))[0][0]
+                output = modifier(
+                    self.zarr_group[arco_variable][time_index, level_index]
+                )
 
         return output
 
