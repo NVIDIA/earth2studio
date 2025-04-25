@@ -104,6 +104,7 @@ class ARCO:
                 path="/gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3",
             )
             self.zarr_group = zarr.api.asynchronous.open(store=zstore, mode="r")
+            self.level_coords = None
         else:
             # Legacy method for Zarr < 3.0
             # TODO: Remove this option eventually
@@ -114,9 +115,9 @@ class ARCO:
                 "gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3", fs
             )
             self.zarr_group = zarr.open(fs_map, mode="r")
+            self.level_coords = self.zarr_group["level"][:]
 
         self.async_timeout = async_timeout
-        self.async_concurrency_limit = 128
 
     def __call__(
         self,
@@ -197,18 +198,17 @@ class ARCO:
             },
         )
 
-        # Alternatives: https://death.andgravity.com/limit-concurrency
-        sem = asyncio.Semaphore(self.async_concurrency_limit)
         args = [
             (t, i, v, j) for j, v in enumerate(variable) for i, t in enumerate(time)
         ]
-        func_map = map(
-            functools.partial(self.fetch_wrapper, xr_array=xr_array, sem=sem), args
-        )
+        func_map = map(functools.partial(self.fetch_wrapper, xr_array=xr_array), args)
 
         # Before anything wait until the group gets opened
         if self.zarr_major_version >= 3:
             self.zarr_group = await self.zarr_group
+            self.level_coords = await (await self.zarr_group.get("level")).getitem(
+                slice(None)
+            )
         # Launch all fetch requests
         await tqdm.gather(
             *func_map, desc="Fetching ARCO data", disable=(not self._verbose)
@@ -219,12 +219,10 @@ class ARCO:
         self,
         e: tuple[datetime, int, str, int],
         xr_array: xr.DataArray,
-        sem: asyncio.Semaphore,
     ) -> None:
-        """Small wrapper that is awaitable for async generator"""
-        async with sem:
-            out = await self.fetch_array(e[0], e[2])
-            xr_array[e[1], e[3]] = out
+        """Small wrapper to pack arrays into the DataArray"""
+        out = await self.fetch_array(e[0], e[2])
+        xr_array[e[1], e[3]] = out
 
     async def fetch_array(self, time: datetime, variable: str) -> np.ndarray:
         """Fetches requested array from remote store
@@ -267,10 +265,7 @@ class ARCO:
             # Atmospheric variable
             else:
                 # Load levels coordinate system from Zarr store and check
-                level_coords = await (await self.zarr_group.get("level")).getitem(
-                    slice(None)
-                )
-                level_index = np.searchsorted(level_coords, int(level))
+                level_index = np.searchsorted(self.level_coords, int(level))
                 data = await zarr_array.getitem((time_index, level_index))
                 output = modifier(data)
         else:
@@ -284,8 +279,7 @@ class ARCO:
                 output = modifier(self.zarr_group[arco_variable][time_index])
             # Atmospheric variable
             else:
-                level_coords = self.zarr_group["level"][:]
-                level_index = np.where(level_coords == int(level))[0][0]
+                level_index = np.where(self.level_coords == int(level))[0][0]
                 output = modifier(
                     self.zarr_group[arco_variable][time_index, level_index]
                 )
