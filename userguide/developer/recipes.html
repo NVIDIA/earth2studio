@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
     <link href="../../_static/favicon.ico" rel="icon" type="image/x-icon">
-    <title>Prognostic Models &#8212; Earth2Studio 0.7.0a0 documentation</title>
+    <title>Recipe Guide &#8212; Earth2Studio 0.7.0a0 documentation</title>
   
   
   
@@ -51,7 +51,7 @@
     <script src="../../_static/togglebutton.js?v=4a39c7ea"></script>
     <script src="../../_static/design-tabs.js?v=f930bc37"></script>
     <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
-    <script>DOCUMENTATION_OPTIONS.pagename = 'userguide/components/prognostic';</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'userguide/developer/recipes';</script>
     <script>
         DOCUMENTATION_OPTIONS.theme_version = '0.15.2';
         DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'https://raw.githubusercontent.com/NVIDIA/earth2studio/gh-pages/_static/switcher.json';
@@ -60,8 +60,8 @@
         </script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
-    <link rel="next" title="Diagnostic Models" href="diagnostic.html" />
-    <link rel="prev" title="Data Movement" href="../about/data.html" />
+    <link rel="next" title="Troubleshooting" href="../support/troubleshooting.html" />
+    <link rel="prev" title="Build Process" href="build.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   </head>
@@ -387,13 +387,13 @@ document.write(`
 <li class="toctree-l1"><a class="reference internal" href="../about/data.html">Data Movement</a></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Core Components</span></p>
-<ul class="current nav bd-sidenav">
-<li class="toctree-l1 current active"><a class="current reference internal" href="#">Prognostic Models</a></li>
-<li class="toctree-l1"><a class="reference internal" href="diagnostic.html">Diagnostic Models</a></li>
-<li class="toctree-l1"><a class="reference internal" href="datasources.html">Data Sources</a></li>
-<li class="toctree-l1"><a class="reference internal" href="perturbation.html">Perturbations</a></li>
-<li class="toctree-l1"><a class="reference internal" href="io.html">Output Handling</a></li>
-<li class="toctree-l1"><a class="reference internal" href="statistics.html">Statistics</a></li>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../components/prognostic.html">Prognostic Models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../components/diagnostic.html">Diagnostic Models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../components/datasources.html">Data Sources</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../components/perturbation.html">Perturbations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../components/io.html">Output Handling</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../components/statistics.html">Statistics</a></li>
 
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Advanced Usage</span></p>
@@ -403,14 +403,14 @@ document.write(`
 <li class="toctree-l1"><a class="reference internal" href="../advanced/lexicon.html">Lexicon</a></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Developer Guide</span></p>
-<ul class="nav bd-sidenav">
-<li class="toctree-l1"><a class="reference internal" href="../developer/overview.html">Overview</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../developer/dependency.html">Dependency Management</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../developer/style.html">Style Guide</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../developer/documentation.html">Documentation</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../developer/testing.html">Testing Guide</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../developer/build.html">Build Process</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../developer/recipes.html">Recipe Guide</a></li>
+<ul class="current nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="overview.html">Overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="dependency.html">Dependency Management</a></li>
+<li class="toctree-l1"><a class="reference internal" href="style.html">Style Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="documentation.html">Documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="testing.html">Testing Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="build.html">Build Process</a></li>
+<li class="toctree-l1 current active"><a class="current reference internal" href="#">Recipe Guide</a></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Support</span></p>
 <ul class="nav bd-sidenav">
@@ -456,7 +456,7 @@ document.write(`
     
     <li class="breadcrumb-item"><a href="../index.html" class="nav-link">User Guide</a></li>
     
-    <li class="breadcrumb-item active" aria-current="page">Prognostic Models</li>
+    <li class="breadcrumb-item active" aria-current="page">Recipe Guide</li>
   </ul>
 </nav>
 </div>
@@ -473,189 +473,143 @@ document.write(`
 <div id="searchbox"></div>
                 <article class="bd-article">
                   
-  <section id="prognostic-models">
-<span id="prognostic-model-userguide"></span><h1>Prognostic Models<a class="headerlink" href="#prognostic-models" title="Link to this heading">#</a></h1>
-<p>Prognostic models in Earth2Studio provides a set of models designed to perform time
-integration. For example, given a set of atmospheric fields at a particular time and
-the model auto-regressively predicts the same fields 6 hours into the future.</p>
-<p>The usage of prognostic models falls into two categories which are commonly achieved
-through two different APIs:</p>
-<ol class="arabic simple">
-<li><p>Single time-step predictions</p></li>
-<li><p>Time-series predictions</p></li>
-</ol>
-<p>The list of prognostic models that are already built into Earth2studio can be found in
-the API documentation <a class="reference internal" href="../../modules/models.html#earth2studio-models-px"><span class="std std-ref">earth2studio.models.px: Prognostic</span></a>.</p>
-<section id="prognostic-interface">
-<h2>Prognostic Interface<a class="headerlink" href="#prognostic-interface" title="Link to this heading">#</a></h2>
-<p>The full requirements for a standard prognostic model are defined explicitly in the
-<code class="docutils literal notranslate"><span class="pre">earth2studio/models/px/base.py</span></code>.</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span>
-<span class="nd">@runtime_checkable</span>
-<span class="k">class</span><span class="w"> </span><span class="nc">PrognosticModel</span><span class="p">(</span><span class="n">Protocol</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Prognostic model interface&quot;&quot;&quot;</span>
-
-    <span class="k">def</span><span class="w"> </span><span class="fm">__call__</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span>
-        <span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
-        <span class="n">coords</span><span class="p">:</span> <span class="n">CoordSystem</span><span class="p">,</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">CoordSystem</span><span class="p">]:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Forward pass of the prognostic model, time integrating a single time-step</span>
-
-<span class="sd">        Parameters</span>
-<span class="sd">        ----------</span>
-<span class="sd">        x : torch.Tensor</span>
-<span class="sd">            Input tensor intended to apply diagnostic function on</span>
-<span class="sd">        coords : CoordSystem</span>
-<span class="sd">            Ordered dict representing coordinate system that describes the tensor</span>
-
-<span class="sd">        Returns</span>
-<span class="sd">        -------</span>
-<span class="sd">        tuple[torch.Tensor, CoordSystem]</span>
-<span class="sd">            Output tensor and coordinate dictionary one time-step into the future</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">pass</span>
-
-    <span class="k">def</span><span class="w"> </span><span class="nf">create_iterator</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">coords</span><span class="p">:</span> <span class="n">CoordSystem</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Iterator</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">CoordSystem</span><span class="p">]]:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Creates a iterator which can be used to perform time-integration of the</span>
-<span class="sd">        prognostic model. Will return the initial condition first (0th step).</span>
-
-<span class="sd">        Parameters</span>
-<span class="sd">        ----------</span>
-<span class="sd">        x : torch.Tensor</span>
-<span class="sd">            Input tensor, which can be viewed as the initial state of the prognositc</span>
-<span class="sd">        coords : CoordSystem</span>
-<span class="sd">            Input coordinate system</span>
-
-<span class="sd">        Yields</span>
-<span class="sd">        ------</span>
-<span class="sd">        Iterator[tuple[torch.Tensor, CoordSystem]]</span>
-<span class="sd">            Iterator that generates time-steps of the prognostic model container the</span>
-<span class="sd">            output data tensor and coordinate system dictionary.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">pass</span>
-
-    <span class="k">def</span><span class="w"> </span><span class="nf">input_coords</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">CoordSystem</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Input coordinate system of prognostic model, time dimension should contain</span>
-<span class="sd">        time-delta objects</span>
-
-<span class="sd">        Returns</span>
-<span class="sd">        -------</span>
-<span class="sd">        CoordSystem</span>
-<span class="sd">            Coordinate system dictionary</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">pass</span>
-
-    <span class="k">def</span><span class="w"> </span><span class="nf">output_coords</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_coords</span><span class="p">:</span> <span class="n">CoordSystem</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">CoordSystem</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Output coordinate system of the prognostic model give an input coordinate</span>
-<span class="sd">        system.</span>
-
-<span class="sd">        Parameters</span>
-<span class="sd">        ----------</span>
-<span class="sd">        input_coords : CoordSystem</span>
-<span class="sd">            Input coordinate system to transform into output_coords</span>
-
-<span class="sd">        Returns</span>
-<span class="sd">        -------</span>
-<span class="sd">        CoordSystem</span>
-<span class="sd">            Coordinate system dictionary</span>
-
-<span class="sd">        Raises</span>
-<span class="sd">        ------</span>
-<span class="sd">        ValueError</span>
-<span class="sd">            If input_coords are not valid</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">pass</span>
-
-    <span class="k">def</span><span class="w"> </span><span class="nf">to</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">device</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">PrognosticModel</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Moves prognostic model onto inference device, this is typically satisfied via</span>
-<span class="sd">        `torch.nn.Module`.</span>
-
-<span class="sd">        Parameters</span>
-<span class="sd">        ----------</span>
-<span class="sd">        device : Any</span>
-<span class="sd">            Object representing the inference device, typically `torch.device` or str</span>
-
-<span class="sd">        Returns</span>
-<span class="sd">        -------</span>
-<span class="sd">        PrognosticModel</span>
-<span class="sd">            Returns instance of prognostic</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">pass</span>
+  <section id="recipe-guide">
+<h1>Recipe Guide<a class="headerlink" href="#recipe-guide" title="Link to this heading">#</a></h1>
+<p>Earth2Studio recipes are reference solutions that focus on solving specific use cases.
+Recipes provide more complex implementations that may require deeper domain knowledge
+and familiarity with the codebase.</p>
+<div class="warning admonition">
+<p class="admonition-title">Warning</p>
+<p>Earth2Studio recipes are in beta, thus may dramatically change/get moved.</p>
+</div>
+<section id="what-is-a-recipe">
+<h2>What is a Recipe?<a class="headerlink" href="#what-is-a-recipe" title="Link to this heading">#</a></h2>
+<p>While examples demonstrate how to use features, recipes focus on how to solve specific
+problems.
+Recipes are not intended to be turnkey solutions with every potential option; rather
+reference or boilerplate projects for different common use cases.
+Here’s how they differ:</p>
+<section id="examples">
+<h3>Examples<a class="headerlink" href="#examples" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p>Self-contained <a class="reference external" href="https://jupytext.readthedocs.io/en/latest/">JupyText</a> format</p></li>
+<li><p>Focus on demonstrating specific features</p></li>
+<li><p>Include graphical output for sphinx gallery</p></li>
+<li><p>Requirements must be part of earth2studio + docs dep group</p></li>
+<li><p>Single GPU, A100 (40G) max resource requirement</p></li>
+<li><p>Runs in less than 10 minutes</p></li>
+</ul>
+</section>
+<section id="recipes">
+<h3>Recipes<a class="headerlink" href="#recipes" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p>Require multiple support files</p></li>
+<li><p>Focus on providing complete solutions</p></li>
+<li><p>Configuration YAMLs/JSONs</p></li>
+<li><p>Pythonic interaction through main.py</p></li>
+<li><p>Requirements provided in pyproject.toml</p></li>
+<li><p>May require more specific hardware or system dependencies</p></li>
+</ul>
+<p>See <a class="reference internal" href="documentation.html#examples-userguide"><span class="std std-ref">Example Documentation</span></a> for more information on creating an example.</p>
+</section>
+</section>
+<section id="recipe-structure">
+<h2>Recipe Structure<a class="headerlink" href="#recipe-structure" title="Link to this heading">#</a></h2>
+<p>The <a class="reference external" href="https://github.com/NVIDIA/earth2studio/recipes/template/">recipe template</a>,
+defines what a recipe should contain and look like including folders, README sections,
+support files, etc.
+Recipes have the following structure:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>recipes/
+ |- recipe-name/
+    cfg/
+    |- config.yaml # Configuration files
+    src/
+    |- *.py # Support files
+    test/
+    |- test.py # Test files
+    main.py # Main interaction script
+    README.md # Recipe documentation
+    requirements.txt # Exported requirements
+    pyproject.toml # Project configuration
 </pre></div>
 </div>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>Prognostic models do not need to inherit this protocol, this is simply used to define
-the required APIs. Prognostic models can maintain their internal state when using the
-iterator if necessary.</p>
-</div>
-<p>Prognostic models also tend to extend two classes:</p>
+</section>
+<section id="recipe-guidelines">
+<h2>Recipe Guidelines<a class="headerlink" href="#recipe-guidelines" title="Link to this heading">#</a></h2>
 <ol class="arabic simple">
-<li><p><code class="xref py py-class docutils literal notranslate"><span class="pre">earth2studio.models.px.utils.PrognosticMixin</span></code>: which is a util class that
-defines iterator hooks used in all the built in models. These provide a finer level
-of control over the time-series prediction of models.</p></li>
-<li><p><code class="xref py py-class docutils literal notranslate"><span class="pre">earth2studio.models.auto.AutoModel</span></code>: Defines APIs for models that have
-checkpoints that can be auto downloaded and cached. See the <a class="reference internal" href="../advanced/auto.html#automodel-userguide"><span class="std std-ref">AutoModels</span></a>
-guide for additional details.</p></li>
+<li><p><strong>Code Standards</strong></p>
+<ul class="simple">
+<li><p>Must follow all pre-commit standards and code practices</p></li>
+<li><p>Must include end-to-end tests validating functionality</p></li>
+<li><p><strong>No</strong> images/data files/other file formats allowed in the repo, can link to
+externally hosted</p></li>
+<li><p>Implementation or re-implementation of components that exist in Earth2Studio
+package is not encouraged. Upstreaming is a priority</p></li>
+</ul>
+</li>
+<li><p><strong>Testing</strong></p>
+<ul class="simple">
+<li><p>Should include end-to-end tests with expected results to verify functionality</p></li>
+<li><p>Not included in the main pytest suite</p></li>
+<li><p>Tested following major release cycles</p></li>
+</ul>
+</li>
+<li><p><strong>Ownership</strong></p>
+<ul class="simple">
+<li><p>Must have designated owners (listed as authors in <code class="docutils literal notranslate"><span class="pre">pyproject.toml</span></code>)</p></li>
+<li><p>Owners responsible for fixing bugs and updates</p></li>
+<li><p>Recipes can and may be removed based on their use / relevance</p></li>
+</ul>
+</li>
+<li><p><strong>Dependencies</strong></p>
+<ul class="simple">
+<li><p>Must use shipped versions of Earth2Studio (not main branch)</p></li>
+<li><p>Dependencies managed through <code class="docutils literal notranslate"><span class="pre">pyproject.toml</span></code> using <a class="reference external" href="https://docs.astral.sh/uv/">uv</a></p></li>
+<li><p>A <code class="docutils literal notranslate"><span class="pre">requirements.txt</span></code> should also be provided for pip install</p></li>
+</ul>
+</li>
+<li><p><strong>Documentation</strong></p>
+<ul class="simple">
+<li><p>Clear README.md explaining purpose and usage</p></li>
+<li><p>Can include JuPyText notebooks for interactive documentation as the main.py</p></li>
+<li><p>Should reference related examples when applicable</p></li>
+<li><p>Links to the recipes should be added to the recipe index</p></li>
+<li><p>Recipes can provide related plotting functionality</p></li>
+</ul>
+</li>
 </ol>
 </section>
-<section id="prognostic-usage">
-<h2>Prognostic Usage<a class="headerlink" href="#prognostic-usage" title="Link to this heading">#</a></h2>
-<section id="loading-a-pre-trained-prognostic">
-<h3>Loading a Pre-trained Prognostic<a class="headerlink" href="#loading-a-pre-trained-prognostic" title="Link to this heading">#</a></h3>
-<p>The following two commands can be used to download and load a pre-trained built
-prognostic model.
-More information on automatic downloading of checkpoints can be found in the
-<a class="reference internal" href="../advanced/auto.html#automodel-userguide"><span class="std std-ref">AutoModels</span></a> section.</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.models.px</span><span class="w"> </span><span class="kn">import</span> <span class="n">PrognosticModel</span>
+<section id="creating-a-new-recipe">
+<h2>Creating a New Recipe<a class="headerlink" href="#creating-a-new-recipe" title="Link to this heading">#</a></h2>
+<p>To create a new recipe, you can use the <a class="reference external" href="https://github.com/NVIDIA/earth2studio/recipes/template/">template</a>
+provided in the recipes directory:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>cp<span class="w"> </span>-r<span class="w"> </span>recipes/template<span class="w"> </span>recipes/my_new_recipe
+<span class="nb">cd</span><span class="w"> </span>recipes/my_new_recipe
+</pre></div>
+</div>
+<p>Update the <code class="docutils literal notranslate"><span class="pre">pyproject.toml</span></code> to reflect the correct meta data:</p>
+<div class="highlight-toml notranslate"><div class="highlight"><pre><span></span><span class="k">[project]</span>
+<span class="n">name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;newrecipe&quot;</span>
+<span class="n">version</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;0.1.0&quot;</span>
+<span class="n">description</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;My New Recipe&quot;</span>
+<span class="n">readme</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;README.md&quot;</span>
+<span class="n">requires-python</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;&gt;=3.10&quot;</span>
+<span class="n">authors</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span>
+<span class="w">  </span><span class="p">{</span><span class="w"> </span><span class="n">name</span><span class="p">=</span><span class="s2">&quot;My Name&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">email</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">&quot;optional@example.com&quot;</span><span class="w"> </span><span class="p">},</span>
+<span class="p">]</span>
+</pre></div>
+</div>
+<p>Inside the recipe dependencies can be added / removed using <a class="reference external" href="https://docs.astral.sh/uv/">uv</a>.
+For example:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>uv<span class="w"> </span>sync
+uv<span class="w"> </span>add<span class="w"> </span>cartopy
 
-<span class="n">model_package</span> <span class="o">=</span> <span class="n">PrognosticModel</span><span class="o">.</span><span class="n">load_default_package</span><span class="p">()</span>
-<span class="n">model</span> <span class="o">=</span> <span class="n">PrognosticModel</span><span class="o">.</span><span class="n">load_model</span><span class="p">(</span><span class="n">model_package</span><span class="p">)</span>
+<span class="c1"># Update the requirements.txt</span>
+uv<span class="w"> </span><span class="nb">export</span><span class="w"> </span>--format<span class="w"> </span>requirements-txt<span class="w"> </span>--no-hashes<span class="w"> </span>&gt;&gt;<span class="w"> </span>requirements.txt
 </pre></div>
 </div>
-</section>
-<section id="single-step-prediction">
-<h3>Single Step Prediction<a class="headerlink" href="#single-step-prediction" title="Link to this heading">#</a></h3>
-<p>A prognostic model can be called for single time-step using the call function.</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Assume model is an instance of a PrognosticModel</span>
-<span class="n">x</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">(</span><span class="o">...</span><span class="p">)</span>  <span class="c1"># Input tensor</span>
-<span class="n">coords</span> <span class="o">=</span> <span class="n">CoordSystem</span><span class="p">(</span><span class="o">...</span><span class="p">)</span>  <span class="c1"># Coordinate system</span>
-<span class="n">x</span><span class="p">,</span> <span class="n">coords</span> <span class="o">=</span> <span class="n">model</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="p">)</span>  <span class="c1"># Predict a single time-step</span>
-</pre></div>
-</div>
-</section>
-<section id="time-series-prediction">
-<h3>Time-series Prediction<a class="headerlink" href="#time-series-prediction" title="Link to this heading">#</a></h3>
-<p>To predict a time-series, the create generator API can be used to create an iterable
-data source to generate time-series data as the model rolls out.</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Assume model is an instance of a PrognosticModel</span>
-<span class="n">x</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">(</span><span class="o">...</span><span class="p">)</span>  <span class="c1"># Input tensor</span>
-<span class="n">coords</span> <span class="o">=</span> <span class="n">CoordSystem</span><span class="p">(</span><span class="o">...</span><span class="p">)</span>  <span class="c1"># Coordinate system</span>
-<span class="n">model_iterator</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">create_iterator</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="p">)</span>  <span class="c1"># Create iterator for time integration</span>
-<span class="k">for</span> <span class="n">step</span><span class="p">,</span> <span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">model_iterator</span><span class="p">):</span>
-    <span class="c1"># Perform operations for each time-step</span>
-    <span class="c1"># First output should always be time-step 0 (the input)</span>
-</pre></div>
-</div>
-</section>
-</section>
-<section id="custom-prognostic-models">
-<h2>Custom Prognostic Models<a class="headerlink" href="#custom-prognostic-models" title="Link to this heading">#</a></h2>
-<p>Integrating your own prognostic is easy, just satisfy the interface above.
-We recommend users have a look at the custom prognostic example which will step users
-through the simple process of implementing their own prognostic model for their personal
-needs in the <a class="reference internal" href="../../examples/extend/index.html#extension-examples"><span class="std std-ref">Extending Earth2Studio</span></a> examples.</p>
-</section>
-<section id="contributing-a-prognostic-models">
-<h2>Contributing a Prognostic Models<a class="headerlink" href="#contributing-a-prognostic-models" title="Link to this heading">#</a></h2>
-<p>Want to add your prognostic to the package? Great, we will be happy to work with you.
-At the minimum we expect the model to abide by the defined interface as well as meet
-the requirements set forth in our contribution guide. Typically, users are expected
-to provide the weights of the model in a downloadable location that can be fetched.</p>
-<p>Open an issue when you have an initial implementation you would like us to review.</p>
+<p>Because recipes are more extensive, expect a longer review timeline.
+Making iterative updates expanding functionality is preferred.</p>
 </section>
 </section>
 
@@ -670,20 +624,20 @@ to provide the weights of the model in a downloadable location that can be fetch
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="../about/data.html"
+       href="build.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">Data Movement</p>
+        <p class="prev-next-title">Build Process</p>
       </div>
     </a>
     <a class="right-next"
-       href="diagnostic.html"
+       href="../support/troubleshooting.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">Diagnostic Models</p>
+        <p class="prev-next-title">Troubleshooting</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
@@ -705,22 +659,21 @@ to provide the weights of the model in a downloadable location that can be fetch
   </div>
   <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="visible nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#prognostic-interface">Prognostic Interface</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#prognostic-usage">Prognostic Usage</a><ul class="nav section-nav flex-column">
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#loading-a-pre-trained-prognostic">Loading a Pre-trained Prognostic</a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#single-step-prediction">Single Step Prediction</a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#time-series-prediction">Time-series Prediction</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#what-is-a-recipe">What is a Recipe?</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#examples">Examples</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#recipes">Recipes</a></li>
 </ul>
 </li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#custom-prognostic-models">Custom Prognostic Models</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#contributing-a-prognostic-models">Contributing a Prognostic Models</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#recipe-structure">Recipe Structure</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#recipe-guidelines">Recipe Guidelines</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#creating-a-new-recipe">Creating a New Recipe</a></li>
 </ul>
   </nav></div>
 
   <div class="sidebar-secondary-item">
 
   <div class="tocsection sourcelink">
-    <a href="../../_sources/userguide/components/prognostic.md.txt">
+    <a href="../../_sources/userguide/developer/recipes.md.txt">
       <i class="fa-solid fa-file-lines"></i> Show Source
     </a>
   </div>

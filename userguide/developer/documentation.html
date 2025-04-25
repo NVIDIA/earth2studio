@@ -410,6 +410,7 @@ document.write(`
 <li class="toctree-l1 current active"><a class="current reference internal" href="#">Documentation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="testing.html">Testing Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="build.html">Build Process</a></li>
+<li class="toctree-l1"><a class="reference internal" href="recipes.html">Recipe Guide</a></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Support</span></p>
 <ul class="nav bd-sidenav">
@@ -477,8 +478,8 @@ document.write(`
 <p>Earth2Studio uses Sphinx to build documentation that is hosted on Github pages.
 We have the following philosophies for the three main sections of documentation:</p>
 <ol class="arabic simple">
-<li><p>API documentation is a requirement. <a class="reference external" href="https://github.com/econchick/interrogate">Interogate</a>
-is used enforce that all public methods are documented.</p></li>
+<li><p>API documentation is a requirement. <a class="reference external" href="https://github.com/econchick/interrogate">Interrogate</a>
+is used to enforce that all public methods are documented.</p></li>
 <li><p>Examples are generated using <a class="reference external" href="https://sphinx-gallery.github.io/stable/index.html">sphinx-gallery</a>
 and are used as end-to-end tests for the package.</p></li>
 <li><p>User guide is written using <a class="reference external" href="https://myst-parser.readthedocs.io/en/latest/index.html">MyST</a>
@@ -554,7 +555,7 @@ See the following doc-string samples for guidance.</p>
 </div>
 </section>
 <section id="example-documentation">
-<h2>Example Documentation<a class="headerlink" href="#example-documentation" title="Link to this heading">#</a></h2>
+<span id="examples-userguide"></span><h2>Example Documentation<a class="headerlink" href="#example-documentation" title="Link to this heading">#</a></h2>
 <p>Examples in Earth2Studio are created with the intent to teach / demonstrate a specific
 feature/workflow/concept/use case to users.
 If you are interested in contributing an example, please reach out to us in a Github
@@ -563,11 +564,91 @@ The example scripts used to populate the documentation are placed in the
 <a class="reference external" href="https://github.com/NVIDIA/earth2studio/tree/main/examples">examples</a> folder of the repo.
 The python scripts and Jupyter notebooks present on the documentation webpage are auto
 generated using <a class="reference external" href="https://sphinx-gallery.github.io/stable/index.html">sphinx-gallery</a>.</p>
-<p>Examples should be short and concise, designed to be ran in a short wall-clock time of
+<section id="definition">
+<h3>Definition<a class="headerlink" href="#definition" title="Link to this heading">#</a></h3>
+<p>Examples demonstrate how to use Earth2Studio APIs.
+Examples should be short and concise, designed to be ran in a short wall-clock time of
 under 10 minutes on a typical data-center level GPU.
 The script must be runnable on a single 32Gb A100 GPU using minimal extra dependencies.
 Additional requirements may be required for running the example inside the CD pipeline,
 which will be addressed on a case-by-case basis.</p>
+</section>
+<section id="creating-a-new-example">
+<h3>Creating a New Example<a class="headerlink" href="#creating-a-new-example" title="Link to this heading">#</a></h3>
+<p><a class="reference external" href="https://jupytext.readthedocs.io/en/latest/">JupyText</a>, with the <code class="docutils literal notranslate"><span class="pre">py:percent</span></code> format, is
+used instead of vanilla Jupyter lab notebooks to prevent notebook bloat in the commit
+history.
+Sphinx Gallery will convert these files into notebooks and python files on build.
+To create an example, the best method is to copy an existing example and follow the structure:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># %%</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">Example Title</span>
+<span class="sd">==============</span>
+
+<span class="sd">Brief one-liner of what this will do (used on hover of thumbnail in docs)</span>
+
+<span class="sd">Then add a more verbose description on a new line here.</span>
+<span class="sd">This can be multiply lines with references if needed</span>
+<span class="sd">Include a list of the specific unique items this example includes, e.g.</span>
+
+<span class="sd">In this example you will learn:</span>
+
+<span class="sd">- How to instantiate a built in prognostic model</span>
+<span class="sd">- Creating a data source and IO object</span>
+<span class="sd">- Running a simple built in workflow</span>
+<span class="sd">- Post-processing results</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="c1"># %%</span>
+<span class="c1"># Set Up</span>
+<span class="c1"># ------</span>
+<span class="c1"># RST section briefly describing set up of the needed components</span>
+<span class="c1">#</span>
+<span class="c1"># This should include an explicit list of key features like so, this enable cross-referencing</span>
+<span class="c1"># in the API docs.</span>
+<span class="c1">#</span>
+<span class="c1"># - Prognostic Model: Use the built in FourCastNet Model :py:class:`earth2studio.models.px.FCN`.</span>
+<span class="c1"># - Datasource: Pull data from the GFS data api :py:class:`earth2studio.data.GFS`.</span>
+<span class="c1"># - IO Backend: Let&#39;s save the outputs into a Zarr store :py:class:`earth2studio.io.ZarrBackend`.</span>
+
+<span class="c1"># %%</span>
+<span class="c1"># Add the following to set up output folder and env variables</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+
+<span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="s2">&quot;outputs&quot;</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">dotenv</span><span class="w"> </span><span class="kn">import</span> <span class="n">load_dotenv</span>
+
+<span class="n">load_dotenv</span><span class="p">()</span>  <span class="c1"># TODO: make common example prep function</span>
+
+<span class="c1"># Import modules and initialize</span>
+
+<span class="c1"># %%</span>
+<span class="c1"># Execute the Workflow</span>
+<span class="c1"># --------------------</span>
+<span class="c1"># RST section briefly describing running the inference job</span>
+
+<span class="c1"># %%</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">earth2studio.run</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">run</span>
+
+<span class="c1"># Execute inference</span>
+
+<span class="c1"># %%</span>
+<span class="c1"># Post-Processing</span>
+<span class="c1"># ---------------</span>
+<span class="c1"># RST section briefly describing what will be plotted</span>
+
+<span class="c1"># %%</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">cartopy.crs</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">ccrs</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
+
+<span class="c1"># Some post-processing part, save figure to outputs folder</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="s2">&quot;outputs/XX_my_example.jpg&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Examples should always have at least one or more graphics.
+The first will always be the thumbnail.
+Animations are not supported.</p>
+</section>
 </section>
 <section id="building-documentation">
 <h2>Building Documentation<a class="headerlink" href="#building-documentation" title="Link to this heading">#</a></h2>
@@ -579,12 +660,12 @@ which will be addressed on a case-by-case basis.</p>
 <span class="nv">SPHINXBUILD</span><span class="o">=</span><span class="s2">&quot;python -m sphinx.cmd.build&quot;</span><span class="w"> </span>make<span class="w"> </span>docs
 </pre></div>
 </div>
-<p>For full docs, where all examples are ran use:</p>
+<p>For full docs, where all examples are ran, use:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>make<span class="w"> </span>docs-full
 </pre></div>
 </div>
 <p>Sometimes when developing an example you want to see what the end result looks like.
-For development, its recommend to use the following process:</p>
+For development, it is recommend to use the following process:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Run this once</span>
 make<span class="w"> </span>docs
 
@@ -649,7 +730,11 @@ python<span class="w"> </span>-m<span class="w"> </span>http.server<span class="
   <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="visible nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#api-documentation">API Documentation</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#example-documentation">Example Documentation</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#example-documentation">Example Documentation</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#definition">Definition</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#creating-a-new-example">Creating a New Example</a></li>
+</ul>
+</li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#building-documentation">Building Documentation</a></li>
 </ul>
   </nav></div>
