@@ -116,7 +116,7 @@ class ARCO:
             self.zarr_group = zarr.open(fs_map, mode="r")
 
         self.async_timeout = async_timeout
-        self.async_process_limit = 64
+        self.async_process_limit = 128
 
     def __call__(
         self,

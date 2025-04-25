@@ -24,6 +24,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Fixed the asyncio zarr access in the ARCO data source
+
 ### Security
 
 - Remove pickle load from Aurora model with direct numpy array loads
