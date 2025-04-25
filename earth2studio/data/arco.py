@@ -24,6 +24,7 @@ from importlib.metadata import version
 
 import fsspec
 import gcsfs
+import nest_asyncio
 import numpy as np
 import xarray as xr
 import zarr
@@ -115,14 +116,53 @@ class ARCO:
             self.zarr_group = zarr.open(fs_map, mode="r")
 
         self.async_timeout = async_timeout
-        self.async_process_limit = 32
+        self.async_process_limit = 64
 
     def __call__(
         self,
         time: datetime | list[datetime] | TimeArray,
         variable: str | list[str] | VariableArray,
     ) -> xr.DataArray:
-        """Function to get data.
+        """Function to get data
+
+        Parameters
+        ----------
+        time : datetime | list[datetime] | TimeArray
+            Timestamps to return data for (UTC).
+        variable : str | list[str] | VariableArray
+            String, list of strings or array of strings that refer to variables to
+            return. Must be in the ARCO lexicon.
+
+        Returns
+        -------
+        xr.DataArray
+            ERA5 weather data array from ARCO
+        """
+
+        nest_asyncio.apply()  # Patch asyncio to work in notebooks
+        try:
+            loop = asyncio.get_event_loop()
+        except RuntimeError:
+            # If no event loop exists, create one
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+
+        xr_array = loop.run_until_complete(
+            asyncio.wait_for(self.fetch(time, variable), timeout=self.async_timeout)
+        )
+
+        # Delete cache if needed
+        if not self._cache:
+            shutil.rmtree(self.cache)
+
+        return xr_array
+
+    async def fetch(
+        self,
+        time: datetime | list[datetime] | TimeArray,
+        variable: str | list[str] | VariableArray,
+    ) -> xr.DataArray:
+        """Async function to get data
 
         Parameters
         ----------
@@ -144,53 +184,6 @@ class ARCO:
         # Make sure input time is valid
         self._validate_time(time)
 
-        try:
-            import nest_asyncio
-
-            nest_asyncio.apply()  # Patch asyncio to work in notebooks
-        except ImportError:
-            raise ImportError(
-                "Some data dependencies are missing (nest_asyncio). Please install them using 'pip install earth2studio[data]'"
-            )
-
-        try:
-            loop = asyncio.get_event_loop()
-        except RuntimeError:
-            # If no event loop exists, create one
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-
-        xr_array = loop.run_until_complete(
-            asyncio.wait_for(
-                self.create_data_array(time, variable), timeout=self.async_timeout
-            )
-        )
-
-        # Delete cache if needed
-        if not self._cache:
-            shutil.rmtree(self.cache)
-
-        return xr_array
-
-    async def create_data_array(
-        self, time: list[datetime], variable: list[str]
-    ) -> xr.DataArray:
-        """Async function that creates and populates an xarray data array with requested
-        ARCO data. Asyncio tasks are created for each data array enabling concurrent
-        fetching.
-
-        Parameters
-        ----------
-        time : list[datetime]
-            Time list to fetch
-        variable : list[str]
-            Variable list to fetch
-
-        Returns
-        -------
-        xr.DataArray
-            Xarray data array
-        """
         xr_array = xr.DataArray(
             data=np.empty(
                 (len(time), len(variable), len(self.ARCO_LAT), len(self.ARCO_LON))
