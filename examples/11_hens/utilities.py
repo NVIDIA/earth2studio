@@ -15,7 +15,6 @@
 # limitations under the License.
 
 import os
-import secrets
 from collections import OrderedDict
 from concurrent.futures import Future, ThreadPoolExecutor
 from functools import partial
@@ -28,7 +27,10 @@ import xarray as xr
 from loguru import logger
 from omegaconf import DictConfig, open_dict
 from physicsnemo.distributed import DistributedManager
-from reproduce_utilities import ensure_all_torch_seeds_are_unique
+from reproduce_utilities import (
+    ensure_all_torch_seeds_are_unique,
+    get_reproducibility_settings,
+)
 
 from earth2studio.data import DataSource
 from earth2studio.io import IOBackend, KVBackend, XarrayBackend
@@ -515,49 +517,6 @@ def initialize_output_coords(
     output_coords["lon"] = lon_coords
     output_coords["lat"] = lat_coords
     return output_coords
-
-
-def get_reproducibility_settings(cfg: DictConfig) -> tuple[str | int, list[int], bool]:
-    """
-    retrieve reproducibility cfg elements or their default values
-
-    Parameters
-    ----------
-    cfg : DictConfig
-        Hydra config object
-
-    Returns
-    -------
-    base_random_seed: str|int
-        a base random seed specfied in the config. If it is an integer it will be converted to a string later
-    batch_ids_produce: list[int]
-        a list of the batch ids that shall be produced in this run
-    torch_use_deterministic_algorithms: bool
-        variable that will be used for torch_use_deterministic_algorithms to control if torch is using deterministic algorithms to ensure reproducibility
-
-    """
-    try:
-        batch_ids_produce = cfg["batch_ids_reproduce"]
-    except KeyError:
-        batch_ids_produce = list(
-            range(
-                0,
-                int(
-                    np.ceil(cfg.nensemble / cfg.batch_size)
-                    * cfg.forecast_model.max_num_checkpoints
-                ),
-            )
-        )
-    try:
-        base_random_seed = cfg["random_seed"]
-    except KeyError:
-        base_random_seed = secrets.randbelow(1_000_000)
-    try:
-        torch_use_deterministic_algorithms = cfg["torch_use_deterministic_algorithms"]
-    except KeyError:
-        torch_use_deterministic_algorithms = False
-
-    return base_random_seed, batch_ids_produce, torch_use_deterministic_algorithms
 
 
 def initialize_cropbox(

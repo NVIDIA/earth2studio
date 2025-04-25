@@ -1,6 +1,51 @@
 import hashlib
+import secrets
 
 import numpy as np
+from omegaconf import DictConfig
+
+
+def get_reproducibility_settings(cfg: DictConfig) -> tuple[str | int, list[int], bool]:
+    """
+    retrieve reproducibility cfg elements or their default values
+
+    Parameters
+    ----------
+    cfg : DictConfig
+        Hydra config object
+
+    Returns
+    -------
+    base_random_seed: str|int
+        a base random seed specfied in the config. If it is an integer it will be converted to a string later
+    batch_ids_produce: list[int]
+        a list of the batch ids that shall be produced in this run
+    torch_use_deterministic_algorithms: bool
+        variable that will be used for torch_use_deterministic_algorithms to control if torch is using deterministic algorithms to ensure reproducibility
+
+    """
+    try:
+        batch_ids_produce = cfg["batch_ids_reproduce"]
+    except KeyError:
+        batch_ids_produce = list(
+            range(
+                0,
+                int(
+                    np.ceil(cfg.nensemble / cfg.batch_size)
+                    * cfg.forecast_model.max_num_checkpoints
+                ),
+            )
+        )
+    try:
+        base_random_seed = cfg["random_seed"]
+    except KeyError:
+        base_random_seed = secrets.randbelow(1_000_000)
+    try:
+        torch_use_deterministic_algorithms = cfg["torch_use_deterministic_algorithms"]
+    except KeyError:
+        torch_use_deterministic_algorithms = False
+
+    return base_random_seed, batch_ids_produce, torch_use_deterministic_algorithms
 
 
 def calculate_torch_seed(s):
