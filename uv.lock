@@ -1,5 +1,4 @@
 version = 1
-revision = 1
 requires-python = ">=3.10"
 resolution-markers = [
     "python_full_version >= '3.13' and sys_platform == 'linux'",
@@ -1111,6 +1110,18 @@ wheels = [
 ]
 
 [[package]]
+name = "earth2grid"
+version = "2025.4.1"
+source = { git = "https://github.com/NVlabs/earth2grid.git?rev=main#baa00d28e647fc731dfaa44ee45a86131d50bcf5" }
+dependencies = [
+    { name = "einops" },
+    { name = "netcdf4" },
+    { name = "numpy" },
+    { name = "scipy" },
+    { name = "torch" },
+]
+
+[[package]]
 name = "earth2studio"
 source = { editable = "." }
 dependencies = [
@@ -1179,6 +1190,11 @@ data = [
     { name = "ecmwf-opendata" },
     { name = "herbie-data" },
 ]
+dlesym = [
+    { name = "earth2grid" },
+    { name = "nvidia-physicsnemo" },
+    { name = "omegaconf" },
+]
 dlwp = [
     { name = "importlib-metadata" },
     { name = "nvidia-physicsnemo" },
@@ -1213,7 +1229,7 @@ precip-afno-v2 = [
 ]
 sfno = [
     { name = "jsbeautifier" },
-    { name = "makani", extra = ["all"], marker = "(extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-aurora-fork') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-corrdiff') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-dlwp') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-fcn') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-precip-afno') or (extra != 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-sfno') or (extra == 'extra-12-earth2studio-aurora' and extra != 'extra-12-earth2studio-sfno' and extra == 'extra-12-earth2studio-stormcast') or (extra != 'extra-12-earth2studio-aurora-fork' and extra != 'extra-12-earth2studio-corrdiff' and extra != 'extra-12-earth2studio-dlwp' and extra != 'extra-12-earth2studio-fcn' and extra != 'extra-12-earth2studio-precip-afno' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "makani", extra = ["all"] },
     { name = "numba" },
     { name = "onnx-weekly", marker = "python_full_version >= '3.13'" },
     { name = "pynvml" },
@@ -1277,6 +1293,7 @@ requires-dist = [
     { name = "cdsapi", marker = "extra == 'data'", specifier = ">=0.7.5" },
     { name = "cfgrib", specifier = ">=0.9.10.3" },
     { name = "cftime" },
+    { name = "earth2grid", marker = "extra == 'dlesym'", git = "https://github.com/NVlabs/earth2grid.git?rev=main" },
     { name = "eccodes", marker = "extra == 'all'", specifier = ">=2.38.0" },
     { name = "eccodes", marker = "extra == 'data'", specifier = ">=2.38.0" },
     { name = "ecmwf-opendata", marker = "extra == 'all'", specifier = ">=0.3.3" },
@@ -1309,6 +1326,7 @@ requires-dist = [
     { name = "numcodecs", specifier = "<0.15.0" },
     { name = "nvidia-physicsnemo", marker = "extra == 'all'", specifier = ">=1.0.1" },
     { name = "nvidia-physicsnemo", marker = "extra == 'corrdiff'", specifier = ">=1.0.1" },
+    { name = "nvidia-physicsnemo", marker = "extra == 'dlesym'", specifier = ">=1.0.1" },
     { name = "nvidia-physicsnemo", marker = "extra == 'dlwp'", specifier = ">=1.0.1" },
     { name = "nvidia-physicsnemo", marker = "extra == 'fcn'", specifier = ">=1.0.1" },
     { name = "nvidia-physicsnemo", marker = "extra == 'interp-modafno'", specifier = ">=1.0.1" },
@@ -1321,6 +1339,7 @@ requires-dist = [
     { name = "nvtx", marker = "extra == 'corrdiff'", specifier = ">=0.2.11" },
     { name = "nvtx", marker = "extra == 'stormcast'", specifier = ">=0.2.11" },
     { name = "omegaconf", marker = "extra == 'all'", specifier = ">=2.3.0" },
+    { name = "omegaconf", marker = "extra == 'dlesym'", specifier = ">=2.3.0" },
     { name = "omegaconf", marker = "extra == 'stormcast'", specifier = ">=2.3.0" },
     { name = "onnx-weekly", marker = "python_full_version >= '3.13' and extra == 'all'" },
     { name = "onnx-weekly", marker = "python_full_version >= '3.13' and extra == 'corrdiff'" },
@@ -1359,7 +1378,6 @@ requires-dist = [
     { name = "xarray", extras = ["parallel"], specifier = ">=2023.1.0" },
     { name = "zarr", specifier = ">=2.14.2" },
 ]
-provides-extras = ["all", "aurora", "aurora-fork", "climatenet", "corrdiff", "data", "derived", "dlwp", "fcn", "fengwu", "interp-modafno", "pangu", "perturbation", "precip-afno", "precip-afno-v2", "sfno", "statistics", "stormcast", "windgust-afno"]
 
 [package.metadata.requires-dev]
 dev = [
@@ -3400,8 +3418,8 @@ dependencies = [
     { name = "tqdm" },
     { name = "treelib" },
     { name = "xarray" },
-    { name = "zarr", version = "2.18.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11' or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-aurora-fork') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-corrdiff') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-dlwp') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-fcn') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-precip-afno') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-sfno') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-stormcast')" },
-    { name = "zarr", version = "3.0.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11' or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-aurora-fork') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-corrdiff') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-dlwp') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-fcn') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-precip-afno') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-sfno') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-stormcast')" },
+    { name = "zarr", version = "2.18.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
+    { name = "zarr", version = "3.0.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
 ]
 wheels = [
     { url = "https://files.pythonhosted.org/packages/0c/8f/2b6199a6ac1a17e39658b442fb77cd6d8354c3160dd32d3c27c675eb3c85/nvidia_physicsnemo-1.0.1-py3-none-any.whl", hash = "sha256:eb6926e9686d2c8cde5ff5d36a8fa95f9bc92064635823fde54575bc02651fa5", size = 637009 },
@@ -5824,7 +5842,7 @@ resolution-markers = [
 ]
 dependencies = [
     { name = "donfig", marker = "python_full_version >= '3.11'" },
-    { name = "numcodecs", version = "0.14.1", source = { registry = "https://pypi.org/simple" }, extra = ["crc32c"], marker = "python_full_version >= '3.11' or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-aurora-fork') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-corrdiff') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-dlwp') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-fcn') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-precip-afno') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-sfno') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-stormcast')" },
+    { name = "numcodecs", version = "0.14.1", source = { registry = "https://pypi.org/simple" }, extra = ["crc32c"], marker = "python_full_version >= '3.11'" },
     { name = "numpy", marker = "python_full_version >= '3.11'" },
     { name = "packaging", marker = "python_full_version >= '3.11'" },
     { name = "typing-extensions", marker = "python_full_version >= '3.11'" },

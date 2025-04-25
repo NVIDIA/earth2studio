@@ -76,6 +76,11 @@ aurora = [
 aurora-fork = [
     "microsoft-aurora", # optional fork install without timm package version conflict
 ]
+dlesym = [
+    "nvidia-physicsnemo>=1.0.1",
+    "earth2grid",
+    "omegaconf>=2.3.0",
+]
 dlwp = [
     "onnx-weekly ; python_full_version >= '3.13'",
     "nvidia-physicsnemo>=1.0.1",
@@ -181,6 +186,7 @@ conflicts = [
 override-dependencies = ["onnx; python_full_version < '3.13'"]
 
 [tool.uv.sources]
+earth2grid = { git = "https://github.com/NVlabs/earth2grid.git", rev = "main" }
 makani = { git = "https://github.com/NickGeneva/modulus-makani.git", rev = "3da09f9e52a6393839d73d44262779ac7279bc2f" }
 microsoft-aurora = { git = "https://github.com/NickGeneva/aurora.git", rev = "ab41cf1de67d5dcc723b96fc9a6219e4b548d181" }
 
