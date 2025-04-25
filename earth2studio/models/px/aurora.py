@@ -14,10 +14,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import pickle
 from collections import OrderedDict
 from collections.abc import Generator, Iterator
-from datetime import datetime
+from datetime import datetime, timezone
 
 import numpy as np
 import torch
@@ -238,7 +237,7 @@ class Aurora(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def load_default_package(cls) -> Package:
         """Load prognostic package"""
         return Package(
-            "hf://microsoft/aurora",
+            "hf://microsoft/aurora@refs%2Fpr%2F1",
             cache_options={
                 "cache_storage": Package.default_cache("aurora"),
                 "same_names": True,
@@ -254,12 +253,15 @@ class Aurora(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         """Load prognostic from package"""
 
         # Import the static variables: z, slt, lsm
-        static_path = package.resolve("aurora-0.25-static.pickle")
-        with open(static_path, "rb") as f:
-            static_vars_ds = pickle.load(f)  # noqa S301
-        z = torch.from_numpy(static_vars_ds["z"][:-1])
-        slt = torch.from_numpy(static_vars_ds["slt"][:-1])
-        lsm = torch.from_numpy(static_vars_ds["lsm"][:-1])
+        z = torch.from_numpy(
+            np.load(package.resolve("static-npy/aurora-0.25-static-z.npy"))[:-1]
+        )
+        slt = torch.from_numpy(
+            np.load(package.resolve("static-npy/aurora-0.25-static-slt.npy"))[:-1]
+        )
+        lsm = torch.from_numpy(
+            np.load(package.resolve("static-npy/aurora-0.25-static-lsm.npy"))[:-1]
+        )
 
         # Load 0.25 degrees resolution Aurora pretrained model
         aurora_model = package.resolve("aurora-0.25-pretrained.ckpt")
@@ -278,7 +280,7 @@ class Aurora(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             (coords["time"][0] + coords["lead_time"][-1]).astype("datetime64[s]")
             - np.datetime64("1970-01-01T00:00:00Z")
         ) / np.timedelta64(1, "s")
-        time = datetime.utcfromtimestamp(ts)
+        time = datetime.fromtimestamp(ts, tz=timezone.utc)
 
         # input variable order: z, q, t, u, v, msl, u10m, v10m, t2m
         batch = Batch(
