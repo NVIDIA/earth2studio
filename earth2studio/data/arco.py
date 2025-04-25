@@ -15,6 +15,7 @@
 # limitations under the License.
 
 import asyncio
+import functools
 import os
 import pathlib
 import shutil
@@ -23,18 +24,15 @@ from importlib.metadata import version
 
 import fsspec
 import gcsfs
+import nest_asyncio
 import numpy as np
 import xarray as xr
 import zarr
 from fsspec.implementations.cached import WholeFileCacheFileSystem
 from loguru import logger
-from tqdm import tqdm
+from tqdm.asyncio import tqdm
 
-from earth2studio.data.utils import (
-    datasource_cache_root,
-    prep_data_inputs,
-    unordered_generator,
-)
+from earth2studio.data.utils import datasource_cache_root, prep_data_inputs
 from earth2studio.lexicon import ARCOLexicon
 from earth2studio.utils.type import TimeArray, VariableArray
 
@@ -94,18 +92,19 @@ class ARCO:
         # Check Zarr version and use appropriate method
         try:
             zarr_version = version("zarr")
-            zarr_major_version = int(zarr_version.split(".")[0])
+            self.zarr_major_version = int(zarr_version.split(".")[0])
         except Exception:
             # Fallback to older method if version check fails
-            zarr_major_version = 2  # Assume older version if we can't determine
+            self.zarr_major_version = 2  # Assume older version if we can't determine
 
-        if zarr_major_version >= 3:
+        if self.zarr_major_version >= 3:
             # Zarr 3.0+ method
             zstore = zarr.storage.FsspecStore(
                 fs,
                 path="/gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3",
             )
-            self.zarr_group = zarr.open(zstore, mode="r")
+            self.zarr_group = zarr.api.asynchronous.open(store=zstore, mode="r")
+            self.level_coords = None
         else:
             # Legacy method for Zarr < 3.0
             # TODO: Remove this option eventually
@@ -116,16 +115,55 @@ class ARCO:
                 "gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3", fs
             )
             self.zarr_group = zarr.open(fs_map, mode="r")
+            self.level_coords = self.zarr_group["level"][:]
 
         self.async_timeout = async_timeout
-        self.async_process_limit = 4
 
     def __call__(
         self,
         time: datetime | list[datetime] | TimeArray,
         variable: str | list[str] | VariableArray,
     ) -> xr.DataArray:
-        """Function to get data.
+        """Function to get data
+
+        Parameters
+        ----------
+        time : datetime | list[datetime] | TimeArray
+            Timestamps to return data for (UTC).
+        variable : str | list[str] | VariableArray
+            String, list of strings or array of strings that refer to variables to
+            return. Must be in the ARCO lexicon.
+
+        Returns
+        -------
+        xr.DataArray
+            ERA5 weather data array from ARCO
+        """
+
+        nest_asyncio.apply()  # Patch asyncio to work in notebooks
+        try:
+            loop = asyncio.get_event_loop()
+        except RuntimeError:
+            # If no event loop exists, create one
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+
+        xr_array = loop.run_until_complete(
+            asyncio.wait_for(self.fetch(time, variable), timeout=self.async_timeout)
+        )
+
+        # Delete cache if needed
+        if not self._cache:
+            shutil.rmtree(self.cache)
+
+        return xr_array
+
+    async def fetch(
+        self,
+        time: datetime | list[datetime] | TimeArray,
+        variable: str | list[str] | VariableArray,
+    ) -> xr.DataArray:
+        """Async function to get data
 
         Parameters
         ----------
@@ -147,53 +185,6 @@ class ARCO:
         # Make sure input time is valid
         self._validate_time(time)
 
-        try:
-            import nest_asyncio
-
-            nest_asyncio.apply()  # Patch asyncio to work in notebooks
-        except ImportError:
-            raise ImportError(
-                "Some data dependencies are missing (nest_asyncio). Please install them using 'pip install earth2studio[data]'"
-            )
-
-        try:
-            loop = asyncio.get_event_loop()
-        except RuntimeError:
-            # If no event loop exists, create one
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-
-        xr_array = loop.run_until_complete(
-            asyncio.wait_for(
-                self.create_data_array(time, variable), timeout=self.async_timeout
-            )
-        )
-
-        # Delete cache if needed
-        if not self._cache:
-            shutil.rmtree(self.cache)
-
-        return xr_array
-
-    async def create_data_array(
-        self, time: list[datetime], variable: list[str]
-    ) -> xr.DataArray:
-        """Async function that creates and populates an xarray data array with requested
-        ARCO data. Asyncio tasks are created for each data array enabling concurrent
-        fetching.
-
-        Parameters
-        ----------
-        time : list[datetime]
-            Time list to fetch
-        variable : list[str]
-            Variable list to fetch
-
-        Returns
-        -------
-        xr.DataArray
-            Xarray data array
-        """
         xr_array = xr.DataArray(
             data=np.empty(
                 (len(time), len(variable), len(self.ARCO_LAT), len(self.ARCO_LON))
@@ -207,30 +198,33 @@ class ARCO:
             },
         )
 
-        async def fetch_wrapper(
-            e: tuple[datetime, int, str, int],
-        ) -> tuple[int, int, np.ndarray]:
-            """Small wrapper that is awaitable for async generator"""
-            return e[1], e[3], self.fetch_array(e[0], e[2])
-
         args = [
             (t, i, v, j) for j, v in enumerate(variable) for i, t in enumerate(time)
         ]
-        func_map = map(fetch_wrapper, args)
+        func_map = map(functools.partial(self.fetch_wrapper, xr_array=xr_array), args)
 
-        pbar = tqdm(
-            total=len(args), desc="Fetching ARCO data", disable=(not self._verbose)
+        # Before anything wait until the group gets opened
+        if self.zarr_major_version >= 3:
+            self.zarr_group = await self.zarr_group
+            self.level_coords = await (await self.zarr_group.get("level")).getitem(
+                slice(None)
+            )
+        # Launch all fetch requests
+        await tqdm.gather(
+            *func_map, desc="Fetching ARCO data", disable=(not self._verbose)
         )
-        # Mypy will struggle here because the async generator uses a generic type
-        async for t, v, data in unordered_generator(  # type: ignore[misc,unused-ignore]
-            func_map, limit=self.async_process_limit
-        ):
-            xr_array[t, v] = data  # type: ignore[has-type,unused-ignore]
-            pbar.update(1)
-
         return xr_array
 
-    def fetch_array(self, time: datetime, variable: str) -> np.ndarray:
+    async def fetch_wrapper(
+        self,
+        e: tuple[datetime, int, str, int],
+        xr_array: xr.DataArray,
+    ) -> None:
+        """Small wrapper to pack arrays into the DataArray"""
+        out = await self.fetch_array(e[0], e[2])
+        xr_array[e[1], e[3]] = out
+
+    async def fetch_array(self, time: datetime, variable: str) -> np.ndarray:
         """Fetches requested array from remote store
 
         Parameters
@@ -245,11 +239,8 @@ class ARCO:
         np.ndarray
             Data
         """
-        # Load levels coordinate system from Zarr store and check
-        level_coords = self.zarr_group["level"][:]
         # Get time index (vanilla zarr doesnt support date indices)
         time_index = self._get_time_index(time)
-
         logger.debug(
             f"Fetching ARCO zarr array for variable: {variable} at {time.isoformat()}"
         )
@@ -260,18 +251,38 @@ class ARCO:
             raise e
 
         arco_variable, level = arco_name.split("::")
-
-        shape = self.zarr_group[arco_variable].shape
-        # Static variables
-        if len(shape) == 2:
-            output = modifier(self.zarr_group[arco_variable][:])
-        # Surface variable
-        elif len(shape) == 3:
-            output = modifier(self.zarr_group[arco_variable][time_index])
-        # Atmospheric variable
+        if self.zarr_major_version >= 3:
+            zarr_array = await self.zarr_group.get(arco_variable)
+            shape = zarr_array.shape
+            # Static variables
+            if len(shape) == 2:
+                data = await zarr_array.getitem(slice(None))
+                output = modifier(data)
+            # Surface variable
+            elif len(shape) == 3:
+                data = await zarr_array.getitem(time_index)
+                output = modifier(data)
+            # Atmospheric variable
+            else:
+                # Load levels coordinate system from Zarr store and check
+                level_index = np.searchsorted(self.level_coords, int(level))
+                data = await zarr_array.getitem((time_index, level_index))
+                output = modifier(data)
         else:
-            level_index = np.where(level_coords == int(level))[0][0]
-            output = modifier(self.zarr_group[arco_variable][time_index, level_index])
+            # Zarr 2.0 fall back
+            shape = self.zarr_group[arco_variable].shape
+            # Static variables
+            if len(shape) == 2:
+                output = modifier(self.zarr_group[arco_variable][:])
+            # Surface variable
+            elif len(shape) == 3:
+                output = modifier(self.zarr_group[arco_variable][time_index])
+            # Atmospheric variable
+            else:
+                level_index = np.where(self.level_coords == int(level))[0][0]
+                output = modifier(
+                    self.zarr_group[arco_variable][time_index, level_index]
+                )
 
         return output
 
