@@ -859,8 +859,46 @@ class DLESyMLatLon(DLESyM):
     """
 
     @check_extra_imports("dlesym", [OmegaConf, Module, insolation, earth2grid])
-    def __init__(self, *args: Any, **kwargs: Any):
-        super().__init__(*args, **kwargs)
+    def __init__(
+        self,
+        atmos_model: torch.nn.Module,
+        ocean_model: torch.nn.Module,
+        hpx_lat: np.ndarray,
+        hpx_lon: np.ndarray,
+        nside: int,
+        center: np.ndarray,
+        scale: np.ndarray,
+        atmos_constants: np.ndarray,
+        ocean_constants: np.ndarray,
+        atmos_input_times: np.ndarray,
+        ocean_input_times: np.ndarray,
+        atmos_output_times: np.ndarray,
+        ocean_output_times: np.ndarray,
+        atmos_variables: list[str],
+        ocean_variables: list[str],
+        atmos_coupling_variables: list[str],
+        ocean_coupling_variables: list[str],
+    ):
+        super().__init__(
+            atmos_model=atmos_model,
+            ocean_model=ocean_model,
+            hpx_lat=hpx_lat,
+            hpx_lon=hpx_lon,
+            nside=nside,
+            center=center,
+            scale=scale,
+            atmos_constants=atmos_constants,
+            ocean_constants=ocean_constants,
+            atmos_input_times=atmos_input_times,
+            ocean_input_times=ocean_input_times,
+            atmos_output_times=atmos_output_times,
+            ocean_output_times=ocean_output_times,
+            atmos_variables=atmos_variables,
+            ocean_variables=ocean_variables,
+            atmos_coupling_variables=atmos_coupling_variables,
+            ocean_coupling_variables=ocean_coupling_variables,
+        )
+
         self.hpx_grid = earth2grid.healpix.Grid(
             level=int(np.log2(self.nside)),
             pixel_order=earth2grid.healpix.HEALPIX_PAD_XY,
