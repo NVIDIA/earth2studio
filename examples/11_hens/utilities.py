@@ -38,6 +38,7 @@ from earth2studio.models.auto import Package
 from earth2studio.models.dx import TCTrackerWuDuan
 from earth2studio.models.px import PrognosticModel
 from earth2studio.perturbation import Perturbation
+from earth2studio.utils.coords import CoordSystem, map_coords
 from earth2studio.utils.time import to_time_array
 
 
@@ -1007,3 +1008,52 @@ def get_batchid_from_ensid(nensemble_per_package, batch_size, ensid):
     )
 
     return batch_id
+
+
+def cat_coords(
+    xx: torch.Tensor,
+    cox: CoordSystem,
+    yy: torch.Tensor,
+    coy: CoordSystem,
+    dim: str = "variable",
+) -> tuple[torch.Tensor, CoordSystem]:
+    """
+    concatenate data along coordinate dimension.
+
+    Parameters
+    ----------
+    xx : torch.Tensor
+        First input tensor which to concatenate
+    cox : CoordSystem
+        Ordered dict representing coordinate system that describes xx
+    yy : torch.Tensor
+        Second input tensor which to concatenate
+    coy : CoordSystem
+        Ordered dict representing coordinate system that describes yy
+    dim : str
+        name of dimension along which to concatenate
+
+    Returns
+    -------
+    tuple[torch.Tensor, CoordSystem]
+        Tuple containing output tensor and coordinate OrderedDict from
+        concatenated data.
+    """
+
+    if dim not in cox:
+        raise ValueError(f"dim {dim} is not in coords: {list(cox)}.")
+    if dim not in coy:
+        raise ValueError(f"dim {dim} is not in coords: {list(coy)}.")
+
+    # fix difference in latitude
+    _cox = cox.copy()
+    _cox["lat"] = coy["lat"]
+    xx, cox = map_coords(xx, cox, _cox)
+
+    coords = cox.copy()
+    dim_index = list(coords).index(dim)
+
+    zz = torch.cat((xx, yy), dim=dim_index)
+    coords[dim] = np.append(cox[dim], coy[dim])
+
+    return zz, coords

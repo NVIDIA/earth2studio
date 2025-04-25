@@ -14,18 +14,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from collections import OrderedDict
 from collections.abc import Iterator
 from datetime import datetime
 from math import ceil
 
 import numpy as np
-import pandas as pd
 import torch
 from loguru import logger
 from reproduce_utilities import calculate_torch_seed
 from tqdm import tqdm
-from utilities import get_batchid_from_ensid
+from utilities import cat_coords, get_batchid_from_ensid
 
 from earth2studio.data import DataSource, fetch_data
 from earth2studio.io import IOBackend
@@ -340,12 +338,6 @@ class EnsembleBase:
                 desc=f"Inferencing batch {batch_id} ({nsamples} samples)",
                 leave=False,
             ) as pbar:
-                # if self.cyclone_tracking:
-                #     track_element_dict = {
-                #         "track_element_list": [],
-                #         "track_coords_list": [],
-                #         "time_list": [],
-                #     }
                 for step, (xx, coords) in enumerate(model):
 
                     for dx_name, dx_model in self.dx_model_dict.items():
@@ -358,7 +350,9 @@ class EnsembleBase:
 
                     if self.cyclone_tracking:
                         # get and collect track elements for each time step
-                        tracks = self.detect_tc_centres(xx, coords, None)
+                        tracks, _ = self.cyclone_tracking(
+                            *map_coords(xx, coords, self.cyclone_tracking_ic)
+                        )
 
                     # pass output variables to io backend
                     for k in self.io_dict.keys():
@@ -370,347 +364,6 @@ class EnsembleBase:
                     if step == self.nsteps:
                         break
 
-                # if self.cyclone_tracking:
-                #     # combine track elements to get full tracks (includes threading)
-                #     df_tracks_dict = self.connect_centres_to_tracks(track_element_dict)
-                #     for k, df_tracks in df_tracks_dict.items():
-                #         df_tracks = self.add_meta_data_to_trackds_df(df_tracks)
-                #         tracks_dict[k].append(df_tracks)
-        # df_tracks_dict = self.concat_tracks_for_each_region(tracks_dict)
         logger.success("Inference complete")
 
         return tracks, self.io_dict
-
-    @staticmethod
-    def concat_tracks_for_each_region(
-        tracks_dict: dict[str, list[pd.DataFrame]]
-    ) -> dict[str, pd.DataFrame]:
-        """
-        Concatenates track data for each region into single DataFrames.
-
-        Parameters
-        ----------
-        tracks_dict : dict[str, list[pd.DataFrame]]
-            Dictionary where keys are region identifiers and values are lists of DataFrames,
-            each representing a track for a specific ensemble member and region.
-
-        Returns
-        -------
-        dict[str, pd.DataFrame]
-            Dictionary where keys are region identifiers and values are single concatenated
-            DataFrames containing all track data for that region.
-        """
-        df_tracks_dict = {}
-        if tracks_dict:
-            for k in tracks_dict.keys():
-                if tracks_dict[k]:
-                    df_tracks_dict[k] = pd.concat(tracks_dict[k])
-                else:
-                    df_tracks_dict[k] = pd.DataFrame()
-        return df_tracks_dict
-
-    @staticmethod
-    def get_lon_range_from_coordinates(coords: OrderedDict) -> int:
-        """
-        calculate which longitudes range is being used
-
-        Parameters
-        ----------
-        coords: OrderedDict
-            Input tensor
-
-        Returns
-        -------
-        lon_range: int
-            Either 180 or 360
-        """
-        lon_range = (
-            360 if ((coords["lon"].max() > 180) and (coords["lon"].min() >= 0)) else 180
-        )
-        return lon_range
-
-    def adjust_geographic_extent(self, tt_mem: torch.Tensor) -> torch.Tensor:
-        """
-        adjust geographic extent of data to
-
-        Parameters
-        ----------
-        tt_mem: torch.Tensor
-            Input tensor
-
-        Returns
-        -------
-        tt_mem_filtered: torch.Tensor
-            Data cropped to region of interest
-        """
-
-        tt_mem_filtered_dict = {}
-        for k, output_coords in self.output_coords_dict.items():
-            # determine longitude ranges of input and output
-            lon_range_in = self.get_lon_range_from_coordinates(self.cyclone_tracking_ic)
-            lon_range_out = self.get_lon_range_from_coordinates(output_coords)
-
-            # adjust longitude range
-            if lon_range_in != lon_range_out:
-                if lon_range_in == 360 and lon_range_out == 180:
-                    tt_mem[:, 1, :] = ((tt_mem[:, 1, :] + 180) % 360) - 180
-                elif lon_range_in == 180 and lon_range_out == 360:
-                    tt_mem[:, 1, :] = tt_mem[:, 1, :] % 360
-
-            # filter area
-            c1 = tt_mem[:, 1, :] >= output_coords["lon"].min()
-            c2 = tt_mem[:, 1, :] <= output_coords["lon"].max()
-            c3 = tt_mem[:, 0, :] >= output_coords["lat"].min()
-            c4 = tt_mem[:, 0, :] <= output_coords["lat"].max()
-            tt_mem_filtered = torch.where(
-                (c1 & c2 & c3 & c4).repeat(4, 1, 1).swapaxes(1, 0),
-                tt_mem,
-                np.nan,
-            )
-            tt_mem_filtered_dict[k] = tt_mem_filtered
-        return tt_mem_filtered_dict
-
-    def detect_tc_centres(
-        self,
-        xx: torch.Tensor,
-        coords: CoordSystem,
-        track_element_dict: dict,
-    ) -> dict:
-        """
-        Detects TC centers and appends them to the corresponding lists for data, coordinates, and verification time.
-
-        Parameters
-        ----------
-        xx : torch.Tensor
-            Input tensor containing the data for which TC centers need to be detected.
-        coords : CoordSystem
-            Ordered dictionary representing the coordinate system that describes `xx`.
-        track_element_dict : dict
-            Dictionary containing lists for TC center candidates, their coordinates, and verification times.
-            It should have the following keys:
-            - 'track_element_list': list of torch.Tensor objects containing TC center candidates for each timestep.
-            - 'track_coords_list': list of CoordSystem objects corresponding to each element in 'track_element_list'.
-            - 'time_list': list of np.datetime64 objects representing the verification times for each element in 'track_element_list'.
-
-        Returns
-        -------
-        dict
-            A dictionary with the updated lists for TC center candidates, their coordinates, and verification times.
-        """
-        xx2, coords2 = map_coords(xx, coords, self.cyclone_tracking_ic)
-        rt = coords2["time"][0]  # run time/initialisation time
-        lt = coords2["lead_time"][0]  # lead time
-        vt = rt + lt  # verification time
-
-        # track_element_dict["time_list"].append(vt)
-
-        coords2["time"] = vt
-
-        track_value, _ = self.cyclone_tracking(xx2, coords2)
-        # del track_coords["lead_time"]
-        # track_value = track_value.squeeze(2)
-        # track_element_dict["track_element_list"].append(track_value)
-        # track_element_dict["track_coords_list"].append(track_coords)
-        # return track_element_dict
-        return track_value
-
-    def combine_track_elements(
-        self,
-        track_element_dict: dict,
-    ) -> tuple[torch.Tensor, OrderedDict, np.ndarray[np.int64]]:
-        """
-        Combines individual track elements (representing a time step) into a large tensor representing all timesteps.
-
-        Parameters
-        ----------
-        track_element_dict : dict
-            Dictionary containing lists for TC center candidates, their coordinates, and verification times.
-            It should have the following keys:
-            - 'track_element_list': List of torch.Tensor objects containing TC center candidates for each timestep.
-            - 'track_coords_list': List of CoordSystem objects corresponding to each element in 'track_element_list'.
-            - 'time_list': List of np.datetime64 objects representing the verification times for each element in 'track_element_list'.
-
-        Returns
-        -------
-        tuple[torch.Tensor, OrderedDict, np.ndarray[np.int64]]
-            - out_tensor: torch.Tensor containing TC center candidates for all timesteps.
-            - track_coords_final: OrderedDict representing the final coordinate system.
-            - member_ids: np.ndarray[np.int64] containing ensemble member IDs.
-        """
-        track_element_list = track_element_dict["track_element_list"]
-        track_coords_list = track_element_dict["track_coords_list"]
-        time_list = track_element_dict["time_list"]
-        out_tensor = torch.nested.nested_tensor(
-            track_element_list, dtype=torch.float32, device=track_element_list[0].device
-        )
-        out_tensor = torch.swapaxes(
-            torch.nested.to_padded_tensor(out_tensor, torch.nan), 0, 2
-        )
-        # remove lead time dim
-        out_tensor = out_tensor.squeeze(0)
-
-        track_coords_final = track_coords_list[-1]
-        member_ids = track_coords_final["ensemble"]
-        del track_coords_final["ensemble"]
-        track_coords_final["time"] = time_list
-        track_coords_final["point"] = np.sort(
-            np.unique(np.concatenate([x["point"] for x in track_coords_list]))
-        )
-        return out_tensor, track_coords_final, member_ids
-
-    def connect_centres_to_tracks(
-        self, track_element_dict: dict
-    ) -> dict[str, pd.DataFrame]:
-        """
-        Combines TC center candidates into tracks using the provided track elements.
-
-        Parameters
-        ----------
-        track_element_dict : dict
-            Dictionary containing lists for TC center candidates, their coordinates, and verification times.
-            It should have the following keys:
-            - 'track_element_list': List of torch.Tensor objects containing TC center candidates for each timestep.
-            - 'track_coords_list': List of CoordSystem objects corresponding to each element in 'track_element_list'.
-            - 'time_list': List of np.datetime64 objects representing the verification times for each element in 'track_element_list'.
-
-        Returns
-        -------
-        dict[str, pd.DataFrame]
-            Dictionary where keys are region identifiers and values are DataFrames containing track information
-            for each region.
-        """
-        tt, track_coords_final, member_ids = self.combine_track_elements(
-            track_element_dict
-        )
-        tracks_dict = {}
-        for k in self.output_coords_dict.keys():
-            tracks_dict[k] = []
-        # iterate over individual ensemble members
-        # for i_member in range(tt.shape[0]):
-        # tt_mem = tt[i_member]
-        # tt_mem_filtered_dict = self.adjust_geographic_extent(tt_mem)
-
-        # for k, tt_mem_filtered in tt_mem_filtered_dict.items():
-        # threading/combine center locations to tracks
-        # tracks_df = get_tracks_from_positions(
-        #     tt_mem_filtered, track_coords_final
-        # )
-        # tracks_df.insert(0, "ens_member", member_ids[i_member])
-        # tracks_dict[k].append(tracks_df)
-
-        df_tracks_dict = {}
-        for k in tracks_dict.keys():
-            df_tracks_dict[k] = pd.concat(tracks_dict[k]).reset_index(drop=True)
-        return df_tracks_dict
-
-    def add_meta_data_to_trackds_df(self, tracks_df: pd.DataFrame) -> pd.DataFrame:
-        """
-        Adds metadata to the track data DataFrame, including:
-        - Random seed used for generating the ensemble.
-        - Model package information.
-        - Batch ID for each ensemble member.
-        - Batch size.
-        - Total ensemble size.
-
-        Parameters
-        ----------
-        tracks_df : pd.DataFrame
-            Input DataFrame containing track data.
-
-        Returns
-        -------
-        pd.DataFrame
-            Updated DataFrame with additional metadata columns.
-        """
-        tracks_df["random_seed"] = self.base_seed_string.split("_")[0]
-        tracks_df["model_package"] = self.base_seed_string.split("_")[1]
-        batch_ids = [
-            get_batchid_from_ensid(self.nensemble, self.batch_size, ensid)
-            for ensid in tracks_df["ens_member"].values
-        ]
-        tracks_df = tracks_df.assign(batch_id=batch_ids)
-        tracks_df = tracks_df.assign(batch_size=self.batch_size)
-        tracks_df = tracks_df.assign(nensemble=self.nensemble)
-        return tracks_df
-
-
-def cat_coords(
-    xx: torch.Tensor,
-    cox: CoordSystem,
-    yy: torch.Tensor,
-    coy: CoordSystem,
-    dim: str = "variable",
-) -> tuple[torch.Tensor, CoordSystem]:
-    """
-    concatenate data along coordinate dimension.
-
-    Parameters
-    ----------
-    xx : torch.Tensor
-        First input tensor which to concatenate
-    cox : CoordSystem
-        Ordered dict representing coordinate system that describes xx
-    yy : torch.Tensor
-        Second input tensor which to concatenate
-    coy : CoordSystem
-        Ordered dict representing coordinate system that describes yy
-    dim : str
-        name of dimension along which to concatenate
-
-    Returns
-    -------
-    tuple[torch.Tensor, CoordSystem]
-        Tuple containing output tensor and coordinate OrderedDict from
-        concatenated data.
-    """
-
-    if dim not in cox:
-        raise ValueError(f"dim {dim} is not in coords: {list(cox)}.")
-    if dim not in coy:
-        raise ValueError(f"dim {dim} is not in coords: {list(coy)}.")
-
-    # fix difference in latitude
-    _cox = cox.copy()
-    _cox["lat"] = coy["lat"]
-    xx, cox = map_coords(xx, cox, _cox)
-
-    coords = cox.copy()
-    dim_index = list(coords).index(dim)
-
-    zz = torch.cat((xx, yy), dim=dim_index)
-    coords[dim] = np.append(cox[dim], coy[dim])
-
-    return zz, coords
-
-
-def squeeze_coord(
-    xx: torch.Tensor, inco: CoordSystem, dim: str
-) -> tuple[torch.Tensor, CoordSystem]:
-    """
-    remove a coordinate dimension of length 1.
-
-    Parameters
-    ----------
-    xx : torch.Tensor
-        Input tensor
-    inco : CoordSystem
-        Ordered dict representing coordinate system that describes xx
-    dim : str
-        name of dimension along which to concatenate
-
-    Returns
-    -------
-    tuple[torch.Tensor, CoordSystem]
-        Tuple containing output tensor and coordinate OrderedDict from
-        concatenated data.
-    """
-    idx = list(inco).index(dim)
-    ouco = inco.copy()
-    ouco.pop(dim)
-    if xx.shape[idx] != 1:
-        raise ValueError(
-            "cannot remove dimension with len>1,"
-            + f" dim {dim} has length {xx.shape[idx]}"
-        )
-
-    return xx.squeeze(idx), ouco

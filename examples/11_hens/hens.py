@@ -102,11 +102,6 @@ def main(cfg: DictConfig) -> None:
         )
         tracks, io_dict = run_hens()
         track_list.append(tracks)
-        # TODO collect cyclone tracks over all members
-
-        # for k, v in df_tracks_dict.items():
-        #     v["ic"] = pd.to_datetime(ic)
-        #     all_tracks_dict[k].append(v)
 
         # if in-memory flavour of io backend was chosen, write content to disk now
         if io_dict:
