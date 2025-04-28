@@ -40,7 +40,7 @@ that are demonstrated through various configuration files, as detailed in
 
 To run HENS, we need to download the pre-trained checkpoints, kindly provided
 by the authors of the method.
-The following command can be used to download the entire model registry from [NERSC][nersc-registry]:
+The following command can be used to download the entire model registry (241 Gb) from [NERSC][nersc-registry]:
 
 ```bash
 wget --recursive --no-parent --no-host-directories \
@@ -54,7 +54,7 @@ steps of the initial condition (IC) perturbation.
 This can be downloaded with the following command:
 
 ```bash
-wget --show-progress \
+wget --no-parent --no-host-directories --show-progress \
 --directory-prefix=hens_model_registry \
 https://portal.nersc.gov/cfs/m4416/hens/d2m_sfno_linear_74chq_sc2_layers8_edim620_wstgl2-epoch70_seed16.nc
 ```
@@ -67,7 +67,7 @@ For the best experience the following hardware specifications are recommended:
 
 - GPU: CUDA Compute Compatability >8.0
 - GPU Memory: >40Gb
-- Storage: >128Gb NVMe SSD
+- Storage: >512Gb NVMe SSD
 
 ## Quick Start
 

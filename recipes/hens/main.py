@@ -204,7 +204,7 @@ print(model_dict["model"].parameters, "\n")
 
 # %%
 # for perturbation
-skill_path = "/media/mkoch/9ee63bf8-5a14-4872-86f2-7f16b120269b/hens_data/hens_checkpoints/d2m_sfno_linear_74chq_sc2_layers8_edim620_wstgl2-epoch70_seed16.nc"
+skill_path = "hens_model_registry/d2m_sfno_linear_74chq_sc2_layers8_edim620_wstgl2-epoch70_seed16.nc"
 noise_amplification = 0.35
 perturbed_var = ["z500"]
 integration_steps = 3
@@ -447,10 +447,12 @@ _make_frame = make_frame(
 
 
 def animate(frame: int) -> plt.pcolormesh:
+    """Plot helper, todo change to lambda"""
     return _make_frame(frame)
 
 
 def first_frame() -> plt.pcolormesh:
+    """Plot helper, todo change to lambda"""
     return _make_frame(-1)
 
 

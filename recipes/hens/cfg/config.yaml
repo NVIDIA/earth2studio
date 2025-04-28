@@ -30,8 +30,8 @@ torch_use_deterministic_algorithms: False # has impact on performace, in many ca
 
 forecast_model:
     architecture: earth2studio.models.px.SFNO   # forecast model class
-    package: '/model_registry'         # path to directory with model packages, comment for default
-    max_num_checkpoints: 29                      # max number of checkpoints which will be used
+    package: hens_model_registry # TODO: Rename this to registry
+    max_num_checkpoints: 29  # max number of checkpoints which will be used
 
 diagnostic_models:
     r:
@@ -59,7 +59,7 @@ perturbation:
     method: 'hcbv'             # perturbation method
     integration_steps: 3      # integration steps in vector breeding
     noise_amplification: .35   # amplification of noise
-    skill_path : /mnt/d/hens_checkpoints/earth2mip_prod_registry/d2m_sfno_linear_74chq_sc2_layers8_edim620_wstgl2-epoch70_seed16.nc
+    skill_path : hens_model_registry/d2m_sfno_linear_74chq_sc2_layers8_edim620_wstgl2-epoch70_seed16.nc
     perturbed_var: ['z500']
 
 

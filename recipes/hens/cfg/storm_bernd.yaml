@@ -25,7 +25,7 @@ batch_size: 2      # inference batch size
 
 forecast_model:
     architecture: earth2studio.models.px.SFNO   # forecast model class
-    package: '/path/to/hens_checkpoints'
+    package: hens_model_registry # TODO: Rename this to registry
     max_num_checkpoints: 2 # max number of checkpoints which will be used
 
 diagnostic_models:
@@ -42,7 +42,7 @@ diagnostic_models:
 perturbation:
     _target_: hens_perturbation.HENSPerturbation
     _partial_: True
-    skill_path: '/path/to/d2m_sfno_linear_74chq_sc2_layers8_edim620_wstgl2-epoch70_seed16.nc' # CAUTION: remove personal paths!!!
+    skill_path : hens_model_registry/d2m_sfno_linear_74chq_sc2_layers8_edim620_wstgl2-epoch70_seed16.nc
     noise_amplification: .35
     perturbed_var: 'z500'
     integration_steps: 3

@@ -251,8 +251,7 @@ def initialise_output(
     for k in output_coords_dict.keys():
         out_path_base = os.path.join(cfg.file_output.path, k)
         out_path = os.path.join(out_path_base, file_name)
-        if DistributedManager().rank == 0:
-            os.makedirs(out_path_base, exist_ok=True)
+        os.makedirs(out_path_base, exist_ok=True)
 
         io = hydra.utils.instantiate(cfg.file_output.format)
         if isinstance(io, partial):  # add out file names
