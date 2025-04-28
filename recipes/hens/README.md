@@ -40,7 +40,18 @@ that are demonstrated through various configuration files, as detailed in
 
 To run HENS, we need to download the pre-trained checkpoints, kindly provided
 by the authors of the method.
-The following command can be used to download the entire model registry (241 Gb) from [NERSC][nersc-registry]:
+The following command can be used to download the entire model registry from [NERSC][nersc-registry]:
+
+<!-- markdownlint-disable MD028 -->
+> [!WARNING]
+> The entire model registry is 241 Gb.
+
+> [!TIP]
+> To download the individual checkpoints on an "as need" basis, just run the recipe with
+> out executing this command.
+> The checkpoints will get downloaded to the registry folder defined in the config from
+> the HuggingFace mirror. (coming soon)
+<!-- markdownlint-enable MD028 -->
 
 ```bash
 wget --recursive --no-parent --no-host-directories \
