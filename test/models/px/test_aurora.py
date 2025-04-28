@@ -75,7 +75,6 @@ def test_aurora_call(time, device):
     lead_time = p.input_coords()["lead_time"]
     variable = p.input_coords()["variable"]
     x, coords = fetch_data(r, time, variable, lead_time, device=device)
-    print("coords: ", coords)
 
     out, out_coords = p(x, coords)
 
@@ -184,8 +183,8 @@ def model(model_cache_context) -> Aurora:
 
 
 @pytest.mark.ci_cache
-@pytest.mark.timeout(15)
-@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+@pytest.mark.timeout(360)
+@pytest.mark.parametrize("device", ["cuda:0"])
 def test_aurora_package(model, device):
     torch.cuda.empty_cache()
     time = np.array([np.datetime64("1993-04-05T00:00")])

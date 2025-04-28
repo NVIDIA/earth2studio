@@ -16,10 +16,28 @@
 
 
 def reset_torch(gallery_conf, fname):
-    """Function to clean up torch between sphinx examples"""
-    import gc
-
+    """Reset PyTorch's state between examples."""
+    import numpy
     import torch
 
-    torch.cuda.empty_cache()
-    gc.collect()
+    # Clear CUDA memory
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+        torch.cuda.reset_peak_memory_stats()
+    # Reset random seeds
+    numpy.random.seed(42)
+    torch.manual_seed(0)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(0)
+
+
+def reset_physicsnemo(gallery_conf, fname):
+    """Reset PhysicsNemos's state between examples."""
+    pass
+    # import sys
+    # Clear module for fresh imports
+    # OKAY DONT DO THIS, THIS CAN CAUSE SOME ISSUES WITH ISINSTANCE AND STUFF
+    # WHAT A WASTE OF A DAY
+    # modules_to_clear = [mod for mod in sys.modules if mod.startswith("physicsnemo")]
+    # for mod in modules_to_clear:
+    #     sys.modules.pop(mod, None)

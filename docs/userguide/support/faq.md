@@ -11,7 +11,7 @@ If you would like to use a new feature, install from source following the
 
 ## Will Earth2Studio add XYZ model?
 
-Whether its you're own model or someone else's checkpoint, we are always interested in
+Whether its your own model or someone else's checkpoint, we are always interested in
 making Earth2Studio as feature rich as possible for users.
 Open an issue to discuss the model you're interested in using / integrating and we can
 work out a plan to get it integrated.
@@ -20,8 +20,8 @@ work out a plan to get it integrated.
 
 Earth2Studio has adopted the [scientific python](https://scientific-python.org/specs/)
 spec 0 for minimum supported dependencies.
-This mean adopting a common time-based policy for dropping dependencies to encourage the
-use of modern Python and packages.
-This helps improve matainance of the package and security posture.
+This means adopting a common time-based policy for dropping dependencies to encourage
+the use of modern Python and packages.
+This helps improve maintenance of the package and security posture.
 This does not imply a strict requirement for all functionality and does not apply to
 optional packages.

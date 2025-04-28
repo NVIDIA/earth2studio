@@ -14,8 +14,29 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from earth2studio.models.dx.identity import Identity  # noqa
-from earth2studio.models.dx.precipitation_afno import PrecipitationAFNO  # noqa
+import warnings
+
+from earth2studio.models.dx.base import DiagnosticModel
 from earth2studio.models.dx.climatenet import ClimateNet  # noqa
 from earth2studio.models.dx.corrdiff import CorrDiffTaiwan  # noqa
-from earth2studio.models.dx.base import DiagnosticModel
+from earth2studio.models.dx.derived import (
+    DerivedRH,
+    DerivedRHDewpoint,
+    DerivedVPD,
+    DerivedWS,
+)
+from earth2studio.models.dx.identity import Identity  # noqa
+from earth2studio.models.dx.precipitation_afno import PrecipitationAFNO  # noqa
+from earth2studio.models.dx.precipitation_afno_v2 import PrecipitationAFNOv2  # noqa
+from earth2studio.models.dx.tc_tracking import (
+    TCTrackerVitart,
+    TCTrackerWuDuan,
+)
+from earth2studio.models.dx.wind_gust import WindgustAFNO  # noqa
+
+# TODO: Remove upon physics-nemo update...
+# package turned on logging of warnings in 1.1.0, this is silencing them
+warnings.filterwarnings("ignore")
+warnings.filterwarnings("ignore", category=SyntaxWarning)
+warnings.filterwarnings("ignore", category=DeprecationWarning)
+warnings.filterwarnings("ignore", category=FutureWarning)

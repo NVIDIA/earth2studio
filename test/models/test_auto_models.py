@@ -31,22 +31,25 @@ from earth2studio.models.auto.package import (
     TqdmCallbackRelative,
     TqdmFormat,
 )
-from earth2studio.models.dx import ClimateNet, CorrDiffTaiwan, PrecipitationAFNO
+from earth2studio.models.dx import (
+    ClimateNet,
+    CorrDiffTaiwan,
+    PrecipitationAFNO,
+    PrecipitationAFNOv2,
+    WindgustAFNO,
+)
 from earth2studio.models.px import (
     DLWP,
     FCN,
     SFNO,
+    Aurora,
     FengWu,
     FuXi,
+    InterpModAFNO,
     Pangu3,
     Pangu6,
     Pangu24,
 )
-
-
-@pytest.fixture
-def cache_dir():
-    return Path("./cache").resolve()
 
 
 # @pytest.mark.xfail
@@ -54,6 +57,7 @@ def cache_dir():
 @pytest.mark.parametrize(
     "model",
     [
+        Aurora,
         DLWP,
         FCN,
         FengWu,
@@ -65,12 +69,17 @@ def cache_dir():
         PrecipitationAFNO,
         ClimateNet,
         CorrDiffTaiwan,
+        WindgustAFNO,
+        InterpModAFNO,
+        PrecipitationAFNOv2,
     ],
 )
-def test_auto_model(model, model_cache_context):
+def test_auto_model_download(model, model_cache_context):
     """Automodel download test from remote stores for all models
     This should not be ran in a CI pipeline, rather reserved to periodic testing /
     manual tests. Can also be used to create a complete model cache.
+
+    The cache variable `EARTH2STUDIO_CACHE` should be set before invoking
 
     Parameters
     ----------
@@ -80,7 +89,7 @@ def test_auto_model(model, model_cache_context):
         Context manager that changed cache dir for CI, provided via fixture
     """
     assert issubclass(model, AutoModelMixin), "Model class needs to be an AutoModel"
-    with model_cache_context(EARTH2STUDIO_CACHE="./cache"):
+    with model_cache_context():
         package = model.load_default_package()
         model.load_model(package)
 

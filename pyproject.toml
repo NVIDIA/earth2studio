@@ -21,14 +21,14 @@ dependencies = [
     "huggingface-hub>=0.4.0",
     "loguru",
     "netCDF4>=1.6.4",
-    "ngcsdk>=3.55.0",
+    "ngcsdk>=3.62.0",
     "nest_asyncio", # TODO Remove
     "python-dotenv",
     "s3fs>=2023.5.0",
     "torch>=2.5.0",
     "tqdm>=4.65.0",
     "xarray[parallel]>=2023.1.0",
-    "zarr>=2.14.2",
+    "zarr>=2.14.2,<3.0.0",
     "numcodecs<0.15.0", # TODO: Remove
 ]
 
@@ -66,6 +66,7 @@ perturbation = [
     "torch-harmonics>=0.7.4",
 ]
 statistics = [
+    "onnx-weekly ; python_full_version >= '3.13'",
     "nvidia-physicsnemo>=1.0.1",
 ]
 # PX Models
@@ -81,15 +82,24 @@ aurora-fork = [
     "microsoft-aurora", # optional fork install without timm package version conflict
 ]
 dlwp = [
+    "onnx-weekly ; python_full_version >= '3.13'",
     "nvidia-physicsnemo>=1.0.1",
+    "importlib_metadata",
 ]
 fcn = [
+    "onnx-weekly ; python_full_version >= '3.13'",
     "nvidia-physicsnemo>=1.0.1",
 ]
 fengwu = [
+    "onnx-weekly ; python_full_version >= '3.13'",
     "onnxruntime-gpu>=1.21.0",
 ]
+interp-modafno = [
+    "onnx-weekly ; python_full_version >= '3.13'",
+    "nvidia-physicsnemo>=1.0.1",
+]
 pangu = [
+    "onnx-weekly ; python_full_version >= '3.13'",
     "onnxruntime-gpu>=1.21.0",
 ]
 sfno = [
@@ -97,6 +107,7 @@ sfno = [
     "makani[all]",
     "numba>=0.61.0",
     "pynvml>=12.0.0",
+    "onnx-weekly ; python_full_version >= '3.13'",
     "ruamel-yaml>=0.18.10",
     "tensorly>=0.9.0",
     "tensorly-torch>=0.5.0",
@@ -104,6 +115,7 @@ sfno = [
 ]
 stormcast = [
     "einops>=0.8.1",
+    "onnx-weekly ; python_full_version >= '3.13'",
     "nvidia-physicsnemo>=1.0.1",
     "nvtx>=0.2.11",
     "omegaconf>=2.3.0",
@@ -113,18 +125,33 @@ stormcast = [
 climatenet = []
 corrdiff = [
     "einops>=0.8.1",
+    "onnx-weekly ; python_full_version >= '3.13'",
     "nvidia-physicsnemo>=1.0.1",
     "nvtx>=0.2.11",
     "scipy>=1.15.2",
 ]
+cyclone = [
+    "cucim-cu12>=25.4.0 ; python_full_version < '3.13'",
+    "scikit-image>=0.25.2",
+]
+derived = []
 precip-afno = [
+    "onnx-weekly ; python_full_version >= '3.13'",
+    "nvidia-physicsnemo>=1.0.1",
+]
+precip-afno-v2 = [
+    "onnx-weekly ; python_full_version >= '3.13'",
+    "nvidia-physicsnemo>=1.0.1",
+]
+windgust-afno = [
+    "onnx-weekly ; python_full_version >= '3.13'",
     "nvidia-physicsnemo>=1.0.1",
 ]
 # All, must not have conflicts
 all = [
     "earth2studio[data,perturbation,statistics]",
-    "earth2studio[aurora-fork,dlwp,fcn,fengwu,pangu,sfno,stormcast]",
-    "earth2studio[climatenet,corrdiff,precip-afno]",
+    "earth2studio[aurora-fork,dlwp,fcn,fengwu,interp-modafno,pangu,sfno,stormcast]",
+    "earth2studio[climatenet,corrdiff,precip-afno,cyclone,precip-afno-v2,windgust-afno]",
 ]
 
 # ==== UV configuration ====
@@ -157,13 +184,18 @@ conflicts = [
     [
       { extra = "aurora" },
       { extra = "aurora-fork" },
-    ],
+    ]
 ]
+# Force onnx to only try to install when below 3.13, otherwise we will use onnx weekly
+override-dependencies = ["onnx; python_full_version < '3.13'"]
 
 [tool.uv.sources]
 makani = { git = "https://github.com/NickGeneva/modulus-makani.git", rev = "3da09f9e52a6393839d73d44262779ac7279bc2f" }
-microsoft-aurora = { git = "https://github.com/NickGeneva/aurora", rev = "ab41cf1de67d5dcc723b96fc9a6219e4b548d181" }
+microsoft-aurora = { git = "https://github.com/NickGeneva/aurora.git", rev = "ab41cf1de67d5dcc723b96fc9a6219e4b548d181" }
 graphcast = { git = "https://github.com/deepmind/graphcast.git", rev = "7077d40a36db6541e3ed72ccaed1c0d202fa6014" }
+
+[exclude.uv.workspace]
+members = ["recipes/*"]
 
 [dependency-groups]
 dev = [

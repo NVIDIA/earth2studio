@@ -3,8 +3,8 @@
 Earth2Studio uses Sphinx to build documentation that is hosted on Github pages.
 We have the following philosophies for the three main sections of documentation:
 
-1. API documentation is a requirement. [Interogate](https://github.com/econchick/interrogate)
-is used enforce that all public methods are documented.
+1. API documentation is a requirement. [Interrogate](https://github.com/econchick/interrogate)
+is used to enforce that all public methods are documented.
 
 2. Examples are generated using [sphinx-gallery](https://sphinx-gallery.github.io/stable/index.html)
 and are used as end-to-end tests for the package.
@@ -87,6 +87,8 @@ class Random:
         # ...
 ```
 
+(examples_userguide)=
+
 ## Example Documentation
 
 Examples in Earth2Studio are created with the intent to teach / demonstrate a specific
@@ -98,11 +100,92 @@ The example scripts used to populate the documentation are placed in the
 The python scripts and Jupyter notebooks present on the documentation webpage are auto
 generated using [sphinx-gallery](https://sphinx-gallery.github.io/stable/index.html).
 
+### Definition
+
+Examples demonstrate how to use Earth2Studio APIs.
 Examples should be short and concise, designed to be ran in a short wall-clock time of
 under 10 minutes on a typical data-center level GPU.
 The script must be runnable on a single 32Gb A100 GPU using minimal extra dependencies.
 Additional requirements may be required for running the example inside the CD pipeline,
 which will be addressed on a case-by-case basis.
+
+### Creating a New Example
+
+[JupyText](https://jupytext.readthedocs.io/en/latest/), with the `py:percent` format, is
+used instead of vanilla Jupyter lab notebooks to prevent notebook bloat in the commit
+history.
+Sphinx Gallery will convert these files into notebooks and python files on build.
+To create an example, the best method is to copy an existing example and follow the structure:
+
+```python
+# %%
+"""
+Example Title
+==============
+
+Brief one-liner of what this will do (used on hover of thumbnail in docs)
+
+Then add a more verbose description on a new line here.
+This can be multiply lines with references if needed
+Include a list of the specific unique items this example includes, e.g.
+
+In this example you will learn:
+
+- How to instantiate a built in prognostic model
+- Creating a data source and IO object
+- Running a simple built in workflow
+- Post-processing results
+"""
+
+# %%
+# Set Up
+# ------
+# RST section briefly describing set up of the needed components
+#
+# This should include an explicit list of key features like so, this enable cross-referencing
+# in the API docs.
+#
+# - Prognostic Model: Use the built in FourCastNet Model :py:class:`earth2studio.models.px.FCN`.
+# - Datasource: Pull data from the GFS data api :py:class:`earth2studio.data.GFS`.
+# - IO Backend: Let's save the outputs into a Zarr store :py:class:`earth2studio.io.ZarrBackend`.
+
+# %%
+# Add the following to set up output folder and env variables
+import os
+
+os.makedirs("outputs", exist_ok=True)
+from dotenv import load_dotenv
+
+load_dotenv()  # TODO: make common example prep function
+
+# Import modules and initialize
+
+# %%
+# Execute the Workflow
+# --------------------
+# RST section briefly describing running the inference job
+
+# %%
+import earth2studio.run as run
+
+# Execute inference
+
+# %%
+# Post-Processing
+# ---------------
+# RST section briefly describing what will be plotted
+
+# %%
+import cartopy.crs as ccrs
+import matplotlib.pyplot as plt
+
+# Some post-processing part, save figure to outputs folder
+plt.savefig("outputs/XX_my_example.jpg")
+```
+
+Examples should always have at least one or more graphics.
+The first will always be the thumbnail.
+Animations are not supported.
 
 ## Building Documentation
 
@@ -116,14 +199,14 @@ make docs
 SPHINXBUILD="python -m sphinx.cmd.build" make docs
 ```
 
-For full docs, where all examples are ran use:
+For full docs, where all examples are ran, use:
 
 ```bash
 make docs-full
 ```
 
 Sometimes when developing an example you want to see what the end result looks like.
-For development, its recommend to use the following process:
+For development, it is recommend to use the following process:
 
 ```bash
 # Run this once

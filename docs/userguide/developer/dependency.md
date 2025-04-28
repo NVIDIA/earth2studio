@@ -119,10 +119,11 @@ Traceback (most recent call last):
   File ".../earth2studio/utils/imports.py", line 78, in _wrapper
     _check_dependencies(f"{obj.__module__}.{obj.__name__}")
   File ".../earth2studio/utils/imports.py", line 61, in _check_dependencies
-    raise OptionalDependencyError(extra_name, obj_name)
-earth2studio.utils.imports.OptionalDependencyError: Optional dependency group 'fcn' is
+    raise ExtraDependencyError(extra_name, obj_name)
+earth2studio.utils.imports.ExtraDependencyError: Extra dependency group 'fcn' is
     required for earth2studio.models.px.fcn.load_model.
 Install with: uv pip install earth2studio --extra fcn
+or refer to the install documentation.
 ```
 
 ### Managing Conflicts

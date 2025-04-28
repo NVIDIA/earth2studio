@@ -32,7 +32,7 @@ body:
     attributes:
       label: Version
       description: What version of Earth2Studio are you running?
-      placeholder: "example: 0.5.0"
+      placeholder: "example: 0.6.0"
     validations:
       required: true
 
@@ -42,8 +42,9 @@ body:
       label: On which installation method(s) does this occur?
       multiple: true
       options:
-        - Pip
-        - Source
+        - pip
+        - uv
+        - source
 
   - type: textarea
     id: description

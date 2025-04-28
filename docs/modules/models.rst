@@ -25,17 +25,18 @@ Thus are typically used to generate forecast predictions.
    :toctree: generated/models/px/
    :template: prognostic.rst
 
+   models.px.Aurora
    models.px.DLWP
    models.px.FCN
    models.px.FengWu
    models.px.FuXi
+   models.px.InterpModAFNO
    models.px.Pangu24
    models.px.Pangu6
    models.px.Pangu3
    models.px.Persistence
    models.px.SFNO
    models.px.StormCast
-   models.px.Aurora
 
 .. _earth2studio.models.dx:
 
@@ -60,7 +61,15 @@ etc.
 
    models.dx.CorrDiffTaiwan
    models.dx.ClimateNet
+   models.dx.DerivedRH
+   models.dx.DerivedRHDewpoint
+   models.dx.DerivedVPD
+   models.dx.DerivedWS
    models.dx.PrecipitationAFNO
+   models.dx.PrecipitationAFNOv2
+   models.dx.TCTrackerWuDuan
+   models.dx.TCTrackerVitart
+   models.dx.WindgustAFNO
    models.dx.Identity
 
 :mod:`earth2studio.models`: Utilities
