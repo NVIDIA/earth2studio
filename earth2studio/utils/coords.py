@@ -212,15 +212,15 @@ def map_coords(
     mapped_coords = input_coords.copy()
 
     for key, value in output_coords.items():
-        if (
-            key
-            in [
-                "batch",
-                "time",
-                "lead_time",
-            ]
-            or len(value) == 0
-        ):  # TODO: Need better solution, time is numeric
+        if key in [
+            "batch",
+            "time",
+            "lead_time",
+        ]:  # TODO: Need better solution, time is numeric
+            continue
+
+        # Handling np.empty(0) (free coordinate system)
+        if len(value) == 0:
             continue
 
         if key not in input_coords:
