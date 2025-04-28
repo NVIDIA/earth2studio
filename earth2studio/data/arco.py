@@ -113,7 +113,6 @@ class ARCO:
             else:
                 fs = WholeFileCacheFileSystem(fs=fs, **cache_options)
 
-
         if self.zarr_major_version >= 3:
             # Zarr 3.0+ method
             zstore = zarr.storage.FsspecStore(
