@@ -20,12 +20,11 @@ import hydra
 
 # import pandas as pd
 from dotenv import load_dotenv
-from ensemble_utilities import EnsembleBase
 from loguru import logger
 from omegaconf import DictConfig
 from physicsnemo.distributed import DistributedManager
-from reproduce_utilities import create_base_seed_string
-from utilities import (
+
+from .hens_utilities import (
     initialise,
     initialise_output,
     initialise_perturbation,
@@ -33,6 +32,8 @@ from utilities import (
     update_model_dict,
     write_to_disk,
 )
+from .hens_utilities_ensemble import EnsembleBase
+from .hens_utilities_reproduce import create_base_seed_string
 
 
 @hydra.main(version_base="1.3", config_path="conf", config_name="config")

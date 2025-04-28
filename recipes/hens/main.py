@@ -27,21 +27,31 @@
 #
 # ## This example here
 #
-# In this notebook, we will examine ensemble generation for Hurricane Helene, a tropical cyclone that made landfall in September 2024. The storm posed a challenging case for weather prediction systems and caused widespread impacts across the southeastern United States.
+# In this notebook, we will examine ensemble generation for Hurricane Helene, a tropical
+# cyclone that made landfall in September 2024.
+# The storm posed a challenging case for weather prediction systems and caused
+# widespread impacts across the southeastern United States.
 #
-# The workflow is structured as follows: first, we will set up the most important configurations and initialise key objects, then explore their content. Following this, we will assemble the perturbation before running the inference. Finally, we will visualise the results by plotting the tracks and fields.
+# The workflow is structured as follows: first, we will set up the most important
+# configurations and initialise key objects, then explore their content.
+# Following this, we will assemble the perturbation before running the inference.
+# Finally, we will visualise the results by plotting the tracks and fields.
 #
 # **NOTE**: provide links to download (at least two) checkpoints and skill file.
 #
 # ## Configuring the pipeline
 #
-# The pipeline requires several configuration parameters to be set. We will define the most important ones here and then combine them into a configuration object. The key parameters include:
+# The pipeline requires several configuration parameters to be set.
+# We will define the most important ones here and then combine them into a configuration
+# object.
+#
+# The key parameters include:
 # - `project`: project name used for output file naming
 # - `start_times`: time of initial conditions (multiple ICs can be specified)
 # - `nsteps`: number of forecast steps
 # - `nensemble`: ensemble size **per checkpoint and IC**
 # - `batch_size`: number of forecast steps to run in parallel
-# - `model_packages`: path to the model packages
+# - `model_registry`: path to the registry of model packages
 # - `max_num_checkpoints`: maximum number of checkpoints to use
 #
 
@@ -50,12 +60,10 @@ project = "helene"
 
 start_times = ["2024-09-24 12:00:00"]
 nsteps = 16
-nensemble = 4
-batch_size = 2
+nensemble = 2
+batch_size = 1
 
-model_packages = (
-    "/media/mkoch/9ee63bf8-5a14-4872-86f2-7f16b120269b/hens_data/hens_checkpoints"
-)
+model_registry = "hens_model_registry"
 max_num_checkpoints = 2
 
 output_vars = ["t2m", "u10m", "v10m", "u850", "v850", "msl", "z500"]
@@ -90,7 +98,7 @@ cfg = DictConfig(
         "batch_size": batch_size,  # inference batch size
         "forecast_model": {
             "architecture": "earth2studio.models.px.SFNO",  # forecast model class
-            "package": model_packages,
+            "package": model_registry,
             "max_num_checkpoints": max_num_checkpoints,  # max number of checkpoints which will be used
         },
         "data_source": {"_target_": "earth2studio.data.GFS"},  # data source class
@@ -119,16 +127,15 @@ cfg = DictConfig(
 # %%
 
 import pandas as pd
-
-from .src import EnsembleBase
-from .src.hens_utilities import (
+from src import EnsembleBase
+from src.hens_utilities import (
     initialise,
     initialise_output,
     store_tracks,
     update_model_dict,
     write_to_disk,
 )
-from .src.hens_utilities_reproduce import create_base_seed_string
+from src.hens_utilities_reproduce import create_base_seed_string
 
 (
     ensemble_configs,
@@ -210,12 +217,11 @@ perturbed_var = ["z500"]
 integration_steps = 3
 
 from numpy import datetime64, ndarray
+from src.hens_perturbation import HENSPerturbation
 
 from earth2studio.data import DataSource
 from earth2studio.models.px import PrognosticModel
 from earth2studio.perturbation import Perturbation
-
-from .src.hens_perturbation import HENSPerturbation
 
 
 def initialise_perturbation(
@@ -313,8 +319,6 @@ for pkg, ic, ens_idx, batch_ids_produce in ensemble_configs:
             ic,
             model_dict,
             io_dict,
-            None,
-            None,
         )
 
 # write cyclone tracks to disk
@@ -341,8 +345,7 @@ if "cyclone_tracking" in cfg:
 
 # %%
 import xarray as xr
-
-from .src.plot import extract_tracks_from_csv
+from src.plot import extract_tracks_from_csv
 
 ds = xr.load_dataset("outputs/global/helene_2024-09-24T12_pkg_seed102.nc")
 print(ds)
@@ -366,7 +369,7 @@ ds["t2m"].isel(ensemble=0, lead_time=4, time=0).plot(figsize=(16, 6))
 # close to the actual position of Hurricane Helene and include at least 4 time steps.
 
 # %%
-from .src.plot import ibtracs_helene
+from src.plot import ibtracs_helene
 
 # tracks = pd.read_csv('outputs/global/helene_tracks_rank_000.csv', sep=',')
 track_list, _ = extract_tracks_from_csv(

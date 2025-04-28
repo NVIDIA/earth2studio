@@ -28,10 +28,6 @@ import xarray as xr
 from loguru import logger
 from omegaconf import DictConfig, open_dict
 from physicsnemo.distributed import DistributedManager
-from reproduce_utilities import (
-    ensure_all_torch_seeds_are_unique,
-    get_reproducibility_settings,
-)
 
 from earth2studio.data import DataSource
 from earth2studio.io import IOBackend, KVBackend, XarrayBackend
@@ -41,6 +37,11 @@ from earth2studio.models.px import PrognosticModel
 from earth2studio.perturbation import Perturbation
 from earth2studio.utils.coords import CoordSystem, map_coords
 from earth2studio.utils.time import to_time_array
+
+from .hens_utilities_reproduce import (
+    ensure_all_torch_seeds_are_unique,
+    get_reproducibility_settings,
+)
 
 
 def initialise_perturbation(
@@ -835,8 +836,8 @@ def write_to_disk(
     ic: str,
     model_dict: dict,
     io_dict: IOBackend,
-    writer_threads: list[Future],
-    writer_executor: ThreadPoolExecutor | None,
+    writer_threads: list[Future] = [],
+    writer_executor: ThreadPoolExecutor | None = None,
 ) -> tuple[list[Future], ThreadPoolExecutor | None]:
     """
     method which writes in-memory backends to file.
@@ -851,16 +852,15 @@ def write_to_disk(
         dictionary containing loaded model, its class and its package
     io : IOBackend
         object for data output
-    writer_threads : list[Future]
-        threads for parallel file output
-    writer_executor : ThreadPoolExecutor
-        executor for parallel file output
-    ensemble_idx_base : int
-        initial value for counting ensemble members
+    writer_threads : list[Future], optional
+        threads for parallel file output, by default []
+    writer_executor : ThreadPoolExecutor, optional
+        executor for parallel file output, by default None
+
     Returns
     -------
-    writer_threads: list[Future]
-    writer_executor: ThreadPoolExecutor
+    tuple[list[Future], ThreadPoolExecutor | None]:
+        List of writer threads and executor pool if exists
     """
 
     pkg = model_dict["package"]

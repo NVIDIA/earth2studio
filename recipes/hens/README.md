@@ -368,7 +368,8 @@ python hens.py --config-name=storm_bernd.yaml
 
 ## References
 
-- [Huge Ensembles Part I Paper][hens-paper]
+- [Huge Ensembles Part I: Design of Ensemble Weather Forecasts using Spherical Fourier Neural Operators][hens-paper]
+- [Spherical Fourier Neural Operators](https://arxiv.org/abs/2306.03838)
 - [NERSC Registry][nersc-registry]
 
 <!--Common Links-->
