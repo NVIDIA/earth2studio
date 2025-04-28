@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2024-2025 NVIDIA CORPORATION & AFFILIATES.
 # SPDX-FileCopyrightText: All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from collections.abc import Iterator
+from collections.abc import Generator
 from datetime import datetime
 from math import ceil
 
@@ -88,12 +88,12 @@ class EnsembleBase:
         io_dict: dict[str, IOBackend],
         perturbation: Perturbation,
         output_coords_dict: dict[str, CoordSystem],
-        dx_model_dict: dict[str, DiagnosticModel] | None = None,
+        dx_model_dict: dict[str, DiagnosticModel] = {},
         cyclone_tracking: DiagnosticModel | None = None,
         batch_size: int | None = None,
-        device: torch.device | None = None,
+        device: torch.device = torch.device("cpu"),
         ensemble_idx_base: int = 0,
-        batch_ids_produce: list[int] | None = None,
+        batch_ids_produce: list[int] = [],
         base_seed_string: str = "0",
     ) -> None:
 
@@ -126,21 +126,22 @@ class EnsembleBase:
     def move_models_to_device(
         self,
         prognostic: PrognosticModel,
-        dx_model_dict: DiagnosticModel | None = None,
+        dx_model_dict: dict[str, DiagnosticModel] = {},
         cyclone_tracking: DiagnosticModel | None = None,
-        device: torch.device | None = None,
+        device: torch.device = torch.device("cpu"),
     ) -> None:
-        """
-        Move models to device and obtain their input coordinates.
+        """_summary_
 
         Parameters
         ----------
         prognostic : PrognosticModel
-            forecast model.
-        diagnostic : DiagnosticModel | None
-            diagnostic model [optional]
-        device : torch.device
-            device on which to run inference
+            Forecast model.
+        dx_model_dict : dict[str, DiagnosticModel], optional
+            Diagnostic model dictionary, by default {}
+        cyclone_tracking : DiagnosticModel | None, optional
+            Cyclone tracking diagnostic, by default None
+        device : torch.device, optional
+            PyTorch device, by default torch.device("cpu")
         """
         self.device = (
             device
@@ -159,11 +160,9 @@ class EnsembleBase:
         self.dx_ic_dict = dx_ic_dict
 
         self.cyclone_tracking = cyclone_tracking
-        if cyclone_tracking is not None:
+        if self.cyclone_tracking:
             self.cyclone_tracking.to(self.device)
             self.cyclone_tracking_ic = self.cyclone_tracking.input_coords()
-
-        return
 
     def fetch_ics(
         self,
@@ -251,7 +250,7 @@ class EnsembleBase:
         self.batch_size = min(self.nensemble, batch_size)
         self.number_of_batches = ceil(self.nensemble / self.batch_size)
 
-    def prep_loop(self, batch_id: int) -> tuple[Iterator, int]:
+    def prep_loop(self, batch_id: int) -> tuple[Generator, int, str, int]:
         """
         preparing mini batch for inference by setting ensemble IDs, perturbing
         ICs and creating the inference iterator of the prognostic model.
@@ -263,8 +262,9 @@ class EnsembleBase:
 
         Returns
         -------
-        tuple[Iterator, int]
-            Tuple containing iterator of prognostic model and mini batch size.
+        tuple[Generator, int, str, int]
+            Tuple containing iterator of prognostic model, mini batch size, seed string
+            and PyTorch seed.
         """
 
         # Get fresh batch data

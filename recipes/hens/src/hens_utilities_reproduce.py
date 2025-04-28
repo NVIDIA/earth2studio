@@ -1,3 +1,19 @@
+# SPDX-FileCopyrightText: Copyright (c) 2024-2025 NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import hashlib
 import secrets
 
@@ -48,11 +64,11 @@ def get_reproducibility_settings(cfg: DictConfig) -> tuple[str | int, list[int],
     return base_random_seed, batch_ids_produce, torch_use_deterministic_algorithms
 
 
-def calculate_torch_seed(s):
-    """
-    calculates torch seed based on a given string.
+def calculate_torch_seed(s: str) -> int:
+    """Calculates torch seed based on a given string.
     String s is used as input to sha256 hash algorithm.
-    Output is converted to integer by taking the maximum integer size of torch seed into account.
+    Output is converted to integer by taking the maximum integer size of torch seed
+    into account.
 
     Parameters
     ----------
@@ -69,18 +85,18 @@ def calculate_torch_seed(s):
     return torch_seed
 
 
-def create_base_seed_string(pkg, ic, base_random_seed):
-    """
-    concatenates information of model package name, initial condition time and and base_random seed into one base seed string
+def create_base_seed_string(pkg: str, ic: np.datetime64, base_random_seed: str) -> str:
+    """Concatenates information of model package name, initial condition time and and
+    base_random seed into one base seed string.
 
     Parameters
     ----------
     pkg : str
-        model package name
-    ic : str
-        initial condition time
+        Model package name
+    ic : np.datetime64
+        Initial condition time
     base_random_seed : str
-        base seed string
+        Base seed string
 
     Returns
     -------
@@ -97,9 +113,12 @@ def create_base_seed_string(pkg, ic, base_random_seed):
     return base_seed_string
 
 
-def calculate_all_torch_seeds(base_seed_string, batch_ids):
+def calculate_all_torch_seeds(
+    base_seed_string: str, batch_ids: list[int]
+) -> tuple[np.array, np.array]:
     """
-    calculates all torch random seeds that will be used based on the base_seed_string and the batch_ids
+    calculates all torch random seeds that will be used based on the base_seed_string
+    and the batch_ids
 
     Parameters
     ----------
@@ -127,18 +146,17 @@ def calculate_all_torch_seeds(base_seed_string, batch_ids):
     return full_seed_strings, torch_seeds
 
 
-def check_uniquness_of_torch_seeds(torch_seeds):
-    """
-    checks if all torch seeds are unique
+def check_uniquness_of_torch_seeds(torch_seeds: np.array) -> bool:
+    """Checks if all torch seeds are unique
 
     Parameters
     ----------
     torch_seeds : np.array
-        torch seeds
+        Array of torch seeds
 
     Returns
     -------
-    all_unique: bool
+    bool:
         True if no duplicates of torch seeds were found
 
     """
@@ -155,9 +173,23 @@ def check_uniquness_of_torch_seeds(torch_seeds):
     return all_unique
 
 
-def ensure_all_torch_seeds_are_unique(ensemble_configs, base_random_seed):
-    """
-    checks if all torch seeds based on ensemble_configs and base_random_seed are unique
+def ensure_all_torch_seeds_are_unique(
+    ensemble_configs: list[tuple], base_random_seed: str
+) -> None:
+    """Checks if all torch seeds based on ensemble_configs and base_random_seed are
+    unique
+
+    Parameters
+    ----------
+    ensemble_configs : list[tuple]
+        List of ensemble config objects
+    base_random_seed : str
+        Base seed string
+
+    Raises
+    ------
+    ValueError
+        If the random seeds of all ensembles are not fully unique (duplicates)
     """
     torch_seeds_list = []
     full_seed_string_list = []

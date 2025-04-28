@@ -247,6 +247,7 @@ exclude = []
 "__init__.py" = ["F401"]
 "docs/*.py" = ["F401"]
 "examples/*.py" = ["E402"]
+"recipes/**/main.py" = ["E402"]
 
 # Ignore `S101` (assertions) in all `test` files.
 "test/*.py" = ["S101"]

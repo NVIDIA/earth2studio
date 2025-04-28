@@ -1,24 +1,11 @@
-# Recovering HENS through Parallel Inference using Multiple Checkpoints (Python)
-
-## Table of Contents
-
-- [1. Pipeline overview](#1-pipeline-overview)
-- [2. Prerequisites](#2-prerequisites)
-- [3. Configuring the Pipeline](#3-configuring-the-pipeline)
-- [4. Executing the Pipeline](#4-executing-the-pipeline)
-- [5. Reference Workflows](#5-reference-workflows)
-  - [5.1 Hurricane Helene](#51-hurricane-helene)
-  - [5.2 Reproducing individual Batches of the Helene Ensemble](#52-reproducing-individual-batches-of-the-helene-ensemble)
-  - [5.3 Rain or Shine?](#53-rain-or-shine)
-
-## 1. Method overview
+# Earth2Studio Huge Ensembles (HENS) Recipe
 
 This project implements a multi-checkpoint inference pipeline for large-scale
 ensemble weather forecasting. The pipeline enables parallel processing of multiple
 model checkpoints, providing a flexible framework for uncertainty quantification
 in weather prediction systems.
 
-A key application is the recovery of the HENS (Huge Ensemble) method, as described in
+A key application is the recovery of the HENS method, as described in
 [Huge Ensembles Part I][hens-paper], which provides a calibrated ensemble forecasting
 system based on Spherical Fourier Neural Operators (SFNO). HENS uses customised
 bred vectors for initial condition
@@ -42,26 +29,79 @@ that are demonstrated through various configuration files, as detailed in
 - Tropical cyclone tracking
 - Regional output for efficient data storage
 
-## 2. Prerequisites
+> [!TIP]
+> For a simple example of running the HENS checkpoints, see the dedicated
+> [example](https://nvidia.github.io/earth2studio/examples/11_huge_ensembles.html#sphx-glr-examples-11-huge-ensembles-py)
+> for a basic introduction.
+
+## Prerequisites
+
+### Software
 
 To run HENS, we need to download the pre-trained checkpoints, kindly provided
-by the authors of the method. We also require the skill file for scaling the
-noise vector in the breeding steps of the initial condition (IC) perturbation.
-Optionally, we can pre-download IC data in a file structure compatible with the
-DataArrayDirectory data source.
+by the authors of the method.
+The following command can be used to download the entire model registry from [NERSC][nersc-registry]:
 
-- Download model packages provided by [NERSC][nersc-registry]
+```bash
+wget --recursive --no-parent --no-host-directories \
+--cut-dirs=4 --show-progress --reject="index.html*" \
+--directory-prefix=hens_model_registry \
+https://portal.nersc.gov/cfs/m4416/hens/earth2mip_prod_registry/
+```
 
-  ```bash
-  wget --recursive --no-parent --no-host-directories --cut-dirs=4 \
-    --reject="index.html*" --directory-prefix=hens_model_registry \
-    https://portal.nersc.gov/cfs/m4416/hens/earth2mip_prod_registry/
-  ```
+This recipe also requires the skill file for scaling the noise vector in the breeding
+steps of the initial condition (IC) perturbation.
+This can be downloaded with the following command:
 
-- Download [channel-specific skill][skill-file]
-- Download data [optional, script might be provided]
+```bash
+wget --show-progress \
+--directory-prefix=hens_model_registry \
+https://portal.nersc.gov/cfs/m4416/hens/d2m_sfno_linear_74chq_sc2_layers8_edim620_wstgl2-epoch70_seed16.nc
+```
 
-## 3. Configuring the pipeline
+### Hardware
+
+The HENS checkpoints have a larger memory footprint than other models supported in
+Earth2Studio.
+For the best experience the following hardware specifications are recommended:
+
+- GPU: CUDA Compute Compatability >8.0
+- GPU Memory: >40Gb
+- Storage: >128Gb NVMe SSD
+
+## Quick Start
+
+Add a quick start to get the user running with the user up and running as fast as
+possible, e.g.
+
+Start by installing the required packages with pip:
+
+```bash
+pip install -r requirements.txt
+```
+
+Or set up a uv virtual environment:
+
+```bash
+uv sync
+```
+
+Run the template
+
+```bash
+uv run python main.py
+
+>> Hello
+>> 0.6.0rc0
+
+uv run python main.py print.hello False
+
+>> 0.6.0rc0
+```
+
+## Documentation
+
+### Configuration
 
 The pipeline follows earth2studio's modular design approach. It is highly
 customisable via [instantiating through Hydra][hydra-docs].
@@ -69,7 +109,7 @@ This allows for flexible customisation of components. Additional functionality
 can be provided through custom functions and instantiated via Hydra, as
 demonstrated in the configuration of the HENS perturbation.
 
-### Project Basics
+#### Project Basics
 
 Select a project name to uniquely identify your run. This prevents overwriting
 files from previous runs and helps with organisation. Note that `nensemble`
@@ -96,7 +136,7 @@ ic_block_end: "2022-02-09"   # upper boundary for ICs
 ic_block_step: 48            # number of hours between individual ICs
 ```
 
-### Forecast Model
+#### Forecast Model
 
 The forecast model configuration allows you to specify the model
 architecture for forecasting.
@@ -112,7 +152,7 @@ forecast_model:
     max_num_checkpoints: 1 # max number of checkpoints which will be used
 ```
 
-### Diagnostic Models
+#### Diagnostic Models
 
 Diagnostic models can augment the generated data by deriving additional variables
 from the forecast model output. Multiple diagnostic models can be integrated into
@@ -128,7 +168,7 @@ diagnostic_models:
         architecture: earth2studio.models.dx.PrecipitationAFNO
 ```
 
-### IC Data Source
+#### IC Data Source
 
 The IC data source configuration determines where the pipeline retrieves
 its input data. Earth2studio supports various data sources, including
@@ -140,7 +180,7 @@ data_source:
     _target_: earth2studio.data.NCAR_ERA5
 ```
 
-### IC Perturbation
+#### IC Perturbation
 
 The pipeline supports various perturbation methods for initial conditions.
 While this example demonstrates the HENS perturbation configuration, any
@@ -159,7 +199,7 @@ perturbation:
     integration_steps: 3      # vector breeding steps
 ```
 
-### Tropical Cyclone Tracking
+#### Tropical Cyclone Tracking
 
 Cyclone tracking can be triggered by providing the `cyclone_tracking` section in
 the config. The pipeline utilises `CycloneTrackingVorticity` model.
@@ -174,7 +214,7 @@ cyclone_tracking:
     out_dir: './outputs'
 ```
 
-### Writing Fields to Disk
+#### Writing Fields to Disk
 
 The pipeline supports writing forecast fields to disk through the `file_output` section.
 Users can specify the output directory, select variables for export, and optionally
@@ -211,7 +251,7 @@ file_output:
             lon_max: 310
 ```
 
-## 4. Executing the pipeline
+### Execution
 
 To execute the pipeline, tailor the config file to your needs and run:
 
@@ -234,9 +274,9 @@ To run the pipeline in a multi-GPU or multi-node environment:
 mpirun -n 2 python hens.py --config-name=your_config.yaml
 ```
 
-## 5. Reference Workflows
+### Reference Workflows
 
-### 5.1 Hurricane Helene
+#### Hurricane Helene
 
 [Hurricane Helene][helene-wiki] was a significant tropical cyclone that made landfall
 in September 2024,
@@ -264,7 +304,7 @@ The current configuration uses two checkpoints, one initial condition, and four
 ensemble members per checkpoint-IC pair, resulting in eight ensemble members total.
 You can expand these parameters once the configuration is verified.
 
-### 5.2 Reproducing Individual Batches of the Helene Ensemble
+#### Reproducing Individual Batches of the Helene Ensemble
 
 In large ensemble forecasting scenarios, storing all forecast fields may
 be impractical due to storage constraints. However, you may want to reproduce
@@ -272,7 +312,7 @@ and store specific ensemble batches, particularly those containing interesting
 cyclone tracks. This section explains how to reproduce specific batches of the
 Helene ensemble.
 
-#### Key Considerations
+##### Key Considerations
 
 - Ensemble batches (including perturbations) are generated collectively,
   so individual ensemble members cannot be reproduced in isolation
@@ -280,7 +320,7 @@ Helene ensemble.
 - The configuration must match the original run, except for the file output section
 - A fixed random seed is required to ensure identical initial condition perturbations
 
-#### Steps to Reproduce a Batch
+##### Steps to Reproduce a Batch
 
 1. **Identify the Batch to Reproduce**
    - Determine the batch ID(s) you want to reproduce
@@ -307,7 +347,7 @@ Helene ensemble.
    - The entries should be identical, with only the track ID differing
      (as this depends on the total number of ensemble members)
 
-### 5.3 Rain or Shine?
+#### Rain or Shine?
 
 This example demonstrates the use of diagnostic models in ensemble forecasting,
 using the case of Storm Bernd which caused [widespread flooding across central
@@ -326,9 +366,14 @@ Execute this example by running:
 python hens.py --config-name=storm_bernd.yaml
 ```
 
+## References
+
+- [Huge Ensembles Part I Paper][hens-paper]
+- [NERSC Registry][nersc-registry]
+
+<!--Common Links-->
 [hens-paper]: https://arxiv.org/abs/2408.03100 "Huge Ensembles Part I: Design of Ensemble Weather Forecasts using Spherical Fourier Neural Operators"
 [nersc-registry]: https://portal.nersc.gov/cfs/m4416/hens/earth2mip_prod_registry/
-[skill-file]: https://portal.nersc.gov/cfs/m4416/hens/d2m_sfno_linear_74chq_sc2_layers8_edim620_wstgl2-epoch70_seed16.nc
 [hydra-docs]: https://hydra.cc/docs/advanced/instantiate_objects/overview/
 [helene-wiki]: https://en.wikipedia.org/wiki/Hurricane_Helene
 [bernd-wiki]: https://en.wikipedia.org/wiki/2021_European_flood_event

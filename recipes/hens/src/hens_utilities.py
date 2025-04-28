@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2024-2025 NVIDIA CORPORATION & AFFILIATES.
 # SPDX-FileCopyrightText: All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -18,6 +18,7 @@ import os
 from collections import OrderedDict
 from concurrent.futures import Future, ThreadPoolExecutor
 from functools import partial
+from typing import Any
 
 import hydra
 import numpy as np
@@ -198,7 +199,7 @@ def set_initial_times(cfg: DictConfig) -> list[np.datetime64]:
 
 
 def initialise_output(
-    cfg: DictConfig, time: np.datetime64, model_dict: dict, output_coords_dict
+    cfg: DictConfig, time: np.datetime64, model_dict: dict, output_coords_dict: dict
 ) -> dict[str, IOBackend]:
     """
     Initialise data output.
@@ -233,7 +234,7 @@ def initialise_output(
     - In a distributed setting, only the process with rank 0 creates the necessary directories to avoid race conditions.
     """
     if "file_output" not in cfg:
-        return None
+        return {}
 
     # Create the IO handler, store in memory
     if "path" not in cfg.file_output:
@@ -336,7 +337,20 @@ def pair_packages_ics(
     return configs
 
 
-def initialise(cfg: DictConfig) -> tuple[list, dict, DataSource, OrderedDict]:
+def initialise(
+    cfg: DictConfig,
+) -> tuple[
+    list[Any],
+    dict[Any, Any],
+    dict[Any, Any],
+    Any,
+    Any,
+    dict[str, OrderedDict[Any, Any]],
+    Any,
+    Any,
+    Any,
+    Any,
+]:
     """
     Set initial conditions, load models, and set up file output based on the provided configuration.
 
@@ -524,7 +538,7 @@ def initialize_cropbox(
     cfg: DictConfig,
     lon_coords: np.ndarray[np.float64],
     lat_coords: np.ndarray[np.float64],
-) -> tuple[np.ndarray[np.float64], np.ndarray[np.float64]]:
+) -> dict[str, tuple[np.ndarray[np.float64], np.ndarray[np.float64]]]:
     """
     If cropbox is defined in config this function will assert that ranges are plausible.
     Then it returns reduced versions of the longitude and latitude coordinate arrays that align with the area of interest
@@ -538,12 +552,12 @@ def initialize_cropbox(
         a 1d array containing the longitude values of the grid. ordered ascending
     lat_coords: np.ndarray[np.float64]
         a 1d array containing the latitude values of the grid. ordered descending
+
     Returns
     -------
-    lon_coords: np.ndarray[np.float64]
-        a 1d array containing the longitude values of the subgrid. ordered ascending
-    lat_coords: np.ndarray[np.float64]
-        a 1d array containing the latitude values of the subgrid. ordered descending
+    dict[str, tuple[np.ndarray[np.float64], np.ndarray[np.float64]]]:
+        Dictionary crop region lon and lat coords values of the requested sub grid, lon
+        ordered ascending, lat ordered descending
     """
     coords_dict = {}
     if "file_output" in cfg and "cropboxes" in cfg["file_output"]:
@@ -751,7 +765,7 @@ def update_model_dict(model_dict: dict, package: Package) -> dict:
     return model_dict
 
 
-def store_tracks(area_name: str, tracks: list[pd.DataFrame], cfg: DictConfig) -> None:
+def store_tracks(area_name: str, tracks: pd.DataFrame, cfg: DictConfig) -> None:
     """
     method which writes cyclone tracks to file.
 
@@ -759,7 +773,7 @@ def store_tracks(area_name: str, tracks: list[pd.DataFrame], cfg: DictConfig) ->
     ----------
     area_name : str
         The name of the area for which cyclone tracks are being stored.
-    tracks : list[pd.DataFrame]
+    tracks : pd.DataFrame
         list of tabular data of cyclone tracks
     cfg : DictConfig
         Hydra config object
@@ -886,13 +900,12 @@ def extend_xarray_for_reproducibility(
     io: IOBackend,
     cfg: DictConfig,
     model_dict: dict,
-):
-    """
-    adds meta data to netcdf attributes
+) -> xr.Dataset:
+    """Adds meta data to netcdf attributes
 
     Parameters
     ----------
-    x : xarray.DataSet | xarray.Dataset
+    x : xr.Dataset
         the array that that we want to augment with metadata
     io : IOBackend
         object for data output
@@ -900,11 +913,11 @@ def extend_xarray_for_reproducibility(
         config.
     model_dict : dict
         dictionary containing loaded model, its class and its package
+
     Returns
     -------
-    xarray.DataSet | xarray.Dataset
-        the augmented array
-
+    xr.Dataset
+        The augmented xarray dataset
     """
     batch_ids = [
         get_batchid_from_ensid(cfg.nensemble, cfg.batch_size, ensid)
@@ -919,9 +932,10 @@ def extend_xarray_for_reproducibility(
     return x
 
 
-def initialize_output_structures(cfg: DictConfig):
-    """
-    Initialize data structures for cyclone tracking and file output.
+def initialize_output_structures(
+    cfg: DictConfig,
+) -> tuple[dict[str, list[Any]], ThreadPoolExecutor | None, list[Future]]:
+    """Initialize data structures for cyclone tracking and file output.
 
     This function sets up the necessary data structures based on the provided
     configuration. It initializes a dictionary to store cyclone track data
@@ -958,7 +972,7 @@ def initialize_output_structures(cfg: DictConfig):
     """
 
     if "file_output" in cfg and "cropboxes" in cfg["file_output"]:
-        all_tracks_dict = {}
+        all_tracks_dict: dict[str, list[Any]] = {}
         for k in cfg["file_output"]["cropboxes"].keys():
             all_tracks_dict[k] = []
     else:
@@ -975,9 +989,10 @@ def initialize_output_structures(cfg: DictConfig):
     return all_tracks_dict, writer_executor, writer_threads
 
 
-def get_batchid_from_ensid(nensemble_per_package, batch_size, ensid):
-    """
-    Calculate the gloabl batch ID from a global ensemble member ID (ensid).
+def get_batchid_from_ensid(
+    nensemble_per_package: int, batch_size: int, ensid: int
+) -> int:
+    """Calculate the gloabl batch ID from a global ensemble member ID (ensid).
 
     Parameters
     ----------
@@ -994,7 +1009,6 @@ def get_batchid_from_ensid(nensemble_per_package, batch_size, ensid):
     -------
     int
         The global batch ID corresponding to the given global ensemble member ID.
-
     """
     if batch_size <= 0:
         raise ValueError("batch_size must be greater than zero.")

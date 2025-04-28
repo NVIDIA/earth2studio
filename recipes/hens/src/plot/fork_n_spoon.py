@@ -1,3 +1,19 @@
+# SPDX-FileCopyrightText: Copyright (c) 2024-2025 NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import os
 
 import cartopy.crs as ccrs
@@ -9,7 +25,7 @@ import xarray as xr
 from cartopy.mpl.ticker import LatitudeFormatter, LongitudeFormatter
 
 
-def ibtracs_helene():
+def ibtracs_helene() -> pd.DataFrame:
     """Get the IBTrACS coordinates for Hurricane Helene.
 
     Returns
@@ -143,7 +159,7 @@ def ibtracs_helene():
     return centre_coords
 
 
-def get_file_list(dir):
+def get_file_list(dir: str) -> list[str]:
     """Get a sorted list of CSV files from the specified directory.
 
     Parameters
@@ -153,7 +169,7 @@ def get_file_list(dir):
 
     Returns
     -------
-    list
+    list[str]
         Sorted list of full paths to CSV files
     """
     return sorted(
@@ -162,8 +178,13 @@ def get_file_list(dir):
 
 
 def extract_tracks_from_csv(
-    csv_file: str, ic: str, tc_centres, max_dist, min_len, max_stp
-):
+    csv_file: str,
+    ic: str,
+    tc_centres: pd.DataFrame,
+    max_dist: float,
+    min_len: int,
+    max_stp: int,
+) -> tuple[list, int]:
     """Extract and filter tracks from a CSV file based on initial conditions and TC centers.
 
     Parameters
@@ -225,7 +246,7 @@ def extract_tracks_from_csv(
     return track_list, max_stp
 
 
-def interpolate_track_buildup(track_list, fac):
+def interpolate_track_buildup(track_list: list, fac: int) -> list:
     """Interpolate track points to increase temporal resolution.
 
     Parameters
@@ -252,16 +273,16 @@ def interpolate_track_buildup(track_list, fac):
 
 
 def plot_tracks(
-    track_list,
-    lat_min,
-    lat_max,
-    lon_min,
-    lon_max,
-    dots_per_deg,
+    track_list: list,
+    lat_min: float,
+    lat_max: float,
+    lon_min: float,
+    lon_max: float,
+    dots_per_deg: int,
     alpha: float = 0.7,
     line_width: float = 2,
     max_len: int = 9999,
-):
+) -> tuple[plt.Figure, plt.Axes]:
     """Plot hurricane tracks on a map.
 
     Parameters
@@ -287,7 +308,7 @@ def plot_tracks(
 
     Returns
     -------
-    tuple
+    tuple[plt.Figure, plt.Axes]
         matplotlib Figure and Axes objects
     """
     plt.close("all")
@@ -326,7 +347,9 @@ def plot_tracks(
 
 
 # define plots
-def make_figure(projection: ccrs.Projection = ccrs.PlateCarree()):
+def make_figure(
+    projection: ccrs.Projection = ccrs.PlateCarree(),
+) -> tuple[plt.Figure, plt.Axes]:
     """Create a figure with a map projection and basic geographic features.
 
     Parameters
@@ -336,8 +359,8 @@ def make_figure(projection: ccrs.Projection = ccrs.PlateCarree()):
 
     Returns
     -------
-    tuple
-        matplotlib Figure and Axes objects with configured map projection
+    tuple[plt.Figure, plt.Axes]
+        matplotlib figure and xxes objects with configured map projection
     """
     fig = plt.figure(figsize=(11, 5))
     ax = fig.add_subplot(1, 1, 1, projection=projection)
