@@ -237,7 +237,7 @@ class GraphCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self.mean_by_level = mean_by_level
         self.stddev_by_level = stddev_by_level
         self.prng_key = jax.random.PRNGKey(0)
-        self.inter_method = interp_method
+        self.interp_method = interp_method
 
         self.run_forward = self.load_run_forward_from_checkpoint()
 
