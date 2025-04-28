@@ -16,6 +16,7 @@
 
 import asyncio
 import functools
+import inspect
 import os
 import pathlib
 import shutil
@@ -28,6 +29,8 @@ import nest_asyncio
 import numpy as np
 import xarray as xr
 import zarr
+from fsspec.implementations.asyn_wrapper import AsyncFileSystemWrapper
+from asyncachefs import AsyncCachingFileSystem
 from fsspec.implementations.cached import WholeFileCacheFileSystem
 from loguru import logger
 from tqdm.asyncio import tqdm
@@ -71,24 +74,6 @@ class ARCO:
     def __init__(
         self, cache: bool = True, verbose: bool = True, async_timeout: int = 600
     ):
-        self._cache = cache
-        self._verbose = verbose
-
-        fs = gcsfs.GCSFileSystem(
-            cache_timeout=-1,
-            token="anon",  # noqa: S106 # nosec B106
-            access="read_only",
-            block_size=8**20,
-            # asynchronous=True, # TODO: Enable this when above zarr 3.0
-        )
-
-        if self._cache:
-            cache_options = {
-                "cache_storage": self.cache,
-                "expiry_time": 31622400,  # 1 year
-            }
-            fs = WholeFileCacheFileSystem(fs=fs, **cache_options)
-
         # Check Zarr version and use appropriate method
         try:
             zarr_version = version("zarr")
@@ -96,6 +81,38 @@ class ARCO:
         except Exception:
             # Fallback to older method if version check fails
             self.zarr_major_version = 2  # Assume older version if we can't determine
+
+        self._cache = cache
+        self._verbose = verbose
+
+        nest_asyncio.apply()  # Patch asyncio to work in notebooks
+        try:
+            loop = asyncio.get_event_loop()
+        except RuntimeError:
+            # If no event loop exists, create one
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+
+
+        fs = gcsfs.GCSFileSystem(
+            cache_timeout=-1,
+            token="anon",  # noqa: S106 # nosec B106
+            access="read_only",
+            block_size=8**20,
+            asynchronous=(self.zarr_major_version == 3),
+            loop=loop
+        )
+
+        if self._cache:
+            cache_options = {
+                "cache_storage": self.cache,
+                "expiry_time": 31622400,  # 1 year
+            }
+            if self.zarr_major_version == 3:
+                fs = AsyncCachingFileSystem(fs=fs, **cache_options, asynchronous=True)
+            else:
+                fs = WholeFileCacheFileSystem(fs=fs, **cache_options)
+
 
         if self.zarr_major_version >= 3:
             # Zarr 3.0+ method
@@ -205,7 +222,8 @@ class ARCO:
 
         # Before anything wait until the group gets opened
         if self.zarr_major_version >= 3:
-            self.zarr_group = await self.zarr_group
+            if inspect.isawaitable(self.zarr_group):
+                self.zarr_group = await self.zarr_group
             self.level_coords = await (await self.zarr_group.get("level")).getitem(
                 slice(None)
             )

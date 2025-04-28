@@ -28,8 +28,9 @@ dependencies = [
     "torch>=2.5.0",
     "tqdm>=4.65.0",
     "xarray[parallel]>=2023.1.0",
-    "zarr>=2.14.2,<3.0.0",
+    "zarr>=2.14.2",
     "numcodecs<0.15.0", # TODO: Remove
+    "asyncachefs",
 ]
 
 classifiers = [
@@ -187,6 +188,7 @@ override-dependencies = ["onnx; python_full_version < '3.13'"]
 [tool.uv.sources]
 makani = { git = "https://github.com/NickGeneva/modulus-makani.git", rev = "3da09f9e52a6393839d73d44262779ac7279bc2f" }
 microsoft-aurora = { git = "https://github.com/NickGeneva/aurora.git", rev = "ab41cf1de67d5dcc723b96fc9a6219e4b548d181" }
+asyncachefs = { git = "https://github.com/NickGeneva/asyncachefs.git" }
 
 [exclude.uv.workspace]
 members = ["recipes/*"]
