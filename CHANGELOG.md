@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Added two cyclone trackers and related utilities
 - Added HENS checkpoint example
+- Added Earth2Studio recipes folder, documentation and template
 
 ### Changed
 
@@ -22,6 +23,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed
 
 ### Fixed
+
+- Fixed the asyncio zarr access in the ARCO data source
 
 ### Security
 
