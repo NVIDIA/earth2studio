@@ -29,13 +29,15 @@ import nest_asyncio
 import numpy as np
 import xarray as xr
 import zarr
-from fsspec.implementations.asyn_wrapper import AsyncFileSystemWrapper
-from asyncachefs import AsyncCachingFileSystem
 from fsspec.implementations.cached import WholeFileCacheFileSystem
 from loguru import logger
 from tqdm.asyncio import tqdm
 
-from earth2studio.data.utils import datasource_cache_root, prep_data_inputs
+from earth2studio.data.utils import (
+    AsyncCachingFileSystem,
+    datasource_cache_root,
+    prep_data_inputs,
+)
 from earth2studio.lexicon import ARCOLexicon
 from earth2studio.utils.type import TimeArray, VariableArray
 
@@ -93,14 +95,13 @@ class ARCO:
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
 
-
         fs = gcsfs.GCSFileSystem(
             cache_timeout=-1,
             token="anon",  # noqa: S106 # nosec B106
             access="read_only",
             block_size=8**20,
             asynchronous=(self.zarr_major_version == 3),
-            loop=loop
+            loop=loop,
         )
 
         if self._cache:

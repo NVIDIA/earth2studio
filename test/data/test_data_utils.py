@@ -15,12 +15,14 @@
 # limitations under the License.
 
 import datetime
+import os
 from collections import OrderedDict
 
 import numpy as np
 import pytest
 import torch
 import xarray as xr
+from fsspec.implementations.http import HTTPFileSystem
 
 from earth2studio.data import (
     DataArrayFile,
@@ -29,6 +31,7 @@ from earth2studio.data import (
     fetch_data,
     prep_data_array,
 )
+from earth2studio.data.utils import AsyncCachingFileSystem
 
 
 @pytest.fixture
@@ -285,3 +288,41 @@ def test_datasource_to_file(time, lead_time, backend, tmp_path):
     assert np.all(coords["lat"] == domain["lat"])
     assert np.all(coords["lon"] == domain["lon"])
     assert not torch.isnan(x).any()
+
+
+@pytest.mark.asyncio
+async def test_init_and_cache_dir(tmp_path):
+    fs = HTTPFileSystem()
+    cache_dir = tmp_path / "cache"
+    acfs = AsyncCachingFileSystem(fs=fs, cache_storage=str(cache_dir))
+    assert os.path.exists(cache_dir)
+    assert acfs.fs is fs
+    assert acfs.storage[-1] == str(cache_dir)
+
+
+def test_cache_size(tmp_path):
+    fs = HTTPFileSystem()
+    cache_dir = tmp_path / "cache"
+    acfs = AsyncCachingFileSystem(fs=fs, cache_storage=str(cache_dir))
+
+    # List files in tmp_path
+    files = os.listdir(cache_dir)
+    assert len(files) == 0  # Should only contain cache directory
+
+    # For some reason empty cache has some populated data in it
+    assert acfs.cache_size() == 4096
+
+
+def test_clear_cache(tmp_path):
+    fs = HTTPFileSystem()
+    cache_dir = tmp_path / "cache"
+    acfs = AsyncCachingFileSystem(fs=fs, cache_storage=str(cache_dir))
+    # Create a dummy file in cache
+    dummy_file = os.path.join(cache_dir, "dummy.txt")
+    with open(dummy_file, "w") as f:
+        f.write("test")
+    assert os.path.exists(dummy_file)
+    acfs.clear_cache()
+    # Cache directory should still exist, but file should be gone
+    assert os.path.exists(cache_dir)
+    assert not os.path.exists(dummy_file)
