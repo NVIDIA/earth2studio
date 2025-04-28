@@ -52,7 +52,7 @@ diagnostic_models:
 
 
 cyclone_tracking:
-    out_dir: 'output'       # path to which write cyclone tracks
+    out_dir: 'outputs'       # path to which write cyclone tracks
 
 
 perturbation:
@@ -69,7 +69,7 @@ data_source:
 
 
 file_output:
-    path: 'output'       # directory to which outfiles are written
+    path: 'outputs'       # directory to which outfiles are written
     output_vars: ['t2m', 'u10m', 't850', 'z500','vpd850','vpd500','r500','r850','ws10m','ws850','ws500','ws10m','msl','sp']
     thread_io: False      # write out in seperate thread (needs further testing)
     format:               # io backend class

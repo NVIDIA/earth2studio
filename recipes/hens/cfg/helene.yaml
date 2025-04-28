@@ -39,10 +39,10 @@ data_source:
     _target_: earth2studio.data.GFS  # data source class
 
 cyclone_tracking:
-    out_dir: 'output'
+    out_dir: 'outputs'
 
 file_output:
-    path: 'output'       # directory to which outfiles are written
+    path: 'outputs'       # directory to which outfiles are written
     output_vars: ['t2m', 'u10m', 't850', 'q850', 'z500'] # , 'tp06']
     thread_io: False      # write out in seperate thread (needs further testing)
     format:               # io backend class
