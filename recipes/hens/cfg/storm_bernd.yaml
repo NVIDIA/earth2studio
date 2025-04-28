@@ -51,7 +51,7 @@ data_source:
     _target_: earth2studio.data.GFS  # data source class
 
 file_output:
-    path: './outputs'       # directory to which outfiles are written
+    path: 'output'       # directory to which outfiles are written
     output_vars: ["t2m", 'u10m', 'r500', 'tp']
     thread_io: False      # write out in seperate thread (needs further testing)
     format:               # io backend class

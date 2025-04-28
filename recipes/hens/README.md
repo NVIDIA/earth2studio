@@ -222,7 +222,7 @@ specified by `out_dir`. The tracker supports regional analysis through the
 
 ```yaml
 cyclone_tracking:
-    out_dir: './outputs'
+    out_dir: './output'
 ```
 
 #### Writing Fields to Disk
@@ -267,7 +267,7 @@ file_output:
 To execute the pipeline, tailor the config file to your needs and run:
 
 ```bash
-python hens.py --config-name=your_config.yaml
+python src/hens.py --config-name=your_config.yaml
 ```
 
 The pipeline supports multi-GPU and multi-node execution, with individual inferences
@@ -282,7 +282,7 @@ during inference.
 To run the pipeline in a multi-GPU or multi-node environment:
 
 ```bash
-mpirun -n 2 python hens.py --config-name=your_config.yaml
+mpirun -n 2 python src/hens.py --config-name=your_config.yaml
 ```
 
 ### Reference Workflows
@@ -308,7 +308,7 @@ ensemble members per checkpoint-IC pair.
 Execute the ensemble inference by running:
 
 ```bash
-[mpirun -n XX] python hens.py --config-name=helene.yaml
+[mpirun -n XX] python src/hens.py --config-name=helene.yaml
 ```
 
 The current configuration uses two checkpoints, one initial condition, and four
@@ -350,7 +350,7 @@ Helene ensemble.
 3. **Execute the Reproduction**
 
    ```bash
-   python hens.py --config-name=reproduce_helene_batches.yaml
+   python src/hens.py --config-name=reproduce_helene_batches.yaml
    ```
 
 4. **Verify the Output**
