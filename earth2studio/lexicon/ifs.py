@@ -45,7 +45,7 @@ class IFSLexicon(metaclass=LexiconType):
             "d2m": "2d::sfc::",
             "sp": "sp::sfc::",
             "msl": "msl::sfc::",
-            "tcw": "tcw::sfc::", # 
+            "tcw": "tcw::sfc::",  #
             "tcwv": "tcwv::sfc::",
             "tp": "tp::sfc::",
             "skt": "skt::sfc::",

@@ -104,7 +104,7 @@ Notes: The AIFS model requires additional dependencies for data processing and v
 :::{tab-item} pip
 
 ```bash
-pip install earth2studio[aifs]
+pip install earth2studio[aifs] --no-build-isolation
 ```
 
 :::
