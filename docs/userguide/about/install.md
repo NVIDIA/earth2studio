@@ -122,45 +122,6 @@ uv add earth2studio --extra aurora
 :::
 ::::
 :::::
-:::::{tab-item} FourCastNet
-::::{tab-set}
-:::{tab-item} pip
-
-```bash
-pip install earth2studio[fcn]
-```
-
-:::
-:::{tab-item} uv
-
-```bash
-uv add earth2studio --extra fcn
-```
-
-:::
-::::
-:::::
-:::::{tab-item} FengWu
-Notes: Requires [ONNX GPU Runtime](https://onnxruntime.ai/docs/install/). May need
-manual install depending on CUDA and Python version.
-
-::::{tab-set}
-:::{tab-item} pip
-
-```bash
-pip install earth2studio[fengwu]
-```
-
-:::
-:::{tab-item} uv
-
-```bash
-uv add earth2studio --extra fengwu
-```
-
-:::
-::::
-:::::
 :::::{tab-item} DLWP
 ::::{tab-set}
 :::{tab-item} pip
