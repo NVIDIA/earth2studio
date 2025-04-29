@@ -367,7 +367,6 @@ class DLWP(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         tuple[torch.Tensor, CoordSystem]
             Output tensor and coordinate system 6 hours in the future
         """
-        print(x.shape)
 
         output_coords = self.output_coords(coords)
 
