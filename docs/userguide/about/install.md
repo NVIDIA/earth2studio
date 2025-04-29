@@ -528,6 +528,7 @@ To install a best effort all optional dependencies group, use the following:
 :::{tab-item} uv
 
 ```bash
+uv sync
 uv add earth2studio --extra all
 ```
 
