@@ -22,8 +22,8 @@ Issues = "https://github.com/NVIDIA/earth2studio/issues"
 Changelog = "https://github.com/NVIDIA/earth2studio/blob/main/CHANGELOG.md"
 
 [tool.uv.sources]
-earth2studio = { git = "https://github.com/NVIDIA/earth2studio", rev = "main" }
 omegaconf = { git = "https://github.com/omry/omegaconf.git" }
+earth2studio = { path = "../../", editable = true }
 
 [tool.hatch.build.targets.sdist]
 include = ["src/**/*.py"]

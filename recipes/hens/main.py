@@ -60,7 +60,7 @@ project = "helene"
 
 start_times = ["2024-09-24 12:00:00"]
 nsteps = 8
-nensemble = 2
+nensemble = 4
 batch_size = 1
 
 model_registry = "hens_model_registry"
@@ -76,50 +76,31 @@ out_dir = "./outputs"
 # README in the `11_hens/` folder and explore the configs therein.
 
 # %%
-import os
-import sys
 
 from dotenv import load_dotenv
 from omegaconf import DictConfig
 from physicsnemo.distributed import DistributedManager
 
-sys.path.append(os.path.join(os.getcwd(), "11_hens"))
 load_dotenv()
 DistributedManager.initialize()
 
 # Create the configuration dictionary
-cfg = DictConfig(
-    {
-        "project": project,
-        "random_seed": 377778,
-        "start_times": start_times,
-        "nsteps": nsteps,  # number of forecasting steps
-        "nensemble": nensemble,  # ensemble size per checkpoint
-        "batch_size": batch_size,  # inference batch size
-        "forecast_model": {
-            "architecture": "earth2studio.models.px.SFNO",  # forecast model class
-            "package": model_registry,
-            "max_num_checkpoints": max_num_checkpoints,  # max number of checkpoints which will be used
-        },
-        "data_source": {"_target_": "earth2studio.data.GFS"},  # data source class
-        "cyclone_tracking": {"out_dir": out_dir},
-        "file_output": {
-            "path": out_dir,  # directory to which outfiles are written
-            "output_vars": output_vars,
-            "thread_io": False,  # write out in separate thread
-            "format": {  # io backend class
-                "_target_": "earth2studio.io.NetCDF4Backend",
-                "_partial_": True,
-                "backend_kwargs": {
-                    "mode": "w",
-                    "diskless": False,
-                    "persist": False,
-                    "chunks": {"ensemble": 1, "time": 1, "lead_time": 1},
-                },
-            },
-        },
-    }
-)
+from pathlib import Path
+
+# Read the config from helene.yaml
+cfg_path = Path("cfg/helene.yaml")
+with open(cfg_path) as f:
+    cfg = DictConfig(f.read())
+
+cfg["start_times"] = start_times
+cfg["nsteps"] = nsteps
+cfg["nensemble"] = nensemble
+cfg["batch_size"] = batch_size
+
+cfg["forecast_model"]["package"] = model_registry
+cfg["forecast_model"]["max_num_checkpoints"] = max_num_checkpoints
+
+cfg["file_output"]["output_vars"] = output_vars
 
 # %% [markdown]
 # Next, we initialise the inference:
@@ -347,10 +328,11 @@ import numpy as np
 import xarray as xr
 
 ds = xr.load_dataset(glob.glob("outputs/global/*.nc")[0])
-print(ds)
 
-ds["t2m"].isel(ensemble=0, lead_time=2, time=0).plot(figsize=(16, 6))
-plt.savefig("outputs/helene_24hours.jpg")
+variable = "t2m"
+lead_time = 2
+ds[variable].isel(ensemble=0, lead_time=lead_time, time=0).plot(figsize=(16, 6))
+plt.savefig(f"{out_dir}/helene_{variable}_{int(lead_time*6)}hours.jpg")
 
 # %% [markdown]
 # Now, let's focus on the Gulf of Mexico and plot the tracks of Hurricane Helene.
@@ -386,7 +368,6 @@ for track_file in track_files:
             :
         ].values
 
-        print(lats, lons)
         mask = ~np.isnan(lats) & ~np.isnan(lons)
         if mask.any() and len(lons[mask]) > 2:
             ax.plot(
@@ -397,7 +378,7 @@ for track_file in track_files:
                 transform=ccrs.PlateCarree(),
             )
 
-plt.savefig("outputs/helene_tracks.jpg")
+plt.savefig(f"{out_dir}/helene_tracks.jpg")
 
 # %%
 # variable = "u10m"

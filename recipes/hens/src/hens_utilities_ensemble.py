@@ -335,6 +335,10 @@ class EnsembleBase:
         ):
 
             model, nsamples, full_seed_string, torch_seed = self.prep_loop(batch_id)
+            # If cyclone tracking reset path buffer
+            if self.cyclone_tracking:
+                self.cyclone_tracking.reset_path_buffer()
+
             with tqdm(
                 total=self.nsteps + 1,
                 desc=f"Inferencing batch {batch_id} ({nsamples} samples)",

@@ -374,7 +374,7 @@ class TCTrackerWuDuan(torch.nn.Module, _TCTrackerBase):
     """
 
     def __init__(
-        self, path_search_distance: int = 300, path_search_window_size: int = 3
+        self, path_search_distance: int = 300, path_search_window_size: int = 2
     ) -> None:
         super().__init__()
         self.register_buffer("path_buffer", torch.empty(0))
@@ -711,7 +711,7 @@ class TCTrackerVitart(torch.nn.Module, _TCTrackerBase):
         lat_threshold: float = 60.0,
         exclude_border: bool | int = True,
         path_search_distance: int = 300,
-        path_search_window_size: int = 3,
+        path_search_window_size: int = 2,
     ) -> None:
         super().__init__()
         # TC Center identification parameters

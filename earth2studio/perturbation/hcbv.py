@@ -140,6 +140,7 @@ class HemisphericCentredBredVector:
                 )
                 coords["time"] = data_coords["time"][ii + 1 : ii + 2]
                 xper = xunp + dx
+                # self.force_non_neg(xper[i : i + 1])
 
             # Yield single batches in alternating order to keep perturbation centered
             for i in range(batch_size):
