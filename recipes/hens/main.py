@@ -59,7 +59,7 @@
 project = "helene"
 
 start_times = ["2024-09-24 12:00:00"]
-nsteps = 16
+nsteps = 8
 nensemble = 2
 batch_size = 1
 
@@ -126,12 +126,10 @@ cfg = DictConfig(
 
 # %%
 
-import pandas as pd
 from src import EnsembleBase
 from src.hens_utilities import (
     initialise,
     initialise_output,
-    store_tracks,
     update_model_dict,
     write_to_disk,
 )
@@ -305,12 +303,7 @@ for pkg, ic, ens_idx, batch_ids_produce in ensemble_configs:
     )
 
     # run inference
-    df_tracks_dict, io_dict = run_hens()
-
-    # store tracks
-    for k, v in df_tracks_dict.items():
-        v["ic"] = pd.to_datetime(ic)
-        all_tracks_dict[k].append(v)
+    io_dict = run_hens()
 
     # if in-memory flavour of io backend was chosen, write content to disk now
     if io_dict:
@@ -320,11 +313,6 @@ for pkg, ic, ens_idx, batch_ids_produce in ensemble_configs:
             model_dict,
             io_dict,
         )
-
-# write cyclone tracks to disk
-if "cyclone_tracking" in cfg:
-    for area_name, all_tracks in all_tracks_dict.items():
-        store_tracks(area_name, all_tracks, cfg)
 
 # %% [markdown]
 # After completing the ensemble generation process, the results are stored in the output
@@ -342,46 +330,27 @@ if "cyclone_tracking" in cfg:
 # The track data includes detailed information about the storm's position, intensity,
 # and other relevant meteorological parameters at each time step.
 #
-
-# %%
-import xarray as xr
-from src.plot import extract_tracks_from_csv
-
-ds = xr.load_dataset("outputs/global/helene_2024-09-24T12_pkg_seed102.nc")
-print(ds)
-
-tracks = pd.read_csv("outputs/global/helene_tracks_rank_000.csv", sep=",")
-print("tracks columns:")
-print(list(tracks.columns))
-
-
-# %% [markdown]
 #
 # We will now visualise these results. First, let us have a quick look at the global
 # field after one day.
+# Since the HENS models have a timestep size of 6 hours, the 4th lead time index is
+# the forecast at 24 hours.
 
 # %%
-ds["t2m"].isel(ensemble=0, lead_time=4, time=0).plot(figsize=(16, 6))
 
-# %% [markdown]
-# But let's look at the Hurricane fiedl and draw some tracks. To do so, we start by
-# extracting the tracks from the CSV file. For this, we choose tracks that originate
-# close to the actual position of Hurricane Helene and include at least 4 time steps.
+import glob
 
-# %%
-from src.plot import ibtracs_helene
+import cartopy.crs as ccrs
+import cartopy.feature as cfeature
+import matplotlib.pyplot as plt
+import numpy as np
+import xarray as xr
 
-# tracks = pd.read_csv('outputs/global/helene_tracks_rank_000.csv', sep=',')
-track_list, _ = extract_tracks_from_csv(
-    "outputs/global/helene_tracks_rank_000.csv",
-    ic=start_times[0],
-    tc_centres=ibtracs_helene(),
-    max_dist=2.5,
-    min_len=4,
-    max_stp=nsteps,
-)
+ds = xr.load_dataset(glob.glob("outputs/global/*.nc")[0])
+print(ds)
 
-print(f"found {len(track_list)} tracks")
+ds["t2m"].isel(ensemble=0, lead_time=2, time=0).plot(figsize=(16, 6))
+plt.savefig("outputs/helene_24hours.jpg")
 
 # %% [markdown]
 # Now, let's focus on the Gulf of Mexico and plot the tracks of Hurricane Helene.
@@ -389,109 +358,151 @@ print(f"found {len(track_list)} tracks")
 # first lines in the following cell:
 
 # %%
-variable = "u10m"
-ensemble_member = 1
 
-max_frames = 17  # maximum number of frames to plot
-scale = 1
-
-lat_min, lat_max = 10, 40
-lon_min, lon_max = 250, 300
-
-import cartopy.crs as ccrs
-import cartopy.feature as cfeature
-import matplotlib.animation as animation
-import matplotlib.pyplot as plt
-import numpy as np
-from cartopy.mpl.ticker import LatitudeFormatter, LongitudeFormatter
-
-from .src.plot import make_figure, make_frame
-
-dx = scale * 0.25
-
-countries = cfeature.NaturalEarthFeature(
-    category="cultural",
-    name="admin_0_countries",
-    scale="110m",
-    facecolor="none",
-    edgecolor="black",
-)
-
-# extract region of interest
-reg_ds = ds.sel(
-    lat=list(np.arange(lat_min, lat_max, dx)), lon=list(np.arange(lon_min, lon_max, dx))
-)
-
-time_str = "lead time:"
-projection = ccrs.PlateCarree()
-var_ds = reg_ds[variable]  # np.sqrt(np.square(reg_ds.u10m) + np.square(reg_ds.v10m))
-
-min_val = float(np.min(var_ds[ensemble_member, 0, :, :, :]))
-max_val = float(np.max(var_ds[ensemble_member, 0, :, :, :]))
-
-# make animation
-# %matplotlib inline
-plt.rcParams["animation.html"] = "jshtml"
-fig, ax = make_figure(projection=ccrs.PlateCarree())
-
-_make_frame = make_frame(
-    fig,
-    ax,
-    var_ds,
-    ensemble_member,
-    track_list,
-    max_frames,
-    min_val,
-    max_val,
-    projection,
-    reg_ds,
-    time_str,
-)
-
-
-def animate(frame: int) -> plt.pcolormesh:
-    """Plot helper, todo change to lambda"""
-    return _make_frame(frame)
-
-
-def first_frame() -> plt.pcolormesh:
-    """Plot helper, todo change to lambda"""
-    return _make_frame(-1)
-
-
-ani = animation.FuncAnimation(
-    fig,
-    animate,
-    min(max_frames, var_ds.shape[2]),
-    init_func=first_frame,
-    blit=False,
-    repeat=False,
-    interval=0.1,
-)
+# Create figure with cartopy projection
 plt.close("all")
+plt.figure(figsize=(10, 8))
+projection = ccrs.LambertConformal(
+    central_longitude=280.0, central_latitude=28.0, standard_parallels=(18.0, 38.0)
+)
+ax = plt.axes(projection=projection)
 
-# %% [markdown]
-# And finally, let us draw all the tracks from all eight genereted ensemble members:
+# Add map features
+ax.add_feature(cfeature.COASTLINE)
+ax.add_feature(cfeature.LAND, alpha=0.1)
+ax.gridlines(draw_labels=True, alpha=0.6)
+ax.set_extent([240, 320, 10, 50], crs=ccrs.PlateCarree())
+
+# Plot tracks from each netcdf file in outputs/cyclone
+track_files = glob.glob("outputs/cyclones/*.nc")
+for track_file in track_files:
+    tracks = xr.load_dataarray(track_file)
+    for path in tracks.coords["path_id"]:
+        # Get lat/lon coordinates, filtering out nans
+        lats = tracks.isel(ensemble=0, time=0, lead_time=0, path_id=path, variable=0)[
+            :
+        ].values
+        lons = tracks.isel(ensemble=0, time=0, lead_time=0, path_id=path, variable=1)[
+            :
+        ].values
+
+        print(lats, lons)
+        mask = ~np.isnan(lats) & ~np.isnan(lons)
+        if mask.any() and len(lons[mask]) > 2:
+            ax.plot(
+                lons[mask],
+                lats[mask],
+                color="b",
+                linestyle="-",
+                transform=ccrs.PlateCarree(),
+            )
+
+plt.savefig("outputs/helene_tracks.jpg")
 
 # %%
-plt.close("all")
+# variable = "u10m"
+# ensemble_member = 1
 
-fig = plt.figure(figsize=(11, 5))
-ax = fig.add_subplot(1, 1, 1, projection=projection)
+# max_frames = 17  # maximum number of frames to plot
+# scale = 1
 
-ax.add_feature(cfeature.COASTLINE, lw=0.5)
-ax.add_feature(cfeature.RIVERS, lw=0.5)
-ax.add_feature(cfeature.OCEAN)
-ax.add_feature(cfeature.LAND)
+# lat_min, lat_max = 10, 40
+# lon_min, lon_max = 250, 300
 
-lon_formatter = LongitudeFormatter(zero_direction_label=False)
-lat_formatter = LatitudeFormatter()
-ax.xaxis.set_major_formatter(lon_formatter)
-ax.yaxis.set_major_formatter(lat_formatter)
+# import cartopy.crs as ccrs
+# import cartopy.feature as cfeature
+# import matplotlib.animation as animation
+# import matplotlib.pyplot as plt
+# import numpy as np
+# from cartopy.mpl.ticker import LatitudeFormatter, LongitudeFormatter
 
-# Plot the line in white
-for track in track_list:
-    ax.plot(track["lon"] - 360, track["lat"], color="crimson", linewidth=2, alpha=0.4)
+# from .src.plot import make_figure, make_frame
 
-ax.set_extent([lon_min, lon_max, lat_min, lat_max])
-plt.show()
+# dx = scale * 0.25
+
+# countries = cfeature.NaturalEarthFeature(
+#     category="cultural",
+#     name="admin_0_countries",
+#     scale="110m",
+#     facecolor="none",
+#     edgecolor="black",
+# )
+
+# # extract region of interest
+# reg_ds = ds.sel(
+#     lat=list(np.arange(lat_min, lat_max, dx)), lon=list(np.arange(lon_min, lon_max, dx))
+# )
+
+# time_str = "lead time:"
+# projection = ccrs.PlateCarree()
+# var_ds = reg_ds[variable]  # np.sqrt(np.square(reg_ds.u10m) + np.square(reg_ds.v10m))
+
+# min_val = float(np.min(var_ds[ensemble_member, 0, :, :, :]))
+# max_val = float(np.max(var_ds[ensemble_member, 0, :, :, :]))
+
+# # make animation
+# # %matplotlib inline
+# plt.rcParams["animation.html"] = "jshtml"
+# fig, ax = make_figure(projection=ccrs.PlateCarree())
+
+# _make_frame = make_frame(
+#     fig,
+#     ax,
+#     var_ds,
+#     ensemble_member,
+#     track_list,
+#     max_frames,
+#     min_val,
+#     max_val,
+#     projection,
+#     reg_ds,
+#     time_str,
+# )
+
+
+# def animate(frame: int) -> plt.pcolormesh:
+#     """Plot helper, todo change to lambda"""
+#     return _make_frame(frame)
+
+
+# def first_frame() -> plt.pcolormesh:
+#     """Plot helper, todo change to lambda"""
+#     return _make_frame(-1)
+
+
+# ani = animation.FuncAnimation(
+#     fig,
+#     animate,
+#     min(max_frames, var_ds.shape[2]),
+#     init_func=first_frame,
+#     blit=False,
+#     repeat=False,
+#     interval=0.1,
+# )
+# plt.close("all")
+
+# # %% [markdown]
+# # And finally, let us draw all the tracks from all eight genereted ensemble members:
+
+# # %%
+# plt.close("all")
+
+# fig = plt.figure(figsize=(11, 5))
+# ax = fig.add_subplot(1, 1, 1, projection=projection)
+
+# ax.add_feature(cfeature.COASTLINE, lw=0.5)
+# ax.add_feature(cfeature.RIVERS, lw=0.5)
+# ax.add_feature(cfeature.OCEAN)
+# ax.add_feature(cfeature.LAND)
+
+# lon_formatter = LongitudeFormatter(zero_direction_label=False)
+# lat_formatter = LatitudeFormatter()
+# ax.xaxis.set_major_formatter(lon_formatter)
+# ax.yaxis.set_major_formatter(lat_formatter)
+
+# # Plot the line in white
+# for track in track_list:
+#     ax.plot(track["lon"] - 360, track["lat"], color="crimson", linewidth=2, alpha=0.4)
+
+# ax.set_extent([lon_min, lon_max, lat_min, lat_max])
+# plt.show()

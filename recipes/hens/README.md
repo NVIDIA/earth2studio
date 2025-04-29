@@ -82,33 +82,35 @@ For the best experience the following hardware specifications are recommended:
 
 ## Quick Start
 
-Add a quick start to get the user running with the user up and running as fast as
-possible, e.g.
-
 Start by installing the required packages with pip:
 
 ```bash
+# If using uv package manager
+uv sync
+# Pip
 pip install -r requirements.txt
 ```
 
-Or set up a uv virtual environment:
+The provided JuPyTest python script `main.py` is already set up to run inference
+prdictions for hurricane Helene track ensembles using two of the HENS checkpoints.
+This has comments through out the file documenting the steps used in this recipe.
+Run ensemble inference using the following commands:
 
 ```bash
-uv sync
-```
-
-Run the template
-
-```bash
+# uv package manager
 uv run python main.py
-
->> Hello
->> 0.6.0rc0
-
-uv run python main.py print.hello False
-
->> 0.6.0rc0
+# system python
+python main.py
 ```
+
+For notebook environment, convert the `main.py` into a notebook with:
+
+```bash
+uv run jupytext --to notebook main.py
+```
+
+Output results will be stored in the `outputs` folder.
+For further configuration options, see the following section.
 
 ## Documentation
 
@@ -222,7 +224,7 @@ specified by `out_dir`. The tracker supports regional analysis through the
 
 ```yaml
 cyclone_tracking:
-    out_dir: './output'
+    out_dir: 'output'
 ```
 
 #### Writing Fields to Disk
@@ -241,7 +243,7 @@ enables restricting output to one or more lat/lon regions.
 
 ```yaml
 file_output:
-    path: './outputs'  # directory to which files are written
+    path: 'outputs'  # directory to which files are written
     output_vars: ["t2m", 'u10m', 't850', 'z500'] # variables to write out
     format:               # io backend class
         _target_: earth2studio.io.NetCDF4Backend

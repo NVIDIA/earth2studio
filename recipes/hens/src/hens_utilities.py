@@ -737,8 +737,7 @@ def crop_area(
 
 
 def update_model_dict(model_dict: dict, package: Package) -> dict:
-    """
-    check if model on GPU is same as needed for next inference.
+    """Check if model on GPU is same as needed for next inference.
     If not, load new model package and update model dict.
 
     Parameters
@@ -766,8 +765,7 @@ def update_model_dict(model_dict: dict, package: Package) -> dict:
 
 
 def store_tracks(area_name: str, tracks: pd.DataFrame, cfg: DictConfig) -> None:
-    """
-    method which writes cyclone tracks to file.
+    """Method which writes cyclone tracks to file.
 
     Parameters
     ----------

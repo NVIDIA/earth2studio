@@ -14,12 +14,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
 from collections.abc import Generator
 from datetime import datetime
 from math import ceil
 
 import numpy as np
 import torch
+import xarray as xr
 from loguru import logger
 from tqdm import tqdm
 
@@ -311,22 +313,21 @@ class EnsembleBase:
         return model, mini_batch_size, full_seed_string, torch_seed
 
     @torch.inference_mode()
-    def __call__(self) -> IOBackend:
+    def __call__(self) -> dict[str, IOBackend]:
         """
         Run ensemble inference pipeline with diagnostic model on top
         saving specified variables.
 
         Returns
         -------
-        IOBackend
-            io object containing data of ensemble inference.
+        dict[str, IOBackend]
+            Dictionary of io objects containing data of ensemble inference
         """
         logger.info(
             f"Starting {self.nensemble} Member Ensemble inference with"
             + f" {len(self.batch_ids_produce)} number of batches."
         )
 
-        # tracks_dict = {kk: [] for kk in self.output_coords_dict.keys()}
         for batch_id in tqdm(
             self.batch_ids_produce,
             total=len(self.batch_ids_produce),
@@ -351,7 +352,7 @@ class EnsembleBase:
 
                     if self.cyclone_tracking:
                         # get and collect track elements for each time step
-                        tracks, _ = self.cyclone_tracking(
+                        tracks_tensor, track_coords = self.cyclone_tracking(
                             *map_coords(xx, coords, self.cyclone_tracking_ic)
                         )
 
@@ -365,6 +366,17 @@ class EnsembleBase:
                     if step == self.nsteps:
                         break
 
-        logger.success("Inference complete")
+            # If cyclone tracks add to list of data arrays
+            # TODO: Update to use cfg output
+            if self.cyclone_tracking:
+                # Create DataArray for the tracks
+                tracks_da = xr.DataArray(
+                    data=tracks_tensor.cpu().numpy(),
+                    coords=track_coords,
+                    dims=list(track_coords.keys()),
+                )
+                os.makedirs("outputs/cyclones", exist_ok=True)
+                tracks_da.to_netcdf(f"outputs/cyclones/tracks_batch_{batch_id}.nc")
 
-        return tracks, self.io_dict
+        logger.success("Inference complete")
+        return self.io_dict
