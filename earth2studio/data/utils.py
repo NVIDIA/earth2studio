@@ -645,7 +645,7 @@ class AsyncCachingFileSystem(AsyncFileSystem):
             "uid": await self._ukey(path),
         }
         self._metadata.update_file(path, detail)
-        logger.debug("Copying %s to local cache", path)
+        logger.debug(f"Copying {path} to local cache")
         return fn
 
     @typing.no_type_check
@@ -669,6 +669,7 @@ class AsyncCachingFileSystem(AsyncFileSystem):
                 path_chunked += f"_{start}"
             if end:
                 path_chunked += f"_{end}"
+
             detail = self._check_file(path_chunked)
             if not detail:
                 storepath = await self._make_local_details(path_chunked)

@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import asyncio
 import datetime
 import os
 from collections import OrderedDict
@@ -326,3 +327,46 @@ def test_clear_cache(tmp_path):
     # Cache directory should still exist, but file should be gone
     assert os.path.exists(cache_dir)
     assert not os.path.exists(dummy_file)
+
+
+@pytest.mark.asyncio
+async def test_async_cache_fs_storage_handling(tmp_path):
+    fs = HTTPFileSystem()
+
+    # Test TMP storage
+    cache_fs = AsyncCachingFileSystem(fs=fs, cache_storage="TMP")
+    assert len(cache_fs.storage) == 1
+    assert cache_fs.storage[0] != "TMP"  # Should be converted to actual temp path
+
+    # Test multiple storage locations
+    multi_storage = [str(tmp_path / "cache1"), str(tmp_path / "cache2")]
+    cache_fs = AsyncCachingFileSystem(fs=fs, cache_storage=multi_storage)
+    assert list(cache_fs.storage) == multi_storage
+    assert os.path.exists(multi_storage[-1])
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("expiry_time,wait_time", [(60, 1.0)])
+async def test_async_cache_fs_cache_operations(tmp_path, expiry_time, wait_time):
+    fs = HTTPFileSystem(asynchronous=True)
+    cache_fs = AsyncCachingFileSystem(
+        fs=fs,
+        cache_storage=str(tmp_path),
+        cache_check=0.1,
+        expiry_time=expiry_time,
+        asynchronous=True,
+    )
+
+    # Test cache size calculation
+    initial_size = cache_fs.cache_size()
+    remote_file = "https://raw.githubusercontent.com/NVIDIA/earth2studio/refs/heads/main/README.md"
+    await cache_fs._cat_file(remote_file)
+    await asyncio.sleep(wait_time)
+
+    cache_fs._check_cache()
+
+    assert initial_size < cache_fs.cache_size()
+    assert cache_fs._check_file(remote_file) is not False
+    # Test clear cache
+    cache_fs.clear_cache()
+    assert cache_fs._check_file(remote_file) is False

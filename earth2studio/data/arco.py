@@ -124,7 +124,6 @@ class ARCO:
             self.level_coords = None
         else:
             # Legacy method for Zarr < 3.0
-            # TODO: Remove this option eventually
             logger.warning(
                 "Using Zarr 2.0 method for ARCO, this can be extremely slow with caching!"
             )
