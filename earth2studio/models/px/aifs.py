@@ -400,7 +400,6 @@ class AIFS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             if key not in ["batch", "time"]:
                 handshake_coords(test_coords, target_input_coords, key)
 
-        # Normal forward pass of AIFS, this method returns two time-steps
         output_coords["batch"] = input_coords["batch"]
         output_coords["time"] = input_coords["time"]
 
