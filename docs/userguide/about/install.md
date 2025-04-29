@@ -161,6 +161,85 @@ uv add earth2studio --extra fengwu
 :::
 ::::
 :::::
+:::::{tab-item} DLWP
+::::{tab-set}
+:::{tab-item} pip
+
+```bash
+pip install earth2studio[dlwp]
+```
+
+:::
+:::{tab-item} uv
+
+```bash
+uv add earth2studio --extra dlwp
+```
+
+:::
+::::
+:::::
+:::::{tab-item} DLESyM
+Notes: For all DLESyM models, [Earth2Grid](https://github.com/NVlabs/earth2grid) needs to
+be installed manually.
+
+::::{tab-set}
+:::{tab-item} pip
+
+```bash
+pip install --no-build-isolation "earth2grid @ git+https://github.com/NVlabs/earth2grid@aefb10793aa372bae7d0951d627a89e2983fd0ca"
+pip install earth2studio[dlesym]
+```
+
+:::
+:::{tab-item} uv
+
+```bash
+uv add earth2studio --extra dlesym
+```
+
+:::
+::::
+:::::
+:::::{tab-item} FourCastNet
+::::{tab-set}
+:::{tab-item} pip
+
+```bash
+pip install earth2studio[fcn]
+```
+
+:::
+:::{tab-item} uv
+
+```bash
+uv add earth2studio --extra fcn
+```
+
+:::
+::::
+:::::
+:::::{tab-item} FengWu
+Notes: Requires [ONNX GPU Runtime](https://onnxruntime.ai/docs/install/). May need
+manual install depending on CUDA and Python version.
+
+::::{tab-set}
+:::{tab-item} pip
+
+```bash
+pip install earth2studio[fengwu]
+```
+
+:::
+:::{tab-item} uv
+
+```bash
+uv add earth2studio --extra fengwu
+```
+
+:::
+::::
+:::::
 :::::{tab-item} FuXi
 Notes: Requires [ONNX GPU Runtime](https://onnxruntime.ai/docs/install/). May need
 manual install depending on CUDA version.

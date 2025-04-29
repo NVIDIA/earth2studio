@@ -186,11 +186,13 @@ conflicts = [
       { extra = "aurora-fork" },
     ]
 ]
+# Needed for some packages that build with PEP 518
+no-build-isolation-package = ["earth2grid"]
 # Force onnx to only try to install when below 3.13, otherwise we will use onnx weekly
 override-dependencies = ["onnx; python_full_version < '3.13'"]
 
 [tool.uv.sources]
-earth2grid = { git = "https://github.com/NVlabs/earth2grid.git", rev = "main" }
+earth2grid = { git = "https://github.com/NVlabs/earth2grid.git", rev = "aefb10793aa372bae7d0951d627a89e2983fd0ca" }
 makani = { git = "https://github.com/NickGeneva/modulus-makani.git", rev = "3da09f9e52a6393839d73d44262779ac7279bc2f" }
 microsoft-aurora = { git = "https://github.com/NickGeneva/aurora.git", rev = "ab41cf1de67d5dcc723b96fc9a6219e4b548d181" }
 

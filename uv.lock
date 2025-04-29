@@ -1080,7 +1080,7 @@ wheels = [
 [[package]]
 name = "earth2grid"
 version = "2025.4.1"
-source = { git = "https://github.com/NVlabs/earth2grid.git?rev=main#aefb10793aa372bae7d0951d627a89e2983fd0ca" }
+source = { git = "https://github.com/NVlabs/earth2grid.git?rev=aefb10793aa372bae7d0951d627a89e2983fd0ca#aefb10793aa372bae7d0951d627a89e2983fd0ca" }
 dependencies = [
     { name = "einops" },
     { name = "netcdf4" },
@@ -1269,8 +1269,8 @@ requires-dist = [
     { name = "cftime" },
     { name = "cucim-cu12", marker = "python_full_version < '3.13' and extra == 'all'", specifier = ">=25.4.0" },
     { name = "cucim-cu12", marker = "python_full_version < '3.13' and extra == 'cyclone'", specifier = ">=25.4.0" },
-    { name = "earth2grid", marker = "extra == 'all'", git = "https://github.com/NVlabs/earth2grid.git?rev=main" },
-    { name = "earth2grid", marker = "extra == 'dlesym'", git = "https://github.com/NVlabs/earth2grid.git?rev=main" },
+    { name = "earth2grid", marker = "extra == 'all'", git = "https://github.com/NVlabs/earth2grid.git?rev=aefb10793aa372bae7d0951d627a89e2983fd0ca" },
+    { name = "earth2grid", marker = "extra == 'dlesym'", git = "https://github.com/NVlabs/earth2grid.git?rev=aefb10793aa372bae7d0951d627a89e2983fd0ca" },
     { name = "eccodes", marker = "extra == 'all'", specifier = ">=2.38.0" },
     { name = "eccodes", marker = "extra == 'data'", specifier = ">=2.38.0" },
     { name = "ecmwf-opendata", marker = "extra == 'all'", specifier = ">=0.3.3" },
