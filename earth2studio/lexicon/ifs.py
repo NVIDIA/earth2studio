@@ -45,13 +45,14 @@ class IFSLexicon(metaclass=LexiconType):
             "d2m": "2d::sfc::",
             "sp": "sp::sfc::",
             "msl": "msl::sfc::",
+            "tcw": "tcw::sfc::", # 
             "tcwv": "tcwv::sfc::",
             "tp": "tp::sfc::",
             "skt": "skt::sfc::",
             "slor": "slor::sfc::",
             "sdor": "sdor::sfc::",
-            "lsm": "lsm::sfc::",  # Should I remove this? Helps with debugging but not sure if it's needed
-            "zsl": "z::sfc::",  # Same comment as above
+            "lsm": "lsm::sfc::",
+            "zsl": "z::sfc::",
         }
         soil_variables = {
             "swvl1": "vsw::sl::1",

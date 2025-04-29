@@ -30,121 +30,100 @@ from earth2studio.utils.type import CoordSystem
 
 VARIABLES = [
     "q50",
-    "q100",
-    "q150",
-    "q200",
-    "q250",
-    "q300",
-    "q400",
-    "q500",
-    "q600",
-    "q700",
-    "q850",
-    "q925",
-    "q1000",
-    "t50",
-    "t100",
-    "t150",
-    "t200",
-    "t250",
-    "t300",
-    "t400",
-    "t500",
-    "t600",
-    "t700",
-    "t850",
-    "t925",
-    "t1000",
-    "u50",
-    "u100",
-    "u150",
-    "u200",
-    "u250",
-    "u300",
-    "u400",
-    "u500",
-    "u600",
-    "u700",
-    "u850",
-    "u925",
-    "u1000",
-    "v50",
-    "v100",
-    "v150",
-    "v200",
-    "v250",
-    "v300",
-    "v400",
-    "v500",
-    "v600",
-    "v700",
-    "v850",
-    "v925",
-    "v1000",
-    "w50",
-    "w100",
-    "w150",
-    "w200",
-    "w250",
-    "w300",
-    "w400",
-    "w500",
-    "w600",
-    "w700",
-    "w850",
-    "w925",
-    "w1000",
-    "z50",
-    "z100",
-    "z150",
-    "z200",
-    "z250",
-    "z300",
-    "z400",
-    "z500",
-    "z600",
-    "z700",
-    "z850",
-    "z925",
-    "z1000",
-    "u10m",
-    "v10m",
-    "d2m",
-    "t2m",
-    "lsm",
-    "msl",
-    "sdor",
-    "skt",
-    "slor",
-    "sp",
-    "tcwv",
-    "zsl",
-    "stl1",
-    "stl2",
-    "swvl1",
-    "swvl2",
+    "q100",   
+    "q150",   
+    "q200",   
+    "q250",   
+    "q300",   
+    "q400",   
+    "q500",   
+    "q600",   
+    "q700",   
+    "q850",   
+    "q925",   
+    "q1000",  
+    "t50",    
+    "t100",   
+    "t150",   
+    "t200",   
+    "t250",   
+    "t300",   
+    "t400",   
+    "t500",   
+    "t600",   
+    "t700",   
+    "t850",   
+    "t925",   
+    "t1000",  
+    "u50",    
+    "u100",   
+    "u150",   
+    "u200",   
+    "u250",   
+    "u300",   
+    "u400",   
+    "u500",   
+    "u600",   
+    "u700",   
+    "u850",   
+    "u925",   
+    "u1000",  
+    "v50",    
+    "v100",   
+    "v150",   
+    "v200",   
+    "v250",   
+    "v300",   
+    "v400",   
+    "v500",   
+    "v600",   
+    "v700",   
+    "v850",   
+    "v925",   
+    "v1000",  
+    "w50",    
+    "w100",   
+    "w150",   
+    "w200",   
+    "w250",   
+    "w300",   
+    "w400",   
+    "w500",   
+    "w600",   
+    "w700",   
+    "w850",   
+    "w925",   
+    "w1000",  
+    "z50",    
+    "z100",   
+    "z150",   
+    "z200",   
+    "z250",   
+    "z300",   
+    "z400",   
+    "z500",   
+    "z600",   
+    "z700",   
+    "z850",   
+    "z925",   
+    "z1000",  
+    "u10m",   
+    "v10m",   
+    "d2m",    
+    "t2m",    
+    "lsm",    
+    "msl",    
+    "sdor",   
+    "skt",    
+    "slor",   
+    "sp",     
+    "tcw",    
+    "zsl",    
+    "stl1",   
+    "stl2",   
+    "swvl1",  
+    "swvl2",  
 ]
-
-##########################################3
-# Remove after debugging
-##########################################3
-# import matplotlib.pyplot as plt
-# import cartopy.crs as ccrs
-# import cartopy.feature as cfeature
-# import matplotlib.tri as tri
-#
-# def plot_field(latitudes, longitudes, values, title):
-#    def fix(lons):
-#        # Shift the longitudes from 0-360 to -180-180
-#        return np.where(lons > 180, lons - 360, lons)
-#    fig, ax = plt.subplots(figsize=(11, 6), subplot_kw={"projection": ccrs.PlateCarree()})
-#    ax.coastlines()
-#    ax.add_feature(cfeature.BORDERS, linestyle=":")
-#    triangulation = tri.Triangulation(fix(longitudes), latitudes)
-#    contour=ax.tricontourf(triangulation, values, levels=20, transform=ccrs.PlateCarree(), cmap="RdBu")
-#    cbar = fig.colorbar(contour, ax=ax, orientation="vertical", shrink=0.7, label="100u")
-#    plt.title(title)
-#    plt.show()
 
 
 class AIFS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
@@ -451,7 +430,6 @@ class AIFS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         model = torch.load(
             model_path, weights_only=False, map_location=torch.ones(1).device
         )
-        model.to(dtype=torch.bfloat16)
         model.eval()
 
         # Define the path to the metadata file
@@ -490,7 +468,7 @@ class AIFS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             col_indices=torch.from_numpy(interpolation_matrix["indices"]),
             values=torch.from_numpy(interpolation_matrix["data"]),
             size=(interpolation_matrix["shape"][0], interpolation_matrix["shape"][1]),
-            dtype=torch.float32,
+            dtype=torch.float64,
         )
         inverse_interpolation_package = Package(
             "https://get.ecmwf.int/repository/earthkit/regrid/db/1/mir_16_linear/",
@@ -513,7 +491,7 @@ class AIFS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 inverse_interpolation_matrix["shape"][0],
                 inverse_interpolation_matrix["shape"][1],
             ),
-            dtype=torch.float32,
+            dtype=torch.float64,
         )
 
         return cls(
@@ -636,7 +614,9 @@ class AIFS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         x = x.flatten(start_dim=4)
         x = x.flatten(end_dim=3)
         x = torch.swapaxes(x, 0, -1)
+        x = x.to(dtype=torch.float64)
         x = self.interpolation_matrix @ x
+        x = x.to(dtype=torch.float32)
         x = torch.swapaxes(x, 0, -1)
         x = x.reshape([shape[0] * shape[1], shape[2], shape[3], -1])
         x = torch.swapaxes(x, 2, 3)
@@ -699,7 +679,6 @@ class AIFS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             ],
             dim=3,
         )
-        # ], dim=3).to(torch.bfloat16)
 
         return x
 
@@ -717,25 +696,25 @@ class AIFS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         # Get cos, sin of Julian day
         cos_julian_day, sin_julian_day = self.get_cos_sin_julian_day(
-            coords["time"][0], self.longitudes
+            coords["time"][0] + coords["lead_time"][0], self.longitudes
         )
 
         # Get cos, sin of local time
         cos_local_time, sin_local_time = self.get_cos_sin_local_time(
-            coords["time"][0], self.longitudes
+            coords["time"][0] + coords["lead_time"][0], self.longitudes
         )
 
         # Get cosine zenith angle
         cos_zenith_angle = self.get_cosine_zenith_fields(
-            coords["time"][0], self.latitudes, self.longitudes
+            coords["time"][0] + coords["lead_time"][0], self.latitudes, self.longitudes
         )
 
         # Add terms to x
-        x[..., 94:95] = cos_julian_day
-        x[..., 95:96] = cos_local_time
-        x[..., 96:97] = sin_julian_day
-        x[..., 97:98] = sin_local_time
-        x[..., 98:99] = cos_zenith_angle
+        x[:, 1:2, :, 94:95] = cos_julian_day
+        x[:, 1:2, :, 95:96] = cos_local_time
+        x[:, 1:2, :, 96:97] = sin_julian_day
+        x[:, 1:2, :, 97:98] = sin_local_time
+        x[:, 1:2, :, 98:99] = cos_zenith_angle
 
         return x
 
@@ -747,12 +726,17 @@ class AIFS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         """Prepare input tensor and coordinates for the AIFS model."""
 
         # Interpolate the model grid to the lat lon grid
+        shape = x.shape
         x = x[:, 1:2]
         x = x.flatten(end_dim=1)
         x = torch.swapaxes(x, 0, 1)
         x = x.flatten(start_dim=1)
+        x = x.to(dtype=torch.float64)
         x = self.inverse_interpolation_matrix @ x
+        x = x.to(dtype=torch.float32)
+        x = torch.reshape(x, [x.shape[0], shape[0], shape[-1]])
         x = torch.swapaxes(x, 0, 1)
+        x = torch.swapaxes(x, 1, 2)
         x = torch.reshape(
             x,
             [
@@ -774,7 +758,8 @@ class AIFS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         coords: CoordSystem,
     ) -> tuple[torch.Tensor, CoordSystem]:
         output_coords = self.output_coords(coords)
-        y = self.model.predict_step(x)
+        with torch.autocast(device_type=str(x.device), dtype=torch.float16):
+            y = self.model.predict_step(x)
         return y, output_coords
 
     @batch_func()

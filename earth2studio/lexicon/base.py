@@ -37,6 +37,7 @@ E2STUDIO_VOCAB = {
     "sp": "surface pressure",
     "msl": "mean sea level pressure",
     "tcwv": "total column water vapor / precipitable water (kg m-2)",
+    "tcw": "total column water vapor (kg m-2)",
     "tp": "total precipitation (m)",
     "tpp": "total precipitation probability",
     "tpi": "total precipitation index",
