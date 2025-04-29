@@ -190,6 +190,7 @@ conflicts = [
 ]
 # Force onnx to only try to install when below 3.13, otherwise we will use onnx weekly
 override-dependencies = ["onnx; python_full_version < '3.13'"]
+no-build-isolation-package = ["flash-attn"]
 
 [tool.uv.sources]
 makani = { git = "https://github.com/NickGeneva/modulus-makani.git", rev = "3da09f9e52a6393839d73d44262779ac7279bc2f" }
