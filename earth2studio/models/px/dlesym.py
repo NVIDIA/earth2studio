@@ -17,7 +17,6 @@
 from collections import OrderedDict
 from collections.abc import Generator, Iterator
 from pathlib import Path
-from typing import Any
 
 import numpy as np
 import torch
@@ -33,10 +32,9 @@ except ImportError:
     OmegaConf = None
     earth2grid = None
 from earth2studio.models.auto import AutoModelMixin, Package
-from earth2studio.models.batch import batch_coords, batch_func
 from earth2studio.models.px.base import PrognosticModel
 from earth2studio.models.px.utils import PrognosticMixin
-from earth2studio.utils import check_extra_imports
+from earth2studio.utils import check_extra_imports, handshake_coords, handshake_dim
 from earth2studio.utils.type import CoordSystem
 
 _ATMOS_VARIABLES = [
@@ -237,6 +235,44 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         )
         self.ocean_coupling_times = self.atmos_output_times
 
+        # Setup the lead time indices for [atmos, ocean] [input, coupled input, output]
+        in_coords = self.input_coords()
+        out_coords = self.output_coords(in_coords)
+        self.atmos_input_lt_idx = [
+            list(in_coords["lead_time"]).index(t) for t in self.atmos_input_times
+        ]
+        self.ocean_input_lt_idx = [
+            list(in_coords["lead_time"]).index(t) for t in self.ocean_input_times
+        ]
+        self.atmos_coupled_input_lt_idx = [
+            list(in_coords["lead_time"]).index(t) for t in self.atmos_coupling_times
+        ]
+        self.ocean_coupled_input_lt_idx = [
+            list(out_coords["lead_time"]).index(t) for t in self.ocean_coupling_times
+        ]
+        self.atmos_output_lt_idx = [
+            list(out_coords["lead_time"]).index(t) for t in self.atmos_output_times
+        ]
+        self.ocean_output_lt_idx = [
+            list(out_coords["lead_time"]).index(t) for t in self.ocean_output_times
+        ]
+
+        # Setup the variable indices for [atmos, ocean]
+        self.atmos_var_idx = [
+            list(in_coords["variable"]).index(var) for var in self.atmos_variables
+        ]
+        self.ocean_var_idx = [
+            list(in_coords["variable"]).index(var) for var in self.ocean_variables
+        ]
+        self.atmos_coupling_var_idx = [
+            list(in_coords["variable"]).index(var)
+            for var in self.atmos_coupling_variables
+        ]
+        self.ocean_coupling_var_idx = [
+            list(in_coords["variable"]).index(var)
+            for var in self.ocean_coupling_variables
+        ]
+
     def input_coords(self) -> CoordSystem:
         """Input coordinate system of the prognostic model
 
@@ -257,7 +293,7 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             }
         )
 
-    @batch_coords()
+    # @batch_coords()
     def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
         """Output coordinate system of the prognostic model
 
@@ -284,6 +320,17 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             }
         )
 
+        test_coords = input_coords.copy()
+        test_coords["lead_time"] = (
+            test_coords["lead_time"] - input_coords["lead_time"][-1]
+        )
+
+        target_input_coords = self.input_coords()
+        for i, key in enumerate(target_input_coords):
+            if key not in ["batch", "time"]:
+                handshake_dim(test_coords, key, i)
+                handshake_coords(test_coords, target_input_coords, key)
+
         output_coords["batch"] = input_coords["batch"]
         output_coords["time"] = input_coords["time"]
         output_coords["lead_time"] = (
@@ -309,7 +356,22 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         atmos_model_idx: int = 0,
         ocean_model_idx: int = 0,
     ) -> PrognosticModel:
-        """Load prognostic from package"""
+        """Load prognostic from package
+
+        Parameters
+        ----------
+        package : Package
+            Package to load model from
+        atmos_model_idx : int
+            Index of atmos model weights in package to load
+        ocean_model_idx : int
+            Index of ocean model weights in package to load
+
+        Returns
+        -------
+        PrognosticModel
+            Prognostic model
+        """
 
         cfg_file = Path(package.resolve("config.yaml"))
         cfg = OmegaConf.load(cfg_file)
@@ -387,7 +449,7 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     def prepare_input_data(
         self, x: torch.Tensor, coords: CoordSystem
-    ) -> tuple[torch.Tensor, torch.Tensor]:
+    ) -> tuple[list[torch.Tensor], list[torch.Tensor]]:
         """Prepare input data for the atmos and ocean models.
         From the data in `x`, we will build a list of tensors for each model.
         Assumes `x` is a tensor of shape (batch, time, lead_time, variable, face, height, width).
@@ -426,26 +488,10 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         x = x.reshape(-1, *x.shape[2:])
 
-        # Use coords with lead time relative to the input time for variable selection
-        ocean_var_idx = [
-            list(coords["variable"]).index(var) for var in self.ocean_variables
-        ]
-        atmos_var_idx = [
-            list(coords["variable"]).index(var) for var in self.atmos_variables
-        ]
-        atmos_lead_time_idx = [
-            list(coords["lead_time"]).index(t)
-            for t in self.atmos_input_times + coords["lead_time"][-1]
-        ]
-        ocean_lead_time_idx = [
-            list(coords["lead_time"]).index(t)
-            for t in self.ocean_input_times + coords["lead_time"][-1]
-        ]
-
         # Atmos inputs: state, insolation, constants, coupled inputs
-        atmos_state = x[:, atmos_lead_time_idx][..., atmos_var_idx, :, :, :].permute(
-            0, 3, 1, 2, 4, 5
-        )
+        atmos_state = x[:, self.atmos_input_lt_idx][
+            ..., self.atmos_var_idx, :, :, :
+        ].permute(0, 3, 1, 2, 4, 5)
         atmos_insolation = self._make_insolation_tensor(
             anchor_times=stacked_times,
             timedeltas=self.atmos_sol_times + coords["lead_time"][-1],
@@ -459,10 +505,10 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         )
 
         # Ocean inputs: state, insolation, constants, coupled inputs
-        # Coupling is set to None as the ocean coupling comes after the atmos model forward pass
-        ocean_state = x[:, ocean_lead_time_idx][..., ocean_var_idx, :, :, :].permute(
-            0, 3, 1, 2, 4, 5
-        )
+        # Coupling is not set as the ocean coupling comes after the atmos model forward pass
+        ocean_state = x[:, self.ocean_input_lt_idx][
+            ..., self.ocean_var_idx, :, :, :
+        ].permute(0, 3, 1, 2, 4, 5)
         ocean_insolation = self._make_insolation_tensor(
             anchor_times=stacked_times,
             timedeltas=self.ocean_sol_times + coords["lead_time"][-1],
@@ -502,7 +548,7 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             Output data
         """
 
-        output_data = torch.zeros(
+        output_data = torch.empty(
             (
                 len(coords["batch"]),
                 len(coords["time"]),
@@ -525,21 +571,11 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             len(coords["batch"]), len(coords["time"]), *ocean_outputs.shape[1:]
         )
 
-        ocean_lead_time_idx = [
-            list(self.atmos_output_times).index(t) for t in self.ocean_output_times
-        ]
-        atmos_var_idx = [
-            list(coords["variable"]).index(var) for var in self.atmos_variables
-        ]
-        ocean_var_idx = [
-            list(coords["variable"]).index(var) for var in self.ocean_variables
-        ]
-
-        output_data[:, :, :, atmos_var_idx, :, :, :] = atmos_outputs
-        for src_idx, dst_idx in enumerate(ocean_var_idx):
-            output_data[:, :, ocean_lead_time_idx, dst_idx, :, :, :] = ocean_outputs[
-                :, :, :, src_idx, :, :, :
-            ]
+        output_data[:, :, :, self.atmos_var_idx, :, :, :] = atmos_outputs
+        for src_idx, dst_idx in enumerate(self.ocean_var_idx):
+            output_data[:, :, self.ocean_output_lt_idx, dst_idx, :, :, :] = (
+                ocean_outputs[:, :, :, src_idx, :, :, :]
+            )
 
         return output_data
 
@@ -548,6 +584,7 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self, anchor_times: np.ndarray, timedeltas: np.ndarray
     ) -> torch.Tensor:
         """Make insolation tensor from anchor times and timedeltas
+
         Parameters
         ----------
         anchor_times : np.ndarray
@@ -595,15 +632,8 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             Atmos coupling tensor: shape (lead_time, batch, variable, face, height, width)
         """
 
-        atmos_coupling_channel_idx = [
-            list(coords["variable"]).index(var) for var in self.atmos_coupling_variables
-        ]
-        atmos_coupling_lead_time_idx = [
-            list(coords["lead_time"]).index(t)
-            for t in self.atmos_coupling_times + coords["lead_time"][-1]
-        ]
-        atmos_coupling = x[:, atmos_coupling_lead_time_idx][
-            ..., atmos_coupling_channel_idx, :, :, :
+        atmos_coupling = x[:, self.atmos_coupled_input_lt_idx][
+            ..., self.atmos_coupling_var_idx, :, :, :
         ].permute(1, 0, 2, 3, 4, 5)
 
         return atmos_coupling
@@ -629,10 +659,7 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         """
 
         # Subselect the ocean coupling variables -- we use all atmos lead times here so we can average over them
-        ocean_coupling_channel_idx = [
-            list(coords["variable"]).index(var) for var in self.ocean_coupling_variables
-        ]
-        ocean_coupling = x[:, :, :, ocean_coupling_channel_idx, :, :]
+        ocean_coupling = x[:, :, :, self.ocean_coupling_var_idx, :, :]
 
         # Slice along the lead_time dim, average, and stack along the variable dim
         # (different time-averaged quantities are defined as different variables)
@@ -655,7 +682,7 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     def retrieve_valid_ocean_outputs(
         self, x: torch.Tensor, coords: CoordSystem
-    ) -> torch.Tensor:
+    ) -> tuple[torch.Tensor, CoordSystem]:
         """Retrieve the valid ocean model outputs from an output data tensor.
         Because we use a dense grid of output times for the coupled model, some of the output times
         for the ocean model may not be valid because it takes a coarser time-step.
@@ -682,21 +709,15 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             [t for t in coords["lead_time"] if t % self.ocean_output_times[0] == 0]
         )
 
-        ocean_lead_time_idx = [
-            list(coords["lead_time"]).index(t) for t in out_coords["lead_time"]
-        ]
-        ocean_outputs = x[:, :, ocean_lead_time_idx, ...]
-        ocean_var_idx = [
-            list(coords["variable"]).index(var) for var in self.ocean_variables
-        ]
+        ocean_outputs = x[:, :, self.ocean_output_lt_idx, ...]
         ocean_outputs = ocean_outputs.index_select(
-            dim=3, index=torch.tensor(ocean_var_idx, device=x.device)
+            dim=3, index=torch.tensor(self.ocean_var_idx, device=x.device)
         )
         return ocean_outputs, out_coords
 
     def retrieve_valid_atmos_outputs(
         self, x: torch.Tensor, coords: CoordSystem
-    ) -> torch.Tensor:
+    ) -> tuple[torch.Tensor, CoordSystem]:
         """Retrieve the valid atmospheric model outputs from an output data tensor.
         This function will retrieve the valid outputs and return them in a tensor of shape (batch, time, lead_time, variable, face, height, width).
 
@@ -718,10 +739,7 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         out_coords = coords.copy()
         out_coords["variable"] = np.array(self.atmos_variables)
 
-        atmos_var_idx = [
-            list(coords["variable"]).index(var) for var in self.atmos_variables
-        ]
-        atmos_outputs = x[:, :, :, atmos_var_idx, ...]
+        atmos_outputs = x[:, :, :, self.atmos_var_idx, ...]
 
         return atmos_outputs, out_coords
 
@@ -747,7 +765,32 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         return output_data
 
-    @batch_func()
+    def _next_step_inputs(
+        self, x: torch.Tensor, coords: CoordSystem
+    ) -> tuple[torch.Tensor, CoordSystem]:
+        """Get the inputs for the next step of the prognostic model,
+        to be used with the model iterator.
+
+        Parameters
+        ----------
+        x : torch.Tensor
+            Input tensor
+        coords : CoordSystem
+            Input coordinate system
+
+        Returns
+        -------
+        tuple[torch.Tensor, CoordSystem]
+        """
+
+        next_coords = coords.copy()
+        next_coords["lead_time"] = coords["lead_time"][-len(self.full_input_times) :]
+
+        next_x = x[:, :, -len(self.full_input_times) :, ...]
+
+        return next_x, next_coords
+
+    # @batch_func()
     def __call__(
         self,
         x: torch.Tensor,
@@ -772,7 +815,7 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         return self._forward(x, coords), output_coords
 
-    @batch_func()
+    # @batch_func()
     def _default_generator(
         self, x: torch.Tensor, coords: CoordSystem
     ) -> Generator[tuple[torch.Tensor, CoordSystem], None, None]:
@@ -792,6 +835,8 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             x, coords = self.rear_hook(x, coords)
 
             yield x, coords.copy()
+
+            x, coords = self._next_step_inputs(x, coords)
 
     def create_iterator(
         self, x: torch.Tensor, coords: CoordSystem
@@ -879,6 +924,10 @@ class DLESyMLatLon(DLESyM):
         atmos_coupling_variables: list[str],
         ocean_coupling_variables: list[str],
     ):
+
+        self.lat = np.linspace(90, -90, 721, endpoint=True)
+        self.lon = np.linspace(0, 360, 1440, endpoint=False)
+
         super().__init__(
             atmos_model=atmos_model,
             ocean_model=ocean_model,
@@ -910,8 +959,6 @@ class DLESyMLatLon(DLESyM):
         self.regrid_to_ll = earth2grid.get_regridder(self.hpx_grid, self.ll_grid).to(
             torch.float32
         )
-        self.lat = np.linspace(90, -90, 721, endpoint=True)
-        self.lon = np.linspace(0, 360, 1440, endpoint=False)
 
     def input_coords(self) -> CoordSystem:
         """Input coordinate system of prognostic model
@@ -925,6 +972,7 @@ class DLESyMLatLon(DLESyM):
         coords = self.coords_to_ll(coords)
         return coords
 
+    # @batch_coords()
     def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
         """Output coordinate system of the prognostic model
 
@@ -941,24 +989,6 @@ class DLESyMLatLon(DLESyM):
         coords = super().output_coords(input_coords)
         coords = self.coords_to_ll(coords)
         return coords
-
-    def to(self, device: Any) -> PrognosticModel:
-        """Moves prognostic model onto inference device, as well as the regridding objects
-
-        Parameters
-        ----------
-        device : Any
-            Object representing the inference device, typically `torch.device` or str
-
-        Returns
-        -------
-        PrognosticModel
-            Returns instance of prognostic
-        """
-        super().to(device)
-        self.regrid_to_hpx = self.regrid_to_hpx.to(device)
-        self.regrid_to_ll = self.regrid_to_ll.to(device)
-        return self
 
     def to_hpx(self, x: torch.Tensor) -> torch.Tensor:
         """Regrid input data to HEALPix grid. Last 2 dimensions are assumed to be
@@ -1028,7 +1058,7 @@ class DLESyMLatLon(DLESyM):
             ll_coords.move_to_end(dim)
         return ll_coords
 
-    @batch_func()
+    # @batch_func()
     def __call__(
         self, x: torch.Tensor, coords: CoordSystem
     ) -> tuple[torch.Tensor, CoordSystem]:
@@ -1053,7 +1083,7 @@ class DLESyMLatLon(DLESyM):
         x = self.to_ll(x)
         return x, output_coords
 
-    @batch_func()
+    # @batch_func()
     def _default_generator(
         self, x: torch.Tensor, coords: CoordSystem
     ) -> Generator[tuple[torch.Tensor, CoordSystem], None, None]:
@@ -1075,3 +1105,5 @@ class DLESyMLatLon(DLESyM):
             x, coords = self.rear_hook(x, coords)
 
             yield self.to_ll(x), coords.copy()
+
+            x, coords = self._next_step_inputs(x, coords)
