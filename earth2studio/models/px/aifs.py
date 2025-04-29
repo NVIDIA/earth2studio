@@ -577,6 +577,7 @@ class AIFS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             - 0.154527 * torch.cos(3 * angle)
             + 0.084798 * torch.sin(3 * angle)
         )
+
         # time correction in [h.degrees]
         time_correction = (
             0.004297
