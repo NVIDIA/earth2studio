@@ -50,6 +50,7 @@ E2STUDIO_VOCAB = {
     "cicep": "categorical (80, 90, or 100  percent chance of measurable precipitation (0.01 inch)) ice pellets",
     "cfrzr": "categorical (80, 90, or 100  percent chance of measurable precipitation (0.01 inch)) freezing rain",
     "crain": "categorical (80, 90, or 100  percent chance of measurable precipitation (0.01 inch)) rain",
+    "tau300-700": "Geopotential thickness between 300 and 700 hPa levels (z300 - z700)",
     "u50": "u-component of wind at 50 hPa",
     "u100": "u-component of wind at 100 hPa",
     "u150": "u-component of wind at 150 hPa",

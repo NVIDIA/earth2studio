@@ -212,6 +212,9 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         self.atmos_input_times = atmos_input_times
         self.ocean_input_times = ocean_input_times
+        # Full input times are a merge of the atmos and ocean input times:
+        #  - Need to go as far back as -48h for the first ocean input time
+        #  - Need to use the same temporal resolution (6h) as the atmos input times
         self.full_input_times = np.arange(
             self.ocean_input_times[0],
             self.atmos_input_times[-1] + 1,
@@ -312,7 +315,7 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             {
                 "batch": np.empty(0),
                 "time": np.empty(0),
-                "lead_time": self.atmos_output_times,
+                "lead_time": self.atmos_output_times,  # atmos model has the finer temporal resolution over output lead times
                 "variable": np.array(self.atmos_variables + self.ocean_variables),
                 "face": np.arange(12),
                 "height": np.arange(self.nside),
@@ -343,9 +346,8 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def load_default_package(cls) -> Package:
         """Default DLESyM model package on NGC"""
         # TODO use NGC package when ready
-        return Package(
-            "/checkpoints/dlesym_8ch_4x4_pkg",
-            cache=False,
+        raise NotImplementedError(
+            "DLESyM NGC package not yet available, but is expected May 2025!"
         )
 
     @classmethod

@@ -26,6 +26,8 @@ Thus are typically used to generate forecast predictions.
    :template: prognostic.rst
 
    models.px.Aurora
+   models.px.DLESyM
+   models.px.DLESyMLatLon
    models.px.DLWP
    models.px.FCN
    models.px.FengWu
