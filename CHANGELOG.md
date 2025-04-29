@@ -12,8 +12,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Added AIFS model wrapper with state caching functionality for improved performance
 - Added two cyclone trackers and related utilities
+- Added HENS checkpoint example
+- Added Earth2Studio recipes folder, documentation and template
 
 ### Changed
+
+- Hemispheric centred bred vector perturbation now supports single/odd batch sizes
 
 ### Deprecated
 
@@ -21,7 +25,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Fixed the asyncio zarr access in the ARCO data source
+
 ### Security
+
+- Remove pickle load from Aurora model with direct numpy array loads
 
 ### Dependencies
 

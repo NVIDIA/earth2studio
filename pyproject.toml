@@ -190,6 +190,9 @@ override-dependencies = ["onnx; python_full_version < '3.13'"]
 makani = { git = "https://github.com/NickGeneva/modulus-makani.git", rev = "3da09f9e52a6393839d73d44262779ac7279bc2f" }
 microsoft-aurora = { git = "https://github.com/NickGeneva/aurora.git", rev = "ab41cf1de67d5dcc723b96fc9a6219e4b548d181" }
 
+[exclude.uv.workspace]
+members = ["recipes/*"]
+
 [dependency-groups]
 dev = [
     "black==24.1.0",
