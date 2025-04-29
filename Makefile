@@ -1,8 +1,10 @@
 install:
+	uv venv --python=3.12
 	uv sync --extra all
 
 .PHONY: setup-ci
 setup-ci:
+	uv venv --python=3.12
 	uv sync
 	uv run pre-commit install --install-hooks
 
@@ -38,6 +40,10 @@ license:
 pytest:
 	uv run coverage run -m pytest --ci-cache --slow test/
 
+.PHONY: pytest-submodule
+pytest-submodule:
+	uv run coverage run --source=$(COVERAGE_SOURCE) -m pytest --ci-cache --slow $(PYTEST_SOURCE)
+
 .PHONY: doctest
 doctest:
 	echo "Skipping doc test"
@@ -72,4 +78,5 @@ docs-build-examples:
 .PHONY: docs-dev
 docs-dev:
 	# rm -rf examples/outputs
+	uv sync --extra all --group docs
 	PLOT_GALLERY=True RUN_STALE_EXAMPLES=True FILENAME_PATTERN=$(FILENAME) uv run $(MAKE) -j 4 -C docs html

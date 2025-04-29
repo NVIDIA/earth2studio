@@ -309,6 +309,27 @@ uv add earth2studio --extra corrdiff
 :::
 ::::
 :::::
+:::::{tab-item} Cyclone Trackers
+Notes: Additional dependencies for all cyclone tracking models. Only Python 3.12 and
+below support.
+
+::::{tab-set}
+:::{tab-item} uv
+
+```bash
+uv pip install earth2studio --extra cyclone
+```
+
+:::
+:::{tab-item} pip
+
+```bash
+pip install earth2studio[cyclone]
+```
+
+:::
+::::
+:::::
 :::::{tab-item} Derived
 Notes: Additional dependencies for all derived diagnostic models.
 No additional dependencies are needed for the derived models at the moment but included
