@@ -49,6 +49,27 @@ def foo_data_array():
     )
 
 
+@pytest.fixture
+def curvilinear_data_array():
+    y, x = np.mgrid[0:10, 0:12]
+    lat = 30 + y * 2 + np.sin(x * 0.5) * 0.5
+    lon = -100 + x * 2 + np.cos(y * 0.5) * 0.5
+    data = np.random.rand(2, 1, 10, 12)
+
+    return xr.DataArray(
+        data=data,
+        dims=["time", "variable", "hrrr_y", "hrrr_x"],
+        coords={
+            "time": [np.datetime64("2024-01-01"), np.datetime64("2024-01-02")],
+            "variable": ["temp"],
+            "lat": (["hrrr_y", "hrrr_x"], lat),
+            "lon": (["hrrr_y", "hrrr_x"], lon),
+            "hrrr_y": np.arange(10),
+            "hrrr_x": np.arange(12),
+        },
+    )
+
+
 @pytest.mark.parametrize(
     "device",
     [
@@ -72,6 +93,30 @@ def test_prep_dataarray(foo_data_array, dims, device):
     for key in outc.keys():
         assert (outc[key] == np.array(data_array.coords[key])).all()
     assert out.shape == data_array.data.shape
+
+
+def test_prep_data_array_curvilinear_to_curvilinear(curvilinear_data_array):
+    # Create another curvilinear grid
+    y, x = np.mgrid[0:20, 0:24]
+    target_lat = 30 + y * 1 + np.cos(x * 0.3) * 0.3
+    target_lon = -100 + x * 1 + np.sin(y * 0.3) * 0.3
+
+    target_coords = OrderedDict({"lat": target_lat, "lon": target_lon})
+
+    out, coords = prep_data_array(
+        curvilinear_data_array, interp_to=target_coords, interp_method="linear"
+    )
+
+    # Check output shape matches target grid
+    assert out.shape == (2, 1, 20, 24)
+
+    # Check coordinates are transformed correctly
+    assert np.array_equal(coords["lat"], target_lat)
+    assert np.array_equal(coords["lon"], target_lon)
+
+    # Check HRRR-specific coordinates are removed
+    assert "hrrr_y" not in coords
+    assert "hrrr_x" not in coords
 
 
 @pytest.mark.parametrize(
@@ -370,3 +415,9 @@ async def test_async_cache_fs_cache_operations(tmp_path, expiry_time, wait_time)
     # Test clear cache
     cache_fs.clear_cache()
     assert cache_fs._check_file(remote_file) is False
+
+    remote_file = "https://raw.githubusercontent.com/NVIDIA/earth2studio/refs/heads/main/README.md"
+    await cache_fs._cat_file(remote_file)
+    await asyncio.sleep(wait_time)
+
+    cache_fs.clear_expired_cache(expiry_time=0.1)

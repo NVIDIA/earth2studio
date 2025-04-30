@@ -610,24 +610,6 @@ class AsyncCachingFileSystem(AsyncFileSystem):
         return self.fs._parent(path)
 
     @typing.no_type_check
-    def close_and_update(self, f, close):
-        """Called when a file is closing, so store the set of blocks"""
-        if f.closed:
-            return
-        path = self._strip_protocol(f.path)
-        self._metadata.on_close_cached_file(f, path)
-        try:
-            logger.debug("going to save")
-            self.save_cache()
-            logger.debug("saved")
-        except OSError:
-            logger.debug("Cache saving failed while closing file")
-        except NameError:
-            logger.debug("Cache save failed due to interpreter shutdown")
-        close()
-        f.closed = True
-
-    @typing.no_type_check
     async def _ukey(self, path):
         """Hash of file properties, to tell if it has changed"""
         return sha256(str(await self.fs._info(path)).encode()).hexdigest()
@@ -723,7 +705,7 @@ class AsyncCachingFileSystem(AsyncFileSystem):
             "load_cache",
             # "_open",
             "save_cache",
-            "close_and_update",
+            # "close_and_update",
             "__init__",
             "__getattribute__",
             "__reduce__",
@@ -799,35 +781,3 @@ class AsyncCachingFileSystem(AsyncFileSystem):
         else:
             # attributes of the superclass, while target is being set up
             return super().__getattribute__(item)
-
-    @typing.no_type_check
-    def __eq__(self, other):
-        """Test for equality."""
-        if self is other:
-            return True
-        if not isinstance(other, type(self)):
-            return False
-        return (
-            self.storage == other.storage
-            and self.kwargs == other.kwargs
-            and self.cache_check == other.cache_check
-            and self.check_files == other.check_files
-            and self.expiry == other.expiry
-            and self.compression == other.compression
-            and self._mapper == other._mapper
-            and self.target_protocol == other.target_protocol
-        )
-
-    @typing.no_type_check
-    def __hash__(self):
-        """Calculate hash."""
-        return (
-            hash(tuple(self.storage))
-            ^ hash(str(self.kwargs))
-            ^ hash(self.cache_check)
-            ^ hash(self.check_files)
-            ^ hash(self.expiry)
-            ^ hash(self.compression)
-            ^ hash(self._mapper)
-            ^ hash(self.target_protocol)
-        )
