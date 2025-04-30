@@ -19,6 +19,7 @@ import warnings
 from earth2studio.models.px.aifs import AIFS
 from earth2studio.models.px.aurora import Aurora
 from earth2studio.models.px.base import PrognosticModel
+from earth2studio.models.px.dlesym import DLESyM, DLESyMLatLon
 from earth2studio.models.px.dlwp import DLWP
 from earth2studio.models.px.fcn import FCN
 from earth2studio.models.px.fengwu import FengWu

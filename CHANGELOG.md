@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added two cyclone trackers and related utilities
 - Added HENS checkpoint example
 - Added Earth2Studio recipes folder, documentation and template
+- Added DLESyM and DLESyMLatLon atmosphere and ocean prognostic models
 
 ### Changed
 
@@ -32,6 +33,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Remove pickle load from Aurora model with direct numpy array loads
 
 ### Dependencies
+
+- Default torch version cuda 12.8
 
 ## [0.6.0] - 2025-04-15
 

@@ -83,6 +83,11 @@ aurora = [
 aurora-fork = [
     "microsoft-aurora", # optional fork install without timm package version conflict
 ]
+dlesym = [
+    "nvidia-physicsnemo>=1.0.1",
+    "earth2grid",
+    "omegaconf>=2.3.0",
+]
 dlwp = [
     "onnx-weekly ; python_full_version >= '3.13'",
     "nvidia-physicsnemo>=1.0.1",
@@ -153,6 +158,7 @@ windgust-afno = [
 all = [
     "earth2studio[data,perturbation,statistics]",
     "earth2studio[aurora-fork,dlwp,fcn,fengwu,interp-modafno,pangu,sfno,stormcast,aifs]",
+    "earth2studio[aurora-fork,dlesym,dlwp,fcn,fengwu,interp-modafno,pangu,sfno,stormcast,aifs]",
     "earth2studio[climatenet,corrdiff,precip-afno,cyclone,precip-afno-v2,windgust-afno]",
 ]
 
@@ -188,13 +194,30 @@ conflicts = [
       { extra = "aurora-fork" },
     ]
 ]
+# Needed for some packages that build with PEP 518
+no-build-isolation-package = ["earth2grid"]
 # Force onnx to only try to install when below 3.13, otherwise we will use onnx weekly
 override-dependencies = ["onnx; python_full_version < '3.13'"]
 no-build-isolation-package = ["flash-attn"]
 
 [tool.uv.sources]
+earth2grid = { git = "https://github.com/NVlabs/earth2grid.git", rev = "aefb10793aa372bae7d0951d627a89e2983fd0ca" }
 makani = { git = "https://github.com/NickGeneva/modulus-makani.git", rev = "3da09f9e52a6393839d73d44262779ac7279bc2f" }
 microsoft-aurora = { git = "https://github.com/NickGeneva/aurora.git", rev = "ab41cf1de67d5dcc723b96fc9a6219e4b548d181" }
+torch = [
+  { index = "pytorch-cpu", marker = "sys_platform != 'linux'" },
+  { index = "pytorch-cu128", marker = "sys_platform == 'linux'" },
+]
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[[tool.uv.index]]
+name = "pytorch-cu128"
+url = "https://download.pytorch.org/whl/cu128"
+explicit = true
 
 [exclude.uv.workspace]
 members = ["recipes/*"]

@@ -27,6 +27,8 @@ Thus are typically used to generate forecast predictions.
 
    models.px.AIFS
    models.px.Aurora
+   models.px.DLESyM
+   models.px.DLESyMLatLon
    models.px.DLWP
    models.px.FCN
    models.px.FengWu

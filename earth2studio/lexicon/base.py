@@ -51,6 +51,7 @@ E2STUDIO_VOCAB = {
     "cicep": "categorical (80, 90, or 100  percent chance of measurable precipitation (0.01 inch)) ice pellets",
     "cfrzr": "categorical (80, 90, or 100  percent chance of measurable precipitation (0.01 inch)) freezing rain",
     "crain": "categorical (80, 90, or 100  percent chance of measurable precipitation (0.01 inch)) rain",
+    "tau300-700": "Geopotential thickness between 300 and 700 hPa levels (z300 - z700)",
     "tc_lat": "tropical cyclone center latitude position",
     "tc_lon": "tropical cyclone center longitude position",
     "tc_msl": "tropical cyclone center min mean sea level pressure",
