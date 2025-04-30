@@ -32,7 +32,7 @@ from earth2studio.data import (
     fetch_data,
     prep_data_array,
 )
-from earth2studio.data.utils import AsyncCachingFileSystem
+from earth2studio.data.utils import AsyncCachingFileSystem, datasource_cache_root
 
 
 @pytest.fixture
@@ -368,6 +368,32 @@ def test_datasource_to_file(time, lead_time, backend, tmp_path):
     assert not torch.isnan(x).any()
 
 
+def test_datasource_cache(tmp_path, monkeypatch):
+    # Test with default path
+    default_path = os.path.join(os.path.expanduser("~"), ".cache", "earth2studio")
+    assert datasource_cache_root() == default_path
+    assert os.path.exists(default_path)
+
+    # Test with custom path via environment variable
+    custom_path = str(tmp_path / "custom_cache")
+    monkeypatch.setenv("EARTH2STUDIO_CACHE", custom_path)
+    assert datasource_cache_root() == custom_path
+    assert os.path.exists(custom_path)
+
+    # Test error case with non-writable directory
+    readonly_path = str(tmp_path / "readonly")
+    os.makedirs(readonly_path)
+    os.chmod(readonly_path, 0o444)  # Make directory read-only
+
+    monkeypatch.setenv("EARTH2STUDIO_CACHE", readonly_path + "/test")
+    with pytest.raises(OSError):
+        datasource_cache_root()
+
+    # Cleanup: restore directory permissions
+    os.chmod(readonly_path, 0o777)  # noqa: S103
+
+
+# Async fsspec file system
 @pytest.mark.asyncio
 async def test_init_and_cache_dir(tmp_path):
     fs = HTTPFileSystem()
