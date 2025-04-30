@@ -75,7 +75,7 @@ aifs = [
     "anemoi-models==0.3.1",
     "earthkit-regrid==0.4.0",
     "ecmwf-opendata",
-    "flash_attn"
+    "flash-attn"
 ]
 aurora = [
     "microsoft-aurora>=1.5.0",
@@ -195,10 +195,9 @@ conflicts = [
     ]
 ]
 # Needed for some packages that build with PEP 518
-no-build-isolation-package = ["earth2grid"]
+no-build-isolation-package = ["earth2grid", "flash-attn"]
 # Force onnx to only try to install when below 3.13, otherwise we will use onnx weekly
 override-dependencies = ["onnx; python_full_version < '3.13'"]
-no-build-isolation-package = ["flash-attn"]
 
 [tool.uv.sources]
 earth2grid = { git = "https://github.com/NVlabs/earth2grid.git", rev = "aefb10793aa372bae7d0951d627a89e2983fd0ca" }
