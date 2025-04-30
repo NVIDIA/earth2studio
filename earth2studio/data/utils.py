@@ -122,7 +122,7 @@ def fetch_data(
 def prep_data_array(
     da: xr.DataArray,
     device: torch.device = "cpu",
-    interp_to: CoordSystem = None,
+    interp_to: CoordSystem | None = None,
     interp_method: str = "nearest",
 ) -> tuple[torch.Tensor, CoordSystem]:
     """Prepares a data array from a data source for inference workflows by converting
@@ -184,7 +184,6 @@ def prep_data_array(
             if "hrrr_x" in out_coords:
                 del out_coords["hrrr_x"]
         else:
-
             if len(interp_to["lat"].shape) > 1 or len(interp_to["lon"].shape) > 1:
                 # Target grid uses curvilinear coordinates: define internal dims y, x
                 target_lat = xr.DataArray(interp_to["lat"], dims=["y", "x"])

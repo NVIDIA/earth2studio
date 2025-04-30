@@ -50,10 +50,27 @@ def foo_data_array():
 
 
 @pytest.fixture
+def equilinear_data_array():
+    lat = np.linspace(-90, 90, 13)
+    lon = np.linspace(0, 180, 24, endpoint=False)
+    data = np.random.rand(2, 1, 13, 24)
+    return xr.DataArray(
+        data=data,
+        dims=["time", "variable", "lat", "lon"],
+        coords={
+            "time": [np.datetime64("2024-01-01"), np.datetime64("2024-01-02")],
+            "variable": ["temp"],
+            "lat": lat,
+            "lon": lon,
+        },
+    )
+
+
+@pytest.fixture
 def curvilinear_data_array():
     y, x = np.mgrid[0:10, 0:12]
     lat = 30 + y * 2 + np.sin(x * 0.5) * 0.5
-    lon = -100 + x * 2 + np.cos(y * 0.5) * 0.5
+    lon = x * 2 + np.cos(y * 0.5) * 0.5
     data = np.random.rand(2, 1, 10, 12)
 
     return xr.DataArray(
@@ -95,16 +112,31 @@ def test_prep_dataarray(foo_data_array, dims, device):
     assert out.shape == data_array.data.shape
 
 
-def test_prep_data_array_curvilinear_to_curvilinear(curvilinear_data_array):
+def test_prep_data_array_curvilinear(equilinear_data_array, curvilinear_data_array):
     # Create another curvilinear grid
     y, x = np.mgrid[0:20, 0:24]
     target_lat = 30 + y * 1 + np.cos(x * 0.3) * 0.3
-    target_lon = -100 + x * 1 + np.sin(y * 0.3) * 0.3
+    target_lon = x * 1 + np.sin(y * 0.3) * 0.3
 
     target_coords = OrderedDict({"lat": target_lat, "lon": target_lon})
 
     out, coords = prep_data_array(
         curvilinear_data_array, interp_to=target_coords, interp_method="linear"
+    )
+
+    # Check output shape matches target grid
+    assert out.shape == (2, 1, 20, 24)
+
+    # Check coordinates are transformed correctly
+    assert np.array_equal(coords["lat"], target_lat)
+    assert np.array_equal(coords["lon"], target_lon)
+
+    # Check HRRR-specific coordinates are removed
+    assert "hrrr_y" not in coords
+    assert "hrrr_x" not in coords
+
+    out, coords = prep_data_array(
+        equilinear_data_array, interp_to=target_coords, interp_method="linear"
     )
 
     # Check output shape matches target grid
