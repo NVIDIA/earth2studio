@@ -231,7 +231,7 @@ class IFS:
                 "date": time,
                 "type": "fc",
                 "param": variable,
-                # "levtype": levtype, # TODO: Fix this for soil levels
+                # "levtype": levtype, # NOTE: Commenting this out fixes what seems to be a bug with Opendata API on soil levels
                 "step": 0,  # Would change this for forecasts
                 "target": cache_path,
             }
