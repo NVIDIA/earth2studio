@@ -22,7 +22,6 @@ from typing import Any
 
 import hydra
 import numpy as np
-import pandas as pd
 import torch
 import xarray as xr
 from loguru import logger
@@ -762,71 +761,6 @@ def update_model_dict(model_dict: dict, package: Package) -> dict:
         model_dict["model"] = model_dict["class"].load_model(package=package)
 
     return model_dict
-
-
-def store_tracks(area_name: str, tracks: pd.DataFrame, cfg: DictConfig) -> None:
-    """Method which writes cyclone tracks to file.
-
-    Parameters
-    ----------
-    area_name : str
-        The name of the area for which cyclone tracks are being stored.
-    tracks : pd.DataFrame
-        list of tabular data of cyclone tracks
-    cfg : DictConfig
-        Hydra config object
-
-    Returns
-    -------
-    None
-
-    Notes
-    -----
-    - The function concatenates all cyclone track data into a single DataFrame.
-    - It assigns unique global track IDs to each track.
-    - The tracks are then written to a CSV file in the specified output directory.
-    """
-    tracks = pd.concat(tracks)
-    map_global = (
-        tracks.groupby(["ic", "ens_member", "track_id"])
-        .count()
-        .reset_index()
-        .reset_index()
-        .rename(columns={"index": "track_id_global"})[
-            ["track_id_global", "ic", "track_id", "ens_member"]
-        ]
-    )
-
-    tracks = tracks.merge(map_global, on=["ic", "track_id", "ens_member"])[
-        [
-            "ic",
-            "ens_member",
-            "track_id_global",
-            "vt",
-            "point_number",
-            "tc_lat",
-            "tc_lon",
-            "tc_msl",
-            "tc_speed",
-            "batch_id",
-            "batch_size",
-            "random_seed",
-            "model_package",
-        ]
-    ]
-    cols_uint16 = ["point_number", "ens_member"]
-    tracks[cols_uint16] = tracks[cols_uint16].astype("uint16")
-    tracks = tracks.rename(columns={"track_id_global": "track_id"})
-    dir_path = os.path.join(cfg.cyclone_tracking.out_dir, area_name)
-    if DistributedManager().rank == 0:
-        os.makedirs(dir_path, exist_ok=True)
-    tracks_file = (
-        os.path.join(dir_path, cfg.project)
-        + f"_tracks_rank_{str(DistributedManager().rank).zfill(3)}.csv"
-    )
-    tracks.to_csv(tracks_file, index=False)
-
-    return
 
 
 def write_to_disk(
