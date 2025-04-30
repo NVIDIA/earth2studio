@@ -71,11 +71,11 @@ def test_aifs_call(time, device):
     # Create sparse tensors for interpolation matrices
     interpolation_matrix = make_two_nnz_per_first_row_csr(
         n_rows=542_080, n_cols=1_038_240, device=device
-    )
+    ).to(torch.float64)
 
     inverse_interpolation_matrix = make_two_nnz_per_first_row_csr(
         n_rows=1_038_240, n_cols=542_080, device=device
-    )
+    ).to(torch.float64)
 
     # Initialize AIFS
     p = AIFS(
@@ -131,11 +131,11 @@ def test_aifs_iter(ensemble, device):
     # Create sparse tensors for interpolation matrices
     interpolation_matrix = make_two_nnz_per_first_row_csr(
         n_rows=542_080, n_cols=1_038_240, device=device
-    )
+    ).to(torch.float64)
 
     inverse_interpolation_matrix = make_two_nnz_per_first_row_csr(
         n_rows=1_038_240, n_cols=542_080, device=device
-    )
+    ).to(torch.float64)
 
     p = AIFS(
         model=model,
@@ -202,11 +202,11 @@ def test_aifs_exceptions(dc, device):
     # Create sparse tensors for interpolation matrices
     interpolation_matrix = make_two_nnz_per_first_row_csr(
         n_rows=542_080, n_cols=1_038_240, device=device
-    )
+    ).to(torch.float64)
 
     inverse_interpolation_matrix = make_two_nnz_per_first_row_csr(
         n_rows=1_038_240, n_cols=542_080, device=device
-    )
+    ).to(torch.float64)
 
     p = AIFS(
         model=model,
