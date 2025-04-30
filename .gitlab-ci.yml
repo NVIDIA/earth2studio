@@ -50,7 +50,7 @@ build-ci-env:
     - .earth2studio:build-env:base
     - .build-env:cache
   script:
-    - make setup-ci
+    - make install
 
 format:
   stage: lint
