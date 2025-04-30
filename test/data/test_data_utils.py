@@ -371,6 +371,7 @@ def test_datasource_to_file(time, lead_time, backend, tmp_path):
 def test_datasource_cache(tmp_path, monkeypatch):
     # Test with default path
     default_path = os.path.join(os.path.expanduser("~"), ".cache", "earth2studio")
+    monkeypatch.delenv("EARTH2STUDIO_CACHE", raising=False)
     assert datasource_cache_root() == default_path
     assert os.path.exists(default_path)
 
