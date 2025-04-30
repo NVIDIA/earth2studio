@@ -28,7 +28,7 @@ dependencies = [
     "torch>=2.5.0",
     "tqdm>=4.65.0",
     "xarray[parallel]>=2023.1.0",
-    "zarr>=2.14.2,<3.0.0",
+    "zarr>=2.14.2",
     "numcodecs<0.15.0", # TODO: Remove
 ]
 
@@ -61,6 +61,7 @@ data = [
     "eccodes>=2.38.0",
     "ecmwf-opendata>=0.3.3",
     "herbie-data",
+    "scipy>=1.15.2",
 ]
 perturbation = [
     "torch-harmonics>=0.7.4",
@@ -227,6 +228,7 @@ dev = [
     "pyyaml>=6.0",
     "types-requests",
     "ruff",
+    "pytest-asyncio>=0.26.0",
 ]
 docs = [
     "cartopy",
