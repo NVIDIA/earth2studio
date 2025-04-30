@@ -353,30 +353,28 @@ ax = plt.axes(projection=projection)
 ax.add_feature(cfeature.COASTLINE)
 ax.add_feature(cfeature.LAND, alpha=0.1)
 ax.gridlines(draw_labels=True, alpha=0.6)
-ax.set_extent([240, 320, 10, 50], crs=ccrs.PlateCarree())
+ax.set_extent([260, 300, 10, 40], crs=ccrs.PlateCarree())
 
-# Plot tracks from each netcdf file in outputs/cyclone
 track_files = glob.glob("outputs/cyclones/*.nc")
 for track_file in track_files:
     tracks = xr.load_dataarray(track_file)
-    for path in tracks.coords["path_id"]:
-        # Get lat/lon coordinates, filtering out nans
-        lats = tracks.isel(ensemble=0, time=0, lead_time=0, path_id=path, variable=0)[
-            :
-        ].values
-        lons = tracks.isel(ensemble=0, time=0, lead_time=0, path_id=path, variable=1)[
-            :
-        ].values
-
-        mask = ~np.isnan(lats) & ~np.isnan(lons)
-        if mask.any() and len(lons[mask]) > 2:
-            ax.plot(
-                lons[mask],
-                lats[mask],
-                color="b",
-                linestyle="-",
-                transform=ccrs.PlateCarree(),
-            )
+    for ensemble in tracks.coords["ensemble"].values:
+        for path in tracks.coords["path_id"].values:
+            tracks_path = tracks.sel(ensemble=ensemble).isel(time=0, lead_time=0)
+            # Get lat/lon coordinates, filtering out nans
+            lats = tracks_path.isel(path_id=path, variable=0)[:].values
+            lons = tracks_path.isel(path_id=path, variable=1)[:].values
+            mask = ~np.isnan(lats) & ~np.isnan(lons)
+            if mask.any() and len(lons[mask]) > 2:
+                print(tracks.shape, lats[mask].shape)
+                print(lons[mask])
+                ax.plot(
+                    lons[mask],
+                    lats[mask],
+                    color="b",
+                    linestyle="-.",
+                    transform=ccrs.PlateCarree(),
+                )
 
 plt.savefig(f"{out_dir}/helene_tracks.jpg")
 
