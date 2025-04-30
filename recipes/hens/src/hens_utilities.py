@@ -431,8 +431,8 @@ def initialise(
 
     # initialize cyclone tracking
     if "cyclone_tracking" in cfg:
-        cyclone_tracking = (
-            TCTrackerWuDuan()
+        cyclone_tracking = TCTrackerWuDuan(
+            path_search_distance=250, path_search_window_size=2
         )  # TODO choose and configure TC tracker in config
 
     else:
