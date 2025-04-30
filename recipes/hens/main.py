@@ -68,7 +68,7 @@ out_dir = "./outputs"
 # %%
 
 from dotenv import load_dotenv
-from omegaconf import DictConfig
+from omegaconf import OmegaConf
 from physicsnemo.distributed import DistributedManager
 
 load_dotenv()
@@ -78,9 +78,7 @@ DistributedManager.initialize()
 from pathlib import Path
 
 # Read the config from helene.yaml
-cfg_path = Path("cfg/helene.yaml")
-with open(cfg_path) as f:
-    cfg = DictConfig(f.read())
+cfg = OmegaConf.load(Path("cfg/helene.yaml"))
 
 cfg["start_times"] = start_times
 cfg["nsteps"] = nsteps
