@@ -56,7 +56,7 @@ class PhooAIFSModel(torch.nn.Module):
         ),
     ],
 )
-@pytest.mark.parametrize("device", ["cpu"])
+@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
 def test_aifs_call(time, device):
 
     # Spoof model
@@ -117,7 +117,7 @@ def test_aifs_call(time, device):
     "ensemble",
     [1, 2],
 )
-@pytest.mark.parametrize("device", ["cpu"])
+@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
 def test_aifs_iter(ensemble, device):
 
     time = np.array([np.datetime64("1993-04-05T00:00")])
@@ -189,7 +189,7 @@ def test_aifs_iter(ensemble, device):
         OrderedDict({"lat": np.random.randn(720), "lon": np.random.randn(1)}),
     ],
 )
-@pytest.mark.parametrize("device", ["cpu"])
+@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
 def test_aifs_exceptions(dc, device):
     time = np.array([np.datetime64("1993-04-05T00:00")])
     # Spoof model
@@ -239,7 +239,7 @@ def model(model_cache_context) -> AIFS:
 
 @pytest.mark.ci_cache
 @pytest.mark.timeout(360)
-@pytest.mark.parametrize("device", ["cpu"])
+@pytest.mark.parametrize("device", ["cuda:0"])
 def test_aifs_package(device, model):
     torch.cuda.empty_cache()
     time = np.array([np.datetime64("1993-04-05T00:00")])

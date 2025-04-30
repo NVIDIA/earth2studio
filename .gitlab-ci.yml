@@ -49,7 +49,10 @@ build-ci-env:
   extends:
     - .earth2studio:build-env:base
     - .build-env:cache
+  variables:
+    MAX_JOBS: 32
   script:
+    - make setup-ci
     - make install
 
 format:
