@@ -240,7 +240,7 @@ def initialise_perturbation(
 #
 
 # %%
-# loop over ensemble configs
+
 for pkg, ic, ens_idx, batch_ids_produce in ensemble_configs:
     # create seed base string required for reproducibility of individual batches
     base_seed_string = create_base_seed_string(pkg, ic, base_random_seed)
@@ -327,11 +327,12 @@ import matplotlib.pyplot as plt
 import numpy as np
 import xarray as xr
 
-ds = xr.load_dataset(glob.glob(f"{out_dir}/global/*.nc")[0])
+ds = xr.load_dataset(glob.glob(f"{out_dir}/gulf_of_mexico/*.nc")[0])
 
+print(ds)
 variable = "u10m"
 lead_time = 4
-ds[variable].isel(ensemble=0, lead_time=lead_time, time=0).plot(figsize=(16, 6))
+ds[variable].isel(ensemble=0, lead_time=lead_time, time=0).plot(figsize=(16, 10))
 plt.savefig(f"{out_dir}/helene_{variable}_{int(lead_time*6)}hours.jpg")
 
 # %% [markdown]
@@ -367,8 +368,6 @@ for track_file in track_files:
             lons = tracks_path.isel(path_id=path, variable=1)[:].values
             mask = ~np.isnan(lats) & ~np.isnan(lons)
             if mask.any() and len(lons[mask]) > 2:
-                print(tracks.shape, lats[mask].shape)
-                print(lons[mask])
                 ax.plot(
                     lons[mask],
                     lats[mask],
@@ -391,4 +390,4 @@ plt.savefig(f"{out_dir}/helene_tracks.jpg")
 from src.plot import create_track_animation_florida
 
 track_files = glob.glob("outputs/cyclones/*.nc")
-create_track_animation_florida(track_files, out_dir, fps=10)
+create_track_animation_florida(track_files, out_dir, fps=2)
