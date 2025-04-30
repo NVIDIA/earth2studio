@@ -14,10 +14,4 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from .fork_n_spoon import (
-    extract_tracks_from_csv,
-    ibtracs_helene,
-    make_figure,
-    make_frame,
-    plot_tracks,
-)
+from .fork_n_spoon import create_track_animation_florida

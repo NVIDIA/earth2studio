@@ -15,18 +15,6 @@
 # limitations under the License.
 
 # %% [markdown]
-# # HENS
-#
-# ## Background
-#
-# HENS (huge ensembles), as described in [Huge Ensembles Part I](https://arxiv.org/abs/2408.03100) provides an AI inference system that produces calibrated ensembles.
-# The `11_hens` directory contains a scalable ensembling system pipeline that implements HENS. The pipeline has been designed with flexibility in mind, allowing it to be used with various models and perturbation methods.
-#
-# This notebook provides an overview of the key concepts in the pipeline by demonstrating its application to a small ensemble of Hurricane Helene. For more detailed information and examples of running HENS at scale, please refer to the comprehensive README in the `11_hens/` directory and the various configuration examples therein.
-# While this notebook can be adapted for larger ensembles, we recommend using the `11_hens/` folder for such cases.
-#
-# ## This example here
-#
 # In this notebook, we will examine ensemble generation for Hurricane Helene, a tropical
 # cyclone that made landfall in September 2024.
 # The storm posed a challenging case for weather prediction systems and caused
@@ -71,9 +59,11 @@ out_dir = "./outputs"
 
 
 # %% [markdown]
-# Next, let us imports some required features and fully configure the inference using
-# the parameters set above. For more details on the configurations, have a look at the
-# README in the `11_hens/` folder and explore the configs therein.
+# Next we'll load the configuration file using OmegaConf/Hydra.
+# The config files are located in the cfg/ folder and use YAML format.
+# The helene.yaml config contains the base settings for the Helene case study.
+# We'll load it and then override some values programmatically below and apply the
+# overrides.
 
 # %%
 
@@ -103,17 +93,20 @@ cfg["forecast_model"]["max_num_checkpoints"] = max_num_checkpoints
 cfg["file_output"]["output_vars"] = output_vars
 
 # %% [markdown]
-# Next, we initialise the inference:
+# Next, using hydra conf, the required objects needed for the HENs workflow can get
+# instantiated automatically using the `initialise`. If you are familiar with
+# Earth2Studio workflows, this is essentially automating the creation of the core
+# components such as data sources, prognostic and diagnostic models.
 
 # %%
 
-from src import EnsembleBase
 from src.hens_utilities import (
     initialise,
     initialise_output,
     update_model_dict,
     write_to_disk,
 )
+from src.hens_utilities_ensemble import EnsembleBase
 from src.hens_utilities_reproduce import create_base_seed_string
 
 (
@@ -125,8 +118,8 @@ from src.hens_utilities_reproduce import create_base_seed_string
     output_coords_dict,
     base_random_seed,
     all_tracks_dict,
-    _,
-    _,
+    writer_executor,
+    writer_threads,
 ) = initialise(cfg)
 
 
@@ -288,12 +281,21 @@ for pkg, ic, ens_idx, batch_ids_produce in ensemble_configs:
 
     # if in-memory flavour of io backend was chosen, write content to disk now
     if io_dict:
-        _, _ = write_to_disk(
+        writer_threads, writer_executor = write_to_disk(
             cfg,
             ic,
             model_dict,
             io_dict,
+            writer_threads,
+            writer_executor,
         )
+
+if writer_executor is not None:
+    for thread in list(writer_threads):
+        thread.result()
+        writer_threads.remove(thread)
+    writer_executor.shutdown()
+
 
 # %% [markdown]
 # After completing the ensemble generation process, the results are stored in the output
@@ -327,17 +329,18 @@ import matplotlib.pyplot as plt
 import numpy as np
 import xarray as xr
 
-ds = xr.load_dataset(glob.glob("outputs/global/*.nc")[0])
+ds = xr.load_dataset(glob.glob(f"{out_dir}/global/*.nc")[0])
 
-variable = "t2m"
-lead_time = 2
+variable = "u10m"
+lead_time = 4
 ds[variable].isel(ensemble=0, lead_time=lead_time, time=0).plot(figsize=(16, 6))
 plt.savefig(f"{out_dir}/helene_{variable}_{int(lead_time*6)}hours.jpg")
 
 # %% [markdown]
 # Now, let's focus on the Gulf of Mexico and plot the tracks of Hurricane Helene.
-# You can select the enselmble member and the variable you want to show by editing the
-# first lines in the following cell:
+# Generating a speghetti plot using cartopy can be done with just a few xarray
+# operations.
+# The plotting code below
 
 # %%
 
@@ -355,7 +358,7 @@ ax.add_feature(cfeature.LAND, alpha=0.1)
 ax.gridlines(draw_labels=True, alpha=0.6)
 ax.set_extent([260, 300, 10, 40], crs=ccrs.PlateCarree())
 
-track_files = glob.glob("outputs/cyclones/*.nc")
+track_files = glob.glob(f"{out_dir}/cyclones/*.nc")
 for track_file in track_files:
     tracks = xr.load_dataarray(track_file)
     for ensemble in tracks.coords["ensemble"].values:
@@ -378,110 +381,16 @@ for track_file in track_files:
 
 plt.savefig(f"{out_dir}/helene_tracks.jpg")
 
+
+# %% [markdown]
+# For the last step, we can create an animation to show the hurricane tracks.
+# Since this post processing is a little more involved we've provided a API for plotting
+# the Helene tracks.
+# Users are encouraged to look a modify the implementation for their own needs.
+
 # %%
-# variable = "u10m"
-# ensemble_member = 1
 
-# max_frames = 17  # maximum number of frames to plot
-# scale = 1
+from src.plot import create_track_animation_florida
 
-# lat_min, lat_max = 10, 40
-# lon_min, lon_max = 250, 300
-
-# import cartopy.crs as ccrs
-# import cartopy.feature as cfeature
-# import matplotlib.animation as animation
-# import matplotlib.pyplot as plt
-# import numpy as np
-# from cartopy.mpl.ticker import LatitudeFormatter, LongitudeFormatter
-
-# from .src.plot import make_figure, make_frame
-
-# dx = scale * 0.25
-
-# countries = cfeature.NaturalEarthFeature(
-#     category="cultural",
-#     name="admin_0_countries",
-#     scale="110m",
-#     facecolor="none",
-#     edgecolor="black",
-# )
-
-# # extract region of interest
-# reg_ds = ds.sel(
-#     lat=list(np.arange(lat_min, lat_max, dx)), lon=list(np.arange(lon_min, lon_max, dx))
-# )
-
-# time_str = "lead time:"
-# projection = ccrs.PlateCarree()
-# var_ds = reg_ds[variable]  # np.sqrt(np.square(reg_ds.u10m) + np.square(reg_ds.v10m))
-
-# min_val = float(np.min(var_ds[ensemble_member, 0, :, :, :]))
-# max_val = float(np.max(var_ds[ensemble_member, 0, :, :, :]))
-
-# # make animation
-# # %matplotlib inline
-# plt.rcParams["animation.html"] = "jshtml"
-# fig, ax = make_figure(projection=ccrs.PlateCarree())
-
-# _make_frame = make_frame(
-#     fig,
-#     ax,
-#     var_ds,
-#     ensemble_member,
-#     track_list,
-#     max_frames,
-#     min_val,
-#     max_val,
-#     projection,
-#     reg_ds,
-#     time_str,
-# )
-
-
-# def animate(frame: int) -> plt.pcolormesh:
-#     """Plot helper, todo change to lambda"""
-#     return _make_frame(frame)
-
-
-# def first_frame() -> plt.pcolormesh:
-#     """Plot helper, todo change to lambda"""
-#     return _make_frame(-1)
-
-
-# ani = animation.FuncAnimation(
-#     fig,
-#     animate,
-#     min(max_frames, var_ds.shape[2]),
-#     init_func=first_frame,
-#     blit=False,
-#     repeat=False,
-#     interval=0.1,
-# )
-# plt.close("all")
-
-# # %% [markdown]
-# # And finally, let us draw all the tracks from all eight genereted ensemble members:
-
-# # %%
-# plt.close("all")
-
-# fig = plt.figure(figsize=(11, 5))
-# ax = fig.add_subplot(1, 1, 1, projection=projection)
-
-# ax.add_feature(cfeature.COASTLINE, lw=0.5)
-# ax.add_feature(cfeature.RIVERS, lw=0.5)
-# ax.add_feature(cfeature.OCEAN)
-# ax.add_feature(cfeature.LAND)
-
-# lon_formatter = LongitudeFormatter(zero_direction_label=False)
-# lat_formatter = LatitudeFormatter()
-# ax.xaxis.set_major_formatter(lon_formatter)
-# ax.yaxis.set_major_formatter(lat_formatter)
-
-# # Plot the line in white
-# for track in track_list:
-#     ax.plot(track["lon"] - 360, track["lat"], color="crimson", linewidth=2, alpha=0.4)
-
-# ax.set_extent([lon_min, lon_max, lat_min, lat_max])
-# plt.show()
+track_files = glob.glob("outputs/cyclones/*.nc")
+create_track_animation_florida(track_files, out_dir, fps=10)
