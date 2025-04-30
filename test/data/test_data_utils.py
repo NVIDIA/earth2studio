@@ -376,17 +376,18 @@ def test_datasource_cache(tmp_path, monkeypatch):
     assert datasource_cache_root() == custom_path
     assert os.path.exists(custom_path)
 
-    # Test error case with non-writable directory
-    readonly_path = str(tmp_path / "readonly")
-    os.makedirs(readonly_path)
-    os.chmod(readonly_path, 0o444)  # Make directory read-only
+    nonexistent_parent = str(tmp_path / "nonexistent")
+    invalid_path = os.path.join(nonexistent_parent, "test")
+    monkeypatch.setenv("EARTH2STUDIO_CACHE", invalid_path)
 
-    monkeypatch.setenv("EARTH2STUDIO_CACHE", readonly_path + "/test")
-    with pytest.raises(OSError):
-        datasource_cache_root()
+    def mock_makedirs(*args, **kwargs):
+        raise OSError("Permission denied")
 
-    # Cleanup: restore directory permissions
-    os.chmod(readonly_path, 0o777)  # noqa: S103
+    with monkeypatch.context() as m:
+        # Spoof this to make the directory creation fail
+        m.setattr(os, "makedirs", mock_makedirs)
+        with pytest.raises(OSError):
+            datasource_cache_root()
 
 
 # Async fsspec file system
