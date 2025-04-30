@@ -437,17 +437,32 @@ document.write(`
 <span class="c1"># See the License for the specific language governing permissions and</span>
 <span class="c1"># limitations under the License.</span>
 
+<span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">inspect</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">tempfile</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">time</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">typing</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">weakref</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">collections</span><span class="w"> </span><span class="kn">import</span> <span class="n">OrderedDict</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Callable</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">datetime</span><span class="w"> </span><span class="kn">import</span> <span class="n">datetime</span><span class="p">,</span> <span class="n">timedelta</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">hashlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">sha256</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">inspect</span><span class="w"> </span><span class="kn">import</span> <span class="n">signature</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Literal</span><span class="p">,</span> <span class="n">TypeVar</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">shutil</span><span class="w"> </span><span class="kn">import</span> <span class="n">rmtree</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">TYPE_CHECKING</span><span class="p">,</span> <span class="n">ClassVar</span><span class="p">,</span> <span class="n">Literal</span><span class="p">,</span> <span class="n">TypeVar</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">xarray</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">xr</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fsspec</span><span class="w"> </span><span class="kn">import</span> <span class="n">filesystem</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fsspec.asyn</span><span class="w"> </span><span class="kn">import</span> <span class="n">AsyncFileSystem</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fsspec.callbacks</span><span class="w"> </span><span class="kn">import</span> <span class="n">DEFAULT_CALLBACK</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fsspec.implementations.cache_mapper</span><span class="w"> </span><span class="kn">import</span> <span class="n">create_cache_mapper</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fsspec.implementations.cache_metadata</span><span class="w"> </span><span class="kn">import</span> <span class="n">CacheMetadata</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fsspec.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">isfilelike</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">loguru</span><span class="w"> </span><span class="kn">import</span> <span class="n">logger</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.data.base</span><span class="w"> </span><span class="kn">import</span> <span class="n">DataSource</span><span class="p">,</span> <span class="n">ForecastSource</span>
@@ -458,6 +473,9 @@ document.write(`
     <span class="n">to_time_array</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.utils.type</span><span class="w"> </span><span class="kn">import</span> <span class="n">CoordSystem</span><span class="p">,</span> <span class="n">LeadTimeArray</span><span class="p">,</span> <span class="n">TimeArray</span><span class="p">,</span> <span class="n">VariableArray</span>
+
+<span class="k">if</span> <span class="n">TYPE_CHECKING</span><span class="p">:</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">fsspec.implementations.cache_mapper</span><span class="w"> </span><span class="kn">import</span> <span class="n">AbstractCacheMapper</span>
 
 
 <div class="viewcode-block" id="fetch_data">
@@ -532,7 +550,7 @@ document.write(`
 <span class="k">def</span><span class="w"> </span><span class="nf">prep_data_array</span><span class="p">(</span>
     <span class="n">da</span><span class="p">:</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">,</span>
     <span class="n">device</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">device</span> <span class="o">=</span> <span class="s2">&quot;cpu&quot;</span><span class="p">,</span>
-    <span class="n">interp_to</span><span class="p">:</span> <span class="n">CoordSystem</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">interp_to</span><span class="p">:</span> <span class="n">CoordSystem</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="n">interp_method</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;nearest&quot;</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">CoordSystem</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Prepares a data array from a data source for inference workflows by converting</span>
@@ -594,7 +612,6 @@ document.write(`
             <span class="k">if</span> <span class="s2">&quot;hrrr_x&quot;</span> <span class="ow">in</span> <span class="n">out_coords</span><span class="p">:</span>
                 <span class="k">del</span> <span class="n">out_coords</span><span class="p">[</span><span class="s2">&quot;hrrr_x&quot;</span><span class="p">]</span>
         <span class="k">else</span><span class="p">:</span>
-
             <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">interp_to</span><span class="p">[</span><span class="s2">&quot;lat&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="ow">or</span> <span class="nb">len</span><span class="p">(</span><span class="n">interp_to</span><span class="p">[</span><span class="s2">&quot;lon&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
                 <span class="c1"># Target grid uses curvilinear coordinates: define internal dims y, x</span>
                 <span class="n">target_lat</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">(</span><span class="n">interp_to</span><span class="p">[</span><span class="s2">&quot;lat&quot;</span><span class="p">],</span> <span class="n">dims</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;y&quot;</span><span class="p">,</span> <span class="s2">&quot;x&quot;</span><span class="p">])</span>
@@ -778,6 +795,423 @@ document.write(`
 
 
 <span class="n">T</span> <span class="o">=</span> <span class="n">TypeVar</span><span class="p">(</span><span class="s2">&quot;T&quot;</span><span class="p">)</span>
+
+
+<span class="nd">@typing</span><span class="o">.</span><span class="n">no_type_check</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">AsyncCachingFileSystem</span><span class="p">(</span><span class="n">AsyncFileSystem</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Async locally caching filesystem, layer over any other FS for use with zarr 3.0.</span>
+<span class="sd">    Presently extremely limited, much is just copied from the WholeFileCache</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    target_protocol: str (optional)</span>
+<span class="sd">        Target filesystem protocol. Provide either this or ``fs``.</span>
+<span class="sd">    cache_storage: str or list(str)</span>
+<span class="sd">        Location to store files. If &quot;TMP&quot;, this is a temporary directory,</span>
+<span class="sd">        and will be cleaned up by the OS when this process ends (or later).</span>
+<span class="sd">        If a list, each location will be tried in the order given, but</span>
+<span class="sd">        only the last will be considered writable.</span>
+<span class="sd">    cache_check: int</span>
+<span class="sd">        Number of seconds between reload of cache metadata</span>
+<span class="sd">    check_files: bool</span>
+<span class="sd">        Whether to explicitly see if the UID of the remote file matches</span>
+<span class="sd">        the stored one before using. Warning: some file systems such as</span>
+<span class="sd">        HTTP cannot reliably give a unique hash of the contents of some</span>
+<span class="sd">        path, so be sure to set this option to False.</span>
+<span class="sd">    expiry_time: int</span>
+<span class="sd">        The time in seconds after which a local copy is considered useless.</span>
+<span class="sd">        Set to falsy to prevent expiry. The default is equivalent to one</span>
+<span class="sd">        week.</span>
+<span class="sd">    target_options: dict or None</span>
+<span class="sd">        Passed to the instantiation of the FS, if fs is None.</span>
+<span class="sd">    fs: filesystem instance</span>
+<span class="sd">        The target filesystem to run against. Provide this or ``protocol``.</span>
+<span class="sd">    same_names: bool (optional)</span>
+<span class="sd">        By default, target URLs are hashed using a ``HashCacheMapper`` so</span>
+<span class="sd">        that files from different backends with the same basename do not</span>
+<span class="sd">        conflict. If this argument is ``true``, a ``BasenameCacheMapper``</span>
+<span class="sd">        is used instead. Other cache mapper options are available by using</span>
+<span class="sd">        the ``cache_mapper`` keyword argument. Only one of this and</span>
+<span class="sd">        ``cache_mapper`` should be specified.</span>
+<span class="sd">    compression: str (optional)</span>
+<span class="sd">        To decompress on download. Can be &#39;infer&#39; (guess from the URL name),</span>
+<span class="sd">        one of the entries in ``fsspec.compression.compr``, or None for no</span>
+<span class="sd">        decompression.</span>
+<span class="sd">    cache_mapper: AbstractCacheMapper (optional)</span>
+<span class="sd">        The object use to map from original filenames to cached filenames.</span>
+<span class="sd">        Only one of this and ``same_names`` should be specified.</span>
+
+<span class="sd">    TODO: Move out of package</span>
+<span class="sd">    https://github.com/NickGeneva/asyncachefs</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">protocol</span><span class="p">:</span> <span class="n">ClassVar</span><span class="p">[</span><span class="nb">str</span> <span class="o">|</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="o">...</span><span class="p">]]</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;blockcache&quot;</span><span class="p">,</span> <span class="s2">&quot;cached&quot;</span><span class="p">)</span>
+
+    <span class="nd">@typing</span><span class="o">.</span><span class="n">no_type_check</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">target_protocol</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">cache_storage</span><span class="o">=</span><span class="s2">&quot;TMP&quot;</span><span class="p">,</span>
+        <span class="n">cache_check</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span>
+        <span class="n">check_files</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="n">expiry_time</span><span class="o">=</span><span class="mi">604800</span><span class="p">,</span>
+        <span class="n">target_options</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">fs</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">same_names</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">compression</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">cache_mapper</span><span class="p">:</span> <span class="n">AbstractCacheMapper</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">fs</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">target_protocol</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;Please provide filesystem instance(fs) or target_protocol&quot;</span>
+            <span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="n">fs</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">)</span> <span class="o">^</span> <span class="p">(</span><span class="n">target_protocol</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;Both filesystems (fs) and target_protocol may not be both given.&quot;</span>
+            <span class="p">)</span>
+        <span class="k">if</span> <span class="n">cache_storage</span> <span class="o">==</span> <span class="s2">&quot;TMP&quot;</span><span class="p">:</span>
+            <span class="n">tempdir</span> <span class="o">=</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">mkdtemp</span><span class="p">()</span>
+            <span class="n">storage</span> <span class="o">=</span> <span class="p">[</span><span class="n">tempdir</span><span class="p">]</span>
+            <span class="n">weakref</span><span class="o">.</span><span class="n">finalize</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_remove_tempdir</span><span class="p">,</span> <span class="n">tempdir</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">cache_storage</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+                <span class="n">storage</span> <span class="o">=</span> <span class="p">[</span><span class="n">cache_storage</span><span class="p">]</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">storage</span> <span class="o">=</span> <span class="n">cache_storage</span>
+        <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">storage</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">storage</span> <span class="o">=</span> <span class="n">storage</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">kwargs</span> <span class="o">=</span> <span class="n">target_options</span> <span class="ow">or</span> <span class="p">{}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">cache_check</span> <span class="o">=</span> <span class="n">cache_check</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">check_files</span> <span class="o">=</span> <span class="n">check_files</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">expiry</span> <span class="o">=</span> <span class="n">expiry_time</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">compression</span> <span class="o">=</span> <span class="n">compression</span>
+
+        <span class="c1"># Size of cache in bytes. If None then the size is unknown and will be</span>
+        <span class="c1"># recalculated the next time cache_size() is called. On writes to the</span>
+        <span class="c1"># cache this is reset to None.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_cache_size</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="k">if</span> <span class="n">same_names</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">cache_mapper</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;Cannot specify both same_names and cache_mapper in &quot;</span>
+                <span class="s2">&quot;CachingFileSystem.__init__&quot;</span>
+            <span class="p">)</span>
+        <span class="k">if</span> <span class="n">cache_mapper</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_mapper</span> <span class="o">=</span> <span class="n">cache_mapper</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_mapper</span> <span class="o">=</span> <span class="n">create_cache_mapper</span><span class="p">(</span>
+                <span class="n">same_names</span> <span class="k">if</span> <span class="n">same_names</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="kc">False</span>
+            <span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">target_protocol</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">target_protocol</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">target_protocol</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span>
+            <span class="k">else</span> <span class="p">(</span><span class="n">fs</span><span class="o">.</span><span class="n">protocol</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">fs</span><span class="o">.</span><span class="n">protocol</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="k">else</span> <span class="n">fs</span><span class="o">.</span><span class="n">protocol</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_metadata</span> <span class="o">=</span> <span class="n">CacheMetadata</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">storage</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">load_cache</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">fs</span> <span class="o">=</span> <span class="n">fs</span> <span class="k">if</span> <span class="n">fs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">filesystem</span><span class="p">(</span><span class="n">target_protocol</span><span class="p">,</span> <span class="o">**</span><span class="bp">self</span><span class="o">.</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">fs</span><span class="o">.</span><span class="n">async_impl</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Underlying filesystem needs to be async&quot;</span><span class="p">)</span>
+
+        <span class="k">def</span><span class="w"> </span><span class="nf">_strip_protocol</span><span class="p">(</span><span class="n">path</span><span class="p">):</span>
+            <span class="c1"># acts as a method, since each instance has a difference target</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">fs</span><span class="o">.</span><span class="n">_strip_protocol</span><span class="p">(</span><span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">_strip_protocol</span><span class="p">(</span><span class="n">path</span><span class="p">))</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_strip_protocol</span><span class="p">:</span> <span class="n">Callable</span> <span class="o">=</span> <span class="n">_strip_protocol</span>
+
+    <span class="nd">@typing</span><span class="o">.</span><span class="n">no_type_check</span>
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_remove_tempdir</span><span class="p">(</span><span class="n">tempdir</span><span class="p">):</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">rmtree</span><span class="p">(</span><span class="n">tempdir</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>  <span class="c1"># noqa: S110</span>
+            <span class="k">pass</span>
+
+    <span class="nd">@typing</span><span class="o">.</span><span class="n">no_type_check</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_mkcache</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">storage</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="nd">@typing</span><span class="o">.</span><span class="n">no_type_check</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">cache_size</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return size of cache in bytes.</span>
+
+<span class="sd">        If more than one cache directory is in use, only the size of the last</span>
+<span class="sd">        one (the writable cache directory) is returned.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cache_size</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">cache_dir</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">storage</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_cache_size</span> <span class="o">=</span> <span class="n">filesystem</span><span class="p">(</span><span class="s2">&quot;file&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">du</span><span class="p">(</span><span class="n">cache_dir</span><span class="p">,</span> <span class="n">withdirs</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cache_size</span>
+
+    <span class="nd">@typing</span><span class="o">.</span><span class="n">no_type_check</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">load_cache</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Read set of stored blocks from file&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_metadata</span><span class="o">.</span><span class="n">load</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_mkcache</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">last_cache</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+
+    <span class="nd">@typing</span><span class="o">.</span><span class="n">no_type_check</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">save_cache</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Save set of stored blocks from file&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_mkcache</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_metadata</span><span class="o">.</span><span class="n">save</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">last_cache</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_cache_size</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="nd">@typing</span><span class="o">.</span><span class="n">no_type_check</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_check_cache</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Reload caches if time elapsed or any disappeared&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_mkcache</span><span class="p">()</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">cache_check</span><span class="p">:</span>
+            <span class="c1"># explicitly told not to bother checking</span>
+            <span class="k">return</span>
+        <span class="n">timecond</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">last_cache</span> <span class="o">&gt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">cache_check</span>
+        <span class="n">existcond</span> <span class="o">=</span> <span class="nb">all</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">storage</span><span class="p">)</span> <span class="k">for</span> <span class="n">storage</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">storage</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">timecond</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">existcond</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">load_cache</span><span class="p">()</span>
+
+    <span class="nd">@typing</span><span class="o">.</span><span class="n">no_type_check</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_check_file</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Is path in cache and still valid&quot;&quot;&quot;</span>
+        <span class="n">path</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_strip_protocol</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_check_cache</span><span class="p">()</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_metadata</span><span class="o">.</span><span class="n">check_file</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span>
+
+    <span class="nd">@typing</span><span class="o">.</span><span class="n">no_type_check</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">clear_cache</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Remove all files and metadata from the cache</span>
+
+<span class="sd">        In the case of multiple cache locations, this clears only the last one,</span>
+<span class="sd">        which is assumed to be the read/write one.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">rmtree</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">storage</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">load_cache</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_cache_size</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="nd">@typing</span><span class="o">.</span><span class="n">no_type_check</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">clear_expired_cache</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">expiry_time</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Remove all expired files and metadata from the cache</span>
+
+<span class="sd">        In the case of multiple cache locations, this clears only the last one,</span>
+<span class="sd">        which is assumed to be the read/write one.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        expiry_time: int</span>
+<span class="sd">            The time in seconds after which a local copy is considered useless.</span>
+<span class="sd">            If not defined the default is equivalent to the attribute from the</span>
+<span class="sd">            file caching instantiation.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">expiry_time</span><span class="p">:</span>
+            <span class="n">expiry_time</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">expiry</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_check_cache</span><span class="p">()</span>
+
+        <span class="n">expired_files</span><span class="p">,</span> <span class="n">writable_cache_empty</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_metadata</span><span class="o">.</span><span class="n">clear_expired</span><span class="p">(</span><span class="n">expiry_time</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">fn</span> <span class="ow">in</span> <span class="n">expired_files</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">fn</span><span class="p">):</span>
+                <span class="n">os</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">fn</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">writable_cache_empty</span><span class="p">:</span>
+            <span class="n">rmtree</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">storage</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">load_cache</span><span class="p">()</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_cache_size</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="nd">@typing</span><span class="o">.</span><span class="n">no_type_check</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">pop_from_cache</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Remove cached version of given file</span>
+
+<span class="sd">        Deletes local copy of the given (remote) path. If it is found in a cache</span>
+<span class="sd">        location which is not the last, it is assumed to be read-only, and</span>
+<span class="sd">        raises PermissionError</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">path</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_strip_protocol</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+        <span class="n">fn</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_metadata</span><span class="o">.</span><span class="n">pop_file</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">fn</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">os</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">fn</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_cache_size</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="nd">@typing</span><span class="o">.</span><span class="n">no_type_check</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_parent</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">fs</span><span class="o">.</span><span class="n">_parent</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+
+    <span class="nd">@typing</span><span class="o">.</span><span class="n">no_type_check</span>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">_ukey</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Hash of file properties, to tell if it has changed&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">sha256</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">fs</span><span class="o">.</span><span class="n">_info</span><span class="p">(</span><span class="n">path</span><span class="p">))</span><span class="o">.</span><span class="n">encode</span><span class="p">())</span><span class="o">.</span><span class="n">hexdigest</span><span class="p">()</span>
+
+    <span class="nd">@typing</span><span class="o">.</span><span class="n">no_type_check</span>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">_make_local_details</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create file detail dictionary for given file path&quot;&quot;&quot;</span>
+        <span class="nb">hash</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_mapper</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+        <span class="n">fn</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">storage</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="nb">hash</span><span class="p">)</span>
+        <span class="n">detail</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">&quot;original&quot;</span><span class="p">:</span> <span class="n">path</span><span class="p">,</span>
+            <span class="s2">&quot;fn&quot;</span><span class="p">:</span> <span class="nb">hash</span><span class="p">,</span>
+            <span class="s2">&quot;blocks&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+            <span class="s2">&quot;time&quot;</span><span class="p">:</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">(),</span>
+            <span class="s2">&quot;uid&quot;</span><span class="p">:</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ukey</span><span class="p">(</span><span class="n">path</span><span class="p">),</span>
+        <span class="p">}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_metadata</span><span class="o">.</span><span class="n">update_file</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">detail</span><span class="p">)</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Copying </span><span class="si">{</span><span class="n">path</span><span class="si">}</span><span class="s2"> to local cache&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">fn</span>
+
+    <span class="nd">@typing</span><span class="o">.</span><span class="n">no_type_check</span>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">_cat_file</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">path</span><span class="p">,</span>
+        <span class="n">start</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">end</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">on_error</span><span class="o">=</span><span class="s2">&quot;raise&quot;</span><span class="p">,</span>
+        <span class="n">callback</span><span class="o">=</span><span class="n">DEFAULT_CALLBACK</span><span class="p">,</span>
+        <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
+    <span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Cat file, this is what is used inside Zarr 3.0 at the moment&quot;&quot;&quot;</span>
+        <span class="n">getpath</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="c1"># Check if file is in cache</span>
+            <span class="c1"># This doesnt do anything fancy for chunked data, different chunk ranges</span>
+            <span class="c1"># are stored in different files even if there is over lap</span>
+            <span class="n">path_chunked</span> <span class="o">=</span> <span class="n">path</span>
+            <span class="k">if</span> <span class="n">start</span><span class="p">:</span>
+                <span class="n">path_chunked</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot;_</span><span class="si">{</span><span class="n">start</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="k">if</span> <span class="n">end</span><span class="p">:</span>
+                <span class="n">path_chunked</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot;_</span><span class="si">{</span><span class="n">end</span><span class="si">}</span><span class="s2">&quot;</span>
+
+            <span class="n">detail</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_check_file</span><span class="p">(</span><span class="n">path_chunked</span><span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">detail</span><span class="p">:</span>
+                <span class="n">storepath</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_make_local_details</span><span class="p">(</span><span class="n">path_chunked</span><span class="p">)</span>
+                <span class="n">getpath</span> <span class="o">=</span> <span class="n">path</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">detail</span><span class="p">,</span> <span class="n">storepath</span> <span class="o">=</span> <span class="p">(</span>
+                    <span class="n">detail</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">detail</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">)</span> <span class="k">else</span> <span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="n">detail</span><span class="p">)</span>
+                <span class="p">)</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">on_error</span> <span class="o">==</span> <span class="s2">&quot;raise&quot;</span><span class="p">:</span>
+                <span class="k">raise</span>
+            <span class="k">if</span> <span class="n">on_error</span> <span class="o">==</span> <span class="s2">&quot;return&quot;</span><span class="p">:</span>
+                <span class="n">out</span> <span class="o">=</span> <span class="n">e</span>
+
+        <span class="c1"># If file was not in cache, get it using the base file system</span>
+        <span class="k">if</span> <span class="n">getpath</span><span class="p">:</span>
+            <span class="n">resp</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">fs</span><span class="o">.</span><span class="n">_cat_file</span><span class="p">(</span><span class="n">getpath</span><span class="p">,</span> <span class="n">start</span><span class="o">=</span><span class="n">start</span><span class="p">,</span> <span class="n">end</span><span class="o">=</span><span class="n">end</span><span class="p">)</span>
+            <span class="c1"># Save to file</span>
+            <span class="k">if</span> <span class="n">isfilelike</span><span class="p">(</span><span class="n">storepath</span><span class="p">):</span>
+                <span class="n">outfile</span> <span class="o">=</span> <span class="n">storepath</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">outfile</span> <span class="o">=</span> <span class="nb">open</span><span class="p">(</span><span class="n">storepath</span><span class="p">,</span> <span class="s2">&quot;wb&quot;</span><span class="p">)</span>  <span class="c1"># noqa: ASYNC101, ASYNC230</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">outfile</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">resp</span><span class="p">)</span>
+                <span class="c1"># IDK yet</span>
+                <span class="c1"># callback.relative_update(len(chunk))</span>
+            <span class="k">finally</span><span class="p">:</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">isfilelike</span><span class="p">(</span><span class="n">storepath</span><span class="p">):</span>
+                    <span class="n">outfile</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">save_cache</span><span class="p">()</span>
+
+        <span class="c1"># Call back is weird here, like the progress should be on the file fetch</span>
+        <span class="c1"># but then how do we deal with the read? Maybe we times it by 2x?</span>
+        <span class="k">if</span> <span class="n">start</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">start</span> <span class="o">=</span> <span class="mi">0</span>
+
+        <span class="n">callback</span><span class="o">.</span><span class="n">set_size</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">storepath</span><span class="p">,</span> <span class="s2">&quot;rb&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">seek</span><span class="p">(</span><span class="n">start</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">end</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">out</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="n">end</span> <span class="o">-</span> <span class="n">start</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">out</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>
+        <span class="n">callback</span><span class="o">.</span><span class="n">relative_update</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">out</span>
+
+    <span class="nd">@typing</span><span class="o">.</span><span class="n">no_type_check</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__getattribute__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">item</span><span class="p">):</span>
+        <span class="c1"># TODO: Update</span>
+        <span class="k">if</span> <span class="n">item</span> <span class="ow">in</span> <span class="p">{</span>
+            <span class="s2">&quot;load_cache&quot;</span><span class="p">,</span>
+            <span class="c1"># &quot;_open&quot;,</span>
+            <span class="s2">&quot;save_cache&quot;</span><span class="p">,</span>
+            <span class="c1"># &quot;close_and_update&quot;,</span>
+            <span class="s2">&quot;__init__&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;__getattribute__&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;__reduce__&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;_make_local_details&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;_ukey&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;open&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;cat&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;_cat_file&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;cat_ranges&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;get&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;read_block&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;tail&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;head&quot;</span><span class="p">,</span>
+            <span class="c1"># &quot;info&quot;,</span>
+            <span class="c1"># &quot;ls&quot;,</span>
+            <span class="s2">&quot;exists&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;isfile&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;isdir&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;_check_file&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;_check_cache&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;_mkcache&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;clear_cache&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;clear_expired_cache&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;pop_from_cache&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;local_file&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;_paths_from_path&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;get_mapper&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;open_many&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;commit_many&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;hash_name&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;__hash__&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;__eq__&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;to_json&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;to_dict&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;cache_size&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;pipe_file&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;pipe&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;start_transaction&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;end_transaction&quot;</span><span class="p">,</span>
+        <span class="p">}:</span>
+            <span class="c1"># all the methods defined in this class. Note `open` here, since</span>
+            <span class="c1"># it calls `_open`, but is actually in superclass</span>
+            <span class="k">return</span> <span class="k">lambda</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kw</span><span class="p">:</span> <span class="nb">getattr</span><span class="p">(</span><span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">),</span> <span class="n">item</span><span class="p">)</span><span class="o">.</span><span class="fm">__get__</span><span class="p">(</span><span class="bp">self</span><span class="p">)(</span>
+                <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kw</span>
+            <span class="p">)</span>
+        <span class="k">if</span> <span class="n">item</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;__reduce_ex__&quot;</span><span class="p">]:</span>
+            <span class="k">raise</span> <span class="ne">AttributeError</span>
+        <span class="k">if</span> <span class="n">item</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;transaction&quot;</span><span class="p">]:</span>
+            <span class="c1"># property</span>
+            <span class="k">return</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">transaction</span><span class="o">.</span><span class="fm">__get__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">item</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;_cache&quot;</span><span class="p">,</span> <span class="s2">&quot;transaction_type&quot;</span><span class="p">]:</span>
+            <span class="c1"># class attributes</span>
+            <span class="k">return</span> <span class="nb">getattr</span><span class="p">(</span><span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">),</span> <span class="n">item</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">item</span> <span class="o">==</span> <span class="s2">&quot;__class__&quot;</span><span class="p">:</span>
+            <span class="k">return</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        <span class="n">d</span> <span class="o">=</span> <span class="nb">object</span><span class="o">.</span><span class="fm">__getattribute__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;__dict__&quot;</span><span class="p">)</span>
+        <span class="n">fs</span> <span class="o">=</span> <span class="n">d</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;fs&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>  <span class="c1"># fs is not immediately defined</span>
+        <span class="k">if</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">d</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">d</span><span class="p">[</span><span class="n">item</span><span class="p">]</span>
+        <span class="k">elif</span> <span class="n">fs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">fs</span><span class="o">.</span><span class="vm">__dict__</span><span class="p">:</span>
+                <span class="c1"># attribute of instance</span>
+                <span class="k">return</span> <span class="n">fs</span><span class="o">.</span><span class="vm">__dict__</span><span class="p">[</span><span class="n">item</span><span class="p">]</span>
+            <span class="c1"># attributed belonging to the target filesystem</span>
+            <span class="bp">cls</span> <span class="o">=</span> <span class="nb">type</span><span class="p">(</span><span class="n">fs</span><span class="p">)</span>
+            <span class="n">m</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">item</span><span class="p">)</span>
+            <span class="k">if</span> <span class="p">(</span><span class="n">inspect</span><span class="o">.</span><span class="n">isfunction</span><span class="p">(</span><span class="n">m</span><span class="p">)</span> <span class="ow">or</span> <span class="n">inspect</span><span class="o">.</span><span class="n">isdatadescriptor</span><span class="p">(</span><span class="n">m</span><span class="p">))</span> <span class="ow">and</span> <span class="p">(</span>
+                <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">m</span><span class="p">,</span> <span class="s2">&quot;__self__&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="n">m</span><span class="o">.</span><span class="vm">__self__</span> <span class="ow">is</span> <span class="kc">None</span>
+            <span class="p">):</span>
+                <span class="c1"># instance method</span>
+                <span class="k">return</span> <span class="n">m</span><span class="o">.</span><span class="fm">__get__</span><span class="p">(</span><span class="n">fs</span><span class="p">,</span> <span class="bp">cls</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">m</span>  <span class="c1"># class method or attribute</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># attributes of the superclass, while target is being set up</span>
+            <span class="k">return</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__getattribute__</span><span class="p">(</span><span class="n">item</span><span class="p">)</span>
 </pre></div>
 
                 </article>
