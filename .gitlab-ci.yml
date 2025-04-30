@@ -52,6 +52,7 @@ build-ci-env:
   variables:
     MAX_JOBS: 32
   script:
+    - uv venv --python=3.12
     - make setup-ci
     - make install
 
