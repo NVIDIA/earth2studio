@@ -1,5 +1,5 @@
 [build-system]
-requires = ["hatchling", "setuptools>=70.0.0", "ninja"]
+requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
@@ -195,6 +195,7 @@ conflicts = [
       { extra = "aurora-fork" },
     ]
 ]
+default-groups = ["dev", "build"]
 # Needed for some packages that build with PEP 518
 no-build-isolation-package = ["earth2grid", "flash-attn"]
 # Force onnx to only try to install when below 3.13, otherwise we will use onnx weekly
@@ -223,6 +224,10 @@ explicit = true
 members = ["recipes/*"]
 
 [dependency-groups]
+build = [
+    "ninja>=1.11.1.4",
+    "setuptools>=70.0.0",
+]
 dev = [
     "black==24.1.0",
     "coverage>=6.5.0",
