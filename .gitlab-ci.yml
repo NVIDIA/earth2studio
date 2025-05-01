@@ -50,7 +50,7 @@ build-ci-env:
     - .earth2studio:build-env:base
     - .build-env:cache
   variables:
-    MAX_JOBS: 4
+    MAX_JOBS: 16
   script:
     - uv venv --python=3.12
     - make setup-ci
