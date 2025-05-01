@@ -21,7 +21,7 @@
 # widespread impacts across the southeastern United States.
 #
 # The workflow is structured as follows: first, we will set up the most important
-# configurations and initialise key objects, then explore their content.
+# configurations and initialize key objects, then explore their content.
 # Following this, we will assemble the perturbation before running the inference.
 # Finally, we will visualise the results by plotting the tracks and fields.
 #
@@ -140,13 +140,14 @@ for ii, (pkg, ic, ens_idx, batch_ids_produce) in enumerate(ensemble_configs):
 
 
 # %% [markdown]
-# Note that the inference is parallelised across enssemble config elements, hence across
-# IC-package pairs. As a result, you cannot use more GPUs than number of ICs multiplied
+# Note that the inference is parallelised across ensemble config elements which
+# corresponds to initial conditions.
+# As a result, you cannot use more GPUs than number of ICs multiplied
 # by number of checkpoints. If more GPUs are available, they remain idle.
 #
 # The model dict includes information about the model class and which model weights are
-# currently loaded. In addtion, it also holds a pointer to the model loaded to the GPU.
-# During infernce, the model dict gets updated according to the information provided in
+# currently loaded. In addition, it also holds a pointer to the model loaded to the GPU.
+# During inference, the model dict gets updated according to the information provided in
 # the ensemble config. Let's have a look at its contents:
 
 # %%
@@ -165,7 +166,7 @@ print(model_dict["model"].parameters, "\n")
 
 
 # %% [markdown]
-# Now bring everyhting together:
+# Now bring everything together:
 # - loop over ensemble configs (models)
 # - update model dict (if package has changed)
 # - initialise output
@@ -198,7 +199,7 @@ run_inference(
 # After completing the ensemble generation process, the results are stored in the output
 # directory. This directory contains both the forecast fields and the cyclone track
 # data.
-# A seperate output file is created for each checkpoint-IC pair, so if you haven't
+# A separate output file is created for each checkpoint-IC pair, so if you haven't
 # changed the configs, there should be two NETCDF files with field data and one CSV file
 # with the tracks.
 #
@@ -236,7 +237,7 @@ plt.savefig(f"{out_dir}/helene_{variable}_{int(lead_time*6)}hours.jpg")
 
 # %% [markdown]
 # Now, let's focus on the Gulf of Mexico and plot the tracks of Hurricane Helene.
-# Generating a speghetti plot using cartopy can be done with just a few xarray
+# Generating a spaghetti plot using cartopy can be done with just a few xarray
 # operations.
 # The plotting code below demonstrates how to filter our TC tracks that have a length
 # greater than 2 steps.

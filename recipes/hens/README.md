@@ -97,7 +97,7 @@ pip install -r requirements.txt
 ```
 
 The provided JupyText python script `hens_notebook.py` is already set up to run
-inference prdictions for hurricane Helene track ensembles using two of the HENS
+predictions for hurricane Helene track ensembles using two of the HENS
 checkpoints.
 This has comments through out the file documenting the steps used in this recipe.
 `hens_notebook.py` will step users through different parts of configuring the workflow,
@@ -126,7 +126,7 @@ For further configuration options, see the following section.
 
 This recipe includes a few reference workflows which are configured
 through the use of [Hydra YAML][hydra-docs] files.
-These can get exectuted by directly invoking the `main.py` file.
+These can get executed by directly invoking the `main.py` file.
 
 #### Hurricane Helene
 
@@ -226,8 +226,8 @@ Select a project name to uniquely identify your run. This prevents overwriting
 files from previous runs and helps with organisation. Note that `nensemble`
 refers to the number of ensemble members per (IC × number of checkpoints).
 When used with the HENS perturbation, `nensemble` and `batch_size` have to be even
-as the perurbation method is symmetric, ie the perturbation is once added and once
-subtracted from the IC.
+as the perturbation method is symmetric, i.e. the perturbation is once added and once
+subtracted from the initial condition.
 
 ```yaml
 project: 'project_name' # project name
@@ -238,8 +238,8 @@ nensemble: 32  # ensemble size **per checkpoint, per IC**
 batch_size: 2  # inference batch size
 ```
 
-Alternatively, you can specify a block of equidistant ICs. In the following
-example, individual ICs are spaced 48 hours apart:
+Alternatively, you can specify a block of equidistant initial conditions. In the
+following example, individual initial conditions are spaced 48 hours apart:
 
 ```yaml
 ic_block_start: "2022-02-08" # first IC
