@@ -2,8 +2,13 @@ install:
 	uv sync
 	uv sync --extra all
 
+.PHONY: install-docker
+install-docker:
+	uv pip install --system --break-system-packages .[all] --group dev
+
 .PHONY: setup-ci
 setup-ci:
+	uv venv --python=3.12
 	uv sync
 	uv run pre-commit install --install-hooks
 
@@ -39,9 +44,17 @@ license:
 pytest:
 	uv run coverage run -m pytest --ci-cache --slow test/
 
+.PHONY: pytest-docker
+pytest:
+	coverage run -m pytest --ci-cache --slow test/
+
 .PHONY: pytest-submodule
 pytest-submodule:
 	uv run coverage run --source=$(COVERAGE_SOURCE) -m pytest --ci-cache --slow $(PYTEST_SOURCE)
+
+.PHONY: pytest-submodule-docker
+pytest-submodule:
+	coverage run --source=$(COVERAGE_SOURCE) -m pytest --ci-cache --slow $(PYTEST_SOURCE)
 
 .PHONY: doctest
 doctest:
