@@ -32,6 +32,7 @@ from earth2studio.data import DataSource
 from earth2studio.io import IOBackend, KVBackend, XarrayBackend
 from earth2studio.models.auto import Package
 from earth2studio.models.dx import TCTrackerWuDuan
+from earth2studio.models.dx.base import DiagnosticModel
 from earth2studio.models.px import PrognosticModel
 from earth2studio.perturbation import Perturbation
 from earth2studio.utils.coords import CoordSystem, map_coords
@@ -45,7 +46,7 @@ from .hens_utilities_reproduce import (
 
 def initialise_perturbation(
     model: PrognosticModel,
-    data: DataSource,
+    data_source: DataSource,
     start_time: np.ndarray[np.datetime64],
     cfg: DictConfig,
 ) -> Perturbation:
@@ -73,7 +74,9 @@ def initialise_perturbation(
 
     if isinstance(perturbation, partial):  # inform about model, IC etc
         if perturbation.func.__name__ == "HENSPerturbation":
-            perturbation = perturbation(model=model, start_time=start_time, data=data)
+            perturbation = perturbation(
+                model=model, start_time=start_time, data_source=data_source
+            )
         elif perturbation.func.__name__ == "BredVector":
             perturbation = perturbation(model=model)
         else:
@@ -99,26 +102,26 @@ def build_package_list(cfg: DictConfig) -> list[str]:
         Available model packages.
     """
     if "package" in cfg.forecast_model:  # pointing to single package
-        if cfg.forecast_model.package == "default":
+        if cfg.forecast_model.registry == "default":
             return ["default"]
 
-        elif os.path.isfile(os.path.join(cfg.forecast_model.package, "config.json")):
-            return [cfg.forecast_model.package]
+        elif os.path.isfile(os.path.join(cfg.forecast_model.registry, "config.json")):
+            return [cfg.forecast_model.registry]
 
         else:  # pointing to directory of packages
             max_num_ckpts = 29
             if "max_num_checkpoints" in cfg.forecast_model:
                 max_num_ckpts = cfg.forecast_model.max_num_checkpoints
             packages = []
-            for pkg in os.listdir(cfg.forecast_model.package):
-                pth = os.path.abspath(os.path.join(cfg.forecast_model.package, pkg))
+            for pkg in os.listdir(cfg.forecast_model.registry):
+                pth = os.path.abspath(os.path.join(cfg.forecast_model.registry, pkg))
                 if os.path.isdir(pth) and os.path.isfile(
                     os.path.join(pth, "config.json")
                 ):
                     packages.append(pth)
             if len(packages) == 0:
                 ValueError(
-                    f"Found no valid model packages under {cfg.forecast_model.package}."
+                    f"Found no valid model packages under {cfg.forecast_model.registry}."
                 )
             return (sorted(packages))[:max_num_ckpts]
 
@@ -342,13 +345,12 @@ def initialise(
     list[Any],
     dict[Any, Any],
     dict[Any, Any],
-    Any,
-    Any,
+    DiagnosticModel | None,
+    DataSource,
     dict[str, OrderedDict[Any, Any]],
-    Any,
-    Any,
-    Any,
-    Any,
+    str | int,
+    ThreadPoolExecutor | None,
+    list[Future[Any]],
 ]:
     """
     Set initial conditions, load models, and set up file output based on the provided configuration.
@@ -426,22 +428,22 @@ def initialise(
         ics, model_packages, cfg.nensemble, batch_ids_produce, cfg.batch_size
     )
     # get data source
-    data = hydra.utils.instantiate(cfg.data_source)
+    data_source = hydra.utils.instantiate(cfg.data_source)
 
     # initialize cyclone tracking
     if "cyclone_tracking" in cfg:
-        cyclone_tracking = TCTrackerWuDuan(
+        cyclone_tracker = TCTrackerWuDuan(
             path_search_distance=250, path_search_window_size=2
         )  # TODO choose and configure TC tracker in config
 
     else:
-        cyclone_tracking = None
+        cyclone_tracker = None
 
     # initialize diagnostic models
     dx_model_dict = initialize_diagnostic_models(cfg)
 
     # initialize output structures
-    all_tracks_dict, writer_executor, writer_threads = initialize_output_structures(cfg)
+    _, writer_executor, writer_threads = initialize_output_structures(cfg)
 
     # make sure that all the seeds are unique
     ensure_all_torch_seeds_are_unique(ensemble_configs, base_random_seed)
@@ -450,11 +452,10 @@ def initialise(
         ensemble_configs,
         model_dict,
         dx_model_dict,
-        cyclone_tracking,
-        data,
+        cyclone_tracker,
+        data_source,
         output_coords_dict,
         base_random_seed,
-        all_tracks_dict,
         writer_executor,
         writer_threads,
     )
@@ -768,9 +769,9 @@ def write_to_disk(
     ic: str,
     model_dict: dict,
     io_dict: IOBackend,
-    writer_threads: list[Future] = [],
     writer_executor: ThreadPoolExecutor | None = None,
-) -> tuple[list[Future], ThreadPoolExecutor | None]:
+    writer_threads: list[Future] = [],
+) -> tuple[ThreadPoolExecutor | None, list[Future]]:
     """
     method which writes in-memory backends to file.
 
@@ -784,14 +785,14 @@ def write_to_disk(
         dictionary containing loaded model, its class and its package
     io : IOBackend
         object for data output
-    writer_threads : list[Future], optional
-        threads for parallel file output, by default []
     writer_executor : ThreadPoolExecutor, optional
         executor for parallel file output, by default None
+    writer_threads : list[Future], optional
+        threads for parallel file output, by default []
 
     Returns
     -------
-    tuple[list[Future], ThreadPoolExecutor | None]:
+    tuple[ThreadPoolExecutor | None, list[Future]]:
         List of writer threads and executor pool if exists
     """
 
@@ -823,7 +824,7 @@ def write_to_disk(
                 tmp = extend_xarray_for_reproducibility(tmp, io, cfg, model_dict)
                 tmp.to_netcdf(**kw_args)
 
-    return writer_threads, writer_executor
+    return writer_executor, writer_threads
 
 
 def extend_xarray_for_reproducibility(

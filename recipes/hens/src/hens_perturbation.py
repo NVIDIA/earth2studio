@@ -14,8 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from datetime import datetime
-
 from numpy import asarray
 from torch import Tensor, inference_mode
 from xarray import open_dataset
@@ -53,8 +51,7 @@ class HENSPerturbation:
     def __init__(
         self,
         model: PrognosticModel,
-        data: DataSource,
-        start_time: datetime,
+        data_source: DataSource,
         skill_path: str,
         noise_amplification: float,
         perturbed_var: str | list[str],
@@ -82,8 +79,7 @@ class HENSPerturbation:
 
         self.perturbation = HemisphericCentredBredVector(
             model=model,
-            data=data,
-            # time=start_time,
+            data=data_source,
             noise_amplitude=noise_amp_iter,
             integration_steps=integration_steps,  # use cfg.breeding_steps
             seeding_perturbation_method=seed_perturbation,
@@ -94,7 +90,7 @@ class HENSPerturbation:
     def get_noise_vector(
         self,
         model: PrognosticModel,
-        skill_path: str = None,
+        skill_path: str | None = None,
         noise_amplification: float = 1.0,
         vars: str | list[str] | None = None,
         lead_time: int = 48,

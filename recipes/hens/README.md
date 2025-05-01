@@ -18,10 +18,7 @@ distributions for improved extreme event prediction.
 It offers better uncertainty quantification and reduces the probability
 of outlier events while requiring orders of magnitude fewer computational
 resources than traditional physics-based models.
-
-Beyond the core HENS functionality, the pipeline includes additional features
-that are demonstrated through various configuration files, as detailed in
-[section 5](#5-reference-workflows). Key features include:
+Key features include:
 
 - Multi-GPU inference
 - Reproducibility of individual inference batches
@@ -91,9 +88,11 @@ uv sync
 pip install -r requirements.txt
 ```
 
-The provided JuPyTest python script `main.py` is already set up to run inference
+The provided JupyText python script `main.py` is already set up to run inference
 prdictions for hurricane Helene track ensembles using two of the HENS checkpoints.
 This has comments through out the file documenting the steps used in this recipe.
+`main.py` will step users through different parts of the configuration process as
+well as post processing samples.
 Run ensemble inference using the following commands:
 
 ```bash
@@ -114,10 +113,100 @@ For further configuration options, see the following section.
 
 ## Documentation
 
+### Reference Workflows
+
+This recipe includes a few reference workflows which are configured
+through the use of [Hydra YAML][hydra-docs] files.
+These can get exectuted by directly invoking the `src/hens_run.py` file.
+
+#### Hurricane Helene
+
+[Hurricane Helene][helene-wiki] was a significant tropical cyclone that made landfall
+in September 2024.
+This workflow demonstrates ensemble inference for Helene, with the model
+initialised approximately two and a half days before landfall.
+In the configuration file `cfg/helene.yaml`.
+Users are encouraged to look at this configuration file and adjust properties
+accordingly.
+
+The current configuration is set up for two checkpoints, one initial condition, and
+four ensemble members per checkpoint-IC pair, resulting in eight ensemble members in
+total.
+Once the small configuration is verified, you can expand the number of checkpoints,
+initial conditions and ensemble members per checkpoint-IC pair.
+
+Execute the ensemble inference by running:
+
+```bash
+[mpirun -n XX] python src/hens_run.py --config-name=helene.yaml
+```
+
+#### Storm Bernd
+
+This example demonstrates the use of diagnostic models in ensemble forecasting,
+using the case of Storm Bernd which caused [widespread flooding across central
+Europe][bernd-wiki] in July 2021. The workflow showcases how multiple diagnostic
+models can be chained together in a specific order to derive complex meteorological
+variables.
+
+In this particular case, the pipeline first calculates relative humidity using a
+numerical model. This derived variable, along with other forecasted fields, serves as input
+for the precipitation diagnostic model. The sequential processing is essential as each
+diagnostic model's output can become an input for subsequent models in the chain.
+
+Execute this example by running:
+
+```bash
+python src/hens_run.py --config-name=storm_bernd.yaml
+```
+
+#### Batched Helene Ensemble
+
+In large ensemble forecasting scenarios, storing all forecast fields may
+be impractical due to storage constraints. However, you may want to reproduce
+and store specific ensemble batches, particularly those containing interesting
+cyclone tracks. This section explains how to reproduce specific batches of the
+Helene ensemble.
+
+##### Key Considerations
+
+- Ensemble batches (including perturbations) are generated collectively,
+  so individual ensemble members cannot be reproduced in isolation
+- The entire batch must be reproduced together
+- The configuration must match the original run, except for the file output section
+- A fixed random seed is required to ensure identical initial condition perturbations
+
+##### Steps to Reproduce a Batch
+
+1. **Identify the Batch to Reproduce**
+   - Determine the batch ID(s) you want to reproduce
+   - Set these IDs in the `batch_ids_reproduce` parameter
+
+2. **Configure the Reproduction Run**
+   - Use the same configuration as `helene.yaml` for all parameters except file output
+   - If the original run didn't specify a random seed, you can find it in:
+     - The cyclone tracker file
+     - The netCDF output file (when using `KVBackend` or `XarrayBackend`)
+     - Other IObackends, including the netcdf4 backend do not provide the
+       seed in the output file
+   - If the original run didn't specify a random seed, different processes will
+     generate different seeds
+
+3. **Execute the Reproduction**
+
+   ```bash
+   python src/hens_run.py --config-name=reproduce_helene_batches.yaml
+   ```
+
+4. **Verify the Output**
+   - Compare the output tracks with the selected batches of the original run
+   - The entries should be identical, with only the track ID differing
+     (as this depends on the total number of ensemble members)
+
 ### Configuration
 
-The pipeline follows earth2studio's modular design approach. It is highly
-customisable via [instantiating through Hydra][hydra-docs].
+The pipeline follows Earth2Studio's modular design approach.
+It is highly customisable via [instantiating through Hydra][hydra-docs].
 This allows for flexible customisation of components. Additional functionality
 can be provided through custom functions and instantiated via Hydra, as
 demonstrated in the configuration of the HENS perturbation.
@@ -199,13 +288,9 @@ The pipeline supports various perturbation methods for initial conditions.
 While this example demonstrates the HENS perturbation configuration, any
 perturbation method can be implemented. Note that some perturbation methods
 require runtime information that is only available during pipeline execution.
-In such cases, set `_partial_` to `True` and complete the instantiation within
-the Python script.
 
 ```yaml
 perturbation:
-    _target_: hens_perturbation.HENSPerturbation
-    _partial_: True
     skill_path: '/path/to/channel/specific/skill.nc' # downloaded in section 2
     noise_amplification: .35  # scaling amplitude of noise vector
     perturbed_var: 'z500'     # variable to perturb in seeding step
@@ -266,10 +351,10 @@ file_output:
 
 ### Execution
 
-To execute the pipeline, tailor the config file to your needs and run:
+To execute the inference pipeline, tailor the config file to your needs and run:
 
 ```bash
-uv run main.py --config-name=your_config.yaml
+uv run src/hens_run.py --config-name=your_config.yaml
 ```
 
 The pipeline supports multi-GPU and multi-node execution, with individual inferences
@@ -284,99 +369,7 @@ during inference.
 To run the pipeline in a multi-GPU or multi-node environment:
 
 ```bash
-uv run mpirun -n 2 python main.py --config-name=your_config.yaml
-```
-
-### Reference Workflows
-
-#### Hurricane Helene
-
-[Hurricane Helene][helene-wiki] was a significant tropical cyclone that made landfall
-in September 2024,
-causing widespread impacts across the southeastern United States. The storm's rapid
-intensification and complex structure made it a challenging case for weather prediction.
-
-This workflow demonstrates ensemble inference for Helene, with the model
-initialised approximately two and a half days before landfall. To run this example,
-first download the model packages and skill file as described in
-[section 2](#2-prerequisites).
-In the configuration file `helene.yaml`, specify the path to the model packages under
-`forecast_model.package` and the skill file under `perturbation.skill_path`. The current
-configuration is set up for two checkpoints, one initial condition, and four ensemble
-members per checkpoint-IC pair, resulting in eight ensemble members in total. Once the
-small configuration is verified, you can expand the number of checkpoints, ICs, and
-ensemble members per checkpoint-IC pair.
-
-Execute the ensemble inference by running:
-
-```bash
-[mpirun -n XX] python src/hens.py --config-name=helene.yaml
-```
-
-The current configuration uses two checkpoints, one initial condition, and four
-ensemble members per checkpoint-IC pair, resulting in eight ensemble members total.
-You can expand these parameters once the configuration is verified.
-
-#### Reproducing Individual Batches of the Helene Ensemble
-
-In large ensemble forecasting scenarios, storing all forecast fields may
-be impractical due to storage constraints. However, you may want to reproduce
-and store specific ensemble batches, particularly those containing interesting
-cyclone tracks. This section explains how to reproduce specific batches of the
-Helene ensemble.
-
-##### Key Considerations
-
-- Ensemble batches (including perturbations) are generated collectively,
-  so individual ensemble members cannot be reproduced in isolation
-- The entire batch must be reproduced together
-- The configuration must match the original run, except for the file output section
-- A fixed random seed is required to ensure identical initial condition perturbations
-
-##### Steps to Reproduce a Batch
-
-1. **Identify the Batch to Reproduce**
-   - Determine the batch ID(s) you want to reproduce
-   - Set these IDs in the `batch_ids_reproduce` parameter
-
-2. **Configure the Reproduction Run**
-   - Use the same configuration as `helene.yaml` for all parameters except file output
-   - If the original run didn't specify a random seed, you can find it in:
-     - The cyclone tracker file
-     - The netCDF output file (when using `KVBackend` or `XarrayBackend`)
-     - Other IObackends, including the netcdf4 backend do not provide the
-       seed in the output file
-   - If the original run didn't specify a random seed, different processes will
-     generate different seeds
-
-3. **Execute the Reproduction**
-
-   ```bash
-   python src/hens.py --config-name=reproduce_helene_batches.yaml
-   ```
-
-4. **Verify the Output**
-   - Compare the output tracks with the selected batches of the original run
-   - The entries should be identical, with only the track ID differing
-     (as this depends on the total number of ensemble members)
-
-#### Rain or Shine?
-
-This example demonstrates the use of diagnostic models in ensemble forecasting,
-using the case of Storm Bernd which caused [widespread flooding across central
-Europe][bernd-wiki] in July 2021. The workflow showcases how multiple diagnostic
-models can be chained together in a specific order to derive complex meteorological
-variables.
-
-In this particular case, the pipeline first calculates relative humidity using a
-numerical model. This derived variable, along with other forecasted fields, serves as input
-for the precipitation diagnostic model. The sequential processing is essential as each
-diagnostic model's output can become an input for subsequent models in the chain.
-
-Execute this example by running:
-
-```bash
-python hens.py --config-name=storm_bernd.yaml
+uv run mpirun -n 2 python src/hens_run.py --config-name=your_config.yaml
 ```
 
 ## References

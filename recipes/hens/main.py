@@ -106,24 +106,16 @@ cfg = OmegaConf.merge(cfg, cfg_cli)
 
 # %%
 
-from src.hens_utilities import (
-    initialise,
-    initialise_output,
-    update_model_dict,
-    write_to_disk,
-)
-from src.hens_utilities_ensemble import EnsembleBase
-from src.hens_utilities_reproduce import create_base_seed_string
+from src.hens_utilities import initialise
 
 (
     ensemble_configs,
     model_dict,
     dx_model_dict,
-    cyclone_tracking,
-    data,
+    cyclone_tracker,
+    data_source,
     output_coords_dict,
     base_random_seed,
-    all_tracks_dict,
     writer_executor,
     writer_threads,
 ) = initialise(cfg)
@@ -172,135 +164,36 @@ print(model_dict["package"], "\n")
 print(colored("The fully initialised model is provided in:", attrs=["bold"]))
 print(model_dict["model"].parameters, "\n")
 
-# %% [markdown]
-# The final piece which is missing before we can run the inference is assembling the
-# HENS perturbation. For this, we need to provide:
-# - a skill file, which contains the deterministic skill of the forecast model
-# (**Note**: provide links to download skill file, best in intro)
-# - the variable to perturb in the seeding step of the bred vector perturbation
-# - the number of integration steps for breeding the noise vector
-# - the noise amplification, by which the noise vector is scaled
-#
-# With this information, we can now assemble the HENS perturbation using
-# CorrelatedSphericalGaussian as seeding perturbation and HemisphericCentredBredVector
-# as bred vector perturbation. To see how it is aseembled form basic blocks porvided in
-# Earth2Studio, have a look into `11_hens/hens_perturbation.py`.
-
-# %%
-# for perturbation
-skill_path = "hens_model_registry/d2m_sfno_linear_74chq_sc2_layers8_edim620_wstgl2-epoch70_seed16.nc"
-noise_amplification = 0.35
-perturbed_var = ["z500"]
-integration_steps = 3
-
-from numpy import datetime64, ndarray
-from src.hens_perturbation import HENSPerturbation
-
-from earth2studio.data import DataSource
-from earth2studio.models.px import PrognosticModel
-from earth2studio.perturbation import Perturbation
-
-
-def initialise_perturbation(
-    model: PrognosticModel,
-    data: DataSource,
-    start_time: ndarray[datetime64],
-) -> Perturbation:
-    """Helper method to initialize the perturbation"""
-    perturbation = HENSPerturbation(
-        model=model,
-        data=data,
-        start_time=start_time,
-        skill_path=skill_path,
-        noise_amplification=noise_amplification,
-        perturbed_var=perturbed_var,
-        integration_steps=integration_steps,
-    )
-
-    return perturbation
-
 
 # %% [markdown]
-# now bring everyhting together:
-# - loop over ensemble configs
+# Now bring everyhting together:
+# - loop over ensemble configs (models)
 # - update model dict (if package has changed)
 # - initialise output
 # - initialise perturbation (as ICs might have changed)
-# - run inference, where all ensemble members are produced
+# - run inference, where all ensemble members are produced for a given checkpoint
 # - write to disk
 #
-#
-# Now we will bring all components together to execute the ensemble forecasting process:
-#
-# - iterate through each ensemble configuration, which contains the necessary parameters
-# for generating individual ensemble members.
-# - at each iteration, update the model dictionary whenever a new package is
-# encountered, ensuring the correct model weights are loaded.
-# - initialise the output object and set up the perturbation method, taking into account
-# any changes in the initial conditions.
-# - initialise the perturbation method with updated IC and checkpoint
-# - initialise the inference pipeline with updated IC and checkpoint
-# - run inference, which generates all ensemble members according to the specified
-# configuration.
-# - write the results to disk, ensuring that all forecast data and associated metadata
-# are properly stored for subsequent analysis.
-#
+# This is implemented in the src/hens_run.py file which we encourage users to look at
+# and customize as needed.
+# The HENS run file can also be executed directly using Hydra CLI if desired.
 
 # %%
 
-for pkg, ic, ens_idx, batch_ids_produce in ensemble_configs:
-    # create seed base string required for reproducibility of individual batches
-    base_seed_string = create_base_seed_string(pkg, ic, base_random_seed)
+from src.hens_run import run_inference
 
-    # load new weights if necessary
-    model_dict = update_model_dict(model_dict, pkg)
-
-    # create new io object
-    io_dict = initialise_output(cfg, ic, model_dict, output_coords_dict)
-
-    # initialise perturbation with updated IC and checkpoint
-    perturbation = initialise_perturbation(
-        model=model_dict["model"], data=data, start_time=ic
-    )
-
-    # initialise inference pipeline with updated IC and checkpoint
-    run_hens = EnsembleBase(
-        time=[ic],
-        nsteps=cfg.nsteps,
-        nensemble=cfg.nensemble,
-        prognostic=model_dict["model"],
-        data=data,
-        io_dict=io_dict,
-        perturbation=perturbation,
-        output_coords_dict=output_coords_dict,
-        dx_model_dict=dx_model_dict,
-        cyclone_tracking=cyclone_tracking,
-        batch_size=cfg.batch_size,
-        ensemble_idx_base=ens_idx,
-        batch_ids_produce=batch_ids_produce,
-        base_seed_string=base_seed_string,
-    )
-
-    # run inference
-    io_dict = run_hens()
-
-    # if in-memory flavour of io backend was chosen, write content to disk now
-    if io_dict:
-        writer_threads, writer_executor = write_to_disk(
-            cfg,
-            ic,
-            model_dict,
-            io_dict,
-            writer_threads,
-            writer_executor,
-        )
-
-if writer_executor is not None:
-    for thread in list(writer_threads):
-        thread.result()
-        writer_threads.remove(thread)
-    writer_executor.shutdown()
-
+run_inference(
+    cfg,
+    ensemble_configs,
+    model_dict,
+    dx_model_dict,
+    cyclone_tracker,
+    data_source,
+    output_coords_dict,
+    base_random_seed,
+    writer_executor,
+    writer_threads,
+)
 
 # %% [markdown]
 # After completing the ensemble generation process, the results are stored in the output
@@ -346,7 +239,9 @@ plt.savefig(f"{out_dir}/helene_{variable}_{int(lead_time*6)}hours.jpg")
 # Now, let's focus on the Gulf of Mexico and plot the tracks of Hurricane Helene.
 # Generating a speghetti plot using cartopy can be done with just a few xarray
 # operations.
-# The plotting code below
+# The plotting code below demonstrates how to filter our TC tracks that have a length
+# greater than 2 steps.
+# Additional filtering can be done depending on the use case.
 
 # %%
 

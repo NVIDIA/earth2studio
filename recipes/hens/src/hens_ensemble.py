@@ -28,8 +28,6 @@ from tqdm import tqdm
 from earth2studio.data import DataSource, fetch_data
 from earth2studio.io import IOBackend
 from earth2studio.models.dx import DiagnosticModel
-
-# from earth2studio.models.dx.cyclone_tracking import get_tracks_from_positions
 from earth2studio.models.px import PrognosticModel
 from earth2studio.perturbation import Perturbation
 from earth2studio.utils.coords import CoordSystem, map_coords, split_coords
@@ -240,8 +238,7 @@ class EnsembleBase:
         return
 
     def set_batch_size(self, batch_size: int | None = None) -> None:
-        """
-        calculate batch size and number of mini batches to inference.
+        """Calculate batch size and number of mini batches to inference.
 
         Parameters
         ----------
@@ -254,8 +251,7 @@ class EnsembleBase:
         self.number_of_batches = ceil(self.nensemble / self.batch_size)
 
     def prep_loop(self, batch_id: int) -> tuple[Generator, int, str, int]:
-        """
-        preparing mini batch for inference by setting ensemble IDs, perturbing
+        """Preparing mini batch for inference by setting ensemble IDs, perturbing
         ICs and creating the inference iterator of the prognostic model.
 
         Parameters
@@ -314,8 +310,7 @@ class EnsembleBase:
 
     @torch.inference_mode()
     def __call__(self) -> dict[str, IOBackend]:
-        """
-        Run ensemble inference pipeline with diagnostic model on top
+        """Run ensemble inference pipeline with diagnostic model on top
         saving specified variables.
 
         Returns
@@ -355,9 +350,14 @@ class EnsembleBase:
                         xx, coords = cat_coords(xx, coords, yy, codib, "variable")
 
                     if self.cyclone_tracking:
+                        # Delete lead_time, no need for it in the tc tracks since
+                        # steps are present in the tracks
+                        xx_tc = xx[:, :, 0]
+                        coords_tc = coords.copy()
+                        del coords_tc["lead_time"]
                         # get and collect track elements for each time step
                         tracks_tensor, track_coords = self.cyclone_tracking(
-                            *map_coords(xx, coords, self.cyclone_tracking_ic)
+                            *map_coords(xx_tc, coords_tc, self.cyclone_tracking_ic)
                         )
 
                     # pass output variables to io backend
