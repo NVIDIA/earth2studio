@@ -1,21 +1,18 @@
 from concurrent.futures import Future, ThreadPoolExecutor
 from typing import Any
 
-import hydra
 from omegaconf import DictConfig
 
 from earth2studio.data.base import DataSource
 from earth2studio.models.dx.base import DiagnosticModel
-
-from .hens_ensemble import EnsembleBase
-from .hens_perturbation import HENSPerturbation
-from .hens_utilities import (
-    initialise,
+from src.hens_ensemble import EnsembleBase
+from src.hens_perturbation import HENSPerturbation
+from src.hens_utilities import (
     initialise_output,
     update_model_dict,
     write_to_disk,
 )
-from .hens_utilities_reproduce import create_base_seed_string
+from src.hens_utilities_reproduce import create_base_seed_string
 
 
 def run_inference(
@@ -114,36 +111,3 @@ def run_inference(
             thread.result()
             writer_threads.remove(thread)
         writer_executor.shutdown()
-
-
-@hydra.main(version_base=None, config_path="cfg", config_name="helene")
-def main(cfg: DictConfig) -> None:
-    """Main Hydra function with instantiation"""
-    (
-        ensemble_configs,
-        model_dict,
-        dx_model_dict,
-        cyclone_tracker,
-        data_source,
-        output_coords_dict,
-        base_random_seed,
-        writer_executor,
-        writer_threads,
-    ) = initialise(cfg)
-
-    run_inference(
-        cfg,
-        ensemble_configs,
-        model_dict,
-        dx_model_dict,
-        cyclone_tracker,
-        data_source,
-        output_coords_dict,
-        base_random_seed,
-        writer_executor,
-        writer_threads,
-    )
-
-
-if __name__ == "__main__":
-    main()

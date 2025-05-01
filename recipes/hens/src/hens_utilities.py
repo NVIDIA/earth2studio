@@ -101,7 +101,7 @@ def build_package_list(cfg: DictConfig) -> list[str]:
     list[str]
         Available model packages.
     """
-    if "package" in cfg.forecast_model:  # pointing to single package
+    if "registry" in cfg.forecast_model:  # pointing to single package
         if cfg.forecast_model.registry == "default":
             return ["default"]
 

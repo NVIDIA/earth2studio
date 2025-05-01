@@ -88,24 +88,25 @@ uv sync
 pip install -r requirements.txt
 ```
 
-The provided JupyText python script `main.py` is already set up to run inference
-prdictions for hurricane Helene track ensembles using two of the HENS checkpoints.
+The provided JupyText python script `hens_notebook.py` is already set up to run
+inference prdictions for hurricane Helene track ensembles using two of the HENS
+checkpoints.
 This has comments through out the file documenting the steps used in this recipe.
-`main.py` will step users through different parts of the configuration process as
-well as post processing samples.
+`hens_notebook.py` will step users through different parts of configuring the workflow,
+execution and also post processing.
 Run ensemble inference using the following commands:
 
 ```bash
 # uv package manager
-uv run python main.py
+uv run python hens_notebook.py
 # system python
-python main.py
+python hens_notebook.py
 ```
 
-For notebook environment, convert the `main.py` into a notebook with:
+For notebook environment, convert the `hens_notebook.py` into a notebook with:
 
 ```bash
-uv run jupytext --to notebook main.py
+uv run jupytext --to notebook hens_notebook.py
 ```
 
 Output results will be stored in the `outputs` folder.
@@ -117,7 +118,7 @@ For further configuration options, see the following section.
 
 This recipe includes a few reference workflows which are configured
 through the use of [Hydra YAML][hydra-docs] files.
-These can get exectuted by directly invoking the `src/hens_run.py` file.
+These can get exectuted by directly invoking the `main.py` file.
 
 #### Hurricane Helene
 
@@ -138,7 +139,7 @@ initial conditions and ensemble members per checkpoint-IC pair.
 Execute the ensemble inference by running:
 
 ```bash
-[mpirun -n XX] python src/hens_run.py --config-name=helene.yaml
+[mpirun -n XX] uv run main.py --config-name=helene.yaml
 ```
 
 #### Storm Bernd
@@ -157,7 +158,7 @@ diagnostic model's output can become an input for subsequent models in the chain
 Execute this example by running:
 
 ```bash
-python src/hens_run.py --config-name=storm_bernd.yaml
+uv run main.py --config-name=storm_bernd.yaml
 ```
 
 #### Batched Helene Ensemble

@@ -92,7 +92,7 @@ recipes/
 5. **Documentation**
 
     - Clear README.md explaining purpose and usage
-    - Can include JuPyText notebooks for interactive documentation as the main.py
+    - Can include JuPyText notebooks for interactive documentation
     - Should reference related examples when applicable
     - Links to the recipes should be added to the recipe index
     - Recipes can provide related plotting functionality

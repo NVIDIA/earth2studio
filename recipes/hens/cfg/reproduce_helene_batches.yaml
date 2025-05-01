@@ -9,7 +9,7 @@ batch_ids_reproduce: [0,2] # select specifc batchs that you want to run to repro
 
 forecast_model:
     architecture: earth2studio.models.px.SFNO   # forecast model class
-    registry: '/path/to/hens_checkpoints'
+    registry: hens_model_registry
     max_num_checkpoints: 2 # max number of checkpoints which will be used
 
 perturbation:
