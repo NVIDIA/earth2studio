@@ -363,7 +363,7 @@ file_output:
 To execute the inference pipeline, tailor the config file to your needs and run:
 
 ```bash
-uv run src/hens_run.py --config-name=your_config.yaml
+uv run main.py --config-name=your_config.yaml
 ```
 
 The pipeline supports multi-GPU and multi-node execution, with individual inferences
@@ -378,7 +378,7 @@ during inference.
 To run the pipeline in a multi-GPU or multi-node environment:
 
 ```bash
-uv run mpirun -n 2 python src/hens_run.py --config-name=your_config.yaml
+mpirun -n 2 uv run python main.py --config-name=your_config.yaml
 ```
 
 ## References
