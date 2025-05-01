@@ -396,8 +396,8 @@ class AIFS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         )
         target_input_coords = self.input_coords()
         for i, key in enumerate(target_input_coords):
-            handshake_dim(test_coords, key, i)
             if key not in ["batch", "time"]:
+                handshake_dim(test_coords, key, i)
                 handshake_coords(test_coords, target_input_coords, key)
 
         output_coords["batch"] = input_coords["batch"]
@@ -780,6 +780,7 @@ class AIFS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         x : torch.Tensor
         coords : CoordSystem
         """
+        _ = self.output_coords(coords) # NOTE: Quick fix for exception handling
         x = self._prepare_input(x, coords)
         y, coords = self._forward(x, coords)
         x = self._copy_output_to_input(x, y, coords)

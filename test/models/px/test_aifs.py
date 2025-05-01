@@ -41,7 +41,7 @@ def make_two_nnz_per_first_row_csr(n_rows, n_cols, device):
 
 class PhooAIFSModel(torch.nn.Module):
     def predict_step(self, x):
-        return torch.ones(x.shape[0], x.shape[2], 101)
+        return torch.ones(x.shape[0], x.shape[2], 101, device=x.device)
 
 
 @pytest.mark.parametrize(
@@ -98,7 +98,6 @@ def test_aifs_call(time, device):
     x, coords = fetch_data(r, time, variable, lead_time, device=device)
 
     out, out_coords = p(x, coords)
-    print(out.shape)
 
     if not isinstance(time, Iterable):
         time = [time]
