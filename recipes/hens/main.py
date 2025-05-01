@@ -79,7 +79,6 @@ from pathlib import Path
 
 # Read the config from helene.yaml
 cfg_cli = OmegaConf.from_cli()
-print(cfg_cli)
 config_path = cfg_cli.get("--config-path", "cfg")
 config_name = cfg_cli.get("--config-name", "helene.yaml")
 cfg = OmegaConf.load(Path(config_path) / Path(config_name))
@@ -264,7 +263,7 @@ for track_file in track_files:
     tracks = xr.load_dataarray(track_file)
     for ensemble in tracks.coords["ensemble"].values:
         for path in tracks.coords["path_id"].values:
-            tracks_path = tracks.sel(ensemble=ensemble).isel(time=0, lead_time=0)
+            tracks_path = tracks.sel(ensemble=ensemble).isel(time=0)
             # Get lat/lon coordinates, filtering out nans
             lats = tracks_path.isel(path_id=path, variable=0)[:].values
             lons = tracks_path.isel(path_id=path, variable=1)[:].values

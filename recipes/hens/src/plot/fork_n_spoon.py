@@ -194,7 +194,7 @@ def create_track_animation_florida(
         # Plot tracks up to current step
         for ensemble in tracks.coords["ensemble"].values:
             for path in tracks.coords["path_id"].values:
-                tracks_path = tracks.sel(ensemble=ensemble).isel(time=0, lead_time=0)
+                tracks_path = tracks.sel(ensemble=ensemble).isel(time=0)
 
                 # Get lat/lon coordinates up to current step
                 lats = tracks_path.isel(
