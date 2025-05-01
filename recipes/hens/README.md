@@ -269,7 +269,7 @@ file_output:
 To execute the pipeline, tailor the config file to your needs and run:
 
 ```bash
-python src/hens.py --config-name=your_config.yaml
+uv run main.py --config-name=your_config.yaml
 ```
 
 The pipeline supports multi-GPU and multi-node execution, with individual inferences
@@ -284,7 +284,7 @@ during inference.
 To run the pipeline in a multi-GPU or multi-node environment:
 
 ```bash
-mpirun -n 2 python src/hens.py --config-name=your_config.yaml
+uv run mpirun -n 2 python main.py --config-name=your_config.yaml
 ```
 
 ### Reference Workflows

@@ -78,8 +78,13 @@ DistributedManager.initialize()
 from pathlib import Path
 
 # Read the config from helene.yaml
-cfg = OmegaConf.load(Path("cfg/helene.yaml"))
+cfg_cli = OmegaConf.from_cli()
+print(cfg_cli)
+config_path = cfg_cli.get("--config-path", "cfg")
+config_name = cfg_cli.get("--config-name", "helene.yaml")
+cfg = OmegaConf.load(Path(config_path) / Path(config_name))
 
+# Overwriting via python
 cfg["start_times"] = start_times
 cfg["nsteps"] = nsteps
 cfg["nensemble"] = nensemble
@@ -89,6 +94,9 @@ cfg["forecast_model"]["package"] = model_registry
 cfg["forecast_model"]["max_num_checkpoints"] = max_num_checkpoints
 
 cfg["file_output"]["output_vars"] = output_vars
+
+# Overrides via CLI
+cfg = OmegaConf.merge(cfg, cfg_cli)
 
 # %% [markdown]
 # Next, using hydra conf, the required objects needed for the HENs workflow can get
@@ -119,7 +127,6 @@ from src.hens_utilities_reproduce import create_base_seed_string
     writer_executor,
     writer_threads,
 ) = initialise(cfg)
-
 
 # %% [markdown]
 # The initialisation provides us with a number of objects that will be used throughout
