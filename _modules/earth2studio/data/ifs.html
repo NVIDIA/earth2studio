@@ -659,11 +659,11 @@ document.write(`
                 <span class="s2">&quot;date&quot;</span><span class="p">:</span> <span class="n">time</span><span class="p">,</span>
                 <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;fc&quot;</span><span class="p">,</span>
                 <span class="s2">&quot;param&quot;</span><span class="p">:</span> <span class="n">variable</span><span class="p">,</span>
-                <span class="s2">&quot;levtype&quot;</span><span class="p">:</span> <span class="n">levtype</span><span class="p">,</span>
+                <span class="c1"># &quot;levtype&quot;: levtype, # NOTE: Commenting this out fixes what seems to be a bug with Opendata API on soil levels</span>
                 <span class="s2">&quot;step&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>  <span class="c1"># Would change this for forecasts</span>
                 <span class="s2">&quot;target&quot;</span><span class="p">:</span> <span class="n">cache_path</span><span class="p">,</span>
             <span class="p">}</span>
-            <span class="k">if</span> <span class="n">levtype</span> <span class="o">==</span> <span class="s2">&quot;pl&quot;</span><span class="p">:</span>  <span class="c1"># Pressure levels</span>
+            <span class="k">if</span> <span class="n">levtype</span> <span class="o">==</span> <span class="s2">&quot;pl&quot;</span> <span class="ow">or</span> <span class="n">levtype</span> <span class="o">==</span> <span class="s2">&quot;sl&quot;</span><span class="p">:</span>  <span class="c1"># Pressure levels or soil levels</span>
                 <span class="n">request</span><span class="p">[</span><span class="s2">&quot;levelist&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">level</span>
             <span class="c1"># Download</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">client</span><span class="o">.</span><span class="n">retrieve</span><span class="p">(</span><span class="o">**</span><span class="n">request</span><span class="p">)</span>

@@ -97,6 +97,26 @@ Use the optional install commands to add these dependencies.
 #### Prognostics
 
 ::::::{tab-set}
+:::::{tab-item} AIFS
+Notes: The AIFS model requires additional dependencies for data processing and visualization.
+
+::::{tab-set}
+:::{tab-item} pip
+
+```bash
+pip install earth2studio[aifs] --no-build-isolation
+```
+
+:::
+:::{tab-item} uv
+
+```bash
+uv add earth2studio --extra aifs
+```
+
+:::
+::::
+:::::
 :::::{tab-item} Aurora
 Note: The shipped Aurora package has a restricted dependency which is incompatible with
 other Earth2Studio dependencies, thus it is suggested to use the forked variant.
