@@ -780,7 +780,7 @@ class AIFS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         x : torch.Tensor
         coords : CoordSystem
         """
-        _ = self.output_coords(coords) # NOTE: Quick fix for exception handling
+        _ = self.output_coords(coords)  # NOTE: Quick fix for exception handling
         x = self._prepare_input(x, coords)
         y, coords = self._forward(x, coords)
         x = self._copy_output_to_input(x, y, coords)
