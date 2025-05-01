@@ -130,11 +130,11 @@ VARIABLES = [
 @check_extra_imports(
     "aifs",
     [
-        "anemoi-inference",
-        "anemoi-models",
-        "earthkit-regrid",
-        "ecmwf-opendata",
-        "flash-attn",
+        "anemoi.inference",
+        "anemoi.models",
+        "earthkit.regrid",
+        "ecmwf.opendata",
+        "flash_attn",
     ],
 )
 class AIFS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
@@ -453,11 +453,11 @@ class AIFS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     @check_extra_imports(
         "aifs",
         [
-            "anemoi-inference",
-            "anemoi-models",
-            "earthkit-regrid",
-            "ecmwf-opendata",
-            "flash-attn",
+            "anemoi.inference",
+            "anemoi.models",
+            "earthkit.regrid",
+            "ecmwf.opendata",
+            "flash_attn",
         ],
     )
     def load_model(cls, package: Package) -> PrognosticModel:
