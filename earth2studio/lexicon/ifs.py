@@ -45,8 +45,20 @@ class IFSLexicon(metaclass=LexiconType):
             "d2m": "2d::sfc::",
             "sp": "sp::sfc::",
             "msl": "msl::sfc::",
+            "tcw": "tcw::sfc::",  #
             "tcwv": "tcwv::sfc::",
             "tp": "tp::sfc::",
+            "skt": "skt::sfc::",
+            "slor": "slor::sfc::",
+            "sdor": "sdor::sfc::",
+            "lsm": "lsm::sfc::",
+            "zsl": "z::sfc::",
+        }
+        soil_variables = {
+            "swvl1": "vsw::sl::1",
+            "swvl2": "vsw::sl::2",
+            "stl1": "sot::sl::1",
+            "stl2": "sot::sl::2",
         }
         prs_levels = [
             50,
@@ -63,14 +75,14 @@ class IFSLexicon(metaclass=LexiconType):
             925,
             1000,
         ]
-        prs_names = ["u", "v", "gh", "t", "r", "q"]
-        e2s_id = ["u", "v", "z", "t", "r", "q"]
+        prs_names = ["u", "v", "w", "gh", "t", "r", "q"]
+        e2s_id = ["u", "v", "w", "z", "t", "r", "q"]
         prs_variables = {}
         for id, variable in zip(e2s_id, prs_names):
             for level in prs_levels:
                 prs_variables[f"{id}{level:d}"] = f"{variable}::pl::{level}"
 
-        return {**sfc_variables, **prs_variables}
+        return {**sfc_variables, **soil_variables, **prs_variables}
 
     VOCAB = build_vocab()
 
