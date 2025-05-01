@@ -167,6 +167,8 @@ def create_track_animation_florida(
         central_longitude=280.0, central_latitude=28.0, standard_parallels=(18.0, 38.0)
     )
     ax = plt.axes(projection=projection)
+    # Reduce white borders
+    plt.subplots_adjust(left=0.05, right=0.95, bottom=0.02, top=0.98)
 
     # Load all tracks
     all_tracks = [xr.load_dataarray(track_file) for track_file in track_files]

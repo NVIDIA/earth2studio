@@ -26,6 +26,14 @@ Key features include:
 - Tropical cyclone tracking
 - Regional output for efficient data storage
 
+<!-- markdownlint-disable MD033 -->
+<div align="center">
+
+![Earth2Studio Banner](https://huggingface.co/datasets/NickGeneva/Earth2StudioAssets/resolve/main/recipes/hens_cyclone_tracks.gif)
+
+</div>
+<!-- markdownlint-enable MD033 -->
+
 > [!TIP]
 > For a simple example of running the HENS checkpoints, see the dedicated
 > [example](https://nvidia.github.io/earth2studio/examples/11_huge_ensembles.html#sphx-glr-examples-11-huge-ensembles-py)
