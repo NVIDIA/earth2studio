@@ -449,6 +449,7 @@ document.write(`
 <span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.models.px.base</span><span class="w"> </span><span class="kn">import</span> <span class="n">PrognosticModel</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.models.px.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">PrognosticMixin</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">handshake_coords</span><span class="p">,</span> <span class="n">handshake_dim</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.utils.imports</span><span class="w"> </span><span class="kn">import</span> <span class="n">check_extra_imports</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.utils.type</span><span class="w"> </span><span class="kn">import</span> <span class="n">CoordSystem</span>
 
 <span class="n">VARIABLES</span> <span class="o">=</span> <span class="p">[</span>
@@ -551,9 +552,37 @@ document.write(`
 
 <div class="viewcode-block" id="AIFS">
 <a class="viewcode-back" href="../../../../modules/generated/models/px/earth2studio.models.px.AIFS.html#earth2studio.models.px.AIFS">[docs]</a>
+<span class="nd">@check_extra_imports</span><span class="p">(</span>
+    <span class="s2">&quot;aifs&quot;</span><span class="p">,</span>
+    <span class="p">[</span>
+        <span class="s2">&quot;anemoi.inference&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;anemoi.models&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;earthkit.regrid&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;ecmwf.opendata&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;flash_attn&quot;</span><span class="p">,</span>
+    <span class="p">],</span>
+<span class="p">)</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">AIFS</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">,</span> <span class="n">AutoModelMixin</span><span class="p">,</span> <span class="n">PrognosticMixin</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;AIFS global prognostic model.</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Artificial Intelligence Forecasting System (AIFS), a data driven forecast model</span>
+<span class="sd">    developed by the European Centre for Medium-Range Weather Forecasts (ECMWF). AIFS is</span>
+<span class="sd">    based on a graph neural network (GNN) encoder and decoder, and a sliding window</span>
+<span class="sd">    transformer processor, and is trained on ECMWF&#39;s ERA5 re-analysis and ECMWF&#39;s</span>
+<span class="sd">    operational numerical weather prediction (NWP) analyses.</span>
 <span class="sd">    Consists of a single model with a time-step size of 6 hours.</span>
+
+<span class="sd">    Note</span>
+<span class="sd">    ----</span>
+<span class="sd">    This model uses the checkpoints provided by ECMWF.</span>
+<span class="sd">    For additional information see the following resources:</span>
+
+<span class="sd">    - https://arxiv.org/abs/2406.01465</span>
+<span class="sd">    - https://huggingface.co/ecmwf/aifs-single-1.0</span>
+<span class="sd">    - https://github.com/ecmwf/anemoi-core</span>
+
+<span class="sd">    Warning</span>
+<span class="sd">    -------</span>
+<span class="sd">    We encourage users to familiarize themselves with the license restrictions of this</span>
+<span class="sd">    model&#39;s checkpoints.</span>
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
@@ -851,6 +880,16 @@ document.write(`
 <div class="viewcode-block" id="AIFS.load_model">
 <a class="viewcode-back" href="../../../../modules/generated/models/px/earth2studio.models.px.AIFS.html#earth2studio.models.px.AIFS.load_model">[docs]</a>
     <span class="nd">@classmethod</span>
+    <span class="nd">@check_extra_imports</span><span class="p">(</span>
+        <span class="s2">&quot;aifs&quot;</span><span class="p">,</span>
+        <span class="p">[</span>
+            <span class="s2">&quot;anemoi.inference&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;anemoi.models&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;earthkit.regrid&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;ecmwf.opendata&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;flash_attn&quot;</span><span class="p">,</span>
+        <span class="p">],</span>
+    <span class="p">)</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">load_model</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">package</span><span class="p">:</span> <span class="n">Package</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">PrognosticModel</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Load prognostic from package&quot;&quot;&quot;</span>
 
