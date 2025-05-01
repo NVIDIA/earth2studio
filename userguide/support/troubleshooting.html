@@ -547,6 +547,46 @@ For example:</p>
 <p>For more information see the <a class="reference external" href="https://docs.ngc.nvidia.com/cli/index.html">NGC CLI docs</a>.</p>
 <p>Still having some problems? Open an issue.</p>
 </section>
+<section id="flash-attention-has-long-build-time-for-aifs">
+<h2>Flash Attention has long build time for AIFS<a class="headerlink" href="#flash-attention-has-long-build-time-for-aifs" title="Link to this heading">#</a></h2>
+<p>This is a known issue with the library with several <a class="reference external" href="https://github.com/Dao-AILab/flash-attention/issues/1038">issues</a>
+on the subject.
+There are a few options to try outside of just waiting for the build to complete.</p>
+<ol class="arabic">
+<li><p>If using a docker container is possible, the PyTorch docker container on NGC has
+flash attention already built inside of it. See <a class="reference internal" href="../about/install.html#pytorch-container-environment"><span class="std std-ref">PyTorch Docker Container</span></a>
+for details on how to install Earth2Studio inside a container.</p></li>
+<li><p>Speed up the compile time by increasing the number of jobs used during the build
+process. The upper limit depends on the systems memory, too large may result in
+a crash:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Ninja build jobs, increase depending on system memory</span>
+<span class="nb">export</span><span class="w"> </span><span class="nv">MAX_JOBS</span><span class="o">=</span><span class="m">8</span>
+</pre></div>
+</div>
+</li>
+<li><p>Disable unused features in the library not needed for inference:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># https://github.com/Dao-AILab/flash-attention/issues/1486</span>
+<span class="nb">export</span><span class="w"> </span><span class="nv">FLASH_ATTENTION_DISABLE_HDIM128</span><span class="o">=</span>FALSE
+<span class="nb">export</span><span class="w"> </span><span class="nv">FLASH_ATTENTION_DISABLE_CLUSTER</span><span class="o">=</span>FALSE
+<span class="nb">export</span><span class="w"> </span><span class="nv">FLASH_ATTENTION_DISABLE_BACKWARD</span><span class="o">=</span>TRUE
+<span class="nb">export</span><span class="w"> </span><span class="nv">FLASH_ATTENTION_DISABLE_SPLIT</span><span class="o">=</span>TRUE
+<span class="nb">export</span><span class="w"> </span><span class="nv">FLASH_ATTENTION_DISABLE_LOCAL</span><span class="o">=</span>TRUE
+<span class="nb">export</span><span class="w"> </span><span class="nv">FLASH_ATTENTION_DISABLE_PAGEDKV</span><span class="o">=</span>TRUE
+<span class="nb">export</span><span class="w"> </span><span class="nv">FLASH_ATTENTION_DISABLE_FP16</span><span class="o">=</span>TRUE
+<span class="nb">export</span><span class="w"> </span><span class="nv">FLASH_ATTENTION_DISABLE_FP8</span><span class="o">=</span>TRUE
+<span class="nb">export</span><span class="w"> </span><span class="nv">FLASH_ATTENTION_DISABLE_APPENDKV</span><span class="o">=</span>TRUE
+<span class="nb">export</span><span class="w"> </span><span class="nv">FLASH_ATTENTION_DISABLE_VARLEN</span><span class="o">=</span>TRUE
+<span class="nb">export</span><span class="w"> </span><span class="nv">FLASH_ATTENTION_DISABLE_PACKGQA</span><span class="o">=</span>TRUE
+<span class="nb">export</span><span class="w"> </span><span class="nv">FLASH_ATTENTION_DISABLE_SOFTCAP</span><span class="o">=</span>TRUE
+<span class="nb">export</span><span class="w"> </span><span class="nv">FLASH_ATTENTION_DISABLE_HDIM64</span><span class="o">=</span>TRUE
+<span class="nb">export</span><span class="w"> </span><span class="nv">FLASH_ATTENTION_DISABLE_HDIM96</span><span class="o">=</span>TRUE
+<span class="nb">export</span><span class="w"> </span><span class="nv">FLASH_ATTENTION_DISABLE_HDIM192</span><span class="o">=</span>TRUE
+<span class="nb">export</span><span class="w"> </span><span class="nv">FLASH_ATTENTION_DISABLE_HDIM256</span><span class="o">=</span>TRUE
+</pre></div>
+</div>
+</li>
+</ol>
+</section>
 </section>
 
 
@@ -598,6 +638,7 @@ For example:</p>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#onnx-runtime-error-when-binding-input">ONNX Runtime  Error when binding input</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#importerror-object-is-not-installed-install-manually-or-using-pip">ImportError: object is not installed, install manually or using pip</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio-not-authorized-to-download-public-models-from-ngc">Earth2Studio not authorized to download public models from NGC</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#flash-attention-has-long-build-time-for-aifs">Flash Attention has long build time for AIFS</a></li>
 </ul>
   </nav></div>
 
