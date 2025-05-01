@@ -26,6 +26,7 @@ from earth2studio.models.batch import batch_coords, batch_func
 from earth2studio.models.px.base import PrognosticModel
 from earth2studio.models.px.utils import PrognosticMixin
 from earth2studio.utils import handshake_coords, handshake_dim
+from earth2studio.utils.imports import check_extra_imports
 from earth2studio.utils.type import CoordSystem
 
 VARIABLES = [
@@ -126,9 +127,37 @@ VARIABLES = [
 ]
 
 
+@check_extra_imports(
+    "aifs",
+    [
+        "anemoi.inference",
+        "anemoi.models",
+        "earthkit.regrid",
+        "ecmwf.opendata",
+        "flash_attn",
+    ],
+)
 class AIFS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
-    """AIFS global prognostic model.
+    """Artificial Intelligence Forecasting System (AIFS), a data driven forecast model
+    developed by the European Centre for Medium-Range Weather Forecasts (ECMWF). AIFS is
+    based on a graph neural network (GNN) encoder and decoder, and a sliding window
+    transformer processor, and is trained on ECMWF's ERA5 re-analysis and ECMWF's
+    operational numerical weather prediction (NWP) analyses.
     Consists of a single model with a time-step size of 6 hours.
+
+    Note
+    ----
+    This model uses the checkpoints provided by ECMWF.
+    For additional information see the following resources:
+
+    - https://arxiv.org/abs/2406.01465
+    - https://huggingface.co/ecmwf/aifs-single-1.0
+    - https://github.com/ecmwf/anemoi-core
+
+    Warning
+    -------
+    We encourage users to familiarize themselves with the license restrictions of this
+    model's checkpoints.
 
     Parameters
     ----------
@@ -421,6 +450,16 @@ class AIFS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         return package
 
     @classmethod
+    @check_extra_imports(
+        "aifs",
+        [
+            "anemoi.inference",
+            "anemoi.models",
+            "earthkit.regrid",
+            "ecmwf.opendata",
+            "flash_attn",
+        ],
+    )
     def load_model(cls, package: Package) -> PrognosticModel:
         """Load prognostic from package"""
 
