@@ -98,7 +98,9 @@ Use the optional install commands to add these dependencies.
 
 ::::::{tab-set}
 :::::{tab-item} AIFS
-Notes: The AIFS model requires additional dependencies for data processing and visualization.
+Notes: The AIFS model requires additional dependencies for data processing and
+visualization. This includes the use of [flash-attention](https://github.com/Dao-AILab/flash-attention)
+which can take a long time to build on some systems.
 
 ::::{tab-set}
 :::{tab-item} pip
@@ -584,20 +586,40 @@ uv venv --python=3.12
 uv add "earth2studio @ git+https://github.com/NVIDIA/earth2studio.git@0.6.0"
 ```
 
+(pytorch_container_environment)=
+
 ## PyTorch Docker Container
 
 For a docker environment the [Nvidia PyTorch container](https://catalog.ngc.nvidia.com/orgs/nvidia/containers/pytorch)
-provides a good base.
+provides a good base with many dependencies already installed.
+In container instances, using a virtual environment is often [not necessary](https://docs.astral.sh/uv/pip/environments/#using-arbitrary-python-environments).
+It is recommend using the following commands to install using the container's Python
+interpreter:
 
 ```bash
-docker run -i -t nvcr.io/nvidia/pytorch:25.03-py3
+docker run -it -t nvcr.io/nvidia/pytorch:25.03-py3
 
 >>> apt-get update && apt-get install -y git make curl && rm -rf /var/lib/apt/lists/*
 >>> unset PIP_CONSTRAINT
->>> curl -LsSf https://astral.sh/uv/install.sh | sh
->>> uv venv --python=3.12
->>> uv pip install "earth2studio[all] @ git+https://github.com/NVIDIA/earth2studio.git@0.6.0"
+>>> curl -LsSf https://astral.sh/uv/install.sh | sh && exec bash
+>>> uv pip install --system --break-system-packages "earth2studio@git+https://github.com/NVIDIA/earth2studio.git@0.6.0"
 ```
+
+<!-- markdownlint-disable MD013 -->
+:::{admonition} Extra Dependencies
+:class: note
+
+To add extra dependencies adjust the `uv pip install` command like you would normally
+do with pip e.g.
+
+```bash
+uv pip install --system \
+    --break-system-packages \
+    "earth2studio[all]@git+https://github.com/NVIDIA/earth2studio.git@0.6.0"
+```
+
+:::
+<!-- markdownlint-enable MD013 -->
 
 ## Custom Container
 
@@ -619,17 +641,16 @@ WORKDIR /app
 
 # Disable contraint files in the container
 ENV PIP_CONSTRAINT=
-
-RUN uv venv --python=3.12
-RUN uv pip install "earth2studio[all] @ git+https://github.com/NVIDIA/earth2studio.git@0.6.0"
+# Install Earth2Studio and dependencies
+RUN uv pip install --system --break-system-packages "earth2studio@git+https://github.com/NVIDIA/earth2studio.git@0.6.0"
 ```
 
 ## Conda Environment
 
 It is no longer recommend to use any conda environment manager for Earth2Studio in favor
-of uv.
+of uv if possible.
 This is because the virtual environments set up by uv makes the system-wide conda
-environments not needed.
+environments not needed unless some system dependencies are required.
 However this demonstrates that in principle Earth2Studio can be installed using standard
 package tooling.
 
@@ -637,8 +658,7 @@ package tooling.
 conda create -n earth2studio python=3.12
 conda activate earth2studio
 
-pip install earth2studio
-# Manually follow up with optional dependencies needed [all] will not work
+uv pip install --system --break-system-packages "earth2studio@git+https://github.com/NVIDIA/earth2studio.git@0.6.0"
 ```
 
 (configuration_userguide)=
