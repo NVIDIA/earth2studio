@@ -353,7 +353,7 @@ ignore-regex = ["^get$", "^mock_.*", ".*BaseClass.*"]
 # ==== MyPy configuration ====
 # See: https://mypy.readthedocs.io/en/stable/config_file.html
 [tool.mypy]
-python_version = "3.10"
+python_version = "3.12"
 packages = ['earth2studio']
 exclude = [
     '^(examples|test|docs)'
@@ -365,3 +365,4 @@ implicit_optional = true
 warn_redundant_casts = true
 warn_unused_ignores = false
 follow_imports = 'skip'
+explicit_package_bases = true

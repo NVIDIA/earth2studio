@@ -15,7 +15,7 @@
 # limitations under the License.
 
 import os
-from collections.abc import Generator
+from collections.abc import Iterator
 from datetime import datetime
 from math import ceil
 
@@ -28,6 +28,7 @@ from tqdm import tqdm
 from earth2studio.data import DataSource, fetch_data
 from earth2studio.io import IOBackend
 from earth2studio.models.dx import DiagnosticModel
+from earth2studio.models.dx.tc_tracking import TCTrackerVitart, TCTrackerWuDuan
 from earth2studio.models.px import PrognosticModel
 from earth2studio.perturbation import Perturbation
 from earth2studio.utils.coords import CoordSystem, map_coords, split_coords
@@ -89,7 +90,7 @@ class EnsembleBase:
         perturbation: Perturbation,
         output_coords_dict: dict[str, CoordSystem],
         dx_model_dict: dict[str, DiagnosticModel] = {},
-        cyclone_tracking: DiagnosticModel | None = None,
+        cyclone_tracking: TCTrackerWuDuan | TCTrackerVitart | None = None,
         batch_size: int | None = None,
         device: torch.device = torch.device("cpu"),
         ensemble_idx_base: int = 0,
@@ -127,7 +128,7 @@ class EnsembleBase:
         self,
         prognostic: PrognosticModel,
         dx_model_dict: dict[str, DiagnosticModel] = {},
-        cyclone_tracking: DiagnosticModel | None = None,
+        cyclone_tracking: TCTrackerWuDuan | TCTrackerVitart | None = None,
         device: torch.device = torch.device("cpu"),
     ) -> None:
         """Moves model dictionary to device
@@ -246,7 +247,7 @@ class EnsembleBase:
         self.batch_size = min(self.nensemble, batch_size)
         self.number_of_batches = ceil(self.nensemble / self.batch_size)
 
-    def prep_loop(self, batch_id: int) -> tuple[Generator, int, str, int]:
+    def prep_loop(self, batch_id: int) -> tuple[Iterator[tuple], int, str, int]:
         """Preparing mini batch for inference by setting ensemble IDs, perturbing
         ICs and creating the inference iterator of the prognostic model.
 
@@ -257,7 +258,7 @@ class EnsembleBase:
 
         Returns
         -------
-        tuple[Generator, int, str, int]
+        tuple[Iterator[tuple], int, str, int]
             Tuple containing iterator of prognostic model, mini batch size, seed string
             and PyTorch seed.
         """

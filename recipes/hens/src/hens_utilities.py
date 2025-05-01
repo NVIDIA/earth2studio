@@ -727,7 +727,7 @@ def crop_area(
     return lat_coords_sub, lon_coords_sub
 
 
-def update_model_dict(model_dict: dict, package: Package) -> dict:
+def update_model_dict(model_dict: dict, root: str) -> dict:
     """Check if model on GPU is same as needed for next inference.
     If not, load new model package and update model dict.
 
@@ -735,23 +735,23 @@ def update_model_dict(model_dict: dict, package: Package) -> dict:
     ----------
     model_dict : dict
         dictionary specifying model, model class, and model package
-    package : Package
-        model package to be used in next inference
+    package : str
+        model package location to be used in next inference
 
     Returns
     -------
     dict
         model dict.
     """
-    if package != model_dict["package"]:
-        model_dict["package"] = package
-        package = (
-            model_dict["class"].load_default_package()
-            if package == "default"
-            else Package(package)
-        )
-        model_dict["model"] = model_dict["class"].load_model(package=package)
+    if root != model_dict["package"]:
+        model_dict["package"] = root
 
+    if root == "default":
+        package = model_dict["class"].load_default_package()
+    else:
+        package = Package(root)
+
+    model_dict["model"] = model_dict["class"].load_model(package=package)
     return model_dict
 
 
@@ -759,7 +759,7 @@ def write_to_disk(
     cfg: DictConfig,
     ic: str,
     model_dict: dict,
-    io_dict: IOBackend,
+    io_dict: dict[str, IOBackend],
     writer_executor: ThreadPoolExecutor | None = None,
     writer_threads: list[Future] = [],
 ) -> tuple[ThreadPoolExecutor | None, list[Future]]:
@@ -773,8 +773,8 @@ def write_to_disk(
         initial condition.
     model_dict : dict
         dictionary containing loaded model, its class and its package
-    io : IOBackend
-        object for data output
+    io : dict[IOBackend]
+        dictionary of io objects for data output
     writer_executor : ThreadPoolExecutor, optional
         executor for parallel file output, by default None
     writer_threads : list[Future], optional
@@ -841,6 +841,10 @@ def extend_xarray_for_reproducibility(
     xr.Dataset
         The augmented xarray dataset
     """
+    # This entire method needs work
+    if not hasattr(io, "coords"):
+        return x
+
     batch_ids = [
         get_batchid_from_ensid(cfg.nensemble, cfg.batch_size, ensid)
         for ensid in io.coords["ensemble"]
