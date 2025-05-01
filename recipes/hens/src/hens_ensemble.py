@@ -41,8 +41,7 @@ logger.add(lambda msg: tqdm.write(msg, end=""), colorize=True)
 
 
 class EnsembleBase:
-    """
-    Ensemble inference pipeline with options to add a diagnostic
+    """Ensemble inference pipeline with options to add a diagnostic
     model or tropical cyclone tracking in the loop.
 
     Parameters
@@ -131,7 +130,7 @@ class EnsembleBase:
         cyclone_tracking: DiagnosticModel | None = None,
         device: torch.device = torch.device("cpu"),
     ) -> None:
-        """_summary_
+        """Moves model dictionary to device
 
         Parameters
         ----------
@@ -170,8 +169,7 @@ class EnsembleBase:
         data: DataSource,
         time: list[str] | list[datetime] | list[np.datetime64],
     ) -> None:
-        """
-        Fetch initial conditions.
+        """Fetch initial conditions
 
         Parameters
         ----------
@@ -193,9 +191,7 @@ class EnsembleBase:
         return
 
     def setup_data_output(self) -> None:
-        """
-        Assemble output coords and initialise IO backend with coords.
-        """
+        """Assemble output coords and initialise IO backend with coords."""
 
         # assemble output coords from fetched IC coords and ensemble IDs
         ensemble_members = np.arange(self.nensemble) + self.ensemble_idx

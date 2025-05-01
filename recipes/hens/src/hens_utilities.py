@@ -50,9 +50,9 @@ def initialise_perturbation(
     start_time: np.ndarray[np.datetime64],
     cfg: DictConfig,
 ) -> Perturbation:
-    """
-    Initialise perturbation method. Some methods need to be initialized with model, data, start_time, etc.
-    which can not always be defined in the config requireing partial instantiation.
+    """Initialise perturbation method. Some methods need to be initialized with model,
+    data, start_time, etc. which can not always be defined in the config requireing
+    partial instantiation.
 
     Parameters
     ----------
@@ -88,8 +88,7 @@ def initialise_perturbation(
 
 
 def build_package_list(cfg: DictConfig) -> list[str]:
-    """
-    Find all available model packages.
+    """Find all available model packages.
 
     Parameters
     ----------
@@ -130,8 +129,7 @@ def build_package_list(cfg: DictConfig) -> list[str]:
 
 
 def build_model_dict(cfg: DictConfig) -> dict:
-    """
-    Build a dictionary of loaded model, model class and package name.
+    """Build a dictionary of loaded model, model class and package name.
 
     Parameters
     ----------
@@ -151,8 +149,7 @@ def build_model_dict(cfg: DictConfig) -> dict:
 
 
 def get_model(cfg: DictConfig) -> tuple[dict, list[str]]:
-    """
-    get a model dictionary and a list of available model packages.
+    """Get a model dictionary and a list of available model packages.
 
     Parameters
     ----------
@@ -168,8 +165,7 @@ def get_model(cfg: DictConfig) -> tuple[dict, list[str]]:
 
 
 def set_initial_times(cfg: DictConfig) -> list[np.datetime64]:
-    """
-    build list of IC times.
+    """Build list of IC times.
 
     Parameters
     ----------
@@ -204,8 +200,7 @@ def set_initial_times(cfg: DictConfig) -> list[np.datetime64]:
 def initialise_output(
     cfg: DictConfig, time: np.datetime64, model_dict: dict, output_coords_dict: dict
 ) -> dict[str, IOBackend]:
-    """
-    Initialise data output.
+    """Initialise data output.
 
     This function sets up the data output based on the provided configuration. It creates an IO handler for storing the
     forecast data either in memory or on disk. If file output is enabled in the configuration, it constructs the file path
@@ -279,9 +274,8 @@ def pair_packages_ics(
     batch_ids_produce: list[int],
     batch_size: int,
 ) -> list:
-    """
-    Pair initial conditions with model packages. In parallel setting, distribute among
-    ranks.
+    """Pair initial conditions with model packages. In parallel setting, distribute
+    among ranks.
 
     Parameters
     ----------
@@ -352,13 +346,14 @@ def initialise(
     ThreadPoolExecutor | None,
     list[Future[Any]],
 ]:
-    """
-    Set initial conditions, load models, and set up file output based on the provided configuration.
+    """Set initial conditions, load models, and set up file output based on the provided
+    configuration.
 
     Parameters
     ----------
     cfg : DictConfig
-        Hydra configuration object containing the settings for initial conditions, models, file output, and other relevant parameters.
+        Hydra configuration object containing the settings for initial conditions,
+        models, file output, and other relevant parameters.
 
     Returns
     -------
@@ -446,7 +441,7 @@ def initialise(
     _, writer_executor, writer_threads = initialize_output_structures(cfg)
 
     # make sure that all the seeds are unique
-    ensure_all_torch_seeds_are_unique(ensemble_configs, base_random_seed)
+    ensure_all_torch_seeds_are_unique(ensemble_configs, str(base_random_seed))
 
     return (
         ensemble_configs,
@@ -462,8 +457,7 @@ def initialise(
 
 
 def initialize_diagnostic_models(cfg: DictConfig) -> dict:
-    """
-    Initialize diagnostic models based on the provided configuration.
+    """Initialize diagnostic models based on the provided configuration.
 
     Parameters
     ----------
@@ -504,8 +498,7 @@ def initialize_output_coords(
     lon_coords: np.ndarray[np.float64],
     lat_coords: np.ndarray[np.float64],
 ) -> dict:
-    """
-    initialize output coordinates
+    """Initialize output coordinates
 
     Parameters
     ----------
@@ -539,8 +532,7 @@ def initialize_cropbox(
     lon_coords: np.ndarray[np.float64],
     lat_coords: np.ndarray[np.float64],
 ) -> dict[str, tuple[np.ndarray[np.float64], np.ndarray[np.float64]]]:
-    """
-    If cropbox is defined in config this function will assert that ranges are plausible.
+    """If cropbox is defined in config this function will assert that ranges are plausible.
     Then it returns reduced versions of the longitude and latitude coordinate arrays that align with the area of interest
     Otherwise lon_coords and lat_coords will not be changed
 
@@ -575,8 +567,8 @@ def initialize_cropbox(
 
 
 def check_extent(cfg_cropbox: DictConfig) -> None:
-    """
-    Validate the extent of the cropbox configuration to ensure it is within plausible ranges.
+    """Validate the extent of the cropbox configuration to ensure it is within plausible
+    ranges.
 
     Parameters
     ----------
@@ -622,8 +614,8 @@ def check_extent(cfg_cropbox: DictConfig) -> None:
 def determine_lon_ranges(
     cfg_cropbox: DictConfig, lon_coords: np.ndarray[np.float64]
 ) -> tuple[int, int]:
-    """
-    Determine the longitude ranges of the model and output based on the provided cropbox configuration and longitude coordinates.
+    """Determine the longitude ranges of the model and output based on the provided
+    cropbox configuration and longitude coordinates.
 
     Parameters
     ----------
@@ -663,8 +655,7 @@ def crop_area(
     lon_range_model: int,
     lon_range_out: int,
 ) -> tuple[np.ndarray[np.float64], np.ndarray[np.float64]]:
-    """
-    Crop the area based on the specified configuration and coordinate ranges.
+    """Crop the area based on the specified configuration and coordinate ranges.
 
     This function adjusts the longitude coordinates if necessary to align with the
     desired output range and then filters the latitude and longitude coordinates
@@ -772,8 +763,7 @@ def write_to_disk(
     writer_executor: ThreadPoolExecutor | None = None,
     writer_threads: list[Future] = [],
 ) -> tuple[ThreadPoolExecutor | None, list[Future]]:
-    """
-    method which writes in-memory backends to file.
+    """Method which writes in-memory backends to file.
 
     Parameters
     ----------

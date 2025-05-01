@@ -22,8 +22,7 @@ from omegaconf import DictConfig
 
 
 def get_reproducibility_settings(cfg: DictConfig) -> tuple[str | int, list[int], bool]:
-    """
-    retrieve reproducibility cfg elements or their default values
+    """Retrieve reproducibility cfg elements or their default values
 
     Parameters
     ----------
