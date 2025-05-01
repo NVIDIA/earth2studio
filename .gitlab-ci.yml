@@ -49,8 +49,11 @@ build-ci-env:
   extends:
     - .earth2studio:build-env:base
     - .build-env:cache
+  variables:
+    MAX_JOBS: 16
   script:
     - make setup-ci
+    - make install-docker
 
 format:
   stage: lint
@@ -98,8 +101,8 @@ pytest:
       when: on_success
     - when: never
   script:
-    - make install
-    - make pytest 2>&1 | tee ../pytest.log.full
+    - make install-docker
+    - make pytest-docker 2>&1 | tee ../pytest.log.full
     - grep -A 9999 "=.*short test summary info.*=" ../pytest.log.full > ../blossom.log
     - rm ../pytest.log.full
 
@@ -119,8 +122,8 @@ pytest-data:
       when: on_success
     - when: never
   script:
-    - make install
-    - make pytest-submodule 2>&1 | tee ../pytest.log.full
+    - make install-docker
+    - make pytest-submodule-docker 2>&1 | tee ../pytest.log.full
     # - grep -A 9999 "=.*short test summary info.*=" ../pytest.log.full > ../blossom.log
     # - rm ../pytest.log.full || true
 

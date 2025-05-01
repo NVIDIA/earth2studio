@@ -16,6 +16,7 @@
 
 import asyncio
 import functools
+import inspect
 import os
 import pathlib
 import shutil
@@ -32,7 +33,11 @@ from fsspec.implementations.cached import WholeFileCacheFileSystem
 from loguru import logger
 from tqdm.asyncio import tqdm
 
-from earth2studio.data.utils import datasource_cache_root, prep_data_inputs
+from earth2studio.data.utils import (
+    AsyncCachingFileSystem,
+    datasource_cache_root,
+    prep_data_inputs,
+)
 from earth2studio.lexicon import ARCOLexicon
 from earth2studio.utils.type import TimeArray, VariableArray
 
@@ -71,6 +76,14 @@ class ARCO:
     def __init__(
         self, cache: bool = True, verbose: bool = True, async_timeout: int = 600
     ):
+        # Check Zarr version and use appropriate method
+        try:
+            zarr_version = version("zarr")
+            self.zarr_major_version = int(zarr_version.split(".")[0])
+        except Exception:
+            # Fallback to older method if version check fails
+            self.zarr_major_version = 2  # Assume older version if we can't determine
+
         self._cache = cache
         self._verbose = verbose
 
@@ -79,7 +92,7 @@ class ARCO:
             token="anon",  # noqa: S106 # nosec B106
             access="read_only",
             block_size=8**20,
-            # asynchronous=True, # TODO: Enable this when above zarr 3.0
+            asynchronous=(self.zarr_major_version == 3),
         )
 
         if self._cache:
@@ -87,15 +100,10 @@ class ARCO:
                 "cache_storage": self.cache,
                 "expiry_time": 31622400,  # 1 year
             }
-            fs = WholeFileCacheFileSystem(fs=fs, **cache_options)
-
-        # Check Zarr version and use appropriate method
-        try:
-            zarr_version = version("zarr")
-            self.zarr_major_version = int(zarr_version.split(".")[0])
-        except Exception:
-            # Fallback to older method if version check fails
-            self.zarr_major_version = 2  # Assume older version if we can't determine
+            if self.zarr_major_version == 3:
+                fs = AsyncCachingFileSystem(fs=fs, **cache_options, asynchronous=True)
+            else:
+                fs = WholeFileCacheFileSystem(fs=fs, **cache_options)
 
         if self.zarr_major_version >= 3:
             # Zarr 3.0+ method
@@ -107,7 +115,6 @@ class ARCO:
             self.level_coords = None
         else:
             # Legacy method for Zarr < 3.0
-            # TODO: Remove this option eventually
             logger.warning(
                 "Using Zarr 2.0 method for ARCO, this can be extremely slow with caching!"
             )
@@ -205,7 +212,8 @@ class ARCO:
 
         # Before anything wait until the group gets opened
         if self.zarr_major_version >= 3:
-            self.zarr_group = await self.zarr_group
+            if inspect.isawaitable(self.zarr_group):
+                self.zarr_group = await self.zarr_group
             self.level_coords = await (await self.zarr_group.get("level")).getitem(
                 slice(None)
             )

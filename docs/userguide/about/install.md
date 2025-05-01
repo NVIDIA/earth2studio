@@ -97,6 +97,26 @@ Use the optional install commands to add these dependencies.
 #### Prognostics
 
 ::::::{tab-set}
+:::::{tab-item} AIFS
+Notes: The AIFS model requires additional dependencies for data processing and visualization.
+
+::::{tab-set}
+:::{tab-item} pip
+
+```bash
+pip install earth2studio[aifs] --no-build-isolation
+```
+
+:::
+:::{tab-item} uv
+
+```bash
+uv add earth2studio --extra aifs
+```
+
+:::
+::::
+:::::
 :::::{tab-item} Aurora
 Note: The shipped Aurora package has a restricted dependency which is incompatible with
 other Earth2Studio dependencies, thus it is suggested to use the forked variant.
@@ -117,6 +137,46 @@ pip install earth2studio[aurora]
 uv add earth2studio --extra aurora-fork
 # Original package from msc
 uv add earth2studio --extra aurora
+```
+
+:::
+::::
+:::::
+:::::{tab-item} DLWP
+::::{tab-set}
+:::{tab-item} pip
+
+```bash
+pip install earth2studio[dlwp]
+```
+
+:::
+:::{tab-item} uv
+
+```bash
+uv add earth2studio --extra dlwp
+```
+
+:::
+::::
+:::::
+:::::{tab-item} DLESyM
+Notes: For all DLESyM models, [Earth2Grid](https://github.com/NVlabs/earth2grid) needs to
+be installed manually.
+
+::::{tab-set}
+:::{tab-item} pip
+
+```bash
+pip install --no-build-isolation "earth2grid @ git+https://github.com/NVlabs/earth2grid@aefb10793aa372bae7d0951d627a89e2983fd0ca"
+pip install earth2studio[dlesym]
+```
+
+:::
+:::{tab-item} uv
+
+```bash
+uv add earth2studio --extra dlesym
 ```
 
 :::
@@ -488,6 +548,7 @@ To install a best effort all optional dependencies group, use the following:
 :::{tab-item} uv
 
 ```bash
+uv sync
 uv add earth2studio --extra all
 ```
 
