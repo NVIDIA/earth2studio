@@ -71,6 +71,13 @@ statistics = [
     "nvidia-physicsnemo>=1.0.1",
 ]
 # PX Models
+aifs = [
+    "anemoi-inference[huggingface]==0.4.9",
+    "anemoi-models==0.3.1",
+    "earthkit-regrid==0.4.0",
+    "ecmwf-opendata",
+    "flash-attn"
+]
 aurora = [
     "microsoft-aurora>=1.5.0",
 ]
@@ -151,7 +158,8 @@ windgust-afno = [
 # All, must not have conflicts
 all = [
     "earth2studio[data,perturbation,statistics]",
-    "earth2studio[aurora-fork,dlesym,dlwp,fcn,fengwu,interp-modafno,pangu,sfno,stormcast]",
+    "earth2studio[aurora-fork,dlwp,fcn,fengwu,interp-modafno,pangu,sfno,stormcast,aifs]",
+    "earth2studio[aurora-fork,dlesym,dlwp,fcn,fengwu,interp-modafno,pangu,sfno,stormcast,aifs]",
     "earth2studio[climatenet,corrdiff,precip-afno,cyclone,precip-afno-v2,windgust-afno]",
 ]
 
@@ -187,8 +195,9 @@ conflicts = [
       { extra = "aurora-fork" },
     ]
 ]
+default-groups = ["dev", "build"]
 # Needed for some packages that build with PEP 518
-no-build-isolation-package = ["earth2grid"]
+no-build-isolation-package = ["earth2grid", "flash-attn"]
 # Force onnx to only try to install when below 3.13, otherwise we will use onnx weekly
 override-dependencies = ["onnx; python_full_version < '3.13'"]
 
@@ -215,6 +224,10 @@ explicit = true
 members = ["recipes/*"]
 
 [dependency-groups]
+build = [
+    "ninja>=1.11.1.4",
+    "setuptools>=70.0.0",
+]
 dev = [
     "black==24.1.0",
     "coverage>=6.5.0",

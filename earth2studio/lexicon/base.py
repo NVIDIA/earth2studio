@@ -37,6 +37,7 @@ E2STUDIO_VOCAB = {
     "sp": "surface pressure",
     "msl": "mean sea level pressure",
     "tcwv": "total column water vapor / precipitable water (kg m-2)",
+    "tcw": "total column water vapor (kg m-2)",
     "tp": "total precipitation (m)",
     "tpp": "total precipitation probability",
     "tpi": "total precipitation index",
@@ -166,4 +167,11 @@ E2STUDIO_VOCAB = {
     "ws850": "wind speed at 850 hPa",
     "ws925": "wind speed at 925 hPa",
     "ws1000": "wind speed at 1000 hPa",
+    "skt": "skin temperature at surface",
+    "slor": "slope of sub-grid scale orography",
+    "sdor": "standard deviation of sub-grid scale orography",
+    "swvl1": "volumetric soil water layer 1 (m³/m³)",  # Ask SAs for name confirmation, altertative (vsw?)
+    "swvl2": "volumetric soil water layer 2 (m³/m³)",  # Ask SAs for name confirmation, altertative (vsw?)
+    "stl1": "soil temperature level 1 (K)",  # Ask SAs for name confirmation, altertative (sot?!?!)
+    "stl2": "soil temperature level 2 (K)",  # Ask SAs for name confirmation, altertative (sot?!?!)
 }

@@ -87,21 +87,12 @@ class ARCO:
         self._cache = cache
         self._verbose = verbose
 
-        nest_asyncio.apply()  # Patch asyncio to work in notebooks
-        try:
-            loop = asyncio.get_event_loop()
-        except RuntimeError:
-            # If no event loop exists, create one
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-
         fs = gcsfs.GCSFileSystem(
             cache_timeout=-1,
             token="anon",  # noqa: S106 # nosec B106
             access="read_only",
             block_size=8**20,
             asynchronous=(self.zarr_major_version == 3),
-            loop=loop,
         )
 
         if self._cache:

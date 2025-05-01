@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added AIFS model wrapper with state caching functionality for improved performance
 - Added two cyclone trackers and related utilities
 - Added HENS checkpoint example
 - Added Earth2Studio recipes folder, documentation and template
