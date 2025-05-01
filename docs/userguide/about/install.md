@@ -610,8 +610,14 @@ docker run -it -t nvcr.io/nvidia/pytorch:25.03-py3
 :class: note
 
 To add extra dependencies adjust the `uv pip install` command like you would normally
-do with pip.
-E.g. `uv pip install --system --break-system-packages "earth2studio[all]@git+https://github.com/NVIDIA/earth2studio.git@0.6.0" --group={dev,build}`
+do with pip e.g.
+
+```bash
+uv pip install --system \
+    --break-system-packages \
+    "earth2studio[all]@git+https://github.com/NVIDIA/earth2studio.git@0.6.0"
+```
+
 :::
 <!-- markdownlint-enable MD013 -->
 
