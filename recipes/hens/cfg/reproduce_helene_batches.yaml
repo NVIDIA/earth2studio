@@ -1,0 +1,47 @@
+project: 'helene_reprod'
+random_seed: 377778
+
+start_times: ["2024-09-24 12:00:00"]
+nsteps: 20         # number of forecasting steps
+nensemble: 4       # ensemble size per checkpoint
+batch_size: 2      # inference batch size
+batch_ids_reproduce: [0,2] # select specifc batchs that you want to run to reproduce certain runs
+
+forecast_model:
+    architecture: earth2studio.models.px.SFNO   # forecast model class
+    registry: hens_model_registry
+    max_num_checkpoints: 2 # max number of checkpoints which will be used
+
+perturbation:
+    skill_path : hens_model_registry/d2m_sfno_linear_74chq_sc2_layers8_edim620_wstgl2-epoch70_seed16.nc
+    noise_amplification: .35
+    perturbed_var: 'z500'
+    integration_steps: 3
+
+data_source:
+    _target_: earth2studio.data.GFS  # data source class
+
+cyclone_tracking:
+    out_dir: 'outputs'
+
+file_output:
+    path: 'outputs'       # directory to which outfiles are written
+    output_vars: ["t2m", 'u10m', 't850', 'q850', 'z500'] # , 'tp06']
+    thread_io: False      # write out in seperate thread (needs further testing)
+    format:               # io backend class
+        _target_: earth2studio.io.NetCDF4Backend
+        _partial_: True
+        backend_kwargs:
+            mode: 'w'
+            diskless: False
+            persist: False
+            chunks:
+                ensemble: 1
+                time: 1
+                lead_time: 1
+    cropboxes:
+        gulf_of_mexico:
+            lat_min: 10
+            lat_max: 40
+            lon_min: 250
+            lon_max: 310

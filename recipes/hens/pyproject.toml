@@ -1,0 +1,35 @@
+[project]
+name = "earth2studio.recipe.hens"
+version = "0.1.0"
+description = "Huge Ensembles (HENS) Recipe"
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [
+  { name="NVIDIA Earth-2 Team" },
+]
+dependencies = [
+    "cartopy>=0.24.1",
+    "earth2studio[cyclone,sfno]",
+    "hydra-core>=1.3.0",
+    "omegaconf",
+    "termcolor>=3.0.1",
+]
+
+[project.urls]
+Homepage = "https://github.com/NVIDIA/earth2studio/recipes/hens"
+Documentation = "https://github.com/NVIDIA/earth2studio/recipes/hens/README.md"
+Issues = "https://github.com/NVIDIA/earth2studio/issues"
+Changelog = "https://github.com/NVIDIA/earth2studio/blob/main/CHANGELOG.md"
+
+[tool.uv.sources]
+omegaconf = { git = "https://github.com/omry/omegaconf.git" }
+earth2studio = { path = "../../", editable = true }
+
+[tool.hatch.build.targets.sdist]
+include = ["src/**/*.py"]
+exclude = []
+
+[dependency-groups]
+dev = [
+    "jupytext>=1.17.1",
+]

@@ -111,7 +111,7 @@ torch.save(era5_tracks, "era5.pt")
 # Notice that the output tensor grows as iterations are performed.
 # This is because the tracker builds tracks based on previous forward passes returning
 # a tensor with the dimensions [batch, path, step, variable].
-# Not all paths are garenteed to be the same length or have the same start / stop time
+# Not all paths are guaranteed to be the same length or have the same start / stop time
 # so any missing data is populated with a nan value.
 #
 # Up next lets also repeat the same process using the prognostic AI model.

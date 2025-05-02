@@ -1,5 +1,5 @@
 [project]
-name = "e2s.recipe"
+name = "earth2studio.recipe.template"
 version = "0.1.0"
 description = "Recipe Template"
 readme = "README.md"
