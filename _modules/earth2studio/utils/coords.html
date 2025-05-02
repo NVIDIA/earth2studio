@@ -653,6 +653,10 @@ document.write(`
         <span class="p">]:</span>  <span class="c1"># TODO: Need better solution, time is numeric</span>
             <span class="k">continue</span>
 
+        <span class="c1"># Handling np.empty(0) (free coordinate system)</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">value</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">continue</span>
+
         <span class="k">if</span> <span class="n">key</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">input_coords</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">KeyError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Output coordinate dim </span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s2"> not found in input coords&quot;</span><span class="p">)</span>
 
@@ -736,19 +740,6 @@ document.write(`
             <span class="k">continue</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Map method </span><span class="si">{</span><span class="n">method</span><span class="si">}</span><span class="s2"> not supported&quot;</span><span class="p">)</span>
-            <span class="c1"># TODO: Linear</span>
-            <span class="c1"># c = np.pad(array, pad_width=1, mode=&#39;edge&#39;)</span>
-            <span class="c1"># idx2 = numpy.where(c[idx+2] &lt; c[idx] , idx+1, idx-1)</span>
-
-            <span class="c1"># a = torch.Tensor(input_coords[key][idx2] - input_coords[key][idx], device=x.device)</span>
-
-            <span class="c1"># y0 = torch.index_select(x, i, torch.IntTensor(idx, device=x.device))</span>
-            <span class="c1"># y1 = torch.index_select(x, i, torch.IntTensor(idx2, device=x.device))</span>
-
-            <span class="c1"># x0 = torch.Tensor(value - input_coords[key][idx], device=x.device)</span>
-            <span class="c1"># x1 = torch.Tensor(input_coords[key][idx2] - value, device=x.device)</span>
-
-            <span class="c1"># x = torch.where(a == 0, y0, (x1*y0 + x0*y1)/a)</span>
 
     <span class="k">return</span> <span class="n">x</span><span class="p">,</span> <span class="n">mapped_coords</span></div>
 
