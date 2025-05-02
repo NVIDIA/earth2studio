@@ -9,20 +9,12 @@ stages:
 workflow:
    name: $PIPELINE_WORKFLOW_NAME
 
-github-clone:
-  stage: pre
-  rules:
-    - when: never
-  tags:
-  - docker
-  extends:
-    - .github:pull
-  image: bitnami/git
-
 gitlab-clone:
   stage: pre
   rules:
     - if: $PIPELINE_REPO_SOURCE == "github"
+      when: always
+    - if: $CI_PIPELINE_SOURCE == "schedule"
       when: always
     - if: $PIPELINE_REPO_SOURCE != "github" && $CI_PIPELINE_SOURCE == "merge_request_event"
       when: always
@@ -49,8 +41,6 @@ build-ci-env:
   extends:
     - .earth2studio:build-env:base
     - .build-env:cache
-  variables:
-    MAX_JOBS: 16
   script:
     - make setup-ci
     - make install-docker
@@ -217,27 +207,12 @@ coverage:
     - make setup-ci
     - make coverage 2>&1 | tee ../blossom.log
 
-pages:
-  tags:
-    - pages
-  stage: docs
-  script:
-  - echo "Publishing docs!"
-  - mkdir -p public
-  - ls | grep -v public | xargs mv -t public
-  publish: public
-  artifacts:
-    paths:
-    - public
-  rules:
-    - if: $CI_COMMIT_BRANCH == "gl-pages"
-
 include:
 
   - project: 'modulus/modulus-ci'
-    ref: ngeneva/studio-reamped
+    ref: main
     file: '.gitlab-ci/earth2studio/common.gitlab-ci.yml'
 
   - project: 'modulus/modulus-ci'
-    ref: ngeneva/studio-reamped
+    ref: main
     file: '.gitlab-ci/pull.gitlab-ci.yml'
