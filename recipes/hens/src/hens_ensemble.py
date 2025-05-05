@@ -92,7 +92,7 @@ class EnsembleBase:
         dx_model_dict: dict[str, DiagnosticModel] = {},
         cyclone_tracking: TCTrackerWuDuan | TCTrackerVitart | None = None,
         batch_size: int | None = None,
-        device: torch.device = torch.device("cpu"),
+        device: torch.device | None = None,
         ensemble_idx_base: int = 0,
         batch_ids_produce: list[int] = [],
         base_seed_string: str = "0",
@@ -129,7 +129,7 @@ class EnsembleBase:
         prognostic: PrognosticModel,
         dx_model_dict: dict[str, DiagnosticModel] = {},
         cyclone_tracking: TCTrackerWuDuan | TCTrackerVitart | None = None,
-        device: torch.device = torch.device("cpu"),
+        device: torch.device | None = None,
     ) -> None:
         """Moves model dictionary to device
 
@@ -142,7 +142,7 @@ class EnsembleBase:
         cyclone_tracking : DiagnosticModel | None, optional
             Cyclone tracking diagnostic, by default None
         device : torch.device, optional
-            PyTorch device, by default torch.device("cpu")
+            PyTorch device. If None, will select cuda if available, by default None
         """
         self.device = (
             device
