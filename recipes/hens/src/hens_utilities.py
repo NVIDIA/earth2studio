@@ -746,8 +746,9 @@ def update_model_dict(model_dict: dict, root: str) -> dict:
     if root != model_dict["package"]:
         model_dict["package"] = root
 
-        # move to cpu to free GPU memory TODO find other references and delete properly
-        if model_dict["model"] != None:
+        # move to cpu to free GPU memory
+        # TODO find other references and delete properly
+        if model_dict["model"] is not None:
             model_dict["model"].to("cpu")
 
         if root == "default":
