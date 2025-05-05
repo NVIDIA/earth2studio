@@ -746,12 +746,18 @@ def update_model_dict(model_dict: dict, root: str) -> dict:
     if root != model_dict["package"]:
         model_dict["package"] = root
 
-    if root == "default":
-        package = model_dict["class"].load_default_package()
-    else:
-        package = Package(root)
+        # move to cpu to free GPU memory
+        # TODO find other references and delete properly
+        if model_dict["model"] is not None:
+            model_dict["model"].to("cpu")
 
-    model_dict["model"] = model_dict["class"].load_model(package=package)
+        if root == "default":
+            package = model_dict["class"].load_default_package()
+        else:
+            package = Package(root)
+
+        model_dict["model"] = model_dict["class"].load_model(package=package)
+
     return model_dict
 
 
