@@ -142,7 +142,7 @@ class EnsembleBase:
         cyclone_tracking : DiagnosticModel | None, optional
             Cyclone tracking diagnostic, by default None
         device : torch.device, optional
-            PyTorch device, by default torch.device("cpu")
+            PyTorch device. If None, will select cuda if available, by default None
         """
         self.device = (
             device
