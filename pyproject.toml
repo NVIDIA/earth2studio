@@ -75,6 +75,7 @@ graphcast = [
     "graphcast",
     "dm-haiku==0.0.13",
     "jax[cuda12]>=0.4.26",
+]
 aifs = [
     "anemoi-inference[huggingface]==0.4.9",
     "anemoi-models==0.3.1",

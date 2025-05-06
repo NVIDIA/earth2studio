@@ -3,22 +3,35 @@ import dataclasses
 import functools
 from collections import OrderedDict
 from collections.abc import Callable, Generator, Iterator
+from typing import TYPE_CHECKING, Any
 
-import haiku as hk
-import jax
-import jax.dlpack
 import numpy as np
 import torch
 import xarray as xr
-from graphcast import (
-    autoregressive,
-    casting,
-    checkpoint,
-    data_utils,
-    graphcast,
-    normalization,
-    rollout,
-)
+
+try:
+    import haiku as hk
+    import jax
+    import jax.dlpack
+    from graphcast import (
+        autoregressive,
+        casting,
+        checkpoint,
+        data_utils,
+        graphcast,
+        normalization,
+        rollout,
+    )
+except ImportError:
+    hk = None
+    jax = None
+    autoregressive = None
+    casting = None
+    checkpoint = None
+    data_utils = None
+    graphcast = None
+    normalization = None
+    rollout = None
 
 from earth2studio.data.arcoextra import ARCOExtraLexicon
 from earth2studio.models.auto import AutoModelMixin, Package
@@ -27,6 +40,7 @@ from earth2studio.models.px.base import PrognosticModel
 from earth2studio.models.px.utils import PrognosticMixin
 from earth2studio.utils.coords import map_coords
 from earth2studio.utils.type import CoordSystem
+from earth2studio.utils import check_extra_imports
 
 VARIABLES = [
     "t2m",
@@ -132,13 +146,14 @@ FORCING_VARIABLES = EXTERNAL_FORCING_VARS + GENERATED_FORCING_VARS
 ATMOS_LEVELS = [50, 100, 150, 200, 250, 300, 400, 500, 600, 700, 850, 925, 1000]
 
 
+@check_extra_imports("graphcast", [hk, jax, autoregressive, casting, checkpoint, data_utils, graphcast, normalization, rollout])
 class GraphCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     """GraphCast 0.25degree  model.
 
     TBD
     """
 
-    def load_run_forward_from_checkpoint(self) -> autoregressive.Predictor:
+    def load_run_forward_from_checkpoint(self) -> "autoregressive.Predictor":
         """
         This function is mostly copied from
         https://github.com/google-deepmind/graphcast/tree/main
@@ -224,7 +239,7 @@ class GraphCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     def __init__(
         self,
-        ckpt: graphcast.CheckPoint,
+        ckpt: "graphcast.CheckPoint",
         diffs_stddev_by_level: xr.Dataset,
         mean_by_level: xr.Dataset,
         stddev_by_level: xr.Dataset,
@@ -393,7 +408,7 @@ class GraphCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         return torch.from_numpy(dataarray.to_numpy().copy())
 
     @staticmethod
-    def get_jax_device_from_tensor(x: torch.Tensor) -> jax.Device:
+    def get_jax_device_from_tensor(x: torch.Tensor) -> "jax.Device":
         """
         From a tensor, get device and corresponding jax device
         """
