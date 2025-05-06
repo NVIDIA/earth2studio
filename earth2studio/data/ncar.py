@@ -14,19 +14,23 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import asyncio
 import calendar
 import concurrent.futures
+import functools
 import hashlib
 import os
 import shutil
-from datetime import date, datetime
+from dataclasses import dataclass
+from datetime import datetime
+from pathlib import Path
 
+import nest_asyncio
 import numpy as np
-import pandas as pd
 import s3fs
 import xarray as xr
 from loguru import logger
-from tqdm import tqdm
+from tqdm.asyncio import tqdm
 
 from earth2studio.data.utils import (
     datasource_cache_root,
@@ -39,6 +43,19 @@ logger.remove()
 logger.add(lambda msg: tqdm.write(msg, end=""), colorize=True)
 
 
+@dataclass
+class NCARAsyncTask:
+    """Small helper struct for Async tasks"""
+
+    time_indices: list[int]
+    variable_indices: list[int]
+
+    ncar_file_uri: str
+    ncar_data_variable: str
+    ncar_time_indices: list[int]
+    ncar_level_indices: list[int]
+
+
 class NCAR_ERA5:
     """ERA5 data provided by NSF NCAR via the AWS Open Data Sponsorship Program. ERA5
     is the fifth generation of the ECMWF global reanalysis and available on a 0.25
@@ -47,11 +64,14 @@ class NCAR_ERA5:
     Parameters
     ----------
     max_workers : int, optional
-        Number of parallel workers, by default 4
+        Max works in async io thread pool. Only applied when using sync call function
+        and will modify the default async loop if one exists, by default 24
     cache : bool, optional
-        Cache data source on local memory, by default True
+            Cache data source on local memory, by default True
     verbose : bool, optional
         Print download progress, by default True
+    async_timeout : int, optional
+        Timeout in seconds for async operations, by default 600
 
 
     Warning
@@ -65,17 +85,28 @@ class NCAR_ERA5:
     https://registry.opendata.aws/nsf-ncar-era5/
     """
 
-    def __init__(self, max_workers: int = 4, cache: bool = True, verbose: bool = False):
+    NCAR_EAR5_LAT = np.linspace(90, -90, 721)
+    NCAR_EAR5_LON = np.linspace(0, 359.75, 1440)
+
+    def __init__(
+        self,
+        max_workers: int = 24,
+        cache: bool = True,
+        verbose: bool = True,
+        async_timeout: int = 600,
+    ):
+        self._max_workers = max_workers
         self._cache = cache
         self._verbose = verbose
-        self._max_workers = max_workers
+        self.fs = s3fs.S3FileSystem(anon=True)
+        self.async_timeout = async_timeout
 
     def __call__(
         self,
         time: datetime | list[datetime] | TimeArray,
         variable: str | list[str] | VariableArray,
     ) -> xr.DataArray:
-        """Retrieve ERA5 data.
+        """Function to get data
 
         Parameters
         ----------
@@ -83,59 +114,98 @@ class NCAR_ERA5:
             Timestamps to return data for (UTC).
         variable : str | list[str] | VariableArray
             String, list of strings or array of strings that refer to variables to
-            return. Must be in the NCAR_ERA5 lexicon.
+            return. Must be in the NCAR lexicon.
 
         Returns
         -------
         xr.DataArray
-            ERA5 weather data array
+            ERA5 weather data array from NCAR ERA5
         """
-        time, variable = prep_data_inputs(time, variable)
-        self._validate_time(time)
 
-        data_arrays: dict[str, xr.DataArray] = {}
-        tasks = self._create_tasks(time, variable)
-        logger.debug("Download tasks: {}", str(tasks))
+        nest_asyncio.apply()  # Patch asyncio to work in notebooks
+        try:
+            loop = asyncio.get_event_loop()
+        except RuntimeError:
+            # If no event loop exists, create one
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
 
-        with concurrent.futures.ThreadPoolExecutor(
-            max_workers=self._max_workers
-        ) as executor:
-            futures = []
-            # Submit all tasks
-            for task in tasks:
-                future = executor.submit(
-                    self._fetch_dataarray,
-                    task,
-                    cache_path=self.cache,
-                    cache=self._cache,
-                )
-                futures.append(future)
+        # Modify the worker amount
+        loop.set_default_executor(
+            concurrent.futures.ThreadPoolExecutor(max_workers=self._max_workers)
+        )
 
-            # Process results as they complete
-            for future in tqdm(
-                concurrent.futures.as_completed(futures),
-                desc="Step",
-                total=len(futures),
-                disable=(not self._verbose),
-            ):
-                ename, arr = future.result()
-                data_arrays.setdefault(ename, []).append(arr)
-
-        # Concat time and variable dims
-        array_list = [xr.concat(arrs, dim="time") for arrs in data_arrays.values()]
-        res = xr.concat(array_list, dim="variable", combine_attrs="drop")
-        res.name = None  # remove name, which is kept from one of the arrays
-        res = res.transpose("time", "variable", ...)
+        xr_array = loop.run_until_complete(
+            asyncio.wait_for(self.fetch(time, variable), timeout=self.async_timeout)
+        )
 
         # Delete cache if needed
         if not self._cache:
             shutil.rmtree(self.cache)
 
-        return res.sel(time=time, variable=variable)  # reorder to match inputs
+        return xr_array
 
-    @staticmethod
-    def _create_tasks(times: list[datetime], variables: list[str]) -> list[dict]:
-        """Create download tasks, each corresponding to one file on S3.
+    async def fetch(
+        self,
+        time: datetime | list[datetime] | TimeArray,
+        variable: str | list[str] | VariableArray,
+    ) -> xr.DataArray:
+        """Async function to get data
+
+        Parameters
+        ----------
+        time : datetime | list[datetime] | TimeArray
+            Timestamps to return data for (UTC).
+        variable : str | list[str] | VariableArray
+            String, list of strings or array of strings that refer to variables to
+            return. Must be in the ARCO lexicon.
+
+        Returns
+        -------
+        xr.DataArray
+            ERA5 weather data array from ARCO
+        """
+        time, variable = prep_data_inputs(time, variable)
+        # Create cache dir if doesnt exist
+        Path(self.cache).mkdir(parents=True, exist_ok=True)
+
+        # Make sure input time is valid
+        self._validate_time(time)
+
+        xr_array = xr.DataArray(
+            data=np.empty(
+                (
+                    len(time),
+                    len(variable),
+                    len(self.NCAR_EAR5_LAT),
+                    len(self.NCAR_EAR5_LON),
+                )
+            ),
+            dims=["time", "variable", "lat", "lon"],
+            coords={
+                "time": time,
+                "variable": variable,
+                "lat": self.NCAR_EAR5_LAT,
+                "lon": self.NCAR_EAR5_LON,
+            },
+        )
+
+        args = self._create_tasks(time, variable)
+        func_map = map(
+            functools.partial(self.fetch_wrapper, xr_array=xr_array), args.values()
+        )
+
+        # Launch all fetch requests
+        await tqdm.gather(
+            *func_map, desc="Fetching NCAR ERA5 data", disable=(not self._verbose)
+        )
+        return xr_array
+
+    def _create_tasks(
+        self, time: list[datetime], variable: list[str]
+    ) -> dict[str, NCARAsyncTask]:
+        """Create download tasks, each corresponding to one file on S3. The H5 file
+        stored in the dataset contains
 
         Parameters
         ----------
@@ -149,139 +219,143 @@ class NCAR_ERA5:
         list[dict]
             List of download tasks.
         """
-        groups: dict[str, dict] = {}  # group pressure-level variables
-        for var in set(variables):
-            spec, _ = NCAR_ERA5Lexicon[var]
-            lvl = spec.split(".")[3]  # surface/pressure-level
-            ename = spec.split(".")[4].split("_")[-1]  # ECMWF name
-            groups.setdefault(
-                ename,
-                {"var": var if lvl == "sfc" else var[0], "levels": [], "spec": spec},
-            )
-            if lvl == "pl":
-                # Collect pressure levels
-                groups[ename]["levels"].append(int(var[1:]))
+        tasks: dict[str, NCARAsyncTask] = {}  # group pressure-level variables
 
-        pattern = "s3://nsf-ncar-era5/e5.oper.an.{lvl}/{y}{m:02}/{spec}.{y}{m:02}{d:02}00_{y}{m:02}{dend:02}23.nc"
+        s3_pattern = "s3://nsf-ncar-era5/{product}/{year}{month:02}/{product}.{variable}.{grid}.{year}{month:02}{daystart:02}00_{year}{month:02}{dayend:02}23.nc"
+        for i, t in enumerate(time):
+            for j, v in enumerate(variable):
+                ncar_name, _ = NCAR_ERA5Lexicon[v]
 
-        tasks = []  # group tasks by S3 object
-        times_by_day: dict[date, list[datetime]] = (
-            {}
-        )  # pressure-level variables are in daily files
-        times_by_month: dict[date, list[datetime]] = (
-            {}
-        )  # surface-level variables are in monthly files
-        for dt in times:
-            times_by_day.setdefault(dt.date(), []).append(dt)
-            times_by_month.setdefault(dt.date().replace(day=1), []).append(dt)
-        for ename, group in groups.items():
-            if len(group["levels"]) == 0:
-                # Surface-level variable, monthly files
-                for month, dts in times_by_month.items():
-                    tasks.append(
-                        {
-                            "ename": ename,
-                            "var": group["var"],  # Earth-2 variable specifier
-                            "levels": [],
-                            "dts": dts,
-                            "s3pfx": pattern.format(
-                                lvl="sfc",
-                                y=month.year,
-                                m=month.month,
-                                spec=group["spec"],
-                                d=1,
-                                dend=calendar.monthrange(month.year, month.month)[-1],
-                            ),
-                        }
+                product = ncar_name.split("::")[0]
+                variable_name = ncar_name.split("::")[1]
+                grid = ncar_name.split("::")[2]
+                level_index = int(ncar_name.split("::")[3])
+
+                # Pressure is held in daily nc files
+                if product == "e5.oper.an.pl":
+                    daystart = t.day
+                    dayend = t.day
+                    time_index = t.hour
+                    data_variable = f"{variable_name.split('_')[-1].upper()}"
+                # Surface held in monthly
+                else:
+                    daystart = 1
+                    dayend = calendar.monthrange(t.year, t.month)[-1]
+                    time_index = int(
+                        (t - datetime(t.year, t.month, 1)).total_seconds() / 3600
                     )
-            else:
-                # Pressure-level variable, daily files
-                for day, dts in times_by_day.items():
-                    tasks.append(
-                        {
-                            "ename": ename,
-                            "var": group["var"],  # Earth-2 variable specifier
-                            "levels": group["levels"],
-                            "dts": dts,
-                            "s3pfx": pattern.format(
-                                lvl="pl",
-                                y=day.year,
-                                m=day.month,
-                                spec=group["spec"],
-                                d=day.day,
-                                dend=day.day,
-                            ),
-                        }
+                    # NetCDF files can have multiple variables (var and utc dates), the data variables follow this pattern
+                    data_variable = f"VAR_{variable_name.split('_')[-1].upper()}"
+
+                file_name = s3_pattern.format(
+                    product=product,
+                    variable=variable_name,
+                    grid=grid,
+                    year=t.year,
+                    month=t.month,
+                    daystart=daystart,
+                    dayend=dayend,
+                )
+
+                if file_name in tasks:
+                    tasks[file_name].time_indices.append(i)
+                    tasks[file_name].variable_indices.append(j)
+                    tasks[file_name].ncar_time_indices.append(time_index)
+                    tasks[file_name].ncar_level_indices.append(level_index)
+                else:
+                    tasks[file_name] = NCARAsyncTask(
+                        time_indices=[i],
+                        variable_indices=[j],
+                        ncar_file_uri=file_name,
+                        ncar_data_variable=data_variable,
+                        ncar_time_indices=[time_index],
+                        ncar_level_indices=[level_index],
                     )
+
         return tasks
 
-    @staticmethod
-    def _fetch_dataarray(task: dict, cache_path: str, cache: bool) -> xr.DataArray:
-        """Retrieve ERA5 data for single group of times/variables.
+    async def fetch_wrapper(
+        self,
+        task: NCARAsyncTask,
+        xr_array: xr.DataArray,
+    ) -> None:
+        """Small wrapper to pack arrays into the DataArray"""
+        out = await self.fetch_array(
+            task.ncar_file_uri,
+            task.ncar_data_variable,
+            task.ncar_time_indices,
+            task.ncar_level_indices,
+        )
+        xr_array[task.time_indices, task.variable_indices] = out
+
+    async def fetch_array(
+        self,
+        nc_file_uri: str,
+        data_variable: str,
+        time_idx: list[int],
+        level_idx: list[int],
+    ) -> np.ndarray:
+        """Fetches requested array from remote store
 
         Parameters
         ----------
-        task : dict
-            Download task, specifying the variables, times, and S3 location.
-        cache_path: str
-            Locally cache directory
-        cache: bool
-            Cache data source on local memory
+        nc_file_uri : str
+            S3 URI to NetCDF file
+        data_variable : str
+            Data variable name of the array to use in the NetCDF file
+        time_idx : list[int]
+            Time indexes (hours since start time of file)
+        level_idx : list[int]
+            Pressure level indices if applicable, should be same length as time_idx
 
         Returns
         -------
-        xr.DataArray
-            ERA5 data for the given group of times/variables.
+        np.ndarray
+            Data
         """
-        ename, var, levels, dts, s3pfx = (
-            task["ename"],
-            task["var"],
-            task["levels"],
-            task["dts"],
-            task["s3pfx"],
+        logger.debug(
+            f"Fetching NCAR ERA5 variable: {data_variable} in file {nc_file_uri}"
         )
-
-        fs = s3fs.S3FileSystem(anon=True)
-
         # Here we manually cache the data arrays, this is because fsspec caches the
-        # entire HDF5 file by default which is large for this data, so instead we manually
-        # cache the slice we need
+        # extracted NetCDF file. Not super optimal, can have some repeat storage given
+        # different level / time indexes
         sha = hashlib.sha256(
-            (str(ename) + str(var) + str(levels) + str(dts) + str(s3pfx)).encode()
+            (
+                str(nc_file_uri) + str(data_variable) + str(time_idx) + str(level_idx)
+            ).encode()
         )
         filename = sha.hexdigest()
-        cache_path = os.path.join(cache_path, filename)
+        cache_path = os.path.join(self.cache, filename)
 
         if os.path.exists(cache_path):
-            ds = xr.open_dataarray(cache_path)
+            ds = await asyncio.to_thread(xr.open_dataarray, cache_path)
+            output = ds.values
         else:
-            with fs.open(s3pfx, "rb", block_size=1 * 1024 * 1024) as f:
-                ds = xr.open_dataset(f, engine="h5netcdf", cache=False)
+            with self.fs.open(nc_file_uri, "rb", block_size=1 * 1024 * 1024) as f:
+                ds = await asyncio.to_thread(
+                    xr.open_dataset, f, engine="h5netcdf", cache=False
+                )
+                if data_variable not in ds:
+                    raise ValueError(
+                        f"Variable '{data_variable}' from task not found in dataset. Available variables: {list(ds.keys())}."
+                    )
 
-                if ename[0].isalpha():  # ECMWF names starting with a digit
-                    xrname = ename.upper()
+                # Pressure level variable
+                if "level" in ds.dims:
+                    ds = ds.isel(time=time_idx, level=level_idx)[data_variable]
+                # Other product
                 else:
-                    xrname = f"VAR_{ename.upper()}"
+                    ds = ds.isel(time=time_idx)[data_variable]
 
-                if len(levels) == 0:
-                    # Surface-level variable
-                    ds = ds.sel(time=dts)[xrname]
-                    ds = ds.rename({"latitude": "lat", "longitude": "lon"})
-                    ds = xr.concat([ds], pd.Index([var], name="variable"))
-                    ds = ds.load()
-                else:
-                    # Pressure-level variable
-                    ds = ds.sel(time=dts, level=[float(lvl) for lvl in levels])[xrname]
-                    ds = ds.rename(latitude="lat", longitude="lon", level="variable")
-                    ds["variable"] = np.array([f"{var}{lvl}" for lvl in levels])
-                    ds = ds.load()
+                # Load the data, this is the actual download
+                ds = await asyncio.to_thread(ds.load)
+                # Cache nc file if present
+                if self._cache:
+                    await asyncio.to_thread(ds.to_netcdf, cache_path, engine="h5netcdf")
 
-                # Save to cache, could be better optimized by not saving the coords
-                # For some reason the default netcdf engine was giving errors
-                if cache:
-                    ds.to_netcdf(cache_path, engine="h5netcdf")
+                output = ds.values
 
-        return ename, ds
+        return output
 
     @classmethod
     def _validate_time(cls, times: list[datetime]) -> None:
@@ -293,9 +367,13 @@ class NCAR_ERA5:
             Timestamps to be downloaded (UTC).
         """
         for time in times:
+            if time < datetime(1940, 1, 1):
+                raise ValueError(
+                    f"Requested date time {time} must be after January 1st, 1940 for NCAR ERA5"
+                )
             if not (time - datetime(1900, 1, 1)).total_seconds() % 3600 == 0:
                 raise ValueError(
-                    f"Requested date time {time} needs to be 1 hour interval for ERA5"
+                    f"Requested date time {time} needs to be 1 hour interval for NCAR ERA5"
                 )
 
     @property
