@@ -20,13 +20,14 @@ import inspect
 import os
 import pathlib
 import shutil
-from datetime import datetime
+from datetime import datetime, timedelta
 from importlib.metadata import version
 
 import fsspec
 import gcsfs
 import nest_asyncio
 import numpy as np
+import pandas as pd
 import xarray as xr
 import zarr
 from fsspec.implementations.cached import WholeFileCacheFileSystem
@@ -257,6 +258,21 @@ class ARCO:
         except KeyError as e:
             logger.error(f"variable id {variable} not found in ARCO lexicon")
             raise e
+
+        # Handle 6-hour precipitation accumulation
+        if variable == "tp06":
+            # Get the last 6 hours of data
+            start_time = time - timedelta(hours=5)
+            times = pd.date_range(start=start_time, end=time, freq="H")
+            
+            # Fetch hourly precipitation data
+            tp_data = []
+            for t in times:
+                tp = await self.fetch_array(t, "tp")
+                tp_data.append(tp)
+            
+            # Sum up the hourly data
+            return np.sum(tp_data, axis=0)
 
         arco_variable, level = arco_name.split("::")
         if self.zarr_major_version >= 3:
