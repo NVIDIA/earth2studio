@@ -30,7 +30,7 @@ cyclone_tracking:
 
 file_output:
     path: 'outputs'       # directory to which outfiles are written
-    output_vars: ["t2m", 'u10m', 't850', 'q850', 'z500'] # , 'tp06']
+    output_vars: ['t2m', 'u10m', 't850', 'q850', 'z500']
     thread_io: False      # write out in seperate thread (needs further testing)
     format:               # io backend class
         _target_: earth2studio.io.NetCDF4Backend
