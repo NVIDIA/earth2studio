@@ -46,12 +46,12 @@ logger.add(lambda msg: tqdm.write(msg, end=""), colorize=True)
 class NCARAsyncTask:
     """Small helper struct for Async tasks"""
 
-    time_coord: set[datetime]
-    variable_coord: set[str]
     ncar_file_uri: str
     ncar_data_variable: str
-    ncar_time_indices: set[int]
-    ncar_level_indices: set[int]
+    # Dictionary mapping time index -> time id
+    ncar_time_indices: dict[int, datetime]
+    # Dictionary mapping level index -> varaible id
+    ncar_level_indices: dict[int, str]
 
 
 class NCAR_ERA5:
@@ -190,10 +190,8 @@ class NCAR_ERA5:
         # Concat times for same variable groups
         array_list = [xr.concat(arrs, dim="time") for arrs in data_arrays.values()]
         # Now concat varaibles
-        res = xr.concat(array_list, dim="variable", combine_attrs="drop")
+        res = xr.concat(array_list, dim="variable")
         res.name = None  # remove name, which is kept from one of the arrays
-
-        print(res)
 
         # Delete cache if needed
         if not self._cache:
@@ -256,18 +254,14 @@ class NCAR_ERA5:
                 )
 
                 if file_name in tasks:
-                    tasks[file_name].time_coord.add(t)
-                    tasks[file_name].variable_coord.add(v)
-                    tasks[file_name].ncar_time_indices.add(time_index)
-                    tasks[file_name].ncar_level_indices.add(level_index)
+                    tasks[file_name].ncar_time_indices[time_index] = t
+                    tasks[file_name].ncar_level_indices[level_index] = v
                 else:
                     tasks[file_name] = NCARAsyncTask(
-                        time_coord={t},
-                        variable_coord={v},
                         ncar_file_uri=file_name,
                         ncar_data_variable=data_variable,
-                        ncar_time_indices={time_index},
-                        ncar_level_indices={level_index},
+                        ncar_time_indices={time_index: t},
+                        ncar_level_indices={level_index: v},
                     )
 
         return tasks
@@ -280,23 +274,23 @@ class NCAR_ERA5:
         out = await self.fetch_array(
             task.ncar_file_uri,
             task.ncar_data_variable,
-            task.ncar_time_indices,
-            task.ncar_level_indices,
+            list(task.ncar_time_indices.keys()),
+            list(task.ncar_level_indices.keys()),
         )
 
         # Rename levels coord to variable
         out = out.rename({"level": "variable"})
-        out = out.assign_coords(variable=list(task.variable_coord))
+        out = out.assign_coords(variable=list(task.ncar_level_indices.values()))
         # Shouldnt be needed but just in case
-        out = out.assign_coords(time=list(task.time_coord))
+        out = out.assign_coords(time=list(task.ncar_time_indices.values()))
         return out
 
     async def fetch_array(
         self,
         nc_file_uri: str,
         data_variable: str,
-        time_idx: set[int],
-        level_idx: set[int],
+        time_idx: list[int],
+        level_idx: list[int],
     ) -> xr.DataArray:
         """Fetches requested array from remote store
 
@@ -306,9 +300,9 @@ class NCAR_ERA5:
             S3 URI to NetCDF file
         data_variable : str
             Data variable name of the array to use in the NetCDF file
-        time_idx : set[int]
+        time_idx : list[int]
             Time indexes (hours since start time of file)
-        level_idx : set[int]
+        level_idx : list[int]
             Pressure level indices if applicable, should be same length as time_idx
 
         Returns
