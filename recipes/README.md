@@ -28,4 +28,5 @@ directly.
 
 ## Index
 
-- Recipe Template
+- [Huge Ensembles (HENS)](./hens/)
+- [Recipe Template](./template/)
