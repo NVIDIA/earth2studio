@@ -230,13 +230,13 @@ class NCAR_ERA5:
                 variable_name = ncar_name.split("::")[1]
                 grid = ncar_name.split("::")[2]
                 level_index = int(ncar_name.split("::")[3])
+                data_variable = f"{variable_name.split('_')[-1].upper()}"
 
                 # Pressure is held in daily nc files
                 if product == "e5.oper.an.pl":
                     daystart = t.day
                     dayend = t.day
                     time_index = t.hour
-                    data_variable = f"{variable_name.split('_')[-1].upper()}"
                 # Surface held in monthly
                 else:
                     daystart = 1
@@ -244,8 +244,6 @@ class NCAR_ERA5:
                     time_index = int(
                         (t - datetime(t.year, t.month, 1)).total_seconds() / 3600
                     )
-                    # NetCDF files can have multiple variables (var and utc dates), the data variables follow this pattern
-                    data_variable = f"VAR_{variable_name.split('_')[-1].upper()}"
 
                 file_name = s3_pattern.format(
                     product=product,
@@ -335,9 +333,14 @@ class NCAR_ERA5:
                 ds = await asyncio.to_thread(
                     xr.open_dataset, f, engine="h5netcdf", cache=False
                 )
+                # Sometimes data field have VAR_ prepended
+                if f"VAR_{data_variable}" in ds:
+                    data_variable = f"VAR_{data_variable}"
+
                 if data_variable not in ds:
                     raise ValueError(
-                        f"Variable '{data_variable}' from task not found in dataset. Available variables: {list(ds.keys())}."
+                        f"Variable '{data_variable}' or 'VAR_{data_variable}' from task not found in dataset. "
+                        + f"Available variables: {list(ds.keys())}."
                     )
 
                 # Pressure level variable
