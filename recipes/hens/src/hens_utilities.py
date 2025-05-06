@@ -31,7 +31,6 @@ from physicsnemo.distributed import DistributedManager
 from earth2studio.data import DataSource
 from earth2studio.io import IOBackend, KVBackend, XarrayBackend
 from earth2studio.models.auto import Package
-from earth2studio.models.dx import TCTrackerWuDuan
 from earth2studio.models.dx.base import DiagnosticModel
 from earth2studio.models.px import PrognosticModel
 from earth2studio.perturbation import Perturbation
@@ -334,6 +333,20 @@ def pair_packages_ics(
     return configs
 
 
+class TCTracking:
+    """Class that stores the cyclone tracker and the output location.
+
+    Parameters
+    ----------
+    cfg : DictConfig
+        Hydra configuration object containing the settings for cyclone tracking.
+    """
+
+    def __init__(self, tracking_cfg: DictConfig) -> None:
+        self.tracker = hydra.utils.instantiate(tracking_cfg.tracker)
+        self.out_path = os.path.abspath(os.path.join(tracking_cfg.path, "cyclones"))
+
+
 def initialise(
     cfg: DictConfig,
 ) -> tuple[
@@ -428,10 +441,7 @@ def initialise(
 
     # initialize cyclone tracking
     if "cyclone_tracking" in cfg:
-        cyclone_tracker = TCTrackerWuDuan(
-            path_search_distance=250, path_search_window_size=2
-        )  # TODO choose and configure TC tracker in config
-
+        cyclone_tracker = TCTracking(cfg.cyclone_tracking)
     else:
         cyclone_tracker = None
 
