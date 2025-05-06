@@ -17,7 +17,6 @@
 import asyncio
 import calendar
 import concurrent.futures
-import functools
 import hashlib
 import os
 import shutil
@@ -47,13 +46,12 @@ logger.add(lambda msg: tqdm.write(msg, end=""), colorize=True)
 class NCARAsyncTask:
     """Small helper struct for Async tasks"""
 
-    time_indices: list[int]
-    variable_indices: list[int]
-
+    time_coord: set[datetime]
+    variable_coord: set[str]
     ncar_file_uri: str
     ncar_data_variable: str
-    ncar_time_indices: list[int]
-    ncar_level_indices: list[int]
+    ncar_time_indices: set[int]
+    ncar_level_indices: set[int]
 
 
 class NCAR_ERA5:
@@ -98,7 +96,6 @@ class NCAR_ERA5:
         self._max_workers = max_workers
         self._cache = cache
         self._verbose = verbose
-        self.fs = s3fs.S3FileSystem(anon=True)
         self.async_timeout = async_timeout
 
     def __call__(
@@ -172,34 +169,37 @@ class NCAR_ERA5:
         # Make sure input time is valid
         self._validate_time(time)
 
-        xr_array = xr.DataArray(
-            data=np.empty(
-                (
-                    len(time),
-                    len(variable),
-                    len(self.NCAR_EAR5_LAT),
-                    len(self.NCAR_EAR5_LON),
-                )
-            ),
-            dims=["time", "variable", "lat", "lon"],
-            coords={
-                "time": time,
-                "variable": variable,
-                "lat": self.NCAR_EAR5_LAT,
-                "lon": self.NCAR_EAR5_LON,
-            },
-        )
+        # Create tasks and group based on variable
+        data_arrays: dict[str, list[xr.DataArray]] = {}
+        async_tasks = []
+        for task in self._create_tasks(time, variable).values():
+            future = self.fetch_wrapper(task)
+            async_tasks.append(future)
 
-        args = self._create_tasks(time, variable)
-        func_map = map(
-            functools.partial(self.fetch_wrapper, xr_array=xr_array), args.values()
+        # Now wait
+        results = await tqdm.gather(
+            *async_tasks, desc="Fetching NCAR ERA5 data", disable=(not self._verbose)
         )
+        # Group based on variable
+        for result in results:
+            key = str(result.coords["variable"])
+            if key not in data_arrays:
+                data_arrays[key] = []
+            data_arrays[key].append(result)
 
-        # Launch all fetch requests
-        await tqdm.gather(
-            *func_map, desc="Fetching NCAR ERA5 data", disable=(not self._verbose)
-        )
-        return xr_array
+        # Concat times for same variable groups
+        array_list = [xr.concat(arrs, dim="time") for arrs in data_arrays.values()]
+        # Now concat varaibles
+        res = xr.concat(array_list, dim="variable", combine_attrs="drop")
+        res.name = None  # remove name, which is kept from one of the arrays
+
+        print(res)
+
+        # Delete cache if needed
+        if not self._cache:
+            shutil.rmtree(self.cache)
+
+        return res.sel(time=time, variable=variable)
 
     def _create_tasks(
         self, time: list[datetime], variable: list[str]
@@ -256,18 +256,18 @@ class NCAR_ERA5:
                 )
 
                 if file_name in tasks:
-                    tasks[file_name].time_indices.append(i)
-                    tasks[file_name].variable_indices.append(j)
-                    tasks[file_name].ncar_time_indices.append(time_index)
-                    tasks[file_name].ncar_level_indices.append(level_index)
+                    tasks[file_name].time_coord.add(t)
+                    tasks[file_name].variable_coord.add(v)
+                    tasks[file_name].ncar_time_indices.add(time_index)
+                    tasks[file_name].ncar_level_indices.add(level_index)
                 else:
                     tasks[file_name] = NCARAsyncTask(
-                        time_indices=[i],
-                        variable_indices=[j],
+                        time_coord={t},
+                        variable_coord={v},
                         ncar_file_uri=file_name,
                         ncar_data_variable=data_variable,
-                        ncar_time_indices=[time_index],
-                        ncar_level_indices=[level_index],
+                        ncar_time_indices={time_index},
+                        ncar_level_indices={level_index},
                     )
 
         return tasks
@@ -275,8 +275,7 @@ class NCAR_ERA5:
     async def fetch_wrapper(
         self,
         task: NCARAsyncTask,
-        xr_array: xr.DataArray,
-    ) -> None:
+    ) -> xr.DataArray:
         """Small wrapper to pack arrays into the DataArray"""
         out = await self.fetch_array(
             task.ncar_file_uri,
@@ -284,15 +283,21 @@ class NCAR_ERA5:
             task.ncar_time_indices,
             task.ncar_level_indices,
         )
-        xr_array[task.time_indices, task.variable_indices] = out
+
+        # Rename levels coord to variable
+        out = out.rename({"level": "variable"})
+        out = out.assign_coords(variable=list(task.variable_coord))
+        # Shouldnt be needed but just in case
+        out = out.assign_coords(time=list(task.time_coord))
+        return out
 
     async def fetch_array(
         self,
         nc_file_uri: str,
         data_variable: str,
-        time_idx: list[int],
-        level_idx: list[int],
-    ) -> np.ndarray:
+        time_idx: set[int],
+        level_idx: set[int],
+    ) -> xr.DataArray:
         """Fetches requested array from remote store
 
         Parameters
@@ -301,9 +306,9 @@ class NCAR_ERA5:
             S3 URI to NetCDF file
         data_variable : str
             Data variable name of the array to use in the NetCDF file
-        time_idx : list[int]
+        time_idx : set[int]
             Time indexes (hours since start time of file)
-        level_idx : list[int]
+        level_idx : set[int]
             Pressure level indices if applicable, should be same length as time_idx
 
         Returns
@@ -327,9 +332,12 @@ class NCAR_ERA5:
 
         if os.path.exists(cache_path):
             ds = await asyncio.to_thread(xr.open_dataarray, cache_path)
-            output = ds.values
+            ds = await asyncio.to_thread(ds.load)
         else:
-            with self.fs.open(nc_file_uri, "rb", block_size=1 * 1024 * 1024) as f:
+            # New fs every call so we dont block, netcdf reads seems to not support
+            # open_async -> S3AsyncStreamedFile (big sad)
+            fs = s3fs.S3FileSystem(anon=True, asynchronous=False)
+            with fs.open(nc_file_uri, "rb", block_size=4 * 1400 * 720) as f:
                 ds = await asyncio.to_thread(
                     xr.open_dataset, f, engine="h5netcdf", cache=False
                 )
@@ -345,20 +353,22 @@ class NCAR_ERA5:
 
                 # Pressure level variable
                 if "level" in ds.dims:
-                    ds = ds.isel(time=time_idx, level=level_idx)[data_variable]
+                    ds = ds.isel(time=list(time_idx), level=list(level_idx))[
+                        data_variable
+                    ]
                 # Other product
                 else:
-                    ds = ds.isel(time=time_idx)[data_variable]
+                    ds = ds.isel(time=list(time_idx))[data_variable]
+                    ds = ds.expand_dims({"level": [0]}, axis=1)
 
                 # Load the data, this is the actual download
                 ds = await asyncio.to_thread(ds.load)
+                logger.debug(f"Variable '{data_variable}' loaded")
                 # Cache nc file if present
                 if self._cache:
                     await asyncio.to_thread(ds.to_netcdf, cache_path, engine="h5netcdf")
 
-                output = ds.values
-
-        return output
+        return ds
 
     @classmethod
     def _validate_time(cls, times: list[datetime]) -> None:
