@@ -298,8 +298,9 @@ def pair_packages_ics(
     configs = []
     num_batch_per_ic = int(np.ceil(ensemble_size / batch_size))
     batch_ids_complete = list(range(0, num_batch_per_ic * len(model_packages)))
-    for ic in ics:
-        for ii, pkg in enumerate(model_packages):
+
+    for ii, pkg in enumerate(model_packages):
+        for ic in ics:
             # Determine the batch IDs for the current package and initial condition
             batch_ids_model = batch_ids_complete[
                 ii * num_batch_per_ic : (ii + 1) * num_batch_per_ic
