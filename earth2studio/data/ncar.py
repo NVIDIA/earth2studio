@@ -354,10 +354,8 @@ class NCAR_ERA5:
                 else:
                     ds = ds.isel(time=list(time_idx))[data_variable]
                     ds = ds.expand_dims({"level": [0]}, axis=1)
-
                 # Load the data, this is the actual download
                 ds = await asyncio.to_thread(ds.load)
-                logger.debug(f"Variable '{data_variable}' loaded")
                 # Cache nc file if present
                 if self._cache:
                     await asyncio.to_thread(ds.to_netcdf, cache_path, engine="h5netcdf")
