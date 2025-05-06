@@ -309,16 +309,17 @@ perturbation:
 #### Tropical Cyclone Tracking
 
 Cyclone tracking can be triggered by providing the `cyclone_tracking` section in
-the config. The pipeline utilises `CycloneTrackingVorticity` model.
-While alternative trackers are available in earth2studio, they require synchronisation
-to enable seamless switching between different approaches (this feature is currently
-in development). The tracking results are exported as CSV files to the directory
-specified by `out_dir`. The tracker supports regional analysis through the
-`cropboxes` parameter defined in the `file_output` section.
+the config. The can be selected and configured in the config as shown below.
+The tracking results are exported as netCDF files to the directory
+specified under `path`.
 
 ```yaml
 cyclone_tracking:
-    out_dir: 'output'
+    path: 'outputs'
+    tracker:
+        _target_: earth2studio.models.dx.tc_tracking.TCTrackerWuDuan
+        path_search_distance: 250
+        path_search_window_size: 2
 ```
 
 #### Writing Fields to Disk
