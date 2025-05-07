@@ -138,8 +138,8 @@ In the configuration file `cfg/helene.yaml`.
 Users are encouraged to look at this configuration file and adjust properties
 accordingly.
 
-The current configuration is set up for two checkpoints, one initial condition, and
-four ensemble members per checkpoint-IC pair, resulting in eight ensemble members in
+The current configuration is set up for two checkpoints, two initial conditions, and
+four ensemble members per checkpoint-IC pair, resulting in 16 ensemble members in
 total.
 Once the small configuration is verified, you can expand the number of checkpoints,
 initial conditions and ensemble members per checkpoint-IC pair.
@@ -184,8 +184,14 @@ Helene ensemble.
 - The entire batch must be reproduced together
 - The configuration must match the original run, except for the file output section
 - A fixed random seed is required to ensure identical initial condition perturbations
+- Below, we list the steps to set up a config file for reproducing, but you can also
+  use the `reproduce_helene_batches.yaml` config file.
 
 ##### Steps to Reproduce a Batch
+
+> [!Note]
+> If you have deleted the outputs from the Helene run, re-run that recipe first to
+generate data to compare against.
 
 1. **Identify the Batch to Reproduce**
    - Determine the batch ID(s) you want to reproduce
@@ -194,8 +200,8 @@ Helene ensemble.
 2. **Configure the Reproduction Run**
    - Use the same configuration as `helene.yaml` for all parameters except file output
    - If the original run didn't specify a random seed, you can find it in:
-     - The cyclone tracker file
-     - The netCDF output file (when using `KVBackend` or `XarrayBackend`)
+     <!-- - The cyclone tracker file TODO: add to file-->
+     - The field output files when using `KVBackend` or `XarrayBackend`
      - Other IObackends, including the netcdf4 backend do not provide the
        seed in the output file
    - If the original run didn't specify a random seed, different processes will
@@ -209,8 +215,17 @@ Helene ensemble.
 
 4. **Verify the Output**
    - Compare the output tracks with the selected batches of the original run
-   - The entries should be identical, with only the track ID differing
-     (as this depends on the total number of ensemble members)
+     using the scripts in the `test` folder:
+
+     ```bash
+     cd test
+     uv run test_reprod.py
+     ```
+
+   - Running without any arguments will compare tracks in the `outputs/helene/cyclones`
+     and `outputs_reprod/cyclones` directories.
+     See the [test README](test/README.md) for more details on how to choose other directories
+     or on how to compare individual files.
 
 ### Configuration
 

@@ -1,5 +1,10 @@
 # Tests
 
+> [!Note]
+> Here, we demonstrate how to run the recommended way through uv.
+If you prefer running in a python environment or in a container, simply
+replace `uv run script.py` commands with `python script.py`.
+
 ## Test 1: Reproducibility of Helene Ensemble Members
 
 Run the HENS recipe with first with the `helene.yaml` configuration,
@@ -8,10 +13,10 @@ then with the `reproduce_helene_batches.yaml` configuration:
 ```bash
 cd earth2studio/recipes/hens
 
-# run the first recipe
+# run the helene ensemble using two ICs and two checkpoints
 uv run main.py --config-name=helene.yaml
 
-# run the second recipe
+# reproduce ensemble members 0 and 2 from the second IC
 uv run main.py --config-name=reproduce_helene_batches.yaml
 ```
 
