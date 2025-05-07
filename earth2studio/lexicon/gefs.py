@@ -227,7 +227,7 @@ class GEFSLexicon(metaclass=LexiconType):
     def get_item(cls, val: str) -> tuple[str, Callable]:
         """Get item from GFS vocabulary."""
         gfs_key = cls.VOCAB[val]
-        if gfs_key.split("::")[0] == "HGT":
+        if gfs_key.split("::")[1] == "HGT":
 
             def mod(x: np.array) -> np.array:
                 """Modify data value (if necessary)."""
@@ -278,16 +278,9 @@ class GEFSLexiconSel(metaclass=LexiconType):
     def get_item(cls, val: str) -> tuple[str, Callable]:
         """Get item from GFS vocabulary."""
         gfs_key = cls.VOCAB[val]
-        if gfs_key.split("::")[0] == "HGT":
 
-            def mod(x: np.array) -> np.array:
-                """Modify data value (if necessary)."""
-                return x * 9.81
-
-        else:
-
-            def mod(x: np.array) -> np.array:
-                """Modify data value (if necessary)."""
-                return x
+        def mod(x: np.array) -> np.array:
+            """Modify data value (if necessary)."""
+            return x
 
         return gfs_key, mod
