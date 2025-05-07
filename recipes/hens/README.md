@@ -186,6 +186,8 @@ Helene ensemble.
 - A fixed random seed is required to ensure identical initial condition perturbations
 - Below, we list the steps to set up a config file for reproducing, but you can also
   use the `reproduce_helene_batches.yaml` config file.
+- To demonstrate the benfits of reproducing indivudual batches, the reproduced field
+  data will store more variables on a larger domain than the original run.
 
 ##### Steps to Reproduce a Batch
 
