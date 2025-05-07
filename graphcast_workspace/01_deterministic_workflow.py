@@ -90,6 +90,7 @@ io = ZarrBackend()
 import earth2studio.run as run
 
 nsteps = 20
+model.nsteps = nsteps
 io = run.deterministic(["2018-01-01"], nsteps, model, data, io)
 
 print(io.root.tree())

@@ -3,7 +3,8 @@ import dataclasses
 import functools
 from collections import OrderedDict
 from collections.abc import Callable, Generator, Iterator
-from typing import TYPE_CHECKING, Any
+from typing import Optional, Sequence
+
 
 import numpy as np
 import torch
@@ -146,14 +147,27 @@ FORCING_VARIABLES = EXTERNAL_FORCING_VARS + GENERATED_FORCING_VARS
 ATMOS_LEVELS = [50, 100, 150, 200, 250, 300, 400, 500, 600, 700, 850, 925, 1000]
 
 
-@check_extra_imports("graphcast", [hk, jax, autoregressive, casting, checkpoint, data_utils, graphcast, normalization, rollout])
+@check_extra_imports(
+    "graphcast",
+    [
+        hk,
+        jax,
+        autoregressive,
+        casting,
+        checkpoint,
+        data_utils,
+        graphcast,
+        normalization,
+        rollout,
+    ],
+)
 class GraphCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     """GraphCast 0.25degree  model.
 
     TBD
     """
 
-    def load_run_forward_from_checkpoint(self) -> "autoregressive.Predictor":
+    def _load_run_forward_from_checkpoint(self) -> "autoregressive.Predictor":
         """
         This function is mostly copied from
         https://github.com/google-deepmind/graphcast/tree/main
@@ -237,6 +251,98 @@ class GraphCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         return drop_state(with_params(jax.jit(with_configs(run_forward.apply))))
 
+    def _chunked_prediction_generator(
+        self,
+        predictor_fn: "PredictorFn",
+        rng: "chex.PRNGKey",
+        inputs: xr.Dataset,
+        targets_template: xr.Dataset,
+        forcings: xr.Dataset,
+    ) -> Generator[xr.Dataset, None, None]:
+        """
+        This function is mostly copied from
+        https://github.com/google-deepmind/graphcast/tree/main
+
+        License info:
+
+        # Copyright 2023 DeepMind Technologies Limited.
+        #
+        # Licensed under the Apache License, Version 2.0 (the "License");
+        # you may not use this file except in compliance with the License.
+        # You may obtain a copy of the License at
+        #
+        #      http://www.apache.org/licenses/LICENSE-2.0
+        #
+        # Unless required by applicable law or agreed to in writing, software
+        # distributed under the License is distributed on an "AS-IS" BASIS,
+        # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+        # See the License for the specific language governing permissions and
+        # limitations under the License.
+        """
+
+        # Create copies to avoid mutating inputs.
+        inputs = xr.Dataset(inputs)
+        targets_template = xr.Dataset(targets_template)
+        forcings = xr.Dataset(forcings)
+
+        # Our template targets will always have a time axis corresponding for the
+        # timedeltas for the first chunk.
+        targets_chunk_time = targets_template.time.isel(time=slice(0, 1))
+
+        current_inputs = inputs
+
+        def split_rng_fn(rng):
+            # Note, this is *not* equivalent to `return jax.random.split(rng)`, because
+            # by assigning to a tuple, the single numpy array returned by
+            # `jax.random.split` actually gets split into two arrays, so when calling
+            # the function with pmap the output is Tuple[Array, Array], where the
+            # leading axis of each array is `num devices`.
+            rng1, rng2 = jax.random.split(rng)
+            return rng1, rng2
+
+        index = 0
+        while True:
+
+            # Reset forcings time to targets_chunk_time
+            forcings = forcings.assign_coords(time=targets_chunk_time)
+            forcings = forcings.compute()
+
+            # Make predictions for the chunk.
+            rng, this_rng = split_rng_fn(rng)
+            predictions = predictor_fn(
+                rng=this_rng,
+                inputs=current_inputs,
+                targets_template=targets_template,
+                forcings=forcings,
+            )
+            next_frame = xr.merge([predictions, forcings])
+
+            next_inputs = rollout._get_next_inputs(current_inputs, next_frame)
+
+            # Shift timedelta coordinates, so we don't recompile at every iteration.
+            next_inputs = next_inputs.assign_coords(time=current_inputs.coords["time"])
+            current_inputs = next_inputs
+
+            # At this point we can assign the actual targets time coordinates.
+            predictions = predictions.assign_coords(
+                time=targets_template.coords["time"] + index * np.timedelta64(6, "h")
+            )
+            yield predictions
+            del predictions
+
+            # Update forcings time and get new forcings
+            forcings = forcings.assign_coords(
+                time=targets_template.coords["time"] + index * np.timedelta64(6, "h")
+            )
+            forcings = forcings.compute()
+            #if set(forcing_variables) & _DERIVED_VARS:
+            #    add_derived_vars(dataset)
+            #if set(forcing_variables) & {TISR}:
+            #    add_tisr_var(dataset)
+
+            # Increment index
+            index += 1
+
     def __init__(
         self,
         ckpt: "graphcast.CheckPoint",
@@ -254,7 +360,7 @@ class GraphCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self.prng_key = jax.random.PRNGKey(0)
         self.interp_method = interp_method
 
-        self.run_forward = self.load_run_forward_from_checkpoint()
+        self.run_forward = self._load_run_forward_from_checkpoint()
 
         self._input_coords = OrderedDict(
             {
@@ -285,12 +391,11 @@ class GraphCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             }
         )
 
-        self.iterator: None | Generator[xr.Dataset] = None
-        self.nsteps: None | int = None
-
     @batch_func()
     def _default_generator(
-        self, x: torch.Tensor, coords: CoordSystem
+        self,
+        x: torch.Tensor,
+        coords: CoordSystem,
     ) -> Generator[tuple[torch.Tensor, CoordSystem]]:
         coords = coords.copy()
 
@@ -300,14 +405,9 @@ class GraphCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         yield x[:, :, 1:, ...], coords
 
         while True:
-            # Front hook
-            # front hook doesn't do anything
-            # x, coords = self.front_hook(x, coords)
 
             # Forward is identity operator
             coords = self.output_coords(coords)
-            if self.iterator is None:
-                raise TypeError("Iterator is not initialized. Run create_iterator()")
 
             x = self.iterator_result_to_tensor(next(self.iterator))
             # Rear hook
@@ -336,12 +436,10 @@ class GraphCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             Iterator that generates time-steps of the prognostic model container the
             output data tensor and coordinate system dictionary.
         """
-        if self.nsteps is None:
-            raise TypeError("nsteps is not set. Run model.set_nsteps(nsteps).")
 
         with jax.default_device(self.get_jax_device_from_tensor(x)):
             batch, target_lead_times = self.from_dataarray_to_dataset(
-                xr.DataArray(x.cpu(), coords=coords), 6 * self.nsteps
+                xr.DataArray(x.cpu(), coords=coords), 6
             )
 
             inputs, targets, forcings = data_utils.extract_inputs_targets_forcings(
@@ -350,7 +448,7 @@ class GraphCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 **dataclasses.asdict(self.ckpt.task_config),
             )
 
-            self.iterator = rollout.chunked_prediction_generator(
+            self.iterator = self._chunked_prediction_generator(
                 predictor_fn=self.run_forward,
                 rng=self.prng_key,
                 inputs=inputs,
@@ -444,11 +542,8 @@ class GraphCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             # Map lat and lon if needed
             x, coords = map_coords(x, coords, self.input_coords())
 
-            if self.nsteps is None:
-                raise TypeError("nsteps is not set. Run model.set_nsteps(nsteps).")
-
             data, target_lead_times = self.from_dataarray_to_dataset(
-                xr.DataArray(x.cpu(), coords=coords), 6 * self.nsteps
+                xr.DataArray(x.cpu(), coords=coords), 6
             )
 
             inputs, targets, forcings = data_utils.extract_inputs_targets_forcings(
@@ -469,7 +564,7 @@ class GraphCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             output_coords = self.output_coords(coords)
 
             output_coords["lead_time"] = np.array(
-                [np.timedelta64(h, "h") for h in range(0, 6 + (self.nsteps * 6), 6)]
+                [np.timedelta64(h, "h") for h in range(0, 6 + 6, 6)]
             )
 
             return out, output_coords

@@ -260,6 +260,7 @@ class ARCO:
             raise e
 
         # Handle 6-hour precipitation accumulation
+        # TODO: Is there a better place to put this?
         if variable == "tp06":
             # Get the last 6 hours of data
             start_time = time - timedelta(hours=5)
