@@ -24,7 +24,7 @@ from earth2studio.lexicon import NCAR_ERA5Lexicon
     "variable", [["t2m"], ["u10m", "z1000"], ["msl", "t150", "q700", "r700"]]
 )
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
-def test_run_deterministic(variable, device):
+def test_ncar_lexicon(variable, device):
     input = torch.randn(len(variable), 8).to(device)
     for v in variable:
         label, modifier = NCAR_ERA5Lexicon[v]

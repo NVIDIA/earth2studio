@@ -179,6 +179,9 @@ coverage:
     - job: pytest-data
       artifacts: true
       optional: true
+    - job: pytest-lexicon
+      artifacts: true
+      optional: true
     - job: pytest-io
       artifacts: true
       optional: true
