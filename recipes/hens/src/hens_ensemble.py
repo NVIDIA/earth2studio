@@ -28,13 +28,12 @@ from tqdm import tqdm
 from earth2studio.data import DataSource, fetch_data
 from earth2studio.io import IOBackend
 from earth2studio.models.dx import DiagnosticModel
-from earth2studio.models.dx.tc_tracking import TCTrackerVitart, TCTrackerWuDuan
 from earth2studio.models.px import PrognosticModel
 from earth2studio.perturbation import Perturbation
 from earth2studio.utils.coords import CoordSystem, map_coords, split_coords
 from earth2studio.utils.time import to_time_array
 
-from .hens_utilities import cat_coords, get_batchid_from_ensid
+from .hens_utilities import TCTracking, cat_coords, get_batchid_from_ensid
 from .hens_utilities_reproduce import calculate_torch_seed
 
 logger.remove()
@@ -77,6 +76,8 @@ class EnsembleBase:
         List of batch IDs that will be processed.
     base_seed_string : str
         Random seed that will be used as a basis.
+    pkg : str
+        Model package name, used for naming the output files for cyclone tracking.
     """
 
     def __init__(
@@ -90,12 +91,13 @@ class EnsembleBase:
         perturbation: Perturbation,
         output_coords_dict: dict[str, CoordSystem],
         dx_model_dict: dict[str, DiagnosticModel] = {},
-        cyclone_tracking: TCTrackerWuDuan | TCTrackerVitart | None = None,
+        cyclone_tracking: TCTracking | None = None,
         batch_size: int | None = None,
         device: torch.device | None = None,
         ensemble_idx_base: int = 0,
         batch_ids_produce: list[int] = [],
         base_seed_string: str = "0",
+        pkg: str = "",
     ) -> None:
 
         logger.info("Setting up HENS.")
@@ -107,11 +109,19 @@ class EnsembleBase:
         self.nsteps = nsteps
         self.output_coords_dict = output_coords_dict
         self.perturbation = perturbation
-        self.cyclone_tracking = cyclone_tracking
         self.base_seed_string = base_seed_string
+        self.pkg = pkg.split("/")[-1].split("seed")[-1]
+
+        if cyclone_tracking:
+            self.cyclone_tracking = cyclone_tracking.tracker
+            self.cyclone_tracking_out_path = cyclone_tracking.out_path
+
+        if len(time) > 1:
+            raise ValueError("Only a single IC can be passed here")
+        self.ic = time[0]
 
         # Load model onto the device
-        self.move_models_to_device(prognostic, dx_model_dict, cyclone_tracking, device)
+        self.move_models_to_device(prognostic, dx_model_dict, device)
 
         # Fetch data from data source and load onto device
         self.fetch_ics(data=data, time=time)
@@ -128,7 +138,6 @@ class EnsembleBase:
         self,
         prognostic: PrognosticModel,
         dx_model_dict: dict[str, DiagnosticModel] = {},
-        cyclone_tracking: TCTrackerWuDuan | TCTrackerVitart | None = None,
         device: torch.device | None = None,
     ) -> None:
         """Moves model dictionary to device
@@ -160,7 +169,6 @@ class EnsembleBase:
             dx_ic_dict[k] = dx_model.input_coords()
         self.dx_ic_dict = dx_ic_dict
 
-        self.cyclone_tracking = cyclone_tracking
         if self.cyclone_tracking:
             self.cyclone_tracking.to(self.device)
             self.cyclone_tracking_ic = self.cyclone_tracking.input_coords()
@@ -368,7 +376,6 @@ class EnsembleBase:
                         break
 
             # If cyclone tracks add to list of data arrays
-            # TODO: Update to use cfg output
             if self.cyclone_tracking:
                 # Create DataArray for the tracks
                 tracks_da = xr.DataArray(
@@ -376,8 +383,12 @@ class EnsembleBase:
                     coords=track_coords,
                     dims=list(track_coords.keys()),
                 )
-                os.makedirs("outputs/cyclones", exist_ok=True)
-                tracks_da.to_netcdf(f"outputs/cyclones/tracks_batch_{batch_id}.nc")
+                os.makedirs(self.cyclone_tracking_out_path, exist_ok=True)
+                file_name = np.datetime_as_string(self.ic, unit="s")
+                file_name = f"tracks_pkg_{self.pkg}_{file_name}_batch_{batch_id}.nc"
+                tracks_da.to_netcdf(
+                    os.path.join(self.cyclone_tracking_out_path, file_name)
+                )
 
         logger.success("Inference complete")
         return self.io_dict
