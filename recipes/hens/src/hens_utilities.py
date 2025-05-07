@@ -31,7 +31,6 @@ from physicsnemo.distributed import DistributedManager
 from earth2studio.data import DataSource
 from earth2studio.io import IOBackend, KVBackend, XarrayBackend
 from earth2studio.models.auto import Package
-from earth2studio.models.dx.base import DiagnosticModel
 from earth2studio.models.px import PrognosticModel
 from earth2studio.perturbation import Perturbation
 from earth2studio.utils.coords import CoordSystem, map_coords
@@ -353,7 +352,7 @@ def initialise(
     list[Any],
     dict[Any, Any],
     dict[Any, Any],
-    DiagnosticModel | None,
+    TCTracking | None,
     DataSource,
     dict[str, OrderedDict[Any, Any]],
     str | int,

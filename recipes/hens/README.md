@@ -1,9 +1,9 @@
 # Earth2Studio Huge Ensembles (HENS) Recipe
 
 This project implements a multi-checkpoint inference pipeline for large-scale
-ensemble weather forecasting. The pipeline enables parallel processing of multiple
-model checkpoints, providing a flexible framework for uncertainty quantification
-in weather prediction systems.
+ensemble weather forecasting.
+The pipeline enables parallel processing of multiple model checkpoints, providing a
+flexible framework for uncertainty quantification in weather prediction systems.
 
 A key application is the recovery of the HENS method, as described in
 [Huge Ensembles Part I][hens-paper], which provides a calibrated ensemble forecasting
@@ -308,9 +308,10 @@ perturbation:
 
 #### Tropical Cyclone Tracking
 
-Cyclone tracking can be triggered by providing the `cyclone_tracking` section in
-the config. The can be selected and configured in the config as shown below.
-The tracking results are exported as netCDF files to the directory
+Cyclone tracking can be triggered by providing the `cyclone_tracking` section in the
+config.
+The can be selected and configured in the config as shown below.
+Tracking results are exported as netCDF files to the directory
 specified under `path`.
 
 ```yaml
