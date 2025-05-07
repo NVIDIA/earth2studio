@@ -24,7 +24,7 @@ from earth2studio.lexicon import IFSLexicon
     "variable", [["t2m"], ["u10m", "v200"], ["msl", "z500", "q700"]]
 )
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
-def test_run_deterministic(variable, device):
+def test_ifs_lexicon(variable, device):
     input = torch.randn(len(variable), 8).to(device)
     for v in variable:
         label, modifier = IFSLexicon[v]

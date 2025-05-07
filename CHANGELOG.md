@@ -20,6 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Hemispheric centred bred vector perturbation now supports single/odd batch sizes
+- Refactored NCAR ERA5 source to have async structure
 
 ### Deprecated
 
