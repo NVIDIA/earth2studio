@@ -22,11 +22,15 @@ data_source:
     _target_: earth2studio.data.GFS  # data source class
 
 cyclone_tracking:
-    out_dir: 'outputs'
+    path: 'outputs'
+    tracker:
+        _target_: earth2studio.models.dx.tc_tracking.TCTrackerWuDuan
+        path_search_distance: 250
+        path_search_window_size: 2
 
 file_output:
     path: 'outputs'       # directory to which outfiles are written
-    output_vars: ["t2m", 'u10m', 't850', 'q850', 'z500'] # , 'tp06']
+    output_vars: ['t2m', 'u10m', 't850', 'q850', 'z500']
     thread_io: False      # write out in seperate thread (needs further testing)
     format:               # io backend class
         _target_: earth2studio.io.NetCDF4Backend

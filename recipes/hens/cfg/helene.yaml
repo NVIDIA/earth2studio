@@ -8,7 +8,7 @@ batch_size: 2      # inference batch size
 
 forecast_model:
     architecture: earth2studio.models.px.SFNO   # forecast model class
-    registry: hens_model_registry # TODO: Rename this to registry
+    registry: hens_model_registry
     max_num_checkpoints: 2 # max number of checkpoints which will be used
 
 perturbation:
@@ -21,7 +21,11 @@ data_source:
     _target_: earth2studio.data.GFS  # data source class
 
 cyclone_tracking:
-    out_dir: 'outputs'
+    path: 'outputs'
+    tracker:
+        _target_: earth2studio.models.dx.tc_tracking.TCTrackerWuDuan
+        path_search_distance: 250
+        path_search_window_size: 2
 
 file_output:
     path: 'outputs'       # directory to which outfiles are written
