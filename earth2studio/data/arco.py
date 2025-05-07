@@ -27,7 +27,6 @@ import fsspec
 import gcsfs
 import nest_asyncio
 import numpy as np
-import pandas as pd
 import xarray as xr
 import zarr
 from fsspec.implementations.cached import WholeFileCacheFileSystem
@@ -264,7 +263,7 @@ class ARCO:
         if variable == "tp06":
             # Get the last 6 hours of data
             start_time = time - timedelta(hours=5)
-            times = pd.date_range(start=start_time, end=time, freq="H")
+            times = [start_time + timedelta(hours=i) for i in range(6)]
             
             # Fetch hourly precipitation data
             tp_data = []
