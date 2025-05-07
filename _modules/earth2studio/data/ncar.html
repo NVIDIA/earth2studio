@@ -437,19 +437,22 @@ document.write(`
 <span class="c1"># See the License for the specific language governing permissions and</span>
 <span class="c1"># limitations under the License.</span>
 
+<span class="kn">import</span><span class="w"> </span><span class="nn">asyncio</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">calendar</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">concurrent.futures</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">hashlib</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">shutil</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">datetime</span><span class="w"> </span><span class="kn">import</span> <span class="n">date</span><span class="p">,</span> <span class="n">datetime</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">datetime</span><span class="w"> </span><span class="kn">import</span> <span class="n">datetime</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
 
+<span class="kn">import</span><span class="w"> </span><span class="nn">nest_asyncio</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
-<span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">s3fs</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">xarray</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">xr</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">loguru</span><span class="w"> </span><span class="kn">import</span> <span class="n">logger</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">tqdm</span><span class="w"> </span><span class="kn">import</span> <span class="n">tqdm</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">tqdm.asyncio</span><span class="w"> </span><span class="kn">import</span> <span class="n">tqdm</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.data.utils</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
     <span class="n">datasource_cache_root</span><span class="p">,</span>
@@ -462,6 +465,18 @@ document.write(`
 <span class="n">logger</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="k">lambda</span> <span class="n">msg</span><span class="p">:</span> <span class="n">tqdm</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">msg</span><span class="p">,</span> <span class="n">end</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">),</span> <span class="n">colorize</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
 
+<span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">NCARAsyncTask</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Small helper struct for Async tasks&quot;&quot;&quot;</span>
+
+    <span class="n">ncar_file_uri</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">ncar_data_variable</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="c1"># Dictionary mapping time index -&gt; time id</span>
+    <span class="n">ncar_time_indices</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">datetime</span><span class="p">]</span>
+    <span class="c1"># Dictionary mapping level index -&gt; varaible id</span>
+    <span class="n">ncar_level_indices</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span>
+
+
 <div class="viewcode-block" id="NCAR_ERA5">
 <a class="viewcode-back" href="../../../modules/generated/data/earth2studio.data.NCAR_ERA5.html#earth2studio.data.NCAR_ERA5">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">NCAR_ERA5</span><span class="p">:</span>
@@ -472,11 +487,14 @@ document.write(`
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
 <span class="sd">    max_workers : int, optional</span>
-<span class="sd">        Number of parallel workers, by default 4</span>
+<span class="sd">        Max works in async io thread pool. Only applied when using sync call function</span>
+<span class="sd">        and will modify the default async loop if one exists, by default 24</span>
 <span class="sd">    cache : bool, optional</span>
-<span class="sd">        Cache data source on local memory, by default True</span>
+<span class="sd">            Cache data source on local memory, by default True</span>
 <span class="sd">    verbose : bool, optional</span>
 <span class="sd">        Print download progress, by default True</span>
+<span class="sd">    async_timeout : int, optional</span>
+<span class="sd">        Timeout in seconds for async operations, by default 600</span>
 
 
 <span class="sd">    Warning</span>
@@ -490,10 +508,20 @@ document.write(`
 <span class="sd">    https://registry.opendata.aws/nsf-ncar-era5/</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">max_workers</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">4</span><span class="p">,</span> <span class="n">cache</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span> <span class="n">verbose</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">):</span>
+    <span class="n">NCAR_EAR5_LAT</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">90</span><span class="p">,</span> <span class="o">-</span><span class="mi">90</span><span class="p">,</span> <span class="mi">721</span><span class="p">)</span>
+    <span class="n">NCAR_EAR5_LON</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mf">359.75</span><span class="p">,</span> <span class="mi">1440</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">max_workers</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">24</span><span class="p">,</span>
+        <span class="n">cache</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="n">verbose</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="n">async_timeout</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">600</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_max_workers</span> <span class="o">=</span> <span class="n">max_workers</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span> <span class="o">=</span> <span class="n">cache</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_verbose</span> <span class="o">=</span> <span class="n">verbose</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_max_workers</span> <span class="o">=</span> <span class="n">max_workers</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">async_timeout</span> <span class="o">=</span> <span class="n">async_timeout</span>
 
 <div class="viewcode-block" id="NCAR_ERA5.__call__">
 <a class="viewcode-back" href="../../../modules/generated/data/earth2studio.data.NCAR_ERA5.html#earth2studio.data.NCAR_ERA5.__call__">[docs]</a>
@@ -502,7 +530,7 @@ document.write(`
         <span class="n">time</span><span class="p">:</span> <span class="n">datetime</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="n">datetime</span><span class="p">]</span> <span class="o">|</span> <span class="n">TimeArray</span><span class="p">,</span>
         <span class="n">variable</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="n">VariableArray</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Retrieve ERA5 data.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Function to get data</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
@@ -510,60 +538,100 @@ document.write(`
 <span class="sd">            Timestamps to return data for (UTC).</span>
 <span class="sd">        variable : str | list[str] | VariableArray</span>
 <span class="sd">            String, list of strings or array of strings that refer to variables to</span>
-<span class="sd">            return. Must be in the NCAR_ERA5 lexicon.</span>
+<span class="sd">            return. Must be in the NCAR lexicon.</span>
 
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
 <span class="sd">        xr.DataArray</span>
-<span class="sd">            ERA5 weather data array</span>
+<span class="sd">            ERA5 weather data array from NCAR ERA5</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">time</span><span class="p">,</span> <span class="n">variable</span> <span class="o">=</span> <span class="n">prep_data_inputs</span><span class="p">(</span><span class="n">time</span><span class="p">,</span> <span class="n">variable</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_validate_time</span><span class="p">(</span><span class="n">time</span><span class="p">)</span>
 
-        <span class="n">data_arrays</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
-        <span class="n">tasks</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_create_tasks</span><span class="p">(</span><span class="n">time</span><span class="p">,</span> <span class="n">variable</span><span class="p">)</span>
-        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Download tasks: </span><span class="si">{}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">tasks</span><span class="p">))</span>
+        <span class="n">nest_asyncio</span><span class="o">.</span><span class="n">apply</span><span class="p">()</span>  <span class="c1"># Patch asyncio to work in notebooks</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">loop</span> <span class="o">=</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">get_event_loop</span><span class="p">()</span>
+        <span class="k">except</span> <span class="ne">RuntimeError</span><span class="p">:</span>
+            <span class="c1"># If no event loop exists, create one</span>
+            <span class="n">loop</span> <span class="o">=</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">new_event_loop</span><span class="p">()</span>
+            <span class="n">asyncio</span><span class="o">.</span><span class="n">set_event_loop</span><span class="p">(</span><span class="n">loop</span><span class="p">)</span>
 
-        <span class="k">with</span> <span class="n">concurrent</span><span class="o">.</span><span class="n">futures</span><span class="o">.</span><span class="n">ThreadPoolExecutor</span><span class="p">(</span>
-            <span class="n">max_workers</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_max_workers</span>
-        <span class="p">)</span> <span class="k">as</span> <span class="n">executor</span><span class="p">:</span>
-            <span class="n">futures</span> <span class="o">=</span> <span class="p">[]</span>
-            <span class="c1"># Submit all tasks</span>
-            <span class="k">for</span> <span class="n">task</span> <span class="ow">in</span> <span class="n">tasks</span><span class="p">:</span>
-                <span class="n">future</span> <span class="o">=</span> <span class="n">executor</span><span class="o">.</span><span class="n">submit</span><span class="p">(</span>
-                    <span class="bp">self</span><span class="o">.</span><span class="n">_fetch_dataarray</span><span class="p">,</span>
-                    <span class="n">task</span><span class="p">,</span>
-                    <span class="n">cache_path</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">cache</span><span class="p">,</span>
-                    <span class="n">cache</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_cache</span><span class="p">,</span>
-                <span class="p">)</span>
-                <span class="n">futures</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">future</span><span class="p">)</span>
+        <span class="c1"># Modify the worker amount</span>
+        <span class="n">loop</span><span class="o">.</span><span class="n">set_default_executor</span><span class="p">(</span>
+            <span class="n">concurrent</span><span class="o">.</span><span class="n">futures</span><span class="o">.</span><span class="n">ThreadPoolExecutor</span><span class="p">(</span><span class="n">max_workers</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_max_workers</span><span class="p">)</span>
+        <span class="p">)</span>
 
-            <span class="c1"># Process results as they complete</span>
-            <span class="k">for</span> <span class="n">future</span> <span class="ow">in</span> <span class="n">tqdm</span><span class="p">(</span>
-                <span class="n">concurrent</span><span class="o">.</span><span class="n">futures</span><span class="o">.</span><span class="n">as_completed</span><span class="p">(</span><span class="n">futures</span><span class="p">),</span>
-                <span class="n">desc</span><span class="o">=</span><span class="s2">&quot;Step&quot;</span><span class="p">,</span>
-                <span class="n">total</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">futures</span><span class="p">),</span>
-                <span class="n">disable</span><span class="o">=</span><span class="p">(</span><span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_verbose</span><span class="p">),</span>
-            <span class="p">):</span>
-                <span class="n">ename</span><span class="p">,</span> <span class="n">arr</span> <span class="o">=</span> <span class="n">future</span><span class="o">.</span><span class="n">result</span><span class="p">()</span>
-                <span class="n">data_arrays</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="n">ename</span><span class="p">,</span> <span class="p">[])</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">arr</span><span class="p">)</span>
-
-        <span class="c1"># Concat time and variable dims</span>
-        <span class="n">array_list</span> <span class="o">=</span> <span class="p">[</span><span class="n">xr</span><span class="o">.</span><span class="n">concat</span><span class="p">(</span><span class="n">arrs</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="s2">&quot;time&quot;</span><span class="p">)</span> <span class="k">for</span> <span class="n">arrs</span> <span class="ow">in</span> <span class="n">data_arrays</span><span class="o">.</span><span class="n">values</span><span class="p">()]</span>
-        <span class="n">res</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">concat</span><span class="p">(</span><span class="n">array_list</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="s2">&quot;variable&quot;</span><span class="p">,</span> <span class="n">combine_attrs</span><span class="o">=</span><span class="s2">&quot;drop&quot;</span><span class="p">)</span>
-        <span class="n">res</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># remove name, which is kept from one of the arrays</span>
-        <span class="n">res</span> <span class="o">=</span> <span class="n">res</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="s2">&quot;time&quot;</span><span class="p">,</span> <span class="s2">&quot;variable&quot;</span><span class="p">,</span> <span class="o">...</span><span class="p">)</span>
+        <span class="n">xr_array</span> <span class="o">=</span> <span class="n">loop</span><span class="o">.</span><span class="n">run_until_complete</span><span class="p">(</span>
+            <span class="n">asyncio</span><span class="o">.</span><span class="n">wait_for</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fetch</span><span class="p">(</span><span class="n">time</span><span class="p">,</span> <span class="n">variable</span><span class="p">),</span> <span class="n">timeout</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">async_timeout</span><span class="p">)</span>
+        <span class="p">)</span>
 
         <span class="c1"># Delete cache if needed</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span><span class="p">:</span>
             <span class="n">shutil</span><span class="o">.</span><span class="n">rmtree</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cache</span><span class="p">)</span>
 
-        <span class="k">return</span> <span class="n">res</span><span class="o">.</span><span class="n">sel</span><span class="p">(</span><span class="n">time</span><span class="o">=</span><span class="n">time</span><span class="p">,</span> <span class="n">variable</span><span class="o">=</span><span class="n">variable</span><span class="p">)</span>  <span class="c1"># reorder to match inputs</span></div>
+        <span class="k">return</span> <span class="n">xr_array</span></div>
 
 
-    <span class="nd">@staticmethod</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">_create_tasks</span><span class="p">(</span><span class="n">times</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">datetime</span><span class="p">],</span> <span class="n">variables</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">]:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create download tasks, each corresponding to one file on S3.</span>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">fetch</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">time</span><span class="p">:</span> <span class="n">datetime</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="n">datetime</span><span class="p">]</span> <span class="o">|</span> <span class="n">TimeArray</span><span class="p">,</span>
+        <span class="n">variable</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="n">VariableArray</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Async function to get data</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        time : datetime | list[datetime] | TimeArray</span>
+<span class="sd">            Timestamps to return data for (UTC).</span>
+<span class="sd">        variable : str | list[str] | VariableArray</span>
+<span class="sd">            String, list of strings or array of strings that refer to variables to</span>
+<span class="sd">            return. Must be in the ARCO lexicon.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        xr.DataArray</span>
+<span class="sd">            ERA5 weather data array from ARCO</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">time</span><span class="p">,</span> <span class="n">variable</span> <span class="o">=</span> <span class="n">prep_data_inputs</span><span class="p">(</span><span class="n">time</span><span class="p">,</span> <span class="n">variable</span><span class="p">)</span>
+        <span class="c1"># Create cache dir if doesnt exist</span>
+        <span class="n">Path</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cache</span><span class="p">)</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+        <span class="c1"># Make sure input time is valid</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_validate_time</span><span class="p">(</span><span class="n">time</span><span class="p">)</span>
+
+        <span class="c1"># Create tasks and group based on variable</span>
+        <span class="n">data_arrays</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">list</span><span class="p">[</span><span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">]]</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">async_tasks</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">task</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_create_tasks</span><span class="p">(</span><span class="n">time</span><span class="p">,</span> <span class="n">variable</span><span class="p">)</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
+            <span class="n">future</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fetch_wrapper</span><span class="p">(</span><span class="n">task</span><span class="p">)</span>
+            <span class="n">async_tasks</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">future</span><span class="p">)</span>
+
+        <span class="c1"># Now wait</span>
+        <span class="n">results</span> <span class="o">=</span> <span class="k">await</span> <span class="n">tqdm</span><span class="o">.</span><span class="n">gather</span><span class="p">(</span>
+            <span class="o">*</span><span class="n">async_tasks</span><span class="p">,</span> <span class="n">desc</span><span class="o">=</span><span class="s2">&quot;Fetching NCAR ERA5 data&quot;</span><span class="p">,</span> <span class="n">disable</span><span class="o">=</span><span class="p">(</span><span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_verbose</span><span class="p">)</span>
+        <span class="p">)</span>
+        <span class="c1"># Group based on variable</span>
+        <span class="k">for</span> <span class="n">result</span> <span class="ow">in</span> <span class="n">results</span><span class="p">:</span>
+            <span class="n">key</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">coords</span><span class="p">[</span><span class="s2">&quot;variable&quot;</span><span class="p">])</span>
+            <span class="k">if</span> <span class="n">key</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">data_arrays</span><span class="p">:</span>
+                <span class="n">data_arrays</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="n">data_arrays</span><span class="p">[</span><span class="n">key</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
+
+        <span class="c1"># Concat times for same variable groups</span>
+        <span class="n">array_list</span> <span class="o">=</span> <span class="p">[</span><span class="n">xr</span><span class="o">.</span><span class="n">concat</span><span class="p">(</span><span class="n">arrs</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="s2">&quot;time&quot;</span><span class="p">)</span> <span class="k">for</span> <span class="n">arrs</span> <span class="ow">in</span> <span class="n">data_arrays</span><span class="o">.</span><span class="n">values</span><span class="p">()]</span>
+        <span class="c1"># Now concat varaibles</span>
+        <span class="n">res</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">concat</span><span class="p">(</span><span class="n">array_list</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="s2">&quot;variable&quot;</span><span class="p">)</span>
+        <span class="n">res</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># remove name, which is kept from one of the arrays</span>
+
+        <span class="c1"># Delete cache if needed</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span><span class="p">:</span>
+            <span class="n">shutil</span><span class="o">.</span><span class="n">rmtree</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cache</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">res</span><span class="o">.</span><span class="n">sel</span><span class="p">(</span><span class="n">time</span><span class="o">=</span><span class="n">time</span><span class="p">,</span> <span class="n">variable</span><span class="o">=</span><span class="n">variable</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_create_tasks</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">time</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">datetime</span><span class="p">],</span> <span class="n">variable</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">NCARAsyncTask</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create download tasks, each corresponding to one file on S3. The H5 file</span>
+<span class="sd">        stored in the dataset contains</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
@@ -577,139 +645,150 @@ document.write(`
 <span class="sd">        list[dict]</span>
 <span class="sd">            List of download tasks.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">groups</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">dict</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>  <span class="c1"># group pressure-level variables</span>
-        <span class="k">for</span> <span class="n">var</span> <span class="ow">in</span> <span class="nb">set</span><span class="p">(</span><span class="n">variables</span><span class="p">):</span>
-            <span class="n">spec</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">NCAR_ERA5Lexicon</span><span class="p">[</span><span class="n">var</span><span class="p">]</span>
-            <span class="n">lvl</span> <span class="o">=</span> <span class="n">spec</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;.&quot;</span><span class="p">)[</span><span class="mi">3</span><span class="p">]</span>  <span class="c1"># surface/pressure-level</span>
-            <span class="n">ename</span> <span class="o">=</span> <span class="n">spec</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;.&quot;</span><span class="p">)[</span><span class="mi">4</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;_&quot;</span><span class="p">)[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>  <span class="c1"># ECMWF name</span>
-            <span class="n">groups</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span>
-                <span class="n">ename</span><span class="p">,</span>
-                <span class="p">{</span><span class="s2">&quot;var&quot;</span><span class="p">:</span> <span class="n">var</span> <span class="k">if</span> <span class="n">lvl</span> <span class="o">==</span> <span class="s2">&quot;sfc&quot;</span> <span class="k">else</span> <span class="n">var</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="s2">&quot;levels&quot;</span><span class="p">:</span> <span class="p">[],</span> <span class="s2">&quot;spec&quot;</span><span class="p">:</span> <span class="n">spec</span><span class="p">},</span>
-            <span class="p">)</span>
-            <span class="k">if</span> <span class="n">lvl</span> <span class="o">==</span> <span class="s2">&quot;pl&quot;</span><span class="p">:</span>
-                <span class="c1"># Collect pressure levels</span>
-                <span class="n">groups</span><span class="p">[</span><span class="n">ename</span><span class="p">][</span><span class="s2">&quot;levels&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">var</span><span class="p">[</span><span class="mi">1</span><span class="p">:]))</span>
+        <span class="n">tasks</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">NCARAsyncTask</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>  <span class="c1"># group pressure-level variables</span>
 
-        <span class="n">pattern</span> <span class="o">=</span> <span class="s2">&quot;s3://nsf-ncar-era5/e5.oper.an.</span><span class="si">{lvl}</span><span class="s2">/</span><span class="si">{y}{m:02}</span><span class="s2">/</span><span class="si">{spec}</span><span class="s2">.</span><span class="si">{y}{m:02}{d:02}</span><span class="s2">00_</span><span class="si">{y}{m:02}{dend:02}</span><span class="s2">23.nc&quot;</span>
+        <span class="n">s3_pattern</span> <span class="o">=</span> <span class="s2">&quot;s3://nsf-ncar-era5/</span><span class="si">{product}</span><span class="s2">/</span><span class="si">{year}{month:02}</span><span class="s2">/</span><span class="si">{product}</span><span class="s2">.</span><span class="si">{variable}</span><span class="s2">.</span><span class="si">{grid}</span><span class="s2">.</span><span class="si">{year}{month:02}{daystart:02}</span><span class="s2">00_</span><span class="si">{year}{month:02}{dayend:02}</span><span class="s2">23.nc&quot;</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">t</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">time</span><span class="p">):</span>
+            <span class="k">for</span> <span class="n">j</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">variable</span><span class="p">):</span>
+                <span class="n">ncar_name</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">NCAR_ERA5Lexicon</span><span class="p">[</span><span class="n">v</span><span class="p">]</span>
 
-        <span class="n">tasks</span> <span class="o">=</span> <span class="p">[]</span>  <span class="c1"># group tasks by S3 object</span>
-        <span class="n">times_by_day</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="n">date</span><span class="p">,</span> <span class="nb">list</span><span class="p">[</span><span class="n">datetime</span><span class="p">]]</span> <span class="o">=</span> <span class="p">(</span>
-            <span class="p">{}</span>
-        <span class="p">)</span>  <span class="c1"># pressure-level variables are in daily files</span>
-        <span class="n">times_by_month</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="n">date</span><span class="p">,</span> <span class="nb">list</span><span class="p">[</span><span class="n">datetime</span><span class="p">]]</span> <span class="o">=</span> <span class="p">(</span>
-            <span class="p">{}</span>
-        <span class="p">)</span>  <span class="c1"># surface-level variables are in monthly files</span>
-        <span class="k">for</span> <span class="n">dt</span> <span class="ow">in</span> <span class="n">times</span><span class="p">:</span>
-            <span class="n">times_by_day</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="n">dt</span><span class="o">.</span><span class="n">date</span><span class="p">(),</span> <span class="p">[])</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">dt</span><span class="p">)</span>
-            <span class="n">times_by_month</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="n">dt</span><span class="o">.</span><span class="n">date</span><span class="p">()</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="n">day</span><span class="o">=</span><span class="mi">1</span><span class="p">),</span> <span class="p">[])</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">dt</span><span class="p">)</span>
-        <span class="k">for</span> <span class="n">ename</span><span class="p">,</span> <span class="n">group</span> <span class="ow">in</span> <span class="n">groups</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">group</span><span class="p">[</span><span class="s2">&quot;levels&quot;</span><span class="p">])</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-                <span class="c1"># Surface-level variable, monthly files</span>
-                <span class="k">for</span> <span class="n">month</span><span class="p">,</span> <span class="n">dts</span> <span class="ow">in</span> <span class="n">times_by_month</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-                    <span class="n">tasks</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
-                        <span class="p">{</span>
-                            <span class="s2">&quot;ename&quot;</span><span class="p">:</span> <span class="n">ename</span><span class="p">,</span>
-                            <span class="s2">&quot;var&quot;</span><span class="p">:</span> <span class="n">group</span><span class="p">[</span><span class="s2">&quot;var&quot;</span><span class="p">],</span>  <span class="c1"># Earth-2 variable specifier</span>
-                            <span class="s2">&quot;levels&quot;</span><span class="p">:</span> <span class="p">[],</span>
-                            <span class="s2">&quot;dts&quot;</span><span class="p">:</span> <span class="n">dts</span><span class="p">,</span>
-                            <span class="s2">&quot;s3pfx&quot;</span><span class="p">:</span> <span class="n">pattern</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
-                                <span class="n">lvl</span><span class="o">=</span><span class="s2">&quot;sfc&quot;</span><span class="p">,</span>
-                                <span class="n">y</span><span class="o">=</span><span class="n">month</span><span class="o">.</span><span class="n">year</span><span class="p">,</span>
-                                <span class="n">m</span><span class="o">=</span><span class="n">month</span><span class="o">.</span><span class="n">month</span><span class="p">,</span>
-                                <span class="n">spec</span><span class="o">=</span><span class="n">group</span><span class="p">[</span><span class="s2">&quot;spec&quot;</span><span class="p">],</span>
-                                <span class="n">d</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
-                                <span class="n">dend</span><span class="o">=</span><span class="n">calendar</span><span class="o">.</span><span class="n">monthrange</span><span class="p">(</span><span class="n">month</span><span class="o">.</span><span class="n">year</span><span class="p">,</span> <span class="n">month</span><span class="o">.</span><span class="n">month</span><span class="p">)[</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span>
-                            <span class="p">),</span>
-                        <span class="p">}</span>
+                <span class="n">product</span> <span class="o">=</span> <span class="n">ncar_name</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;::&quot;</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+                <span class="n">variable_name</span> <span class="o">=</span> <span class="n">ncar_name</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;::&quot;</span><span class="p">)[</span><span class="mi">1</span><span class="p">]</span>
+                <span class="n">grid</span> <span class="o">=</span> <span class="n">ncar_name</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;::&quot;</span><span class="p">)[</span><span class="mi">2</span><span class="p">]</span>
+                <span class="n">level_index</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">ncar_name</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;::&quot;</span><span class="p">)[</span><span class="mi">3</span><span class="p">])</span>
+                <span class="n">data_variable</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">variable_name</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;_&#39;</span><span class="p">)[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">upper</span><span class="p">()</span><span class="si">}</span><span class="s2">&quot;</span>
+
+                <span class="c1"># Pressure is held in daily nc files</span>
+                <span class="k">if</span> <span class="n">product</span> <span class="o">==</span> <span class="s2">&quot;e5.oper.an.pl&quot;</span><span class="p">:</span>
+                    <span class="n">daystart</span> <span class="o">=</span> <span class="n">t</span><span class="o">.</span><span class="n">day</span>
+                    <span class="n">dayend</span> <span class="o">=</span> <span class="n">t</span><span class="o">.</span><span class="n">day</span>
+                    <span class="n">time_index</span> <span class="o">=</span> <span class="n">t</span><span class="o">.</span><span class="n">hour</span>
+                <span class="c1"># Surface held in monthly</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">daystart</span> <span class="o">=</span> <span class="mi">1</span>
+                    <span class="n">dayend</span> <span class="o">=</span> <span class="n">calendar</span><span class="o">.</span><span class="n">monthrange</span><span class="p">(</span><span class="n">t</span><span class="o">.</span><span class="n">year</span><span class="p">,</span> <span class="n">t</span><span class="o">.</span><span class="n">month</span><span class="p">)[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+                    <span class="n">time_index</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span>
+                        <span class="p">(</span><span class="n">t</span> <span class="o">-</span> <span class="n">datetime</span><span class="p">(</span><span class="n">t</span><span class="o">.</span><span class="n">year</span><span class="p">,</span> <span class="n">t</span><span class="o">.</span><span class="n">month</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span><span class="o">.</span><span class="n">total_seconds</span><span class="p">()</span> <span class="o">/</span> <span class="mi">3600</span>
                     <span class="p">)</span>
-            <span class="k">else</span><span class="p">:</span>
-                <span class="c1"># Pressure-level variable, daily files</span>
-                <span class="k">for</span> <span class="n">day</span><span class="p">,</span> <span class="n">dts</span> <span class="ow">in</span> <span class="n">times_by_day</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-                    <span class="n">tasks</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
-                        <span class="p">{</span>
-                            <span class="s2">&quot;ename&quot;</span><span class="p">:</span> <span class="n">ename</span><span class="p">,</span>
-                            <span class="s2">&quot;var&quot;</span><span class="p">:</span> <span class="n">group</span><span class="p">[</span><span class="s2">&quot;var&quot;</span><span class="p">],</span>  <span class="c1"># Earth-2 variable specifier</span>
-                            <span class="s2">&quot;levels&quot;</span><span class="p">:</span> <span class="n">group</span><span class="p">[</span><span class="s2">&quot;levels&quot;</span><span class="p">],</span>
-                            <span class="s2">&quot;dts&quot;</span><span class="p">:</span> <span class="n">dts</span><span class="p">,</span>
-                            <span class="s2">&quot;s3pfx&quot;</span><span class="p">:</span> <span class="n">pattern</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
-                                <span class="n">lvl</span><span class="o">=</span><span class="s2">&quot;pl&quot;</span><span class="p">,</span>
-                                <span class="n">y</span><span class="o">=</span><span class="n">day</span><span class="o">.</span><span class="n">year</span><span class="p">,</span>
-                                <span class="n">m</span><span class="o">=</span><span class="n">day</span><span class="o">.</span><span class="n">month</span><span class="p">,</span>
-                                <span class="n">spec</span><span class="o">=</span><span class="n">group</span><span class="p">[</span><span class="s2">&quot;spec&quot;</span><span class="p">],</span>
-                                <span class="n">d</span><span class="o">=</span><span class="n">day</span><span class="o">.</span><span class="n">day</span><span class="p">,</span>
-                                <span class="n">dend</span><span class="o">=</span><span class="n">day</span><span class="o">.</span><span class="n">day</span><span class="p">,</span>
-                            <span class="p">),</span>
-                        <span class="p">}</span>
+
+                <span class="n">file_name</span> <span class="o">=</span> <span class="n">s3_pattern</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                    <span class="n">product</span><span class="o">=</span><span class="n">product</span><span class="p">,</span>
+                    <span class="n">variable</span><span class="o">=</span><span class="n">variable_name</span><span class="p">,</span>
+                    <span class="n">grid</span><span class="o">=</span><span class="n">grid</span><span class="p">,</span>
+                    <span class="n">year</span><span class="o">=</span><span class="n">t</span><span class="o">.</span><span class="n">year</span><span class="p">,</span>
+                    <span class="n">month</span><span class="o">=</span><span class="n">t</span><span class="o">.</span><span class="n">month</span><span class="p">,</span>
+                    <span class="n">daystart</span><span class="o">=</span><span class="n">daystart</span><span class="p">,</span>
+                    <span class="n">dayend</span><span class="o">=</span><span class="n">dayend</span><span class="p">,</span>
+                <span class="p">)</span>
+
+                <span class="k">if</span> <span class="n">file_name</span> <span class="ow">in</span> <span class="n">tasks</span><span class="p">:</span>
+                    <span class="n">tasks</span><span class="p">[</span><span class="n">file_name</span><span class="p">]</span><span class="o">.</span><span class="n">ncar_time_indices</span><span class="p">[</span><span class="n">time_index</span><span class="p">]</span> <span class="o">=</span> <span class="n">t</span>
+                    <span class="n">tasks</span><span class="p">[</span><span class="n">file_name</span><span class="p">]</span><span class="o">.</span><span class="n">ncar_level_indices</span><span class="p">[</span><span class="n">level_index</span><span class="p">]</span> <span class="o">=</span> <span class="n">v</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">tasks</span><span class="p">[</span><span class="n">file_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">NCARAsyncTask</span><span class="p">(</span>
+                        <span class="n">ncar_file_uri</span><span class="o">=</span><span class="n">file_name</span><span class="p">,</span>
+                        <span class="n">ncar_data_variable</span><span class="o">=</span><span class="n">data_variable</span><span class="p">,</span>
+                        <span class="n">ncar_time_indices</span><span class="o">=</span><span class="p">{</span><span class="n">time_index</span><span class="p">:</span> <span class="n">t</span><span class="p">},</span>
+                        <span class="n">ncar_level_indices</span><span class="o">=</span><span class="p">{</span><span class="n">level_index</span><span class="p">:</span> <span class="n">v</span><span class="p">},</span>
                     <span class="p">)</span>
+
         <span class="k">return</span> <span class="n">tasks</span>
 
-    <span class="nd">@staticmethod</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">_fetch_dataarray</span><span class="p">(</span><span class="n">task</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">cache_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">cache</span><span class="p">:</span> <span class="nb">bool</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Retrieve ERA5 data for single group of times/variables.</span>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">fetch_wrapper</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">task</span><span class="p">:</span> <span class="n">NCARAsyncTask</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Small wrapper to pack arrays into the DataArray&quot;&quot;&quot;</span>
+        <span class="n">out</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">fetch_array</span><span class="p">(</span>
+            <span class="n">task</span><span class="o">.</span><span class="n">ncar_file_uri</span><span class="p">,</span>
+            <span class="n">task</span><span class="o">.</span><span class="n">ncar_data_variable</span><span class="p">,</span>
+            <span class="nb">list</span><span class="p">(</span><span class="n">task</span><span class="o">.</span><span class="n">ncar_time_indices</span><span class="o">.</span><span class="n">keys</span><span class="p">()),</span>
+            <span class="nb">list</span><span class="p">(</span><span class="n">task</span><span class="o">.</span><span class="n">ncar_level_indices</span><span class="o">.</span><span class="n">keys</span><span class="p">()),</span>
+        <span class="p">)</span>
+
+        <span class="c1"># Rename levels coord to variable</span>
+        <span class="n">out</span> <span class="o">=</span> <span class="n">out</span><span class="o">.</span><span class="n">rename</span><span class="p">({</span><span class="s2">&quot;level&quot;</span><span class="p">:</span> <span class="s2">&quot;variable&quot;</span><span class="p">})</span>
+        <span class="n">out</span> <span class="o">=</span> <span class="n">out</span><span class="o">.</span><span class="n">assign_coords</span><span class="p">(</span><span class="n">variable</span><span class="o">=</span><span class="nb">list</span><span class="p">(</span><span class="n">task</span><span class="o">.</span><span class="n">ncar_level_indices</span><span class="o">.</span><span class="n">values</span><span class="p">()))</span>
+        <span class="c1"># Shouldnt be needed but just in case</span>
+        <span class="n">out</span> <span class="o">=</span> <span class="n">out</span><span class="o">.</span><span class="n">assign_coords</span><span class="p">(</span><span class="n">time</span><span class="o">=</span><span class="nb">list</span><span class="p">(</span><span class="n">task</span><span class="o">.</span><span class="n">ncar_time_indices</span><span class="o">.</span><span class="n">values</span><span class="p">()))</span>
+        <span class="k">return</span> <span class="n">out</span>
+
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">fetch_array</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">nc_file_uri</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">data_variable</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">time_idx</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span>
+        <span class="n">level_idx</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Fetches requested array from remote store</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
-<span class="sd">        task : dict</span>
-<span class="sd">            Download task, specifying the variables, times, and S3 location.</span>
-<span class="sd">        cache_path: str</span>
-<span class="sd">            Locally cache directory</span>
-<span class="sd">        cache: bool</span>
-<span class="sd">            Cache data source on local memory</span>
+<span class="sd">        nc_file_uri : str</span>
+<span class="sd">            S3 URI to NetCDF file</span>
+<span class="sd">        data_variable : str</span>
+<span class="sd">            Data variable name of the array to use in the NetCDF file</span>
+<span class="sd">        time_idx : list[int]</span>
+<span class="sd">            Time indexes (hours since start time of file)</span>
+<span class="sd">        level_idx : list[int]</span>
+<span class="sd">            Pressure level indices if applicable, should be same length as time_idx</span>
 
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
-<span class="sd">        xr.DataArray</span>
-<span class="sd">            ERA5 data for the given group of times/variables.</span>
+<span class="sd">        np.ndarray</span>
+<span class="sd">            Data</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">ename</span><span class="p">,</span> <span class="n">var</span><span class="p">,</span> <span class="n">levels</span><span class="p">,</span> <span class="n">dts</span><span class="p">,</span> <span class="n">s3pfx</span> <span class="o">=</span> <span class="p">(</span>
-            <span class="n">task</span><span class="p">[</span><span class="s2">&quot;ename&quot;</span><span class="p">],</span>
-            <span class="n">task</span><span class="p">[</span><span class="s2">&quot;var&quot;</span><span class="p">],</span>
-            <span class="n">task</span><span class="p">[</span><span class="s2">&quot;levels&quot;</span><span class="p">],</span>
-            <span class="n">task</span><span class="p">[</span><span class="s2">&quot;dts&quot;</span><span class="p">],</span>
-            <span class="n">task</span><span class="p">[</span><span class="s2">&quot;s3pfx&quot;</span><span class="p">],</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;Fetching NCAR ERA5 variable: </span><span class="si">{</span><span class="n">data_variable</span><span class="si">}</span><span class="s2"> in file </span><span class="si">{</span><span class="n">nc_file_uri</span><span class="si">}</span><span class="s2">&quot;</span>
         <span class="p">)</span>
-
-        <span class="n">fs</span> <span class="o">=</span> <span class="n">s3fs</span><span class="o">.</span><span class="n">S3FileSystem</span><span class="p">(</span><span class="n">anon</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-
         <span class="c1"># Here we manually cache the data arrays, this is because fsspec caches the</span>
-        <span class="c1"># entire HDF5 file by default which is large for this data, so instead we manually</span>
-        <span class="c1"># cache the slice we need</span>
+        <span class="c1"># extracted NetCDF file. Not super optimal, can have some repeat storage given</span>
+        <span class="c1"># different level / time indexes</span>
         <span class="n">sha</span> <span class="o">=</span> <span class="n">hashlib</span><span class="o">.</span><span class="n">sha256</span><span class="p">(</span>
-            <span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">ename</span><span class="p">)</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">var</span><span class="p">)</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">levels</span><span class="p">)</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">dts</span><span class="p">)</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">s3pfx</span><span class="p">))</span><span class="o">.</span><span class="n">encode</span><span class="p">()</span>
+            <span class="p">(</span>
+                <span class="nb">str</span><span class="p">(</span><span class="n">nc_file_uri</span><span class="p">)</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">data_variable</span><span class="p">)</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">time_idx</span><span class="p">)</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">level_idx</span><span class="p">)</span>
+            <span class="p">)</span><span class="o">.</span><span class="n">encode</span><span class="p">()</span>
         <span class="p">)</span>
         <span class="n">filename</span> <span class="o">=</span> <span class="n">sha</span><span class="o">.</span><span class="n">hexdigest</span><span class="p">()</span>
-        <span class="n">cache_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">cache_path</span><span class="p">,</span> <span class="n">filename</span><span class="p">)</span>
+        <span class="n">cache_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cache</span><span class="p">,</span> <span class="n">filename</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">cache_path</span><span class="p">):</span>
-            <span class="n">ds</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">open_dataarray</span><span class="p">(</span><span class="n">cache_path</span><span class="p">)</span>
+            <span class="n">ds</span> <span class="o">=</span> <span class="k">await</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">to_thread</span><span class="p">(</span><span class="n">xr</span><span class="o">.</span><span class="n">open_dataarray</span><span class="p">,</span> <span class="n">cache_path</span><span class="p">)</span>
+            <span class="n">ds</span> <span class="o">=</span> <span class="k">await</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">to_thread</span><span class="p">(</span><span class="n">ds</span><span class="o">.</span><span class="n">load</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="k">with</span> <span class="n">fs</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="n">s3pfx</span><span class="p">,</span> <span class="s2">&quot;rb&quot;</span><span class="p">,</span> <span class="n">block_size</span><span class="o">=</span><span class="mi">1</span> <span class="o">*</span> <span class="mi">1024</span> <span class="o">*</span> <span class="mi">1024</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
-                <span class="n">ds</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">open_dataset</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">engine</span><span class="o">=</span><span class="s2">&quot;h5netcdf&quot;</span><span class="p">,</span> <span class="n">cache</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+            <span class="c1"># New fs every call so we dont block, netcdf reads seems to not support</span>
+            <span class="c1"># open_async -&gt; S3AsyncStreamedFile (big sad)</span>
+            <span class="n">fs</span> <span class="o">=</span> <span class="n">s3fs</span><span class="o">.</span><span class="n">S3FileSystem</span><span class="p">(</span><span class="n">anon</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">asynchronous</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+            <span class="k">with</span> <span class="n">fs</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="n">nc_file_uri</span><span class="p">,</span> <span class="s2">&quot;rb&quot;</span><span class="p">,</span> <span class="n">block_size</span><span class="o">=</span><span class="mi">4</span> <span class="o">*</span> <span class="mi">1400</span> <span class="o">*</span> <span class="mi">720</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+                <span class="n">ds</span> <span class="o">=</span> <span class="k">await</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">to_thread</span><span class="p">(</span>
+                    <span class="n">xr</span><span class="o">.</span><span class="n">open_dataset</span><span class="p">,</span> <span class="n">f</span><span class="p">,</span> <span class="n">engine</span><span class="o">=</span><span class="s2">&quot;h5netcdf&quot;</span><span class="p">,</span> <span class="n">cache</span><span class="o">=</span><span class="kc">False</span>
+                <span class="p">)</span>
+                <span class="c1"># Sometimes data field have VAR_ prepended</span>
+                <span class="k">if</span> <span class="sa">f</span><span class="s2">&quot;VAR_</span><span class="si">{</span><span class="n">data_variable</span><span class="si">}</span><span class="s2">&quot;</span> <span class="ow">in</span> <span class="n">ds</span><span class="p">:</span>
+                    <span class="n">data_variable</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;VAR_</span><span class="si">{</span><span class="n">data_variable</span><span class="si">}</span><span class="s2">&quot;</span>
 
-                <span class="k">if</span> <span class="n">ename</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">isalpha</span><span class="p">():</span>  <span class="c1"># ECMWF names starting with a digit</span>
-                    <span class="n">xrname</span> <span class="o">=</span> <span class="n">ename</span><span class="o">.</span><span class="n">upper</span><span class="p">()</span>
+                <span class="k">if</span> <span class="n">data_variable</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">ds</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                        <span class="sa">f</span><span class="s2">&quot;Variable &#39;</span><span class="si">{</span><span class="n">data_variable</span><span class="si">}</span><span class="s2">&#39; or &#39;VAR_</span><span class="si">{</span><span class="n">data_variable</span><span class="si">}</span><span class="s2">&#39; from task not found in dataset. &quot;</span>
+                        <span class="o">+</span> <span class="sa">f</span><span class="s2">&quot;Available variables: </span><span class="si">{</span><span class="nb">list</span><span class="p">(</span><span class="n">ds</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span><span class="si">}</span><span class="s2">.&quot;</span>
+                    <span class="p">)</span>
+
+                <span class="c1"># Pressure level variable</span>
+                <span class="k">if</span> <span class="s2">&quot;level&quot;</span> <span class="ow">in</span> <span class="n">ds</span><span class="o">.</span><span class="n">dims</span><span class="p">:</span>
+                    <span class="n">ds</span> <span class="o">=</span> <span class="n">ds</span><span class="o">.</span><span class="n">isel</span><span class="p">(</span><span class="n">time</span><span class="o">=</span><span class="nb">list</span><span class="p">(</span><span class="n">time_idx</span><span class="p">),</span> <span class="n">level</span><span class="o">=</span><span class="nb">list</span><span class="p">(</span><span class="n">level_idx</span><span class="p">))[</span>
+                        <span class="n">data_variable</span>
+                    <span class="p">]</span>
+                <span class="c1"># Other product</span>
                 <span class="k">else</span><span class="p">:</span>
-                    <span class="n">xrname</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;VAR_</span><span class="si">{</span><span class="n">ename</span><span class="o">.</span><span class="n">upper</span><span class="p">()</span><span class="si">}</span><span class="s2">&quot;</span>
+                    <span class="n">ds</span> <span class="o">=</span> <span class="n">ds</span><span class="o">.</span><span class="n">isel</span><span class="p">(</span><span class="n">time</span><span class="o">=</span><span class="nb">list</span><span class="p">(</span><span class="n">time_idx</span><span class="p">))[</span><span class="n">data_variable</span><span class="p">]</span>
+                    <span class="n">ds</span> <span class="o">=</span> <span class="n">ds</span><span class="o">.</span><span class="n">expand_dims</span><span class="p">({</span><span class="s2">&quot;level&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">0</span><span class="p">]},</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+                <span class="c1"># Load the data, this is the actual download</span>
+                <span class="n">ds</span> <span class="o">=</span> <span class="k">await</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">to_thread</span><span class="p">(</span><span class="n">ds</span><span class="o">.</span><span class="n">load</span><span class="p">)</span>
+                <span class="c1"># Cache nc file if present</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span><span class="p">:</span>
+                    <span class="k">await</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">to_thread</span><span class="p">(</span><span class="n">ds</span><span class="o">.</span><span class="n">to_netcdf</span><span class="p">,</span> <span class="n">cache_path</span><span class="p">,</span> <span class="n">engine</span><span class="o">=</span><span class="s2">&quot;h5netcdf&quot;</span><span class="p">)</span>
 
-                <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">levels</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-                    <span class="c1"># Surface-level variable</span>
-                    <span class="n">ds</span> <span class="o">=</span> <span class="n">ds</span><span class="o">.</span><span class="n">sel</span><span class="p">(</span><span class="n">time</span><span class="o">=</span><span class="n">dts</span><span class="p">)[</span><span class="n">xrname</span><span class="p">]</span>
-                    <span class="n">ds</span> <span class="o">=</span> <span class="n">ds</span><span class="o">.</span><span class="n">rename</span><span class="p">({</span><span class="s2">&quot;latitude&quot;</span><span class="p">:</span> <span class="s2">&quot;lat&quot;</span><span class="p">,</span> <span class="s2">&quot;longitude&quot;</span><span class="p">:</span> <span class="s2">&quot;lon&quot;</span><span class="p">})</span>
-                    <span class="n">ds</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">concat</span><span class="p">([</span><span class="n">ds</span><span class="p">],</span> <span class="n">pd</span><span class="o">.</span><span class="n">Index</span><span class="p">([</span><span class="n">var</span><span class="p">],</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;variable&quot;</span><span class="p">))</span>
-                    <span class="n">ds</span> <span class="o">=</span> <span class="n">ds</span><span class="o">.</span><span class="n">load</span><span class="p">()</span>
-                <span class="k">else</span><span class="p">:</span>
-                    <span class="c1"># Pressure-level variable</span>
-                    <span class="n">ds</span> <span class="o">=</span> <span class="n">ds</span><span class="o">.</span><span class="n">sel</span><span class="p">(</span><span class="n">time</span><span class="o">=</span><span class="n">dts</span><span class="p">,</span> <span class="n">level</span><span class="o">=</span><span class="p">[</span><span class="nb">float</span><span class="p">(</span><span class="n">lvl</span><span class="p">)</span> <span class="k">for</span> <span class="n">lvl</span> <span class="ow">in</span> <span class="n">levels</span><span class="p">])[</span><span class="n">xrname</span><span class="p">]</span>
-                    <span class="n">ds</span> <span class="o">=</span> <span class="n">ds</span><span class="o">.</span><span class="n">rename</span><span class="p">(</span><span class="n">latitude</span><span class="o">=</span><span class="s2">&quot;lat&quot;</span><span class="p">,</span> <span class="n">longitude</span><span class="o">=</span><span class="s2">&quot;lon&quot;</span><span class="p">,</span> <span class="n">level</span><span class="o">=</span><span class="s2">&quot;variable&quot;</span><span class="p">)</span>
-                    <span class="n">ds</span><span class="p">[</span><span class="s2">&quot;variable&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">var</span><span class="si">}{</span><span class="n">lvl</span><span class="si">}</span><span class="s2">&quot;</span> <span class="k">for</span> <span class="n">lvl</span> <span class="ow">in</span> <span class="n">levels</span><span class="p">])</span>
-                    <span class="n">ds</span> <span class="o">=</span> <span class="n">ds</span><span class="o">.</span><span class="n">load</span><span class="p">()</span>
-
-                <span class="c1"># Save to cache, could be better optimized by not saving the coords</span>
-                <span class="c1"># For some reason the default netcdf engine was giving errors</span>
-                <span class="k">if</span> <span class="n">cache</span><span class="p">:</span>
-                    <span class="n">ds</span><span class="o">.</span><span class="n">to_netcdf</span><span class="p">(</span><span class="n">cache_path</span><span class="p">,</span> <span class="n">engine</span><span class="o">=</span><span class="s2">&quot;h5netcdf&quot;</span><span class="p">)</span>
-
-        <span class="k">return</span> <span class="n">ename</span><span class="p">,</span> <span class="n">ds</span>
+        <span class="k">return</span> <span class="n">ds</span>
 
     <span class="nd">@classmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">_validate_time</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">times</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">datetime</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
@@ -721,9 +800,13 @@ document.write(`
 <span class="sd">            Timestamps to be downloaded (UTC).</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">for</span> <span class="n">time</span> <span class="ow">in</span> <span class="n">times</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">time</span> <span class="o">&lt;</span> <span class="n">datetime</span><span class="p">(</span><span class="mi">1940</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;Requested date time </span><span class="si">{</span><span class="n">time</span><span class="si">}</span><span class="s2"> must be after January 1st, 1940 for NCAR ERA5&quot;</span>
+                <span class="p">)</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="n">time</span> <span class="o">-</span> <span class="n">datetime</span><span class="p">(</span><span class="mi">1900</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span><span class="o">.</span><span class="n">total_seconds</span><span class="p">()</span> <span class="o">%</span> <span class="mi">3600</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
                 <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                    <span class="sa">f</span><span class="s2">&quot;Requested date time </span><span class="si">{</span><span class="n">time</span><span class="si">}</span><span class="s2"> needs to be 1 hour interval for ERA5&quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;Requested date time </span><span class="si">{</span><span class="n">time</span><span class="si">}</span><span class="s2"> needs to be 1 hour interval for NCAR ERA5&quot;</span>
                 <span class="p">)</span>
 
     <span class="nd">@property</span>
