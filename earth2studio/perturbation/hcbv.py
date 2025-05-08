@@ -80,14 +80,15 @@ class HemisphericCentredBredVector:
         self.integration_steps = integration_steps
         self.seeding_perturbation_method = seeding_perturbation_method
         self.set_clip_indices()
-        self.generator: Generator | None = None
+        self._residual: list[torch.Tensor] = []
 
     @torch.inference_mode()
     def create_generator(
-        self, time: TimeArray, batch_size: int = 1, device: torch.device = "cpu"
+        self, time: TimeArray, generator_size: int = 1, device: torch.device = "cpu"
     ) -> Generator[torch.Tensor, None, None]:
         """Creates and initializes the perturbation generator"""
-        # Initialize your IC or @torch.inference_mode()other necessary components
+        # Initialize your IC or other necessary components
+        batch_size = generator_size // 2
         input_coords = self.model.input_coords()
         time = to_time_array(time)
         warmup_times = (
@@ -106,46 +107,45 @@ class HemisphericCentredBredVector:
             [("batch", np.arange(batch_size))] + list(data_coords.items())
         )
 
-        while True:
-            # get unperturbed intital state, assuming tensor always has 6 dims
-            xunp = input_data[:1].repeat(batch_size, 1, 1, 1, 1, 1).to(device)
-            # Commenting here, not tested for when multiple lead times are needed
-            # May work...
-            coords["time"] = data_coords["time"][:1]
+        # get unperturbed intital state, assuming tensor always has 6 dims
+        xunp = input_data[:1].repeat(batch_size, 1, 1, 1, 1, 1).to(device)
+        # Commenting here, not tested for when multiple lead times are needed
+        # May work...
+        coords["time"] = data_coords["time"][:1]
 
-            # generate perturbed initial state
-            xper, coords = self.seeding_perturbation_method(xunp, coords)
+        # generate perturbed initial state
+        xper, coords = self.seeding_perturbation_method(xunp, coords)
 
-            for ii in range(self.integration_steps):
-                xunp, _ = self.model(xunp, coords)
-                xper, _ = self.model(xper, coords)
+        for ii in range(self.integration_steps):
+            xunp, _ = self.model(xunp, coords)
+            xper, _ = self.model(xper, coords)
 
-                dx = xper - xunp
-                hem_norm = self.hemispheric_norm(dx, device)
+            dx = xper - xunp
+            hem_norm = self.hemispheric_norm(dx, device)
 
-                # if zero elements are requierd, replace NaNs in scaled dx with 0
-                if (hem_norm == 0).any():
-                    raise ValueError(
-                        "zero element in hemispheric norm, maybe noise amplification too small?"
-                    )
-
-                # scale dx
-                dx = self.noise_amplitude * (dx / hem_norm)
-
-                xunp = (
-                    input_data[ii + 1]
-                    .unsqueeze(dim=0)
-                    .repeat(batch_size, 1, 1, 1, 1, 1)
-                    .to(device)
+            # if zero elements are requierd, replace NaNs in scaled dx with 0
+            if (hem_norm == 0).any():
+                raise ValueError(
+                    "zero element in hemispheric norm, maybe noise amplification too small?"
                 )
-                coords["time"] = data_coords["time"][ii + 1 : ii + 2]
-                xper = xunp + dx
-                # self.force_non_neg(xper[i : i + 1])
 
-            # Yield single batches in alternating order to keep perturbation centered
-            for i in range(batch_size):
-                yield self.force_non_neg(xper[i : i + 1])
-                yield self.force_non_neg(xunp[i : i + 1] - dx[i : i + 1])
+            # scale dx
+            dx = self.noise_amplitude * (dx / hem_norm)
+
+            xunp = (
+                input_data[ii + 1]
+                .unsqueeze(dim=0)
+                .repeat(batch_size, 1, 1, 1, 1, 1)
+                .to(device)
+            )
+            coords["time"] = data_coords["time"][ii + 1 : ii + 2]
+            xper = xunp + dx
+            # self.force_non_neg(xper[i : i + 1])
+
+        # Yield single batches in alternating order to keep perturbation centered
+        for i in range(batch_size):
+            yield self.force_non_neg(xper[i : i + 1])
+            yield self.force_non_neg(xunp[i : i + 1] - dx[i : i + 1])
 
     def set_clip_indices(self) -> None:
         """If humidity and tcwv in variable set, add to list of variables to clip"""
@@ -222,7 +222,8 @@ class HemisphericCentredBredVector:
         Parameters
         ----------
         x : torch.Tensor
-            Input tensor intended to apply perturbation on
+            Input tensor intended to apply perturbation on, not used in this
+            perturbation method
         coords : CoordSystem
             Ordered dict representing coordinate system that describes the tensor.
             Must contain coordinates (Any, "time", "lead_time", "variable", "lat",
@@ -246,13 +247,32 @@ class HemisphericCentredBredVector:
             raise ValueError("Input tensor and coords need 6 dimensions")
 
         self.noise_amplitude = self.noise_amplitude.to(x.device)
+        batch_size = coords[list(coords.keys())[0]].shape[0]
 
-        # Create generator if it doesn't exist
-        if self.generator is None:
-            self.generator = self.create_generator(
-                coords["time"], batch_size=int(x.shape[0] // 2 + 1), device=x.device
+        # This is some pretty annoying logic to deal with storing the centered
+        # perturbation for odd batch sizes... could be worse probably can be better
+        # TLDR: if odd batch, store the last generated perturbation for next call
+        generator_size = 2 * int((batch_size + 1 - len(self._residual)) // 2)
+        # Special case where we can skip the generation
+        if generator_size == 0:
+            noise = [self._residual.pop()]
+        else:
+            # Create generator if it doesn't exist
+            generator = self.create_generator(
+                coords["time"], generator_size=generator_size, device=x.device
+            )
+            # Generate noise, and concat in batch dimension
+            noise = self._residual + [next(generator) for _ in range(generator_size)]
+            # If we have an extra output (odd batch size) store it for next call
+            try:
+                self._residual = [noise.pop(batch_size)]
+            except IndexError:
+                self._residual = []
+
+        # Sanity checkout for this perturbation
+        if len(noise) != batch_size:
+            raise ValueError(
+                "Seems something went wrong in the perturbation, open an issue with your setup"
             )
 
-        # Generate noise, and concat in batch dimension
-        noise = [next(self.generator) for _ in range(x.shape[0])]
         return torch.cat(noise, dim=0), coords
