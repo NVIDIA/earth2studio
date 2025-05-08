@@ -235,6 +235,11 @@ class GFS:
         await tqdm.gather(
             *func_map, desc="Fetching GFS data", disable=(not self._verbose)
         )
+
+        # Delete cache if needed
+        if not self._cache:
+            shutil.rmtree(self.cache)
+
         return xr_array.isel(lead_time=0)
 
     async def _create_tasks(
@@ -597,6 +602,11 @@ class GFS_FX(GFS):
         await tqdm.gather(
             *func_map, desc="Fetching GFS data", disable=(not self._verbose)
         )
+
+        # Delete cache if needed
+        if not self._cache:
+            shutil.rmtree(self.cache)
+
         return xr_array.isel(lead_time=0)
 
     @classmethod
