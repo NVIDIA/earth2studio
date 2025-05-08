@@ -37,6 +37,7 @@ class AutoModelMixin:
     def load_model(
         cls,
         package: Package,
+        **kwargs: Any,
     ) -> Any:  # TODO: Fix types here
         """Instantiates and loads default model object from provided model package
 
@@ -44,6 +45,8 @@ class AutoModelMixin:
         ----------
         package: Package
             Model package, file system, to fetch assets
+        **kwargs
+            Addition keyword arguments are allowed, must have defaults
         """
         raise NotImplementedError("Load model function not implemented")
 
