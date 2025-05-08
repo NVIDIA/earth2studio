@@ -429,7 +429,6 @@ class GFS:
                 data = await asyncio.to_thread(
                     self.fs.read_block, path, offset=byte_offset, length=byte_length
                 )
-                print(data)
             with open(cache_path, "wb") as file:
                 file.write(data)
 
