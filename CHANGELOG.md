@@ -21,6 +21,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Hemispheric centred bred vector perturbation now supports single/odd batch sizes
 - Refactored NCAR ERA5 source to have async structure
+- Refactored GFS and GFS_FX to have async structure
+- Expanded the data source protocol to also include async fetch functions for async
+  data sources
 
 ### Deprecated
 
