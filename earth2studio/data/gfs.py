@@ -599,7 +599,7 @@ class GFS_FX(GFS):
         if not self._cache:
             shutil.rmtree(self.cache)
 
-        return xr_array.isel(lead_time=0)
+        return xr_array
 
     @classmethod
     def _validate_leadtime(cls, lead_times: list[timedelta]) -> None:
