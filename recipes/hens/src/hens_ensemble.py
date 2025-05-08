@@ -324,8 +324,8 @@ class EnsembleBase:
             Dictionary of io objects containing data of ensemble inference
         """
         logger.info(
-            f"Starting {self.nensemble} Member Ensemble inference with"
-            + f" {len(self.batch_ids_produce)} number of batches."
+            f"Starting {self.nensemble} member ensemble inference with"
+            + f" {len(self.batch_ids_produce)} batches."
         )
 
         for batch_id in tqdm(

@@ -21,8 +21,9 @@ import numpy as np
 import pytest
 import torch
 
-from earth2studio.data import Random
+from earth2studio.data import Constant, Random
 from earth2studio.models.batch import batch_coords, batch_func
+from earth2studio.models.px.persistence import Persistence
 from earth2studio.perturbation import (
     Brown,
     Gaussian,
@@ -86,7 +87,7 @@ def model():
         ),
     ],
 )
-def test_hem_cen_bred_vec(
+def test_hem_centered_bred(
     model, time, variable, amplitude, steps, batch, seeding_perturbation_method, device
 ):
     if amplitude > 1.0:
@@ -145,3 +146,100 @@ def test_hem_cen_bred_vec(
             assert (xout[:, :, :, var, :, :] >= 0).all()
         else:
             assert not (xout[:, :, :, var, :, :] >= 0).all()
+
+
+@pytest.mark.parametrize(
+    "steps",
+    [2, 5],
+)
+@pytest.mark.parametrize(
+    "device",
+    [
+        "cpu",
+        pytest.param(
+            "cuda:0",
+            marks=pytest.mark.skipif(
+                not torch.cuda.is_available(), reason="cuda missing"
+            ),
+        ),
+    ],
+)
+def test_hem_centered_bred_batching(steps, device):
+    time = datetime.datetime(year=1971, month=6, day=1, hour=6)
+    variable = ["u10m"]
+    seeding_perturbation_method = Gaussian()
+
+    # Domain coordinates
+    dc = OrderedDict(
+        [
+            ("lat", np.arange(16)),
+            ("lon", np.arange(16)),
+        ]
+    )
+    fc = OrderedDict(
+        [
+            ("batch", np.empty(0)),
+            ("lead_time", np.array([np.timedelta64(0, "h")])),
+            ("variable", np.array(variable)),
+        ]
+    )
+    fc.update(dc)
+    model = Persistence(variable, dc)
+    # model._input_coords = fc
+    model = model.to(device)
+
+    # Run twice with batch size 1 and two repeated calls give the centered perturbations
+    # given a constant data source
+    data_source = Constant(dc, 0)
+    x = torch.randn(1, 1, 1, len(variable), 16, 16).to(device)
+    x2 = torch.randn(1, 1, 1, len(variable), 16, 16).to(device)
+    coords = OrderedDict(
+        [
+            ("ensemble", np.arange(1)),
+            ("time", np.array([time])),
+            ("lead_time", np.array([np.timedelta64(0, "h")])),
+            ("variable", np.array(variable)),
+        ]
+    )
+    coords.update(dc)
+    torch.manual_seed(42)
+    prtb = HemisphericCentredBredVector(
+        model=model,
+        data=data_source,
+        seeding_perturbation_method=seeding_perturbation_method,
+        noise_amplitude=1.0,
+        integration_steps=steps,
+    )
+    xout1, coords = prtb(x, coords)
+    xout2, coords = prtb(x, coords)
+
+    assert torch.allclose(xout1, -xout2)
+
+    # Test that two repeat odd runs is equal to a single even
+    # Should be invariant to x input, this uses a data source
+    torch.manual_seed(42)
+    prtb = HemisphericCentredBredVector(
+        model=model,
+        data=data_source,
+        seeding_perturbation_method=seeding_perturbation_method,
+        noise_amplitude=1.0,
+        integration_steps=steps,
+    )
+    coords["ensemble"] = np.arange(3)
+    xout1a, coords = prtb(x, coords)
+    xout1b, coords = prtb(x2, coords)
+
+    torch.manual_seed(42)
+    prtb = HemisphericCentredBredVector(
+        model=model,
+        data=data_source,
+        seeding_perturbation_method=seeding_perturbation_method,
+        noise_amplitude=1.0,
+        integration_steps=steps,
+    )
+    coords["ensemble"] = np.arange(6)
+    xout2, coords = prtb(x, coords)
+
+    # Note that the last two batches are not gaurenteed to be the same here
+    # since the batch size 3 run requires two different generators
+    assert torch.allclose(torch.cat([xout1a, xout1b])[:4], xout2[:4])
