@@ -176,10 +176,6 @@ class GFS:
             asyncio.wait_for(self.fetch(time, variable), timeout=self.async_timeout)
         )
 
-        # Delete cache if needed
-        if not self._cache:
-            shutil.rmtree(self.cache)
-
         return xr_array
 
     async def fetch(
@@ -435,7 +431,7 @@ class GFS:
                     self.fs.read_block, path, offset=byte_offset, length=byte_length
                 )
             with open(cache_path, "wb") as file:
-                file.write(data)
+                await asyncio.to_thread(file.write, data)
 
         return cache_path
 
