@@ -529,10 +529,6 @@ class GFS_FX(GFS):
             )
         )
 
-        # Delete cache if needed
-        if not self._cache:
-            shutil.rmtree(self.cache)
-
         return xr_array
 
     async def fetch(  # type: ignore[override]
