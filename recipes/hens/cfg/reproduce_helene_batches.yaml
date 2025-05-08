@@ -22,17 +22,17 @@ data_source:
     _target_: earth2studio.data.GFS  # data source class
 
 cyclone_tracking:
-    path: 'outputs'
+    path: 'outputs_reprod'
     tracker:
         _target_: earth2studio.models.dx.tc_tracking.TCTrackerWuDuan
         path_search_distance: 250
         path_search_window_size: 2
 
 file_output:
-    path: 'outputs'       # directory to which outfiles are written
-    output_vars: ['t2m', 'u10m', 't850', 'q850', 'z500']
-    thread_io: False      # write out in seperate thread (needs further testing)
-    format:               # io backend class
+    path: 'outputs_reprod' # directory to which outfiles are written
+    output_vars: ['msl', 't2m', 'tcwv', 'u10m', 'v10m', 'u850', 'v850', 't850', 'z500']
+    thread_io: False       # write out in seperate thread (needs further testing)
+    format:                # io backend class
         _target_: earth2studio.io.NetCDF4Backend
         _partial_: True
         backend_kwargs:
@@ -43,9 +43,3 @@ file_output:
                 ensemble: 1
                 time: 1
                 lead_time: 1
-    cropboxes:
-        gulf_of_mexico:
-            lat_min: 10
-            lat_max: 40
-            lon_min: 250
-            lon_max: 310
