@@ -51,18 +51,72 @@ class DataSource(Protocol):
         """
         pass
 
+    async def fetch(  # type: ignore[override]
+        self,
+        time: datetime | list[datetime] | TimeArray,
+        variable: str | list[str] | VariableArray,
+    ) -> xr.DataArray:
+        """Async function to get data. Async data sources support this.
+
+        Parameters
+        ----------
+        time : datetime | list[datetime] | TimeArray
+            Datetime, list of datetimes or array of np.datetime64 to return data for.
+        variable : str | list[str] | VariableArray
+            String, list of strings or array of strings that refer to variables to
+            return.
+
+        Returns
+        -------
+        xr.DataArray
+            An xarray data-array with the dimensions [time, variable, ....]. The coords
+            should be provided. Time coordinate should be a datetime array and the
+            variable coordinate should be array of strings with Earth2Studio variable
+            ids.
+        """
+        pass
+
 
 @runtime_checkable
 class ForecastSource(Protocol):
     """Forecast source interface"""
 
-    def __call__(
+    def __call__(  # type: ignore[override]
         self,
         time: datetime | list[datetime] | TimeArray,
         lead_time: timedelta | list[timedelta] | LeadTimeArray,
         variable: str | list[str] | VariableArray,
     ) -> xr.DataArray:
         """Function to get data.
+
+        Parameters
+        ----------
+        time : datetime | list[datetime] | TimeArray
+            Datetime, list of datetimes or array of np.datetime64 to return data for.
+        lead_time: timedelta | list[timedelta], LeadTimeArray
+            Timedelta, list of timedeltas or array of np.timedelta that refers to the
+            forecast lead time to fetch.
+        variable : str | list[str] | VariableArray
+            String, list of strings or array of strings that refer to variables to
+            return.
+
+        Returns
+        -------
+        xr.DataArray
+            An xarray data-array with the dimensions [time, variable, lead_time, ...].
+            The coords should be provided. Time coordinate should be a TimeArray,
+            lead time coordinate a LeadTimeArray and the variable coordinate should be
+            an array of strings with Earth2Studio variable ids.
+        """
+        pass
+
+    async def fetch(  # type: ignore[override]
+        self,
+        time: datetime | list[datetime] | TimeArray,
+        lead_time: timedelta | list[timedelta] | LeadTimeArray,
+        variable: str | list[str] | VariableArray,
+    ) -> xr.DataArray:
+        """Async function to get data. Async data sources support.
 
         Parameters
         ----------

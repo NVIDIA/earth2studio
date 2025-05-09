@@ -11,9 +11,10 @@ The list of datasources that are already built into Earth2studio can be found in
 the API documentation {ref}`earth2studio.data`.
 
 :::{note}
-Data sources do not represent forecast systems / predictions such as numerical weather
-simulators. They may include the initial states these simulators use or outputs from
-data assimilation processes.
+Earth2Studio has data sources and forecast sources. The only difference being the later
+has a lead time input. Some data sources my have both implemented where the data source
+provides the initial states these simulators use or outputs from data assimilation
+processes.
 :::
 
 ## Data Source Interface
