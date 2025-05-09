@@ -7,6 +7,7 @@
 
    {% block methods %}
     .. automethod:: __call__
+    .. automethod:: fetch
     .. automethod:: available
    {% endblock %}
 
