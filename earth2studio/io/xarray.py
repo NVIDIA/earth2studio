@@ -211,7 +211,7 @@ class XarrayBackend:
                 self.root[name][
                     tuple(
                         [
-                            np.where(np.in1d(self.coords[dim], value))[0]
+                            np.where(np.isin(self.coords[dim], value))[0]
                             for dim, value in adjusted_coords.items()
                         ]
                     )
@@ -260,7 +260,7 @@ class XarrayBackend:
         x = self.root[array_name].values[
             np.ix_(
                 *[
-                    np.where(np.in1d(self.coords[dim], value))[0]
+                    np.where(np.isin(self.coords[dim], value))[0]
                     for dim, value in adjusted_coords.items()
                 ]
             )
