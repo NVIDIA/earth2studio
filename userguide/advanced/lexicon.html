@@ -542,44 +542,6 @@ to access the required data.
 For example, the variable <code class="docutils literal notranslate"><span class="pre">u100</span></code>, zonal winds at 100 hPa, the value <code class="docutils literal notranslate"><span class="pre">UGRD::100</span> <span class="pre">mb</span></code> is
 split into <code class="docutils literal notranslate"><span class="pre">UGRD</span></code> and <code class="docutils literal notranslate"><span class="pre">100</span> <span class="pre">mb</span></code> which are then used with the remote Grib index file to
 fetch the correct data.</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span>            <span class="k">try</span><span class="p">:</span>
-                <span class="n">gfs_name</span><span class="p">,</span> <span class="n">modifier</span> <span class="o">=</span> <span class="n">GFSLexicon</span><span class="p">[</span><span class="n">variable</span><span class="p">]</span>
-            <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
-                <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
-                    <span class="sa">f</span><span class="s2">&quot;variable id </span><span class="si">{</span><span class="n">variable</span><span class="si">}</span><span class="s2"> not found in GFS lexicon, good luck&quot;</span>
-                <span class="p">)</span>
-                <span class="n">gfs_name</span> <span class="o">=</span> <span class="n">variable</span>
-
-                <span class="k">def</span><span class="w"> </span><span class="nf">modifier</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">:</span>
-<span class="w">                    </span><span class="sd">&quot;&quot;&quot;Modify data (if necessary).&quot;&quot;&quot;</span>
-                    <span class="k">return</span> <span class="n">x</span>
-
-            <span class="n">byte_offset</span> <span class="o">=</span> <span class="kc">None</span>
-            <span class="n">byte_length</span> <span class="o">=</span> <span class="kc">None</span>
-            <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">index_file</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-                <span class="k">if</span> <span class="n">gfs_name</span> <span class="ow">in</span> <span class="n">key</span><span class="p">:</span>
-                    <span class="n">byte_offset</span> <span class="o">=</span> <span class="n">value</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
-                    <span class="n">byte_length</span> <span class="o">=</span> <span class="n">value</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
-                    <span class="k">break</span>
-
-            <span class="k">if</span> <span class="n">byte_offset</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="ne">KeyError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Could not find variable </span><span class="si">{</span><span class="n">gfs_name</span><span class="si">}</span><span class="s2"> in index file&quot;</span><span class="p">)</span>
-            <span class="c1"># Download the grib file to cache</span>
-            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;Fetching GFS grib file for variable: </span><span class="si">{</span><span class="n">variable</span><span class="si">}</span><span class="s2"> at </span><span class="si">{</span><span class="n">time</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">lead_time</span><span class="si">}</span><span class="s2">&quot;</span>
-            <span class="p">)</span>
-            <span class="n">grib_file</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_fetch_remote_file</span><span class="p">(</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">_grib_uri</span><span class="p">(</span><span class="n">time</span><span class="p">,</span> <span class="n">lead_time</span><span class="p">),</span>
-                <span class="n">byte_offset</span><span class="o">=</span><span class="n">byte_offset</span><span class="p">,</span>
-                <span class="n">byte_length</span><span class="o">=</span><span class="n">byte_length</span><span class="p">,</span>
-            <span class="p">)</span>
-            <span class="c1"># Open into xarray data-array</span>
-            <span class="n">da</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">open_dataarray</span><span class="p">(</span>
-                <span class="n">grib_file</span><span class="p">,</span> <span class="n">engine</span><span class="o">=</span><span class="s2">&quot;cfgrib&quot;</span><span class="p">,</span> <span class="n">backend_kwargs</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;indexpath&quot;</span><span class="p">:</span> <span class="s2">&quot;&quot;</span><span class="p">}</span>
-            <span class="p">)</span>
-            <span class="n">gfsda</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">modifier</span><span class="p">(</span><span class="n">da</span><span class="o">.</span><span class="n">values</span><span class="p">)</span>
-</pre></div>
-</div>
 <p>It is a common pattern for data source lexicons to contain a modifier function that is
 used to apply adjustments to align data more uniformly with the package.
 A good example of this is the GFS dataset which uses the modifier function to transform
