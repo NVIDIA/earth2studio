@@ -387,7 +387,6 @@ class GFS:
             Dictionary of GFS vairables (byte offset, byte length)
         """
         # Grab index file
-        # TODO: Change remote file to be more proper fetch
         index_file = await self._fetch_remote_file(index_uri)
         with open(index_file) as file:
             index_lines = [line.rstrip() for line in file]

@@ -116,7 +116,7 @@ class ForecastSource(Protocol):
         lead_time: timedelta | list[timedelta] | LeadTimeArray,
         variable: str | list[str] | VariableArray,
     ) -> xr.DataArray:
-        """Async function to get data. Async data sources support.
+        """Async function to get data. Async forecast sources support this.
 
         Parameters
         ----------
