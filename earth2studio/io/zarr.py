@@ -401,7 +401,7 @@ class ZarrBackend:
         x = self.root[array_name][
             np.ix_(
                 *[
-                    np.where(np.in1d(self.coords[dim], value))[0]
+                    np.where(np.isin(self.coords[dim], value))[0]
                     for dim, value in adjusted_coords.items()
                 ]
             )
