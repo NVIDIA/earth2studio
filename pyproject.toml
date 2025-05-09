@@ -18,7 +18,7 @@ dependencies = [
     "gcsfs",
     "h5py>=3.2.0",
     "h5netcdf>=1.0.0",
-    "huggingface-hub>=0.4.0",
+    "huggingface-hub>=0.27.0",
     "loguru",
     "netCDF4>=1.6.4",
     "ngcsdk>=3.62.0",
