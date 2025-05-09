@@ -274,7 +274,7 @@ class GFS:
                         logger.warning(
                             f"variable id {variable} not found in GFS lexicon, good luck"
                         )
-                        gfs_name = variable
+                        gfs_name = v
 
                         def modifier(x: np.array) -> np.array:
                             """Modify data (if necessary)."""

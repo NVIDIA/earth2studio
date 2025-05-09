@@ -37,7 +37,6 @@ class AutoModelMixin:
     def load_model(
         cls,
         package: Package,
-        **kwargs: Any,
     ) -> Any:  # TODO: Fix types here
         """Instantiates and loads default model object from provided model package
 
