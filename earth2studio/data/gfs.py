@@ -23,7 +23,7 @@ import shutil
 import warnings
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 import nest_asyncio
 import numpy as np
@@ -461,6 +461,37 @@ class GFS:
         if not self._cache:
             cache_location = os.path.join(cache_location, "tmp_gfs")
         return cache_location
+
+    @classmethod
+    def available(
+        cls,
+        time: datetime | np.datetime64,
+    ) -> bool:
+        """Checks if given date time is avaliable in the GFS object store. Uses S3 store
+
+        Parameters
+        ----------
+        time : datetime | np.datetime64
+            Date time to access
+
+        Returns
+        -------
+        bool
+            If date time is avaiable
+        """
+        if isinstance(time, np.datetime64):  # np.datetime64 -> datetime
+            _unix = np.datetime64(0, "s")
+            _ds = np.timedelta64(1, "s")
+            time = datetime.fromtimestamp((time - _unix) / _ds, timezone.utc)
+
+        fs = s3fs.S3FileSystem(anon=True)
+        # Object store directory for given time
+        # Should contain two keys: atmos and wave
+        file_name = f"gfs.{time.year}{time.month:0>2}{time.day:0>2}/{time.hour:0>2}/"
+        s3_uri = f"s3://{cls.GFS_BUCKET_NAME}/{file_name}"
+        exists = fs.exists(s3_uri)
+
+        return exists
 
 
 class GFS_FX(GFS):
