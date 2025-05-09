@@ -105,7 +105,7 @@ class ApplyToVariable:
         # Apply perturbation
         xp, _ = self.pm(x, coords)
         # Add perturbed slice back into original tensor
-        ind = np.in1d(coords["variable"], self.variable)
+        ind = np.isin(coords["variable"], self.variable)
         x[..., ind, :, :] = xp[..., ind, :, :]
         return x, coords
 
