@@ -32,9 +32,45 @@ from .base import LexiconType
 # 'type_of_low_vegetation', 'u_component_of_wind', 'v_component_of_wind',
 # 'vertical_velocity']
 
-LEVELS = [   1,    2,    3,    5,    7,   10,   20,   30,   50,   70,  100,  125,  150,  175,
-      200,  225,  250,  300,  350,  400,  450,  500,  550,  600,  650,  700,  750,  775,
-  800,  825,  850,  875,  900,  925,  950,  975, 1000]
+LEVELS = [
+    1,
+    2,
+    3,
+    5,
+    7,
+    10,
+    20,
+    30,
+    50,
+    70,
+    100,
+    125,
+    150,
+    175,
+    200,
+    225,
+    250,
+    300,
+    350,
+    400,
+    450,
+    500,
+    550,
+    600,
+    650,
+    700,
+    750,
+    775,
+    800,
+    825,
+    850,
+    875,
+    900,
+    925,
+    950,
+    975,
+    1000,
+]
 
 
 class ARCOLexicon(metaclass=LexiconType):
@@ -59,11 +95,11 @@ class ARCOLexicon(metaclass=LexiconType):
         "tp": "total_precipitation::",
         "z": "geopotential_at_surface::",
     }
-    VOCAB.update({f"u{level}" : f"u_component_of_wind::{level}" for level in LEVELS})
-    VOCAB.update({f"v{level}" : f"'v_component_of_wind::{level}" for level in LEVELS})
-    VOCAB.update({f"z{level}" : f"geopotential::{level}" for level in LEVELS})
-    VOCAB.update({f"t{level}" : f"temperature::{level}" for level in LEVELS})
-    VOCAB.update({f"q{level}" : f"specific_humidity::{level}" for level in LEVELS})
+    VOCAB.update({f"u{level}": f"u_component_of_wind::{level}" for level in LEVELS})
+    VOCAB.update({f"v{level}": f"'v_component_of_wind::{level}" for level in LEVELS})
+    VOCAB.update({f"z{level}": f"geopotential::{level}" for level in LEVELS})
+    VOCAB.update({f"t{level}": f"temperature::{level}" for level in LEVELS})
+    VOCAB.update({f"q{level}": f"specific_humidity::{level}" for level in LEVELS})
 
     @classmethod
     def get_item(cls, val: str) -> tuple[str, Callable]:
