@@ -190,7 +190,7 @@ def prepare_derived_variables(x, coords, target_vars):
     }
     out_vars.update(src_vars)
 
-    # Fill SST nans with a constant value
+    # Fill SST nans by custom interpolation
     out_vars["sst"] = nan_interpolate_sst(out_vars["sst"], coords)
 
     # Update the tensor with the derived variables and return
