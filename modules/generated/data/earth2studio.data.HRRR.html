@@ -601,6 +601,28 @@ return. Must be in the HRRR lexicon.</p></li>
 </dd></dl>
 
 <dl class="py method">
+<dt class="sig sig-object py" id="earth2studio.data.HRRR.fetch">
+<span class="sig-name descname"><span class="pre">fetch</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">time</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">lead_time</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">variable</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#earth2studio.data.HRRR.fetch" title="Link to this definition">#</a></dt>
+<dd><p>Function to retrieve HRRR forecast data into a single Xarray data array</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>time</strong> (<em>list</em><em>[</em><em>datetime</em><em>]</em>) – Timestamps to return data for (UTC).</p></li>
+<li><p><strong>lead_time</strong> (<em>list</em><em>[</em><em>timedelta</em><em>]</em>) – List of forecast lead times to fetch</p></li>
+<li><p><strong>variable</strong> (<em>str</em><em> | </em><em>list</em><em>[</em><em>str</em><em>] </em><em>| </em><em>VariableArray</em>) – String, list of strings or array of strings that refer to variables to
+return. Must be in the HRRR lexicon.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>HRRR weather data array</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>xr.DataArray</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
 <dt class="sig sig-object py" id="earth2studio.data.HRRR.available">
 <em class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">available</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">time</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#earth2studio.data.HRRR.available" title="Link to this definition">#</a></dt>
 <dd><p>Checks if given date time is avaliable in the HRRR store</p>
@@ -678,6 +700,7 @@ return. Must be in the HRRR lexicon.</p></li>
     <ul class="visible nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.data.HRRR"><code class="docutils literal notranslate"><span class="pre">HRRR</span></code></a><ul class="nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.data.HRRR.__call__"><code class="docutils literal notranslate"><span class="pre">HRRR.__call__()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.data.HRRR.fetch"><code class="docutils literal notranslate"><span class="pre">HRRR.fetch()</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.data.HRRR.available"><code class="docutils literal notranslate"><span class="pre">HRRR.available()</span></code></a></li>
 </ul>
 </li>

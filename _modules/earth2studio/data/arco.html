@@ -593,6 +593,8 @@ document.write(`
         <span class="k">return</span> <span class="n">xr_array</span></div>
 
 
+<div class="viewcode-block" id="ARCO.fetch">
+<a class="viewcode-back" href="../../../modules/generated/data/earth2studio.data.ARCO.html#earth2studio.data.ARCO.fetch">[docs]</a>
     <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">fetch</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">time</span><span class="p">:</span> <span class="n">datetime</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="n">datetime</span><span class="p">]</span> <span class="o">|</span> <span class="n">TimeArray</span><span class="p">,</span>
@@ -649,7 +651,8 @@ document.write(`
         <span class="k">await</span> <span class="n">tqdm</span><span class="o">.</span><span class="n">gather</span><span class="p">(</span>
             <span class="o">*</span><span class="n">func_map</span><span class="p">,</span> <span class="n">desc</span><span class="o">=</span><span class="s2">&quot;Fetching ARCO data&quot;</span><span class="p">,</span> <span class="n">disable</span><span class="o">=</span><span class="p">(</span><span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_verbose</span><span class="p">)</span>
         <span class="p">)</span>
-        <span class="k">return</span> <span class="n">xr_array</span>
+        <span class="k">return</span> <span class="n">xr_array</span></div>
+
 
     <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">fetch_wrapper</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>

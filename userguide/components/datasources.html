@@ -484,10 +484,10 @@ The list of datasources that are already built into Earth2studio can be found in
 the API documentation <a class="reference internal" href="../../modules/datasources.html#earth2studio-data"><span class="std std-ref">earth2studio.data: Data Sources</span></a>.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>Earth2Studio has data sources and forecast sources. The only difference being the later
-has a lead time input. Some data sources my have both implemented where the data source
-provides the initial states these simulators use or outputs from data assimilation
-processes.</p>
+<p>Earth2Studio has data and forecast sources. The only difference being the latter
+has a lead time input. Some data stores may have both implemented where the data source
+provides the initial states / data-assimilated data while the forecast source provides
+results from a predictive model.</p>
 </div>
 <section id="data-source-interface">
 <h2>Data Source Interface<a class="headerlink" href="#data-source-interface" title="Link to this heading">#</a></h2>
@@ -639,6 +639,15 @@ Users should be aware that the same variable across multiple data sources will
 potentially not be identical.
 Please refer to each data source’s documentation for details.</p>
 </div>
+<p>For async use cases some data/forecast sources support an async <code class="xref py py-func docutils literal notranslate"><span class="pre">fetch()</span></code> function
+that is available.
+In these data sources, the <code class="xref py py-func docutils literal notranslate"><span class="pre">__call__()</span></code> function is just a synchronous wrapper
+around the async function.
+The functionality is identical between the two.
+Not all data sources have an async implementation, reference <a class="reference internal" href="../../modules/datasources.html#earth2studio-data"><span class="std std-ref">earth2studio.data: Data Sources</span></a>
+for more information.
+Async-based data sources provide extremely fast download speeds compared to others,
+so users should explore and test different ones if possible.</p>
 <section id="earth2studio-data-fetch-data">
 <h3><a class="reference internal" href="../../modules/generated/data/earth2studio.data.fetch_data.html#earth2studio.data.fetch_data" title="earth2studio.data.fetch_data"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data.fetch_data</span></code></a><a class="headerlink" href="#earth2studio-data-fetch-data" title="Link to this heading">#</a></h3>
 <p>The <code class="xref py py-func docutils literal notranslate"><span class="pre">fetch_data()</span></code> function is useful for getting a PyTorch tensor and
