@@ -148,8 +148,7 @@ class GFS:
         time: datetime | list[datetime] | TimeArray,
         variable: str | list[str] | VariableArray,
     ) -> xr.DataArray:
-        """Retrieve GFS initial data to be used for initial conditions for the given
-        time, variable information, and optional history.
+        """Retrieve GFS initial state / analysis data
 
         Parameters
         ----------
@@ -527,8 +526,7 @@ class GFS_FX(GFS):
         lead_time: timedelta | list[timedelta] | LeadTimeArray,
         variable: str | list[str] | VariableArray,
     ) -> xr.DataArray:
-        """Retrieve GFS initial data to be used for initial conditions for the given
-        time, variable information, and optional history.
+        """Retrieve GFS forecast data
 
         Parameters
         ----------
