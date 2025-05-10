@@ -469,7 +469,6 @@ class HRRR:
 
             index_table[key] = (byte_offset, byte_length)
 
-        # Pop place holder
         return index_table
 
     async def _fetch_remote_file(
