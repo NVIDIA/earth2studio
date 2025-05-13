@@ -63,11 +63,11 @@ load_dotenv()  # TODO: make common example prep function
 
 from earth2studio.data.arco import ARCO
 from earth2studio.io import ZarrBackend
-from earth2studio.models.px import GraphCast
+from earth2studio.models.px import GraphCastMini
 
 # Load the default model package which downloads the check point from NGC
-package = GraphCast.load_default_package()
-model = GraphCast.load_model(package)
+package = GraphCastMini.load_default_package()
+model = GraphCastMini.load_model(package)
 
 # Create the data source
 data = ARCO()

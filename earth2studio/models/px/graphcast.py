@@ -49,7 +49,7 @@ VARIABLES = [
     "msl",
     "u10m",
     "v10m",
-    "tp06",  # because 1 degree model
+    "tp06",
     "t50",
     "t100",
     "t150",
@@ -131,11 +131,11 @@ VARIABLES = [
     "z",
     "lsm",
 ]
+
 STATIC_VARS = (
     "geopotential_at_surface",  # z
     "land_sea_mask",  # lsm
 )
-
 EXTERNAL_FORCING_VARS = ("toa_incident_solar_radiation",)  # tisr
 GENERATED_FORCING_VARS = (
     "year_progress_sin",
@@ -164,10 +164,37 @@ INV_VOCAB = {v: k for k, v in ARCOLexicon.VOCAB.items()}
         rollout,
     ],
 )
-class GraphCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
-    """GraphCast 0.25degree  model.
+class GraphCastMini(torch.nn.Module, AutoModelMixin, PrognosticMixin):
+    """GraphCast Mini 1.0 degree model.
 
-    TBD
+    A smaller, low-resolution version of GraphCast (1 degree resolution, 13 pressure levels, 
+    and a smaller mesh), trained on ERA5 data from 1979 to 2015. This model is useful for 
+    running with lower memory and compute constraints while maintaining good forecast skill.
+
+    The model operates on a 1-degree lat-lon grid and includes:
+    - Surface variables (2m temperature, 10m winds, etc.)
+    - Pressure level variables (temperature, winds, geopotential, etc.)
+    - Static variables (land-sea mask, surface geopotential)
+
+    Note
+    ----
+    This model and checkpoint are based on the GraphCast architecture from DeepMind.
+    For more information see the following references:
+
+    - https://arxiv.org/abs/2212.12794
+    - https://github.com/google-deepmind/graphcast
+    - https://www.science.org/doi/10.1126/science.adi2336
+
+    Parameters
+    ----------
+    ckpt : graphcast.CheckPoint
+        Model checkpoint containing weights and configuration
+    diffs_stddev_by_level : xr.Dataset
+        Standard deviation of differences by level for normalization
+    mean_by_level : xr.Dataset
+        Mean values by level for normalization
+    stddev_by_level : xr.Dataset
+        Standard deviation by level for normalization
     """
 
     def _load_run_forward_from_checkpoint(self) -> "autoregressive.Predictor":
@@ -195,8 +222,6 @@ class GraphCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         params = self.ckpt.params
         model_config = self.ckpt.model_config
         task_config = self.ckpt.task_config
-        print("Model description:\n", self.ckpt.description, "\n")
-        print("Model license:\n", self.ckpt.license, "\n")
 
         def construct_wrapped_graphcast(
             model_config: graphcast.ModelConfig, task_config: graphcast.TaskConfig
@@ -340,9 +365,8 @@ class GraphCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             )
 
             # Pop forcings from batch if needed
-            print(batch)
             try:
-                batch = batch.drop_vars(FORCING_VARIABLES)
+                batch = batch.drop_vars(list(FORCING_VARIABLES) + ["year_progress", "day_progress"])
             except ValueError:
                 pass
 
@@ -534,7 +558,6 @@ class GraphCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             device = jax.devices("cpu")[0]
         else:
             device = jax.devices("gpu")[device_id]
-        print(f"Using device: {device}")
         return device
 
     @batch_func()

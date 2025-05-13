@@ -24,7 +24,7 @@ from earth2studio.models.px.dlwp import DLWP
 from earth2studio.models.px.fcn import FCN
 from earth2studio.models.px.fengwu import FengWu
 from earth2studio.models.px.fuxi import FuXi
-from earth2studio.models.px.graphcast import GraphCast
+from earth2studio.models.px.graphcast import GraphCastMini
 from earth2studio.models.px.interpmodafno import InterpModAFNO
 from earth2studio.models.px.pangu import Pangu3, Pangu6, Pangu24
 from earth2studio.models.px.persistence import Persistence
