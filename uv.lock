@@ -1367,7 +1367,6 @@ all = [
     { name = "ecmwf-opendata" },
     { name = "einops" },
     { name = "flash-attn" },
-    { name = "herbie-data" },
     { name = "importlib-metadata" },
     { name = "jsbeautifier" },
     { name = "makani", extra = ["all"] },
@@ -1379,6 +1378,7 @@ all = [
     { name = "onnx-weekly", marker = "python_full_version >= '3.13' or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-aurora-fork') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-corrdiff') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-dlwp') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-fcn') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-precip-afno') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-sfno') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-stormcast')" },
     { name = "onnxruntime-gpu" },
     { name = "pynvml" },
+    { name = "pyproj" },
     { name = "ruamel-yaml" },
     { name = "scikit-image" },
     { name = "scipy" },
@@ -1407,7 +1407,7 @@ data = [
     { name = "cdsapi" },
     { name = "eccodes" },
     { name = "ecmwf-opendata" },
-    { name = "herbie-data" },
+    { name = "pyproj" },
     { name = "scipy" },
 ]
 dlesym = [
@@ -1542,8 +1542,6 @@ requires-dist = [
     { name = "gcsfs" },
     { name = "h5netcdf", specifier = ">=1.0.0" },
     { name = "h5py", specifier = ">=3.2.0" },
-    { name = "herbie-data", marker = "extra == 'all'" },
-    { name = "herbie-data", marker = "extra == 'data'" },
     { name = "huggingface-hub", specifier = ">=0.27.0" },
     { name = "importlib-metadata", marker = "extra == 'all'" },
     { name = "importlib-metadata", marker = "extra == 'dlwp'" },
@@ -1596,6 +1594,8 @@ requires-dist = [
     { name = "onnxruntime-gpu", marker = "extra == 'pangu'", specifier = ">=1.21.0" },
     { name = "pynvml", marker = "extra == 'all'", specifier = ">=12.0.0" },
     { name = "pynvml", marker = "extra == 'sfno'", specifier = ">=12.0.0" },
+    { name = "pyproj", marker = "extra == 'all'", specifier = ">=3.7.1" },
+    { name = "pyproj", marker = "extra == 'data'", specifier = ">=3.7.1" },
     { name = "python-dotenv" },
     { name = "ruamel-yaml", marker = "extra == 'all'", specifier = ">=0.18.10" },
     { name = "ruamel-yaml", marker = "extra == 'sfno'", specifier = ">=0.18.10" },
@@ -2317,25 +2317,6 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/8f/8a/cc1debe3514da292094f1c3a700e4ca25442489731ef7c0814358816bb03/hatchling-1.27.0.tar.gz", hash = "sha256:971c296d9819abb3811112fc52c7a9751c8d381898f36533bb16f9791e941fd6", size = 54983, upload-time = "2024-12-15T17:08:11.894Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/08/e7/ae38d7a6dfba0533684e0b2136817d667588ae3ec984c1a4e5df5eb88482/hatchling-1.27.0-py3-none-any.whl", hash = "sha256:d3a2f3567c4f926ea39849cdf924c7e99e6686c9c8e288ae1037c8fa2a5d937b", size = 75794, upload-time = "2024-12-15T17:08:10.364Z" },
-]
-
-[[package]]
-name = "herbie-data"
-version = "2025.5.0"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "cfgrib" },
-    { name = "eccodes" },
-    { name = "numpy" },
-    { name = "pandas" },
-    { name = "pyproj" },
-    { name = "requests" },
-    { name = "toml" },
-    { name = "xarray" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/df/91/cb0e1effccf51daffb615393d114a8110a466c15d41820a1d242294a2481/herbie_data-2025.5.0.tar.gz", hash = "sha256:0629374ae29d0ece5f58c9369219ed95ec262ac0544d6ecb7824e79fdc3a2aef", size = 9418650, upload-time = "2025-05-02T06:02:50.692Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/cf/47/8f8a5af62c941c5b7e415a8735d5c81f51943b0463b91974e269317e9038/herbie_data-2025.5.0-py3-none-any.whl", hash = "sha256:57eb86b456d626cd057aca42a4b1c3c4bf11a3c10ae0696e47e52891c82b4263", size = 113296, upload-time = "2025-05-02T06:02:48.7Z" },
 ]
 
 [[package]]
@@ -6032,15 +6013,6 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/bc/0c/66b0f9b4a4cb9ffdac7b52b17b37c7d3c4f75623b469e388b0c6d89b4e88/timm-1.0.15.tar.gz", hash = "sha256:756a3bc30c96565f056e608a9b559daed904617eaadb6be536f96874879b1055", size = 2230258, upload-time = "2025-02-23T05:05:55.959Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/6c/d0/179abca8b984b3deefd996f362b612c39da73b60f685921e6cd58b6125b4/timm-1.0.15-py3-none-any.whl", hash = "sha256:5a3dc460c24e322ecc7fd1f3e3eb112423ddee320cb059cc1956fbc9731748ef", size = 2361373, upload-time = "2025-02-23T05:05:53.601Z" },
-]
-
-[[package]]
-name = "toml"
-version = "0.10.2"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/be/ba/1f744cdc819428fc6b5084ec34d9b30660f6f9daaf70eead706e3203ec3c/toml-0.10.2.tar.gz", hash = "sha256:b3bda1d108d5dd99f4a20d24d9c348e91c4db7ab1b749200bded2f839ccbe68f", size = 22253, upload-time = "2020-11-01T01:40:22.204Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/44/6f/7120676b6d73228c96e17f1f794d8ab046fc910d781c8d151120c3f1569e/toml-0.10.2-py2.py3-none-any.whl", hash = "sha256:806143ae5bfb6a3c6e736a764057db0e6a0e05e338b5630894a5f779cabb4f9b", size = 16588, upload-time = "2020-11-01T01:40:20.672Z" },
 ]
 
 [[package]]
