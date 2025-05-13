@@ -665,6 +665,12 @@ document.write(`
         <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span><span class="p">:</span>
             <span class="n">shutil</span><span class="o">.</span><span class="n">rmtree</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cache</span><span class="p">)</span>
 
+        <span class="c1"># Close aiohttp client if s3fs</span>
+        <span class="c1"># https://github.com/fsspec/s3fs/issues/943</span>
+        <span class="c1"># https://github.com/zarr-developers/zarr-python/issues/2901</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fs</span><span class="p">,</span> <span class="n">s3fs</span><span class="o">.</span><span class="n">S3FileSystem</span><span class="p">):</span>
+            <span class="n">s3fs</span><span class="o">.</span><span class="n">S3FileSystem</span><span class="o">.</span><span class="n">close_session</span><span class="p">(</span><span class="n">asyncio</span><span class="o">.</span><span class="n">get_event_loop</span><span class="p">(),</span> <span class="bp">self</span><span class="o">.</span><span class="n">fs</span><span class="o">.</span><span class="n">s3</span><span class="p">)</span>
+
         <span class="k">return</span> <span class="n">xr_array</span><span class="o">.</span><span class="n">isel</span><span class="p">(</span><span class="n">lead_time</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span></div>
 
 
@@ -774,7 +780,7 @@ document.write(`
 <span class="sd">        xr.DataArray</span>
 <span class="sd">            FS data array for given time and lead time</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Fetching GRS grib file: </span><span class="si">{</span><span class="n">grib_uri</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">byte_offset</span><span class="si">}</span><span class="s2">-</span><span class="si">{</span><span class="n">byte_length</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Fetching GFS grib file: </span><span class="si">{</span><span class="n">grib_uri</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">byte_offset</span><span class="si">}</span><span class="s2">-</span><span class="si">{</span><span class="n">byte_length</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
         <span class="c1"># Download the grib file to cache</span>
         <span class="n">grib_file</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_fetch_remote_file</span><span class="p">(</span>
             <span class="n">grib_uri</span><span class="p">,</span>
@@ -817,7 +823,6 @@ document.write(`
 <span class="sd">            Dictionary of GFS vairables (byte offset, byte length)</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="c1"># Grab index file</span>
-        <span class="c1"># TODO: Change remote file to be more proper fetch</span>
         <span class="n">index_file</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_fetch_remote_file</span><span class="p">(</span><span class="n">index_uri</span><span class="p">)</span>
         <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">index_file</span><span class="p">)</span> <span class="k">as</span> <span class="n">file</span><span class="p">:</span>
             <span class="n">index_lines</span> <span class="o">=</span> <span class="p">[</span><span class="n">line</span><span class="o">.</span><span class="n">rstrip</span><span class="p">()</span> <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">file</span><span class="p">]</span>

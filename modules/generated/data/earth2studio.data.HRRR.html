@@ -546,20 +546,21 @@ document.write(`
 <h1><a class="reference internal" href="../../datasources.html#module-earth2studio.data" title="earth2studio.data"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code></a>.HRRR<a class="headerlink" href="#earth2studio-data-hrrr" title="Link to this heading">#</a></h1>
 <dl class="py class">
 <dt class="sig sig-object py" id="earth2studio.data.HRRR">
-<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">earth2studio.data.</span></span><span class="sig-name descname"><span class="pre">HRRR</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">source</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'aws'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_workers</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cache</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">verbose</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/earth2studio/data/hrrr.html#HRRR"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.data.HRRR" title="Link to this definition">#</a></dt>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">earth2studio.data.</span></span><span class="sig-name descname"><span class="pre">HRRR</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">source</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'aws'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_workers</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">24</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cache</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">verbose</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">async_timeout</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">600</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/earth2studio/data/hrrr.html#HRRR"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.data.HRRR" title="Link to this definition">#</a></dt>
 <dd><p>High-Resolution Rapid Refresh (HRRR) data source provides hourly North-American
 weather analysis data developed by NOAA (used to initialize the HRRR forecast
 model). This data source is provided on a Lambert conformal 3km grid at 1-hour
-intervals. The spatial dimensionality of HRRR data is [1059, 1799]. This data source
-pulls data from the HRRR zarr bucket on S3.</p>
+intervals. The spatial dimensionality of HRRR data is [1059, 1799].</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>source</strong> (<em>str</em><em>, </em><em>optional</em>) – Data source to use (‘aws’, ‘google’, ‘azure’, ‘nomads’), by default ‘aws’</p></li>
-<li><p><strong>max_workers</strong> (<em>int</em><em>, </em><em>optional</em>) – Maximum number of concurrent downloads, potentially not thread safe with Herbie,
-by default 1</p></li>
+<li><p><strong>max_workers</strong> (<em>int</em><em>, </em><em>optional</em>) – Max works in async io thread pool. Only applied when using sync call function
+and will modify the default async loop if one exists, by default 24</p></li>
 <li><p><strong>cache</strong> (<em>bool</em><em>, </em><em>optional</em>) – Cache data source on local memory, by default True</p></li>
 <li><p><strong>verbose</strong> (<em>bool</em><em>, </em><em>optional</em>) – Print download progress, by default True</p></li>
+<li><p><strong>async_timeout</strong> (<em>int</em><em>, </em><em>optional</em>) – Time in sec after which download will be cancelled if not finished successfully,
+by default 600</p></li>
 </ul>
 </dd>
 </dl>
@@ -574,6 +575,7 @@ to your local machine for large requests.</p>
 <ul class="simple">
 <li><p><a class="reference external" href="https://www.nco.ncep.noaa.gov/pmb/products/hrrr/">https://www.nco.ncep.noaa.gov/pmb/products/hrrr/</a></p></li>
 <li><p><a class="reference external" href="https://rapidrefresh.noaa.gov/hrrr/">https://rapidrefresh.noaa.gov/hrrr/</a></p></li>
+<li><p><a class="reference external" href="https://aws.amazon.com/marketplace/pp/prodview-yd5ydptv3vuz2#resources">https://aws.amazon.com/marketplace/pp/prodview-yd5ydptv3vuz2#resources</a></p></li>
 <li><p><a class="reference external" href="https://hrrrzarr.s3.amazonaws.com/index.html">https://hrrrzarr.s3.amazonaws.com/index.html</a></p></li>
 <li><p><a class="reference external" href="https://console.cloud.google.com/marketplace/product/noaa-public/hrrr">https://console.cloud.google.com/marketplace/product/noaa-public/hrrr</a></p></li>
 </ul>
@@ -581,8 +583,7 @@ to your local machine for large requests.</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="earth2studio.data.HRRR.__call__">
 <span class="sig-name descname"><span class="pre">__call__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">time</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">variable</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/earth2studio/data/hrrr.html#HRRR.__call__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.data.HRRR.__call__" title="Link to this definition">#</a></dt>
-<dd><p>Retrieve HRRR initial data to be used for initial conditions for the given
-time, variable information, and optional history.</p>
+<dd><p>Retrieve HRRR analysis data (lead time 0)</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
@@ -592,7 +593,7 @@ return. Must be in the HRRR lexicon.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p>HRRR analysis data array</p>
+<dd class="field-even"><p>GFS weather data array</p>
 </dd>
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>xr.DataArray</p>
@@ -602,15 +603,14 @@ return. Must be in the HRRR lexicon.</p></li>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="earth2studio.data.HRRR.fetch">
-<span class="sig-name descname"><span class="pre">fetch</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">time</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">lead_time</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">variable</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#earth2studio.data.HRRR.fetch" title="Link to this definition">#</a></dt>
-<dd><p>Function to retrieve HRRR forecast data into a single Xarray data array</p>
+<em class="property"><span class="k"><span class="pre">async</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">fetch</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">time</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">variable</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/earth2studio/data/hrrr.html#HRRR.fetch"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.data.HRRR.fetch" title="Link to this definition">#</a></dt>
+<dd><p>Async function to get data</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>time</strong> (<em>list</em><em>[</em><em>datetime</em><em>]</em>) – Timestamps to return data for (UTC).</p></li>
-<li><p><strong>lead_time</strong> (<em>list</em><em>[</em><em>timedelta</em><em>]</em>) – List of forecast lead times to fetch</p></li>
+<li><p><strong>time</strong> (<em>datetime</em><em> | </em><em>list</em><em>[</em><em>datetime</em><em>] </em><em>| </em><em>TimeArray</em>) – Timestamps to return data for (UTC).</p></li>
 <li><p><strong>variable</strong> (<em>str</em><em> | </em><em>list</em><em>[</em><em>str</em><em>] </em><em>| </em><em>VariableArray</em>) – String, list of strings or array of strings that refer to variables to
-return. Must be in the HRRR lexicon.</p></li>
+return. Must be in the GFS lexicon.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
@@ -624,8 +624,9 @@ return. Must be in the HRRR lexicon.</p></li>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="earth2studio.data.HRRR.available">
-<em class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">available</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">time</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#earth2studio.data.HRRR.available" title="Link to this definition">#</a></dt>
-<dd><p>Checks if given date time is avaliable in the HRRR store</p>
+<em class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">available</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">time</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/earth2studio/data/hrrr.html#HRRR.available"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.data.HRRR.available" title="Link to this definition">#</a></dt>
+<dd><p>Checks if given date time is avaliable in the HRRR object store. Uses S3
+store</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><p><strong>time</strong> (<em>datetime</em><em> | </em><em>np.datetime64</em>) – Date time to access</p>
