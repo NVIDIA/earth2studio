@@ -38,7 +38,7 @@ def test_hrrr_lexicon(variable, device):
         assert isinstance(label, str)
         assert input.shape == output.shape
         assert input.device == output.device
-        if label.split("::")[0] == "HGT":
+        if label.split("::")[1] == "HGT" and v.startswith("z"):
             torch.allclose(output, 9.81 * input)
 
 
@@ -60,5 +60,5 @@ def test_hrrrfx_run_deterministic(variable, device):
         assert isinstance(label, str)
         assert input.shape == output.shape
         assert input.device == output.device
-        if label.split("::")[3] == "HGT" and v.startswith("z"):
+        if label.split("::")[1] == "HGT" and v.startswith("z"):
             torch.allclose(output, 9.81 * input)
