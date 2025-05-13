@@ -15,6 +15,7 @@
 # limitations under the License.
 
 import asyncio
+import concurrent.futures
 import functools
 import hashlib
 import os
@@ -75,12 +76,15 @@ class HRRR:
     source : str, optional
         Data source to use ('aws', 'google', 'azure', 'nomads'), by default 'aws'
     max_workers : int, optional
-        Maximum number of concurrent downloads, potentially not thread safe with Herbie,
-        by default 1
+        Max works in async io thread pool. Only applied when using sync call function
+        and will modify the default async loop if one exists, by default 24
     cache : bool, optional
         Cache data source on local memory, by default True
     verbose : bool, optional
         Print download progress, by default True
+    async_timeout : int, optional
+        Time in sec after which download will be cancelled if not finished successfully,
+        by default 600
 
     Warning
     -------
@@ -107,15 +111,22 @@ class HRRR:
     def __init__(
         self,
         source: str = "aws",
+        max_workers: int = 24,
         cache: bool = True,
         verbose: bool = True,
         async_timeout: int = 600,
     ):
         self._cache = cache
         self._verbose = verbose
+        self._max_workers = max_workers
 
-        # Silence cfgrib warning, TODO Remove this
-        warnings.simplefilter(action="ignore", category=FutureWarning)
+        if max_workers is not None:
+            warnings.warn(
+                "The max_workers parameter is deprecated and will be removed in a future version. "
+                "The data source now uses async/await pattern instead of ThreadPoolExecutor.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
 
         if source == "aws":
             self.uri_prefix = "noaa-hrrr-bdp-pds"
@@ -181,8 +192,7 @@ class HRRR:
         time: datetime | list[datetime] | TimeArray,
         variable: str | list[str] | VariableArray,
     ) -> xr.DataArray:
-        """Retrieve HRRR initial data to be used for initial conditions for the given
-        time, variable information, and optional history.
+        """Retrieve HRRR analysis data (lead time 0)
 
         Parameters
         ----------
@@ -204,6 +214,11 @@ class HRRR:
             # If no event loop exists, create one
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
+
+        # Modify the worker amount
+        loop.set_default_executor(
+            concurrent.futures.ThreadPoolExecutor(max_workers=self._max_workers)
+        )
 
         xr_array = loop.run_until_complete(
             asyncio.wait_for(self.fetch(time, variable), timeout=self.async_timeout)
@@ -424,7 +439,7 @@ class HRRR:
         xr.DataArray
             FS data array for given time and lead time
         """
-        logger.debug(f"Fetching GRS grib file: {grib_uri} {byte_offset}-{byte_length}")
+        logger.debug(f"Fetching HRRR grib file: {grib_uri} {byte_offset}-{byte_length}")
         # Download the grib file to cache
         grib_file = await self._fetch_remote_file(
             grib_uri,
@@ -614,7 +629,8 @@ class HRRR:
         fs = s3fs.S3FileSystem(anon=True)
         # Object store directory for given time
         # Just picking the first variable to look for
-        file_name = f"hrrr.{time.year}{time.month:0>2}{time.day:0>2}/hrrr.t{time.hour:0>2}z.wrfnatf00.grib2.idx"
+        file_name = f"hrrr.{time.year}{time.month:0>2}{time.day:0>2}/conus"
+        file_name = f"{file_name}/hrrr.t{time.hour:0>2}z.wrfnatf00.grib2.idx"
         s3_uri = f"s3://{cls.HRRR_BUCKET_NAME}/{file_name}"
         exists = fs.exists(s3_uri)
 
@@ -633,11 +649,15 @@ class HRRR_FX(HRRR):
     source : str, optional
         Data source to use ('aws', 'google', 'azure', 'nomads'), by default 'aws'
     max_workers : int, optional
-        Maximum number of concurrent downloads, by default 4
+        Max works in async io thread pool. Only applied when using sync call function
+        and will modify the default async loop if one exists, by default 24
     cache : bool, optional
         Cache data source on local memory, by default True
     verbose : bool, optional
         Print download progress, by default True
+    async_timeout : int, optional
+        Time in sec after which download will be cancelled if not finished successfully,
+        by default 600
 
     Warning
     -------
@@ -661,11 +681,18 @@ class HRRR_FX(HRRR):
     def __init__(
         self,
         source: str = "aws",
+        max_workers: int = 24,
         cache: bool = True,
         verbose: bool = True,
         async_timeout: int = 600,
     ):
-        super().__init__(source, cache, verbose, async_timeout)
+        super().__init__(
+            source=source,
+            max_workers=max_workers,
+            cache=cache,
+            verbose=verbose,
+            async_timeout=async_timeout,
+        )
         self.lexicon = HRRRFXLexicon  # type: ignore
 
     def __call__(  # type: ignore[override]
@@ -674,7 +701,7 @@ class HRRR_FX(HRRR):
         lead_time: timedelta | list[timedelta] | LeadTimeArray,
         variable: str | list[str] | VariableArray,
     ) -> xr.DataArray:
-        """Retrieve HRRR forecast data.
+        """Retrieve HRRR forecast data
 
         Parameters
         ----------

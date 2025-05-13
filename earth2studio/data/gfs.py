@@ -349,7 +349,7 @@ class GFS:
         xr.DataArray
             FS data array for given time and lead time
         """
-        logger.debug(f"Fetching GRS grib file: {grib_uri} {byte_offset}-{byte_length}")
+        logger.debug(f"Fetching GFS grib file: {grib_uri} {byte_offset}-{byte_length}")
         # Download the grib file to cache
         grib_file = await self._fetch_remote_file(
             grib_uri,

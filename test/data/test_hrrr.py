@@ -18,8 +18,11 @@ import pathlib
 import shutil
 from datetime import datetime, timedelta
 
+import gcsfs
 import numpy as np
 import pytest
+import s3fs
+from fsspec.implementations.http import HTTPFileSystem
 
 from earth2studio.data import HRRR, HRRR_FX
 
@@ -40,7 +43,7 @@ from earth2studio.data import HRRR, HRRR_FX
 @pytest.mark.parametrize("variable", ["t2m", ["u10m", "u100"], ["u1hl"]])
 def test_hrrr_fetch(time, variable):
 
-    ds = HRRR(max_workers=1, cache=False)
+    ds = HRRR(cache=False)
     data = ds(time, variable)
     shape = data.shape
 
@@ -84,7 +87,7 @@ def test_hrrr_fetch(time, variable):
 def test_hrrr_fx_fetch(time, lead_time):
     time = datetime(year=2022, month=12, day=25)
     variable = "t2m"
-    ds = HRRR_FX(max_workers=2, cache=False)
+    ds = HRRR_FX(cache=False)
     data = ds(time, lead_time, variable)
     shape = data.shape
 
@@ -104,6 +107,34 @@ def test_hrrr_fx_fetch(time, lead_time):
     assert shape[4] == 1799
     assert not np.isnan(data.values).any()
     assert np.array_equal(data.coords["variable"].values, np.array(variable))
+
+
+@pytest.mark.timeout(15)
+def test_hrrr_init():
+    """Test HRRR initialization with different sources and parameters"""
+    # Test AWS source
+    ds = HRRR(source="aws", cache=True, verbose=True, async_timeout=300)
+    assert ds.uri_prefix == "noaa-hrrr-bdp-pds"
+    assert isinstance(ds.fs, s3fs.S3FileSystem)
+    assert ds.async_timeout == 300
+
+    # Test Google source
+    ds = HRRR(source="google", cache=False, verbose=False)
+    assert ds.uri_prefix == "high-resolution-rapid-refresh"
+    assert isinstance(ds.fs, gcsfs.GCSFileSystem)
+
+    # Test Nomads source
+    ds = HRRR(source="nomads")
+    assert ds.uri_prefix == "https://nomads.ncep.noaa.gov/pub/data/nccf/com/hrrr/prod/"
+    assert isinstance(ds.fs, HTTPFileSystem)
+
+    # Test invalid source
+    with pytest.raises(ValueError):
+        HRRR(source="invalid_source")
+
+    # Test Azure source (not implemented)
+    with pytest.raises(NotImplementedError):
+        HRRR(source="azure")
 
 
 @pytest.mark.slow
@@ -151,19 +182,40 @@ def test_hrrr_cache(time, variable, cache):
         pass
 
 
-@pytest.mark.timeout(15)
-@pytest.mark.parametrize(
-    "time",
-    [
-        datetime(year=2018, month=7, day=12, hour=0),
-    ],
-)
-@pytest.mark.parametrize("variable", ["u100"])
-def test_hrrr_available(time, variable):
-    assert not HRRR.available(time)
+def test_hrrr_validate_time():
+    ds = HRRR(cache=False)
+
+    # Test valid time
+    valid_time = datetime(year=2022, month=12, day=25, hour=12)
+    ds._validate_time([valid_time])  # Should not raise
+
+    # Test invalid hour interval
+    invalid_time = datetime(year=2022, month=12, day=25, hour=12, minute=30)
     with pytest.raises(ValueError):
-        ds = HRRR()
-        ds(time, variable)
+        ds._validate_time([invalid_time])
+
+    # Test time before 2018-07-12 13:00
+    old_time = datetime(year=2018, month=7, day=12, hour=12)
+    with pytest.raises(ValueError):
+        ds._validate_time([old_time])
+
+
+@pytest.mark.timeout(15)
+def test_hrrr_fx_validate_leadtime():
+    ds = HRRR_FX(cache=False)
+    # Test valid lead times
+    valid_lead_times = [timedelta(hours=1), timedelta(hours=12), timedelta(hours=48)]
+    ds._validate_leadtime(valid_lead_times)
+
+    # Test invalid lead times
+    invalid_lead_times = [
+        timedelta(hours=49),  # > 48 hours
+        timedelta(hours=-1),  # < 0 hours
+        timedelta(hours=1, minutes=30),  # Not hourly
+    ]
+    for lt in invalid_lead_times:
+        with pytest.raises(ValueError):
+            ds._validate_leadtime([lt])
 
 
 @pytest.mark.timeout(15)
