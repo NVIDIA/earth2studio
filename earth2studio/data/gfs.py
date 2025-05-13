@@ -235,6 +235,12 @@ class GFS:
         if not self._cache:
             shutil.rmtree(self.cache)
 
+        # Close aiohttp client if s3fs
+        # https://github.com/fsspec/s3fs/issues/943
+        # https://github.com/zarr-developers/zarr-python/issues/2901
+        if isinstance(self.fs, s3fs.S3FileSystem):
+            s3fs.S3FileSystem.close_session(asyncio.get_event_loop(), self.fs.s3)
+
         return xr_array.isel(lead_time=0)
 
     async def _create_tasks(

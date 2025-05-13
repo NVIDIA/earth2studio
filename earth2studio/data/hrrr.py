@@ -209,11 +209,6 @@ class HRRR:
             asyncio.wait_for(self.fetch(time, variable), timeout=self.async_timeout)
         )
 
-        # Clean up before loop is deleted
-        if isinstance(self.fs, s3fs.S3FileSystem):
-            # https://github.com/fsspec/s3fs/blob/main/s3fs/core.py#L587
-            self.fs.close_session(loop, self.fs)
-
         return xr_array
 
     async def fetch(
@@ -282,6 +277,12 @@ class HRRR:
         # Delete cache if needed
         if not self._cache:
             shutil.rmtree(self.cache)
+
+        # Close aiohttp client if s3fs
+        # https://github.com/fsspec/s3fs/issues/943
+        # https://github.com/zarr-developers/zarr-python/issues/2901
+        if isinstance(self.fs, s3fs.S3FileSystem):
+            s3fs.S3FileSystem.close_session(asyncio.get_event_loop(), self.fs.s3)
 
         xr_array = xr_array.isel(lead_time=0)
         del xr_array.coords["lead_time"]
