@@ -44,8 +44,8 @@ from earth2studio.data.utils import (
     prep_data_inputs,
     prep_forecast_inputs,
 )
-from earth2studio.utils import check_extra_imports
 from earth2studio.lexicon import HRRRFXLexicon, HRRRLexicon
+from earth2studio.utils import check_extra_imports
 from earth2studio.utils.type import LeadTimeArray, TimeArray, VariableArray
 
 logger.remove()
@@ -61,6 +61,7 @@ class HRRRAsyncTask:
     hrrr_byte_offset: int
     hrrr_byte_length: int
     hrrr_modifier: Callable
+
 
 @check_extra_imports("data", [pyproj])
 class HRRR:
@@ -157,7 +158,9 @@ class HRRR:
         elif source == "nomads":
             # HTTP file system, tried FTP but didnt work
             # https://nomads.ncep.noaa.gov/pub/data/nccf/com/hrrr/prod/
-            self.uri_prefix = "https://nomads.ncep.noaa.gov/pub/data/nccf/com/hrrr/prod/"
+            self.uri_prefix = (
+                "https://nomads.ncep.noaa.gov/pub/data/nccf/com/hrrr/prod/"
+            )
             self.fs = HTTPFileSystem(asynchronous=True)
 
             def _range(time: datetime) -> None:
@@ -205,7 +208,7 @@ class HRRR:
         xr_array = loop.run_until_complete(
             asyncio.wait_for(self.fetch(time, variable), timeout=self.async_timeout)
         )
-        
+
         # Clean up before loop is deleted
         if isinstance(self.fs, s3fs.S3FileSystem):
             # https://github.com/fsspec/s3fs/blob/main/s3fs/core.py#L587
@@ -281,7 +284,7 @@ class HRRR:
             shutil.rmtree(self.cache)
 
         xr_array = xr_array.isel(lead_time=0)
-        del xr_array.coords['lead_time']
+        del xr_array.coords["lead_time"]
         return xr_array
 
     async def _create_tasks(
@@ -323,8 +326,8 @@ class HRRR:
                 index_files = {p: results.pop(0) for p in products}
                 for k, v in enumerate(variable):
                     try:
-                        hrrr_name, modifier = self.lexicon[v]  # type: ignore
-                        hrrr_name = hrrr_name.split("::") + [None, None]
+                        hrrr_name_str, modifier = self.lexicon[v]  # type: ignore
+                        hrrr_name = hrrr_name_str.split("::") + ["", ""]
                         product = hrrr_name[0]
                         variable_name = hrrr_name[1]
                         level = hrrr_name[2]
@@ -551,14 +554,16 @@ class HRRR:
         For more information about the HRRR grid see:
 
         - https://ntrs.nasa.gov/api/citations/20160009371/downloads/20160009371.pdf
-        
+
         Returns
         -------
         Returns:
             tuple: (lat, lon) in degrees
         """
         # a, b is radius of globe 6371229
-        p1 = pyproj.CRS("proj=lcc lon_0=262.5 lat_0=38.5 lat_1=38.5 lat_2=38.5 a=6371229 b=6371229")
+        p1 = pyproj.CRS(
+            "proj=lcc lon_0=262.5 lat_0=38.5 lat_1=38.5 lat_2=38.5 a=6371229 b=6371229"
+        )
         p2 = pyproj.CRS("latlon")
         transformer = pyproj.Transformer.from_proj(p2, p1)
         itransformer = pyproj.Transformer.from_proj(p1, p2)
@@ -566,11 +571,18 @@ class HRRR:
         # Start with getting grid bounds based on lat / lon box (SW-NW-NE-SE)
         # Reference seems a bit incorrect from the actual data, grabbed from S3 HRRR gribs
         # Perhaps cell points? IDK
-        lat = np.array([21.138123, 47.83862349881542, 47.84219502248866, 21.140546625419148])
-        lon = np.array([237.280472, 225.90452026573686, 299.0828072281622, 287.71028150897075])
+        lat = np.array(
+            [21.138123, 47.83862349881542, 47.84219502248866, 21.140546625419148]
+        )
+        lon = np.array(
+            [237.280472, 225.90452026573686, 299.0828072281622, 287.71028150897075]
+        )
 
         easting, northing = transformer.transform(lat, lon)
-        E, N = np.meshgrid(np.linspace(easting[0], easting[2], 1799), np.linspace(northing[0] , northing[1] , 1059))
+        E, N = np.meshgrid(
+            np.linspace(easting[0], easting[2], 1799),
+            np.linspace(northing[0], northing[1], 1059),
+        )
         lat, lon = itransformer.transform(E, N)
         lon = np.where(lon < 0, lon + 360, lon)
         return lat, lon
@@ -653,7 +665,7 @@ class HRRR_FX(HRRR):
         async_timeout: int = 600,
     ):
         super().__init__(source, cache, verbose, async_timeout)
-        self.lexicon = HRRRFXLexicon
+        self.lexicon = HRRRFXLexicon  # type: ignore
 
     def __call__(  # type: ignore[override]
         self,
