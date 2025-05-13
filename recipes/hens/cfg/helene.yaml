@@ -1,14 +1,15 @@
 project: 'helene'
 random_seed: 377778
 
-start_times: ["2024-09-24 12:00:00"]
+start_times: ["2024-09-24 12:00:00", "2024-09-24 18:00:00"]
 nsteps: 20         # number of forecasting steps
 nensemble: 4       # ensemble size per checkpoint
 batch_size: 2      # inference batch size
 
+
 forecast_model:
     architecture: earth2studio.models.px.SFNO   # forecast model class
-    registry: hens_model_registry # TODO: Rename this to registry
+    registry: hens_model_registry
     max_num_checkpoints: 2 # max number of checkpoints which will be used
 
 perturbation:
@@ -21,11 +22,15 @@ data_source:
     _target_: earth2studio.data.GFS  # data source class
 
 cyclone_tracking:
-    out_dir: 'outputs'
+    path: 'outputs_helene'
+    tracker:
+        _target_: earth2studio.models.dx.tc_tracking.TCTrackerWuDuan
+        path_search_distance: 250
+        path_search_window_size: 2
 
 file_output:
-    path: 'outputs'       # directory to which outfiles are written
-    output_vars: ['t2m', 'u10m', 't850', 'q850', 'z500'] # , 'tp06']
+    path: 'outputs_helene'       # directory to which outfiles are written
+    output_vars: ['t2m', 'msl', 'u850', 'v850', 'z500']
     thread_io: False      # write out in seperate thread (needs further testing)
     format:               # io backend class
         _target_: earth2studio.io.NetCDF4Backend

@@ -3,7 +3,8 @@ name = "earth2studio.recipe.hens"
 version = "0.1.0"
 description = "Huge Ensembles (HENS) Recipe"
 readme = "README.md"
-requires-python = ">=3.10"
+# Restrict to below 3.13 until rapids updates for 3.13
+requires-python = ">=3.10,<3.13"
 authors = [
   { name="NVIDIA Earth-2 Team" },
 ]
@@ -20,6 +21,11 @@ Homepage = "https://github.com/NVIDIA/earth2studio/recipes/hens"
 Documentation = "https://github.com/NVIDIA/earth2studio/recipes/hens/README.md"
 Issues = "https://github.com/NVIDIA/earth2studio/issues"
 Changelog = "https://github.com/NVIDIA/earth2studio/blob/main/CHANGELOG.md"
+
+# ==== UV configuration ====
+[tool.uv]
+# Force onnx to only try to install when below 3.13, otherwise we will use onnx weekly
+override-dependencies = ["onnx; python_full_version < '3.13'"]
 
 [tool.uv.sources]
 omegaconf = { git = "https://github.com/omry/omegaconf.git" }

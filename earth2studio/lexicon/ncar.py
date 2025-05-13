@@ -25,6 +25,8 @@ class NCAR_ERA5Lexicon(metaclass=LexiconType):
     """NCAR ERA5 Lexicon
     S3 specified <Prefix>.<N>_<ID>_<Name>.<Postfix>
 
+    <Product ID>::<Variable ID N_ID_Name>::<Grid Type>::<Level Index>
+
     Note
     ----
     Additional resources:
@@ -33,24 +35,25 @@ class NCAR_ERA5Lexicon(metaclass=LexiconType):
 
     @staticmethod
     def build_vocab() -> dict[str, str]:
-        # ECMWF ID, ECMWF name, pressure/surface level
+        """Create NCAR ERA5 vocab dictionary"""
+        # ECMWF ID, ECMWF name, product ID, Grid Type
         # See https://codes.ecmwf.int/grib/param-db/ for ECMWF ID and name
         params = {
-            "z": (129, "z", "pl"),
-            "t": (130, "t", "pl"),
-            "u": (131, "u", "pl"),
-            "v": (132, "v", "pl"),
-            "q": (133, "q", "pl"),
-            "sp": (134, "sp", "sfc"),
-            "tcwv": (137, "tcwv", "sfc"),
-            "msl": (151, "msl", "sfc"),
-            "r": (157, "r", "pl"),
-            "u10m": (165, "10u", "sfc"),
-            "v10m": (166, "10v", "sfc"),
-            "d2m": (168, "2d", "sfc"),
-            "t2m": (167, "2t", "sfc"),
-            "u100m": (246, "100u", "sfc"),
-            "v100m": (247, "100v", "sfc"),
+            "z": (129, "z", "e5.oper.an.pl", "ll025sc"),
+            "t": (130, "t", "e5.oper.an.pl", "ll025sc"),
+            "u": (131, "u", "e5.oper.an.pl", "ll025uv"),
+            "v": (132, "v", "e5.oper.an.pl", "ll025uv"),
+            "q": (133, "q", "e5.oper.an.pl", "ll025sc"),
+            "sp": (134, "sp", "e5.oper.an.sfc", "ll025sc"),
+            "tcwv": (137, "tcwv", "e5.oper.an.sfc", "ll025sc"),
+            "msl": (151, "msl", "e5.oper.an.sfc", "ll025sc"),
+            "r": (157, "r", "e5.oper.an.pl", "ll025sc"),
+            "u10m": (165, "10u", "e5.oper.an.sfc", "ll025sc"),
+            "v10m": (166, "10v", "e5.oper.an.sfc", "ll025sc"),
+            "d2m": (168, "2d", "e5.oper.an.sfc", "ll025sc"),
+            "t2m": (167, "2t", "e5.oper.an.sfc", "ll025sc"),
+            "u100m": (246, "100u", "e5.oper.an.sfc", "ll025sc"),
+            "v100m": (247, "100v", "e5.oper.an.sfc", "ll025sc"),
         }
         pressure_levels = [
             1,
@@ -91,20 +94,23 @@ class NCAR_ERA5Lexicon(metaclass=LexiconType):
             975,
             1000,
         ]
-        pattern = "e5.oper.an.{lvl}.{n}_{eid}_{ename}.{s}"
+        pattern = "{product}::{n}_{eid}_{ename}::{grid}::{level}"
 
         vocab = {}
-        for var, (eid, ename, lvl) in params.items():
+        for var, (eid, ename, product, grid) in params.items():
             # When adding new variables, inspect S3 prefixes for n/s parts
             n = 228 if ename in ("100u", "100v") else 128
-            s = "ll025uv" if ename in ("u", "v") else "ll025sc"
-            formatted_pattern = pattern.format(lvl=lvl, n=n, eid=eid, ename=ename, s=s)
-
-            if lvl == "sfc":
-                vocab[var] = formatted_pattern
-            else:
-                for pressure_level in pressure_levels:
+            if product == "e5.oper.an.pl":
+                for i, pressure_level in enumerate(pressure_levels):
+                    formatted_pattern = pattern.format(
+                        product=product, n=n, eid=eid, ename=ename, grid=grid, level=i
+                    )
                     vocab[var + str(pressure_level)] = formatted_pattern
+            else:
+                formatted_pattern = pattern.format(
+                    product=product, n=n, eid=eid, ename=ename, grid=grid, level=0
+                )
+                vocab[var] = formatted_pattern
 
         return vocab
 

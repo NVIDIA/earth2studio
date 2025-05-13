@@ -31,8 +31,6 @@ from physicsnemo.distributed import DistributedManager
 from earth2studio.data import DataSource
 from earth2studio.io import IOBackend, KVBackend, XarrayBackend
 from earth2studio.models.auto import Package
-from earth2studio.models.dx import TCTrackerWuDuan
-from earth2studio.models.dx.base import DiagnosticModel
 from earth2studio.models.px import PrognosticModel
 from earth2studio.perturbation import Perturbation
 from earth2studio.utils.coords import CoordSystem, map_coords
@@ -298,8 +296,9 @@ def pair_packages_ics(
     configs = []
     num_batch_per_ic = int(np.ceil(ensemble_size / batch_size))
     batch_ids_complete = list(range(0, num_batch_per_ic * len(model_packages)))
-    for ic in ics:
-        for ii, pkg in enumerate(model_packages):
+
+    for ii, pkg in enumerate(model_packages):
+        for ic in ics:
             # Determine the batch IDs for the current package and initial condition
             batch_ids_model = batch_ids_complete[
                 ii * num_batch_per_ic : (ii + 1) * num_batch_per_ic
@@ -333,13 +332,27 @@ def pair_packages_ics(
     return configs
 
 
+class TCTracking:
+    """Class that stores the cyclone tracker and the output location.
+
+    Parameters
+    ----------
+    cfg : DictConfig
+        Hydra configuration object containing the settings for cyclone tracking.
+    """
+
+    def __init__(self, tracking_cfg: DictConfig) -> None:
+        self.tracker = hydra.utils.instantiate(tracking_cfg.tracker)
+        self.out_path = os.path.abspath(os.path.join(tracking_cfg.path, "cyclones"))
+
+
 def initialise(
     cfg: DictConfig,
 ) -> tuple[
     list[Any],
     dict[Any, Any],
     dict[Any, Any],
-    DiagnosticModel | None,
+    TCTracking | None,
     DataSource,
     dict[str, OrderedDict[Any, Any]],
     str | int,
@@ -427,10 +440,7 @@ def initialise(
 
     # initialize cyclone tracking
     if "cyclone_tracking" in cfg:
-        cyclone_tracker = TCTrackerWuDuan(
-            path_search_distance=250, path_search_window_size=2
-        )  # TODO choose and configure TC tracker in config
-
+        cyclone_tracker = TCTracking(cfg.cyclone_tracking)
     else:
         cyclone_tracker = None
 
@@ -746,12 +756,18 @@ def update_model_dict(model_dict: dict, root: str) -> dict:
     if root != model_dict["package"]:
         model_dict["package"] = root
 
-    if root == "default":
-        package = model_dict["class"].load_default_package()
-    else:
-        package = Package(root)
+        # move to cpu to free GPU memory
+        # TODO find other references and delete properly
+        if model_dict["model"] is not None:
+            model_dict["model"].to("cpu")
 
-    model_dict["model"] = model_dict["class"].load_model(package=package)
+        if root == "default":
+            package = model_dict["class"].load_default_package()
+        else:
+            package = Package(root)
+
+        model_dict["model"] = model_dict["class"].load_model(package=package)
+
     return model_dict
 
 

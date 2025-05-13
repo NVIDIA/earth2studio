@@ -16,10 +16,6 @@ diagnostic_models:
     rel_hum:
         _target_: earth2studio.models.dx.DerivedRH
         levels: [850,500]
-    # rel_hum:
-    #     _target_: earth2studio.enterprise.models.dx.DerivedVariables
-    #     calculation_name: 'r_from_q_t_sp'
-    #     levels: [850,500]
     precipitation:
         architecture: earth2studio.models.dx.PrecipitationAFNO
 
