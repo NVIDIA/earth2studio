@@ -74,7 +74,7 @@ def test_hrrr_fetch(time, variable):
         (datetime(year=2022, month=12, day=25), timedelta(hours=1)),
         (
             datetime(year=2022, month=12, day=25),
-            [timedelta(hours=2), timedelta(hours=3)],
+            [timedelta(hours=0), timedelta(hours=3)],
         ),
         (
             np.array(
@@ -86,7 +86,7 @@ def test_hrrr_fetch(time, variable):
 )
 def test_hrrr_fx_fetch(time, lead_time):
     time = datetime(year=2022, month=12, day=25)
-    variable = "t2m"
+    variable = "tp"
     ds = HRRR_FX(cache=False)
     data = ds(time, lead_time, variable)
     shape = data.shape
@@ -182,7 +182,7 @@ def test_hrrr_cache(time, variable, cache):
         pass
 
 
-def test_hrrr_validate_time():
+def test_hrrr_validate_inputs():
     ds = HRRR(cache=False)
 
     # Test valid time
@@ -198,6 +198,10 @@ def test_hrrr_validate_time():
     old_time = datetime(year=2018, month=7, day=12, hour=12)
     with pytest.raises(ValueError):
         ds._validate_time([old_time])
+
+    # Test invalid variable
+    with pytest.raises(KeyError):
+        ds(datetime(year=2024, month=12, day=25), "invalid variable")
 
 
 @pytest.mark.timeout(15)

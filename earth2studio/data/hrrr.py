@@ -21,7 +21,6 @@ import hashlib
 import os
 import pathlib
 import shutil
-import warnings
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
@@ -119,14 +118,6 @@ class HRRR:
         self._cache = cache
         self._verbose = verbose
         self._max_workers = max_workers
-
-        if max_workers is not None:
-            warnings.warn(
-                "The max_workers parameter is deprecated and will be removed in a future version. "
-                "The data source now uses async/await pattern instead of ThreadPoolExecutor.",
-                DeprecationWarning,
-                stacklevel=2,
-            )
 
         if source == "aws":
             self.uri_prefix = "noaa-hrrr-bdp-pds"
