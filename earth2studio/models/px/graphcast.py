@@ -26,6 +26,7 @@ try:
 except ImportError:
     hk = None
     jax = None
+    jax.dlpack = None
     autoregressive = None
     casting = None
     checkpoint = None
@@ -34,7 +35,7 @@ except ImportError:
     normalization = None
     rollout = None
 
-from earth2studio.data.arcoextra import ARCOExtraLexicon
+from earth2studio.lexicon.arco import ARCOLexicon
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_coords, batch_func
 from earth2studio.models.px.base import PrognosticModel
@@ -145,6 +146,8 @@ GENERATED_FORCING_VARS = (
 FORCING_VARIABLES = EXTERNAL_FORCING_VARS + GENERATED_FORCING_VARS
 
 ATMOS_LEVELS = [50, 100, 150, 200, 250, 300, 400, 500, 600, 700, 850, 925, 1000]
+
+INV_VOCAB = {v: k for k, v in ARCOLexicon.VOCAB.items()}
 
 
 @check_extra_imports(
@@ -257,6 +260,7 @@ class GraphCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         rng: "chex.PRNGKey",
         inputs: xr.Dataset,
         targets_template: xr.Dataset,
+        batch: xr.Dataset,
         forcings: xr.Dataset,
     ) -> Generator[xr.Dataset, None, None]:
         """
@@ -330,15 +334,31 @@ class GraphCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             yield predictions
             del predictions
 
-            # Update forcings time and get new forcings
-            forcings = forcings.assign_coords(
-                time=targets_template.coords["time"] + index * np.timedelta64(6, "h")
+            # Update batch time 6 hours and rename time to datetime
+            batch = batch.assign_coords(
+                datetime=batch.coords["datetime"] + np.timedelta64(6, "h")
             )
+
+            # Pop forcings from batch if needed
+            print(batch)
+            try:
+                batch = batch.drop_vars(FORCING_VARIABLES)
+            except ValueError:
+                pass
+
+            # Compute forcings
+            data_utils.add_derived_vars(batch)
+            data_utils.add_tisr_var(batch)
+
+            # Compute batch
+            batch = batch.compute()
+
+            # Get new forcings
+            forcings = batch.isel(
+                time=slice(-1, None)
+            )[list(FORCING_VARIABLES)]
+            forcings = forcings.reset_coords("datetime", drop=True)
             forcings = forcings.compute()
-            #if set(forcing_variables) & _DERIVED_VARS:
-            #    add_derived_vars(dataset)
-            #if set(forcing_variables) & {TISR}:
-            #    add_tisr_var(dataset)
 
             # Increment index
             index += 1
@@ -349,7 +369,6 @@ class GraphCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         diffs_stddev_by_level: xr.Dataset,
         mean_by_level: xr.Dataset,
         stddev_by_level: xr.Dataset,
-        interp_method: str = "linear",
     ):
         super().__init__()
 
@@ -358,7 +377,6 @@ class GraphCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self.mean_by_level = mean_by_level
         self.stddev_by_level = stddev_by_level
         self.prng_key = jax.random.PRNGKey(0)
-        self.interp_method = interp_method
 
         self.run_forward = self._load_run_forward_from_checkpoint()
 
@@ -375,7 +393,6 @@ class GraphCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 "variable": np.array(VARIABLES),
                 "lat": np.linspace(-90, 90, 181, endpoint=True),
                 "lon": np.linspace(0, 360, 360, endpoint=False),
-                # "level": np.array(ATMOS_LEVELS),
             }
         )
 
@@ -387,7 +404,6 @@ class GraphCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 "variable": np.array(VARIABLES),
                 "lat": np.linspace(-90, 90, 181, endpoint=True),
                 "lon": np.linspace(0, 360, 360, endpoint=False),
-                # "level": np.array(ATMOS_LEVELS),
             }
         )
 
@@ -409,7 +425,9 @@ class GraphCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             # Forward is identity operator
             coords = self.output_coords(coords)
 
+            # Get next prediction
             x = self.iterator_result_to_tensor(next(self.iterator))
+
             # Rear hook
             x, coords = self.rear_hook(x, coords)
 
@@ -453,6 +471,7 @@ class GraphCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 rng=self.prng_key,
                 inputs=inputs,
                 targets_template=targets * np.nan,
+                batch=batch,
                 forcings=forcings,
             )
 
@@ -485,7 +504,7 @@ class GraphCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             dataset = dataset.squeeze("batch", drop=True)
 
         dataset = dataset.rename(
-            {key: ARCOExtraLexicon.INV_VOCAB[key] for key in dataset.data_vars}
+            {key: INV_VOCAB[key] for key in dataset.data_vars}
         )
 
         if "batch" in dataset.dims:
@@ -602,7 +621,7 @@ class GraphCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         all_datetimes = [start_date + time_delta for time_delta in time_deltas]
 
         data = data.to_dataset(dim="variable")
-        data = data.rename({key: ARCOExtraLexicon.VOCAB[key] for key in data.data_vars})
+        data = data.rename({key: ARCOLexicon.VOCAB[key] for key in data.data_vars})
         out_data = xr.Dataset(
             coords={
                 "time": all_datetimes[0:2],

@@ -61,7 +61,7 @@ from dotenv import load_dotenv
 
 load_dotenv()  # TODO: make common example prep function
 
-from earth2studio.data.arcoextra import ARCO
+from earth2studio.data.arco import ARCO
 from earth2studio.io import ZarrBackend
 from earth2studio.models.px import GraphCast
 
