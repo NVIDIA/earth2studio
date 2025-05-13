@@ -30,15 +30,21 @@ import nest_asyncio
 import numpy as np
 import s3fs
 import xarray as xr
-from fsspec.implementations.ftp import FTPFileSystem
+from fsspec.implementations.http import HTTPFileSystem
 from loguru import logger
 from tqdm.asyncio import tqdm
+
+try:
+    import pyproj
+except ImportError:
+    pyproj = None
 
 from earth2studio.data.utils import (
     datasource_cache_root,
     prep_data_inputs,
     prep_forecast_inputs,
 )
+from earth2studio.utils import check_extra_imports
 from earth2studio.lexicon import HRRRFXLexicon, HRRRLexicon
 from earth2studio.utils.type import LeadTimeArray, TimeArray, VariableArray
 
@@ -56,7 +62,7 @@ class HRRRAsyncTask:
     hrrr_byte_length: int
     hrrr_modifier: Callable
 
-
+@check_extra_imports("data", [pyproj])
 class HRRR:
     """High-Resolution Rapid Refresh (HRRR) data source provides hourly North-American
     weather analysis data developed by NOAA (used to initialize the HRRR forecast
@@ -149,10 +155,10 @@ class HRRR:
                 "Azure data source not implemented yet, open an issue if needed"
             )
         elif source == "nomads":
-            # Could use http location, but using ftp since better for larger data
+            # HTTP file system, tried FTP but didnt work
             # https://nomads.ncep.noaa.gov/pub/data/nccf/com/hrrr/prod/
-            self.uri_prefix = "pub/data/nccf/com/hrrr/prod/"
-            self.fs = FTPFileSystem(host="nomads.ncep.noaa.gov")
+            self.uri_prefix = "https://nomads.ncep.noaa.gov/pub/data/nccf/com/hrrr/prod/"
+            self.fs = HTTPFileSystem(asynchronous=True)
 
             def _range(time: datetime) -> None:
                 if time + timedelta(days=2) < datetime.today():
@@ -199,6 +205,11 @@ class HRRR:
         xr_array = loop.run_until_complete(
             asyncio.wait_for(self.fetch(time, variable), timeout=self.async_timeout)
         )
+        
+        # Clean up before loop is deleted
+        if isinstance(self.fs, s3fs.S3FileSystem):
+            # https://github.com/fsspec/s3fs/blob/main/s3fs/core.py#L587
+            self.fs.close_session(loop, self.fs)
 
         return xr_array
 
@@ -229,6 +240,8 @@ class HRRR:
         # Make sure input time is valid
         self._validate_time(time)
 
+        # Generate HRRR lat-lon grid to append onto data array
+        lat, lon = self.grid()
         # Note, this could be more memory efficient and avoid pre-allocation of the array
         # but this is much much cleaner to deal with
         xr_array = xr.DataArray(
@@ -248,6 +261,8 @@ class HRRR:
                 "variable": variable,
                 "hrrr_x": self.HRRR_X,
                 "hrrr_y": self.HRRR_Y,
+                "lat": (("hrrr_y", "hrrr_x"), lat),
+                "lon": (("hrrr_y", "hrrr_x"), lon),
             },
         )
 
@@ -265,7 +280,9 @@ class HRRR:
         if not self._cache:
             shutil.rmtree(self.cache)
 
-        return xr_array.isel(lead_time=0)
+        xr_array = xr_array.isel(lead_time=0)
+        del xr_array.coords['lead_time']
+        return xr_array
 
     async def _create_tasks(
         self, time: list[datetime], lead_time: list[timedelta], variable: list[str]
@@ -523,6 +540,40 @@ class HRRR:
         if not self._cache:
             cache_location = os.path.join(cache_location, "tmp_hrrr")
         return cache_location
+
+    @classmethod
+    def grid(cls) -> tuple[np.array, np.array]:
+        """Generates the HRRR lambert conformal projection grid coordinates. Creates the
+        HRRR grid using single parallel lambert conformal mapping
+
+        Note
+        ----
+        For more information about the HRRR grid see:
+
+        - https://ntrs.nasa.gov/api/citations/20160009371/downloads/20160009371.pdf
+        
+        Returns
+        -------
+        Returns:
+            tuple: (lat, lon) in degrees
+        """
+        # a, b is radius of globe 6371229
+        p1 = pyproj.CRS("proj=lcc lon_0=262.5 lat_0=38.5 lat_1=38.5 lat_2=38.5 a=6371229 b=6371229")
+        p2 = pyproj.CRS("latlon")
+        transformer = pyproj.Transformer.from_proj(p2, p1)
+        itransformer = pyproj.Transformer.from_proj(p1, p2)
+
+        # Start with getting grid bounds based on lat / lon box (SW-NW-NE-SE)
+        # Reference seems a bit incorrect from the actual data, grabbed from S3 HRRR gribs
+        # Perhaps cell points? IDK
+        lat = np.array([21.138123, 47.83862349881542, 47.84219502248866, 21.140546625419148])
+        lon = np.array([237.280472, 225.90452026573686, 299.0828072281622, 287.71028150897075])
+
+        easting, northing = transformer.transform(lat, lon)
+        E, N = np.meshgrid(np.linspace(easting[0], easting[2], 1799), np.linspace(northing[0] , northing[1] , 1059))
+        lat, lon = itransformer.transform(E, N)
+        lon = np.where(lon < 0, lon + 360, lon)
+        return lat, lon
 
     @classmethod
     def available(
