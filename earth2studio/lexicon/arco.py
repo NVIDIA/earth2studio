@@ -53,6 +53,7 @@ class ARCOLexicon(metaclass=LexiconType):
         "msl": "mean_sea_level_pressure::",
         "tcwv": "total_column_water_vapour::",
         "tp": "total_precipitation::",
+        "sst": "sea_surface_temperature::",
         "u50": "u_component_of_wind::50",
         "u100": "u_component_of_wind::100",
         "u150": "u_component_of_wind::150",

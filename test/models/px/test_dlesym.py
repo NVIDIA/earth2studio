@@ -138,6 +138,8 @@ def test_dlesym_forward(device, grid_type, batch_size):
         device=device,
     )
 
+    output_vars = model.output_coords(model.input_coords())["variable"]
+
     # Test forward pass
     in_coords = model.input_coords()
     in_coords["batch"] = np.arange(batch_size)
@@ -148,7 +150,7 @@ def test_dlesym_forward(device, grid_type, batch_size):
         batch_size,
         len(time),
         len(dlesym_src._ATMOS_OUTPUT_TIMES),
-        len(variable),
+        len(output_vars),
         *spatial_dims,
     )
     for key in output_coords:
@@ -259,6 +261,8 @@ def test_dlesym_iterator(device, grid_type, batch_size):
         device=device,
     )
 
+    output_vars = model.output_coords(model.input_coords())["variable"]
+
     # Test iterator
     in_coords = model.input_coords()
     in_coords["batch"] = np.arange(batch_size)
@@ -267,7 +271,18 @@ def test_dlesym_iterator(device, grid_type, batch_size):
 
     # First yield should be initial condition
     initial_x, initial_coords = next(iterator)
-    assert torch.allclose(initial_x, x)
+    if grid_type == "hpx":
+        # Here we can check for identical match since input/output variables are the same
+        assert torch.allclose(initial_x, x)
+    else:
+        # Here just check shape
+        assert initial_x.shape == (
+            batch_size,
+            len(time),
+            len(lead_time),
+            len(output_vars),
+            *spatial_dims,
+        )
 
     # Test a few steps
     coupler_step = dlesym_src._ATMOS_OUTPUT_TIMES[-1]
@@ -277,7 +292,7 @@ def test_dlesym_iterator(device, grid_type, batch_size):
             batch_size,
             len(time),
             len(dlesym_src._ATMOS_OUTPUT_TIMES),
-            len(variable),
+            len(output_vars),
             *spatial_dims,
         )
         assert np.all(
@@ -285,4 +300,51 @@ def test_dlesym_iterator(device, grid_type, batch_size):
         )
 
 
-# TODO test_model_package
+@pytest.fixture(scope="module")
+def model(model_cache_context) -> DLESyM:
+    # Test only on cuda device
+    with model_cache_context():
+        package = DLESyM.load_default_package()
+        p = DLESyM.load_model(package)
+        return p
+
+
+@pytest.mark.ci_cache
+@pytest.mark.timeout(360)
+@pytest.mark.parametrize("device", ["cuda:0"])
+def test_dlesym_package(device, model):
+    torch.cuda.empty_cache()
+    model = model.to(device)
+
+    nside = 64
+    spatial_dims = (12, nside, nside)
+    batch_size = 1
+
+    time = np.array([np.datetime64("2020-01-01T00:00")])
+    lead_time = model.input_coords()["lead_time"]
+    variable = model.input_coords()["variable"]
+    x = torch.randn(
+        batch_size,
+        len(time),
+        len(lead_time),
+        len(variable),
+        *spatial_dims,
+        device=device,
+    )
+
+    # Test forward pass
+    in_coords = model.input_coords()
+    in_coords["batch"] = np.arange(batch_size)
+    in_coords["time"] = time
+    output, output_coords = model(x, in_coords)
+    expected_coords = model.output_coords(in_coords)
+    assert output.shape == (
+        batch_size,
+        len(time),
+        len(dlesym_src._ATMOS_OUTPUT_TIMES),
+        len(variable),
+        *spatial_dims,
+    )
+    for key in output_coords:
+        handshake_coords(output_coords, expected_coords, key)
+    assert np.all(output_coords["lead_time"] == dlesym_src._ATMOS_OUTPUT_TIMES)

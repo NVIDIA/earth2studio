@@ -33,23 +33,29 @@ from the standard variables.
 In this example you will learn:
 
 - How to instantiate the DLESyM model
-- How to prepare input data from an ERA5 data source
 - How to use the model API to generate a forecast
 - How to use the output selection and regridding methods to select appropriate data
+- How to use the `DLESyMLatLon` model with earth2studio workflows
 """
 
 # %%
 # Set Up
 # ------
 # The first step is fetching appropriate input data for the model. The ERA5 data sources
-# in earth2studio provide data on the lat/lon grid, so we need to either:
+# in earth2studio provide data on the lat/lon grid, so have two options:
 #  -  use the :py:class:`earth2studio.models.DLESyMLatLon` model. This version of DLESyM
 #     accepts inputs on the lat/lon grid and regrids them to the HEALPix grid internally,
-#     before returning the output regirdded back to the lat/lon grid.
+#     before returning the output regridded back to the lat/lon grid. This is the
+#     recommended approach for most users as it can be used directly with earth2studio
+#     data sources and workflows, since it performs regridding and pre-processing
+#     internally.
 #  -  use the :py:class:`earth2studio.models.DLESyM` model, and handle the regridding of
-#     input lat/lon data ourselves.
-# Let's load both of these models and inspect the input coordinates.
-
+#     input lat/lon data ourselves. Since the model uses some derived variables which
+#     are not provided by the data source, we would also need to prepare these derived
+#     variables ourselves.
+#
+# Let's load both of these models and inspect the expected input coordinates for each.
+# Also note the input and output variable set for each model.
 # %%
 import os
 
@@ -85,140 +91,20 @@ print(
 print(
     "DLESyM HPX input coord shapes: ", [(k, v.shape) for k, v in in_coords_hpx.items()]
 )
-print("Variable names: ", in_coords_ll["variable"])
-
-# %%
-# Preparing data
-# --------------------
-# Note the spatial dimensions are different between the lat/lon and HEALPix
-# versions of the model. Also note the variable names: we need to construct
-# the following from the ERA5 data source:
-# - `tau300-700` (geopotential thickness) is defined as the difference between
-#  z300 and z700 geopotential levels
-# - `ws10m` (wind speed at 10m above surface) is defined as the square root of
-#  the sum of the squared zonal and meridional wind components, i.e.
-#  `sqrt(u10m **2 + v10m **2)`
-# - `sst` (sea surface temperature) is supported by the data source but filled
-#  with nans over landmasses. We will deal with these using a custom interpolation
-#  scheme
-# Let's pull the data from the ERA5 data source and construct the above variables.
-# %%
-import xarray as xr
-
-ic_date = np.datetime64("2021-06-15")
-
-# Replace the derived variables with those in the data source so we can compute the derived variables
-variables_to_fetch = [
-    v for v in list(in_coords_ll["variable"]) if v not in ["tau300-700", "ws10m"]
-]
-variables_to_fetch.extend(["u10m", "v10m", "z300", "z700"])
-x, coords = fetch_data(
-    source=data,
-    time=np.array([ic_date]),
-    variable=np.array(variables_to_fetch),
-    lead_time=in_coords_ll["lead_time"],
-    device=device,
+print("Lat-lon input variable names: ", in_coords_ll["variable"])
+print(
+    "Lat-lon output variable names: ", model_ll.output_coords(in_coords_ll)["variable"]
 )
-
-
-# Use helper functions to prepare the derived variables
-def nan_interpolate_sst(sst, coords):
-    """
-    Interpolate the SST data to fill nans over landmasses.
-
-    Args:
-        sst (torch.Tensor): The SST data.
-        coords (dict): The coordinates of the input data.
-
-    Returns:
-        torch.Tensor: The interpolated SST data.
-    """
-
-    # First pass: interpolate along longitude
-    da_sst = xr.DataArray(sst.cpu().numpy(), dims=coords.keys())
-    da_interp = da_sst.interpolate_na(dim="lon", method="linear", use_coordinate=False)
-
-    # Second pass: roll, interpolate along longitude, and unroll
-    roll_amount_lon = int(len(da_interp.lon) / 2)
-    da_double_interp = (
-        da_interp.roll(lon=roll_amount_lon, roll_coords=False)
-        .interpolate_na(dim="lon", method="linear", use_coordinate=False)
-        .roll(lon=len(da_interp.lon) - roll_amount_lon, roll_coords=False)
-    )
-
-    # Third pass do a similar roll along latitude
-    roll_amount_lat = int(len(da_double_interp.lat) / 2)
-    da_triple_interp = (
-        da_double_interp.roll(lat=roll_amount_lat, roll_coords=False)
-        .interpolate_na(dim="lat", method="linear", use_coordinate=False)
-        .roll(lat=len(da_double_interp.lat) - roll_amount_lat, roll_coords=False)
-    )
-
-    return torch.from_numpy(da_triple_interp.values).to(sst.device)
-
-
-def prepare_derived_variables(x, coords, target_vars):
-    """
-    Prepare the derived variables for the DLESyM model.
-
-    Parameters
-    ----------
-    x : torch.Tensor
-        The input data tensor from an earth2studio data source.
-    coords : dict
-        The coordinates of the input data.
-    target_vars : list
-        The target variables to prepare.
-
-    Returns
-    -------
-    x : torch.Tensor
-        The input data tensor with the derived variables.
-    coords : dict
-        The coordinates of the input data with the derived variables.
-    """
-    # Fetch the base variables
-    base_vars = list(coords["variable"])
-    src_vars = {
-        v: x[..., base_vars.index(v) : base_vars.index(v) + 1, :, :] for v in base_vars
-    }
-
-    # Compute the derived variables
-    out_vars = {
-        "ws10m": torch.sqrt(src_vars["u10m"] ** 2 + src_vars["v10m"] ** 2),
-        "tau300-700": src_vars["z300"] - src_vars["z700"],
-    }
-    out_vars.update(src_vars)
-
-    # Fill SST nans by custom interpolation
-    out_vars["sst"] = nan_interpolate_sst(out_vars["sst"], coords)
-
-    # Update the tensor with the derived variables and return
-    coords["variable"] = target_vars
-    x_out = torch.empty(*[v.shape[0] for v in coords.values()], device=x.device)
-    for i, v in enumerate(coords["variable"]):
-        x_out[..., i : i + 1, :, :] = out_vars[v]
-
-    # Add a batch dim
-    if x.ndim < 7:
-        x_out = x_out.unsqueeze(0)
-        coords["batch"] = np.array([0])
-        coords.move_to_end("batch", last=False)
-
-    return x_out, coords
-
-
-x, coords = prepare_derived_variables(x, coords, target_vars=in_coords_ll["variable"])
-
-print("Fetched and pre-processed variables: ", coords["variable"])
-
-
+print("HEALPix input variable names: ", in_coords_hpx["variable"])
+print(
+    "HEALPix output variable names: ",
+    model_hpx.output_coords(in_coords_hpx)["variable"],
+)
 # %%
 # Making predictions, regridding, and selecting outputs
 # ---------------
-# Since we now have the appropriate input physical variables prepared, we can
-# make predictions using the DLESyM model. As the data source provides lat/lon
-# data, we can use the :py:class:`earth2studio.models.DLESyMLatLon` model.
+# Let's now pull some example data and make predictions with the model. As the
+# data source provides lat/lon data, we can use the :py:class:`earth2studio.models.DLESyMLatLon` model.
 
 # In addition, we demonstrate how to use the regridding utilities provided by
 # `DLESyMLatLon` to regrid onto the HEALPix grid. The :py:class:`earth2studio.models.DLESyM`
@@ -232,12 +118,24 @@ print("Fetched and pre-processed variables: ", coords["variable"])
 # for each of the atmosphere and ocean components.
 
 # %%
+ic_date = np.datetime64("2021-06-15")
+
+# Fetch some example data
+x, coords = fetch_data(
+    source=data,
+    time=np.array([ic_date]),
+    variable=np.array(in_coords_ll["variable"]),
+    lead_time=in_coords_ll["lead_time"],
+    device=device,
+)
+
 # Can call the `DLESyMLatLon` model directly with the input lat/lon data
 y, y_coords = model_ll(x, coords)
 
-# Or, we can use the regridding utilities ourself to regrid the data onto the HEALPix grid
-# Then run directly with `DLESyM`, which expects HEALPix data
-x_hpx, coords_hpx = model_ll.to_hpx(x), model_ll.coords_to_hpx(coords)
+# Or, we can use the pre-processing and regridding utilities to regrid the data onto
+# the HEALPix grid, and then run directly with `DLESyM`, which expects HEALPix data
+x_prep, coords_prep = model_ll._prepare_derived_variables(x, coords)
+x_hpx, coords_hpx = model_ll.to_hpx(x_prep), model_ll.coords_to_hpx(coords_prep)
 y_hpx, y_coords_hpx = model_hpx(x_hpx, coords_hpx)
 
 # Retrieve the valid outputs for atmos/ocean components from the predictions
@@ -268,15 +166,43 @@ n_steps = 16
 model_iter_ll = model_ll.create_iterator(x, coords)
 
 for i in range(n_steps):
-    x, coords = next(model_iter_ll)
-    print(i)
-    if i > 0:
-        # Don't retrieve the first step as it is the initial condition
-        x_atmos, x_atmos_coords = model_ll.retrieve_valid_atmos_outputs(x, coords)
-        print(x_atmos.min(), x_atmos.mean(), x_atmos.max())
-        x_ocean, x_ocean_coords = model_ll.retrieve_valid_ocean_outputs(x, coords)
+    x, x_coords = next(model_iter_ll)
+    if i > 0:  # Don't retrieve the first step as it is the initial condition
+        x_atmos, x_atmos_coords = model_ll.retrieve_valid_atmos_outputs(x, x_coords)
+        x_ocean, x_ocean_coords = model_ll.retrieve_valid_ocean_outputs(x, x_coords)
 
 print(f"Completed forecast with {n_steps} steps")
+
+
+# %%
+# Using built-in deterministic workflow
+# ------------------------------------
+# Because the `DLESyMLatLon` model permits usage of data coming directly from an
+# earth2studio data source, we can use the built-in deterministic workflow to generate
+# a forecast as well. The only caveat is we need to explitcitly specify the output
+# lead time coordinates that will be generated by the model, since it has different
+# input and output lead time dimensions.
+# %%
+
+import earth2studio.run as run
+from earth2studio.io import KVBackend
+
+io = KVBackend()
+
+output_coords = model_ll.output_coords(coords)
+inp_lead_time = model_ll.input_coords()["lead_time"]
+out_lead_times = [
+    output_coords["lead_time"] + output_coords["lead_time"][-1] * i
+    for i in range(n_steps)
+]
+output_coords["lead_time"] = np.concatenate([inp_lead_time, *out_lead_times])
+io = run.deterministic(
+    [ic_date], n_steps, model_ll, data, io, output_coords=output_coords
+)
+
+ds = io.to_xarray()
+print(ds)
+
 # %%
 # Plotting the outputs
 # --------------------
@@ -287,13 +213,13 @@ import cartopy.crs as ccrs
 import cartopy.feature as cfeature
 import matplotlib.pyplot as plt
 
-lat = x_atmos_coords["lat"]
-lon = x_atmos_coords["lon"]
+# lat = x_atmos_coords["lat"]
+# lon = x_atmos_coords["lon"]
 atmos_var, atmos_units = "ws10m", "m/s"
 ocean_var, ocean_units = "sst", "K"
-atmos_var_idx = list(x_atmos_coords["variable"]).index(atmos_var)
-ocean_var_idx = list(x_ocean_coords["variable"]).index(ocean_var)
-lead_time_idx = -1
+# atmos_var_idx = list(x_atmos_coords["variable"]).index(atmos_var)
+# ocean_var_idx = list(x_ocean_coords["variable"]).index(ocean_var)
+lead_time = ds.lead_time.values[-1]
 
 plt.close("all")
 # Create a Robinson projection
@@ -304,16 +230,16 @@ fig, axs = plt.subplots(1, 2, subplot_kw={"projection": projection}, figsize=(15
 
 # Plot the field using pcolormesh
 im = axs[0].pcolormesh(
-    lon,
-    lat,
-    x_atmos[0, 0, lead_time_idx, atmos_var_idx, :, :].cpu().numpy(),
+    ds.lon.values,
+    ds.lat.values,
+    ds[atmos_var].sel(time=ic_date, lead_time=lead_time).values,
     transform=ccrs.PlateCarree(),
     cmap="cividis",
 )
 
 # Set title
 axs[0].set_title(
-    f"{ic_date} - Lead time: {x_atmos_coords['lead_time'][lead_time_idx].astype('timedelta64[h]')}"
+    f"Initialization: {ic_date} - Lead time: {lead_time.astype('timedelta64[h]')}"
 )
 
 # Add coastlines and gridlines
@@ -325,15 +251,15 @@ cbar.set_label(f"{atmos_var} [{atmos_units}]")
 
 # Plot the ocean component
 im = axs[1].pcolormesh(
-    lon,
-    lat,
-    x_ocean[0, 0, lead_time_idx, ocean_var_idx, :, :].cpu().numpy(),
+    ds.lon.values,
+    ds.lat.values,
+    ds[ocean_var].sel(time=ic_date, lead_time=lead_time).values,
     transform=ccrs.PlateCarree(),
     cmap="Spectral_r",
 )
 
 axs[1].set_title(
-    f"{ic_date} - Lead time: {x_ocean_coords['lead_time'][lead_time_idx].astype('timedelta64[h]')}"
+    f"Initialization: {ic_date} - Lead time: {lead_time.astype('timedelta64[h]')}"
 )
 
 # Add coastlines and gridlines
