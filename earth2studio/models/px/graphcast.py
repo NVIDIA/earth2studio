@@ -289,6 +289,8 @@ class GraphCastMini(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         forcings: xr.Dataset,
     ) -> Generator[xr.Dataset, None, None]:
         """
+        This is used to construct the iterator for the prognostic model.
+
         This function is mostly copied from
         https://github.com/google-deepmind/graphcast/tree/main
 
