@@ -94,7 +94,6 @@ class ARCOLexicon(metaclass=LexiconType):
         "msl": "mean_sea_level_pressure::",
         "tcwv": "total_column_water_vapour::",
         "tp": "total_precipitation::",
-        "sst": "sea_surface_temperature::",
         "z": "geopotential_at_surface::",
     }
     VOCAB.update({f"u{level}": f"u_component_of_wind::{level}" for level in LEVELS})
