@@ -4,7 +4,7 @@ install:
 
 .PHONY: install-docker
 install-docker:
-	uv pip install --system --break-system-packages --force-reinstall --no-dependencies zarr
+	uv pip install --system --break-system-packages --force-reinstall --no-deps zarr
 	uv pip install --system --break-system-packages .[all] --group dev
 
 .PHONY: setup-ci
