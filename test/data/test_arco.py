@@ -30,7 +30,7 @@ from earth2studio.data import ARCO
 @pytest.mark.parametrize(
     "time",
     [
-        datetime.datetime(year=2000, month=1, day=31),
+        datetime.datetime(year=1959, month=1, day=31),
         [
             datetime.datetime(year=1971, month=6, day=1, hour=6),
             datetime.datetime(year=2021, month=11, day=23, hour=12),
