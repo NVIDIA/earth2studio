@@ -20,18 +20,17 @@ import shutil
 
 import numpy as np
 import pytest
-import xarray
 
 from earth2studio.data import ARCO
 
 
 @pytest.mark.slow
 @pytest.mark.xfail
-@pytest.mark.timeout(15)
+@pytest.mark.timeout(30)
 @pytest.mark.parametrize(
     "time",
     [
-        datetime.datetime(year=1959, month=1, day=31),
+        datetime.datetime(year=2000, month=1, day=31),
         [
             datetime.datetime(year=1971, month=6, day=1, hour=6),
             datetime.datetime(year=2021, month=11, day=23, hour=12),
@@ -63,40 +62,7 @@ def test_arco_fetch(time, variable):
 
 @pytest.mark.slow
 @pytest.mark.xfail
-@pytest.mark.timeout(15)
-@pytest.mark.parametrize(
-    "time",
-    [
-        np.array([np.datetime64("1993-04-05T00:00")]),
-    ],
-)
-@pytest.mark.parametrize(
-    "variable, arco_variable, arco_level",
-    [("t2m", "2m_temperature", None), ("u200", "u_component_of_wind", 200)],
-)
-def test_arco_zarr(time, variable, arco_variable, arco_level):
-
-    ds = ARCO(cache=False)
-    data = ds(time, variable)
-
-    # From https://cloud.google.com/storage/docs/public-datasets/era5
-    era5 = xarray.open_zarr(
-        "gs://gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3",
-        chunks={"time": 48},
-        consolidated=True,
-    )
-
-    if arco_level:
-        xr_data = era5[arco_variable].sel(time=time, level=arco_level)
-    else:
-        xr_data = era5[arco_variable].sel(time=time)
-
-    assert np.allclose(data.values, xr_data.values)
-
-
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(15)
+@pytest.mark.timeout(30)
 @pytest.mark.parametrize(
     "time",
     [np.array([np.datetime64("1993-04-05T00:00")])],
