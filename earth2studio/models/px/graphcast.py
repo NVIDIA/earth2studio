@@ -35,7 +35,7 @@ except ImportError:
     normalization = None
     rollout = None
 
-from earth2studio.lexicon.arco import ARCOLexicon
+from earth2studio.lexicon.wb2 import WB2Lexicon
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_coords, batch_func
 from earth2studio.models.px.base import PrognosticModel
@@ -147,7 +147,7 @@ FORCING_VARIABLES = EXTERNAL_FORCING_VARS + GENERATED_FORCING_VARS
 
 ATMOS_LEVELS = [50, 100, 150, 200, 250, 300, 400, 500, 600, 700, 850, 925, 1000]
 
-INV_VOCAB = {v: k for k, v in ARCOLexicon.VOCAB.items()}
+INV_VOCAB = {v: k for k, v in WB2Lexicon.VOCAB.items()}
 
 
 @check_extra_imports(
@@ -646,7 +646,7 @@ class GraphCastMini(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         all_datetimes = [start_date + time_delta for time_delta in time_deltas]
 
         data = data.to_dataset(dim="variable")
-        data = data.rename({key: ARCOLexicon.VOCAB[key] for key in data.data_vars})
+        data = data.rename({key: WB2Lexicon.VOCAB[key] for key in data.data_vars})
         out_data = xr.Dataset(
             coords={
                 "time": all_datetimes[0:2],

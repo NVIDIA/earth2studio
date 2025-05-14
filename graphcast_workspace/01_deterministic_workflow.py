@@ -61,7 +61,7 @@ from dotenv import load_dotenv
 
 load_dotenv()  # TODO: make common example prep function
 
-from earth2studio.data.arco import ARCO
+from earth2studio.data.wb2 import WB2ERA5
 from earth2studio.io import ZarrBackend
 from earth2studio.models.px import GraphCastMini
 
@@ -70,7 +70,7 @@ package = GraphCastMini.load_default_package()
 model = GraphCastMini.load_model(package)
 
 # Create the data source
-data = ARCO()
+data = WB2ERA5()
 
 # Create the IO handler, store in memory
 io = ZarrBackend()

@@ -17,17 +17,23 @@
 import pytest
 import torch
 
-from earth2studio.lexicon import WB2Lexicon
+from earth2studio.lexicon import WB2ClimatetologyLexicon, WB2Lexicon
 
 
 @pytest.mark.parametrize(
     "variable", [["t2m"], ["u10m", "v200"], ["msl", "t150", "q700"]]
 )
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
-def test_run_deterministic(variable, device):
+def test_wb2_lexicon(variable, device):
     input = torch.randn(len(variable), 8).to(device)
     for v in variable:
         label, modifier = WB2Lexicon[v]
+        output = modifier(input)
+        assert isinstance(label, str)
+        assert input.shape == output.shape
+        assert input.device == output.device
+
+        label, modifier = WB2ClimatetologyLexicon[v]
         output = modifier(input)
         assert isinstance(label, str)
         assert input.shape == output.shape
@@ -38,6 +44,9 @@ def test_run_deterministic(variable, device):
     "variable", [["t2m"], ["u10m", "v200"], ["msl", "t150", "q700"]]
 )
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
-def test_run_failure(variable, device):
+def test_wb2_lexicon_failure(variable, device):
     with pytest.raises(KeyError):
         label, modifier = WB2Lexicon["t3m"]
+
+    with pytest.raises(KeyError):
+        label, modifier = WB2ClimatetologyLexicon["t3m"]

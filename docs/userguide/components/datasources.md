@@ -11,9 +11,10 @@ The list of datasources that are already built into Earth2studio can be found in
 the API documentation {ref}`earth2studio.data`.
 
 :::{note}
-Data sources do not represent forecast systems / predictions such as numerical weather
-simulators. They may include the initial states these simulators use or outputs from
-data assimilation processes.
+Earth2Studio has data and forecast sources. The only difference being the latter
+has a lead time input. Some data stores may have both implemented where the data source
+provides the initial states / data-assimilated data while the forecast source provides
+results from a predictive model.
 :::
 
 ## Data Source Interface
@@ -54,6 +55,16 @@ Users should be aware that the same variable across multiple data sources will
 potentially not be identical.
 Please refer to each data source's documentation for details.
 :::
+
+For async use cases some data/forecast sources support an async {func}`fetch` function
+that is available.
+In these data sources, the {func}`__call__` function is just a synchronous wrapper
+around the async function.
+The functionality is identical between the two.
+Not all data sources have an async implementation, reference {ref}`earth2studio.data`
+for more information.
+Async-based data sources provide extremely fast download speeds compared to others,
+so users should explore and test different ones if possible.
 
 ### {mod}`earth2studio.data.fetch_data`
 

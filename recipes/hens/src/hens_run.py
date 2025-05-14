@@ -106,6 +106,7 @@ def run_inference(
             ensemble_idx_base=ens_idx,
             batch_ids_produce=batch_ids_produce,
             base_seed_string=base_seed_string,
+            pkg=pkg,
         )
 
         # run inference
