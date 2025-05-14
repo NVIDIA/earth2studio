@@ -564,27 +564,24 @@ oceanic outputs.</p>
 <span class="n">iterator</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">create_iterator</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="p">)</span>
 
 <span class="k">for</span> <span class="n">step</span><span class="p">,</span> <span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">iterator</span><span class="p">):</span>
-    <span class="c1"># Valid atmos and ocean predictions with their respective coordinates extracted below</span>
-    <span class="n">atmos_outputs</span><span class="p">,</span> <span class="n">atmos_coords</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">retrieve_valid_atmos_outputs</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="p">)</span>
-    <span class="n">ocean_outputs</span><span class="p">,</span> <span class="n">ocean_coords</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">retrieve_valid_ocean_outputs</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="p">)</span>
-    <span class="o">...</span>
+    <span class="k">if</span> <span class="n">step</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="c1"># Valid atmos and ocean predictions with their respective coordinates extracted below</span>
+        <span class="n">atmos_outputs</span><span class="p">,</span> <span class="n">atmos_coords</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">retrieve_valid_atmos_outputs</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="p">)</span>
+        <span class="n">ocean_outputs</span><span class="p">,</span> <span class="n">ocean_coords</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">retrieve_valid_ocean_outputs</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="p">)</span>
+        <span class="o">...</span>
 </pre></div>
 </div>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>For more information about this model see:</p>
-<blockquote>
-<div><ul class="simple">
+<ul class="simple">
 <li><p><a class="reference external" href="https://arxiv.org/abs/2409.16247">https://arxiv.org/abs/2409.16247</a></p></li>
 <li><p><a class="reference external" href="https://arxiv.org/abs/2311.06253v2">https://arxiv.org/abs/2311.06253v2</a></p></li>
 </ul>
-</div></blockquote>
-<dl class="simple">
-<dt>For more information about the HEALPix grid see:</dt><dd><ul class="simple">
+<p>For more information about the HEALPix grid see:</p>
+<ul class="simple">
 <li><p><a class="github reference external" href="https://github.com/NVlabs/earth2grid">NVlabs/earth2grid</a></p></li>
 </ul>
-</dd>
-</dl>
 </div>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -685,7 +682,13 @@ output data tensor and coordinate system dictionary.</p>
 
 </dd></dl>
 
-<div class="clearer"></div></section>
+<section id="examples-using-earth2studio-models-px-dlesym">
+<span id="sphx-glr-backref-earth2studio-models-px-dlesym"></span><h2>Examples using <code class="docutils literal notranslate"><span class="pre">earth2studio.models.px.DLESyM</span></code><a class="headerlink" href="#examples-using-earth2studio-models-px-dlesym" title="Link to this heading">#</a></h2>
+<div class="sphx-glr-thumbnails"><div class="sphx-glr-thumbcontainer" tooltip="Basic deterministic inference workflow for the DLESyM model."><img alt="" src="../../../../_images/sphx_glr_14_dlesym_example_thumb.png" />
+<p><a class="reference internal" href="../../../../examples/14_dlesym_example.html#sphx-glr-examples-14-dlesym-example-py"><span class="std std-ref">Running DLESyM Inference</span></a></p>
+  <div class="sphx-glr-thumbnail-title">Running DLESyM Inference</div>
+</div></div><div class="clearer"></div></section>
+</section>
 
 
                 </article>
@@ -740,6 +743,7 @@ output data tensor and coordinate system dictionary.</p>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.models.px.DLESyM.load_model"><code class="docutils literal notranslate"><span class="pre">DLESyM.load_model()</span></code></a></li>
 </ul>
 </li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#examples-using-earth2studio-models-px-dlesym">Examples using <code class="docutils literal notranslate"><span class="pre">earth2studio.models.px.DLESyM</span></code></a></li>
 </ul>
   </nav></div>
 

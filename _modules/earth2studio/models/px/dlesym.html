@@ -443,6 +443,7 @@ document.write(`
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">xarray</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">xr</span>
 
 <span class="k">try</span><span class="p">:</span>
     <span class="kn">import</span><span class="w"> </span><span class="nn">earth2grid</span>
@@ -455,6 +456,7 @@ document.write(`
     <span class="n">OmegaConf</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">earth2grid</span> <span class="o">=</span> <span class="kc">None</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.models.auto</span><span class="w"> </span><span class="kn">import</span> <span class="n">AutoModelMixin</span><span class="p">,</span> <span class="n">Package</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.models.batch</span><span class="w"> </span><span class="kn">import</span> <span class="n">batch_coords</span><span class="p">,</span> <span class="n">batch_func</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.models.px.base</span><span class="w"> </span><span class="kn">import</span> <span class="n">PrognosticModel</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.models.px.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">PrognosticMixin</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">check_extra_imports</span><span class="p">,</span> <span class="n">handshake_coords</span><span class="p">,</span> <span class="n">handshake_dim</span>
@@ -510,20 +512,22 @@ document.write(`
 <span class="sd">        iterator = model.create_iterator(x, coords)</span>
 
 <span class="sd">        for step, (x, coords) in enumerate(iterator):</span>
-<span class="sd">            # Valid atmos and ocean predictions with their respective coordinates extracted below</span>
-<span class="sd">            atmos_outputs, atmos_coords = model.retrieve_valid_atmos_outputs(x, coords)</span>
-<span class="sd">            ocean_outputs, ocean_coords = model.retrieve_valid_ocean_outputs(x, coords)</span>
-<span class="sd">            ...</span>
+<span class="sd">            if step &gt; 0:</span>
+<span class="sd">                # Valid atmos and ocean predictions with their respective coordinates extracted below</span>
+<span class="sd">                atmos_outputs, atmos_coords = model.retrieve_valid_atmos_outputs(x, coords)</span>
+<span class="sd">                ocean_outputs, ocean_coords = model.retrieve_valid_ocean_outputs(x, coords)</span>
+<span class="sd">                ...</span>
 
 <span class="sd">    Note</span>
 <span class="sd">    ----</span>
 <span class="sd">    For more information about this model see:</span>
 
-<span class="sd">     - https://arxiv.org/abs/2409.16247</span>
-<span class="sd">     - https://arxiv.org/abs/2311.06253v2</span>
+<span class="sd">    - https://arxiv.org/abs/2409.16247</span>
+<span class="sd">    - https://arxiv.org/abs/2311.06253v2</span>
 
 <span class="sd">    For more information about the HEALPix grid see:</span>
-<span class="sd">     - https://github.com/NVlabs/earth2grid</span>
+
+<span class="sd">    - https://github.com/NVlabs/earth2grid</span>
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
@@ -687,17 +691,17 @@ document.write(`
 
         <span class="c1"># Setup the variable indices for [atmos, ocean]</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">atmos_var_idx</span> <span class="o">=</span> <span class="p">[</span>
-            <span class="nb">list</span><span class="p">(</span><span class="n">in_coords</span><span class="p">[</span><span class="s2">&quot;variable&quot;</span><span class="p">])</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">var</span><span class="p">)</span> <span class="k">for</span> <span class="n">var</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">atmos_variables</span>
+            <span class="nb">list</span><span class="p">(</span><span class="n">out_coords</span><span class="p">[</span><span class="s2">&quot;variable&quot;</span><span class="p">])</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">var</span><span class="p">)</span> <span class="k">for</span> <span class="n">var</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">atmos_variables</span>
         <span class="p">]</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">ocean_var_idx</span> <span class="o">=</span> <span class="p">[</span>
-            <span class="nb">list</span><span class="p">(</span><span class="n">in_coords</span><span class="p">[</span><span class="s2">&quot;variable&quot;</span><span class="p">])</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">var</span><span class="p">)</span> <span class="k">for</span> <span class="n">var</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ocean_variables</span>
+            <span class="nb">list</span><span class="p">(</span><span class="n">out_coords</span><span class="p">[</span><span class="s2">&quot;variable&quot;</span><span class="p">])</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">var</span><span class="p">)</span> <span class="k">for</span> <span class="n">var</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ocean_variables</span>
         <span class="p">]</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">atmos_coupling_var_idx</span> <span class="o">=</span> <span class="p">[</span>
-            <span class="nb">list</span><span class="p">(</span><span class="n">in_coords</span><span class="p">[</span><span class="s2">&quot;variable&quot;</span><span class="p">])</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">var</span><span class="p">)</span>
+            <span class="nb">list</span><span class="p">(</span><span class="n">out_coords</span><span class="p">[</span><span class="s2">&quot;variable&quot;</span><span class="p">])</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">var</span><span class="p">)</span>
             <span class="k">for</span> <span class="n">var</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">atmos_coupling_variables</span>
         <span class="p">]</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">ocean_coupling_var_idx</span> <span class="o">=</span> <span class="p">[</span>
-            <span class="nb">list</span><span class="p">(</span><span class="n">in_coords</span><span class="p">[</span><span class="s2">&quot;variable&quot;</span><span class="p">])</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">var</span><span class="p">)</span>
+            <span class="nb">list</span><span class="p">(</span><span class="n">out_coords</span><span class="p">[</span><span class="s2">&quot;variable&quot;</span><span class="p">])</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">var</span><span class="p">)</span>
             <span class="k">for</span> <span class="n">var</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ocean_coupling_variables</span>
         <span class="p">]</span>
 
@@ -721,7 +725,7 @@ document.write(`
             <span class="p">}</span>
         <span class="p">)</span>
 
-    <span class="c1"># @batch_coords()</span>
+    <span class="nd">@batch_coords</span><span class="p">()</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">output_coords</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_coords</span><span class="p">:</span> <span class="n">CoordSystem</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">CoordSystem</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Output coordinate system of the prognostic model</span>
 
@@ -772,10 +776,14 @@ document.write(`
     <span class="nd">@classmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">load_default_package</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Package</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Default DLESyM model package on NGC&quot;&quot;&quot;</span>
-        <span class="c1"># TODO use NGC package when ready</span>
-        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span>
-            <span class="s2">&quot;DLESyM NGC package not yet available, but is expected May 2025!&quot;</span>
-        <span class="p">)</span></div>
+        <span class="n">package</span> <span class="o">=</span> <span class="n">Package</span><span class="p">(</span>
+            <span class="s2">&quot;ngc://models/nvidia/earth-2/dlesym-v1-era5@1.0.1&quot;</span><span class="p">,</span>
+            <span class="n">cache_options</span><span class="o">=</span><span class="p">{</span>
+                <span class="s2">&quot;cache_storage&quot;</span><span class="p">:</span> <span class="n">Package</span><span class="o">.</span><span class="n">default_cache</span><span class="p">(</span><span class="s2">&quot;dlesym&quot;</span><span class="p">),</span>
+                <span class="s2">&quot;same_names&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+            <span class="p">},</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">package</span></div>
 
 
 <div class="viewcode-block" id="DLESyM.load_model">
@@ -1136,15 +1144,21 @@ document.write(`
 <span class="sd">            Output coordinates</span>
 <span class="sd">        &quot;&quot;&quot;</span>
 
+        <span class="bp">self</span><span class="o">.</span><span class="n">_validate_output_coords</span><span class="p">(</span><span class="n">coords</span><span class="p">)</span>
+
+        <span class="n">var_dim</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">coords</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="s2">&quot;variable&quot;</span><span class="p">)</span>
+        <span class="n">lead_dim</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">coords</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="s2">&quot;lead_time&quot;</span><span class="p">)</span>
         <span class="n">out_coords</span> <span class="o">=</span> <span class="n">coords</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
         <span class="n">out_coords</span><span class="p">[</span><span class="s2">&quot;variable&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ocean_variables</span><span class="p">)</span>
         <span class="n">out_coords</span><span class="p">[</span><span class="s2">&quot;lead_time&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span>
             <span class="p">[</span><span class="n">t</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">coords</span><span class="p">[</span><span class="s2">&quot;lead_time&quot;</span><span class="p">]</span> <span class="k">if</span> <span class="n">t</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">ocean_output_times</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="mi">0</span><span class="p">]</span>
         <span class="p">)</span>
 
-        <span class="n">ocean_outputs</span> <span class="o">=</span> <span class="n">x</span><span class="p">[:,</span> <span class="p">:,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ocean_output_lt_idx</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span>
+        <span class="n">ocean_outputs</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">index_select</span><span class="p">(</span>
+            <span class="n">dim</span><span class="o">=</span><span class="n">var_dim</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ocean_var_idx</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">x</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+        <span class="p">)</span>
         <span class="n">ocean_outputs</span> <span class="o">=</span> <span class="n">ocean_outputs</span><span class="o">.</span><span class="n">index_select</span><span class="p">(</span>
-            <span class="n">dim</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ocean_var_idx</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">x</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+            <span class="n">dim</span><span class="o">=</span><span class="n">lead_dim</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ocean_output_lt_idx</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">x</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
         <span class="p">)</span>
         <span class="k">return</span> <span class="n">ocean_outputs</span><span class="p">,</span> <span class="n">out_coords</span>
 
@@ -1169,12 +1183,38 @@ document.write(`
 <span class="sd">            Output coordinates</span>
 <span class="sd">        &quot;&quot;&quot;</span>
 
+        <span class="bp">self</span><span class="o">.</span><span class="n">_validate_output_coords</span><span class="p">(</span><span class="n">coords</span><span class="p">)</span>
+
+        <span class="n">var_dim</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">coords</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="s2">&quot;variable&quot;</span><span class="p">)</span>
+
         <span class="n">out_coords</span> <span class="o">=</span> <span class="n">coords</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
         <span class="n">out_coords</span><span class="p">[</span><span class="s2">&quot;variable&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">atmos_variables</span><span class="p">)</span>
 
-        <span class="n">atmos_outputs</span> <span class="o">=</span> <span class="n">x</span><span class="p">[:,</span> <span class="p">:,</span> <span class="p">:,</span> <span class="bp">self</span><span class="o">.</span><span class="n">atmos_var_idx</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span>
+        <span class="n">atmos_outputs</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">index_select</span><span class="p">(</span>
+            <span class="n">dim</span><span class="o">=</span><span class="n">var_dim</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">atmos_var_idx</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">x</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+        <span class="p">)</span>
 
         <span class="k">return</span> <span class="n">atmos_outputs</span><span class="p">,</span> <span class="n">out_coords</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_validate_output_coords</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">coords</span><span class="p">:</span> <span class="n">CoordSystem</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Validate the coordinates passed to the output subselection methods</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        coords : CoordSystem</span>
+<span class="sd">            Output coordinates to be validated</span>
+
+<span class="sd">        Raises</span>
+<span class="sd">        ------</span>
+<span class="sd">        ValueError</span>
+<span class="sd">            If the coordinates are invalid (missing or incorrect length lead_time dim)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="s2">&quot;lead_time&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">coords</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Lead time is required in the output coordinates&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">coords</span><span class="p">[</span><span class="s2">&quot;lead_time&quot;</span><span class="p">])</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">atmos_output_times</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Lead time dimension length mismatch between model and coords: expected </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">atmos_output_times</span><span class="p">)</span><span class="si">}</span><span class="s2">, got </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">coords</span><span class="p">[</span><span class="s1">&#39;lead_time&#39;</span><span class="p">])</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="p">)</span>
 
     <span class="nd">@torch</span><span class="o">.</span><span class="n">inference_mode</span><span class="p">()</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">_forward</span><span class="p">(</span>
@@ -1223,9 +1263,9 @@ document.write(`
 
         <span class="k">return</span> <span class="n">next_x</span><span class="p">,</span> <span class="n">next_coords</span>
 
-    <span class="c1"># @batch_func()</span>
 <div class="viewcode-block" id="DLESyM.__call__">
 <a class="viewcode-back" href="../../../../modules/generated/models/px/earth2studio.models.px.DLESyM.html#earth2studio.models.px.DLESyM.__call__">[docs]</a>
+    <span class="nd">@batch_func</span><span class="p">()</span>
     <span class="k">def</span><span class="w"> </span><span class="fm">__call__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
@@ -1251,7 +1291,7 @@ document.write(`
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_forward</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="p">),</span> <span class="n">output_coords</span></div>
 
 
-    <span class="c1"># @batch_func()</span>
+    <span class="nd">@batch_func</span><span class="p">()</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">_default_generator</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">coords</span><span class="p">:</span> <span class="n">CoordSystem</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Generator</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">CoordSystem</span><span class="p">],</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">]:</span>
@@ -1412,9 +1452,16 @@ document.write(`
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">coords</span> <span class="o">=</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">input_coords</span><span class="p">()</span>
         <span class="n">coords</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">coords_to_ll</span><span class="p">(</span><span class="n">coords</span><span class="p">)</span>
+
+        <span class="c1"># Modify to use the base variables instead of the derived variables</span>
+        <span class="n">input_variables</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="n">v</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="n">coords</span><span class="p">[</span><span class="s2">&quot;variable&quot;</span><span class="p">])</span> <span class="k">if</span> <span class="n">v</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;tau300-700&quot;</span><span class="p">,</span> <span class="s2">&quot;ws10m&quot;</span><span class="p">]</span>
+        <span class="p">]</span>
+        <span class="n">input_variables</span><span class="o">.</span><span class="n">extend</span><span class="p">([</span><span class="s2">&quot;u10m&quot;</span><span class="p">,</span> <span class="s2">&quot;v10m&quot;</span><span class="p">,</span> <span class="s2">&quot;z300&quot;</span><span class="p">,</span> <span class="s2">&quot;z700&quot;</span><span class="p">])</span>
+        <span class="n">coords</span><span class="p">[</span><span class="s2">&quot;variable&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">input_variables</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">coords</span>
 
-    <span class="c1"># @batch_coords()</span>
+    <span class="nd">@batch_coords</span><span class="p">()</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">output_coords</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_coords</span><span class="p">:</span> <span class="n">CoordSystem</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">CoordSystem</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Output coordinate system of the prognostic model</span>
 
@@ -1500,9 +1547,88 @@ document.write(`
             <span class="n">ll_coords</span><span class="o">.</span><span class="n">move_to_end</span><span class="p">(</span><span class="n">dim</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">ll_coords</span>
 
-    <span class="c1"># @batch_func()</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_nan_interpolate_sst</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">sst</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">coords</span><span class="p">:</span> <span class="n">CoordSystem</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Custom interpolation to fill NaNs over landmasses in SST data.&quot;&quot;&quot;</span>
+
+        <span class="n">da_sst</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">(</span><span class="n">sst</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">(),</span> <span class="n">dims</span><span class="o">=</span><span class="n">coords</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+        <span class="n">da_interp</span> <span class="o">=</span> <span class="n">da_sst</span><span class="o">.</span><span class="n">interpolate_na</span><span class="p">(</span>
+            <span class="n">dim</span><span class="o">=</span><span class="s2">&quot;lon&quot;</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s2">&quot;linear&quot;</span><span class="p">,</span> <span class="n">use_coordinate</span><span class="o">=</span><span class="kc">False</span>
+        <span class="p">)</span>
+
+        <span class="c1"># Second pass: roll, interpolate along longitude, and unroll</span>
+        <span class="n">roll_amount_lon</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">da_interp</span><span class="o">.</span><span class="n">lon</span><span class="p">)</span> <span class="o">/</span> <span class="mi">2</span><span class="p">)</span>
+        <span class="n">da_double_interp</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">da_interp</span><span class="o">.</span><span class="n">roll</span><span class="p">(</span><span class="n">lon</span><span class="o">=</span><span class="n">roll_amount_lon</span><span class="p">,</span> <span class="n">roll_coords</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+            <span class="o">.</span><span class="n">interpolate_na</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="s2">&quot;lon&quot;</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s2">&quot;linear&quot;</span><span class="p">,</span> <span class="n">use_coordinate</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+            <span class="o">.</span><span class="n">roll</span><span class="p">(</span><span class="n">lon</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">da_interp</span><span class="o">.</span><span class="n">lon</span><span class="p">)</span> <span class="o">-</span> <span class="n">roll_amount_lon</span><span class="p">,</span> <span class="n">roll_coords</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="p">)</span>
+
+        <span class="c1"># Third pass do a similar roll along latitude</span>
+        <span class="n">roll_amount_lat</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">da_double_interp</span><span class="o">.</span><span class="n">lat</span><span class="p">)</span> <span class="o">/</span> <span class="mi">2</span><span class="p">)</span>
+        <span class="n">da_triple_interp</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">da_double_interp</span><span class="o">.</span><span class="n">roll</span><span class="p">(</span><span class="n">lat</span><span class="o">=</span><span class="n">roll_amount_lat</span><span class="p">,</span> <span class="n">roll_coords</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+            <span class="o">.</span><span class="n">interpolate_na</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="s2">&quot;lat&quot;</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s2">&quot;linear&quot;</span><span class="p">,</span> <span class="n">use_coordinate</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+            <span class="o">.</span><span class="n">roll</span><span class="p">(</span><span class="n">lat</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">da_double_interp</span><span class="o">.</span><span class="n">lat</span><span class="p">)</span> <span class="o">-</span> <span class="n">roll_amount_lat</span><span class="p">,</span> <span class="n">roll_coords</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">from_numpy</span><span class="p">(</span><span class="n">da_triple_interp</span><span class="o">.</span><span class="n">values</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">sst</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_prepare_derived_variables</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">coords</span><span class="p">:</span> <span class="n">CoordSystem</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">CoordSystem</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Prepare derived variables for the DLESyM model.</span>
+
+<span class="sd">        This method handles the preparation of derived variables from the input tensor</span>
+<span class="sd">        and coordinates. It ensures that the derived variables are correctly computed,</span>
+<span class="sd">        and performs NaN-interpolation on the SST data.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        x : torch.Tensor</span>
+<span class="sd">            Input tensor</span>
+<span class="sd">        coords : CoordSystem</span>
+<span class="sd">            Input coordinate system</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        tuple[torch.Tensor, CoordSystem]</span>
+<span class="sd">            Output tensor and coordinate system for the derived variables</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">prep_coords</span> <span class="o">=</span> <span class="n">coords</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+
+        <span class="c1"># Fetch the base variables</span>
+        <span class="n">base_vars</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">prep_coords</span><span class="p">[</span><span class="s2">&quot;variable&quot;</span><span class="p">])</span>
+        <span class="n">src_vars</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="n">v</span><span class="p">:</span> <span class="n">x</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">base_vars</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="p">:</span> <span class="n">base_vars</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:]</span>
+            <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">base_vars</span>
+        <span class="p">}</span>
+
+        <span class="c1"># Compute the derived variables</span>
+        <span class="n">out_vars</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">&quot;ws10m&quot;</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">src_vars</span><span class="p">[</span><span class="s2">&quot;u10m&quot;</span><span class="p">]</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">+</span> <span class="n">src_vars</span><span class="p">[</span><span class="s2">&quot;v10m&quot;</span><span class="p">]</span> <span class="o">**</span> <span class="mi">2</span><span class="p">),</span>
+            <span class="s2">&quot;tau300-700&quot;</span><span class="p">:</span> <span class="n">src_vars</span><span class="p">[</span><span class="s2">&quot;z300&quot;</span><span class="p">]</span> <span class="o">-</span> <span class="n">src_vars</span><span class="p">[</span><span class="s2">&quot;z700&quot;</span><span class="p">],</span>
+        <span class="p">}</span>
+        <span class="n">out_vars</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">src_vars</span><span class="p">)</span>
+
+        <span class="c1"># Fill SST nans by custom interpolation</span>
+        <span class="n">out_vars</span><span class="p">[</span><span class="s2">&quot;sst&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_nan_interpolate_sst</span><span class="p">(</span><span class="n">out_vars</span><span class="p">[</span><span class="s2">&quot;sst&quot;</span><span class="p">],</span> <span class="n">coords</span><span class="p">)</span>
+
+        <span class="c1"># Update the tensor with the derived variables and return</span>
+        <span class="n">prep_coords</span><span class="p">[</span><span class="s2">&quot;variable&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">atmos_variables</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">ocean_variables</span><span class="p">)</span>
+        <span class="n">x_out</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span>
+            <span class="o">*</span><span class="p">[</span><span class="n">v</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">prep_coords</span><span class="o">.</span><span class="n">values</span><span class="p">()],</span> <span class="n">device</span><span class="o">=</span><span class="n">x</span><span class="o">.</span><span class="n">device</span>
+        <span class="p">)</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">prep_coords</span><span class="p">[</span><span class="s2">&quot;variable&quot;</span><span class="p">]):</span>
+            <span class="n">x_out</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">i</span> <span class="p">:</span> <span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:]</span> <span class="o">=</span> <span class="n">out_vars</span><span class="p">[</span><span class="n">v</span><span class="p">]</span>
+
+        <span class="k">return</span> <span class="n">x_out</span><span class="p">,</span> <span class="n">prep_coords</span>
+
 <div class="viewcode-block" id="DLESyMLatLon.__call__">
 <a class="viewcode-back" href="../../../../modules/generated/models/px/earth2studio.models.px.DLESyMLatLon.html#earth2studio.models.px.DLESyMLatLon.__call__">[docs]</a>
+    <span class="nd">@batch_func</span><span class="p">()</span>
     <span class="k">def</span><span class="w"> </span><span class="fm">__call__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">coords</span><span class="p">:</span> <span class="n">CoordSystem</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">CoordSystem</span><span class="p">]:</span>
@@ -1522,18 +1648,24 @@ document.write(`
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">output_coords</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">output_coords</span><span class="p">(</span><span class="n">coords</span><span class="p">)</span>
 
+        <span class="n">x</span><span class="p">,</span> <span class="n">coords</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_prepare_derived_variables</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="p">)</span>
+
         <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">to_hpx</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
         <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_forward</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">coords_to_hpx</span><span class="p">(</span><span class="n">coords</span><span class="p">))</span>
         <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">to_ll</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">x</span><span class="p">,</span> <span class="n">output_coords</span></div>
 
 
-    <span class="c1"># @batch_func()</span>
+    <span class="nd">@batch_func</span><span class="p">()</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">_default_generator</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">coords</span><span class="p">:</span> <span class="n">CoordSystem</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Generator</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">CoordSystem</span><span class="p">],</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">]:</span>
 
         <span class="n">coords</span> <span class="o">=</span> <span class="n">coords</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+
+        <span class="n">base_vars</span> <span class="o">=</span> <span class="n">coords</span><span class="p">[</span><span class="s2">&quot;variable&quot;</span><span class="p">]</span>
+
+        <span class="n">x</span><span class="p">,</span> <span class="n">coords</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_prepare_derived_variables</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="p">)</span>
 
         <span class="k">yield</span> <span class="n">x</span><span class="p">,</span> <span class="n">coords</span>
 
@@ -1544,7 +1676,12 @@ document.write(`
             <span class="n">x</span><span class="p">,</span> <span class="n">coords</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">front_hook</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="p">)</span>
 
             <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_forward</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">coords_to_hpx</span><span class="p">(</span><span class="n">coords</span><span class="p">))</span>
-            <span class="n">coords</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">output_coords</span><span class="p">(</span><span class="n">coords</span><span class="p">)</span>
+
+            <span class="c1"># Output coords expects the input variable set to include base variables,</span>
+            <span class="c1"># but will return the ouptut variables with the derived variables</span>
+            <span class="n">base_coords</span> <span class="o">=</span> <span class="n">coords</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+            <span class="n">base_coords</span><span class="p">[</span><span class="s2">&quot;variable&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">base_vars</span>
+            <span class="n">coords</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">output_coords</span><span class="p">(</span><span class="n">base_coords</span><span class="p">)</span>
 
             <span class="c1"># Rear hook</span>
             <span class="n">x</span><span class="p">,</span> <span class="n">coords</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">rear_hook</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="p">)</span>
