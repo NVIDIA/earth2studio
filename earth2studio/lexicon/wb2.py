@@ -32,13 +32,13 @@ class WB2Lexicon(metaclass=LexiconType):
     Variable named based on ERA5 names, see WB2 docs for resources.
 
     - https://weatherbench2.readthedocs.io/en/latest/data-guide.html
+    - Dew point temperature at 2m seems to be all NaNs
     """
 
     VOCAB = {
         "u10m": "10m_u_component_of_wind::",
         "v10m": "10m_v_component_of_wind::",
         "t2m": "2m_temperature::",
-        "d2m": "2m_dewpoint_temperature::",
         "sp": "surface_pressure::",
         "msl": "mean_sea_level_pressure::",
         "sst": "sea_surface_temperature::",
@@ -88,13 +88,13 @@ class WB2ClimatetologyLexicon(metaclass=LexiconType):
     Variable named based on ERA5 names, see WB2 docs for resources.
 
     - https://weatherbench2.readthedocs.io/en/latest/data-guide.html
+    - Dew point temperature at 2m seems to be all NaNs
     """
 
     VOCAB = {
         "u10m": "10m_u_component_of_wind::",
         "v10m": "10m_v_component_of_wind::",
         "t2m": "2m_temperature::",
-        "d2m": "2m_dewpoint_temperature::",
         "sp": "surface_pressure::",
         "msl": "mean_sea_level_pressure::",
         "sst": "sea_surface_temperature::",
