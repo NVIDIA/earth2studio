@@ -20,7 +20,7 @@ import inspect
 import os
 import pathlib
 import shutil
-from datetime import datetime, timedelta
+from datetime import datetime
 from importlib.metadata import version
 
 import fsspec
@@ -257,22 +257,6 @@ class ARCO:
         except KeyError as e:
             logger.error(f"variable id {variable} not found in ARCO lexicon")
             raise e
-
-        # Handle 6-hour precipitation accumulation
-        # TODO: Is there a better place to put this?
-        if variable == "tp06":
-            # Get the last 6 hours of data
-            start_time = time - timedelta(hours=5)
-            times = [start_time + timedelta(hours=i) for i in range(6)]
-            
-            # Fetch hourly precipitation data
-            tp_data = []
-            for t in times:
-                tp = await self.fetch_array(t, "tp")
-                tp_data.append(tp)
-            
-            # Sum up the hourly data
-            return np.sum(tp_data, axis=0)
 
         arco_variable, level = arco_name.split("::")
         if self.zarr_major_version >= 3:
