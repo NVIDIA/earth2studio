@@ -11,7 +11,7 @@ import xarray as xr
 from graphcast import graphcast
 
 from earth2studio.data import Random, fetch_data
-from earth2studio.models.px.graphcast import GraphCast
+from earth2studio.models.px.graphcast import GraphCastMini
 from earth2studio.utils import handshake_dim
 
 CUDA_DEVICE = 0
@@ -49,7 +49,7 @@ def mocked_chunked_prediction(
 
 
 @pytest.fixture
-def mock_graphcast_model():
+def mock_graphcastmini_model():
     # Spoof model
     model_config = graphcast.ModelConfig(
         resolution=1.0,
@@ -96,7 +96,7 @@ def mock_graphcast_model():
         static_data, coords={"level": list(graphcast.PRESSURE_LEVELS[37])}
     )
 
-    p = GraphCast(
+    p = GraphCastMini(
         CKPT(model_config, task_config),
         diffs_stddev_by_level,
         mean_by_level,
@@ -111,14 +111,14 @@ def mock_graphcast_model():
         np.array([np.datetime64("1993-04-05T00:00")]),
         np.array(
             [np.datetime64("2001-06-04T00:00")]
-        ),  # Only len 1 time array is supported by GraphCast model
+        ),  # Only len 1 time array is supported by GraphCastMini model
     ],
 )
 @pytest.mark.parametrize("device", ["cpu", f"cuda:{CUDA_DEVICE}"])
 @mock.patch("graphcast.rollout.chunked_prediction", mocked_chunked_prediction)
-def test_graphcast_call(time, device, mock_graphcast_model):
+def test_graphcastmini_call(time, device, mock_graphcastmini_model):
 
-    p = mock_graphcast_model.to(device)
+    p = mock_graphcastmini_model.to(device)
 
     dc = p.input_coords()
     del dc["batch"]
@@ -159,9 +159,9 @@ def test_graphcast_call(time, device, mock_graphcast_model):
     "graphcast.rollout.chunked_prediction_generator",
     mocked_chunked_prediction_generator,
 )
-def test_graphcast_iter(ensemble, device, mock_graphcast_model):
+def test_graphcastmini_iter(ensemble, device, mock_graphcastmini_model):
     time = np.array([np.datetime64("1993-04-05T00:00")])
-    p = mock_graphcast_model.to(device)
+    p = mock_graphcastmini_model.to(device)
 
     dc = p.input_coords()
     del dc["batch"]
@@ -212,9 +212,9 @@ def test_graphcast_iter(ensemble, device, mock_graphcast_model):
     ],
 )
 @pytest.mark.parametrize("device", ["cpu", f"cuda:{CUDA_DEVICE}"])
-def test_graphcast_exceptions(dc, device, mock_graphcast_model):
+def test_graphcastmini_exceptions(dc, device, mock_graphcastmini_model):
     time = np.array([np.datetime64("1993-04-05T00:00")])
-    p = mock_graphcast_model.to(device)
+    p = mock_graphcastmini_model.to(device)
     # Initialize Data Source
     r = Random(dc)
 
@@ -228,22 +228,22 @@ def test_graphcast_exceptions(dc, device, mock_graphcast_model):
 
 
 @pytest.fixture(scope="module")
-def model(model_cache_context) -> GraphCast:
+def model(model_cache_context) -> GraphCastMini:
     # Test only on cuda device
     with model_cache_context():
-        package = GraphCast.load_default_package()
-        p = GraphCast.load_model(package)
+        package = GraphCastMini.load_default_package()
+        p = GraphCastMini.load_model(package)
         return p
 
 
 @pytest.mark.ci_cache
 # @pytest.mark.timeout()
 @pytest.mark.parametrize("device", ["cpu", f"cuda:{CUDA_DEVICE}"])
-def test_graphcast_package(model, device):
+def test_graphcastmini_package(model, device):
     torch.cuda.empty_cache()
     time = np.array([np.datetime64("1993-04-05T00:00")])
     # Test the cached model package graphcast
-    p = mock_graphcast_model.to(device)
+    p = mock_graphcastmini_model.to(device)
 
     dc = p.input_coords()
     del dc["batch"]
