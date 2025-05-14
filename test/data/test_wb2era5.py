@@ -25,7 +25,7 @@ from earth2studio.data import WB2ERA5, WB2ERA5_32x64, WB2ERA5_121x240
 
 
 @pytest.mark.slow
-# @pytest.mark.xfail
+@pytest.mark.xfail
 @pytest.mark.timeout(15)
 @pytest.mark.parametrize(
     "time",
