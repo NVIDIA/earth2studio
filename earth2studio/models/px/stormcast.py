@@ -147,7 +147,7 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         super().__init__()
         self.regression_model = regression_model
         self.diffusion_model = diffusion_model
-        # Could pull this from
+        # Could pull this from HRRR grid function for these
         self.lat = lat
         self.lon = lon
         self.register_buffer("means", means)
