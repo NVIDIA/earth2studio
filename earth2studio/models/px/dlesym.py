@@ -97,11 +97,12 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     ----
     For more information about this model see:
 
-     - https://arxiv.org/abs/2409.16247
-     - https://arxiv.org/abs/2311.06253v2
+    - https://arxiv.org/abs/2409.16247
+    - https://arxiv.org/abs/2311.06253v2
 
     For more information about the HEALPix grid see:
-     - https://github.com/NVlabs/earth2grid
+
+    - https://github.com/NVlabs/earth2grid
 
     Parameters
     ----------
@@ -1109,9 +1110,7 @@ class DLESyMLatLon(DLESyM):
     def _nan_interpolate_sst(
         self, sst: torch.Tensor, coords: CoordSystem
     ) -> torch.Tensor:
-        """
-        Custom interpolation to fill NaNs over landmasses in SST data.
-        """
+        """Custom interpolation to fill NaNs over landmasses in SST data."""
 
         da_sst = xr.DataArray(sst.cpu().numpy(), dims=coords.keys())
         da_interp = da_sst.interpolate_na(
@@ -1139,8 +1138,7 @@ class DLESyMLatLon(DLESyM):
     def _prepare_derived_variables(
         self, x: torch.Tensor, coords: CoordSystem
     ) -> tuple[torch.Tensor, CoordSystem]:
-        """
-        Prepare derived variables for the DLESyM model.
+        """Prepare derived variables for the DLESyM model.
 
         This method handles the preparation of derived variables from the input tensor
         and coordinates. It ensures that the derived variables are correctly computed,

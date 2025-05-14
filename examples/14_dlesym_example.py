@@ -17,7 +17,7 @@
 # %%
 """
 Running DLESyM Inference
-===============================
+========================
 
 Basic deterministic inference workflow for the DLESyM model.
 
@@ -35,7 +35,7 @@ In this example you will learn:
 - How to instantiate the DLESyM model
 - How to use the model API to generate a forecast
 - How to use the output selection and regridding methods to select appropriate data
-- How to use the `DLESyMLatLon` model with earth2studio workflows
+- How to use the DLESyMLatLon model with earth2studio workflows
 """
 
 # %%
@@ -43,16 +43,16 @@ In this example you will learn:
 # ------
 # The first step is fetching appropriate input data for the model. The ERA5 data sources
 # in earth2studio provide data on the lat/lon grid, so have two options:
-#  -  use the :py:class:`earth2studio.models.DLESyMLatLon` model. This version of DLESyM
-#     accepts inputs on the lat/lon grid and regrids them to the HEALPix grid internally,
-#     before returning the output regridded back to the lat/lon grid. This is the
-#     recommended approach for most users as it can be used directly with earth2studio
-#     data sources and workflows, since it performs regridding and pre-processing
-#     internally.
-#  -  use the :py:class:`earth2studio.models.DLESyM` model, and handle the regridding of
-#     input lat/lon data ourselves. Since the model uses some derived variables which
-#     are not provided by the data source, we would also need to prepare these derived
-#     variables ourselves.
+# - use the :py:class:`earth2studio.models.px.DLESyMLatLon` model. This version of DLESyM
+#   accepts inputs on the lat/lon grid and regrids them to the HEALPix grid internally,
+#   before returning the output regridded back to the lat/lon grid. This is the
+#   recommended approach for most users as it can be used directly with earth2studio
+#   data sources and workflows, since it performs regridding and pre-processing
+#   internally.
+# - use the :py:class:`earth2studio.models.px.DLESyM` model, and handle the regridding of
+#   input lat/lon data ourselves. Since the model uses some derived variables which
+#   are not provided by the data source, we would also need to prepare these derived
+#   variables ourselves.
 #
 # Let's load both of these models and inspect the expected input coordinates for each.
 # Also note the input and output variable set for each model.
@@ -101,17 +101,17 @@ print(
     model_hpx.output_coords(in_coords_hpx)["variable"],
 )
 # %%
-# Making predictions, regridding, and selecting outputs
-# ---------------
+# Making Predictions, Regridding, and Selecting Outputs
+# -----------------------------------------------------
 # Let's now pull some example data and make predictions with the model. As the
-# data source provides lat/lon data, we can use the :py:class:`earth2studio.models.DLESyMLatLon` model.
-
+# data source provides lat/lon data, we can use the :py:class:`earth2studio.models.px.DLESyMLatLon` model.
+#
 # In addition, we demonstrate how to use the regridding utilities provided by
-# `DLESyMLatLon` to regrid onto the HEALPix grid. The :py:class:`earth2studio.models.DLESyM`
+# `DLESyMLatLon` to regrid onto the HEALPix grid. The :py:class:`earth2studio.models.px.DLESyM`
 # model can then be used directly with the HEALPix data.
-
+#
 # Finally, a key aspect of the DLESyM model is that it makes predictions for the atmosphere
-# and ocean components at different timesteps, becasue the atmosphere is faster-evolving
+# and ocean components at different timesteps, because the atmosphere is faster-evolving
 # than the ocean. The atmosphere is predicted every 6 hours, while the ocean is only
 # predicted every 48 hours. Thus, not all output lead times are valid for the ocean
 # component. For convenience, we can use a method that selects only the valid outputs
@@ -154,8 +154,8 @@ print(
 )
 
 # %%
-# Model iteration for longer forecasts
-# ------------------------------
+# Model Iteration for Longer Forecasts
+# ------------------------------------
 # Similar to other models in earth2studio, we can use the model iterator to loop
 # over forecasted outputs. A single step of the DLESyM model produces predictions
 # over 4 days (96 hours), so to make a sub-seasonal forecast we can take 15 steps for
@@ -175,8 +175,8 @@ print(f"Completed forecast with {n_steps} steps")
 
 
 # %%
-# Using built-in deterministic workflow
-# ------------------------------------
+# Using Built-in Deterministic Workflow
+# -------------------------------------
 # Because the `DLESyMLatLon` model permits usage of data coming directly from an
 # earth2studio data source, we can use the built-in deterministic workflow to generate
 # a forecast as well. The only caveat is we need to explitcitly specify the output
@@ -204,7 +204,7 @@ ds = io.to_xarray()
 print(ds)
 
 # %%
-# Plotting the outputs
+# Plotting the Outputs
 # --------------------
 # Let's plot some of the forecasted outputs for the atmosphere and ocean components.
 
