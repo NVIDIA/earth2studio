@@ -437,6 +437,9 @@ document.write(`
 <span class="c1"># See the License for the specific language governing permissions and</span>
 <span class="c1"># limitations under the License.</span>
 
+<span class="kn">import</span><span class="w"> </span><span class="nn">asyncio</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">functools</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">inspect</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">pathlib</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">shutil</span>
@@ -444,17 +447,20 @@ document.write(`
 <span class="kn">from</span><span class="w"> </span><span class="nn">importlib.metadata</span><span class="w"> </span><span class="kn">import</span> <span class="n">version</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Literal</span>
 
-<span class="kn">import</span><span class="w"> </span><span class="nn">fsspec</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">gcsfs</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">nest_asyncio</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">xarray</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">xr</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">zarr</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">fsspec.implementations.cached</span><span class="w"> </span><span class="kn">import</span> <span class="n">WholeFileCacheFileSystem</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">loguru</span><span class="w"> </span><span class="kn">import</span> <span class="n">logger</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">tqdm</span><span class="w"> </span><span class="kn">import</span> <span class="n">tqdm</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">tqdm.asyncio</span><span class="w"> </span><span class="kn">import</span> <span class="n">tqdm</span>
 
-<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.data.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">datasource_cache_root</span><span class="p">,</span> <span class="n">prep_data_inputs</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.lexicon</span><span class="w"> </span><span class="kn">import</span> <span class="n">WB2Lexicon</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.data.utils</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">AsyncCachingFileSystem</span><span class="p">,</span>
+    <span class="n">datasource_cache_root</span><span class="p">,</span>
+    <span class="n">prep_data_inputs</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.lexicon</span><span class="w"> </span><span class="kn">import</span> <span class="n">WB2ClimatetologyLexicon</span><span class="p">,</span> <span class="n">WB2Lexicon</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.utils.type</span><span class="w"> </span><span class="kn">import</span> <span class="n">TimeArray</span><span class="p">,</span> <span class="n">VariableArray</span>
 
 
@@ -467,8 +473,10 @@ document.write(`
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">wb2_zarr_store</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">wb2_product</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;era5&quot;</span><span class="p">,</span>
         <span class="n">cache</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
         <span class="n">verbose</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="n">async_timeout</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">600</span><span class="p">,</span>
     <span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span> <span class="o">=</span> <span class="n">cache</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_verbose</span> <span class="o">=</span> <span class="n">verbose</span>
@@ -478,6 +486,7 @@ document.write(`
             <span class="n">token</span><span class="o">=</span><span class="s2">&quot;anon&quot;</span><span class="p">,</span>  <span class="c1"># noqa: S106 # nosec B106</span>
             <span class="n">access</span><span class="o">=</span><span class="s2">&quot;read_only&quot;</span><span class="p">,</span>
             <span class="n">block_size</span><span class="o">=</span><span class="mi">2</span><span class="o">**</span><span class="mi">20</span><span class="p">,</span>
+            <span class="n">asynchronous</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
         <span class="p">)</span>
 
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span><span class="p">:</span>
@@ -485,7 +494,7 @@ document.write(`
                 <span class="s2">&quot;cache_storage&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">cache</span><span class="p">,</span>
                 <span class="s2">&quot;expiry_time&quot;</span><span class="p">:</span> <span class="mi">31622400</span><span class="p">,</span>  <span class="c1"># 1 year</span>
             <span class="p">}</span>
-            <span class="n">fs</span> <span class="o">=</span> <span class="n">WholeFileCacheFileSystem</span><span class="p">(</span><span class="n">fs</span><span class="o">=</span><span class="n">fs</span><span class="p">,</span> <span class="o">**</span><span class="n">cache_options</span><span class="p">)</span>
+            <span class="n">fs</span> <span class="o">=</span> <span class="n">AsyncCachingFileSystem</span><span class="p">(</span><span class="n">fs</span><span class="o">=</span><span class="n">fs</span><span class="p">,</span> <span class="o">**</span><span class="n">cache_options</span><span class="p">,</span> <span class="n">asynchronous</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
         <span class="c1"># Check Zarr version and use appropriate method</span>
         <span class="k">try</span><span class="p">:</span>
@@ -494,25 +503,24 @@ document.write(`
         <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
             <span class="c1"># Fallback to older method if version check fails</span>
             <span class="n">zarr_major_version</span> <span class="o">=</span> <span class="mi">2</span>  <span class="c1"># Assume older version if we can&#39;t determine</span>
+        <span class="c1"># Only zarr 3.0 support</span>
+        <span class="k">if</span> <span class="n">zarr_major_version</span> <span class="o">&lt;</span> <span class="mi">3</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ModuleNotFoundError</span><span class="p">(</span><span class="s2">&quot;Zarr 3.0 and above support only&quot;</span><span class="p">)</span>
 
-        <span class="k">if</span> <span class="n">zarr_major_version</span> <span class="o">&gt;=</span> <span class="mi">3</span><span class="p">:</span>
-            <span class="c1"># Zarr 3.0+ method</span>
-            <span class="n">zstore</span> <span class="o">=</span> <span class="n">zarr</span><span class="o">.</span><span class="n">storage</span><span class="o">.</span><span class="n">FsspecStore</span><span class="p">(</span>
-                <span class="n">fs</span><span class="p">,</span>
-                <span class="n">path</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;/weatherbench2/datasets/era5/</span><span class="si">{</span><span class="n">wb2_zarr_store</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
-            <span class="p">)</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">zarr_group</span> <span class="o">=</span> <span class="n">zarr</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="n">zstore</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;r&quot;</span><span class="p">)</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="c1"># Legacy method for Zarr &lt; 3.0</span>
-            <span class="n">fs_map</span> <span class="o">=</span> <span class="n">fsspec</span><span class="o">.</span><span class="n">FSMap</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;weatherbench2/datasets/era5/</span><span class="si">{</span><span class="n">wb2_zarr_store</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">fs</span><span class="p">)</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">zarr_group</span> <span class="o">=</span> <span class="n">zarr</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="n">fs_map</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;r&quot;</span><span class="p">)</span>
+        <span class="n">zstore</span> <span class="o">=</span> <span class="n">zarr</span><span class="o">.</span><span class="n">storage</span><span class="o">.</span><span class="n">FsspecStore</span><span class="p">(</span>
+            <span class="n">fs</span><span class="p">,</span>
+            <span class="n">path</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;/weatherbench2/datasets/</span><span class="si">{</span><span class="n">wb2_product</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">wb2_zarr_store</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">zarr_group</span> <span class="o">=</span> <span class="n">zarr</span><span class="o">.</span><span class="n">api</span><span class="o">.</span><span class="n">asynchronous</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="n">store</span><span class="o">=</span><span class="n">zstore</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;r&quot;</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">async_timeout</span> <span class="o">=</span> <span class="n">async_timeout</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__call__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">time</span><span class="p">:</span> <span class="n">datetime</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="n">datetime</span><span class="p">]</span> <span class="o">|</span> <span class="n">TimeArray</span><span class="p">,</span>
         <span class="n">variable</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="n">VariableArray</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Function to get data.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Function to get data</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
@@ -520,12 +528,51 @@ document.write(`
 <span class="sd">            Timestamps to return data for (UTC).</span>
 <span class="sd">        variable : str | list[str] | VariableArray</span>
 <span class="sd">            String, list of strings or array of strings that refer to variables to</span>
-<span class="sd">            return. Must be in the WB2Lexicon lexicon.</span>
+<span class="sd">            return. Must be in the WB2 lexicon.</span>
 
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
 <span class="sd">        xr.DataArray</span>
-<span class="sd">            ERA5 weather data array from WB2Lexicon</span>
+<span class="sd">            ERA5 weather data array from weather bench 2</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">nest_asyncio</span><span class="o">.</span><span class="n">apply</span><span class="p">()</span>  <span class="c1"># Patch asyncio to work in notebooks</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">loop</span> <span class="o">=</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">get_event_loop</span><span class="p">()</span>
+        <span class="k">except</span> <span class="ne">RuntimeError</span><span class="p">:</span>
+            <span class="c1"># If no event loop exists, create one</span>
+            <span class="n">loop</span> <span class="o">=</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">new_event_loop</span><span class="p">()</span>
+            <span class="n">asyncio</span><span class="o">.</span><span class="n">set_event_loop</span><span class="p">(</span><span class="n">loop</span><span class="p">)</span>
+
+        <span class="n">xr_array</span> <span class="o">=</span> <span class="n">loop</span><span class="o">.</span><span class="n">run_until_complete</span><span class="p">(</span>
+            <span class="n">asyncio</span><span class="o">.</span><span class="n">wait_for</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fetch</span><span class="p">(</span><span class="n">time</span><span class="p">,</span> <span class="n">variable</span><span class="p">),</span> <span class="n">timeout</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">async_timeout</span><span class="p">)</span>
+        <span class="p">)</span>
+
+        <span class="c1"># Delete cache if needed</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span><span class="p">:</span>
+            <span class="n">shutil</span><span class="o">.</span><span class="n">rmtree</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cache</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">xr_array</span>
+
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">fetch</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">time</span><span class="p">:</span> <span class="n">datetime</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="n">datetime</span><span class="p">]</span> <span class="o">|</span> <span class="n">TimeArray</span><span class="p">,</span>
+        <span class="n">variable</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="n">VariableArray</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Async function to get data</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        time : datetime | list[datetime] | TimeArray</span>
+<span class="sd">            Timestamps to return data for (UTC).</span>
+<span class="sd">        variable : str | list[str] | VariableArray</span>
+<span class="sd">            String, list of strings or array of strings that refer to variables to</span>
+<span class="sd">            return. Must be in the WB2 lexicon.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        xr.DataArray</span>
+<span class="sd">            ERA5 weather data array from weather bench 2</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">time</span><span class="p">,</span> <span class="n">variable</span> <span class="o">=</span> <span class="n">prep_data_inputs</span><span class="p">(</span><span class="n">time</span><span class="p">,</span> <span class="n">variable</span><span class="p">)</span>
         <span class="c1"># Create cache dir if doesnt exist</span>
@@ -534,99 +581,103 @@ document.write(`
         <span class="c1"># Make sure input time is valid</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_validate_time</span><span class="p">(</span><span class="n">time</span><span class="p">)</span>
 
-        <span class="c1"># Fetch index file for requested time</span>
-        <span class="n">data_arrays</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="k">for</span> <span class="n">t0</span> <span class="ow">in</span> <span class="n">time</span><span class="p">:</span>
-            <span class="n">data_array</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fetch_wb2_dataarray</span><span class="p">(</span><span class="n">t0</span><span class="p">,</span> <span class="n">variable</span><span class="p">)</span>
-            <span class="n">data_arrays</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">data_array</span><span class="p">)</span>
-
-        <span class="c1"># Delete cache if needed</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span><span class="p">:</span>
-            <span class="n">shutil</span><span class="o">.</span><span class="n">rmtree</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cache</span><span class="p">)</span>
-
-        <span class="k">return</span> <span class="n">xr</span><span class="o">.</span><span class="n">concat</span><span class="p">(</span><span class="n">data_arrays</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="s2">&quot;time&quot;</span><span class="p">)</span>
-
-    <span class="k">def</span><span class="w"> </span><span class="nf">fetch_wb2_dataarray</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span>
-        <span class="n">time</span><span class="p">:</span> <span class="n">datetime</span><span class="p">,</span>
-        <span class="n">variables</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Retrives WeatherBench2 data array for given date time by downloading a lat</span>
-<span class="sd">        lon array from the Zarr store</span>
-
-<span class="sd">        Parameters</span>
-<span class="sd">        ----------</span>
-<span class="sd">        time : datetime</span>
-<span class="sd">            Date time to fetch</span>
-<span class="sd">        variables : list[str]</span>
-<span class="sd">            list of atmosphric variables to fetch. Must be supported in WeatherBench2 lexicon</span>
-
-<span class="sd">        Returns</span>
-<span class="sd">        -------</span>
-<span class="sd">        xr.DataArray</span>
-<span class="sd">            WeatherBench2 data array for given date time</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">wb2da</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">(</span>
+        <span class="n">xr_array</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">(</span>
             <span class="n">data</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span>
                 <span class="p">(</span>
-                    <span class="mi">1</span><span class="p">,</span>
-                    <span class="nb">len</span><span class="p">(</span><span class="n">variables</span><span class="p">),</span>
-                    <span class="bp">self</span><span class="o">.</span><span class="n">WB2_ERA5_LAT</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
-                    <span class="bp">self</span><span class="o">.</span><span class="n">WB2_ERA5_LON</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
+                    <span class="nb">len</span><span class="p">(</span><span class="n">time</span><span class="p">),</span>
+                    <span class="nb">len</span><span class="p">(</span><span class="n">variable</span><span class="p">),</span>
+                    <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">WB2_ERA5_LAT</span><span class="p">),</span>
+                    <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">WB2_ERA5_LON</span><span class="p">),</span>
                 <span class="p">)</span>
             <span class="p">),</span>
             <span class="n">dims</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;time&quot;</span><span class="p">,</span> <span class="s2">&quot;variable&quot;</span><span class="p">,</span> <span class="s2">&quot;lat&quot;</span><span class="p">,</span> <span class="s2">&quot;lon&quot;</span><span class="p">],</span>
             <span class="n">coords</span><span class="o">=</span><span class="p">{</span>
-                <span class="s2">&quot;time&quot;</span><span class="p">:</span> <span class="p">[</span><span class="n">time</span><span class="p">],</span>
-                <span class="s2">&quot;variable&quot;</span><span class="p">:</span> <span class="n">variables</span><span class="p">,</span>
+                <span class="s2">&quot;time&quot;</span><span class="p">:</span> <span class="n">time</span><span class="p">,</span>
+                <span class="s2">&quot;variable&quot;</span><span class="p">:</span> <span class="n">variable</span><span class="p">,</span>
                 <span class="s2">&quot;lat&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">WB2_ERA5_LAT</span><span class="p">,</span>
                 <span class="s2">&quot;lon&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">WB2_ERA5_LON</span><span class="p">,</span>
             <span class="p">},</span>
         <span class="p">)</span>
 
-        <span class="c1"># Load levels coordinate system from Zarr store and check</span>
-        <span class="n">level_coords</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">zarr_group</span><span class="p">[</span><span class="s2">&quot;level&quot;</span><span class="p">][:]</span>
+        <span class="n">args</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">j</span><span class="p">)</span> <span class="k">for</span> <span class="n">j</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">variable</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">t</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">time</span><span class="p">)</span>
+        <span class="p">]</span>
+        <span class="n">func_map</span> <span class="o">=</span> <span class="nb">map</span><span class="p">(</span><span class="n">functools</span><span class="o">.</span><span class="n">partial</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fetch_wrapper</span><span class="p">,</span> <span class="n">xr_array</span><span class="o">=</span><span class="n">xr_array</span><span class="p">),</span> <span class="n">args</span><span class="p">)</span>
+
+        <span class="c1"># Before anything wait until the group gets opened</span>
+        <span class="k">if</span> <span class="n">inspect</span><span class="o">.</span><span class="n">isawaitable</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">zarr_group</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">zarr_group</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">zarr_group</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">level_coords</span> <span class="o">=</span> <span class="k">await</span> <span class="p">(</span><span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">zarr_group</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;level&quot;</span><span class="p">))</span><span class="o">.</span><span class="n">getitem</span><span class="p">(</span>
+            <span class="nb">slice</span><span class="p">(</span><span class="kc">None</span><span class="p">)</span>
+        <span class="p">)</span>
+        <span class="c1"># Launch all fetch requests</span>
+        <span class="k">await</span> <span class="n">tqdm</span><span class="o">.</span><span class="n">gather</span><span class="p">(</span>
+            <span class="o">*</span><span class="n">func_map</span><span class="p">,</span> <span class="n">desc</span><span class="o">=</span><span class="s2">&quot;Fetching WB2 data&quot;</span><span class="p">,</span> <span class="n">disable</span><span class="o">=</span><span class="p">(</span><span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_verbose</span><span class="p">)</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">xr_array</span>
+
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">fetch_wrapper</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">e</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">datetime</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="nb">str</span><span class="p">,</span> <span class="nb">int</span><span class="p">],</span>
+        <span class="n">xr_array</span><span class="p">:</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Small wrapper to pack arrays into the DataArray&quot;&quot;&quot;</span>
+        <span class="n">out</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">fetch_array</span><span class="p">(</span><span class="n">e</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">e</span><span class="p">[</span><span class="mi">2</span><span class="p">])</span>
+        <span class="n">xr_array</span><span class="p">[</span><span class="n">e</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">e</span><span class="p">[</span><span class="mi">3</span><span class="p">]]</span> <span class="o">=</span> <span class="n">out</span>
+
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">fetch_array</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">time</span><span class="p">:</span> <span class="n">datetime</span><span class="p">,</span> <span class="n">variable</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Fetches requested array from remote store</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        time : datetime</span>
+<span class="sd">            Time to fetch</span>
+<span class="sd">        variable : str</span>
+<span class="sd">            Variable to fetch</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        np.ndarray</span>
+<span class="sd">            Data</span>
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="c1"># Get time index (vanilla zarr doesnt support date indices)</span>
         <span class="n">time_index</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_time_index</span><span class="p">(</span><span class="n">time</span><span class="p">)</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;Fetching WB2 zarr array for variable: </span><span class="si">{</span><span class="n">variable</span><span class="si">}</span><span class="s2"> at </span><span class="si">{</span><span class="n">time</span><span class="o">.</span><span class="n">isoformat</span><span class="p">()</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">wb2_name</span><span class="p">,</span> <span class="n">modifier</span> <span class="o">=</span> <span class="n">WB2Lexicon</span><span class="p">[</span><span class="n">variable</span><span class="p">]</span>  <span class="c1"># type: ignore</span>
+        <span class="k">except</span> <span class="ne">KeyError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;variable id </span><span class="si">{</span><span class="n">variable</span><span class="si">}</span><span class="s2"> not found in WB2 lexicon&quot;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="n">e</span>
 
-        <span class="c1"># TODO: Add MP here</span>
-        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">variable</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span>
-            <span class="n">tqdm</span><span class="p">(</span>
-                <span class="n">variables</span><span class="p">,</span>
-                <span class="n">desc</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;Fetching WB2 ERA5 for </span><span class="si">{</span><span class="n">time</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
-                <span class="n">disable</span><span class="o">=</span><span class="p">(</span><span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_verbose</span><span class="p">),</span>
-            <span class="p">)</span>
-        <span class="p">):</span>
-            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;Fetching WB2 ERA5 zarr array for variable: </span><span class="si">{</span><span class="n">variable</span><span class="si">}</span><span class="s2"> at </span><span class="si">{</span><span class="n">time</span><span class="o">.</span><span class="n">isoformat</span><span class="p">()</span><span class="si">}</span><span class="s2">&quot;</span>
-            <span class="p">)</span>
-            <span class="k">try</span><span class="p">:</span>
-                <span class="n">wb2_name</span><span class="p">,</span> <span class="n">modifier</span> <span class="o">=</span> <span class="n">WB2Lexicon</span><span class="p">[</span><span class="n">variable</span><span class="p">]</span>
-            <span class="k">except</span> <span class="ne">KeyError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-                <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;variable id </span><span class="si">{</span><span class="n">variable</span><span class="si">}</span><span class="s2"> not found in WB2 lexicon&quot;</span><span class="p">)</span>
-                <span class="k">raise</span> <span class="n">e</span>
+        <span class="n">wb2_name</span><span class="p">,</span> <span class="n">level</span> <span class="o">=</span> <span class="n">wb2_name</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;::&quot;</span><span class="p">)</span>
 
-            <span class="n">wb2_name</span><span class="p">,</span> <span class="n">level</span> <span class="o">=</span> <span class="n">wb2_name</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;::&quot;</span><span class="p">)</span>
+        <span class="n">zarr_array</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">zarr_group</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">wb2_name</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">zarr_array</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="n">wb2_name</span><span class="p">)</span>
+        <span class="n">shape</span> <span class="o">=</span> <span class="n">zarr_array</span><span class="o">.</span><span class="n">shape</span>
+        <span class="c1"># Static variables</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">shape</span><span class="p">)</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="k">await</span> <span class="n">zarr_array</span><span class="o">.</span><span class="n">getitem</span><span class="p">(</span><span class="nb">slice</span><span class="p">(</span><span class="kc">None</span><span class="p">))</span>
+            <span class="n">output</span> <span class="o">=</span> <span class="n">modifier</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+        <span class="c1"># Surface variable</span>
+        <span class="k">elif</span> <span class="nb">len</span><span class="p">(</span><span class="n">shape</span><span class="p">)</span> <span class="o">==</span> <span class="mi">3</span><span class="p">:</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="k">await</span> <span class="n">zarr_array</span><span class="o">.</span><span class="n">getitem</span><span class="p">(</span><span class="n">time_index</span><span class="p">)</span>
+            <span class="n">output</span> <span class="o">=</span> <span class="n">modifier</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+        <span class="c1"># Atmospheric variable</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># Load levels coordinate system from Zarr store and check</span>
+            <span class="n">level_index</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">searchsorted</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">level_coords</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="n">level</span><span class="p">))</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="k">await</span> <span class="n">zarr_array</span><span class="o">.</span><span class="n">getitem</span><span class="p">((</span><span class="n">time_index</span><span class="p">,</span> <span class="n">level_index</span><span class="p">))</span>
+            <span class="n">output</span> <span class="o">=</span> <span class="n">modifier</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
 
-            <span class="n">shape</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">zarr_group</span><span class="p">[</span><span class="n">wb2_name</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span>
-            <span class="c1"># Static variables</span>
-            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">shape</span><span class="p">)</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
-                <span class="n">data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">zarr_group</span><span class="p">[</span><span class="n">wb2_name</span><span class="p">][:]</span>
-            <span class="c1"># Surface variable</span>
-            <span class="k">elif</span> <span class="nb">len</span><span class="p">(</span><span class="n">shape</span><span class="p">)</span> <span class="o">==</span> <span class="mi">3</span><span class="p">:</span>
-                <span class="n">data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">zarr_group</span><span class="p">[</span><span class="n">wb2_name</span><span class="p">][</span><span class="n">time_index</span><span class="p">]</span>
-            <span class="c1"># Atmospheric variable</span>
-            <span class="k">else</span><span class="p">:</span>
-                <span class="n">level_index</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">level_coords</span> <span class="o">==</span> <span class="nb">int</span><span class="p">(</span><span class="n">level</span><span class="p">))[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
-                <span class="n">data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">zarr_group</span><span class="p">[</span><span class="n">wb2_name</span><span class="p">][</span><span class="n">time_index</span><span class="p">,</span> <span class="n">level_index</span><span class="p">]</span>
+        <span class="c1"># Some WB2 data Zarr stores are saved [lon, lat] with lat flipped</span>
+        <span class="c1"># Namely its the lower resolutions ones with this issue</span>
+        <span class="k">if</span> <span class="n">output</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">output</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]:</span>
+            <span class="n">output</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">flip</span><span class="p">(</span><span class="n">output</span><span class="p">,</span> <span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">T</span>
 
-            <span class="c1"># Some WB2 data Zarr stores are saved [lon, lat] with lat flipped</span>
-            <span class="c1"># Namely its the lower resolutions ones with this issue</span>
-            <span class="k">if</span> <span class="n">data</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">data</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]:</span>
-                <span class="n">data</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">flip</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">T</span>
-            <span class="n">wb2da</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">modifier</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
-
-        <span class="k">return</span> <span class="n">wb2da</span>
+        <span class="k">return</span> <span class="n">output</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">cache</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
@@ -697,6 +748,9 @@ document.write(`
 <span class="sd">        Cache data source on local memory, by default True</span>
 <span class="sd">    verbose : bool, optional</span>
 <span class="sd">        Print download progress, by default True</span>
+<span class="sd">    async_timeout : int, optional</span>
+<span class="sd">        Time in sec after which download will be cancelled if not finished successfully,</span>
+<span class="sd">        by default 600</span>
 
 <span class="sd">    Warning</span>
 <span class="sd">    -------</span>
@@ -718,11 +772,13 @@ document.write(`
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">cache</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
         <span class="n">verbose</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="n">async_timeout</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">600</span><span class="p">,</span>
     <span class="p">):</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
-            <span class="s2">&quot;1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr&quot;</span><span class="p">,</span>
-            <span class="n">cache</span><span class="p">,</span>
-            <span class="n">verbose</span><span class="p">,</span>
+            <span class="n">wb2_zarr_store</span><span class="o">=</span><span class="s2">&quot;1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr&quot;</span><span class="p">,</span>
+            <span class="n">cache</span><span class="o">=</span><span class="n">cache</span><span class="p">,</span>
+            <span class="n">verbose</span><span class="o">=</span><span class="n">verbose</span><span class="p">,</span>
+            <span class="n">async_timeout</span><span class="o">=</span><span class="n">async_timeout</span><span class="p">,</span>
         <span class="p">)</span></div>
 
 
@@ -741,6 +797,9 @@ document.write(`
 <span class="sd">        Cache data source on local memory, by default True</span>
 <span class="sd">    verbose : bool, optional</span>
 <span class="sd">        Print download progress, by default True</span>
+<span class="sd">    async_timeout : int, optional</span>
+<span class="sd">        Time in sec after which download will be cancelled if not finished successfully,</span>
+<span class="sd">        by default 600</span>
 
 <span class="sd">    Warning</span>
 <span class="sd">    -------</span>
@@ -762,11 +821,13 @@ document.write(`
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">cache</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
         <span class="n">verbose</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="n">async_timeout</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">600</span><span class="p">,</span>
     <span class="p">):</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
-            <span class="s2">&quot;1959-2023_01_10-6h-240x121_equiangular_with_poles_conservative.zarr&quot;</span><span class="p">,</span>
-            <span class="n">cache</span><span class="p">,</span>
-            <span class="n">verbose</span><span class="p">,</span>
+            <span class="n">wb2_zarr_store</span><span class="o">=</span><span class="s2">&quot;1959-2023_01_10-6h-240x121_equiangular_with_poles_conservative.zarr&quot;</span><span class="p">,</span>
+            <span class="n">cache</span><span class="o">=</span><span class="n">cache</span><span class="p">,</span>
+            <span class="n">verbose</span><span class="o">=</span><span class="n">verbose</span><span class="p">,</span>
+            <span class="n">async_timeout</span><span class="o">=</span><span class="n">async_timeout</span><span class="p">,</span>
         <span class="p">)</span></div>
 
 
@@ -785,6 +846,9 @@ document.write(`
 <span class="sd">        Cache data source on local memory, by default True</span>
 <span class="sd">    verbose : bool, optional</span>
 <span class="sd">        Print download progress, by default True</span>
+<span class="sd">    async_timeout : int, optional</span>
+<span class="sd">        Time in sec after which download will be cancelled if not finished successfully,</span>
+<span class="sd">        by default 600</span>
 
 <span class="sd">    Warning</span>
 <span class="sd">    -------</span>
@@ -806,9 +870,13 @@ document.write(`
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">cache</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
         <span class="n">verbose</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="n">async_timeout</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">600</span><span class="p">,</span>
     <span class="p">):</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
-            <span class="s2">&quot;1959-2023_01_10-6h-64x32_equiangular_conservative.zarr&quot;</span><span class="p">,</span> <span class="n">cache</span><span class="p">,</span> <span class="n">verbose</span>
+            <span class="s2">&quot;1959-2023_01_10-6h-64x32_equiangular_conservative.zarr&quot;</span><span class="p">,</span>
+            <span class="n">cache</span><span class="o">=</span><span class="n">cache</span><span class="p">,</span>
+            <span class="n">verbose</span><span class="o">=</span><span class="n">verbose</span><span class="p">,</span>
+            <span class="n">async_timeout</span><span class="o">=</span><span class="n">async_timeout</span><span class="p">,</span>
         <span class="p">)</span></div>
 
 
@@ -827,7 +895,7 @@ document.write(`
 
 <div class="viewcode-block" id="WB2Climatology">
 <a class="viewcode-back" href="../../../modules/generated/data/earth2studio.data.WB2Climatology.html#earth2studio.data.WB2Climatology">[docs]</a>
-<span class="k">class</span><span class="w"> </span><span class="nc">WB2Climatology</span><span class="p">:</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">WB2Climatology</span><span class="p">(</span><span class="n">_WB2Base</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Climatology provided by WeatherBench2,</span>
 
@@ -856,6 +924,9 @@ document.write(`
 <span class="sd">        Cache data source on local memory, by default True</span>
 <span class="sd">    verbose : bool, optional</span>
 <span class="sd">        Print download progress, by default True</span>
+<span class="sd">    async_timeout : int, optional</span>
+<span class="sd">        Time in sec after which download will be cancelled if not finished successfully,</span>
+<span class="sd">        by default 600</span>
 
 <span class="sd">    Warning</span>
 <span class="sd">    -------</span>
@@ -875,56 +946,24 @@ document.write(`
         <span class="n">climatology_zarr_store</span><span class="p">:</span> <span class="n">ClimatologyZarrStore</span> <span class="o">=</span> <span class="s2">&quot;1990-2017_6h_1440x721.zarr&quot;</span><span class="p">,</span>
         <span class="n">cache</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
         <span class="n">verbose</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="n">async_timeout</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">600</span><span class="p">,</span>
     <span class="p">):</span>
-
-        <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span> <span class="o">=</span> <span class="n">cache</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_verbose</span> <span class="o">=</span> <span class="n">verbose</span>
-
-        <span class="n">fs</span> <span class="o">=</span> <span class="n">gcsfs</span><span class="o">.</span><span class="n">GCSFileSystem</span><span class="p">(</span>
-            <span class="n">cache_timeout</span><span class="o">=-</span><span class="mi">1</span><span class="p">,</span>
-            <span class="n">token</span><span class="o">=</span><span class="s2">&quot;anon&quot;</span><span class="p">,</span>  <span class="c1"># noqa: S106 # nosec B106</span>
-            <span class="n">access</span><span class="o">=</span><span class="s2">&quot;read_only&quot;</span><span class="p">,</span>
-            <span class="n">block_size</span><span class="o">=</span><span class="mi">2</span><span class="o">**</span><span class="mi">20</span><span class="p">,</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
+            <span class="n">climatology_zarr_store</span><span class="p">,</span>
+            <span class="n">wb2_product</span><span class="o">=</span><span class="s2">&quot;era5-hourly-climatology&quot;</span><span class="p">,</span>
+            <span class="n">cache</span><span class="o">=</span><span class="n">cache</span><span class="p">,</span>
+            <span class="n">verbose</span><span class="o">=</span><span class="n">verbose</span><span class="p">,</span>
+            <span class="n">async_timeout</span><span class="o">=</span><span class="n">async_timeout</span><span class="p">,</span>
         <span class="p">)</span>
 
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span><span class="p">:</span>
-            <span class="n">cache_options</span> <span class="o">=</span> <span class="p">{</span>
-                <span class="s2">&quot;cache_storage&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">cache</span><span class="p">,</span>
-                <span class="s2">&quot;expiry_time&quot;</span><span class="p">:</span> <span class="mi">31622400</span><span class="p">,</span>  <span class="c1"># 1 year</span>
-            <span class="p">}</span>
-            <span class="n">fs</span> <span class="o">=</span> <span class="n">WholeFileCacheFileSystem</span><span class="p">(</span><span class="n">fs</span><span class="o">=</span><span class="n">fs</span><span class="p">,</span> <span class="o">**</span><span class="n">cache_options</span><span class="p">)</span>
-
-        <span class="c1"># Check Zarr version and use appropriate method</span>
-        <span class="k">try</span><span class="p">:</span>
-            <span class="n">zarr_version</span> <span class="o">=</span> <span class="n">version</span><span class="p">(</span><span class="s2">&quot;zarr&quot;</span><span class="p">)</span>
-            <span class="n">zarr_major_version</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">zarr_version</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;.&quot;</span><span class="p">)[</span><span class="mi">0</span><span class="p">])</span>
-        <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
-            <span class="c1"># Fallback to older method if version check fails</span>
-            <span class="n">zarr_major_version</span> <span class="o">=</span> <span class="mi">2</span>  <span class="c1"># Assume older version if we can&#39;t determine</span>
-
-        <span class="k">if</span> <span class="n">zarr_major_version</span> <span class="o">&gt;=</span> <span class="mi">3</span><span class="p">:</span>
-            <span class="c1"># Zarr 3.0+ method</span>
-            <span class="n">zstore</span> <span class="o">=</span> <span class="n">zarr</span><span class="o">.</span><span class="n">storage</span><span class="o">.</span><span class="n">FsspecStore</span><span class="p">(</span>
-                <span class="n">fs</span><span class="p">,</span>
-                <span class="n">path</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;/weatherbench2/datasets/era5-hourly-climatology/</span><span class="si">{</span><span class="n">climatology_zarr_store</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
-            <span class="p">)</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">zarr_group</span> <span class="o">=</span> <span class="n">zarr</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="n">zstore</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;r&quot;</span><span class="p">)</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="c1"># Legacy method for Zarr &lt; 3.0</span>
-            <span class="n">fs_map</span> <span class="o">=</span> <span class="n">fsspec</span><span class="o">.</span><span class="n">FSMap</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;weatherbench2/datasets/era5-hourly-climatology/</span><span class="si">{</span><span class="n">climatology_zarr_store</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
-                <span class="n">fs</span><span class="p">,</span>
-            <span class="p">)</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">zarr_group</span> <span class="o">=</span> <span class="n">zarr</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="n">fs_map</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;r&quot;</span><span class="p">)</span>
-
-<div class="viewcode-block" id="WB2Climatology.__call__">
-<a class="viewcode-back" href="../../../modules/generated/data/earth2studio.data.WB2Climatology.html#earth2studio.data.WB2Climatology.__call__">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="fm">__call__</span><span class="p">(</span>
+<div class="viewcode-block" id="WB2Climatology.fetch">
+<a class="viewcode-back" href="../../../modules/generated/data/earth2studio.data.WB2Climatology.html#earth2studio.data.WB2Climatology.fetch">[docs]</a>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">fetch</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">time</span><span class="p">:</span> <span class="n">datetime</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="n">datetime</span><span class="p">]</span> <span class="o">|</span> <span class="n">TimeArray</span><span class="p">,</span>
         <span class="n">variable</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="n">VariableArray</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Function to get data.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Async function to get data</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
@@ -932,113 +971,107 @@ document.write(`
 <span class="sd">            Timestamps to return data for (UTC).</span>
 <span class="sd">        variable : str | list[str] | VariableArray</span>
 <span class="sd">            String, list of strings or array of strings that refer to variables to</span>
-<span class="sd">            return. Must be in the WeatherBench2 lexicon.</span>
+<span class="sd">            return. Must be in the WB2 Climatology lexicon.</span>
 
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
 <span class="sd">        xr.DataArray</span>
-<span class="sd">            climatology data from WeatherBench climatology</span>
+<span class="sd">            ERA5 weather data array from weather bench 2</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">time</span><span class="p">,</span> <span class="n">variable</span> <span class="o">=</span> <span class="n">prep_data_inputs</span><span class="p">(</span><span class="n">time</span><span class="p">,</span> <span class="n">variable</span><span class="p">)</span>
         <span class="c1"># Create cache dir if doesnt exist</span>
         <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cache</span><span class="p">)</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
-        <span class="c1"># Fetch index file for requested time</span>
-        <span class="n">data_arrays</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="k">for</span> <span class="n">t0</span> <span class="ow">in</span> <span class="n">time</span><span class="p">:</span>
-            <span class="n">data_array</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fetch_wb_dataarray</span><span class="p">(</span><span class="n">t0</span><span class="p">,</span> <span class="n">variable</span><span class="p">)</span>
-            <span class="n">data_arrays</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">data_array</span><span class="p">)</span>
+        <span class="c1"># Make sure input time is valid</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_validate_time</span><span class="p">(</span><span class="n">time</span><span class="p">)</span>
 
-        <span class="c1"># Delete cache if needed</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span><span class="p">:</span>
-            <span class="n">shutil</span><span class="o">.</span><span class="n">rmtree</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cache</span><span class="p">)</span>
+        <span class="c1"># Before anything wait until the group gets opened</span>
+        <span class="k">if</span> <span class="n">inspect</span><span class="o">.</span><span class="n">isawaitable</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">zarr_group</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">zarr_group</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">zarr_group</span>
 
-        <span class="k">return</span> <span class="n">xr</span><span class="o">.</span><span class="n">concat</span><span class="p">(</span><span class="n">data_arrays</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="s2">&quot;time&quot;</span><span class="p">)</span></div>
+        <span class="n">WB2_CLIMATE_LAT</span> <span class="o">=</span> <span class="k">await</span> <span class="p">(</span><span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">zarr_group</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;latitude&quot;</span><span class="p">))</span><span class="o">.</span><span class="n">getitem</span><span class="p">(</span>
+            <span class="nb">slice</span><span class="p">(</span><span class="kc">None</span><span class="p">)</span>
+        <span class="p">)</span>
+        <span class="n">WB2_CLIMATE_LON</span> <span class="o">=</span> <span class="k">await</span> <span class="p">(</span><span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">zarr_group</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;longitude&quot;</span><span class="p">))</span><span class="o">.</span><span class="n">getitem</span><span class="p">(</span>
+            <span class="nb">slice</span><span class="p">(</span><span class="kc">None</span><span class="p">)</span>
+        <span class="p">)</span>
+
+        <span class="n">xr_array</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">(</span>
+            <span class="n">data</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span>
+                <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">time</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="n">variable</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="n">WB2_CLIMATE_LAT</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="n">WB2_CLIMATE_LON</span><span class="p">))</span>
+            <span class="p">),</span>
+            <span class="n">dims</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;time&quot;</span><span class="p">,</span> <span class="s2">&quot;variable&quot;</span><span class="p">,</span> <span class="s2">&quot;lat&quot;</span><span class="p">,</span> <span class="s2">&quot;lon&quot;</span><span class="p">],</span>
+            <span class="n">coords</span><span class="o">=</span><span class="p">{</span>
+                <span class="s2">&quot;time&quot;</span><span class="p">:</span> <span class="n">time</span><span class="p">,</span>
+                <span class="s2">&quot;variable&quot;</span><span class="p">:</span> <span class="n">variable</span><span class="p">,</span>
+                <span class="s2">&quot;lat&quot;</span><span class="p">:</span> <span class="n">WB2_CLIMATE_LAT</span><span class="p">[:],</span>
+                <span class="s2">&quot;lon&quot;</span><span class="p">:</span> <span class="n">WB2_CLIMATE_LON</span><span class="p">[:],</span>
+            <span class="p">},</span>
+        <span class="p">)</span>
+
+        <span class="n">args</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">j</span><span class="p">)</span> <span class="k">for</span> <span class="n">j</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">variable</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">t</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">time</span><span class="p">)</span>
+        <span class="p">]</span>
+        <span class="n">func_map</span> <span class="o">=</span> <span class="nb">map</span><span class="p">(</span><span class="n">functools</span><span class="o">.</span><span class="n">partial</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fetch_wrapper</span><span class="p">,</span> <span class="n">xr_array</span><span class="o">=</span><span class="n">xr_array</span><span class="p">),</span> <span class="n">args</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">level_coords</span> <span class="o">=</span> <span class="k">await</span> <span class="p">(</span><span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">zarr_group</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;level&quot;</span><span class="p">))</span><span class="o">.</span><span class="n">getitem</span><span class="p">(</span>
+            <span class="nb">slice</span><span class="p">(</span><span class="kc">None</span><span class="p">)</span>
+        <span class="p">)</span>
+        <span class="c1"># Launch all fetch requests</span>
+        <span class="k">await</span> <span class="n">tqdm</span><span class="o">.</span><span class="n">gather</span><span class="p">(</span>
+            <span class="o">*</span><span class="n">func_map</span><span class="p">,</span> <span class="n">desc</span><span class="o">=</span><span class="s2">&quot;Fetching WB2 climatology data&quot;</span><span class="p">,</span> <span class="n">disable</span><span class="o">=</span><span class="p">(</span><span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_verbose</span><span class="p">)</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">xr_array</span></div>
 
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">fetch_wb_dataarray</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span>
-        <span class="n">time</span><span class="p">:</span> <span class="n">datetime</span><span class="p">,</span>
-        <span class="n">variables</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Retrives WeatherBench data array for given date time by downloading a</span>
-<span class="sd">        lat lon array from the Zarr store</span>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">fetch_array</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">time</span><span class="p">:</span> <span class="n">datetime</span><span class="p">,</span> <span class="n">variable</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Fetches requested array from remote store</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
 <span class="sd">        time : datetime</span>
-<span class="sd">            Date time to fetch</span>
-<span class="sd">        variables : list[str]</span>
-<span class="sd">            list of atmosphric variables to fetch.</span>
+<span class="sd">            Time to fetch</span>
+<span class="sd">        variable : str</span>
+<span class="sd">            Variable to fetch</span>
 
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
-<span class="sd">        xr.DataArray</span>
-<span class="sd">            WeatherBench data array for given date time</span>
+<span class="sd">        np.ndarray</span>
+<span class="sd">            Data</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">LAT</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">zarr_group</span><span class="p">[</span><span class="s2">&quot;latitude&quot;</span><span class="p">][:]</span>
-        <span class="n">LON</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">zarr_group</span><span class="p">[</span><span class="s2">&quot;longitude&quot;</span><span class="p">][:]</span>
-        <span class="n">wbda</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">(</span>
-            <span class="n">data</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="mi">1</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">variables</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="n">LAT</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="n">LON</span><span class="p">))),</span>
-            <span class="n">dims</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;time&quot;</span><span class="p">,</span> <span class="s2">&quot;variable&quot;</span><span class="p">,</span> <span class="s2">&quot;lat&quot;</span><span class="p">,</span> <span class="s2">&quot;lon&quot;</span><span class="p">],</span>
-            <span class="n">coords</span><span class="o">=</span><span class="p">{</span>
-                <span class="s2">&quot;time&quot;</span><span class="p">:</span> <span class="p">[</span><span class="n">time</span><span class="p">],</span>
-                <span class="s2">&quot;variable&quot;</span><span class="p">:</span> <span class="n">variables</span><span class="p">,</span>
-                <span class="s2">&quot;lat&quot;</span><span class="p">:</span> <span class="n">LAT</span><span class="p">,</span>
-                <span class="s2">&quot;lon&quot;</span><span class="p">:</span> <span class="n">LON</span><span class="p">,</span>
-            <span class="p">},</span>
-        <span class="p">)</span>
-
-        <span class="c1"># Load levels coordinate system from Zarr store and check</span>
-        <span class="n">level_coords</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">zarr_group</span><span class="p">[</span><span class="s2">&quot;level&quot;</span><span class="p">][:]</span>
         <span class="c1"># Get time index (vanilla zarr doesnt support date indices)</span>
-        <span class="n">hour</span><span class="p">,</span> <span class="n">day_of_year</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_time_index</span><span class="p">(</span><span class="n">time</span><span class="p">)</span>
+        <span class="n">hour_index</span><span class="p">,</span> <span class="n">day_of_year_index</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_time_index</span><span class="p">(</span><span class="n">time</span><span class="p">)</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;Fetching WB2 climatology zarr array for variable: </span><span class="si">{</span><span class="n">variable</span><span class="si">}</span><span class="s2"> at </span><span class="si">{</span><span class="n">time</span><span class="o">.</span><span class="n">isoformat</span><span class="p">()</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">wb2_name</span><span class="p">,</span> <span class="n">modifier</span> <span class="o">=</span> <span class="n">WB2ClimatetologyLexicon</span><span class="p">[</span><span class="n">variable</span><span class="p">]</span>  <span class="c1"># type: ignore</span>
+        <span class="k">except</span> <span class="ne">KeyError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;variable id </span><span class="si">{</span><span class="n">variable</span><span class="si">}</span><span class="s2"> not found in WB2 lexicon&quot;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="n">e</span>
 
-        <span class="c1"># TODO: Add MP here</span>
-        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">variable</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span>
-            <span class="n">tqdm</span><span class="p">(</span>
-                <span class="n">variables</span><span class="p">,</span>
-                <span class="n">desc</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;Fetching WeatherBench Climatology for </span><span class="si">{</span><span class="n">time</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
-                <span class="n">disable</span><span class="o">=</span><span class="p">(</span><span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_verbose</span><span class="p">),</span>
+        <span class="n">wb2_name</span><span class="p">,</span> <span class="n">level</span> <span class="o">=</span> <span class="n">wb2_name</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;::&quot;</span><span class="p">)</span>
+
+        <span class="n">zarr_array</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">zarr_group</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">wb2_name</span><span class="p">)</span>
+        <span class="n">shape</span> <span class="o">=</span> <span class="n">zarr_array</span><span class="o">.</span><span class="n">shape</span>
+
+        <span class="c1"># Surface variable [hour idx (6 hour), day index, lat, lon]</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">shape</span><span class="p">)</span> <span class="o">==</span> <span class="mi">4</span><span class="p">:</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="k">await</span> <span class="n">zarr_array</span><span class="o">.</span><span class="n">getitem</span><span class="p">((</span><span class="n">hour_index</span><span class="p">,</span> <span class="n">day_of_year_index</span><span class="p">))</span>
+            <span class="n">output</span> <span class="o">=</span> <span class="n">modifier</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+        <span class="c1"># Atmospheric variable [hour idx (6 hour), day index, level lat, lon]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># Load levels coordinate system from Zarr store and check</span>
+            <span class="n">level_index</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">searchsorted</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">level_coords</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="n">level</span><span class="p">))</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="k">await</span> <span class="n">zarr_array</span><span class="o">.</span><span class="n">getitem</span><span class="p">(</span>
+                <span class="p">(</span><span class="n">hour_index</span><span class="p">,</span> <span class="n">day_of_year_index</span><span class="p">,</span> <span class="n">level_index</span><span class="p">)</span>
             <span class="p">)</span>
-        <span class="p">):</span>
-            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;Fetching WeatherBench Climatology zarr array for variable: </span><span class="si">{</span><span class="n">variable</span><span class="si">}</span><span class="s2"> at </span><span class="si">{</span><span class="n">time</span><span class="o">.</span><span class="n">isoformat</span><span class="p">()</span><span class="si">}</span><span class="s2">&quot;</span>
-            <span class="p">)</span>
+            <span class="n">output</span> <span class="o">=</span> <span class="n">modifier</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
 
-            <span class="k">try</span><span class="p">:</span>
-                <span class="n">wb2_name</span><span class="p">,</span> <span class="n">modifier</span> <span class="o">=</span> <span class="n">WB2Lexicon</span><span class="p">[</span><span class="n">variable</span><span class="p">]</span>
-            <span class="k">except</span> <span class="ne">KeyError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-                <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span>
-                    <span class="sa">f</span><span class="s2">&quot;variable id </span><span class="si">{</span><span class="n">variable</span><span class="si">}</span><span class="s2"> not found in WeatherBench lexicon&quot;</span>
-                <span class="p">)</span>
-                <span class="k">raise</span> <span class="n">e</span>
-
-            <span class="n">wb2_variable</span><span class="p">,</span> <span class="n">level</span> <span class="o">=</span> <span class="n">wb2_name</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;::&quot;</span><span class="p">)</span>
-
-            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">level</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
-                <span class="n">wb2_variable</span><span class="p">,</span> <span class="n">level</span> <span class="o">=</span> <span class="n">wb2_name</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;::&quot;</span><span class="p">)</span>
-                <span class="n">level_index</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">level_coords</span> <span class="o">==</span> <span class="nb">int</span><span class="p">(</span><span class="n">level</span><span class="p">))[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
-                <span class="n">wbda</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">modifier</span><span class="p">(</span>
-                    <span class="bp">self</span><span class="o">.</span><span class="n">zarr_group</span><span class="p">[</span><span class="n">wb2_variable</span><span class="p">][</span><span class="n">hour</span><span class="p">,</span> <span class="n">day_of_year</span><span class="p">,</span> <span class="n">level_index</span><span class="p">]</span>
-                <span class="p">)</span>
-
-            <span class="k">else</span><span class="p">:</span>
-                <span class="n">wb2_variable</span> <span class="o">=</span> <span class="n">wb2_name</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;::&quot;</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
-                <span class="n">wbda</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">modifier</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">zarr_group</span><span class="p">[</span><span class="n">wb2_variable</span><span class="p">][</span><span class="n">hour</span><span class="p">,</span> <span class="n">day_of_year</span><span class="p">])</span>
-
-        <span class="k">return</span> <span class="n">wbda</span>
-
-    <span class="nd">@property</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">cache</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the appropriate cache location.&quot;&quot;&quot;</span>
-        <span class="n">cache_location</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">datasource_cache_root</span><span class="p">(),</span> <span class="s2">&quot;wb2&quot;</span><span class="p">)</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span><span class="p">:</span>
-            <span class="n">cache_location</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">cache_location</span><span class="p">,</span> <span class="s2">&quot;tmp_wb2&quot;</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">cache_location</span>
+        <span class="k">return</span> <span class="n">output</span>
 
     <span class="nd">@classmethod</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">_get_time_index</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">time</span><span class="p">:</span> <span class="n">datetime</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_get_time_index</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">time</span><span class="p">:</span> <span class="n">datetime</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]:</span>  <span class="c1"># type: ignore[override]</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Little index converter to go from datetime to integer index for hour</span>
 <span class="sd">        and day of year.</span>
 

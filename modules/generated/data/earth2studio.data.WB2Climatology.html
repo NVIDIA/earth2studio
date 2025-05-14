@@ -546,7 +546,7 @@ document.write(`
 <h1><a class="reference internal" href="../../datasources.html#module-earth2studio.data" title="earth2studio.data"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code></a>.WB2Climatology<a class="headerlink" href="#earth2studio-data-wb2climatology" title="Link to this heading">#</a></h1>
 <dl class="py class">
 <dt class="sig sig-object py" id="earth2studio.data.WB2Climatology">
-<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">earth2studio.data.</span></span><span class="sig-name descname"><span class="pre">WB2Climatology</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">climatology_zarr_store</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'1990-2017_6h_1440x721.zarr'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cache</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">verbose</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/earth2studio/data/wb2.html#WB2Climatology"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.data.WB2Climatology" title="Link to this definition">#</a></dt>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">earth2studio.data.</span></span><span class="sig-name descname"><span class="pre">WB2Climatology</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">climatology_zarr_store</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'1990-2017_6h_1440x721.zarr'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cache</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">verbose</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">async_timeout</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">600</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/earth2studio/data/wb2.html#WB2Climatology"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.data.WB2Climatology" title="Link to this definition">#</a></dt>
 <dd><p>Climatology provided by WeatherBench2,</p>
 <div class="line-block">
 <div class="line">A climatology is used for e.g. computing anomaly metrics such as the ACC.</div>
@@ -573,6 +573,8 @@ As of 05/03/2024 this is the following list of available files:</p>
 </p></li>
 <li><p><strong>cache</strong> (<em>bool</em><em>, </em><em>optional</em>) – Cache data source on local memory, by default True</p></li>
 <li><p><strong>verbose</strong> (<em>bool</em><em>, </em><em>optional</em>) – Print download progress, by default True</p></li>
+<li><p><strong>async_timeout</strong> (<em>int</em><em>, </em><em>optional</em>) – Time in sec after which download will be cancelled if not finished successfully,
+by default 600</p></li>
 </ul>
 </dd>
 </dl>
@@ -591,18 +593,39 @@ to your local machine for large requests.</p>
 </div>
 <dl class="py method">
 <dt class="sig sig-object py" id="earth2studio.data.WB2Climatology.__call__">
-<span class="sig-name descname"><span class="pre">__call__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">time</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">variable</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/earth2studio/data/wb2.html#WB2Climatology.__call__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.data.WB2Climatology.__call__" title="Link to this definition">#</a></dt>
-<dd><p>Function to get data.</p>
+<span class="sig-name descname"><span class="pre">__call__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">time</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">variable</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#earth2studio.data.WB2Climatology.__call__" title="Link to this definition">#</a></dt>
+<dd><p>Function to get data</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>time</strong> (<em>datetime</em><em> | </em><em>list</em><em>[</em><em>datetime</em><em>] </em><em>| </em><em>TimeArray</em>) – Timestamps to return data for (UTC).</p></li>
 <li><p><strong>variable</strong> (<em>str</em><em> | </em><em>list</em><em>[</em><em>str</em><em>] </em><em>| </em><em>VariableArray</em>) – String, list of strings or array of strings that refer to variables to
-return. Must be in the WeatherBench2 lexicon.</p></li>
+return. Must be in the WB2 lexicon.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p>climatology data from WeatherBench climatology</p>
+<dd class="field-even"><p>ERA5 weather data array from weather bench 2</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>xr.DataArray</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="earth2studio.data.WB2Climatology.fetch">
+<em class="property"><span class="k"><span class="pre">async</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">fetch</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">time</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">variable</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/earth2studio/data/wb2.html#WB2Climatology.fetch"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.data.WB2Climatology.fetch" title="Link to this definition">#</a></dt>
+<dd><p>Async function to get data</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>time</strong> (<em>datetime</em><em> | </em><em>list</em><em>[</em><em>datetime</em><em>] </em><em>| </em><em>TimeArray</em>) – Timestamps to return data for (UTC).</p></li>
+<li><p><strong>variable</strong> (<em>str</em><em> | </em><em>list</em><em>[</em><em>str</em><em>] </em><em>| </em><em>VariableArray</em>) – String, list of strings or array of strings that refer to variables to
+return. Must be in the WB2 Climatology lexicon.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>ERA5 weather data array from weather bench 2</p>
 </dd>
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>xr.DataArray</p>
@@ -662,6 +685,7 @@ return. Must be in the WeatherBench2 lexicon.</p></li>
     <ul class="visible nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.data.WB2Climatology"><code class="docutils literal notranslate"><span class="pre">WB2Climatology</span></code></a><ul class="nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.data.WB2Climatology.__call__"><code class="docutils literal notranslate"><span class="pre">WB2Climatology.__call__()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.data.WB2Climatology.fetch"><code class="docutils literal notranslate"><span class="pre">WB2Climatology.fetch()</span></code></a></li>
 </ul>
 </li>
 </ul>
