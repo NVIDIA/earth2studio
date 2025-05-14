@@ -63,6 +63,7 @@ class _WB2Base:
             token="anon",  # noqa: S106 # nosec B106
             access="read_only",
             block_size=2**20,
+            asynchronous=True,
         )
 
         if self._cache:
