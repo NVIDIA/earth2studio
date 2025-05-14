@@ -147,7 +147,7 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         super().__init__()
         self.regression_model = regression_model
         self.diffusion_model = diffusion_model
-
+        # Could pull this from
         self.lat = lat
         self.lon = lon
         self.register_buffer("means", means)
@@ -181,8 +181,8 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 "time": np.empty(0),
                 "lead_time": np.array([np.timedelta64(0, "h")]),
                 "variable": np.array(self.variables),
-                "lat": self.lat,
-                "lon": self.lon,
+                "hrrr_y": np.arange(Y_START, Y_END, 1),
+                "hrrr_x": np.arange(X_START, X_END, 1),
             }
         )
 
@@ -208,6 +208,8 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 "time": np.empty(0),
                 "lead_time": np.array([np.timedelta64(1, "h")]),
                 "variable": np.array(self.variables),
+                "hrrr_y": np.arange(Y_START, Y_END, 1),
+                "hrrr_x": np.arange(X_START, X_END, 1),
                 "lat": self.lat,
                 "lon": self.lon,
             }
@@ -217,11 +219,11 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         target_input_coords = self.input_coords()
 
-        handshake_dim(input_coords, "lon", 5)
-        handshake_dim(input_coords, "lat", 4)
+        handshake_dim(input_coords, "hrrr_x", 5)
+        handshake_dim(input_coords, "hrrr_y", 4)
         handshake_dim(input_coords, "variable", 3)
-        handshake_coords(input_coords, target_input_coords, "lon")
-        handshake_coords(input_coords, target_input_coords, "lat")
+        handshake_coords(input_coords, target_input_coords, "hrrr_x")
+        handshake_coords(input_coords, target_input_coords, "hrrr_y")
         handshake_coords(input_coords, target_input_coords, "variable")
 
         output_coords["batch"] = input_coords["batch"]
@@ -374,8 +376,8 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         conditioning_coords.move_to_end("batch", last=False)
 
         # Handshake conditioning coords
-        handshake_coords(conditioning_coords, coords, "lon")
-        handshake_coords(conditioning_coords, coords, "lat")
+        handshake_coords(conditioning_coords, coords, "hrrr_x")
+        handshake_coords(conditioning_coords, coords, "hrrr_y")
         handshake_coords(conditioning_coords, coords, "lead_time")
         handshake_coords(conditioning_coords, coords, "time")
 

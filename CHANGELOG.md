@@ -26,6 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Refactored WB2ERA5 and WB2Climatology for async Zarr 3.0
 - Expanded the data source protocol to also include async fetch functions for async
   data sources
+- Updated StormCast coords to be hrrr index
 
 ### Deprecated
 
