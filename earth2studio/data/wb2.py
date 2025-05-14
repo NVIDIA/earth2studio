@@ -14,6 +14,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import asyncio
+import functools
+import inspect
 import os
 import pathlib
 import shutil
@@ -21,17 +24,20 @@ from datetime import datetime
 from importlib.metadata import version
 from typing import Literal
 
-import fsspec
 import gcsfs
+import nest_asyncio
 import numpy as np
 import xarray as xr
 import zarr
-from fsspec.implementations.cached import WholeFileCacheFileSystem
 from loguru import logger
-from tqdm import tqdm
+from tqdm.asyncio import tqdm
 
-from earth2studio.data.utils import datasource_cache_root, prep_data_inputs
-from earth2studio.lexicon import WB2Lexicon
+from earth2studio.data.utils import (
+    AsyncCachingFileSystem,
+    datasource_cache_root,
+    prep_data_inputs,
+)
+from earth2studio.lexicon import WB2ClimatetologyLexicon, WB2Lexicon
 from earth2studio.utils.type import TimeArray, VariableArray
 
 
@@ -44,8 +50,10 @@ class _WB2Base:
     def __init__(
         self,
         wb2_zarr_store: str,
+        wb2_product: str = "era5",
         cache: bool = True,
         verbose: bool = True,
+        async_timeout: int = 600,
     ):
         self._cache = cache
         self._verbose = verbose
@@ -55,6 +63,7 @@ class _WB2Base:
             token="anon",  # noqa: S106 # nosec B106
             access="read_only",
             block_size=2**20,
+            asynchronous=True,
         )
 
         if self._cache:
@@ -62,7 +71,7 @@ class _WB2Base:
                 "cache_storage": self.cache,
                 "expiry_time": 31622400,  # 1 year
             }
-            fs = WholeFileCacheFileSystem(fs=fs, **cache_options)
+            fs = AsyncCachingFileSystem(fs=fs, **cache_options, asynchronous=True)
 
         # Check Zarr version and use appropriate method
         try:
@@ -71,25 +80,24 @@ class _WB2Base:
         except Exception:
             # Fallback to older method if version check fails
             zarr_major_version = 2  # Assume older version if we can't determine
+        # Only zarr 3.0 support
+        if zarr_major_version < 3:
+            raise ModuleNotFoundError("Zarr 3.0 and above support only")
 
-        if zarr_major_version >= 3:
-            # Zarr 3.0+ method
-            zstore = zarr.storage.FsspecStore(
-                fs,
-                path=f"/weatherbench2/datasets/era5/{wb2_zarr_store}",
-            )
-            self.zarr_group = zarr.open(zstore, mode="r")
-        else:
-            # Legacy method for Zarr < 3.0
-            fs_map = fsspec.FSMap(f"weatherbench2/datasets/era5/{wb2_zarr_store}", fs)
-            self.zarr_group = zarr.open(fs_map, mode="r")
+        zstore = zarr.storage.FsspecStore(
+            fs,
+            path=f"/weatherbench2/datasets/{wb2_product}/{wb2_zarr_store}",
+        )
+        self.zarr_group = zarr.api.asynchronous.open(store=zstore, mode="r")
+
+        self.async_timeout = async_timeout
 
     def __call__(
         self,
         time: datetime | list[datetime] | TimeArray,
         variable: str | list[str] | VariableArray,
     ) -> xr.DataArray:
-        """Function to get data.
+        """Function to get data
 
         Parameters
         ----------
@@ -97,12 +105,51 @@ class _WB2Base:
             Timestamps to return data for (UTC).
         variable : str | list[str] | VariableArray
             String, list of strings or array of strings that refer to variables to
-            return. Must be in the WB2Lexicon lexicon.
+            return. Must be in the WB2 lexicon.
 
         Returns
         -------
         xr.DataArray
-            ERA5 weather data array from WB2Lexicon
+            ERA5 weather data array from weather bench 2
+        """
+
+        nest_asyncio.apply()  # Patch asyncio to work in notebooks
+        try:
+            loop = asyncio.get_event_loop()
+        except RuntimeError:
+            # If no event loop exists, create one
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+
+        xr_array = loop.run_until_complete(
+            asyncio.wait_for(self.fetch(time, variable), timeout=self.async_timeout)
+        )
+
+        # Delete cache if needed
+        if not self._cache:
+            shutil.rmtree(self.cache)
+
+        return xr_array
+
+    async def fetch(
+        self,
+        time: datetime | list[datetime] | TimeArray,
+        variable: str | list[str] | VariableArray,
+    ) -> xr.DataArray:
+        """Async function to get data
+
+        Parameters
+        ----------
+        time : datetime | list[datetime] | TimeArray
+            Timestamps to return data for (UTC).
+        variable : str | list[str] | VariableArray
+            String, list of strings or array of strings that refer to variables to
+            return. Must be in the WB2 lexicon.
+
+        Returns
+        -------
+        xr.DataArray
+            ERA5 weather data array from weather bench 2
         """
         time, variable = prep_data_inputs(time, variable)
         # Create cache dir if doesnt exist
@@ -111,99 +158,103 @@ class _WB2Base:
         # Make sure input time is valid
         self._validate_time(time)
 
-        # Fetch index file for requested time
-        data_arrays = []
-        for t0 in time:
-            data_array = self.fetch_wb2_dataarray(t0, variable)
-            data_arrays.append(data_array)
-
-        # Delete cache if needed
-        if not self._cache:
-            shutil.rmtree(self.cache)
-
-        return xr.concat(data_arrays, dim="time")
-
-    def fetch_wb2_dataarray(
-        self,
-        time: datetime,
-        variables: list[str],
-    ) -> xr.DataArray:
-        """Retrives WeatherBench2 data array for given date time by downloading a lat
-        lon array from the Zarr store
-
-        Parameters
-        ----------
-        time : datetime
-            Date time to fetch
-        variables : list[str]
-            list of atmosphric variables to fetch. Must be supported in WeatherBench2 lexicon
-
-        Returns
-        -------
-        xr.DataArray
-            WeatherBench2 data array for given date time
-        """
-        wb2da = xr.DataArray(
+        xr_array = xr.DataArray(
             data=np.empty(
                 (
-                    1,
-                    len(variables),
-                    self.WB2_ERA5_LAT.shape[0],
-                    self.WB2_ERA5_LON.shape[0],
+                    len(time),
+                    len(variable),
+                    len(self.WB2_ERA5_LAT),
+                    len(self.WB2_ERA5_LON),
                 )
             ),
             dims=["time", "variable", "lat", "lon"],
             coords={
-                "time": [time],
-                "variable": variables,
+                "time": time,
+                "variable": variable,
                 "lat": self.WB2_ERA5_LAT,
                 "lon": self.WB2_ERA5_LON,
             },
         )
 
-        # Load levels coordinate system from Zarr store and check
-        level_coords = self.zarr_group["level"][:]
+        args = [
+            (t, i, v, j) for j, v in enumerate(variable) for i, t in enumerate(time)
+        ]
+        func_map = map(functools.partial(self.fetch_wrapper, xr_array=xr_array), args)
+
+        # Before anything wait until the group gets opened
+        if inspect.isawaitable(self.zarr_group):
+            self.zarr_group = await self.zarr_group
+        self.level_coords = await (await self.zarr_group.get("level")).getitem(
+            slice(None)
+        )
+        # Launch all fetch requests
+        await tqdm.gather(
+            *func_map, desc="Fetching WB2 data", disable=(not self._verbose)
+        )
+        return xr_array
+
+    async def fetch_wrapper(
+        self,
+        e: tuple[datetime, int, str, int],
+        xr_array: xr.DataArray,
+    ) -> None:
+        """Small wrapper to pack arrays into the DataArray"""
+        out = await self.fetch_array(e[0], e[2])
+        xr_array[e[1], e[3]] = out
+
+    async def fetch_array(self, time: datetime, variable: str) -> np.ndarray:
+        """Fetches requested array from remote store
+
+        Parameters
+        ----------
+        time : datetime
+            Time to fetch
+        variable : str
+            Variable to fetch
+
+        Returns
+        -------
+        np.ndarray
+            Data
+        """
         # Get time index (vanilla zarr doesnt support date indices)
         time_index = self._get_time_index(time)
+        logger.debug(
+            f"Fetching WB2 zarr array for variable: {variable} at {time.isoformat()}"
+        )
+        try:
+            wb2_name, modifier = WB2Lexicon[variable]  # type: ignore
+        except KeyError as e:
+            logger.error(f"variable id {variable} not found in WB2 lexicon")
+            raise e
 
-        # TODO: Add MP here
-        for i, variable in enumerate(
-            tqdm(
-                variables,
-                desc=f"Fetching WB2 ERA5 for {time}",
-                disable=(not self._verbose),
-            )
-        ):
-            logger.debug(
-                f"Fetching WB2 ERA5 zarr array for variable: {variable} at {time.isoformat()}"
-            )
-            try:
-                wb2_name, modifier = WB2Lexicon[variable]
-            except KeyError as e:
-                logger.error(f"variable id {variable} not found in WB2 lexicon")
-                raise e
+        wb2_name, level = wb2_name.split("::")
 
-            wb2_name, level = wb2_name.split("::")
+        zarr_array = await self.zarr_group.get(wb2_name)
+        if zarr_array is None:
+            print(wb2_name)
+        shape = zarr_array.shape
+        # Static variables
+        if len(shape) == 2:
+            data = await zarr_array.getitem(slice(None))
+            output = modifier(data)
+        # Surface variable
+        elif len(shape) == 3:
+            data = await zarr_array.getitem(time_index)
+            output = modifier(data)
+        # Atmospheric variable
+        else:
+            # Load levels coordinate system from Zarr store and check
+            level_index = np.searchsorted(self.level_coords, int(level))
+            data = await zarr_array.getitem((time_index, level_index))
+            output = modifier(data)
 
-            shape = self.zarr_group[wb2_name].shape
-            # Static variables
-            if len(shape) == 2:
-                data = self.zarr_group[wb2_name][:]
-            # Surface variable
-            elif len(shape) == 3:
-                data = self.zarr_group[wb2_name][time_index]
-            # Atmospheric variable
-            else:
-                level_index = np.where(level_coords == int(level))[0][0]
-                data = self.zarr_group[wb2_name][time_index, level_index]
+        # Some WB2 data Zarr stores are saved [lon, lat] with lat flipped
+        # Namely its the lower resolutions ones with this issue
+        if output.shape[0] > output.shape[1]:
+            output = np.flip(output, axis=-1).T
 
-            # Some WB2 data Zarr stores are saved [lon, lat] with lat flipped
-            # Namely its the lower resolutions ones with this issue
-            if data.shape[0] > data.shape[1]:
-                data = np.flip(data, axis=-1).T
-            wb2da[0, i] = modifier(data)
-
-        return wb2da
+        return output
 
     @property
     def cache(self) -> str:
@@ -272,6 +323,9 @@ class WB2ERA5(_WB2Base):
         Cache data source on local memory, by default True
     verbose : bool, optional
         Print download progress, by default True
+    async_timeout : int, optional
+        Time in sec after which download will be cancelled if not finished successfully,
+        by default 600
 
     Warning
     -------
@@ -293,11 +347,13 @@ class WB2ERA5(_WB2Base):
         self,
         cache: bool = True,
         verbose: bool = True,
+        async_timeout: int = 600,
     ):
         super().__init__(
-            "1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr",
-            cache,
-            verbose,
+            wb2_zarr_store="1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr",
+            cache=cache,
+            verbose=verbose,
+            async_timeout=async_timeout,
         )
 
 
@@ -313,6 +369,9 @@ class WB2ERA5_121x240(_WB2Base):
         Cache data source on local memory, by default True
     verbose : bool, optional
         Print download progress, by default True
+    async_timeout : int, optional
+        Time in sec after which download will be cancelled if not finished successfully,
+        by default 600
 
     Warning
     -------
@@ -334,11 +393,13 @@ class WB2ERA5_121x240(_WB2Base):
         self,
         cache: bool = True,
         verbose: bool = True,
+        async_timeout: int = 600,
     ):
         super().__init__(
-            "1959-2023_01_10-6h-240x121_equiangular_with_poles_conservative.zarr",
-            cache,
-            verbose,
+            wb2_zarr_store="1959-2023_01_10-6h-240x121_equiangular_with_poles_conservative.zarr",
+            cache=cache,
+            verbose=verbose,
+            async_timeout=async_timeout,
         )
 
 
@@ -354,6 +415,9 @@ class WB2ERA5_32x64(_WB2Base):
         Cache data source on local memory, by default True
     verbose : bool, optional
         Print download progress, by default True
+    async_timeout : int, optional
+        Time in sec after which download will be cancelled if not finished successfully,
+        by default 600
 
     Warning
     -------
@@ -375,9 +439,13 @@ class WB2ERA5_32x64(_WB2Base):
         self,
         cache: bool = True,
         verbose: bool = True,
+        async_timeout: int = 600,
     ):
         super().__init__(
-            "1959-2023_01_10-6h-64x32_equiangular_conservative.zarr", cache, verbose
+            "1959-2023_01_10-6h-64x32_equiangular_conservative.zarr",
+            cache=cache,
+            verbose=verbose,
+            async_timeout=async_timeout,
         )
 
 
@@ -393,7 +461,7 @@ ClimatologyZarrStore = Literal[
 ]
 
 
-class WB2Climatology:
+class WB2Climatology(_WB2Base):
     """
     Climatology provided by WeatherBench2,
 
@@ -422,6 +490,9 @@ class WB2Climatology:
         Cache data source on local memory, by default True
     verbose : bool, optional
         Print download progress, by default True
+    async_timeout : int, optional
+        Time in sec after which download will be cancelled if not finished successfully,
+        by default 600
 
     Warning
     -------
@@ -441,54 +512,22 @@ class WB2Climatology:
         climatology_zarr_store: ClimatologyZarrStore = "1990-2017_6h_1440x721.zarr",
         cache: bool = True,
         verbose: bool = True,
+        async_timeout: int = 600,
     ):
-
-        self._cache = cache
-        self._verbose = verbose
-
-        fs = gcsfs.GCSFileSystem(
-            cache_timeout=-1,
-            token="anon",  # noqa: S106 # nosec B106
-            access="read_only",
-            block_size=2**20,
+        super().__init__(
+            climatology_zarr_store,
+            wb2_product="era5-hourly-climatology",
+            cache=cache,
+            verbose=verbose,
+            async_timeout=async_timeout,
         )
 
-        if self._cache:
-            cache_options = {
-                "cache_storage": self.cache,
-                "expiry_time": 31622400,  # 1 year
-            }
-            fs = WholeFileCacheFileSystem(fs=fs, **cache_options)
-
-        # Check Zarr version and use appropriate method
-        try:
-            zarr_version = version("zarr")
-            zarr_major_version = int(zarr_version.split(".")[0])
-        except Exception:
-            # Fallback to older method if version check fails
-            zarr_major_version = 2  # Assume older version if we can't determine
-
-        if zarr_major_version >= 3:
-            # Zarr 3.0+ method
-            zstore = zarr.storage.FsspecStore(
-                fs,
-                path=f"/weatherbench2/datasets/era5-hourly-climatology/{climatology_zarr_store}",
-            )
-            self.zarr_group = zarr.open(zstore, mode="r")
-        else:
-            # Legacy method for Zarr < 3.0
-            fs_map = fsspec.FSMap(
-                f"weatherbench2/datasets/era5-hourly-climatology/{climatology_zarr_store}",
-                fs,
-            )
-            self.zarr_group = zarr.open(fs_map, mode="r")
-
-    def __call__(
+    async def fetch(
         self,
         time: datetime | list[datetime] | TimeArray,
         variable: str | list[str] | VariableArray,
     ) -> xr.DataArray:
-        """Function to get data.
+        """Async function to get data
 
         Parameters
         ----------
@@ -496,112 +535,106 @@ class WB2Climatology:
             Timestamps to return data for (UTC).
         variable : str | list[str] | VariableArray
             String, list of strings or array of strings that refer to variables to
-            return. Must be in the WeatherBench2 lexicon.
+            return. Must be in the WB2 Climatology lexicon.
 
         Returns
         -------
         xr.DataArray
-            climatology data from WeatherBench climatology
+            ERA5 weather data array from weather bench 2
         """
         time, variable = prep_data_inputs(time, variable)
         # Create cache dir if doesnt exist
         pathlib.Path(self.cache).mkdir(parents=True, exist_ok=True)
 
-        # Fetch index file for requested time
-        data_arrays = []
-        for t0 in time:
-            data_array = self.fetch_wb_dataarray(t0, variable)
-            data_arrays.append(data_array)
+        # Make sure input time is valid
+        self._validate_time(time)
 
-        # Delete cache if needed
-        if not self._cache:
-            shutil.rmtree(self.cache)
+        # Before anything wait until the group gets opened
+        if inspect.isawaitable(self.zarr_group):
+            self.zarr_group = await self.zarr_group
 
-        return xr.concat(data_arrays, dim="time")
+        WB2_CLIMATE_LAT = await (await self.zarr_group.get("latitude")).getitem(
+            slice(None)
+        )
+        WB2_CLIMATE_LON = await (await self.zarr_group.get("longitude")).getitem(
+            slice(None)
+        )
 
-    def fetch_wb_dataarray(
-        self,
-        time: datetime,
-        variables: list[str],
-    ) -> xr.DataArray:
-        """Retrives WeatherBench data array for given date time by downloading a
-        lat lon array from the Zarr store
+        xr_array = xr.DataArray(
+            data=np.empty(
+                (len(time), len(variable), len(WB2_CLIMATE_LAT), len(WB2_CLIMATE_LON))
+            ),
+            dims=["time", "variable", "lat", "lon"],
+            coords={
+                "time": time,
+                "variable": variable,
+                "lat": WB2_CLIMATE_LAT[:],
+                "lon": WB2_CLIMATE_LON[:],
+            },
+        )
+
+        args = [
+            (t, i, v, j) for j, v in enumerate(variable) for i, t in enumerate(time)
+        ]
+        func_map = map(functools.partial(self.fetch_wrapper, xr_array=xr_array), args)
+
+        self.level_coords = await (await self.zarr_group.get("level")).getitem(
+            slice(None)
+        )
+        # Launch all fetch requests
+        await tqdm.gather(
+            *func_map, desc="Fetching WB2 climatology data", disable=(not self._verbose)
+        )
+        return xr_array
+
+    async def fetch_array(self, time: datetime, variable: str) -> np.ndarray:
+        """Fetches requested array from remote store
 
         Parameters
         ----------
         time : datetime
-            Date time to fetch
-        variables : list[str]
-            list of atmosphric variables to fetch.
+            Time to fetch
+        variable : str
+            Variable to fetch
 
         Returns
         -------
-        xr.DataArray
-            WeatherBench data array for given date time
+        np.ndarray
+            Data
         """
-        LAT = self.zarr_group["latitude"][:]
-        LON = self.zarr_group["longitude"][:]
-        wbda = xr.DataArray(
-            data=np.empty((1, len(variables), len(LAT), len(LON))),
-            dims=["time", "variable", "lat", "lon"],
-            coords={
-                "time": [time],
-                "variable": variables,
-                "lat": LAT,
-                "lon": LON,
-            },
-        )
-
-        # Load levels coordinate system from Zarr store and check
-        level_coords = self.zarr_group["level"][:]
         # Get time index (vanilla zarr doesnt support date indices)
-        hour, day_of_year = self._get_time_index(time)
+        hour_index, day_of_year_index = self._get_time_index(time)
+        logger.debug(
+            f"Fetching WB2 climatology zarr array for variable: {variable} at {time.isoformat()}"
+        )
+        try:
+            wb2_name, modifier = WB2ClimatetologyLexicon[variable]  # type: ignore
+        except KeyError as e:
+            logger.error(f"variable id {variable} not found in WB2 lexicon")
+            raise e
 
-        # TODO: Add MP here
-        for i, variable in enumerate(
-            tqdm(
-                variables,
-                desc=f"Fetching WeatherBench Climatology for {time}",
-                disable=(not self._verbose),
+        wb2_name, level = wb2_name.split("::")
+
+        zarr_array = await self.zarr_group.get(wb2_name)
+        shape = zarr_array.shape
+
+        # Surface variable [hour idx (6 hour), day index, lat, lon]
+        if len(shape) == 4:
+            data = await zarr_array.getitem((hour_index, day_of_year_index))
+            output = modifier(data)
+        # Atmospheric variable [hour idx (6 hour), day index, level lat, lon]
+        else:
+            # Load levels coordinate system from Zarr store and check
+            level_index = np.searchsorted(self.level_coords, int(level))
+            data = await zarr_array.getitem(
+                (hour_index, day_of_year_index, level_index)
             )
-        ):
-            logger.debug(
-                f"Fetching WeatherBench Climatology zarr array for variable: {variable} at {time.isoformat()}"
-            )
+            output = modifier(data)
 
-            try:
-                wb2_name, modifier = WB2Lexicon[variable]
-            except KeyError as e:
-                logger.error(
-                    f"variable id {variable} not found in WeatherBench lexicon"
-                )
-                raise e
-
-            wb2_variable, level = wb2_name.split("::")
-
-            if len(level) > 0:
-                wb2_variable, level = wb2_name.split("::")
-                level_index = np.where(level_coords == int(level))[0][0]
-                wbda[0, i] = modifier(
-                    self.zarr_group[wb2_variable][hour, day_of_year, level_index]
-                )
-
-            else:
-                wb2_variable = wb2_name.split("::")[0]
-                wbda[0, i] = modifier(self.zarr_group[wb2_variable][hour, day_of_year])
-
-        return wbda
-
-    @property
-    def cache(self) -> str:
-        """Get the appropriate cache location."""
-        cache_location = os.path.join(datasource_cache_root(), "wb2")
-        if not self._cache:
-            cache_location = os.path.join(cache_location, "tmp_wb2")
-        return cache_location
+        return output
 
     @classmethod
-    def _get_time_index(cls, time: datetime) -> tuple[int, int]:
+    def _get_time_index(cls, time: datetime) -> tuple[int, int]:  # type: ignore[override]
         """Little index converter to go from datetime to integer index for hour
         and day of year.
 

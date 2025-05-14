@@ -22,4 +22,4 @@ from .hrrr import HRRRFXLexicon, HRRRLexicon
 from .ifs import IFSLexicon
 from .imerg import IMERGLexicon
 from .ncar import NCAR_ERA5Lexicon
-from .wb2 import WB2Lexicon
+from .wb2 import WB2ClimatetologyLexicon, WB2Lexicon
