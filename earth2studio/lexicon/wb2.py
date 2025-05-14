@@ -20,6 +20,8 @@ import numpy as np
 
 from .base import LexiconType
 
+LEVELS = [50, 100, 150, 200, 250, 300, 400, 500, 600, 700, 850, 925, 1000]
+
 
 class WB2Lexicon(metaclass=LexiconType):
     """WeatherBench Lexicon
@@ -30,114 +32,88 @@ class WB2Lexicon(metaclass=LexiconType):
     Variable named based on ERA5 names, see WB2 docs for resources.
 
     - https://weatherbench2.readthedocs.io/en/latest/data-guide.html
+    - Dew point temperature at 2m seems to be all NaNs
     """
 
     VOCAB = {
         "u10m": "10m_u_component_of_wind::",
         "v10m": "10m_v_component_of_wind::",
         "t2m": "2m_temperature::",
-        "d2m": "2m_dewpoint_temperature::",
         "sp": "surface_pressure::",
         "msl": "mean_sea_level_pressure::",
+        "sst": "sea_surface_temperature::",
+        "tcwv": "total_column_water_vapour::",
+        "tp06": "total_precipitation_6hr::",
+        "tp12": "total_precipitation_12hr::",
+        "tp24": "total_precipitation_24hr::",
+    }
+    VOCAB.update({f"u{level}": f"u_component_of_wind::{level}" for level in LEVELS})
+    VOCAB.update({f"v{level}": f"v_component_of_wind::{level}" for level in LEVELS})
+    VOCAB.update({f"w{level}": f"vertical_velocity::{level}" for level in LEVELS})
+    VOCAB.update({f"z{level}": f"geopotential::{level}" for level in LEVELS})
+    VOCAB.update({f"t{level}": f"temperature::{level}" for level in LEVELS})
+    VOCAB.update({f"q{level}": f"specific_humidity::{level}" for level in LEVELS})
+    VOCAB.update({f"r{level}": f"relative_humidity::{level}" for level in LEVELS})
+
+    @classmethod
+    def get_item(cls, val: str) -> tuple[str, Callable]:
+        """Return name in WeatherBench vocabulary."""
+        wb2_key = cls.VOCAB[val]
+
+        if wb2_key.split("::")[0] == "relative_humidity":
+
+            def mod(x: np.array) -> np.array:
+                """Relative humidty in WeatherBench uses older calculation and does
+                not scale by 100 natively. Not recommended for use, see IFS method for
+                more modern calculation.
+                https://github.com/google-research/weatherbench2/blob/main/weatherbench2/derived_variables.py#L468
+                """
+                return x * 100
+
+        else:
+
+            def mod(x: np.array) -> np.array:
+                """Modify name (if necessary)."""
+                return x
+
+        return wb2_key, mod
+
+
+class WB2ClimatetologyLexicon(metaclass=LexiconType):
+    """WeatherBench Climatology Lexicon
+    WeatherBench specified <Variable ID>::<Pressure Level>
+
+    Note
+    ----
+    Variable named based on ERA5 names, see WB2 docs for resources.
+
+    - https://weatherbench2.readthedocs.io/en/latest/data-guide.html
+    - Dew point temperature at 2m seems to be all NaNs
+    """
+
+    VOCAB = {
+        "u10m": "10m_u_component_of_wind::",
+        "v10m": "10m_v_component_of_wind::",
+        "t2m": "2m_temperature::",
+        "sp": "surface_pressure::",
+        "msl": "mean_sea_level_pressure::",
+        "sst": "sea_surface_temperature::",
         "tcwv": "total_column_water_vapour::",
         "tp06": "total_precipitation_6hr::",
         "tp06sdf": "total_precipitation_6hr_seeps_dry_fraction::",
         "tp06st": "total_precipitation_6hr_seeps_threshold::",
         "tp12": "total_precipitation_12hr::",
+        "tp24": "total_precipitation_24hr::",
         "tp24sdf": "total_precipitation_24hr_seeps_dry_fraction::",
         "tp24st": "total_precipitation_24hr_seeps_threshold::",
-        "u50": "u_component_of_wind::50",
-        "u100": "u_component_of_wind::100",
-        "u150": "u_component_of_wind::150",
-        "u200": "u_component_of_wind::200",
-        "u250": "u_component_of_wind::250",
-        "u300": "u_component_of_wind::300",
-        "u400": "u_component_of_wind::400",
-        "u500": "u_component_of_wind::500",
-        "u600": "u_component_of_wind::600",
-        "u700": "u_component_of_wind::700",
-        "u850": "u_component_of_wind::850",
-        "u925": "u_component_of_wind::925",
-        "u1000": "u_component_of_wind::1000",
-        "v50": "v_component_of_wind::50",
-        "v100": "v_component_of_wind::100",
-        "v150": "v_component_of_wind::150",
-        "v200": "v_component_of_wind::200",
-        "v250": "v_component_of_wind::250",
-        "v300": "v_component_of_wind::300",
-        "v400": "v_component_of_wind::400",
-        "v500": "v_component_of_wind::500",
-        "v600": "v_component_of_wind::600",
-        "v700": "v_component_of_wind::700",
-        "v850": "v_component_of_wind::850",
-        "v925": "v_component_of_wind::925",
-        "v1000": "v_component_of_wind::1000",
-        "w50": "vertical_velocity::50",
-        "w100": "vertical_velocity::100",
-        "w150": "vertical_velocity::150",
-        "w200": "vertical_velocity::200",
-        "w250": "vertical_velocity::250",
-        "w300": "vertical_velocity::300",
-        "w400": "vertical_velocity::400",
-        "w500": "vertical_velocity::500",
-        "w600": "vertical_velocity::600",
-        "w700": "vertical_velocity::700",
-        "w850": "vertical_velocity::850",
-        "w925": "vertical_velocity::925",
-        "w1000": "vertical_velocity::1000",
-        "z50": "geopotential::50",
-        "z100": "geopotential::100",
-        "z150": "geopotential::150",
-        "z200": "geopotential::200",
-        "z250": "geopotential::250",
-        "z300": "geopotential::300",
-        "z400": "geopotential::400",
-        "z500": "geopotential::500",
-        "z600": "geopotential::600",
-        "z700": "geopotential::700",
-        "z850": "geopotential::850",
-        "z925": "geopotential::925",
-        "z1000": "geopotential::1000",
-        "t50": "temperature::50",
-        "t100": "temperature::100",
-        "t150": "temperature::150",
-        "t200": "temperature::200",
-        "t250": "temperature::250",
-        "t300": "temperature::300",
-        "t400": "temperature::400",
-        "t500": "temperature::500",
-        "t600": "temperature::600",
-        "t700": "temperature::700",
-        "t850": "temperature::850",
-        "t925": "temperature::925",
-        "t1000": "temperature::1000",
-        "q50": "specific_humidity::50",
-        "q100": "specific_humidity::100",
-        "q150": "specific_humidity::150",
-        "q200": "specific_humidity::200",
-        "q250": "specific_humidity::250",
-        "q300": "specific_humidity::300",
-        "q400": "specific_humidity::400",
-        "q500": "specific_humidity::500",
-        "q600": "specific_humidity::600",
-        "q700": "specific_humidity::700",
-        "q850": "specific_humidity::850",
-        "q925": "specific_humidity::925",
-        "q1000": "specific_humidity::1000",
-        "r50": "relative_humidity::50",
-        "r100": "relative_humidity::100",
-        "r150": "relative_humidity::150",
-        "r200": "relative_humidity::200",
-        "r250": "relative_humidity::250",
-        "r300": "relative_humidity::300",
-        "r400": "relative_humidity::400",
-        "r500": "relative_humidity::500",
-        "r600": "relative_humidity::600",
-        "r700": "relative_humidity::700",
-        "r850": "relative_humidity::850",
-        "r925": "relative_humidity::925",
-        "r1000": "relative_humidity::1000",
     }
+    VOCAB.update({f"u{level}": f"u_component_of_wind::{level}" for level in LEVELS})
+    VOCAB.update({f"v{level}": f"v_component_of_wind::{level}" for level in LEVELS})
+    VOCAB.update({f"w{level}": f"vertical_velocity::{level}" for level in LEVELS})
+    VOCAB.update({f"z{level}": f"geopotential::{level}" for level in LEVELS})
+    VOCAB.update({f"t{level}": f"temperature::{level}" for level in LEVELS})
+    VOCAB.update({f"q{level}": f"specific_humidity::{level}" for level in LEVELS})
+    VOCAB.update({f"r{level}": f"relative_humidity::{level}" for level in LEVELS})
 
     @classmethod
     def get_item(cls, val: str) -> tuple[str, Callable]:

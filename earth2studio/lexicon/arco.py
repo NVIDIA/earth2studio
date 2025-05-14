@@ -90,13 +90,15 @@ class ARCOLexicon(metaclass=LexiconType):
         "t2m": "2m_temperature::",
         "d2m": "2m_dewpoint_temperature::",
         "sp": "surface_pressure::",
+        "sst": "sea_surface_temperature::",
         "msl": "mean_sea_level_pressure::",
         "tcwv": "total_column_water_vapour::",
         "tp": "total_precipitation::",
         "z": "geopotential_at_surface::",
     }
     VOCAB.update({f"u{level}": f"u_component_of_wind::{level}" for level in LEVELS})
-    VOCAB.update({f"v{level}": f"'v_component_of_wind::{level}" for level in LEVELS})
+    VOCAB.update({f"v{level}": f"v_component_of_wind::{level}" for level in LEVELS})
+    VOCAB.update({f"w{level}": f"vertical_velocity::{level}" for level in LEVELS})
     VOCAB.update({f"z{level}": f"geopotential::{level}" for level in LEVELS})
     VOCAB.update({f"t{level}": f"temperature::{level}" for level in LEVELS})
     VOCAB.update({f"q{level}": f"specific_humidity::{level}" for level in LEVELS})
