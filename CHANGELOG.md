@@ -33,6 +33,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 
+- Removed curvilinear from Random data source
+
 ### Fixed
 
 - Fixed the asyncio zarr access in the ARCO data source

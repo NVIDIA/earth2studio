@@ -90,10 +90,6 @@ class Random_FX:
     ):
         self.domain_coords = domain_coords
 
-        # Check for regular vs. curvilinear coordinates
-        _, value = list(self.domain_coords.items()).pop()
-        value = np.array(value)
-
     def __call__(  # type: ignore[override]
         self,
         time: datetime | list[datetime] | TimeArray,
