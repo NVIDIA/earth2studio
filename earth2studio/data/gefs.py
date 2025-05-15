@@ -266,8 +266,8 @@ class GEFS_FX:
         # Start with fetching all index files for each time / lead time
         products = set()
         for v in variable:
-            gefs_name, _ = self.lexicon[v]  # type: ignore
-            products.add(gefs_name.split("::")[0])
+            gefs_name_str, _ = self.lexicon[v]  # type: ignore
+            products.add(gefs_name_str.split("::")[0])
         args = [
             self._grib_index_uri(t, lt, p)
             for t in time
@@ -625,7 +625,7 @@ class GEFS_FX_721x1440(GEFS_FX):
             async_timeout=async_timeout,
         )
         self._product_resolution = "0p25"
-        self.lexicon = GEFSLexiconSel
+        self.lexicon = GEFSLexiconSel  # type: ignore
 
     def __call__(
         self,
