@@ -654,8 +654,6 @@ document.write(`
         <span class="n">wb2_name</span><span class="p">,</span> <span class="n">level</span> <span class="o">=</span> <span class="n">wb2_name</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;::&quot;</span><span class="p">)</span>
 
         <span class="n">zarr_array</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">zarr_group</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">wb2_name</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">zarr_array</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="nb">print</span><span class="p">(</span><span class="n">wb2_name</span><span class="p">)</span>
         <span class="n">shape</span> <span class="o">=</span> <span class="n">zarr_array</span><span class="o">.</span><span class="n">shape</span>
         <span class="c1"># Static variables</span>
         <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">shape</span><span class="p">)</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>

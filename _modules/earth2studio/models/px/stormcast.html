@@ -456,7 +456,7 @@ document.write(`
     <span class="n">OmegaConf</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">deterministic_sampler</span> <span class="o">=</span> <span class="kc">None</span>
 
-<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.data</span><span class="w"> </span><span class="kn">import</span> <span class="n">DataSource</span><span class="p">,</span> <span class="n">fetch_data</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.data</span><span class="w"> </span><span class="kn">import</span> <span class="n">GFS_FX</span><span class="p">,</span> <span class="n">HRRR</span><span class="p">,</span> <span class="n">DataSource</span><span class="p">,</span> <span class="n">ForecastSource</span><span class="p">,</span> <span class="n">fetch_data</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.models.auto</span><span class="w"> </span><span class="kn">import</span> <span class="n">AutoModelMixin</span><span class="p">,</span> <span class="n">Package</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.models.batch</span><span class="w"> </span><span class="kn">import</span> <span class="n">batch_coords</span><span class="p">,</span> <span class="n">batch_func</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.models.dx.base</span><span class="w"> </span><span class="kn">import</span> <span class="n">DiagnosticModel</span>
@@ -526,16 +526,18 @@ document.write(`
 <span class="sd">        Deterministic model used to make an initial prediction</span>
 <span class="sd">    diffusion_model : torch.nn.Module</span>
 <span class="sd">        Generative model correcting the deterministic prediciton</span>
-<span class="sd">    lat : np.array</span>
-<span class="sd">        Latitude array (2D) of the domain</span>
-<span class="sd">    lon : np.array</span>
-<span class="sd">        Longitude array (2D) of the domain</span>
 <span class="sd">    means : torch.Tensor</span>
 <span class="sd">        Mean value of each input high-resolution variable</span>
 <span class="sd">    stds : torch.Tensor</span>
 <span class="sd">        Standard deviation of each input high-resolution variable</span>
 <span class="sd">    invariants : torch.Tensor</span>
 <span class="sd">        Static invariant  quantities</span>
+<span class="sd">    hrrr_lat_lim : tuple[int, int], optional</span>
+<span class="sd">        HRRR grid latitude limits, defaults to be the StormCastV1 region in central</span>
+<span class="sd">        United States, by default (273, 785)</span>
+<span class="sd">    hrrr_lon_lim : tuple[int, int], optional</span>
+<span class="sd">        HRRR grid longitude limits, defaults to be the StormCastV1 region in central</span>
+<span class="sd">        United States,, by default (579, 1219)</span>
 <span class="sd">    variables : np.array, optional</span>
 <span class="sd">        High-resolution variables, by default np.array(VARIABLES)</span>
 <span class="sd">    conditioning_means : torch.Tensor | None, optional</span>
@@ -544,42 +546,46 @@ document.write(`
 <span class="sd">        Standard deviations to normalize conditioning data, by default None</span>
 <span class="sd">    conditioning_variables : np.array, optional</span>
 <span class="sd">        Global variables for conditioning, by default np.array(CONDITIONING_VARIABLES)</span>
-<span class="sd">    conditioning_data_source : DataSource | None, optional</span>
-<span class="sd">        Data Source to use for global conditoining. Required for running in iterator mode, by default None</span>
+<span class="sd">    conditioning_data_source : DataSource | ForecastSource | None, optional</span>
+<span class="sd">        Data Source to use for global conditioning. Required for running in iterator mode, by default None</span>
 <span class="sd">    sampler_args : dict[str, float  |  int], optional</span>
 <span class="sd">        Arguments to pass to the diffusion sampler, by default {}</span>
-<span class="sd">    interp_method : str, optional</span>
-<span class="sd">        Interpolation method to use when regridding coarse conditoining data, by default &quot;linear&quot;</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">regression_model</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">,</span>
         <span class="n">diffusion_model</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">,</span>
-        <span class="n">lat</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">,</span>
-        <span class="n">lon</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">,</span>
         <span class="n">means</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
         <span class="n">stds</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
         <span class="n">invariants</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+        <span class="n">hrrr_lat_lim</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="mi">273</span><span class="p">,</span> <span class="mi">785</span><span class="p">),</span>
+        <span class="n">hrrr_lon_lim</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="mi">579</span><span class="p">,</span> <span class="mi">1219</span><span class="p">),</span>
         <span class="n">variables</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">VARIABLES</span><span class="p">),</span>
         <span class="n">conditioning_means</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">conditioning_stds</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">conditioning_variables</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">CONDITIONING_VARIABLES</span><span class="p">),</span>
-        <span class="n">conditioning_data_source</span><span class="p">:</span> <span class="n">DataSource</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">conditioning_data_source</span><span class="p">:</span> <span class="n">DataSource</span> <span class="o">|</span> <span class="n">ForecastSource</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">sampler_args</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span> <span class="o">|</span> <span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="p">{},</span>
-        <span class="n">interp_method</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;linear&quot;</span><span class="p">,</span>
     <span class="p">):</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">regression_model</span> <span class="o">=</span> <span class="n">regression_model</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">diffusion_model</span> <span class="o">=</span> <span class="n">diffusion_model</span>
-
-        <span class="bp">self</span><span class="o">.</span><span class="n">lat</span> <span class="o">=</span> <span class="n">lat</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">lon</span> <span class="o">=</span> <span class="n">lon</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">register_buffer</span><span class="p">(</span><span class="s2">&quot;means&quot;</span><span class="p">,</span> <span class="n">means</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">register_buffer</span><span class="p">(</span><span class="s2">&quot;stds&quot;</span><span class="p">,</span> <span class="n">stds</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">register_buffer</span><span class="p">(</span><span class="s2">&quot;invariants&quot;</span><span class="p">,</span> <span class="n">invariants</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">interp_method</span> <span class="o">=</span> <span class="n">interp_method</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">sampler_args</span> <span class="o">=</span> <span class="n">sampler_args</span>
+
+        <span class="n">hrrr_lat</span><span class="p">,</span> <span class="n">hrrr_lon</span> <span class="o">=</span> <span class="n">HRRR</span><span class="o">.</span><span class="n">grid</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">lat</span> <span class="o">=</span> <span class="n">hrrr_lat</span><span class="p">[</span>
+            <span class="n">hrrr_lat_lim</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="p">:</span> <span class="n">hrrr_lat_lim</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">hrrr_lon_lim</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="p">:</span> <span class="n">hrrr_lon_lim</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+        <span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">lon</span> <span class="o">=</span> <span class="n">hrrr_lon</span><span class="p">[</span>
+            <span class="n">hrrr_lat_lim</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="p">:</span> <span class="n">hrrr_lat_lim</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">hrrr_lon_lim</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="p">:</span> <span class="n">hrrr_lon_lim</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+        <span class="p">]</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">hrrr_x</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">hrrr_lon_lim</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">hrrr_lon_lim</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">hrrr_y</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">hrrr_lat_lim</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">hrrr_lat_lim</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="mi">1</span><span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">variables</span> <span class="o">=</span> <span class="n">variables</span>
 
@@ -606,8 +612,8 @@ document.write(`
                 <span class="s2">&quot;time&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span>
                 <span class="s2">&quot;lead_time&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">np</span><span class="o">.</span><span class="n">timedelta64</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;h&quot;</span><span class="p">)]),</span>
                 <span class="s2">&quot;variable&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">variables</span><span class="p">),</span>
-                <span class="s2">&quot;lat&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">lat</span><span class="p">,</span>
-                <span class="s2">&quot;lon&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">lon</span><span class="p">,</span>
+                <span class="s2">&quot;hrrr_y&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">hrrr_y</span><span class="p">,</span>
+                <span class="s2">&quot;hrrr_x&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">hrrr_x</span><span class="p">,</span>
             <span class="p">}</span>
         <span class="p">)</span>
 
@@ -633,20 +639,18 @@ document.write(`
                 <span class="s2">&quot;time&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span>
                 <span class="s2">&quot;lead_time&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">np</span><span class="o">.</span><span class="n">timedelta64</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;h&quot;</span><span class="p">)]),</span>
                 <span class="s2">&quot;variable&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">variables</span><span class="p">),</span>
-                <span class="s2">&quot;lat&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">lat</span><span class="p">,</span>
-                <span class="s2">&quot;lon&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">lon</span><span class="p">,</span>
+                <span class="s2">&quot;hrrr_y&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">hrrr_y</span><span class="p">,</span>
+                <span class="s2">&quot;hrrr_x&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">hrrr_x</span><span class="p">,</span>
             <span class="p">}</span>
         <span class="p">)</span>
-        <span class="k">if</span> <span class="n">input_coords</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">output_coords</span>
 
         <span class="n">target_input_coords</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">input_coords</span><span class="p">()</span>
 
-        <span class="n">handshake_dim</span><span class="p">(</span><span class="n">input_coords</span><span class="p">,</span> <span class="s2">&quot;lon&quot;</span><span class="p">,</span> <span class="mi">5</span><span class="p">)</span>
-        <span class="n">handshake_dim</span><span class="p">(</span><span class="n">input_coords</span><span class="p">,</span> <span class="s2">&quot;lat&quot;</span><span class="p">,</span> <span class="mi">4</span><span class="p">)</span>
+        <span class="n">handshake_dim</span><span class="p">(</span><span class="n">input_coords</span><span class="p">,</span> <span class="s2">&quot;hrrr_x&quot;</span><span class="p">,</span> <span class="mi">5</span><span class="p">)</span>
+        <span class="n">handshake_dim</span><span class="p">(</span><span class="n">input_coords</span><span class="p">,</span> <span class="s2">&quot;hrrr_y&quot;</span><span class="p">,</span> <span class="mi">4</span><span class="p">)</span>
         <span class="n">handshake_dim</span><span class="p">(</span><span class="n">input_coords</span><span class="p">,</span> <span class="s2">&quot;variable&quot;</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span>
-        <span class="n">handshake_coords</span><span class="p">(</span><span class="n">input_coords</span><span class="p">,</span> <span class="n">target_input_coords</span><span class="p">,</span> <span class="s2">&quot;lon&quot;</span><span class="p">)</span>
-        <span class="n">handshake_coords</span><span class="p">(</span><span class="n">input_coords</span><span class="p">,</span> <span class="n">target_input_coords</span><span class="p">,</span> <span class="s2">&quot;lat&quot;</span><span class="p">)</span>
+        <span class="n">handshake_coords</span><span class="p">(</span><span class="n">input_coords</span><span class="p">,</span> <span class="n">target_input_coords</span><span class="p">,</span> <span class="s2">&quot;hrrr_x&quot;</span><span class="p">)</span>
+        <span class="n">handshake_coords</span><span class="p">(</span><span class="n">input_coords</span><span class="p">,</span> <span class="n">target_input_coords</span><span class="p">,</span> <span class="s2">&quot;hrrr_y&quot;</span><span class="p">)</span>
         <span class="n">handshake_coords</span><span class="p">(</span><span class="n">input_coords</span><span class="p">,</span> <span class="n">target_input_coords</span><span class="p">,</span> <span class="s2">&quot;variable&quot;</span><span class="p">)</span>
 
         <span class="n">output_coords</span><span class="p">[</span><span class="s2">&quot;batch&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">input_coords</span><span class="p">[</span><span class="s2">&quot;batch&quot;</span><span class="p">]</span>
@@ -677,8 +681,25 @@ document.write(`
     <span class="nd">@check_extra_imports</span><span class="p">(</span>
         <span class="s2">&quot;stormcast&quot;</span><span class="p">,</span> <span class="p">[</span><span class="n">OmegaConf</span><span class="p">,</span> <span class="n">PhysicsNemoModule</span><span class="p">,</span> <span class="n">deterministic_sampler</span><span class="p">]</span>
     <span class="p">)</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">load_model</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">package</span><span class="p">:</span> <span class="n">Package</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">DiagnosticModel</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Load StormCast model.&quot;&quot;&quot;</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">load_model</span><span class="p">(</span>
+        <span class="bp">cls</span><span class="p">,</span>
+        <span class="n">package</span><span class="p">:</span> <span class="n">Package</span><span class="p">,</span>
+        <span class="n">conditioning_data_source</span><span class="p">:</span> <span class="n">DataSource</span> <span class="o">|</span> <span class="n">ForecastSource</span> <span class="o">=</span> <span class="n">GFS_FX</span><span class="p">(),</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">DiagnosticModel</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Load prognostic from package</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        package : Package</span>
+<span class="sd">            Package to load model from</span>
+<span class="sd">        conditioning_data_source : DataSource | ForecastSource, optional</span>
+<span class="sd">            Data source to use for global conditioning, by default GFS_FX</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        PrognosticModel</span>
+<span class="sd">            Prognostic model</span>
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">try</span><span class="p">:</span>
             <span class="n">OmegaConf</span><span class="o">.</span><span class="n">register_new_resolver</span><span class="p">(</span><span class="s2">&quot;eval&quot;</span><span class="p">,</span> <span class="nb">eval</span><span class="p">)</span>
         <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
@@ -700,8 +721,6 @@ document.write(`
         <span class="n">metadata</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">open_zarr</span><span class="p">(</span><span class="n">store</span><span class="p">,</span> <span class="n">zarr_format</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
 
         <span class="n">variables</span> <span class="o">=</span> <span class="n">metadata</span><span class="p">[</span><span class="s2">&quot;variable&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span>
-        <span class="n">lat</span> <span class="o">=</span> <span class="n">metadata</span><span class="o">.</span><span class="n">coords</span><span class="p">[</span><span class="s2">&quot;lat&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span>
-        <span class="n">lon</span> <span class="o">=</span> <span class="n">metadata</span><span class="o">.</span><span class="n">coords</span><span class="p">[</span><span class="s2">&quot;lon&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span>
         <span class="n">conditioning_variables</span> <span class="o">=</span> <span class="n">metadata</span><span class="p">[</span><span class="s2">&quot;conditioning_variable&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span>
 
         <span class="c1"># Expand dims and tensorify normalization buffers</span>
@@ -727,14 +746,13 @@ document.write(`
         <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span>
             <span class="n">regression</span><span class="p">,</span>
             <span class="n">diffusion</span><span class="p">,</span>
-            <span class="n">lat</span><span class="p">,</span>
-            <span class="n">lon</span><span class="p">,</span>
             <span class="n">means</span><span class="p">,</span>
             <span class="n">stds</span><span class="p">,</span>
             <span class="n">invariants</span><span class="p">,</span>
             <span class="n">variables</span><span class="o">=</span><span class="n">variables</span><span class="p">,</span>
             <span class="n">conditioning_means</span><span class="o">=</span><span class="n">conditioning_means</span><span class="p">,</span>
             <span class="n">conditioning_stds</span><span class="o">=</span><span class="n">conditioning_stds</span><span class="p">,</span>
+            <span class="n">conditioning_data_source</span><span class="o">=</span><span class="n">conditioning_data_source</span><span class="p">,</span>
             <span class="n">conditioning_variables</span><span class="o">=</span><span class="n">conditioning_variables</span><span class="p">,</span>
             <span class="n">sampler_args</span><span class="o">=</span><span class="n">sampler_args</span><span class="p">,</span>
         <span class="p">)</span></div>
@@ -784,21 +802,41 @@ document.write(`
         <span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
         <span class="n">coords</span><span class="p">:</span> <span class="n">CoordSystem</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">CoordSystem</span><span class="p">]:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Forward pass of diagnostic&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Runs prognostic model 1 step</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        x : torch.Tensor</span>
+<span class="sd">            Input tensor</span>
+<span class="sd">        coords : CoordSystem</span>
+<span class="sd">            Input coordinate system</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        tuple[torch.Tensor, CoordSystem]</span>
+<span class="sd">            Output tensor and coordinate system</span>
+
+<span class="sd">        Raises</span>
+<span class="sd">        ------</span>
+<span class="sd">        RuntimeError</span>
+<span class="sd">            If conditioning data source is not initialized</span>
+<span class="sd">        &quot;&quot;&quot;</span>
 
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">conditioning_data_source</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
                 <span class="s2">&quot;StormCast has been called without initializing the model&#39;s conditioning_data_source&quot;</span>
             <span class="p">)</span>
 
+        <span class="c1"># TODO: Eventually pull out interpolation into model and remove it from fetch</span>
+        <span class="c1"># data potentially</span>
         <span class="n">conditioning</span><span class="p">,</span> <span class="n">conditioning_coords</span> <span class="o">=</span> <span class="n">fetch_data</span><span class="p">(</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">conditioning_data_source</span><span class="p">,</span>
             <span class="n">time</span><span class="o">=</span><span class="n">coords</span><span class="p">[</span><span class="s2">&quot;time&quot;</span><span class="p">],</span>
             <span class="n">variable</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">conditioning_variables</span><span class="p">,</span>
             <span class="n">lead_time</span><span class="o">=</span><span class="n">coords</span><span class="p">[</span><span class="s2">&quot;lead_time&quot;</span><span class="p">],</span>
             <span class="n">device</span><span class="o">=</span><span class="n">x</span><span class="o">.</span><span class="n">device</span><span class="p">,</span>
-            <span class="n">interp_to</span><span class="o">=</span><span class="n">coords</span><span class="p">,</span>
-            <span class="n">interp_method</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">interp_method</span><span class="p">,</span>
+            <span class="n">interp_to</span><span class="o">=</span><span class="n">coords</span> <span class="o">|</span> <span class="p">{</span><span class="s2">&quot;_lat&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">lat</span><span class="p">,</span> <span class="s2">&quot;_lon&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">lon</span><span class="p">},</span>
+            <span class="n">interp_method</span><span class="o">=</span><span class="s2">&quot;linear&quot;</span><span class="p">,</span>
         <span class="p">)</span>
 
         <span class="c1"># Add a batch dim</span>
@@ -807,8 +845,9 @@ document.write(`
         <span class="n">conditioning_coords</span><span class="o">.</span><span class="n">move_to_end</span><span class="p">(</span><span class="s2">&quot;batch&quot;</span><span class="p">,</span> <span class="n">last</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
 
         <span class="c1"># Handshake conditioning coords</span>
-        <span class="n">handshake_coords</span><span class="p">(</span><span class="n">conditioning_coords</span><span class="p">,</span> <span class="n">coords</span><span class="p">,</span> <span class="s2">&quot;lon&quot;</span><span class="p">)</span>
-        <span class="n">handshake_coords</span><span class="p">(</span><span class="n">conditioning_coords</span><span class="p">,</span> <span class="n">coords</span><span class="p">,</span> <span class="s2">&quot;lat&quot;</span><span class="p">)</span>
+        <span class="c1"># TODO: ugh the interp... have to deal with this for now, no solution</span>
+        <span class="c1"># handshake_coords(conditioning_coords, coords, &quot;hrrr_x&quot;)</span>
+        <span class="c1"># handshake_coords(conditioning_coords, coords, &quot;hrrr_y&quot;)</span>
         <span class="n">handshake_coords</span><span class="p">(</span><span class="n">conditioning_coords</span><span class="p">,</span> <span class="n">coords</span><span class="p">,</span> <span class="s2">&quot;lead_time&quot;</span><span class="p">)</span>
         <span class="n">handshake_coords</span><span class="p">(</span><span class="n">conditioning_coords</span><span class="p">,</span> <span class="n">coords</span><span class="p">,</span> <span class="s2">&quot;time&quot;</span><span class="p">)</span>
 
@@ -843,8 +882,7 @@ document.write(`
         <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
             <span class="c1"># Front hook</span>
             <span class="n">x</span><span class="p">,</span> <span class="n">coords</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">front_hook</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="p">)</span>
-            <span class="c1"># Forward is identity operator</span>
-
+            <span class="c1"># Forward</span>
             <span class="n">x</span><span class="p">,</span> <span class="n">coords</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="fm">__call__</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="p">)</span>
             <span class="c1"># Rear hook</span>
             <span class="n">x</span><span class="p">,</span> <span class="n">coords</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">rear_hook</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="p">)</span>
@@ -857,12 +895,14 @@ document.write(`
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Iterator</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">CoordSystem</span><span class="p">]]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Creates a iterator which can be used to perform time-integration of the</span>
 <span class="sd">        prognostic model. Will return the initial condition first (0th step).</span>
+
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
 <span class="sd">        x : torch.Tensor</span>
 <span class="sd">            Input tensor</span>
 <span class="sd">        coords : CoordSystem</span>
 <span class="sd">            Input coordinate system</span>
+
 <span class="sd">        Yields</span>
 <span class="sd">        ------</span>
 <span class="sd">        Iterator[tuple[torch.Tensor, CoordSystem]]</span>

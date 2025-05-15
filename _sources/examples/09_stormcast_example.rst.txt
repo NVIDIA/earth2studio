@@ -53,10 +53,10 @@ Thus, we need the following:
 - IO Backend: Let's save the outputs into a Zarr store :py:class:`earth2studio.io.ZarrBackend`.
 
 StormCast also requires a conditioning data source. We use a forecast data source here,
-GFS_FX :py:class:`earth2studio.data.GFS_FX`, but a non-forecast data source such as ARCO
-could also be used with appropriate time stamps.
+GFS_FX :py:class:`earth2studio.data.GFS_FX` which is the default, but a non-forecast
+data source such as ARCO could also be used with appropriate time stamps.
 
-.. GENERATED FROM PYTHON SOURCE LINES 57-90
+.. GENERATED FROM PYTHON SOURCE LINES 57-87
 
 .. code-block:: Python
 
@@ -75,26 +75,23 @@ could also be used with appropriate time stamps.
 
     load_dotenv()  # TODO: make common example prep function
 
-    from earth2studio.data import GFS_FX, HRRR
+    from earth2studio.data import HRRR
     from earth2studio.io import ZarrBackend
     from earth2studio.models.px import StormCast
 
     # Load the default model package which downloads the check point from NGC
+    # Use the default conditioning data source GFS_FX
     package = StormCast.load_default_package()
     model = StormCast.load_model(package)
 
     # Create the data source
     data = HRRR()
 
-    # Create and set the conditioning data source
-    conditioning_data_source = GFS_FX()
-    model.conditioning_data_source = conditioning_data_source
-
     # Create the IO handler, store in memory
     io = ZarrBackend()
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 91-99
+.. GENERATED FROM PYTHON SOURCE LINES 88-96
 
 Execute the Workflow
 --------------------
@@ -105,7 +102,7 @@ saving to file. Check the API docs for more information.
 
 For the forecast we will predict for 4 hours
 
-.. GENERATED FROM PYTHON SOURCE LINES 101-110
+.. GENERATED FROM PYTHON SOURCE LINES 98-107
 
 .. code-block:: Python
 
@@ -119,7 +116,7 @@ For the forecast we will predict for 4 hours
     print(io.root.tree())
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 111-118
+.. GENERATED FROM PYTHON SOURCE LINES 108-115
 
 Post Processing
 ---------------
@@ -129,7 +126,7 @@ fields on projections of a sphere. Here we will just plot the temperature at 2 m
 
 Notice that the Zarr IO function has additional APIs to interact with the stored data.
 
-.. GENERATED FROM PYTHON SOURCE LINES 120-162
+.. GENERATED FROM PYTHON SOURCE LINES 117-159
 
 .. code-block:: Python
 
@@ -156,8 +153,8 @@ Notice that the Zarr IO function has additional APIs to interact with the stored
 
     # Plot the field using pcolormesh
     im = ax.pcolormesh(
-        io["lon"][:],
-        io["lat"][:],
+        model.lon,
+        model.lat,
         io[variable][0, step],
         transform=ccrs.PlateCarree(),
         cmap="Spectral_r",
