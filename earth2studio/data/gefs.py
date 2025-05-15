@@ -103,7 +103,7 @@ class GEFS_FX:
     GEFS_LAT = np.linspace(90, -90, 361)
     GEFS_LON = np.linspace(0, 359.5, 720)
 
-    GEFS_PRODUCTS = ["gec00"] + [f"gep{i:02d}" for i in range(1, 31)]
+    GEFS_MEMBERS = ["gec00"] + [f"gep{i:02d}" for i in range(1, 31)]
     GEFS_CHECK_PRODUCT = "pgrb2bp5"
 
     def __init__(
@@ -117,6 +117,9 @@ class GEFS_FX:
         self._cache = cache
         self._verbose = verbose
         self._max_workers = max_workers
+
+        if member not in self.GEFS_MEMBERS:
+            raise ValueError(f"Invalid GEFS member {member}")
 
         self._product_class = "atmos"
         self._product_resolution = "0p50"  # 0p50 or 0p25
