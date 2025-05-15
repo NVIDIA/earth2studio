@@ -65,6 +65,7 @@ import torch
 from earth2studio.data import ARCO
 from earth2studio.models.dx import TCTrackerWuDuan
 from earth2studio.models.px import SFNO
+from earth2studio.utils.time import to_time_array
 
 # Create tropical cyclone tracker
 tracker = TCTrackerWuDuan()
@@ -131,7 +132,7 @@ tracker.reset_path_buffer()
 # Load the initial state
 x, coords = fetch_data(
     source=data,
-    time=[start_time],
+    time=to_time_array(start_time),
     variable=prognostic.input_coords()["variable"],
     lead_time=prognostic.input_coords()["lead_time"],
     device=device,
