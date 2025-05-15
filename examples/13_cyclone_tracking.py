@@ -132,7 +132,7 @@ tracker.reset_path_buffer()
 # Load the initial state
 x, coords = fetch_data(
     source=data,
-    time=to_time_array(start_time),
+    time=to_time_array([start_time]),
     variable=prognostic.input_coords()["variable"],
     lead_time=prognostic.input_coords()["lead_time"],
     device=device,
