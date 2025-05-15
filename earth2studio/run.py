@@ -134,7 +134,7 @@ def deterministic(
     model = prognostic.create_iterator(x, coords)
 
     logger.info("Inference starting!")
-    with tqdm(total=nsteps + 1, desc="Running inference") as pbar:
+    with tqdm(total=nsteps + 1, desc="Running inference", position=1) as pbar:
         for step, (x, coords) in enumerate(model):
             # Subselect domain/variables as indicated in output_coords
             x, coords = map_coords(x, coords, output_coords)
@@ -250,7 +250,7 @@ def diagnostic(
     model = prognostic.create_iterator(x, coords)
 
     logger.info("Inference starting!")
-    with tqdm(total=nsteps + 1, desc="Running inference") as pbar:
+    with tqdm(total=nsteps + 1, desc="Running inference", position=1) as pbar:
         for step, (x, coords) in enumerate(model):
 
             # Run diagnostic
@@ -345,7 +345,11 @@ def ensemble(
     logger.success(f"Fetched data from {data.__class__.__name__}")
 
     # Set up IO backend with information from output_coords (if applicable).
-    total_coords = {"ensemble": np.arange(nensemble)} | coords0.copy()
+    total_coords = prognostic.output_coords(prognostic.input_coords()).copy()
+    if "batch" in total_coords:
+        del total_coords["batch"]
+    total_coords = {"ensemble": np.arange(nensemble)} | total_coords
+    total_coords["time"] = time
     total_coords["lead_time"] = np.asarray(
         [
             prognostic.output_coords(prognostic.input_coords())["lead_time"] * i
@@ -354,7 +358,6 @@ def ensemble(
     ).flatten()
     for key, value in total_coords.items():
         total_coords[key] = output_coords.get(key, value)
-
     variables_to_save = total_coords.pop("variable")
     io.add_array(total_coords, variables_to_save)
 
@@ -373,6 +376,7 @@ def ensemble(
         range(0, nensemble, batch_size),
         total=number_of_batches,
         desc="Total Ensemble Batches",
+        position=2,
     ):
 
         # Get fresh batch data
@@ -397,7 +401,10 @@ def ensemble(
         model = prognostic.create_iterator(x, coords)
 
         with tqdm(
-            total=nsteps + 1, desc=f"Running batch {batch_id} inference", leave=False
+            total=nsteps + 1,
+            desc=f"Running batch {batch_id} inference",
+            position=1,
+            leave=False,
         ) as pbar:
             for step, (x, coords) in enumerate(model):
                 # Subselect domain/variables as indicated in output_coords
