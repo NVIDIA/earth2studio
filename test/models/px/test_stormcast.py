@@ -20,10 +20,8 @@ from collections.abc import Iterable
 import numpy as np
 import pytest
 import torch
-import xarray as xr
 
 from earth2studio.data import Random, fetch_data
-from earth2studio.data.utils import prep_data_inputs
 from earth2studio.models.px import StormCast
 from earth2studio.utils import handshake_dim
 
@@ -49,20 +47,6 @@ class PhooStormCastDiffusionModel(torch.nn.Module):
 
     def round_sigma(self, sigma):
         return torch.as_tensor(sigma)
-
-
-class PhooStormCastRandom(Random):
-    def __call__(self, time, variable) -> xr.DataArray:
-
-        time, variable = prep_data_inputs(time, variable)
-        shape = [len(time), len(variable)]
-        coords = {"time": time, "variable": variable}
-
-        _, value = list(self.domain_coords.items()).pop()
-        domain_coord_shape = np.array(value).shape
-        shape.extend(domain_coord_shape)
-        dims = ["time", "variable", "hrrr_y", "hrrr_x"]
-        return xr.DataArray(data=np.random.randn(*shape), dims=dims, coords=coords)
 
 
 @pytest.mark.parametrize(
@@ -321,9 +305,16 @@ def test_stormcast_package(device, model):
     # Test the cached model package StormCast
     p = model.to(device)
 
-    # Create random data sources
-    dc = OrderedDict([("lat", p.lat), ("lon", p.lon)])
-    r = PhooStormCastRandom(dc)
+    X_START, X_END = 579, 1219
+    Y_START, Y_END = 273, 785
+    dc = OrderedDict(
+        [
+            ("hrrr_y", np.arange(Y_START, Y_END, 1)),
+            ("hrrr_x", np.arange(X_START, X_END, 1)),
+        ]
+    )
+    r = Random(dc)
+
     r_condition = Random(
         OrderedDict(
             [
