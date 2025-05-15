@@ -196,7 +196,7 @@ class HRRR:
         Returns
         -------
         xr.DataArray
-            GFS weather data array
+            HRRR weather data array
         """
         nest_asyncio.apply()  # Patch asyncio to work in notebooks
         try:
@@ -230,7 +230,7 @@ class HRRR:
             Timestamps to return data for (UTC).
         variable : str | list[str] | VariableArray
             String, list of strings or array of strings that refer to variables to
-            return. Must be in the GFS lexicon.
+            return. Must be in the HRRR lexicon.
 
         Returns
         -------
@@ -412,7 +412,7 @@ class HRRR:
         byte_length: int,
         modifier: Callable,
     ) -> np.ndarray:
-        """Fetch GFS data array. This will first fetch the index file to get byte range
+        """Fetch HRRR data array. This will first fetch the index file to get byte range
         of the needed data, fetch the respective grib files and lastly combining grib
         files into single data array.
 
@@ -444,7 +444,7 @@ class HRRR:
         return modifier(da.values)
 
     def _validate_time(self, times: list[datetime]) -> None:
-        """Verify if date time is valid for GFS based on offline knowledge
+        """Verify if date time is valid for HRRR based on offline knowledge
 
         Parameters
         ----------
@@ -460,7 +460,7 @@ class HRRR:
             self._history_range(time)
 
     async def _fetch_index(self, index_uri: str) -> dict[str, tuple[int, int]]:
-        """Fetch GFS atmospheric index file
+        """Fetch HRRR atmospheric index file
 
         Parameters
         ----------
@@ -470,7 +470,7 @@ class HRRR:
         Returns
         -------
         dict[str, tuple[int, int]]
-            Dictionary of GFS vairables (byte offset, byte length)
+            Dictionary of HRRR vairables (byte offset, byte length)
         """
         # Grab index file
         index_file = await self._fetch_remote_file(index_uri)
@@ -479,6 +479,7 @@ class HRRR:
 
         index_table = {}
         # Note we actually drop the last variable here because its easier (SBT114)
+        # GEFS has a solution for this if needed that involves appending a dummy line
         # Example of row: "1:0:d=2021111823:REFC:entire atmosphere:795 min fcst:"
         for i, line in enumerate(index_lines[:-1]):
             lsplit = line.split(":")
@@ -717,6 +718,11 @@ class HRRR_FX(HRRR):
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
 
+        # Modify the worker amount
+        loop.set_default_executor(
+            concurrent.futures.ThreadPoolExecutor(max_workers=self._max_workers)
+        )
+
         xr_array = loop.run_until_complete(
             asyncio.wait_for(
                 self.fetch(time, lead_time, variable), timeout=self.async_timeout
@@ -746,7 +752,7 @@ class HRRR_FX(HRRR):
         Returns
         -------
         xr.DataArray
-            HRRR weather data array
+            HRRR forecast data array
         """
         time, lead_time, variable = prep_forecast_inputs(time, lead_time, variable)
         # Create cache dir if doesnt exist
@@ -786,12 +792,18 @@ class HRRR_FX(HRRR):
         )
 
         await tqdm.gather(
-            *func_map, desc="Fetching GFS data", disable=(not self._verbose)
+            *func_map, desc="Fetching HRRR data", disable=(not self._verbose)
         )
 
         # Delete cache if needed
         if not self._cache:
             shutil.rmtree(self.cache)
+
+        # Close aiohttp client if s3fs
+        # https://github.com/fsspec/s3fs/issues/943
+        # https://github.com/zarr-developers/zarr-python/issues/2901
+        if isinstance(self.fs, s3fs.S3FileSystem):
+            s3fs.S3FileSystem.close_session(asyncio.get_event_loop(), self.fs.s3)
 
         return xr_array
 
