@@ -61,12 +61,7 @@ class PhooStormCastRandom(Random):
         _, value = list(self.domain_coords.items()).pop()
         domain_coord_shape = np.array(value).shape
         shape.extend(domain_coord_shape)
-
-        dims = ["time", "variable", "y", "x"]
-        coords = coords | {
-            "lat": (("y", "x"), self.domain_coords["lat"]),
-            "lon": (("y", "x"), self.domain_coords["lon"]),
-        }
+        dims = ["time", "variable", "hrrr_y", "hrrr_x"]
         return xr.DataArray(data=np.random.randn(*shape), dims=dims, coords=coords)
 
 
@@ -90,12 +85,18 @@ def test_stormcast_call(time, device):
     diffusion = PhooStormCastDiffusionModel()
 
     # Init data sources
-    nvar, nvar_cond, nlat, nlon = 3, 5, 128, 160
-    lat, lon = np.meshgrid(
-        np.linspace(30, 46, num=nlat), np.linspace(250, 275, num=nlon), indexing="ij"
+    X_START, X_END = 579, 1219
+    Y_START, Y_END = 273, 785
+    nvar, nvar_cond = 3, 5
+    dc = OrderedDict(
+        [
+            ("hrrr_y", np.arange(Y_START, Y_END, 1)),
+            ("hrrr_x", np.arange(X_START, X_END, 1)),
+        ]
     )
-    dc = OrderedDict([("lat", lat), ("lon", lon)])
-    r = PhooStormCastRandom(dc)
+    lat, lon = np.meshgrid(dc["hrrr_y"], dc["hrrr_x"], indexing="ij")
+
+    r = Random(dc)
     r_condition = Random(
         OrderedDict(
             [
@@ -111,7 +112,7 @@ def test_stormcast_call(time, device):
     # Init model with explicit conditioning data in constructor
     means = torch.zeros(1, nvar, 1, 1)
     stds = torch.ones(1, nvar, 1, 1)
-    invariants = torch.randn(1, 2, nlat, nlon)
+    invariants = torch.randn(1, 2, lat.shape[0], lat.shape[1])
     conditioning_means = torch.randn(1, nvar_cond, 1, 1, device=device)
     conditioning_stds = torch.randn(1, nvar_cond, 1, 1, device=device)
     conditioning_variables = np.array(["u%02d" % i for i in range(nvar_cond)])
@@ -141,11 +142,11 @@ def test_stormcast_call(time, device):
     if not isinstance(time, Iterable):
         time = [time]
 
-    assert out.shape == torch.Size([len(time), 1, nvar, nlat, nlon])
+    assert out.shape == torch.Size([len(time), 1, nvar, lat.shape[0], lat.shape[1]])
     assert (out_coords["variable"] == p.output_coords(coords)["variable"]).all()
     assert np.all(out_coords["time"] == time)
-    handshake_dim(out_coords, "lon", 4)
-    handshake_dim(out_coords, "lat", 3)
+    handshake_dim(out_coords, "hrrr_x", 4)
+    handshake_dim(out_coords, "hrrr_y", 3)
     handshake_dim(out_coords, "variable", 2)
     handshake_dim(out_coords, "lead_time", 1)
     handshake_dim(out_coords, "time", 0)
@@ -165,12 +166,18 @@ def test_stormcast_iter(ensemble, device):
     diffusion = PhooStormCastDiffusionModel()
 
     # Init data sources
-    nvar, nvar_cond, nlat, nlon = 3, 5, 128, 160
-    lat, lon = np.meshgrid(
-        np.linspace(30, 46, num=nlat), np.linspace(250, 275, num=nlon), indexing="ij"
+    X_START, X_END = 579, 1219
+    Y_START, Y_END = 273, 785
+    nvar, nvar_cond = 3, 5
+    dc = OrderedDict(
+        [
+            ("hrrr_y", np.arange(Y_START, Y_END, 1)),
+            ("hrrr_x", np.arange(X_START, X_END, 1)),
+        ]
     )
-    dc = OrderedDict([("lat", lat), ("lon", lon)])
-    r = PhooStormCastRandom(dc)
+    lat, lon = np.meshgrid(dc["hrrr_y"], dc["hrrr_x"], indexing="ij")
+
+    r = Random(dc)
     r_condition = Random(
         OrderedDict(
             [
@@ -184,7 +191,7 @@ def test_stormcast_iter(ensemble, device):
     variables = np.array(["u%02d" % i for i in range(nvar)])
     means = torch.zeros(1, nvar, 1, 1)
     stds = torch.ones(1, nvar, 1, 1)
-    invariants = torch.randn(1, 2, nlat, nlon)
+    invariants = torch.randn(1, 2, lat.shape[0], lat.shape[1])
     conditioning_means = torch.randn(1, nvar_cond, 1, 1, device=device)
     conditioning_stds = torch.randn(1, nvar_cond, 1, 1, device=device)
     conditioning_variables = np.array(["u%02d" % i for i in range(nvar_cond)])
@@ -223,7 +230,9 @@ def test_stormcast_iter(ensemble, device):
     next(p_iter)  # Skip first which should return the input
     for i, (out, out_coords) in enumerate(p_iter):
         assert len(out.shape) == 6
-        assert out.shape == torch.Size([ensemble, len(time), 1, nvar, nlat, nlon])
+        assert out.shape == torch.Size(
+            [ensemble, len(time), 1, nvar, lat.shape[0], lat.shape[1]]
+        )
         assert (
             out_coords["variable"] == p.output_coords(p.input_coords())["variable"]
         ).all()
@@ -253,10 +262,17 @@ def test_stormcast_exceptions(dc, device):
     diffusion = PhooStormCastDiffusionModel()
 
     # Build model with correct coords but no conditioning info
-    lat, lon = np.meshgrid(
-        np.linspace(30, 46, num=512), np.linspace(250, 275, num=640), indexing="ij"
+    X_START, X_END = 579, 1219
+    Y_START, Y_END = 273, 785
+    dc = OrderedDict(
+        [
+            ("hrrr_y", np.arange(Y_START, Y_END, 1)),
+            ("hrrr_x", np.arange(X_START, X_END, 1)),
+        ]
     )
-    r = PhooStormCastRandom(OrderedDict([("lat", lat), ("lon", lon)]))
+    lat, lon = np.meshgrid(dc["hrrr_y"], dc["hrrr_x"], indexing="ij")
+
+    r = Random(dc)
     means = torch.zeros(1, 99, 1, 1)
     stds = torch.ones(1, 99, 1, 1)
     invariants = torch.randn(1, 2, 512, 640)
@@ -336,8 +352,8 @@ def test_stormcast_package(device, model):
     assert out.shape == torch.Size([len(time), 1, 99, 512, 640])
     assert (out_coords["variable"] == p.output_coords(coords)["variable"]).all()
     assert np.all(out_coords["time"] == time)
-    handshake_dim(out_coords, "lon", 4)
-    handshake_dim(out_coords, "lat", 3)
+    handshake_dim(out_coords, "hrrr_x", 4)
+    handshake_dim(out_coords, "hrrr_y", 3)
     handshake_dim(out_coords, "variable", 2)
     handshake_dim(out_coords, "lead_time", 1)
     handshake_dim(out_coords, "time", 0)
