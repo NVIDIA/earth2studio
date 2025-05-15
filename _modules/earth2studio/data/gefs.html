@@ -437,333 +437,49 @@ document.write(`
 <span class="c1"># See the License for the specific language governing permissions and</span>
 <span class="c1"># limitations under the License.</span>
 
+<span class="kn">import</span><span class="w"> </span><span class="nn">asyncio</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">concurrent.futures</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">functools</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">hashlib</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">pathlib</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">shutil</span>
-<span class="kn">import</span><span class="w"> </span><span class="nn">warnings</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">datetime</span><span class="w"> </span><span class="kn">import</span> <span class="n">datetime</span><span class="p">,</span> <span class="n">timedelta</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Callable</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">datetime</span><span class="w"> </span><span class="kn">import</span> <span class="n">datetime</span><span class="p">,</span> <span class="n">timedelta</span><span class="p">,</span> <span class="n">timezone</span>
 
+<span class="kn">import</span><span class="w"> </span><span class="nn">nest_asyncio</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">s3fs</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">xarray</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">xr</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">fsspec.implementations.cached</span><span class="w"> </span><span class="kn">import</span> <span class="n">WholeFileCacheFileSystem</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">loguru</span><span class="w"> </span><span class="kn">import</span> <span class="n">logger</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">s3fs.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">S3FileSystem</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">tqdm</span><span class="w"> </span><span class="kn">import</span> <span class="n">tqdm</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">tqdm.asyncio</span><span class="w"> </span><span class="kn">import</span> <span class="n">tqdm</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.data.utils</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
     <span class="n">datasource_cache_root</span><span class="p">,</span>
     <span class="n">prep_forecast_inputs</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.lexicon</span><span class="w"> </span><span class="kn">import</span> <span class="n">GEFSLexicon</span><span class="p">,</span> <span class="n">GEFSLexiconSel</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.lexicon.base</span><span class="w"> </span><span class="kn">import</span> <span class="n">LexiconType</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.utils.type</span><span class="w"> </span><span class="kn">import</span> <span class="n">LeadTimeArray</span><span class="p">,</span> <span class="n">TimeArray</span><span class="p">,</span> <span class="n">VariableArray</span>
 
 <span class="n">logger</span><span class="o">.</span><span class="n">remove</span><span class="p">()</span>
 <span class="n">logger</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="k">lambda</span> <span class="n">msg</span><span class="p">:</span> <span class="n">tqdm</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">msg</span><span class="p">,</span> <span class="n">end</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">),</span> <span class="n">colorize</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
 
-<span class="k">class</span><span class="w"> </span><span class="nc">_GEFSBase</span><span class="p">:</span>
+<span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">GEFSAsyncTask</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Small helper struct for Async tasks&quot;&quot;&quot;</span>
 
-    <span class="n">GEFS_BUCKET_NAME</span><span class="p">:</span> <span class="nb">str</span>
-    <span class="n">GEFS_CHECK_CLASS</span><span class="p">:</span> <span class="nb">str</span>
-    <span class="n">GEFS_LAT</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>
-    <span class="n">GEFS_LON</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>
-
-    <span class="n">MAX_BYTE_SIZE</span><span class="p">:</span> <span class="nb">int</span>
-
-    <span class="n">_cache</span><span class="p">:</span> <span class="nb">bool</span>
-    <span class="n">_verbose</span><span class="p">:</span> <span class="nb">bool</span>
-    <span class="n">lexicon</span><span class="p">:</span> <span class="n">LexiconType</span>
-    <span class="n">fs</span><span class="p">:</span> <span class="n">s3fs</span><span class="o">.</span><span class="n">S3FileSystem</span>
-    <span class="n">s3fs</span><span class="p">:</span> <span class="n">s3fs</span><span class="o">.</span><span class="n">S3FileSystem</span>
-
-    <span class="k">def</span><span class="w"> </span><span class="fm">__call__</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span>
-        <span class="n">time</span><span class="p">:</span> <span class="n">datetime</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="n">datetime</span><span class="p">]</span> <span class="o">|</span> <span class="n">TimeArray</span><span class="p">,</span>
-        <span class="n">lead_time</span><span class="p">:</span> <span class="n">timedelta</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="n">timedelta</span><span class="p">]</span> <span class="o">|</span> <span class="n">LeadTimeArray</span><span class="p">,</span>
-        <span class="n">variable</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="n">VariableArray</span><span class="p">,</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Retrieve GEFS ensemble forecast data</span>
-
-<span class="sd">        Parameters</span>
-<span class="sd">        ----------</span>
-<span class="sd">        time : datetime | list[datetime] | TimeArray</span>
-<span class="sd">            Timestamps to return data for (UTC).</span>
-<span class="sd">        lead_time: timedelta | list[timedelta] | LeadTimeArray</span>
-<span class="sd">            Forecast lead times to fetch.</span>
-<span class="sd">        variable : str | list[str] | VariableArray</span>
-<span class="sd">            String, list of strings or array of strings that refer to variables to</span>
-<span class="sd">            return. Must be in the GEFS lexicon.</span>
-
-<span class="sd">        Returns</span>
-<span class="sd">        -------</span>
-<span class="sd">        xr.DataArray</span>
-<span class="sd">            GEFS weather data array</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">time</span><span class="p">,</span> <span class="n">lead_time</span><span class="p">,</span> <span class="n">variable</span> <span class="o">=</span> <span class="n">prep_forecast_inputs</span><span class="p">(</span><span class="n">time</span><span class="p">,</span> <span class="n">lead_time</span><span class="p">,</span> <span class="n">variable</span><span class="p">)</span>
-
-        <span class="c1"># Create cache dir if doesnt exist</span>
-        <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cache</span><span class="p">)</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-
-        <span class="c1"># Make sure input time is valid</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_validate_time</span><span class="p">(</span><span class="n">time</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_validate_leadtime</span><span class="p">(</span><span class="n">lead_time</span><span class="p">)</span>
-
-        <span class="c1"># Create data array of forecast data</span>
-        <span class="n">xr_array</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">create_data_array</span><span class="p">(</span><span class="n">time</span><span class="p">,</span> <span class="n">lead_time</span><span class="p">,</span> <span class="n">variable</span><span class="p">)</span>
-
-        <span class="c1"># Delete cache if needed</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span><span class="p">:</span>
-            <span class="n">shutil</span><span class="o">.</span><span class="n">rmtree</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cache</span><span class="p">)</span>
-
-        <span class="k">return</span> <span class="n">xr_array</span>
-
-    <span class="k">def</span><span class="w"> </span><span class="nf">create_data_array</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span> <span class="n">time</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">datetime</span><span class="p">],</span> <span class="n">lead_time</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">timedelta</span><span class="p">],</span> <span class="n">variable</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Function that creates and populates an xarray data array with requested</span>
-<span class="sd">        GEFS data.</span>
-
-<span class="sd">        Parameters</span>
-<span class="sd">        ----------</span>
-<span class="sd">        time : list[datetime]</span>
-<span class="sd">            Time list to fetch</span>
-<span class="sd">        lead_time: list[timedelta]</span>
-<span class="sd">            Lead time list to getch</span>
-<span class="sd">        variable : list[str]</span>
-<span class="sd">            Variable list to fetch</span>
-
-<span class="sd">        Returns</span>
-<span class="sd">        -------</span>
-<span class="sd">        xr.DataArray</span>
-<span class="sd">            Xarray data array</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">xr_array</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">(</span>
-            <span class="n">data</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span>
-                <span class="p">(</span>
-                    <span class="nb">len</span><span class="p">(</span><span class="n">time</span><span class="p">),</span>
-                    <span class="nb">len</span><span class="p">(</span><span class="n">lead_time</span><span class="p">),</span>
-                    <span class="nb">len</span><span class="p">(</span><span class="n">variable</span><span class="p">),</span>
-                    <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">GEFS_LAT</span><span class="p">),</span>
-                    <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">GEFS_LON</span><span class="p">),</span>
-                <span class="p">)</span>
-            <span class="p">),</span>
-            <span class="n">dims</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;time&quot;</span><span class="p">,</span> <span class="s2">&quot;lead_time&quot;</span><span class="p">,</span> <span class="s2">&quot;variable&quot;</span><span class="p">,</span> <span class="s2">&quot;lat&quot;</span><span class="p">,</span> <span class="s2">&quot;lon&quot;</span><span class="p">],</span>
-            <span class="n">coords</span><span class="o">=</span><span class="p">{</span>
-                <span class="s2">&quot;time&quot;</span><span class="p">:</span> <span class="n">time</span><span class="p">,</span>
-                <span class="s2">&quot;lead_time&quot;</span><span class="p">:</span> <span class="n">lead_time</span><span class="p">,</span>
-                <span class="s2">&quot;variable&quot;</span><span class="p">:</span> <span class="n">variable</span><span class="p">,</span>
-                <span class="s2">&quot;lat&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">GEFS_LAT</span><span class="p">,</span>
-                <span class="s2">&quot;lon&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">GEFS_LON</span><span class="p">,</span>
-            <span class="p">},</span>
-        <span class="p">)</span>
-
-        <span class="n">args</span> <span class="o">=</span> <span class="p">[</span>
-            <span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">l</span><span class="p">,</span> <span class="n">j</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">k</span><span class="p">)</span>
-            <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">variable</span><span class="p">)</span>
-            <span class="k">for</span> <span class="n">j</span><span class="p">,</span> <span class="n">l</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">lead_time</span><span class="p">)</span>  <span class="c1"># noqa</span>
-            <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">t</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">time</span><span class="p">)</span>
-        <span class="p">]</span>
-
-        <span class="n">pbar</span> <span class="o">=</span> <span class="n">tqdm</span><span class="p">(</span>
-            <span class="n">total</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">args</span><span class="p">),</span> <span class="n">desc</span><span class="o">=</span><span class="s2">&quot;Fetching GEFS data&quot;</span><span class="p">,</span> <span class="n">disable</span><span class="o">=</span><span class="p">(</span><span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_verbose</span><span class="p">)</span>
-        <span class="p">)</span>
-        <span class="k">for</span> <span class="n">t</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">l</span><span class="p">,</span> <span class="n">j</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">args</span><span class="p">:</span>  <span class="c1"># noqa</span>
-            <span class="n">data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fetch_array</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">l</span><span class="p">,</span> <span class="n">v</span><span class="p">)</span>
-            <span class="n">xr_array</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">,</span> <span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="n">data</span>
-            <span class="n">pbar</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
-
-        <span class="k">return</span> <span class="n">xr_array</span>
-
-    <span class="k">def</span><span class="w"> </span><span class="nf">fetch_array</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span> <span class="n">time</span><span class="p">:</span> <span class="n">datetime</span><span class="p">,</span> <span class="n">lead_time</span><span class="p">:</span> <span class="n">timedelta</span><span class="p">,</span> <span class="n">variable</span><span class="p">:</span> <span class="nb">str</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Fetches requested array from remote store</span>
-
-<span class="sd">        Parameters</span>
-<span class="sd">        ----------</span>
-<span class="sd">        time : datetime</span>
-<span class="sd">            Time to fetch</span>
-<span class="sd">        lead_time: timedelta</span>
-<span class="sd">            Lead time to fetch</span>
-<span class="sd">        variable : str</span>
-<span class="sd">            Variable to fetch</span>
-
-<span class="sd">        Returns</span>
-<span class="sd">        -------</span>
-<span class="sd">        np.ndarray</span>
-<span class="sd">            Data</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
-            <span class="sa">f</span><span class="s2">&quot;Fetching GEFS data for variable: </span><span class="si">{</span><span class="n">variable</span><span class="si">}</span><span class="s2"> at </span><span class="si">{</span><span class="n">time</span><span class="o">.</span><span class="n">isoformat</span><span class="p">()</span><span class="si">}</span><span class="s2"> lead time </span><span class="si">{</span><span class="n">lead_time</span><span class="si">}</span><span class="s2">&quot;</span>
-        <span class="p">)</span>
-        <span class="k">try</span><span class="p">:</span>
-            <span class="n">gefs_name</span><span class="p">,</span> <span class="n">modifier</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">lexicon</span><span class="p">[</span><span class="n">variable</span><span class="p">]</span>
-            <span class="n">gefs_grib</span><span class="p">,</span> <span class="n">gefs_var</span><span class="p">,</span> <span class="n">gefs_level</span> <span class="o">=</span> <span class="n">gefs_name</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;::&quot;</span><span class="p">)</span>
-        <span class="k">except</span> <span class="ne">KeyError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-            <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;variable id </span><span class="si">{</span><span class="n">variable</span><span class="si">}</span><span class="s2"> not found in GEFS lexicon&quot;</span><span class="p">)</span>
-            <span class="k">raise</span> <span class="n">e</span>
-
-        <span class="n">file_name</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_grid_name</span><span class="p">(</span><span class="n">time</span><span class="p">,</span> <span class="n">lead_time</span><span class="p">,</span> <span class="n">gefs_grib</span><span class="p">)</span>
-        <span class="n">s3_index_uri</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">GEFS_BUCKET_NAME</span><span class="p">,</span> <span class="n">file_name</span> <span class="o">+</span> <span class="s2">&quot;.idx&quot;</span><span class="p">)</span>
-        <span class="n">s3_grib_uri</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">GEFS_BUCKET_NAME</span><span class="p">,</span> <span class="n">file_name</span><span class="p">)</span>
-
-        <span class="c1"># Download the grib index file and parse</span>
-        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">fs</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="n">s3_index_uri</span><span class="p">)</span> <span class="k">as</span> <span class="n">file</span><span class="p">:</span>
-            <span class="n">index_lines</span> <span class="o">=</span> <span class="p">[</span><span class="n">line</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">rstrip</span><span class="p">()</span> <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">file</span><span class="p">]</span>
-        <span class="c1"># Add dummy variable at end of file with max offset</span>
-        <span class="n">index_lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;xx:</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">fs</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="n">s3_grib_uri</span><span class="p">)</span><span class="si">}</span><span class="s2">:d=xx:NULL:NULL:NULL:NULL&quot;</span><span class="p">)</span>
-        <span class="n">index_table</span> <span class="o">=</span> <span class="p">{}</span>
-
-        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">line</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">index_lines</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]):</span>
-            <span class="n">lsplit</span> <span class="o">=</span> <span class="n">line</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;:&quot;</span><span class="p">)</span>
-            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">lsplit</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">7</span><span class="p">:</span>
-                <span class="k">continue</span>
-
-            <span class="n">nlsplit</span> <span class="o">=</span> <span class="n">index_lines</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;:&quot;</span><span class="p">)</span>
-            <span class="n">byte_length</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">nlsplit</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span> <span class="o">-</span> <span class="nb">int</span><span class="p">(</span><span class="n">lsplit</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
-            <span class="n">byte_offset</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">lsplit</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
-            <span class="n">key</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">lsplit</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span><span class="si">}</span><span class="s2">::</span><span class="si">{</span><span class="n">lsplit</span><span class="p">[</span><span class="mi">4</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span>
-            <span class="k">if</span> <span class="n">byte_length</span> <span class="o">&gt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">MAX_BYTE_SIZE</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                    <span class="sa">f</span><span class="s2">&quot;Byte length, </span><span class="si">{</span><span class="n">byte_length</span><span class="si">}</span><span class="s2">, of variable </span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s2"> larger than safe threshold of </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">MAX_BYTE_SIZE</span><span class="si">}</span><span class="s2">&quot;</span>
-                <span class="p">)</span>
-
-            <span class="n">index_table</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">byte_offset</span><span class="p">,</span> <span class="n">byte_length</span><span class="p">)</span>
-
-        <span class="n">gefs_name</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">gefs_var</span><span class="si">}</span><span class="s2">::</span><span class="si">{</span><span class="n">gefs_level</span><span class="si">}</span><span class="s2">&quot;</span>
-        <span class="k">if</span> <span class="n">gefs_name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">index_table</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">KeyError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Could not find variable </span><span class="si">{</span><span class="n">gefs_name</span><span class="si">}</span><span class="s2"> in index file&quot;</span><span class="p">)</span>
-        <span class="n">byte_offset</span> <span class="o">=</span> <span class="n">index_table</span><span class="p">[</span><span class="n">gefs_name</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
-        <span class="n">byte_length</span> <span class="o">=</span> <span class="n">index_table</span><span class="p">[</span><span class="n">gefs_name</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span>
-
-        <span class="c1"># CFGrib requires file to be downloaded locally, no one like grib</span>
-        <span class="c1"># Because we need to read a byte range we need to use the s3fs store directly</span>
-        <span class="c1"># so manual caching it is. Literally NO ONE likes grib</span>
-        <span class="n">sha</span> <span class="o">=</span> <span class="n">hashlib</span><span class="o">.</span><span class="n">sha256</span><span class="p">(</span>
-            <span class="p">(</span><span class="n">s3_grib_uri</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">byte_offset</span><span class="p">)</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">byte_length</span><span class="p">))</span><span class="o">.</span><span class="n">encode</span><span class="p">()</span>
-        <span class="p">)</span>
-        <span class="n">filename</span> <span class="o">=</span> <span class="n">sha</span><span class="o">.</span><span class="n">hexdigest</span><span class="p">()</span>
-        <span class="n">cache_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cache</span><span class="p">,</span> <span class="n">filename</span><span class="p">)</span>
-
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">(</span><span class="n">cache_path</span><span class="p">)</span><span class="o">.</span><span class="n">is_file</span><span class="p">():</span>
-            <span class="n">grib_buffer</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">s3fs</span><span class="o">.</span><span class="n">read_block</span><span class="p">(</span>
-                <span class="n">s3_grib_uri</span><span class="p">,</span> <span class="n">offset</span><span class="o">=</span><span class="n">byte_offset</span><span class="p">,</span> <span class="n">length</span><span class="o">=</span><span class="n">byte_length</span>
-            <span class="p">)</span>
-            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">cache_path</span><span class="p">,</span> <span class="s2">&quot;wb&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">file</span><span class="p">:</span>
-                <span class="n">file</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">grib_buffer</span><span class="p">)</span>
-
-        <span class="n">da</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">open_dataarray</span><span class="p">(</span>
-            <span class="n">cache_path</span><span class="p">,</span>
-            <span class="n">engine</span><span class="o">=</span><span class="s2">&quot;cfgrib&quot;</span><span class="p">,</span>
-            <span class="n">backend_kwargs</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;indexpath&quot;</span><span class="p">:</span> <span class="s2">&quot;&quot;</span><span class="p">},</span>
-        <span class="p">)</span>
-        <span class="k">return</span> <span class="n">modifier</span><span class="p">(</span><span class="n">da</span><span class="o">.</span><span class="n">values</span><span class="p">)</span>
-
-    <span class="k">def</span><span class="w"> </span><span class="nf">_get_grid_name</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span> <span class="n">time</span><span class="p">:</span> <span class="n">datetime</span><span class="p">,</span> <span class="n">lead_time</span><span class="p">:</span> <span class="n">timedelta</span><span class="p">,</span> <span class="n">grid_class</span><span class="p">:</span> <span class="nb">str</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Returns gribfile name to fetch, should override in child</span>
-
-<span class="sd">        Parameters</span>
-<span class="sd">        ----------</span>
-<span class="sd">        time : datetime</span>
-<span class="sd">            Time to fetch</span>
-<span class="sd">        lead_time: timedelta</span>
-<span class="sd">            Lead time to fetch</span>
-<span class="sd">        grid_class : str</span>
-<span class="sd">            Grib classification in GEFS (e.g. pgrb2a, pgrb2b, pgrb2s)</span>
-
-<span class="sd">        Returns</span>
-<span class="sd">        -------</span>
-<span class="sd">        str</span>
-<span class="sd">            File name of Grib file in S3 bucket</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;Child class needs to implement this&quot;</span><span class="p">)</span>
-
-    <span class="nd">@classmethod</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">_validate_time</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">times</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">datetime</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Verify if date time is valid for GEFS based on offline knowledge</span>
-
-<span class="sd">        Parameters</span>
-<span class="sd">        ----------</span>
-<span class="sd">        times : list[datetime]</span>
-<span class="sd">            list of date times to fetch data</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">for</span> <span class="n">time</span> <span class="ow">in</span> <span class="n">times</span><span class="p">:</span>
-            <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="n">time</span> <span class="o">-</span> <span class="n">datetime</span><span class="p">(</span><span class="mi">1900</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span><span class="o">.</span><span class="n">total_seconds</span><span class="p">()</span> <span class="o">%</span> <span class="mi">21600</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                    <span class="sa">f</span><span class="s2">&quot;Requested date time </span><span class="si">{</span><span class="n">time</span><span class="si">}</span><span class="s2"> needs to be 6 hour interval for GEFS&quot;</span>
-                <span class="p">)</span>
-            <span class="c1"># Brute forces checked this, older dates missing data</span>
-            <span class="k">if</span> <span class="n">time</span> <span class="o">&lt;</span> <span class="n">datetime</span><span class="p">(</span><span class="n">year</span><span class="o">=</span><span class="mi">2020</span><span class="p">,</span> <span class="n">month</span><span class="o">=</span><span class="mi">9</span><span class="p">,</span> <span class="n">day</span><span class="o">=</span><span class="mi">23</span><span class="p">):</span>
-                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                    <span class="sa">f</span><span class="s2">&quot;Requested date time </span><span class="si">{</span><span class="n">time</span><span class="si">}</span><span class="s2"> needs to be after Sept 23rd, 2020 for GEFS&quot;</span>
-                <span class="p">)</span>
-
-    <span class="nd">@classmethod</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">_validate_leadtime</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">lead_times</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">timedelta</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Verify if lead time is valid for GEFS based on offline knowledge</span>
-
-<span class="sd">        Parameters</span>
-<span class="sd">        ----------</span>
-<span class="sd">        lead_times : list[timedelta]</span>
-<span class="sd">            list of lead times to fetch data</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;Child class needs to implement this&quot;</span><span class="p">)</span>
-
-    <span class="nd">@property</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">cache</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return appropriate cache location.&quot;&quot;&quot;</span>
-        <span class="n">cache_location</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">datasource_cache_root</span><span class="p">(),</span> <span class="s2">&quot;gefs&quot;</span><span class="p">)</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span><span class="p">:</span>
-            <span class="n">cache_location</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">cache_location</span><span class="p">,</span> <span class="s2">&quot;tmp_gefs&quot;</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">cache_location</span>
-
-    <span class="nd">@classmethod</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">available</span><span class="p">(</span>
-        <span class="bp">cls</span><span class="p">,</span>
-        <span class="n">time</span><span class="p">:</span> <span class="n">datetime</span> <span class="o">|</span> <span class="n">np</span><span class="o">.</span><span class="n">datetime64</span><span class="p">,</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Checks if given date time is avaliable in the GEFS object store</span>
-
-<span class="sd">        Parameters</span>
-<span class="sd">        ----------</span>
-<span class="sd">        time : datetime | np.datetime64</span>
-<span class="sd">            Date time to access</span>
-
-<span class="sd">        Returns</span>
-<span class="sd">        -------</span>
-<span class="sd">        bool</span>
-<span class="sd">            If date time is avaiable</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">time</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">datetime64</span><span class="p">):</span>  <span class="c1"># np.datetime64 -&gt; datetime</span>
-            <span class="n">_unix</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">datetime64</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;s&quot;</span><span class="p">)</span>
-            <span class="n">_ds</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">timedelta64</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;s&quot;</span><span class="p">)</span>
-            <span class="n">time</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">utcfromtimestamp</span><span class="p">((</span><span class="n">time</span> <span class="o">-</span> <span class="n">_unix</span><span class="p">)</span> <span class="o">/</span> <span class="n">_ds</span><span class="p">)</span>
-
-        <span class="c1"># Offline checks</span>
-        <span class="k">try</span><span class="p">:</span>
-            <span class="bp">cls</span><span class="o">.</span><span class="n">_validate_time</span><span class="p">([</span><span class="n">time</span><span class="p">])</span>
-        <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
-            <span class="k">return</span> <span class="kc">False</span>
-
-        <span class="n">fs</span> <span class="o">=</span> <span class="n">S3FileSystem</span><span class="p">(</span><span class="n">anon</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-
-        <span class="c1"># Object store directory for given time</span>
-        <span class="c1"># Should contain two keys: atmos and wave</span>
-        <span class="n">file_name</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;gefs.</span><span class="si">{</span><span class="n">time</span><span class="o">.</span><span class="n">year</span><span class="si">}{</span><span class="n">time</span><span class="o">.</span><span class="n">month</span><span class="si">:</span><span class="s2">0&gt;2</span><span class="si">}{</span><span class="n">time</span><span class="o">.</span><span class="n">day</span><span class="si">:</span><span class="s2">0&gt;2</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">time</span><span class="o">.</span><span class="n">hour</span><span class="si">:</span><span class="s2">0&gt;2</span><span class="si">}</span><span class="s2">/atmos/</span><span class="si">{</span><span class="bp">cls</span><span class="o">.</span><span class="n">GEFS_CHECK_CLASS</span><span class="si">}</span><span class="s2">/&quot;</span>
-        <span class="n">s3_uri</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;s3://</span><span class="si">{</span><span class="bp">cls</span><span class="o">.</span><span class="n">GEFS_BUCKET_NAME</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">file_name</span><span class="si">}</span><span class="s2">&quot;</span>
-        <span class="n">exists</span> <span class="o">=</span> <span class="n">fs</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">s3_uri</span><span class="p">)</span>
-
-        <span class="k">return</span> <span class="n">exists</span>
+    <span class="n">data_array_indices</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]</span>
+    <span class="n">gefs_file_uri</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">gefs_byte_offset</span><span class="p">:</span> <span class="nb">int</span>
+    <span class="n">gefs_byte_length</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span>
+    <span class="n">gefs_modifier</span><span class="p">:</span> <span class="n">Callable</span>
 
 
 <div class="viewcode-block" id="GEFS_FX">
 <a class="viewcode-back" href="../../../modules/generated/data/earth2studio.data.GEFS_FX.html#earth2studio.data.GEFS_FX">[docs]</a>
-<span class="k">class</span><span class="w"> </span><span class="nc">GEFS_FX</span><span class="p">(</span><span class="n">_GEFSBase</span><span class="p">):</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">GEFS_FX</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;The Global Ensemble Forecast System (GEFS) forecast source is a 30 member</span>
 <span class="sd">    ensemble forecast provided on an 0.5 degree equirectangular grid.  GEFS is a weather</span>
 <span class="sd">    forecast model developed by  National Centers for Environmental Prediction (NCEP).</span>
@@ -773,13 +489,19 @@ document.write(`
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
-<span class="sd">    product : str, optional</span>
-<span class="sd">        GEFS product. Options are: control gec00 (control), gepNN (forecast member NN,</span>
+<span class="sd">    member : str, optional</span>
+<span class="sd">        GEFS member. Options are: control gec00 (control), gepNN (forecast member NN,</span>
 <span class="sd">        e.g. gep01, gep02,...), by default &quot;gec00&quot;</span>
+<span class="sd">    max_workers : int, optional</span>
+<span class="sd">        Max works in async io thread pool. Only applied when using sync call function</span>
+<span class="sd">        and will modify the default async loop if one exists, by default 24</span>
 <span class="sd">    cache : bool, optional</span>
 <span class="sd">        Cache data source on local memory, by default True</span>
 <span class="sd">    verbose : bool, optional</span>
 <span class="sd">        Print download progress, by default True</span>
+<span class="sd">    async_timeout : int, optional</span>
+<span class="sd">        Time in sec after which download will be cancelled if not finished successfully,</span>
+<span class="sd">        by default 600</span>
 
 <span class="sd">    Warning</span>
 <span class="sd">    -------</span>
@@ -806,49 +528,310 @@ document.write(`
     <span class="n">GEFS_LAT</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">90</span><span class="p">,</span> <span class="o">-</span><span class="mi">90</span><span class="p">,</span> <span class="mi">361</span><span class="p">)</span>
     <span class="n">GEFS_LON</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mf">359.5</span><span class="p">,</span> <span class="mi">720</span><span class="p">)</span>
 
-    <span class="n">GEFS_PRODUCTS</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;gec00&quot;</span><span class="p">]</span> <span class="o">+</span> <span class="p">[</span><span class="sa">f</span><span class="s2">&quot;gep</span><span class="si">{</span><span class="n">i</span><span class="si">:</span><span class="s2">02d</span><span class="si">}</span><span class="s2">&quot;</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">31</span><span class="p">)]</span>
-    <span class="n">GEFS_CHECK_CLASS</span> <span class="o">=</span> <span class="s2">&quot;pgrb2bp5&quot;</span>
+    <span class="n">GEFS_MEMBERS</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;gec00&quot;</span><span class="p">]</span> <span class="o">+</span> <span class="p">[</span><span class="sa">f</span><span class="s2">&quot;gep</span><span class="si">{</span><span class="n">i</span><span class="si">:</span><span class="s2">02d</span><span class="si">}</span><span class="s2">&quot;</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">31</span><span class="p">)]</span>
+    <span class="n">GEFS_CHECK_PRODUCT</span> <span class="o">=</span> <span class="s2">&quot;pgrb2bp5&quot;</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
-        <span class="n">product</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;gec00&quot;</span><span class="p">,</span>
+        <span class="n">member</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;gec00&quot;</span><span class="p">,</span>
+        <span class="n">max_workers</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">24</span><span class="p">,</span>
         <span class="n">cache</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
         <span class="n">verbose</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="n">async_timeout</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">600</span><span class="p">,</span>
     <span class="p">):</span>
-
-        <span class="k">if</span> <span class="n">product</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">GEFS_PRODUCTS</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Invalid GEFS product </span><span class="si">{</span><span class="n">product</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-
-        <span class="c1"># Silence cfgrib warning, TODO Remove this</span>
-        <span class="n">warnings</span><span class="o">.</span><span class="n">simplefilter</span><span class="p">(</span><span class="n">action</span><span class="o">=</span><span class="s2">&quot;ignore&quot;</span><span class="p">,</span> <span class="n">category</span><span class="o">=</span><span class="ne">FutureWarning</span><span class="p">)</span>
-
         <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span> <span class="o">=</span> <span class="n">cache</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_verbose</span> <span class="o">=</span> <span class="n">verbose</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_product</span> <span class="o">=</span> <span class="n">product</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">s3fs</span> <span class="o">=</span> <span class="n">s3fs</span><span class="o">.</span><span class="n">S3FileSystem</span><span class="p">(</span>
-            <span class="n">anon</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-            <span class="n">default_block_size</span><span class="o">=</span><span class="mi">2</span><span class="o">**</span><span class="mi">20</span><span class="p">,</span>
-            <span class="n">client_kwargs</span><span class="o">=</span><span class="p">{},</span>
-        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_max_workers</span> <span class="o">=</span> <span class="n">max_workers</span>
 
-        <span class="c1"># if self._cache:</span>
-        <span class="n">cache_options</span> <span class="o">=</span> <span class="p">{</span>
-            <span class="s2">&quot;cache_storage&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">cache</span><span class="p">,</span>
-            <span class="s2">&quot;expiry_time&quot;</span><span class="p">:</span> <span class="mi">31622400</span><span class="p">,</span>  <span class="c1"># 1 year</span>
-        <span class="p">}</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">fs</span> <span class="o">=</span> <span class="n">WholeFileCacheFileSystem</span><span class="p">(</span><span class="n">fs</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">s3fs</span><span class="p">,</span> <span class="o">**</span><span class="n">cache_options</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">member</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">GEFS_MEMBERS</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Invalid GEFS member </span><span class="si">{</span><span class="n">member</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_product_class</span> <span class="o">=</span> <span class="s2">&quot;atmos&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_product_resolution</span> <span class="o">=</span> <span class="s2">&quot;0p50&quot;</span>  <span class="c1"># 0p50 or 0p25</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_member</span> <span class="o">=</span> <span class="n">member</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">fs</span> <span class="o">=</span> <span class="n">s3fs</span><span class="o">.</span><span class="n">S3FileSystem</span><span class="p">(</span><span class="n">anon</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">client_kwargs</span><span class="o">=</span><span class="p">{},</span> <span class="n">asynchronous</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">async_timeout</span> <span class="o">=</span> <span class="n">async_timeout</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">lexicon</span> <span class="o">=</span> <span class="n">GEFSLexicon</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">_get_grid_name</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span> <span class="n">time</span><span class="p">:</span> <span class="n">datetime</span><span class="p">,</span> <span class="n">lead_time</span><span class="p">:</span> <span class="n">timedelta</span><span class="p">,</span> <span class="n">grid_class</span><span class="p">:</span> <span class="nb">str</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return grib file name&quot;&quot;&quot;</span>
-        <span class="n">lead_hour</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">lead_time</span><span class="o">.</span><span class="n">total_seconds</span><span class="p">()</span> <span class="o">//</span> <span class="mi">3600</span><span class="p">)</span>
-        <span class="n">file_name</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;gefs.</span><span class="si">{</span><span class="n">time</span><span class="o">.</span><span class="n">year</span><span class="si">}{</span><span class="n">time</span><span class="o">.</span><span class="n">month</span><span class="si">:</span><span class="s2">0&gt;2</span><span class="si">}{</span><span class="n">time</span><span class="o">.</span><span class="n">day</span><span class="si">:</span><span class="s2">0&gt;2</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">time</span><span class="o">.</span><span class="n">hour</span><span class="si">:</span><span class="s2">0&gt;2</span><span class="si">}</span><span class="s2">&quot;</span>
-        <span class="k">return</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
-            <span class="n">file_name</span><span class="p">,</span>
-            <span class="sa">f</span><span class="s2">&quot;atmos/</span><span class="si">{</span><span class="n">grid_class</span><span class="si">}</span><span class="s2">p5/</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_product</span><span class="si">}</span><span class="s2">.t</span><span class="si">{</span><span class="n">time</span><span class="o">.</span><span class="n">hour</span><span class="si">:</span><span class="s2">0&gt;2</span><span class="si">}</span><span class="s2">z.</span><span class="si">{</span><span class="n">grid_class</span><span class="si">}</span><span class="s2">.0p50.f</span><span class="si">{</span><span class="n">lead_hour</span><span class="si">:</span><span class="s2">03d</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
+<div class="viewcode-block" id="GEFS_FX.__call__">
+<a class="viewcode-back" href="../../../modules/generated/data/earth2studio.data.GEFS_FX.html#earth2studio.data.GEFS_FX.__call__">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__call__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">time</span><span class="p">:</span> <span class="n">datetime</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="n">datetime</span><span class="p">]</span> <span class="o">|</span> <span class="n">TimeArray</span><span class="p">,</span>
+        <span class="n">lead_time</span><span class="p">:</span> <span class="n">timedelta</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="n">timedelta</span><span class="p">]</span> <span class="o">|</span> <span class="n">LeadTimeArray</span><span class="p">,</span>
+        <span class="n">variable</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="n">VariableArray</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Retrieve GEFS forecast data</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        time : datetime | list[datetime] | TimeArray</span>
+<span class="sd">            Timestamps to return data for (UTC).</span>
+<span class="sd">        lead_time: timedelta | list[timedelta] | LeadTimeArray</span>
+<span class="sd">            Forecast lead times to fetch.</span>
+<span class="sd">        variable : str | list[str] | VariableArray</span>
+<span class="sd">            String, list of strings or array of strings that refer to variables to</span>
+<span class="sd">            return. Must be in the GEFS lexicon.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        xr.DataArray</span>
+<span class="sd">            GEFS forecast data array</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">nest_asyncio</span><span class="o">.</span><span class="n">apply</span><span class="p">()</span>  <span class="c1"># Patch asyncio to work in notebooks</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">loop</span> <span class="o">=</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">get_event_loop</span><span class="p">()</span>
+        <span class="k">except</span> <span class="ne">RuntimeError</span><span class="p">:</span>
+            <span class="c1"># If no event loop exists, create one</span>
+            <span class="n">loop</span> <span class="o">=</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">new_event_loop</span><span class="p">()</span>
+            <span class="n">asyncio</span><span class="o">.</span><span class="n">set_event_loop</span><span class="p">(</span><span class="n">loop</span><span class="p">)</span>
+
+        <span class="c1"># Modify the worker amount</span>
+        <span class="n">loop</span><span class="o">.</span><span class="n">set_default_executor</span><span class="p">(</span>
+            <span class="n">concurrent</span><span class="o">.</span><span class="n">futures</span><span class="o">.</span><span class="n">ThreadPoolExecutor</span><span class="p">(</span><span class="n">max_workers</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_max_workers</span><span class="p">)</span>
         <span class="p">)</span>
+
+        <span class="n">xr_array</span> <span class="o">=</span> <span class="n">loop</span><span class="o">.</span><span class="n">run_until_complete</span><span class="p">(</span>
+            <span class="n">asyncio</span><span class="o">.</span><span class="n">wait_for</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">fetch</span><span class="p">(</span><span class="n">time</span><span class="p">,</span> <span class="n">lead_time</span><span class="p">,</span> <span class="n">variable</span><span class="p">),</span> <span class="n">timeout</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">async_timeout</span>
+            <span class="p">)</span>
+        <span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">xr_array</span></div>
+
+
+<div class="viewcode-block" id="GEFS_FX.fetch">
+<a class="viewcode-back" href="../../../modules/generated/data/earth2studio.data.GEFS_FX.html#earth2studio.data.GEFS_FX.fetch">[docs]</a>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">fetch</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">time</span><span class="p">:</span> <span class="n">datetime</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="n">datetime</span><span class="p">]</span> <span class="o">|</span> <span class="n">TimeArray</span><span class="p">,</span>
+        <span class="n">lead_time</span><span class="p">:</span> <span class="n">timedelta</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="n">timedelta</span><span class="p">]</span> <span class="o">|</span> <span class="n">LeadTimeArray</span><span class="p">,</span>
+        <span class="n">variable</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="n">VariableArray</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Async function to get data</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        time : datetime | list[datetime] | TimeArray</span>
+<span class="sd">            Timestamps to return data for (UTC).</span>
+<span class="sd">        lead_time: timedelta | list[timedelta] | LeadTimeArray</span>
+<span class="sd">            Forecast lead times to fetch.</span>
+<span class="sd">        variable : str | list[str] | VariableArray</span>
+<span class="sd">            String, list of strings or array of strings that refer to variables to</span>
+<span class="sd">            return. Must be in the GEFS FX lexicon.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        xr.DataArray</span>
+<span class="sd">            GEFS forecast data array</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">time</span><span class="p">,</span> <span class="n">lead_time</span><span class="p">,</span> <span class="n">variable</span> <span class="o">=</span> <span class="n">prep_forecast_inputs</span><span class="p">(</span><span class="n">time</span><span class="p">,</span> <span class="n">lead_time</span><span class="p">,</span> <span class="n">variable</span><span class="p">)</span>
+        <span class="c1"># Create cache dir if doesnt exist</span>
+        <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cache</span><span class="p">)</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+        <span class="c1"># Make sure input time is valid</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_validate_time</span><span class="p">(</span><span class="n">time</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_validate_leadtime</span><span class="p">(</span><span class="n">lead_time</span><span class="p">)</span>
+
+        <span class="c1"># Note, this could be more memory efficient and avoid pre-allocation of the array</span>
+        <span class="c1"># but this is much much cleaner to deal with, compared to something seen in the</span>
+        <span class="c1"># NCAR data source.</span>
+        <span class="n">xr_array</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">(</span>
+            <span class="n">data</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span>
+                <span class="p">(</span>
+                    <span class="nb">len</span><span class="p">(</span><span class="n">time</span><span class="p">),</span>
+                    <span class="nb">len</span><span class="p">(</span><span class="n">lead_time</span><span class="p">),</span>
+                    <span class="nb">len</span><span class="p">(</span><span class="n">variable</span><span class="p">),</span>
+                    <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">GEFS_LAT</span><span class="p">),</span>
+                    <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">GEFS_LON</span><span class="p">),</span>
+                <span class="p">)</span>
+            <span class="p">),</span>
+            <span class="n">dims</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;time&quot;</span><span class="p">,</span> <span class="s2">&quot;lead_time&quot;</span><span class="p">,</span> <span class="s2">&quot;variable&quot;</span><span class="p">,</span> <span class="s2">&quot;lat&quot;</span><span class="p">,</span> <span class="s2">&quot;lon&quot;</span><span class="p">],</span>
+            <span class="n">coords</span><span class="o">=</span><span class="p">{</span>
+                <span class="s2">&quot;time&quot;</span><span class="p">:</span> <span class="n">time</span><span class="p">,</span>
+                <span class="s2">&quot;lead_time&quot;</span><span class="p">:</span> <span class="n">lead_time</span><span class="p">,</span>
+                <span class="s2">&quot;variable&quot;</span><span class="p">:</span> <span class="n">variable</span><span class="p">,</span>
+                <span class="s2">&quot;lat&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">GEFS_LAT</span><span class="p">,</span>
+                <span class="s2">&quot;lon&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">GEFS_LON</span><span class="p">,</span>
+            <span class="p">},</span>
+        <span class="p">)</span>
+
+        <span class="n">async_tasks</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">async_tasks</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_create_tasks</span><span class="p">(</span><span class="n">time</span><span class="p">,</span> <span class="n">lead_time</span><span class="p">,</span> <span class="n">variable</span><span class="p">)</span>
+        <span class="n">func_map</span> <span class="o">=</span> <span class="nb">map</span><span class="p">(</span>
+            <span class="n">functools</span><span class="o">.</span><span class="n">partial</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fetch_wrapper</span><span class="p">,</span> <span class="n">xr_array</span><span class="o">=</span><span class="n">xr_array</span><span class="p">),</span> <span class="n">async_tasks</span>
+        <span class="p">)</span>
+
+        <span class="k">await</span> <span class="n">tqdm</span><span class="o">.</span><span class="n">gather</span><span class="p">(</span>
+            <span class="o">*</span><span class="n">func_map</span><span class="p">,</span> <span class="n">desc</span><span class="o">=</span><span class="s2">&quot;Fetching GEFS data&quot;</span><span class="p">,</span> <span class="n">disable</span><span class="o">=</span><span class="p">(</span><span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_verbose</span><span class="p">)</span>
+        <span class="p">)</span>
+
+        <span class="c1"># Delete cache if needed</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span><span class="p">:</span>
+            <span class="n">shutil</span><span class="o">.</span><span class="n">rmtree</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cache</span><span class="p">)</span>
+
+        <span class="c1"># Close aiohttp client if s3fs</span>
+        <span class="c1"># https://github.com/fsspec/s3fs/issues/943</span>
+        <span class="c1"># https://github.com/zarr-developers/zarr-python/issues/2901</span>
+        <span class="n">s3fs</span><span class="o">.</span><span class="n">S3FileSystem</span><span class="o">.</span><span class="n">close_session</span><span class="p">(</span><span class="n">asyncio</span><span class="o">.</span><span class="n">get_event_loop</span><span class="p">(),</span> <span class="bp">self</span><span class="o">.</span><span class="n">fs</span><span class="o">.</span><span class="n">s3</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">xr_array</span></div>
+
+
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">_create_tasks</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">time</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">datetime</span><span class="p">],</span> <span class="n">lead_time</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">timedelta</span><span class="p">],</span> <span class="n">variable</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">GEFSAsyncTask</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create download tasks, each corresponding to one grib byte range</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        times : list[datetime]</span>
+<span class="sd">            Timestamps to be downloaded (UTC).</span>
+<span class="sd">        variables : list[str]</span>
+<span class="sd">            List of variables to be downloaded.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        list[dict]</span>
+<span class="sd">            List of download tasks</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">tasks</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">GEFSAsyncTask</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>  <span class="c1"># group pressure-level variables</span>
+
+        <span class="c1"># Start with fetching all index files for each time / lead time</span>
+        <span class="n">products</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">variable</span><span class="p">:</span>
+            <span class="n">gefs_name_str</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">lexicon</span><span class="p">[</span><span class="n">v</span><span class="p">]</span>  <span class="c1"># type: ignore</span>
+            <span class="n">products</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">gefs_name_str</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;::&quot;</span><span class="p">)[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="n">args</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_grib_index_uri</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">lt</span><span class="p">,</span> <span class="n">p</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">time</span>
+            <span class="k">for</span> <span class="n">lt</span> <span class="ow">in</span> <span class="n">lead_time</span>
+            <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">products</span>
+        <span class="p">]</span>
+        <span class="n">func_map</span> <span class="o">=</span> <span class="nb">map</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_fetch_index</span><span class="p">,</span> <span class="n">args</span><span class="p">)</span>
+        <span class="n">results</span> <span class="o">=</span> <span class="k">await</span> <span class="n">tqdm</span><span class="o">.</span><span class="n">gather</span><span class="p">(</span>
+            <span class="o">*</span><span class="n">func_map</span><span class="p">,</span> <span class="n">desc</span><span class="o">=</span><span class="s2">&quot;Fetching GEFS index files&quot;</span><span class="p">,</span> <span class="n">disable</span><span class="o">=</span><span class="kc">True</span>
+        <span class="p">)</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">t</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">time</span><span class="p">):</span>
+            <span class="k">for</span> <span class="n">j</span><span class="p">,</span> <span class="n">lt</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">lead_time</span><span class="p">):</span>
+                <span class="c1"># Get index file dictionaries for each possible product</span>
+                <span class="n">index_files</span> <span class="o">=</span> <span class="p">{</span><span class="n">p</span><span class="p">:</span> <span class="n">results</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">products</span><span class="p">}</span>
+                <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">variable</span><span class="p">):</span>
+                    <span class="k">try</span><span class="p">:</span>
+                        <span class="n">gefs_name_str</span><span class="p">,</span> <span class="n">modifier</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">lexicon</span><span class="p">[</span><span class="n">v</span><span class="p">]</span>  <span class="c1"># type: ignore</span>
+                        <span class="n">gefs_name</span> <span class="o">=</span> <span class="n">gefs_name_str</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;::&quot;</span><span class="p">)</span> <span class="o">+</span> <span class="p">[</span><span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">]</span>
+                        <span class="n">product</span> <span class="o">=</span> <span class="n">gefs_name</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+                        <span class="n">variable_name</span> <span class="o">=</span> <span class="n">gefs_name</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+                        <span class="n">level</span> <span class="o">=</span> <span class="n">gefs_name</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
+
+                        <span class="c1"># Create index key to find byte range</span>
+                        <span class="n">gefs_key</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">variable_name</span><span class="si">}</span><span class="s2">::</span><span class="si">{</span><span class="n">level</span><span class="si">}</span><span class="s2">&quot;</span>
+
+                    <span class="k">except</span> <span class="ne">KeyError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                        <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span>
+                            <span class="sa">f</span><span class="s2">&quot;variable id </span><span class="si">{</span><span class="n">variable</span><span class="si">}</span><span class="s2"> not found in GEFS lexicon&quot;</span>
+                        <span class="p">)</span>
+                        <span class="k">raise</span> <span class="n">e</span>
+
+                    <span class="c1"># Get byte range from index</span>
+                    <span class="n">byte_offset</span> <span class="o">=</span> <span class="kc">None</span>
+                    <span class="n">byte_length</span> <span class="o">=</span> <span class="kc">None</span>
+                    <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">index_files</span><span class="p">[</span><span class="n">product</span><span class="p">]</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                        <span class="k">if</span> <span class="n">gefs_key</span> <span class="ow">in</span> <span class="n">key</span><span class="p">:</span>
+                            <span class="n">byte_offset</span> <span class="o">=</span> <span class="n">value</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+                            <span class="n">byte_length</span> <span class="o">=</span> <span class="p">(</span>
+                                <span class="kc">None</span> <span class="k">if</span> <span class="n">value</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">&lt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="n">value</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+                            <span class="p">)</span>  <span class="c1"># Negative means to eof</span>
+                            <span class="k">break</span>
+
+                    <span class="k">if</span> <span class="n">byte_offset</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                        <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                            <span class="sa">f</span><span class="s2">&quot;Variable </span><span class="si">{</span><span class="n">v</span><span class="si">}</span><span class="s2"> not found in index file for time </span><span class="si">{</span><span class="n">t</span><span class="si">}</span><span class="s2"> at </span><span class="si">{</span><span class="n">lt</span><span class="si">}</span><span class="s2">, values will be unset&quot;</span>
+                        <span class="p">)</span>
+                        <span class="k">continue</span>
+
+                    <span class="n">tasks</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                        <span class="n">GEFSAsyncTask</span><span class="p">(</span>
+                            <span class="n">data_array_indices</span><span class="o">=</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">,</span> <span class="n">k</span><span class="p">),</span>
+                            <span class="n">gefs_file_uri</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_grib_uri</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">lt</span><span class="p">,</span> <span class="n">product</span><span class="p">),</span>
+                            <span class="n">gefs_byte_offset</span><span class="o">=</span><span class="n">byte_offset</span><span class="p">,</span>
+                            <span class="n">gefs_byte_length</span><span class="o">=</span><span class="n">byte_length</span><span class="p">,</span>
+                            <span class="n">gefs_modifier</span><span class="o">=</span><span class="n">modifier</span><span class="p">,</span>
+                        <span class="p">)</span>
+                    <span class="p">)</span>
+        <span class="k">return</span> <span class="n">tasks</span>
+
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">fetch_wrapper</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">task</span><span class="p">:</span> <span class="n">GEFSAsyncTask</span><span class="p">,</span>
+        <span class="n">xr_array</span><span class="p">:</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Small wrapper to pack arrays into the DataArray&quot;&quot;&quot;</span>
+        <span class="n">out</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">fetch_array</span><span class="p">(</span>
+            <span class="n">task</span><span class="o">.</span><span class="n">gefs_file_uri</span><span class="p">,</span>
+            <span class="n">task</span><span class="o">.</span><span class="n">gefs_byte_offset</span><span class="p">,</span>
+            <span class="n">task</span><span class="o">.</span><span class="n">gefs_byte_length</span><span class="p">,</span>
+            <span class="n">task</span><span class="o">.</span><span class="n">gefs_modifier</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">xr_array</span><span class="p">[</span><span class="o">*</span><span class="n">task</span><span class="o">.</span><span class="n">data_array_indices</span><span class="p">]</span> <span class="o">=</span> <span class="n">out</span>
+
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">fetch_array</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">grib_uri</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">byte_offset</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">byte_length</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">modifier</span><span class="p">:</span> <span class="n">Callable</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Fetch GEFS data array. This will first fetch the index file to get byte range</span>
+<span class="sd">        of the needed data, fetch the respective grib files and lastly combining grib</span>
+<span class="sd">        files into single data array.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        time : datetime</span>
+<span class="sd">            Date time to fetch</span>
+<span class="sd">        lead_time : timedelta</span>
+<span class="sd">            Forecast lead time to fetch</span>
+<span class="sd">        variables : list[str]</span>
+<span class="sd">            Variables to fetch</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        xr.DataArray</span>
+<span class="sd">            FS data array for given time and lead time</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Fetching GEFS grib file: </span><span class="si">{</span><span class="n">grib_uri</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">byte_offset</span><span class="si">}</span><span class="s2">-</span><span class="si">{</span><span class="n">byte_length</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="c1"># Download the grib file to cache</span>
+        <span class="n">grib_file</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_fetch_remote_file</span><span class="p">(</span>
+            <span class="n">grib_uri</span><span class="p">,</span>
+            <span class="n">byte_offset</span><span class="o">=</span><span class="n">byte_offset</span><span class="p">,</span>
+            <span class="n">byte_length</span><span class="o">=</span><span class="n">byte_length</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="c1"># Open into xarray data-array</span>
+        <span class="n">da</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">open_dataarray</span><span class="p">(</span>
+            <span class="n">grib_file</span><span class="p">,</span> <span class="n">engine</span><span class="o">=</span><span class="s2">&quot;cfgrib&quot;</span><span class="p">,</span> <span class="n">backend_kwargs</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;indexpath&quot;</span><span class="p">:</span> <span class="s2">&quot;&quot;</span><span class="p">}</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">modifier</span><span class="p">(</span><span class="n">da</span><span class="o">.</span><span class="n">values</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_validate_time</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">times</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">datetime</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Verify if date time is valid for GEFS based on offline knowledge</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        times : list[datetime]</span>
+<span class="sd">            list of date times to fetch data</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">for</span> <span class="n">time</span> <span class="ow">in</span> <span class="n">times</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="n">time</span> <span class="o">-</span> <span class="n">datetime</span><span class="p">(</span><span class="mi">1900</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span><span class="o">.</span><span class="n">total_seconds</span><span class="p">()</span> <span class="o">%</span> <span class="mi">21600</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;Requested date time </span><span class="si">{</span><span class="n">time</span><span class="si">}</span><span class="s2"> needs to be 6 hour interval for GEFS&quot;</span>
+                <span class="p">)</span>
+            <span class="c1"># Brute forces checked this, older dates missing data</span>
+            <span class="c1"># Open an issue if incorrect, may of gotten updated</span>
+            <span class="k">if</span> <span class="n">time</span> <span class="o">&lt;</span> <span class="n">datetime</span><span class="p">(</span><span class="n">year</span><span class="o">=</span><span class="mi">2020</span><span class="p">,</span> <span class="n">month</span><span class="o">=</span><span class="mi">9</span><span class="p">,</span> <span class="n">day</span><span class="o">=</span><span class="mi">23</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;Requested date time </span><span class="si">{</span><span class="n">time</span><span class="si">}</span><span class="s2"> needs to be after Sept 23rd, 2020 for GEFS&quot;</span>
+                <span class="p">)</span>
 
     <span class="nd">@classmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">_validate_leadtime</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">lead_times</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">timedelta</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
@@ -872,13 +855,147 @@ document.write(`
                 <span class="k">if</span> <span class="ow">not</span> <span class="n">delta</span><span class="o">.</span><span class="n">total_seconds</span><span class="p">()</span> <span class="o">%</span> <span class="mi">21600</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
                     <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
                         <span class="sa">f</span><span class="s2">&quot;Requested lead time </span><span class="si">{</span><span class="n">delta</span><span class="si">}</span><span class="s2"> needs to be 6 hour interval for last 6 days in GEFS&quot;</span>
-                    <span class="p">)</span></div>
+                    <span class="p">)</span>
+
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">_fetch_index</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">index_uri</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Fetch GEFS atmospheric index file</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        index_uri : str</span>
+<span class="sd">            URI to grib index file to download</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        dict[str, tuple[int, int]]</span>
+<span class="sd">            Dictionary of GEFS vairables (byte offset, byte length)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Grab index file</span>
+        <span class="n">index_file</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_fetch_remote_file</span><span class="p">(</span><span class="n">index_uri</span><span class="p">)</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">index_file</span><span class="p">)</span> <span class="k">as</span> <span class="n">file</span><span class="p">:</span>
+            <span class="n">index_lines</span> <span class="o">=</span> <span class="p">[</span><span class="n">line</span><span class="o">.</span><span class="n">rstrip</span><span class="p">()</span> <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">file</span><span class="p">]</span>
+        <span class="c1"># Add dummy variable at end of file with max offset so algo below works</span>
+        <span class="n">index_lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;xx:-1:d=xx:NULL:NULL:NULL:NULL&quot;</span><span class="p">)</span>
+        <span class="n">index_table</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]]</span> <span class="o">=</span> <span class="p">{}</span>
+
+        <span class="n">index_table</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">line</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">index_lines</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]):</span>
+            <span class="n">lsplit</span> <span class="o">=</span> <span class="n">line</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;:&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">lsplit</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">7</span><span class="p">:</span>
+                <span class="k">continue</span>
+
+            <span class="n">nlsplit</span> <span class="o">=</span> <span class="n">index_lines</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;:&quot;</span><span class="p">)</span>
+            <span class="n">byte_length</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">nlsplit</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span> <span class="o">-</span> <span class="nb">int</span><span class="p">(</span><span class="n">lsplit</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+            <span class="n">byte_offset</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">lsplit</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+            <span class="n">key</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">lsplit</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2">::</span><span class="si">{</span><span class="n">lsplit</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span><span class="si">}</span><span class="s2">::</span><span class="si">{</span><span class="n">lsplit</span><span class="p">[</span><span class="mi">4</span><span class="p">]</span><span class="si">}</span><span class="s2">::</span><span class="si">{</span><span class="n">lsplit</span><span class="p">[</span><span class="mi">5</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="k">if</span> <span class="n">byte_length</span> <span class="o">&gt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">MAX_BYTE_SIZE</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;Byte length, </span><span class="si">{</span><span class="n">byte_length</span><span class="si">}</span><span class="s2">, of variable </span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s2"> larger than safe threshold of </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">MAX_BYTE_SIZE</span><span class="si">}</span><span class="s2">&quot;</span>
+                <span class="p">)</span>
+
+            <span class="n">index_table</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">byte_offset</span><span class="p">,</span> <span class="n">byte_length</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">index_table</span>
+
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">_fetch_remote_file</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">byte_offset</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span> <span class="n">byte_length</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Fetches remote file into cache&quot;&quot;&quot;</span>
+        <span class="n">sha</span> <span class="o">=</span> <span class="n">hashlib</span><span class="o">.</span><span class="n">sha256</span><span class="p">((</span><span class="n">path</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">byte_offset</span><span class="p">))</span><span class="o">.</span><span class="n">encode</span><span class="p">())</span>
+        <span class="n">filename</span> <span class="o">=</span> <span class="n">sha</span><span class="o">.</span><span class="n">hexdigest</span><span class="p">()</span>
+        <span class="n">cache_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cache</span><span class="p">,</span> <span class="n">filename</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">(</span><span class="n">cache_path</span><span class="p">)</span><span class="o">.</span><span class="n">is_file</span><span class="p">():</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">fs</span><span class="o">.</span><span class="n">async_impl</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">byte_length</span><span class="p">:</span>
+                    <span class="n">byte_length</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">byte_offset</span> <span class="o">+</span> <span class="n">byte_length</span><span class="p">)</span>
+                <span class="n">data</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">fs</span><span class="o">.</span><span class="n">_cat_file</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">start</span><span class="o">=</span><span class="n">byte_offset</span><span class="p">,</span> <span class="n">end</span><span class="o">=</span><span class="n">byte_length</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">data</span> <span class="o">=</span> <span class="k">await</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">to_thread</span><span class="p">(</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">fs</span><span class="o">.</span><span class="n">read_block</span><span class="p">,</span> <span class="n">path</span><span class="p">,</span> <span class="n">offset</span><span class="o">=</span><span class="n">byte_offset</span><span class="p">,</span> <span class="n">length</span><span class="o">=</span><span class="n">byte_length</span>
+                <span class="p">)</span>
+            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">cache_path</span><span class="p">,</span> <span class="s2">&quot;wb&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">file</span><span class="p">:</span>
+                <span class="k">await</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">to_thread</span><span class="p">(</span><span class="n">file</span><span class="o">.</span><span class="n">write</span><span class="p">,</span> <span class="n">data</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">cache_path</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_grib_uri</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">time</span><span class="p">:</span> <span class="n">datetime</span><span class="p">,</span> <span class="n">lead_time</span><span class="p">:</span> <span class="n">timedelta</span><span class="p">,</span> <span class="n">product</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;pgrb2a&quot;</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Generates the URI for GEFS grib files&quot;&quot;&quot;</span>
+        <span class="n">lead_hour</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">lead_time</span><span class="o">.</span><span class="n">total_seconds</span><span class="p">()</span> <span class="o">//</span> <span class="mi">3600</span><span class="p">)</span>
+        <span class="n">file_name</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;gefs.</span><span class="si">{</span><span class="n">time</span><span class="o">.</span><span class="n">year</span><span class="si">}{</span><span class="n">time</span><span class="o">.</span><span class="n">month</span><span class="si">:</span><span class="s2">0&gt;2</span><span class="si">}{</span><span class="n">time</span><span class="o">.</span><span class="n">day</span><span class="si">:</span><span class="s2">0&gt;2</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">time</span><span class="o">.</span><span class="n">hour</span><span class="si">:</span><span class="s2">0&gt;2</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="n">p_res</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_product_resolution</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;0&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
+        <span class="n">file_name</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">file_name</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_product_class</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">product</span><span class="si">}{</span><span class="n">p_res</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="n">file_name</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
+            <span class="n">file_name</span><span class="p">,</span>
+            <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_member</span><span class="si">}</span><span class="s2">.t</span><span class="si">{</span><span class="n">time</span><span class="o">.</span><span class="n">hour</span><span class="si">:</span><span class="s2">0&gt;2</span><span class="si">}</span><span class="s2">z.</span><span class="si">{</span><span class="n">product</span><span class="si">}</span><span class="s2">.</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_product_resolution</span><span class="si">}</span><span class="s2">.f</span><span class="si">{</span><span class="n">lead_hour</span><span class="si">:</span><span class="s2">03d</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">GEFS_BUCKET_NAME</span><span class="p">,</span> <span class="n">file_name</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_grib_index_uri</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">time</span><span class="p">:</span> <span class="n">datetime</span><span class="p">,</span> <span class="n">lead_time</span><span class="p">:</span> <span class="n">timedelta</span><span class="p">,</span> <span class="n">product</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;pgrb2a&quot;</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Generates the URI for GEFS index grib files&quot;&quot;&quot;</span>
+        <span class="c1"># https://noaa-gefs-pds.s3.amazonaws.com/index.html#gefs.20250513/00/atmos/pgrb2ap5/</span>
+        <span class="n">lead_hour</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">lead_time</span><span class="o">.</span><span class="n">total_seconds</span><span class="p">()</span> <span class="o">//</span> <span class="mi">3600</span><span class="p">)</span>
+        <span class="n">file_name</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;gefs.</span><span class="si">{</span><span class="n">time</span><span class="o">.</span><span class="n">year</span><span class="si">}{</span><span class="n">time</span><span class="o">.</span><span class="n">month</span><span class="si">:</span><span class="s2">0&gt;2</span><span class="si">}{</span><span class="n">time</span><span class="o">.</span><span class="n">day</span><span class="si">:</span><span class="s2">0&gt;2</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">time</span><span class="o">.</span><span class="n">hour</span><span class="si">:</span><span class="s2">0&gt;2</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="n">p_res</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_product_resolution</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;0&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
+        <span class="n">file_name</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">file_name</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_product_class</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">product</span><span class="si">}{</span><span class="n">p_res</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="n">file_name</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
+            <span class="n">file_name</span><span class="p">,</span>
+            <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_member</span><span class="si">}</span><span class="s2">.t</span><span class="si">{</span><span class="n">time</span><span class="o">.</span><span class="n">hour</span><span class="si">:</span><span class="s2">0&gt;2</span><span class="si">}</span><span class="s2">z.</span><span class="si">{</span><span class="n">product</span><span class="si">}</span><span class="s2">.</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_product_resolution</span><span class="si">}</span><span class="s2">.f</span><span class="si">{</span><span class="n">lead_hour</span><span class="si">:</span><span class="s2">03d</span><span class="si">}</span><span class="s2">.idx&quot;</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">GEFS_BUCKET_NAME</span><span class="p">,</span> <span class="n">file_name</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">cache</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return appropriate cache location.&quot;&quot;&quot;</span>
+        <span class="n">cache_location</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">datasource_cache_root</span><span class="p">(),</span> <span class="s2">&quot;gefs&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span><span class="p">:</span>
+            <span class="n">cache_location</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">cache_location</span><span class="p">,</span> <span class="s2">&quot;tmp_gefs&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">cache_location</span>
+
+<div class="viewcode-block" id="GEFS_FX.available">
+<a class="viewcode-back" href="../../../modules/generated/data/earth2studio.data.GEFS_FX.html#earth2studio.data.GEFS_FX.available">[docs]</a>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">available</span><span class="p">(</span>
+        <span class="bp">cls</span><span class="p">,</span>
+        <span class="n">time</span><span class="p">:</span> <span class="n">datetime</span> <span class="o">|</span> <span class="n">np</span><span class="o">.</span><span class="n">datetime64</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Checks if given date time is avaliable in the GEFS object store. Uses S3</span>
+<span class="sd">        store</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        time : datetime | np.datetime64</span>
+<span class="sd">            Date time to access</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        bool</span>
+<span class="sd">            If date time is avaiable</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">time</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">datetime64</span><span class="p">):</span>  <span class="c1"># np.datetime64 -&gt; datetime</span>
+            <span class="n">_unix</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">datetime64</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;s&quot;</span><span class="p">)</span>
+            <span class="n">_ds</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">timedelta64</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;s&quot;</span><span class="p">)</span>
+            <span class="n">time</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">fromtimestamp</span><span class="p">((</span><span class="n">time</span> <span class="o">-</span> <span class="n">_unix</span><span class="p">)</span> <span class="o">/</span> <span class="n">_ds</span><span class="p">,</span> <span class="n">timezone</span><span class="o">.</span><span class="n">utc</span><span class="p">)</span>
+
+        <span class="n">fs</span> <span class="o">=</span> <span class="n">s3fs</span><span class="o">.</span><span class="n">S3FileSystem</span><span class="p">(</span><span class="n">anon</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="c1"># Object store directory for given time</span>
+        <span class="c1"># Just picking the first variable to look for</span>
+        <span class="n">file_name</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;gefs.</span><span class="si">{</span><span class="n">time</span><span class="o">.</span><span class="n">year</span><span class="si">}{</span><span class="n">time</span><span class="o">.</span><span class="n">month</span><span class="si">:</span><span class="s2">0&gt;2</span><span class="si">}{</span><span class="n">time</span><span class="o">.</span><span class="n">day</span><span class="si">:</span><span class="s2">0&gt;2</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">time</span><span class="o">.</span><span class="n">hour</span><span class="si">:</span><span class="s2">0&gt;2</span><span class="si">}</span><span class="s2">/atmos/</span><span class="si">{</span><span class="bp">cls</span><span class="o">.</span><span class="n">GEFS_CHECK_PRODUCT</span><span class="si">}</span><span class="s2">/&quot;</span>
+        <span class="n">s3_uri</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;s3://</span><span class="si">{</span><span class="bp">cls</span><span class="o">.</span><span class="n">GEFS_BUCKET_NAME</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">file_name</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="n">exists</span> <span class="o">=</span> <span class="n">fs</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">s3_uri</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">exists</span></div>
+</div>
 
 
 
 <div class="viewcode-block" id="GEFS_FX_721x1440">
 <a class="viewcode-back" href="../../../modules/generated/data/earth2studio.data.GEFS_FX_721x1440.html#earth2studio.data.GEFS_FX_721x1440">[docs]</a>
-<span class="k">class</span><span class="w"> </span><span class="nc">GEFS_FX_721x1440</span><span class="p">(</span><span class="n">_GEFSBase</span><span class="p">):</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">GEFS_FX_721x1440</span><span class="p">(</span><span class="n">GEFS_FX</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;The Global Ensemble Forecast System (GEFS) forecast source is a 30 member</span>
 <span class="sd">    ensemble forecast provided on an 0.25 degree equirectangular grid. GEFS is a</span>
 <span class="sd">    weather forecast model developed by  National Centers for Environmental Prediction</span>
@@ -889,13 +1006,19 @@ document.write(`
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
-<span class="sd">    product : str, optional</span>
-<span class="sd">        GEFS product. Options are: control gec00 (control), gepNN (forecast member NN,</span>
+<span class="sd">    member : str, optional</span>
+<span class="sd">        GEFS member. Options are: control gec00 (control), gepNN (forecast member NN,</span>
 <span class="sd">        e.g. gep01, gep02,...), by default &quot;gec00&quot;</span>
+<span class="sd">    max_workers : int, optional</span>
+<span class="sd">        Max works in async io thread pool. Only applied when using sync call function</span>
+<span class="sd">        and will modify the default async loop if one exists, by default 24</span>
 <span class="sd">    cache : bool, optional</span>
 <span class="sd">        Cache data source on local memory, by default True</span>
 <span class="sd">    verbose : bool, optional</span>
 <span class="sd">        Print download progress, by default True</span>
+<span class="sd">    async_timeout : int, optional</span>
+<span class="sd">        Time in sec after which download will be cancelled if not finished successfully,</span>
+<span class="sd">        by default 600</span>
 
 <span class="sd">    Warning</span>
 <span class="sd">    -------</span>
@@ -921,55 +1044,56 @@ document.write(`
 <span class="sd">    - https://www.nco.ncep.noaa.gov/pmb/products/gens/</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="n">GEFS_BUCKET_NAME</span> <span class="o">=</span> <span class="s2">&quot;noaa-gefs-pds&quot;</span>
-    <span class="n">MAX_BYTE_SIZE</span> <span class="o">=</span> <span class="mi">5000000</span>
-
     <span class="n">GEFS_LAT</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">90</span><span class="p">,</span> <span class="o">-</span><span class="mi">90</span><span class="p">,</span> <span class="mi">721</span><span class="p">)</span>
     <span class="n">GEFS_LON</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mf">359.75</span><span class="p">,</span> <span class="mi">1440</span><span class="p">)</span>
 
-    <span class="n">GEFS_PRODUCTS</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;gec00&quot;</span><span class="p">]</span> <span class="o">+</span> <span class="p">[</span><span class="sa">f</span><span class="s2">&quot;gep</span><span class="si">{</span><span class="n">i</span><span class="si">:</span><span class="s2">02d</span><span class="si">}</span><span class="s2">&quot;</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">31</span><span class="p">)]</span>
-    <span class="n">GEFS_CHECK_CLASS</span> <span class="o">=</span> <span class="s2">&quot;pgrb2sp25&quot;</span>
+    <span class="n">GEFS_CHECK_PRODUCT</span> <span class="o">=</span> <span class="s2">&quot;pgrb2sp25&quot;</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
-        <span class="n">product</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;gec00&quot;</span><span class="p">,</span>
+        <span class="n">member</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;gec00&quot;</span><span class="p">,</span>
+        <span class="n">max_workers</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">24</span><span class="p">,</span>
         <span class="n">cache</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
         <span class="n">verbose</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="n">async_timeout</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">600</span><span class="p">,</span>
     <span class="p">):</span>
-
-        <span class="k">if</span> <span class="n">product</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">GEFS_PRODUCTS</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Invalid GEFS select variable product </span><span class="si">{</span><span class="n">product</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-
-        <span class="c1"># Silence cfgrib warning, TODO Remove this</span>
-        <span class="n">warnings</span><span class="o">.</span><span class="n">simplefilter</span><span class="p">(</span><span class="n">action</span><span class="o">=</span><span class="s2">&quot;ignore&quot;</span><span class="p">,</span> <span class="n">category</span><span class="o">=</span><span class="ne">FutureWarning</span><span class="p">)</span>
-
-        <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span> <span class="o">=</span> <span class="n">cache</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_verbose</span> <span class="o">=</span> <span class="n">verbose</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_product</span> <span class="o">=</span> <span class="n">product</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">s3fs</span> <span class="o">=</span> <span class="n">s3fs</span><span class="o">.</span><span class="n">S3FileSystem</span><span class="p">(</span>
-            <span class="n">anon</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-            <span class="n">default_block_size</span><span class="o">=</span><span class="mi">2</span><span class="o">**</span><span class="mi">20</span><span class="p">,</span>
-            <span class="n">client_kwargs</span><span class="o">=</span><span class="p">{},</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
+            <span class="n">member</span><span class="o">=</span><span class="n">member</span><span class="p">,</span>
+            <span class="n">max_workers</span><span class="o">=</span><span class="n">max_workers</span><span class="p">,</span>
+            <span class="n">cache</span><span class="o">=</span><span class="n">cache</span><span class="p">,</span>
+            <span class="n">verbose</span><span class="o">=</span><span class="n">verbose</span><span class="p">,</span>
+            <span class="n">async_timeout</span><span class="o">=</span><span class="n">async_timeout</span><span class="p">,</span>
         <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_product_resolution</span> <span class="o">=</span> <span class="s2">&quot;0p25&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">lexicon</span> <span class="o">=</span> <span class="n">GEFSLexiconSel</span>  <span class="c1"># type: ignore</span>
 
-        <span class="c1"># if self._cache:</span>
-        <span class="n">cache_options</span> <span class="o">=</span> <span class="p">{</span>
-            <span class="s2">&quot;cache_storage&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">cache</span><span class="p">,</span>
-            <span class="s2">&quot;expiry_time&quot;</span><span class="p">:</span> <span class="mi">31622400</span><span class="p">,</span>  <span class="c1"># 1 year</span>
-        <span class="p">}</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">fs</span> <span class="o">=</span> <span class="n">WholeFileCacheFileSystem</span><span class="p">(</span><span class="n">fs</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">s3fs</span><span class="p">,</span> <span class="o">**</span><span class="n">cache_options</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">lexicon</span> <span class="o">=</span> <span class="n">GEFSLexiconSel</span>
+<div class="viewcode-block" id="GEFS_FX_721x1440.__call__">
+<a class="viewcode-back" href="../../../modules/generated/data/earth2studio.data.GEFS_FX_721x1440.html#earth2studio.data.GEFS_FX_721x1440.__call__">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__call__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">time</span><span class="p">:</span> <span class="n">datetime</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="n">datetime</span><span class="p">]</span> <span class="o">|</span> <span class="n">TimeArray</span><span class="p">,</span>
+        <span class="n">lead_time</span><span class="p">:</span> <span class="n">timedelta</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="n">timedelta</span><span class="p">]</span> <span class="o">|</span> <span class="n">LeadTimeArray</span><span class="p">,</span>
+        <span class="n">variable</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="n">VariableArray</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Retrieve GEFS forecast data</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">_get_grid_name</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span> <span class="n">time</span><span class="p">:</span> <span class="n">datetime</span><span class="p">,</span> <span class="n">lead_time</span><span class="p">:</span> <span class="n">timedelta</span><span class="p">,</span> <span class="n">grid_class</span><span class="p">:</span> <span class="nb">str</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return grib file name&quot;&quot;&quot;</span>
-        <span class="n">lead_hour</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">lead_time</span><span class="o">.</span><span class="n">total_seconds</span><span class="p">()</span> <span class="o">//</span> <span class="mi">3600</span><span class="p">)</span>
-        <span class="n">file_name</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;gefs.</span><span class="si">{</span><span class="n">time</span><span class="o">.</span><span class="n">year</span><span class="si">}{</span><span class="n">time</span><span class="o">.</span><span class="n">month</span><span class="si">:</span><span class="s2">0&gt;2</span><span class="si">}{</span><span class="n">time</span><span class="o">.</span><span class="n">day</span><span class="si">:</span><span class="s2">0&gt;2</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">time</span><span class="o">.</span><span class="n">hour</span><span class="si">:</span><span class="s2">0&gt;2</span><span class="si">}</span><span class="s2">&quot;</span>
-        <span class="k">return</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
-            <span class="n">file_name</span><span class="p">,</span>
-            <span class="sa">f</span><span class="s2">&quot;atmos/</span><span class="si">{</span><span class="n">grid_class</span><span class="si">}</span><span class="s2">p25/</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_product</span><span class="si">}</span><span class="s2">.t</span><span class="si">{</span><span class="n">time</span><span class="o">.</span><span class="n">hour</span><span class="si">:</span><span class="s2">0&gt;2</span><span class="si">}</span><span class="s2">z.</span><span class="si">{</span><span class="n">grid_class</span><span class="si">}</span><span class="s2">.0p25.f</span><span class="si">{</span><span class="n">lead_hour</span><span class="si">:</span><span class="s2">03d</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
-        <span class="p">)</span>
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        time : datetime | list[datetime] | TimeArray</span>
+<span class="sd">            Timestamps to return data for (UTC).</span>
+<span class="sd">        lead_time: timedelta | list[timedelta] | LeadTimeArray</span>
+<span class="sd">            Forecast lead times to fetch.</span>
+<span class="sd">        variable : str | list[str] | VariableArray</span>
+<span class="sd">            String, list of strings or array of strings that refer to variables to</span>
+<span class="sd">            return. Must be in the GEFS FX select lexicon.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        xr.DataArray</span>
+<span class="sd">            GEFS select forecast data array</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__call__</span><span class="p">(</span><span class="n">time</span><span class="p">,</span> <span class="n">lead_time</span><span class="p">,</span> <span class="n">variable</span><span class="p">)</span></div>
+
 
     <span class="nd">@classmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">_validate_leadtime</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">lead_times</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">timedelta</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
