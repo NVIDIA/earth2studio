@@ -65,6 +65,7 @@ import torch
 from earth2studio.data import ARCO
 from earth2studio.models.dx import TCTrackerWuDuan
 from earth2studio.models.px import SFNO
+from earth2studio.utils.time import to_time_array
 
 # Create tropical cyclone tracker
 tracker = TCTrackerWuDuan()
@@ -111,7 +112,7 @@ torch.save(era5_tracks, "era5.pt")
 # Notice that the output tensor grows as iterations are performed.
 # This is because the tracker builds tracks based on previous forward passes returning
 # a tensor with the dimensions [batch, path, step, variable].
-# Not all paths are garenteed to be the same length or have the same start / stop time
+# Not all paths are guaranteed to be the same length or have the same start / stop time
 # so any missing data is populated with a nan value.
 #
 # Up next lets also repeat the same process using the prognostic AI model.
@@ -131,7 +132,7 @@ tracker.reset_path_buffer()
 # Load the initial state
 x, coords = fetch_data(
     source=data,
-    time=[start_time],
+    time=to_time_array([start_time]),
     variable=prognostic.input_coords()["variable"],
     lead_time=prognostic.input_coords()["lead_time"],
     device=device,

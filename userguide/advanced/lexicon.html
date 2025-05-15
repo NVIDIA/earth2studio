@@ -528,15 +528,15 @@ Note that the class has a <code class="docutils literal notranslate"><span class
 <span class="sd">    https://www.nco.ncep.noaa.gov/pmb/products/gfs/gfs.t00z.pgrb2.0p25.f003.shtml</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
+    <span class="c1"># sphinx - lexicon start</span>
     <span class="n">VOCAB</span> <span class="o">=</span> <span class="p">{</span>
         <span class="s2">&quot;u10m&quot;</span><span class="p">:</span> <span class="s2">&quot;UGRD::10 m above ground&quot;</span><span class="p">,</span>
         <span class="s2">&quot;v10m&quot;</span><span class="p">:</span> <span class="s2">&quot;VGRD::10 m above ground&quot;</span><span class="p">,</span>
         <span class="s2">&quot;u100m&quot;</span><span class="p">:</span> <span class="s2">&quot;UGRD::100 m above ground&quot;</span><span class="p">,</span>
         <span class="s2">&quot;v100m&quot;</span><span class="p">:</span> <span class="s2">&quot;VGRD::100 m above ground&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;t2m&quot;</span><span class="p">:</span> <span class="s2">&quot;TMP::2 m above ground&quot;</span><span class="p">,</span>
 </pre></div>
 </div>
-<p>How the value of each variable is left up the the data source.
+<p>Values of each variable is left up the the data source.
 The present pattern is to split by the string based on the separator <code class="docutils literal notranslate"><span class="pre">::</span></code>, and then used
 to access the required data.
 For example, the variable <code class="docutils literal notranslate"><span class="pre">u100</span></code>, zonal winds at 100 hPa, the value <code class="docutils literal notranslate"><span class="pre">UGRD::100</span> <span class="pre">mb</span></code> is

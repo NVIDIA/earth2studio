@@ -144,6 +144,12 @@ to get the required :py:obj:`to(device)` method for free.
 
 
 
+
+
+
+
+
+
 .. GENERATED FROM PYTHON SOURCE LINES 142-154
 
 Input/Output Coordinates
@@ -215,6 +221,12 @@ Lets instantiate the components needed.
     io = ZarrBackend()
 
 
+
+
+
+
+
+
 .. GENERATED FROM PYTHON SOURCE LINES 205-209
 
 Execute the Workflow
@@ -232,6 +244,48 @@ same as running a built in diagnostic.
     io = run.diagnostic(["2024-01-01"], nsteps, model, diagnostic, data, io)
 
     print(io.root.tree())
+
+
+
+
+
+.. rst-class:: sphx-glr-script-out
+
+ .. code-block:: none
+
+    2025-05-15 03:32:57.695 | INFO     | earth2studio.run:diagnostic:190 - Running diagnostic workflow!
+    2025-05-15 03:32:57.695 | INFO     | earth2studio.run:diagnostic:197 - Inference device: cuda
+    Fetching GFS data:   0%|          | 0/7 [00:00<?, ?it/s]                                                            2025-05-15 03:32:57.709 | DEBUG    | earth2studio.data.gfs:fetch_array:352 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20231231/18/atmos/gfs.t18z.pgrb2.0p25.f000 294691465-856457
+    Fetching GFS data:   0%|          | 0/7 [00:00<?, ?it/s]                                                            2025-05-15 03:32:57.729 | DEBUG    | earth2studio.data.gfs:fetch_array:352 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20231231/18/atmos/gfs.t18z.pgrb2.0p25.f000 208052937-721817
+    Fetching GFS data:   0%|          | 0/7 [00:00<?, ?it/s]                                                            2025-05-15 03:32:57.749 | DEBUG    | earth2studio.data.gfs:fetch_array:352 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20231231/18/atmos/gfs.t18z.pgrb2.0p25.f000 329116923-847018
+    Fetching GFS data:   0%|          | 0/7 [00:00<?, ?it/s]                                                            2025-05-15 03:32:57.769 | DEBUG    | earth2studio.data.gfs:fetch_array:352 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20231231/18/atmos/gfs.t18z.pgrb2.0p25.f000 251230645-803982
+    Fetching GFS data:   0%|          | 0/7 [00:00<?, ?it/s]                                                            2025-05-15 03:32:57.788 | DEBUG    | earth2studio.data.gfs:fetch_array:352 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20231231/18/atmos/gfs.t18z.pgrb2.0p25.f000 408062467-879185
+    Fetching GFS data:   0%|          | 0/7 [00:00<?, ?it/s]                                                            2025-05-15 03:32:57.808 | DEBUG    | earth2studio.data.gfs:fetch_array:352 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20231231/18/atmos/gfs.t18z.pgrb2.0p25.f000 420029701-1181204
+    Fetching GFS data:   0%|          | 0/7 [00:00<?, ?it/s]                                                            2025-05-15 03:32:57.827 | DEBUG    | earth2studio.data.gfs:fetch_array:352 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20231231/18/atmos/gfs.t18z.pgrb2.0p25.f000 397402829-996456
+    Fetching GFS data:   0%|          | 0/7 [00:00<?, ?it/s]    Fetching GFS data:  14%|█▍        | 1/7 [00:00<00:00,  7.20it/s]    Fetching GFS data: 100%|██████████| 7/7 [00:00<00:00, 50.30it/s]
+    Fetching GFS data:   0%|          | 0/7 [00:00<?, ?it/s]                                                            2025-05-15 03:32:57.856 | DEBUG    | earth2studio.data.gfs:fetch_array:352 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 246334297-805355
+    Fetching GFS data:   0%|          | 0/7 [00:00<?, ?it/s]                                                            2025-05-15 03:32:57.876 | DEBUG    | earth2studio.data.gfs:fetch_array:352 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 289307267-851916
+    Fetching GFS data:   0%|          | 0/7 [00:00<?, ?it/s]                                                            2025-05-15 03:32:57.895 | DEBUG    | earth2studio.data.gfs:fetch_array:352 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 323956279-837771
+    Fetching GFS data:   0%|          | 0/7 [00:00<?, ?it/s]                                                            2025-05-15 03:32:57.914 | DEBUG    | earth2studio.data.gfs:fetch_array:352 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 204118947-720169
+    Fetching GFS data:   0%|          | 0/7 [00:00<?, ?it/s]                                                            2025-05-15 03:32:57.934 | DEBUG    | earth2studio.data.gfs:fetch_array:352 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 402321768-876246
+    Fetching GFS data:   0%|          | 0/7 [00:00<?, ?it/s]                                                            2025-05-15 03:32:57.953 | DEBUG    | earth2studio.data.gfs:fetch_array:352 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 414179964-1179422
+    Fetching GFS data:   0%|          | 0/7 [00:00<?, ?it/s]                                                            2025-05-15 03:32:57.973 | DEBUG    | earth2studio.data.gfs:fetch_array:352 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 391722290-987401
+    Fetching GFS data:   0%|          | 0/7 [00:00<?, ?it/s]    Fetching GFS data:  14%|█▍        | 1/7 [00:00<00:00,  7.34it/s]    Fetching GFS data: 100%|██████████| 7/7 [00:00<00:00, 51.30it/s]
+    2025-05-15 03:32:58.009 | SUCCESS  | earth2studio.run:diagnostic:220 - Fetched data from GFS
+    2025-05-15 03:32:58.014 | WARNING  | earth2studio.io.zarr:add_array:192 - Datetime64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch
+    2025-05-15 03:32:58.016 | WARNING  | earth2studio.io.zarr:add_array:198 - Timedelta64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch
+    2025-05-15 03:32:58.022 | INFO     | earth2studio.run:diagnostic:252 - Inference starting!
+    Running inference:   0%|          | 0/21 [00:00<?, ?it/s]    Running inference:   5%|▍         | 1/21 [00:00<00:02,  7.53it/s]    Running inference:  10%|▉         | 2/21 [00:00<00:03,  5.61it/s]    Running inference:  14%|█▍        | 3/21 [00:00<00:03,  5.05it/s]    Running inference:  19%|█▉        | 4/21 [00:00<00:03,  4.61it/s]    Running inference:  24%|██▍       | 5/21 [00:01<00:03,  4.35it/s]    Running inference:  29%|██▊       | 6/21 [00:01<00:03,  4.07it/s]    Running inference:  33%|███▎      | 7/21 [00:01<00:03,  3.85it/s]    Running inference:  38%|███▊      | 8/21 [00:01<00:03,  3.70it/s]    Running inference:  43%|████▎     | 9/21 [00:02<00:03,  3.44it/s]    Running inference:  48%|████▊     | 10/21 [00:02<00:03,  3.17it/s]    Running inference:  52%|█████▏    | 11/21 [00:02<00:03,  3.04it/s]    Running inference:  57%|█████▋    | 12/21 [00:03<00:03,  2.85it/s]    Running inference:  62%|██████▏   | 13/21 [00:03<00:02,  2.78it/s]    Running inference:  67%|██████▋   | 14/21 [00:04<00:02,  2.67it/s]    Running inference:  71%|███████▏  | 15/21 [00:04<00:02,  2.55it/s]    Running inference:  76%|███████▌  | 16/21 [00:05<00:02,  2.35it/s]    Running inference:  81%|████████  | 17/21 [00:05<00:01,  2.30it/s]    Running inference:  86%|████████▌ | 18/21 [00:06<00:01,  2.21it/s]    Running inference:  90%|█████████ | 19/21 [00:06<00:00,  2.18it/s]    Running inference:  95%|█████████▌| 20/21 [00:07<00:00,  2.12it/s]    Running inference: 100%|██████████| 21/21 [00:07<00:00,  2.07it/s]    Running inference: 100%|██████████| 21/21 [00:07<00:00,  2.78it/s]
+    2025-05-15 03:33:05.573 | SUCCESS  | earth2studio.run:diagnostic:266 - Inference complete
+    /
+    ├── lat (721,) float64
+    ├── lead_time (21,) int64
+    ├── lon (1440,) float64
+    ├── t2m_c (1, 21, 721, 1440) float32
+    └── time (1,) int64
+
+
+
 
 
 .. GENERATED FROM PYTHON SOURCE LINES 219-222
@@ -290,6 +344,22 @@ Let's plot the Celsius temperature field from our custom diagnostic model.
 
 
     plt.savefig("outputs/02_custom_diagnostic_dlwp_prediction.jpg")
+
+
+
+.. image-sg:: /examples/extend/images/sphx_glr_02_custom_diagnostic_001.png
+   :alt: t2m_c - 2024-01-01, 0hrs, 24hrs, 48hrs, 72hrs, 96hrs
+   :srcset: /examples/extend/images/sphx_glr_02_custom_diagnostic_001.png
+   :class: sphx-glr-single-img
+
+
+
+
+
+
+.. rst-class:: sphx-glr-timing
+
+   **Total running time of the script:** (1 minutes 20.889 seconds)
 
 
 .. _sphx_glr_download_examples_extend_02_custom_diagnostic.py:
