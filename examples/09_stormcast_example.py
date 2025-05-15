@@ -135,13 +135,10 @@ projection = ccrs.LambertConformal(
 # Create a figure and axes with the specified projection
 fig, ax = plt.subplots(subplot_kw={"projection": projection}, figsize=(10, 6))
 
-# Get the lat lon arrays from the model
-output_coords = model.output_coords(model.input_coords())
-
 # Plot the field using pcolormesh
 im = ax.pcolormesh(
-    output_coords["_lon"][:],
-    output_coords["_lat"][:],
+    model.lon,
+    model.lat,
     io[variable][0, step],
     transform=ccrs.PlateCarree(),
     cmap="Spectral_r",

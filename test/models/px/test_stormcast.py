@@ -103,8 +103,6 @@ def test_stormcast_call(time, device):
     p = StormCast(
         regression,
         diffusion,
-        lat,
-        lon,
         means,
         stds,
         invariants,
@@ -150,8 +148,8 @@ def test_stormcast_iter(ensemble, device):
     diffusion = PhooStormCastDiffusionModel()
 
     # Init data sources
-    X_START, X_END = 579, 1219
-    Y_START, Y_END = 273, 785
+    X_START, X_END = 32, 64
+    Y_START, Y_END = 32, 128
     nvar, nvar_cond = 3, 5
     dc = OrderedDict(
         [
@@ -182,12 +180,12 @@ def test_stormcast_iter(ensemble, device):
     p = StormCast(
         regression,
         diffusion,
-        lat,
-        lon,
         means,
         stds,
         invariants,
-        variables,
+        hrrr_lat_lim=(Y_START, Y_END),
+        hrrr_lon_lim=(X_START, X_END),
+        variables=variables,
         conditioning_means=conditioning_means,
         conditioning_stds=conditioning_stds,
         conditioning_variables=conditioning_variables,
@@ -263,8 +261,6 @@ def test_stormcast_exceptions(dc, device):
     p = StormCast(
         regression,
         diffusion,
-        lat,
-        lon,
         means,
         stds,
         invariants,

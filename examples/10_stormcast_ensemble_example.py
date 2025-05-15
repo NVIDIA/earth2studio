@@ -138,16 +138,14 @@ import matplotlib.pyplot as plt
 forecast = f"{date}"
 step = nsteps  # 4 hours, since lead_time = 1 hr
 
+
 # Get the lat lon arrays from the model
-output_coords = model.output_coords(model.input_coords())
-
-
 def plot_(axi, data, title, cmap, vmin=None, vmax=None):
     """Convenience function for plotting pcolormesh."""
     # Plot the field using pcolormesh
     im = axi.pcolormesh(
-        output_coords["_lon"][:],
-        output_coords["_lat"][:],
+        model.lon,
+        model.lat,
         data,
         transform=ccrs.PlateCarree(),
         cmap=cmap,

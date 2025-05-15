@@ -257,6 +257,7 @@ def map_coords(
             inc_slice = inc[indx : indx + outc.shape[0]]
             if inc_slice.shape[0] == outc.shape[0] and np.all(inc_slice == outc):
                 # Min here, to deal when coords have extra meta-data
+                # TODO: Improve this method / outright remove
                 x_slice = [slice(None)] * min([len(input_coords), x.ndim])
                 x_slice[dim] = slice(indx, indx + outc.shape[0])
                 x = x[x_slice]
