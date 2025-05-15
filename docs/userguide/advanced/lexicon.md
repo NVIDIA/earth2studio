@@ -49,7 +49,7 @@ Note that the class has a `metaclass=LexiconType` which is present in
     :language: python
 ```
 
-How the value of each variable is left up the the data source.
+Valuee of each variable is left up the the data source.
 The present pattern is to split by the string based on the separator `::`, and then used
 to access the required data.
 For example, the variable `u100`, zonal winds at 100 hPa, the value `UGRD::100 mb` is
