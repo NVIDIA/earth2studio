@@ -348,7 +348,6 @@ def ensemble(
     total_coords = prognostic.output_coords(prognostic.input_coords()).copy()
     if "batch" in total_coords:
         del total_coords["batch"]
-    total_coords = {"ensemble": np.arange(nensemble)} | total_coords
     total_coords["time"] = time
     total_coords["lead_time"] = np.asarray(
         [
@@ -356,6 +355,10 @@ def ensemble(
             for i in range(nsteps + 1)
         ]
     ).flatten()
+    total_coords.move_to_end("lead_time", last=False)
+    total_coords.move_to_end("time", last=False)
+    total_coords = {"ensemble": np.arange(nensemble)} | total_coords
+
     for key, value in total_coords.items():
         total_coords[key] = output_coords.get(key, value)
     variables_to_save = total_coords.pop("variable")
@@ -409,6 +412,7 @@ def ensemble(
             for step, (x, coords) in enumerate(model):
                 # Subselect domain/variables as indicated in output_coords
                 x, coords = map_coords(x, coords, output_coords)
+
                 io.write(*split_coords(x, coords))
                 pbar.update(1)
                 if step == nsteps:
