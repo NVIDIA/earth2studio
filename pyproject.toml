@@ -73,7 +73,7 @@ statistics = [
 # PX Models
 graphcast = [
     "graphcast",
-    "dm-haiku==0.0.13",
+    "dm-haiku==0.0.14",
     "jax[cuda12]>=0.4.26",
 ]
 aifs = [

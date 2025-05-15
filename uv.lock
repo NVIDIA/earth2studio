@@ -1267,7 +1267,7 @@ wheels = [
 
 [[package]]
 name = "dm-haiku"
-version = "0.0.13"
+version = "0.0.14"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "absl-py" },
@@ -1275,9 +1275,9 @@ dependencies = [
     { name = "numpy" },
     { name = "tabulate" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/cd/0a/6858fca7b8149446d203c3eb96cb53775333eec583cb35ea8fb63eadc513/dm_haiku-0.0.13.tar.gz", hash = "sha256:029bb91b5b1edb0d3fe23304d3bf12a545ea6e485041f7f5d8c8d85ebcf6e17d", size = 262001, upload-time = "2024-10-16T09:11:36.202Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/44/53/ae2837124abd80069dce35723de178fc9f72541be0430528c24f83472320/dm_haiku-0.0.14.tar.gz", hash = "sha256:0c1d56ef20e1e04d8551f788ff8964167092c5d8051b7c17ed3f9ce60c0b0a59", size = 262610, upload-time = "2025-04-22T10:24:46.673Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/22/34/7a071f78f4c9336f3cfcff22557441cef15782ae9704bf7383af6df0d7a1/dm_haiku-0.0.13-py3-none-any.whl", hash = "sha256:ee9562c68a059f146ad07f555ca591cb8c11ef751afecc38353863562bd23f43", size = 373902, upload-time = "2024-10-16T09:11:35.027Z" },
+    { url = "https://files.pythonhosted.org/packages/6f/79/2dbff37c17d3df72824c01f322fb4a3ce7c10bfbb8b7a2878501de12fa2a/dm_haiku-0.0.14-py3-none-any.whl", hash = "sha256:79f2fc2bf2985f99687209b72a193769ba2bcfde471ce7746cd36a64ea9ce74a", size = 373766, upload-time = "2025-04-22T10:24:45.494Z" },
 ]
 
 [[package]]
@@ -1590,8 +1590,8 @@ requires-dist = [
     { name = "cftime" },
     { name = "cucim-cu12", marker = "python_full_version < '3.13' and extra == 'all'", specifier = ">=25.4.0" },
     { name = "cucim-cu12", marker = "python_full_version < '3.13' and extra == 'cyclone'", specifier = ">=25.4.0" },
-    { name = "dm-haiku", marker = "extra == 'all'", specifier = "==0.0.13" },
-    { name = "dm-haiku", marker = "extra == 'graphcast'", specifier = "==0.0.13" },
+    { name = "dm-haiku", marker = "extra == 'all'", specifier = "==0.0.14" },
+    { name = "dm-haiku", marker = "extra == 'graphcast'", specifier = "==0.0.14" },
     { name = "earth2grid", marker = "extra == 'all'", git = "https://github.com/NVlabs/earth2grid.git?rev=aefb10793aa372bae7d0951d627a89e2983fd0ca" },
     { name = "earth2grid", marker = "extra == 'dlesym'", git = "https://github.com/NVlabs/earth2grid.git?rev=aefb10793aa372bae7d0951d627a89e2983fd0ca" },
     { name = "earthkit-regrid", marker = "extra == 'aifs'", specifier = "==0.4.0" },
