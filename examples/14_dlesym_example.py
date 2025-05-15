@@ -43,19 +43,21 @@ In this example you will learn:
 # ------
 # The first step is fetching appropriate input data for the model. The ERA5 data sources
 # in earth2studio provide data on the lat/lon grid, so have two options:
-# - use the :py:class:`earth2studio.models.px.DLESyMLatLon` model. This version of DLESyM
+#
+# - Use the :py:class:`earth2studio.models.px.DLESyMLatLon` model. This version of DLESyM
 #   accepts inputs on the lat/lon grid and regrids them to the HEALPix grid internally,
 #   before returning the output regridded back to the lat/lon grid. This is the
 #   recommended approach for most users as it can be used directly with earth2studio
 #   data sources and workflows, since it performs regridding and pre-processing
 #   internally.
-# - use the :py:class:`earth2studio.models.px.DLESyM` model, and handle the regridding of
+# - Use the :py:class:`earth2studio.models.px.DLESyM` model, and handle the regridding of
 #   input lat/lon data ourselves. Since the model uses some derived variables which
 #   are not provided by the data source, we would also need to prepare these derived
 #   variables ourselves.
 #
 # Let's load both of these models and inspect the expected input coordinates for each.
 # Also note the input and output variable set for each model.
+
 # %%
 import os
 
