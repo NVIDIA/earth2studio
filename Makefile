@@ -93,7 +93,6 @@ docs-build-examples:
 	uv run $(MAKE) -C docs html
 	PLOT_GALLERY=True RUN_STALE_EXAMPLES=True uv run $(MAKE) -j 8 -C docs html
 
-
 .PHONY: docs-dev
 docs-dev:
 	# rm -rf examples/outputs
