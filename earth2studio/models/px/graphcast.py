@@ -442,6 +442,9 @@ class GraphCastMini(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         self.output_coords(coords)
 
+        # Get device
+        device = x.device
+
         # first batch has 2 times
         yield x[:, :, 1:, ...], coords
 
@@ -455,6 +458,9 @@ class GraphCastMini(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
             # Rear hook
             x, coords = self.rear_hook(x, coords)
+
+            # Convert to device
+            x = x.to(device)
 
             coords = coords.copy()
             yield x, coords
@@ -579,6 +585,10 @@ class GraphCastMini(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         tuple[torch.Tensor, CoordSystem]:
             Output tensor and respective coordinate system dictionary
         """
+
+        # Get device
+        device = x.device
+
         with jax.default_device(self.get_jax_device_from_tensor(x)):
             # Map lat and lon if needed
             x, coords = map_coords(x, coords, self.input_coords())
@@ -602,6 +612,9 @@ class GraphCastMini(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             )
             out = self.iterator_result_to_tensor(predictions)
             output_coords = self.output_coords(coords)
+
+            # Convert to device
+            out = out.to(device)
 
             return out, output_coords
 
