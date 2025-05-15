@@ -129,7 +129,7 @@ class InterpModAFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     Warning
     -------
     The model requires a base forecast model to be set before execution. This can be
-    done by setting the `px_model` attribute or using the :py:function:`load_model` method.
+    done by setting the `px_model` attribute or using the `load_model` method.
 
     Parameters
     ----------
