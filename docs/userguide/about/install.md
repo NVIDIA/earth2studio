@@ -305,6 +305,26 @@ uv add earth2studio --extra stormcast
 :::
 ::::
 :::::
+:::::{tab-item} GraphCastMini
+Notes: Requires JAX with CUDA support and the GraphCast package.
+
+::::{tab-set}
+:::{tab-item} pip
+
+```bash
+pip install earth2studio[graphcast]
+```
+
+:::
+:::{tab-item} uv
+
+```bash
+uv add earth2studio --extra graphcast
+```
+
+:::
+::::
+:::::
 :::::{tab-item} InterpModAFNO
 Notes: Requires a base prognostic model to be installed.
 

@@ -40,6 +40,8 @@ class WB2Lexicon(metaclass=LexiconType):
         "v10m": "10m_v_component_of_wind::",
         "t2m": "2m_temperature::",
         "sp": "surface_pressure::",
+        "lsm": "land_sea_mask::",
+        "z": "geopotential_at_surface::",
         "msl": "mean_sea_level_pressure::",
         "sst": "sea_surface_temperature::",
         "tcwv": "total_column_water_vapour::",

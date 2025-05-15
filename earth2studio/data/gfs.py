@@ -322,7 +322,7 @@ class GFS:
             task.gfs_byte_length,
             task.gfs_modifier,
         )
-        xr_array[*task.data_array_indices] = out
+        xr_array[task.data_array_indices] = out
 
     async def fetch_array(
         self,
