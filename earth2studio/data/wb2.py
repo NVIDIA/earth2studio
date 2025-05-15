@@ -231,8 +231,6 @@ class _WB2Base:
         wb2_name, level = wb2_name.split("::")
 
         zarr_array = await self.zarr_group.get(wb2_name)
-        if zarr_array is None:
-            print(wb2_name)
         shape = zarr_array.shape
         # Static variables
         if len(shape) == 2:

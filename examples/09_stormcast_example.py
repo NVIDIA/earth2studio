@@ -50,8 +50,8 @@ see
 # - IO Backend: Let's save the outputs into a Zarr store :py:class:`earth2studio.io.ZarrBackend`.
 #
 # StormCast also requires a conditioning data source. We use a forecast data source here,
-# GFS_FX :py:class:`earth2studio.data.GFS_FX`, but a non-forecast data source such as ARCO
-# could also be used with appropriate time stamps.
+# GFS_FX :py:class:`earth2studio.data.GFS_FX` which is the default, but a non-forecast
+# data source such as ARCO could also be used with appropriate time stamps.
 
 # %%
 from datetime import datetime, timedelta
@@ -69,20 +69,17 @@ from dotenv import load_dotenv
 
 load_dotenv()  # TODO: make common example prep function
 
-from earth2studio.data import GFS_FX, HRRR
+from earth2studio.data import HRRR
 from earth2studio.io import ZarrBackend
 from earth2studio.models.px import StormCast
 
 # Load the default model package which downloads the check point from NGC
+# Use the default conditioning data source GFS_FX
 package = StormCast.load_default_package()
 model = StormCast.load_model(package)
 
 # Create the data source
 data = HRRR()
-
-# Create and set the conditioning data source
-conditioning_data_source = GFS_FX()
-model.conditioning_data_source = conditioning_data_source
 
 # Create the IO handler, store in memory
 io = ZarrBackend()
@@ -140,8 +137,8 @@ fig, ax = plt.subplots(subplot_kw={"projection": projection}, figsize=(10, 6))
 
 # Plot the field using pcolormesh
 im = ax.pcolormesh(
-    io["lon"][:],
-    io["lat"][:],
+    model.lon,
+    model.lat,
     io[variable][0, step],
     transform=ccrs.PlateCarree(),
     cmap="Spectral_r",
