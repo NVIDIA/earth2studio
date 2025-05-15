@@ -33,7 +33,7 @@ except ImportError:
     OmegaConf = None
     deterministic_sampler = None
 
-from earth2studio.data import DataSource, fetch_data
+from earth2studio.data import GFS_FX, HRRR, DataSource, ForecastSource, fetch_data
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_coords, batch_func
 from earth2studio.models.dx.base import DiagnosticModel
@@ -101,16 +101,18 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         Deterministic model used to make an initial prediction
     diffusion_model : torch.nn.Module
         Generative model correcting the deterministic prediciton
-    lat : np.array
-        Latitude array (2D) of the domain
-    lon : np.array
-        Longitude array (2D) of the domain
     means : torch.Tensor
         Mean value of each input high-resolution variable
     stds : torch.Tensor
         Standard deviation of each input high-resolution variable
     invariants : torch.Tensor
         Static invariant  quantities
+    hrrr_lat_lim : tuple[int, int], optional
+        HRRR grid latitude limits, defaults to be the StormCastV1 region in central
+        United States, by default (273, 785)
+    hrrr_lon_lim : tuple[int, int], optional
+        HRRR grid longitude limits, defaults to be the StormCastV1 region in central
+        United States,, by default (579, 1219)
     variables : np.array, optional
         High-resolution variables, by default np.array(VARIABLES)
     conditioning_means : torch.Tensor | None, optional
@@ -119,42 +121,46 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         Standard deviations to normalize conditioning data, by default None
     conditioning_variables : np.array, optional
         Global variables for conditioning, by default np.array(CONDITIONING_VARIABLES)
-    conditioning_data_source : DataSource | None, optional
-        Data Source to use for global conditoining. Required for running in iterator mode, by default None
+    conditioning_data_source : DataSource | ForecastSource | None, optional
+        Data Source to use for global conditioning. Required for running in iterator mode, by default None
     sampler_args : dict[str, float  |  int], optional
         Arguments to pass to the diffusion sampler, by default {}
-    interp_method : str, optional
-        Interpolation method to use when regridding coarse conditoining data, by default "linear"
     """
 
     def __init__(
         self,
         regression_model: torch.nn.Module,
         diffusion_model: torch.nn.Module,
-        lat: np.array,
-        lon: np.array,
         means: torch.Tensor,
         stds: torch.Tensor,
         invariants: torch.Tensor,
+        hrrr_lat_lim: tuple[int, int] = (273, 785),
+        hrrr_lon_lim: tuple[int, int] = (579, 1219),
         variables: np.array = np.array(VARIABLES),
         conditioning_means: torch.Tensor | None = None,
         conditioning_stds: torch.Tensor | None = None,
         conditioning_variables: np.array = np.array(CONDITIONING_VARIABLES),
-        conditioning_data_source: DataSource | None = None,
+        conditioning_data_source: DataSource | ForecastSource | None = None,
         sampler_args: dict[str, float | int] = {},
-        interp_method: str = "linear",
     ):
         super().__init__()
         self.regression_model = regression_model
         self.diffusion_model = diffusion_model
-
-        self.lat = lat
-        self.lon = lon
         self.register_buffer("means", means)
         self.register_buffer("stds", stds)
         self.register_buffer("invariants", invariants)
-        self.interp_method = interp_method
         self.sampler_args = sampler_args
+
+        hrrr_lat, hrrr_lon = HRRR.grid()
+        self.lat = hrrr_lat[
+            hrrr_lat_lim[0] : hrrr_lat_lim[1], hrrr_lon_lim[0] : hrrr_lon_lim[1]
+        ]
+        self.lon = hrrr_lon[
+            hrrr_lat_lim[0] : hrrr_lat_lim[1], hrrr_lon_lim[0] : hrrr_lon_lim[1]
+        ]
+
+        self.hrrr_x = np.arange(hrrr_lon_lim[0], hrrr_lon_lim[1], 1)
+        self.hrrr_y = np.arange(hrrr_lat_lim[0], hrrr_lat_lim[1], 1)
 
         self.variables = variables
 
@@ -181,8 +187,8 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 "time": np.empty(0),
                 "lead_time": np.array([np.timedelta64(0, "h")]),
                 "variable": np.array(self.variables),
-                "lat": self.lat,
-                "lon": self.lon,
+                "hrrr_y": self.hrrr_y,
+                "hrrr_x": self.hrrr_x,
             }
         )
 
@@ -208,20 +214,18 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 "time": np.empty(0),
                 "lead_time": np.array([np.timedelta64(1, "h")]),
                 "variable": np.array(self.variables),
-                "lat": self.lat,
-                "lon": self.lon,
+                "hrrr_y": self.hrrr_y,
+                "hrrr_x": self.hrrr_x,
             }
         )
-        if input_coords is None:
-            return output_coords
 
         target_input_coords = self.input_coords()
 
-        handshake_dim(input_coords, "lon", 5)
-        handshake_dim(input_coords, "lat", 4)
+        handshake_dim(input_coords, "hrrr_x", 5)
+        handshake_dim(input_coords, "hrrr_y", 4)
         handshake_dim(input_coords, "variable", 3)
-        handshake_coords(input_coords, target_input_coords, "lon")
-        handshake_coords(input_coords, target_input_coords, "lat")
+        handshake_coords(input_coords, target_input_coords, "hrrr_x")
+        handshake_coords(input_coords, target_input_coords, "hrrr_y")
         handshake_coords(input_coords, target_input_coords, "variable")
 
         output_coords["batch"] = input_coords["batch"]
@@ -247,8 +251,25 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     @check_extra_imports(
         "stormcast", [OmegaConf, PhysicsNemoModule, deterministic_sampler]
     )
-    def load_model(cls, package: Package) -> DiagnosticModel:
-        """Load StormCast model."""
+    def load_model(
+        cls,
+        package: Package,
+        conditioning_data_source: DataSource | ForecastSource = GFS_FX(),
+    ) -> DiagnosticModel:
+        """Load prognostic from package
+
+        Parameters
+        ----------
+        package : Package
+            Package to load model from
+        conditioning_data_source : DataSource | ForecastSource, optional
+            Data source to use for global conditioning, by default GFS_FX
+
+        Returns
+        -------
+        PrognosticModel
+            Prognostic model
+        """
         try:
             OmegaConf.register_new_resolver("eval", eval)
         except ValueError:
@@ -270,8 +291,6 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         metadata = xr.open_zarr(store, zarr_format=2)
 
         variables = metadata["variable"].values
-        lat = metadata.coords["lat"].values
-        lon = metadata.coords["lon"].values
         conditioning_variables = metadata["conditioning_variable"].values
 
         # Expand dims and tensorify normalization buffers
@@ -297,14 +316,13 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         return cls(
             regression,
             diffusion,
-            lat,
-            lon,
             means,
             stds,
             invariants,
             variables=variables,
             conditioning_means=conditioning_means,
             conditioning_stds=conditioning_stds,
+            conditioning_data_source=conditioning_data_source,
             conditioning_variables=conditioning_variables,
             sampler_args=sampler_args,
         )
@@ -351,21 +369,41 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         x: torch.Tensor,
         coords: CoordSystem,
     ) -> tuple[torch.Tensor, CoordSystem]:
-        """Forward pass of diagnostic"""
+        """Runs prognostic model 1 step
+
+        Parameters
+        ----------
+        x : torch.Tensor
+            Input tensor
+        coords : CoordSystem
+            Input coordinate system
+
+        Returns
+        -------
+        tuple[torch.Tensor, CoordSystem]
+            Output tensor and coordinate system
+
+        Raises
+        ------
+        RuntimeError
+            If conditioning data source is not initialized
+        """
 
         if self.conditioning_data_source is None:
             raise RuntimeError(
                 "StormCast has been called without initializing the model's conditioning_data_source"
             )
 
+        # TODO: Eventually pull out interpolation into model and remove it from fetch
+        # data potentially
         conditioning, conditioning_coords = fetch_data(
             self.conditioning_data_source,
             time=coords["time"],
             variable=self.conditioning_variables,
             lead_time=coords["lead_time"],
             device=x.device,
-            interp_to=coords,
-            interp_method=self.interp_method,
+            interp_to=coords | {"_lat": self.lat, "_lon": self.lon},
+            interp_method="linear",
         )
 
         # Add a batch dim
@@ -374,8 +412,9 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         conditioning_coords.move_to_end("batch", last=False)
 
         # Handshake conditioning coords
-        handshake_coords(conditioning_coords, coords, "lon")
-        handshake_coords(conditioning_coords, coords, "lat")
+        # TODO: ugh the interp... have to deal with this for now, no solution
+        # handshake_coords(conditioning_coords, coords, "hrrr_x")
+        # handshake_coords(conditioning_coords, coords, "hrrr_y")
         handshake_coords(conditioning_coords, coords, "lead_time")
         handshake_coords(conditioning_coords, coords, "time")
 
@@ -409,8 +448,7 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         while True:
             # Front hook
             x, coords = self.front_hook(x, coords)
-            # Forward is identity operator
-
+            # Forward
             x, coords = self.__call__(x, coords)
             # Rear hook
             x, coords = self.rear_hook(x, coords)
@@ -421,12 +459,14 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     ) -> Iterator[tuple[torch.Tensor, CoordSystem]]:
         """Creates a iterator which can be used to perform time-integration of the
         prognostic model. Will return the initial condition first (0th step).
+
         Parameters
         ----------
         x : torch.Tensor
             Input tensor
         coords : CoordSystem
             Input coordinate system
+
         Yields
         ------
         Iterator[tuple[torch.Tensor, CoordSystem]]
