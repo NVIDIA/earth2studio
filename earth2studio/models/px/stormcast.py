@@ -125,8 +125,6 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         Data Source to use for global conditioning. Required for running in iterator mode, by default None
     sampler_args : dict[str, float  |  int], optional
         Arguments to pass to the diffusion sampler, by default {}
-    interp_method : str, optional
-        Interpolation method to use when regridding coarse conditioning data, by default "linear"
     """
 
     def __init__(
@@ -151,7 +149,6 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self.register_buffer("means", means)
         self.register_buffer("stds", stds)
         self.register_buffer("invariants", invariants)
-        # self.interp_method = interp_method
         self.sampler_args = sampler_args
 
         hrrr_lat, hrrr_lon = HRRR.grid()
