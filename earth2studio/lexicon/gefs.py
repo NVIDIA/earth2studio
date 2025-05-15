@@ -23,7 +23,7 @@ from .base import LexiconType
 
 class GEFSLexicon(metaclass=LexiconType):
     """Global Ensemble Forecast System Lexicon, right now only support isobarric
-    GEFS vocab specified <Data class>::<Parameter ID>::<Level/ Layer>
+    GEFS vocab specified <Product ID>::<Parameter ID>::<Level/ Layer>
 
     Note
     ----
@@ -244,7 +244,7 @@ class GEFSLexicon(metaclass=LexiconType):
 
 class GEFSLexiconSel(metaclass=LexiconType):
     """Global Ensemble Forecast System 0.25 Degree Lexicon (Select variables). GEFS
-    vocab specified <Data class>::<Parameter ID>::<Level/ Layer>
+    vocab specified <Product ID>::<Parameter ID>::<Level/ Layer>
 
     Warning
     -------
