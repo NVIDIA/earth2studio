@@ -46,11 +46,11 @@ from earth2studio.models.px import (
     Aurora,
     FengWu,
     FuXi,
+    GraphCastMini,
     InterpModAFNO,
     Pangu3,
     Pangu6,
     Pangu24,
-    GraphCastMini,
 )
 
 

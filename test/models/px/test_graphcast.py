@@ -22,9 +22,8 @@ def mocked_chunked_prediction_generator(
     rng,
     inputs,
     targets_template,
+    batch,
     forcings,
-    num_steps_per_chunk=None,
-    verbose=None,
 ):
     # iterator returns 1 template lead time at a time
     yield targets_template.isel(time=[0])
@@ -71,7 +70,8 @@ def mock_graphcastmini_model():
         def __init__(self, model_config, task_config):
             self.model_config = model_config
             self.task_config = task_config
-            self.params = None
+            # Initialize with empty parameters that will be properly initialized
+            self.params = {}
             self.description = "some"
             self.license = "license"
 
@@ -96,12 +96,20 @@ def mock_graphcastmini_model():
         static_data, coords={"level": list(graphcast.PRESSURE_LEVELS[37])}
     )
 
+    # Create a proper checkpoint with initialized parameters
+    ckpt = CKPT(model_config, task_config)
+
+    # Initialize the model with the checkpoint
     p = GraphCastMini(
-        CKPT(model_config, task_config),
+        ckpt,
         diffs_stddev_by_level,
         mean_by_level,
         stddev_by_level,
     )
+
+    # Set chunked_prediction_generator to the mocked function
+    p._chunked_prediction_generator = mocked_chunked_prediction_generator
+
     return p
 
 
@@ -134,13 +142,12 @@ def test_graphcastmini_call(time, device, mock_graphcastmini_model):
     x, coords = fetch_data(r, time, variable, lead_time, device=device)
     print("coords: ", coords)
 
-    nsteps = 1
-    out, out_coords = p.set_nsteps(1)(x, coords)
+    out, out_coords = p(x, coords)
 
     if not isinstance(time, Iterable):
         time = [time]
 
-    assert out.shape == torch.Size([len(time), 1 + nsteps, 85, 181, 360])
+    assert out.shape == torch.Size([len(time), 1, 85, 181, 360])
     assert (out_coords["variable"] == p.output_coords(coords)["variable"]).all()
     assert (out_coords["time"] == time).all()
     handshake_dim(out_coords, "lon", 4)
@@ -181,8 +188,6 @@ def test_graphcastmini_iter(ensemble, device, mock_graphcastmini_model):
     coords.update({"ensemble": np.arange(ensemble)})
     coords.move_to_end("ensemble", last=False)
 
-    nsteps = 5
-    p = p.set_nsteps(nsteps)
     p_iter = p.create_iterator(x, coords)
 
     if not isinstance(time, Iterable):
@@ -224,7 +229,7 @@ def test_graphcastmini_exceptions(dc, device, mock_graphcastmini_model):
     x, coords = fetch_data(r, time, variable, lead_time, device=device)
 
     with pytest.raises((KeyError, ValueError)):
-        p.set_nsteps(1)(x, coords)
+        p(x, coords)
 
 
 @pytest.fixture(scope="module")
@@ -259,7 +264,7 @@ def test_graphcastmini_package(model, device):
     x, coords = fetch_data(r, time, variable, lead_time, device=device)
 
     nsteps = 1
-    out, out_coords = p.set_nsteps(nsteps)(x, coords)
+    out, out_coords = p(x, coords)
 
     if not isinstance(time, Iterable):
         time = [time]

@@ -403,7 +403,7 @@ class HRRR:
             task.hrrr_byte_length,
             task.hrrr_modifier,
         )
-        xr_array[*task.data_array_indices] = out
+        xr_array[task.data_array_indices] = out
 
     async def fetch_array(
         self,

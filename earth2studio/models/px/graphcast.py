@@ -1,16 +1,14 @@
-import copy
 import dataclasses
 import functools
 from collections import OrderedDict
 from collections.abc import Callable, Generator, Iterator
-from typing import Optional, Sequence
-
 
 import numpy as np
 import torch
 import xarray as xr
 
 try:
+    import chex
     import haiku as hk
     import jax
     import jax.dlpack
@@ -27,6 +25,7 @@ except ImportError:
     hk = None
     jax = None
     jax.dlpack = None
+    chex = None
     autoregressive = None
     casting = None
     checkpoint = None
@@ -40,9 +39,9 @@ from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_coords, batch_func
 from earth2studio.models.px.base import PrognosticModel
 from earth2studio.models.px.utils import PrognosticMixin
+from earth2studio.utils import check_extra_imports
 from earth2studio.utils.coords import map_coords
 from earth2studio.utils.type import CoordSystem
-from earth2studio.utils import check_extra_imports
 
 VARIABLES = [
     "t2m",
@@ -167,8 +166,8 @@ INV_VOCAB = {v: k for k, v in WB2Lexicon.VOCAB.items()}
 class GraphCastMini(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     """GraphCast Mini 1.0 degree model.
 
-    A smaller, low-resolution version of GraphCast (1 degree resolution, 13 pressure levels, 
-    and a smaller mesh), trained on ERA5 data from 1979 to 2015. This model is useful for 
+    A smaller, low-resolution version of GraphCast (1 degree resolution, 13 pressure levels,
+    and a smaller mesh), trained on ERA5 data from 1979 to 2015. This model is useful for
     running with lower memory and compute constraints while maintaining good forecast skill.
 
     The model operates on a 1-degree lat-lon grid and includes:
@@ -281,7 +280,7 @@ class GraphCastMini(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     def _chunked_prediction_generator(
         self,
-        predictor_fn: "PredictorFn",
+        predictor_fn: "autoregressive.PredictorFn",
         rng: "chex.PRNGKey",
         inputs: xr.Dataset,
         targets_template: xr.Dataset,
@@ -322,7 +321,7 @@ class GraphCastMini(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         current_inputs = inputs
 
-        def split_rng_fn(rng):
+        def split_rng_fn(rng: chex.PRNGKey) -> tuple[chex.PRNGKey, chex.PRNGKey]:
             # Note, this is *not* equivalent to `return jax.random.split(rng)`, because
             # by assigning to a tuple, the single numpy array returned by
             # `jax.random.split` actually gets split into two arrays, so when calling
@@ -368,7 +367,9 @@ class GraphCastMini(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
             # Pop forcings from batch if needed
             try:
-                batch = batch.drop_vars(list(FORCING_VARIABLES) + ["year_progress", "day_progress"])
+                batch = batch.drop_vars(
+                    list(FORCING_VARIABLES) + ["year_progress", "day_progress"]
+                )
             except ValueError:
                 pass
 
@@ -380,9 +381,7 @@ class GraphCastMini(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             batch = batch.compute()
 
             # Get new forcings
-            forcings = batch.isel(
-                time=slice(-1, None)
-            )[list(FORCING_VARIABLES)]
+            forcings = batch.isel(time=slice(-1, None))[list(FORCING_VARIABLES)]
             forcings = forcings.reset_coords("datetime", drop=True)
             forcings = forcings.compute()
 
@@ -529,9 +528,7 @@ class GraphCastMini(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         if "ensemble" in dataset.dims:
             dataset = dataset.squeeze("batch", drop=True)
 
-        dataset = dataset.rename(
-            {key: INV_VOCAB[key] for key in dataset.data_vars}
-        )
+        dataset = dataset.rename({key: INV_VOCAB[key] for key in dataset.data_vars})
 
         if "batch" in dataset.dims:
             dataarray = (
@@ -603,13 +600,8 @@ class GraphCastMini(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 targets_template=targets * np.nan,
                 forcings=forcings,
             )
-            torch_pred = self.iterator_result_to_tensor(predictions)
-            out = torch.concat([x.cpu()[:, :, 1:, ...], torch_pred], dim=2)
+            out = self.iterator_result_to_tensor(predictions)
             output_coords = self.output_coords(coords)
-
-            output_coords["lead_time"] = np.array(
-                [np.timedelta64(h, "h") for h in range(0, 6 + 6, 6)]
-            )
 
             return out, output_coords
 
@@ -779,11 +771,3 @@ class GraphCastMini(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             ckpt = checkpoint.load(f, graphcast.CheckPoint)
 
         return cls(ckpt, diffs_stddev_by_level, mean_by_level, stddev_by_level)
-
-    def set_nsteps(self, nsteps: int) -> PrognosticModel:
-        """
-        Set nsteps in model
-        """
-        ret = copy.deepcopy(self)
-        ret.nsteps = nsteps
-        return ret
