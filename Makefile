@@ -77,12 +77,6 @@ docs-full:
 	uv sync --extra all --group docs
 	$(MAKE) docs-build-examples
 
-.PHONY: docs-full-docker
-docs-full-docker:
-	uv pip install --system --break-system-packages .[all] --group docs
-	uv pip install --system --break-system-packages zarr==3.0.7
-	$(MAKE) docs-build-examples
-
 .PHONY: docs-build-examples
 docs-build-examples:
 	rm -rf docs/examples
@@ -92,6 +86,18 @@ docs-build-examples:
 	rm -rf examples/outputs
 	uv run $(MAKE) -C docs html
 	PLOT_GALLERY=True RUN_STALE_EXAMPLES=True uv run $(MAKE) -j 8 -C docs html
+
+.PHONY: docs-full-docker
+docs-full-docker:
+	uv pip install --system --break-system-packages .[all] --group docs
+	uv pip install --system --break-system-packages zarr==3.0.7
+	rm -rf docs/examples
+	rm -rf docs/modules/generated
+	rm -rf docs/modules/backreferences
+	$(MAKE) -C docs clean
+	rm -rf examples/outputs
+	$(MAKE) -C docs html
+	PLOT_GALLERY=True RUN_STALE_EXAMPLES=True $(MAKE) -j 8 -C docs html
 
 .PHONY: docs-dev
 docs-dev:
