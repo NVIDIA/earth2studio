@@ -33,7 +33,7 @@ except ImportError:
     OmegaConf = None
     deterministic_sampler = None
 
-from earth2studio.data import GFS_FX, DataSource, fetch_data
+from earth2studio.data import GFS_FX, DataSource, ForecastSource, fetch_data
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_coords, batch_func
 from earth2studio.models.dx.base import DiagnosticModel
@@ -119,7 +119,7 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         Standard deviations to normalize conditioning data, by default None
     conditioning_variables : np.array, optional
         Global variables for conditioning, by default np.array(CONDITIONING_VARIABLES)
-    conditioning_data_source : DataSource | None, optional
+    conditioning_data_source : DataSource | ForecastSource | None, optional
         Data Source to use for global conditioning. Required for running in iterator mode, by default None
     sampler_args : dict[str, float  |  int], optional
         Arguments to pass to the diffusion sampler, by default {}
@@ -140,7 +140,7 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         conditioning_means: torch.Tensor | None = None,
         conditioning_stds: torch.Tensor | None = None,
         conditioning_variables: np.array = np.array(CONDITIONING_VARIABLES),
-        conditioning_data_source: DataSource | None = None,
+        conditioning_data_source: DataSource | ForecastSource | None = None,
         sampler_args: dict[str, float | int] = {},
         interp_method: str = "linear",
     ):
@@ -250,7 +250,7 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def load_model(
         cls,
         package: Package,
-        conditioning_data_source: DataSource = GFS_FX(cache=False),
+        conditioning_data_source: DataSource | ForecastSource = GFS_FX(cache=False),
     ) -> DiagnosticModel:
         """Load prognostic from package
 
@@ -258,7 +258,7 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         ----------
         package : Package
             Package to load model from
-        conditioning_data_source : DataSource, optional
+        conditioning_data_source : DataSource | ForecastSource, optional
             Data Source to use for global conditioning, by default GFS(cache=False)
 
         Returns
