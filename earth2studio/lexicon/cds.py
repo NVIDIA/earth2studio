@@ -45,6 +45,7 @@ class CDSLexicon(metaclass=LexiconType):
         "tcwv": "reanalysis-era5-single-levels::total_column_water_vapour::",
         "tp": "reanalysis-era5-single-levels::total_precipitation::",
         "fg10m": "reanalysis-era5-single-levels::10m_wind_gust_since_previous_post_processing::",
+        "sst": "reanalysis-era5-single-levels::sea_surface_temperature::",
         "u50": "reanalysis-era5-pressure-levels::u_component_of_wind::50",
         "u100": "reanalysis-era5-pressure-levels::u_component_of_wind::100",
         "u150": "reanalysis-era5-pressure-levels::u_component_of_wind::150",
