@@ -256,8 +256,7 @@ def model(model_cache_context) -> InterpModAFNO:
     with model_cache_context():
         # Load the interpolation model
         interp_package = InterpModAFNO.load_default_package()
-        model = InterpModAFNO.load_model(interp_package)
-        model.px_model = base_model
+        model = InterpModAFNO.load_model(interp_package, px_model=base_model)
         return model
 
 

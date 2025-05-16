@@ -63,12 +63,11 @@ from earth2studio.models.px import SFNO, InterpModAFNO
 os.makedirs("outputs", exist_ok=True)
 
 sfno_package = SFNO.load_default_package()
-base_model = SFNO.load_model(sfno_package)
+px_model = SFNO.load_model(sfno_package)
 
 # Load the interpolation model
 interp_package = InterpModAFNO.load_default_package()
-interp_model = InterpModAFNO.load_model(interp_package)
-interp_model.px_model = base_model  # Set the base model
+interp_model = InterpModAFNO.load_model(interp_package, px_model=px_model)
 
 # Create the data source
 data = GFS()

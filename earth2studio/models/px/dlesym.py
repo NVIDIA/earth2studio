@@ -372,9 +372,9 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         ----------
         package : Package
             Package to load model from
-        atmos_model_idx : int
+        atmos_model_idx : int, optional
             Index of atmos model weights in package to load, by default 0
-        ocean_model_idx : int
+        ocean_model_idx : int, optional
             Index of ocean model weights in package to load, by default 0
 
         Returns
