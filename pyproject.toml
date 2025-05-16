@@ -103,6 +103,10 @@ fengwu = [
     "onnx-weekly ; python_full_version >= '3.13'",
     "onnxruntime-gpu>=1.21.0",
 ]
+fuxi = [
+    "onnx-weekly ; python_full_version >= '3.13'",
+    "onnxruntime-gpu>=1.21.0",
+]
 interp-modafno = [
     "onnx-weekly ; python_full_version >= '3.13'",
     "nvidia-physicsnemo>=1.0.1",
