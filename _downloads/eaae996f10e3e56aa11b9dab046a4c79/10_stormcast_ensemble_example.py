@@ -74,19 +74,18 @@ from earth2studio.io import ZarrBackend
 from earth2studio.models.px import StormCast
 from earth2studio.perturbation import Zero
 
+# Create and set the conditioning data source
+conditioning_data_source = ARCO()
+
 # Load the default model package which downloads the check point from NGC
 package = StormCast.load_default_package()
-model = StormCast.load_model(package)
+model = StormCast.load_model(package, conditioning_data_source=conditioning_data_source)
 
 # Instantiate the (Zero) perturbation method
 z = Zero()
 
 # Create the data source
 data = HRRR()
-
-# Create and set the conditioning data source
-conditioning_data_source = ARCO()
-model.conditioning_data_source = conditioning_data_source
 
 # Create the IO handler, store in memory
 io = ZarrBackend()
@@ -127,8 +126,7 @@ print(io.root.tree())
 # Post Processing
 # ---------------
 # The last step is to post process our results. Cartopy is a great library for plotting
-# fields on projections of a sphere. Here we will just plot the temperature at 2 meters
-# (t2m) 4 hours into the forecast.
+# fields on projections of a sphere. Start with plotting the reflectivity.
 #
 # Notice that the Zarr IO function has additional APIs to interact with the stored data.
 
@@ -141,12 +139,13 @@ forecast = f"{date}"
 step = nsteps  # 4 hours, since lead_time = 1 hr
 
 
+# Get the lat lon arrays from the model
 def plot_(axi, data, title, cmap, vmin=None, vmax=None):
     """Convenience function for plotting pcolormesh."""
     # Plot the field using pcolormesh
     im = axi.pcolormesh(
-        io["lon"][:],
-        io["lat"][:],
+        model.lon,
+        model.lat,
         data,
         transform=ccrs.PlateCarree(),
         cmap=cmap,
@@ -177,35 +176,6 @@ projection = ccrs.LambertConformal(
     standard_parallels=(38.5, 38.5),
     globe=ccrs.Globe(semimajor_axis=6371229, semiminor_axis=6371229),
 )
-
-# Plot 2-meter temperature
-variable = "t2m"
-cmap = "Spectral_r"
-x = io[variable]
-
-plt.close("all")
-fig, (ax1, ax2, ax3) = plt.subplots(
-    nrows=1, ncols=3, subplot_kw={"projection": projection}, figsize=(20, 6)
-)
-plot_(
-    ax1,
-    x[0, 0, step],
-    f"{forecast} - Lead time: {step}hrs - Member: {0}",
-    cmap,
-)
-plot_(
-    ax2,
-    io[variable][1, 0, step],
-    f"{forecast} - Lead time: {step}hrs - Member: {1}",
-    cmap,
-)
-plot_(
-    ax3,
-    x[:, 0, step].std(axis=0),
-    f"{forecast} - Lead time: {step}hrs - Std",
-    cmap,
-)
-plt.savefig(f"outputs/10_{date}_{variable}_{step}_ensemble.jpg")
 
 # Plot refc
 variable = "refc"
@@ -239,5 +209,38 @@ plot_(
     cmap,
     vmin=0,
     vmax=60,
+)
+plt.savefig(f"outputs/10_{date}_{variable}_{step}_ensemble.jpg")
+
+# %%
+# Lets also plot the surface temperature field.
+
+# %%
+# Plot 2-meter temperature
+variable = "t2m"
+cmap = "Spectral_r"
+x = io[variable]
+
+plt.close("all")
+fig, (ax1, ax2, ax3) = plt.subplots(
+    nrows=1, ncols=3, subplot_kw={"projection": projection}, figsize=(20, 6)
+)
+plot_(
+    ax1,
+    x[0, 0, step],
+    f"{forecast} - Lead time: {step}hrs - Member: {0}",
+    cmap,
+)
+plot_(
+    ax2,
+    io[variable][1, 0, step],
+    f"{forecast} - Lead time: {step}hrs - Member: {1}",
+    cmap,
+)
+plot_(
+    ax3,
+    x[:, 0, step].std(axis=0),
+    f"{forecast} - Lead time: {step}hrs - Std",
+    cmap,
 )
 plt.savefig(f"outputs/10_{date}_{variable}_{step}_ensemble.jpg")

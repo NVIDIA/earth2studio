@@ -622,134 +622,140 @@ members which will be ran in 2 batches with batch size 4.</p>
 <span class="p">)</span>
 </pre></div>
 </div>
-<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>2025-05-15 03:07:54.226 | INFO     | earth2studio.run:ensemble:315 - Running ensemble inference!
-2025-05-15 03:07:54.226 | INFO     | earth2studio.run:ensemble:323 - Inference device: cuda
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>2025-05-16 00:22:31.131 | INFO     | earth2studio.run:ensemble:315 - Running ensemble inference!
+2025-05-16 00:22:31.131 | INFO     | earth2studio.run:ensemble:323 - Inference device: cuda
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 
-2025-05-15 03:07:54.239 | DEBUG    | earth2studio.data.gfs:fetch_array:352 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20231231/18/atmos/gfs.t18z.pgrb2.0p25.f000 329116923-847018
+2025-05-16 00:22:31.151 | DEBUG    | earth2studio.data.gfs:fetch_array:353 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20231231/18/atmos/gfs.t18z.pgrb2.0p25.f000 397402829-996456
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 
-2025-05-15 03:07:54.262 | DEBUG    | earth2studio.data.gfs:fetch_array:352 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20231231/18/atmos/gfs.t18z.pgrb2.0p25.f000 420029701-1181204
+2025-05-16 00:22:31.175 | DEBUG    | earth2studio.data.gfs:fetch_array:353 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20231231/18/atmos/gfs.t18z.pgrb2.0p25.f000 294691465-856457
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 
-2025-05-15 03:07:54.285 | DEBUG    | earth2studio.data.gfs:fetch_array:352 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20231231/18/atmos/gfs.t18z.pgrb2.0p25.f000 251230645-803982
+2025-05-16 00:22:31.198 | DEBUG    | earth2studio.data.gfs:fetch_array:353 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20231231/18/atmos/gfs.t18z.pgrb2.0p25.f000 251230645-803982
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 
-2025-05-15 03:07:54.307 | DEBUG    | earth2studio.data.gfs:fetch_array:352 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20231231/18/atmos/gfs.t18z.pgrb2.0p25.f000 408062467-879185
+2025-05-16 00:22:31.221 | DEBUG    | earth2studio.data.gfs:fetch_array:353 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20231231/18/atmos/gfs.t18z.pgrb2.0p25.f000 408062467-879185
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 
-2025-05-15 03:07:54.329 | DEBUG    | earth2studio.data.gfs:fetch_array:352 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20231231/18/atmos/gfs.t18z.pgrb2.0p25.f000 294691465-856457
+2025-05-16 00:22:31.245 | DEBUG    | earth2studio.data.gfs:fetch_array:353 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20231231/18/atmos/gfs.t18z.pgrb2.0p25.f000 208052937-721817
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 
-2025-05-15 03:07:54.352 | DEBUG    | earth2studio.data.gfs:fetch_array:352 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20231231/18/atmos/gfs.t18z.pgrb2.0p25.f000 397402829-996456
+2025-05-16 00:22:31.268 | DEBUG    | earth2studio.data.gfs:fetch_array:353 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20231231/18/atmos/gfs.t18z.pgrb2.0p25.f000 329116923-847018
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 
-2025-05-15 03:07:54.375 | DEBUG    | earth2studio.data.gfs:fetch_array:352 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20231231/18/atmos/gfs.t18z.pgrb2.0p25.f000 208052937-721817
+2025-05-16 00:22:31.291 | DEBUG    | earth2studio.data.gfs:fetch_array:353 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20231231/18/atmos/gfs.t18z.pgrb2.0p25.f000 420029701-1181204
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
-Fetching GFS data:  14%|█▍        | 1/7 [00:00&lt;00:00,  6.29it/s]
-Fetching GFS data: 100%|██████████| 7/7 [00:00&lt;00:00, 43.98it/s]
-
-Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
-
-2025-05-15 03:07:54.403 | DEBUG    | earth2studio.data.gfs:fetch_array:352 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 323956279-837771
+Fetching GFS data:  14%|█▍        | 1/7 [00:00&lt;00:00,  6.12it/s]
+Fetching GFS data: 100%|██████████| 7/7 [00:00&lt;00:00, 42.75it/s]
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 
-2025-05-15 03:07:54.426 | DEBUG    | earth2studio.data.gfs:fetch_array:352 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 402321768-876246
+2025-05-16 00:22:31.319 | DEBUG    | earth2studio.data.gfs:fetch_array:353 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 391722290-987401
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 
-2025-05-15 03:07:54.448 | DEBUG    | earth2studio.data.gfs:fetch_array:352 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 414179964-1179422
+2025-05-16 00:22:31.342 | DEBUG    | earth2studio.data.gfs:fetch_array:353 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 246334297-805355
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 
-2025-05-15 03:07:54.471 | DEBUG    | earth2studio.data.gfs:fetch_array:352 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 246334297-805355
+2025-05-16 00:22:31.365 | DEBUG    | earth2studio.data.gfs:fetch_array:353 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 204118947-720169
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 
-2025-05-15 03:07:54.494 | DEBUG    | earth2studio.data.gfs:fetch_array:352 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 289307267-851916
+2025-05-16 00:22:31.389 | DEBUG    | earth2studio.data.gfs:fetch_array:353 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 402321768-876246
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 
-2025-05-15 03:07:54.517 | DEBUG    | earth2studio.data.gfs:fetch_array:352 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 391722290-987401
+2025-05-16 00:22:31.411 | DEBUG    | earth2studio.data.gfs:fetch_array:353 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 289307267-851916
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 
-2025-05-15 03:07:54.540 | DEBUG    | earth2studio.data.gfs:fetch_array:352 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 204118947-720169
+2025-05-16 00:22:31.434 | DEBUG    | earth2studio.data.gfs:fetch_array:353 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 323956279-837771
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
-Fetching GFS data:  14%|█▍        | 1/7 [00:00&lt;00:00,  6.25it/s]
-Fetching GFS data: 100%|██████████| 7/7 [00:00&lt;00:00, 43.66it/s]
-2025-05-15 03:07:54.603 | SUCCESS  | earth2studio.run:ensemble:345 - Fetched data from GFS
-2025-05-15 03:07:54.610 | WARNING  | earth2studio.io.zarr:add_array:192 - Datetime64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch
-2025-05-15 03:07:54.614 | WARNING  | earth2studio.io.zarr:add_array:198 - Timedelta64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch
-2025-05-15 03:07:54.635 | INFO     | earth2studio.run:ensemble:367 - Starting 8 Member Ensemble Inference with             2 number of batches.
+
+2025-05-16 00:22:31.457 | DEBUG    | earth2studio.data.gfs:fetch_array:353 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 414179964-1179422
+
+Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
+Fetching GFS data:  14%|█▍        | 1/7 [00:00&lt;00:00,  6.20it/s]
+Fetching GFS data: 100%|██████████| 7/7 [00:00&lt;00:00, 43.32it/s]
+2025-05-16 00:22:31.521 | SUCCESS  | earth2studio.run:ensemble:345 - Fetched data from GFS
+2025-05-16 00:22:31.527 | WARNING  | earth2studio.io.zarr:add_array:192 - Datetime64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch
+2025-05-16 00:22:31.531 | WARNING  | earth2studio.io.zarr:add_array:198 - Timedelta64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch
+2025-05-16 00:22:31.547 | INFO     | earth2studio.run:ensemble:373 - Starting 8 Member Ensemble Inference with             2 number of batches.
+
+
 
 Total Ensemble Batches:   0%|          | 0/2 [00:00&lt;?, ?it/s]
 
 Running batch 0 inference:   0%|          | 0/11 [00:00&lt;?, ?it/s]
 
-Running batch 0 inference:   9%|▉         | 1/11 [00:00&lt;00:04,  2.28it/s]
+Running batch 0 inference:   9%|▉         | 1/11 [00:00&lt;00:05,  1.97it/s]
 
-Running batch 0 inference:  18%|█▊        | 2/11 [00:00&lt;00:03,  2.43it/s]
+Running batch 0 inference:  18%|█▊        | 2/11 [00:00&lt;00:04,  2.13it/s]
 
-Running batch 0 inference:  27%|██▋       | 3/11 [00:01&lt;00:03,  2.59it/s]
+Running batch 0 inference:  27%|██▋       | 3/11 [00:01&lt;00:03,  2.37it/s]
 
-Running batch 0 inference:  36%|███▋      | 4/11 [00:01&lt;00:02,  2.55it/s]
+Running batch 0 inference:  36%|███▋      | 4/11 [00:01&lt;00:02,  2.35it/s]
 
-Running batch 0 inference:  45%|████▌     | 5/11 [00:01&lt;00:02,  2.65it/s]
+Running batch 0 inference:  45%|████▌     | 5/11 [00:02&lt;00:02,  2.40it/s]
 
-Running batch 0 inference:  55%|█████▍    | 6/11 [00:02&lt;00:01,  2.57it/s]
+Running batch 0 inference:  55%|█████▍    | 6/11 [00:02&lt;00:02,  2.38it/s]
 
-Running batch 0 inference:  64%|██████▎   | 7/11 [00:02&lt;00:01,  2.57it/s]
+Running batch 0 inference:  64%|██████▎   | 7/11 [00:02&lt;00:01,  2.41it/s]
 
-Running batch 0 inference:  73%|███████▎  | 8/11 [00:03&lt;00:01,  2.54it/s]
+Running batch 0 inference:  73%|███████▎  | 8/11 [00:03&lt;00:01,  2.43it/s]
 
-Running batch 0 inference:  82%|████████▏ | 9/11 [00:03&lt;00:00,  2.56it/s]
+Running batch 0 inference:  82%|████████▏ | 9/11 [00:03&lt;00:00,  2.53it/s]
 
-Running batch 0 inference:  91%|█████████ | 10/11 [00:03&lt;00:00,  2.53it/s]
+Running batch 0 inference:  91%|█████████ | 10/11 [00:04&lt;00:00,  2.56it/s]
 
-Running batch 0 inference: 100%|██████████| 11/11 [00:04&lt;00:00,  2.55it/s]
+Running batch 0 inference: 100%|██████████| 11/11 [00:04&lt;00:00,  2.49it/s]
 
 
-Total Ensemble Batches:  50%|█████     | 1/2 [00:08&lt;00:08,  8.01s/it]
+
+
+Total Ensemble Batches:  50%|█████     | 1/2 [00:08&lt;00:08,  8.24s/it]
 
 Running batch 4 inference:   0%|          | 0/11 [00:00&lt;?, ?it/s]
 
-Running batch 4 inference:   9%|▉         | 1/11 [00:00&lt;00:04,  2.24it/s]
+Running batch 4 inference:   9%|▉         | 1/11 [00:00&lt;00:04,  2.06it/s]
 
-Running batch 4 inference:  18%|█▊        | 2/11 [00:00&lt;00:03,  2.33it/s]
+Running batch 4 inference:  18%|█▊        | 2/11 [00:00&lt;00:04,  2.24it/s]
 
-Running batch 4 inference:  27%|██▋       | 3/11 [00:01&lt;00:03,  2.44it/s]
+Running batch 4 inference:  27%|██▋       | 3/11 [00:01&lt;00:03,  2.42it/s]
 
-Running batch 4 inference:  36%|███▋      | 4/11 [00:01&lt;00:02,  2.43it/s]
+Running batch 4 inference:  36%|███▋      | 4/11 [00:01&lt;00:02,  2.47it/s]
 
-Running batch 4 inference:  45%|████▌     | 5/11 [00:02&lt;00:02,  2.48it/s]
+Running batch 4 inference:  45%|████▌     | 5/11 [00:02&lt;00:02,  2.54it/s]
 
-Running batch 4 inference:  55%|█████▍    | 6/11 [00:02&lt;00:01,  2.51it/s]
+Running batch 4 inference:  55%|█████▍    | 6/11 [00:02&lt;00:02,  2.47it/s]
 
-Running batch 4 inference:  64%|██████▎   | 7/11 [00:02&lt;00:01,  2.55it/s]
+Running batch 4 inference:  64%|██████▎   | 7/11 [00:02&lt;00:01,  2.50it/s]
 
-Running batch 4 inference:  73%|███████▎  | 8/11 [00:03&lt;00:01,  2.53it/s]
+Running batch 4 inference:  73%|███████▎  | 8/11 [00:03&lt;00:01,  2.45it/s]
 
-Running batch 4 inference:  82%|████████▏ | 9/11 [00:03&lt;00:00,  2.53it/s]
+Running batch 4 inference:  82%|████████▏ | 9/11 [00:03&lt;00:00,  2.44it/s]
 
-Running batch 4 inference:  91%|█████████ | 10/11 [00:04&lt;00:00,  2.52it/s]
+Running batch 4 inference:  91%|█████████ | 10/11 [00:04&lt;00:00,  2.48it/s]
 
-Running batch 4 inference: 100%|██████████| 11/11 [00:04&lt;00:00,  2.58it/s]
+Running batch 4 inference: 100%|██████████| 11/11 [00:04&lt;00:00,  2.52it/s]
 
 
-Total Ensemble Batches: 100%|██████████| 2/2 [00:15&lt;00:00,  7.98s/it]
-Total Ensemble Batches: 100%|██████████| 2/2 [00:15&lt;00:00,  7.98s/it]
-2025-05-15 03:08:10.596 | SUCCESS  | earth2studio.run:ensemble:412 - Inference complete
+
+
+Total Ensemble Batches: 100%|██████████| 2/2 [00:16&lt;00:00,  8.12s/it]
+Total Ensemble Batches: 100%|██████████| 2/2 [00:16&lt;00:00,  8.14s/it]
+2025-05-16 00:22:47.827 | SUCCESS  | earth2studio.run:ensemble:423 - Inference complete
 </pre></div>
 </div>
 </section>
@@ -829,7 +835,7 @@ perturbing the temperature field.</p>
 <span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;outputs/05_</span><span class="si">{</span><span class="n">forecast</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">step</span><span class="si">}</span><span class="s2">_ensemble.jpg&quot;</span><span class="p">)</span>
 </pre></div>
 </div>
-<img src="../_images/sphx_glr_05_ensemble_workflow_extend_002.png" srcset="../_images/sphx_glr_05_ensemble_workflow_extend_002.png" alt="2024-01-01 - tcwv - Lead time: 24hrs - Mean, 2024-01-01 - tcwv - Lead time: 24hrs - Std" class = "sphx-glr-single-img"/><p class="sphx-glr-timing"><strong>Total running time of the script:</strong> (0 minutes 18.907 seconds)</p>
+<img src="../_images/sphx_glr_05_ensemble_workflow_extend_002.png" srcset="../_images/sphx_glr_05_ensemble_workflow_extend_002.png" alt="2024-01-01 - tcwv - Lead time: 24hrs - Mean, 2024-01-01 - tcwv - Lead time: 24hrs - Std" class = "sphx-glr-single-img"/><p class="sphx-glr-timing"><strong>Total running time of the script:</strong> (0 minutes 19.498 seconds)</p>
 <div class="sphx-glr-footer sphx-glr-footer-example docutils container" id="sphx-glr-download-examples-05-ensemble-workflow-extend-py">
 <div class="sphx-glr-download sphx-glr-download-jupyter docutils container">
 <p><a class="reference download internal" download="" href="../_downloads/2378c87289a3578422b539cf3ed00001/05_ensemble_workflow_extend.ipynb"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">Jupyter</span> <span class="pre">notebook:</span> <span class="pre">05_ensemble_workflow_extend.ipynb</span></code></a></p>

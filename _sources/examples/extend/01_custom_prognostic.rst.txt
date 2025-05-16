@@ -185,6 +185,12 @@ different devices. If your model is PyTorch, then this will be easy.
 
 
 
+
+
+
+
+
+
 .. GENERATED FROM PYTHON SOURCE LINES 183-209
 
 Input/Output Coordinates
@@ -288,6 +294,12 @@ Let's instantiate the components needed.
     io = ZarrBackend()
 
 
+
+
+
+
+
+
 .. GENERATED FROM PYTHON SOURCE LINES 276-280
 
 Execute the Workflow
@@ -305,6 +317,62 @@ just like any other model.
     io = run.deterministic(["2024-01-01"], nsteps, model, data, io)
 
     print(io.root.tree())
+
+
+
+
+
+.. rst-class:: sphx-glr-script-out
+
+ .. code-block:: none
+
+    2025-05-16 00:46:04.602 | INFO     | earth2studio.run:deterministic:75 - Running simple workflow!
+    2025-05-16 00:46:04.602 | INFO     | earth2studio.run:deterministic:82 - Inference device: cuda
+    Fetching GFS data:   0%|          | 0/2 [00:00<?, ?it/s]                                                            2025-05-16 00:46:04.630 | DEBUG    | earth2studio.data.gfs:fetch_array:353 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 406629528-962408
+    Fetching GFS data:   0%|          | 0/2 [00:00<?, ?it/s]                                                            2025-05-16 00:46:04.650 | DEBUG    | earth2studio.data.gfs:fetch_array:353 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 407591936-940269
+    Fetching GFS data:   0%|          | 0/2 [00:00<?, ?it/s]    Fetching GFS data: 100%|██████████| 2/2 [00:00<00:00, 50.27it/s]
+    2025-05-16 00:46:04.676 | SUCCESS  | earth2studio.run:deterministic:106 - Fetched data from GFS
+    2025-05-16 00:46:04.681 | WARNING  | earth2studio.io.zarr:add_array:192 - Datetime64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch
+    2025-05-16 00:46:04.683 | WARNING  | earth2studio.io.zarr:add_array:198 - Timedelta64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch
+    2025-05-16 00:46:04.690 | INFO     | earth2studio.run:deterministic:136 - Inference starting!
+
+    Running inference:   0%|          | 0/25 [00:00<?, ?it/s]
+    Running inference:   4%|▍         | 1/25 [00:00<00:08,  2.88it/s]
+    Running inference:   8%|▊         | 2/25 [00:00<00:10,  2.24it/s]
+    Running inference:  12%|█▏        | 3/25 [00:01<00:10,  2.05it/s]
+    Running inference:  16%|█▌        | 4/25 [00:01<00:10,  2.01it/s]
+    Running inference:  20%|██        | 5/25 [00:02<00:10,  1.89it/s]
+    Running inference:  24%|██▍       | 6/25 [00:03<00:10,  1.83it/s]
+    Running inference:  28%|██▊       | 7/25 [00:03<00:10,  1.79it/s]
+    Running inference:  32%|███▏      | 8/25 [00:04<00:10,  1.65it/s]
+    Running inference:  36%|███▌      | 9/25 [00:05<00:10,  1.59it/s]
+    Running inference:  40%|████      | 10/25 [00:05<00:09,  1.55it/s]
+    Running inference:  44%|████▍     | 11/25 [00:06<00:09,  1.54it/s]
+    Running inference:  48%|████▊     | 12/25 [00:07<00:08,  1.52it/s]
+    Running inference:  52%|█████▏    | 13/25 [00:07<00:08,  1.50it/s]
+    Running inference:  56%|█████▌    | 14/25 [00:08<00:07,  1.47it/s]
+    Running inference:  60%|██████    | 15/25 [00:09<00:06,  1.43it/s]
+    Running inference:  64%|██████▍   | 16/25 [00:09<00:06,  1.39it/s]
+    Running inference:  68%|██████▊   | 17/25 [00:10<00:05,  1.34it/s]
+    Running inference:  72%|███████▏  | 18/25 [00:11<00:05,  1.31it/s]
+    Running inference:  76%|███████▌  | 19/25 [00:12<00:04,  1.27it/s]
+    Running inference:  80%|████████  | 20/25 [00:13<00:04,  1.25it/s]
+    Running inference:  84%|████████▍ | 21/25 [00:14<00:03,  1.23it/s]
+    Running inference:  88%|████████▊ | 22/25 [00:14<00:02,  1.20it/s]
+    Running inference:  92%|█████████▏| 23/25 [00:15<00:01,  1.18it/s]
+    Running inference:  96%|█████████▌| 24/25 [00:16<00:00,  1.16it/s]
+    Running inference: 100%|██████████| 25/25 [00:17<00:00,  1.13it/s]    Running inference: 100%|██████████| 25/25 [00:17<00:00,  1.41it/s]
+    2025-05-16 00:46:22.404 | SUCCESS  | earth2studio.run:deterministic:146 - Inference complete
+    /
+    ├── lat (721,) float64
+    ├── lead_time (25,) int64
+    ├── lon (1440,) float64
+    ├── time (1,) int64
+    ├── u10m (1, 25, 721, 1440) float32
+    └── v10m (1, 25, 721, 1440) float32
+
+
+
 
 
 .. GENERATED FROM PYTHON SOURCE LINES 290-294
@@ -346,6 +414,22 @@ become progressively more noisy as time progresses.
     ax[1, 1].set_title(f"Lead time: {times[18]}hrs")
 
     plt.savefig("outputs/01_custom_prognostic_prediction.jpg", bbox_inches="tight")
+
+
+
+.. image-sg:: /examples/extend/images/sphx_glr_01_custom_prognostic_001.png
+   :alt: u10m - 2024-01-01, Lead time: 0hrs, Lead time: 6hrs, Lead time: 12hrs, Lead time: 18hrs
+   :srcset: /examples/extend/images/sphx_glr_01_custom_prognostic_001.png
+   :class: sphx-glr-single-img
+
+
+
+
+
+
+.. rst-class:: sphx-glr-timing
+
+   **Total running time of the script:** (0 minutes 19.317 seconds)
 
 
 .. _sphx_glr_download_examples_extend_01_custom_prognostic.py:

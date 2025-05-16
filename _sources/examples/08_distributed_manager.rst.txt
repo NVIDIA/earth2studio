@@ -86,6 +86,18 @@ For example, this script could be ran using:
         f"Inference runner {dist.rank} of {dist.world_size} with device {dist.device}"
     )
 
+
+
+
+.. rst-class:: sphx-glr-script-out
+
+ .. code-block:: none
+
+    2025-05-16 00:25:48.559 | INFO     | __main__:<module>:80 - Inference runner 0 of 1 with device cuda:0
+
+
+
+
 .. GENERATED FROM PYTHON SOURCE LINES 84-88
 
 Next the needed components get initialized.
@@ -111,6 +123,12 @@ taken to ensure safe parallel inference.
         model = DLWP.load_model(package)
 
 
+
+
+
+
+
+
 .. GENERATED FROM PYTHON SOURCE LINES 104-111
 
 When loading models that are built into Earth2Studio, the model's checkpoint files
@@ -130,6 +148,12 @@ process 0 and then loaded by other processes.
     data = WB2ERA5()
 
 
+
+
+
+
+
+
 .. GENERATED FROM PYTHON SOURCE LINES 118-121
 
 The remote date store will place cached data into separate caches for each process.
@@ -146,6 +170,12 @@ means that multiple jobs will download the same date-time if needed.
         chunks=chunks,
         backend_kwargs={"overwrite": True},
     )
+
+
+
+
+
+
 
 
 .. GENERATED FROM PYTHON SOURCE LINES 131-141
@@ -181,6 +211,228 @@ process.
 
     print(io.root.tree())
     torch.distributed.barrier()
+
+
+
+
+
+.. rst-class:: sphx-glr-script-out
+
+ .. code-block:: none
+
+    2025-05-16 00:25:49.856 | INFO     | earth2studio.run:deterministic:75 - Running simple workflow!
+    2025-05-16 00:25:49.857 | INFO     | earth2studio.run:deterministic:82 - Inference device: cuda:0
+    2025-05-16 00:25:50.028 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/.zattrs to local cache
+    2025-05-16 00:25:50.181 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/.zmetadata to local cache
+    2025-05-16 00:25:50.182 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/.zgroup to local cache
+    2025-05-16 00:25:50.342 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/level/0 to local cache
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:50.399 | DEBUG    | earth2studio.data.wb2:fetch_array:222 - Fetching WB2 zarr array for variable: t2m at 2004-05-31T18:00:00
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:50.400 | DEBUG    | earth2studio.data.wb2:fetch_array:222 - Fetching WB2 zarr array for variable: z700 at 2005-05-31T18:00:00
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:50.401 | DEBUG    | earth2studio.data.wb2:fetch_array:222 - Fetching WB2 zarr array for variable: z300 at 2000-05-31T18:00:00
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:50.402 | DEBUG    | earth2studio.data.wb2:fetch_array:222 - Fetching WB2 zarr array for variable: t2m at 2003-05-31T18:00:00
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:50.403 | DEBUG    | earth2studio.data.wb2:fetch_array:222 - Fetching WB2 zarr array for variable: t2m at 2002-05-31T18:00:00
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:50.404 | DEBUG    | earth2studio.data.wb2:fetch_array:222 - Fetching WB2 zarr array for variable: z500 at 2003-05-31T18:00:00
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:50.405 | DEBUG    | earth2studio.data.wb2:fetch_array:222 - Fetching WB2 zarr array for variable: z500 at 2005-05-31T18:00:00
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:50.406 | DEBUG    | earth2studio.data.wb2:fetch_array:222 - Fetching WB2 zarr array for variable: t850 at 2001-05-31T18:00:00
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:50.408 | DEBUG    | earth2studio.data.wb2:fetch_array:222 - Fetching WB2 zarr array for variable: z1000 at 2001-05-31T18:00:00
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:50.409 | DEBUG    | earth2studio.data.wb2:fetch_array:222 - Fetching WB2 zarr array for variable: t2m at 2001-05-31T18:00:00
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:50.410 | DEBUG    | earth2studio.data.wb2:fetch_array:222 - Fetching WB2 zarr array for variable: z500 at 2002-05-31T18:00:00
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:50.411 | DEBUG    | earth2studio.data.wb2:fetch_array:222 - Fetching WB2 zarr array for variable: z700 at 2001-05-31T18:00:00
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:50.413 | DEBUG    | earth2studio.data.wb2:fetch_array:222 - Fetching WB2 zarr array for variable: t850 at 2003-05-31T18:00:00
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:50.414 | DEBUG    | earth2studio.data.wb2:fetch_array:222 - Fetching WB2 zarr array for variable: z300 at 2005-05-31T18:00:00
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:50.416 | DEBUG    | earth2studio.data.wb2:fetch_array:222 - Fetching WB2 zarr array for variable: t2m at 2000-05-31T18:00:00
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:50.417 | DEBUG    | earth2studio.data.wb2:fetch_array:222 - Fetching WB2 zarr array for variable: z700 at 2000-05-31T18:00:00
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:50.418 | DEBUG    | earth2studio.data.wb2:fetch_array:222 - Fetching WB2 zarr array for variable: z500 at 2001-05-31T18:00:00
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:50.418 | DEBUG    | earth2studio.data.wb2:fetch_array:222 - Fetching WB2 zarr array for variable: t2m at 2005-05-31T18:00:00
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:50.419 | DEBUG    | earth2studio.data.wb2:fetch_array:222 - Fetching WB2 zarr array for variable: z300 at 2004-05-31T18:00:00
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:50.420 | DEBUG    | earth2studio.data.wb2:fetch_array:222 - Fetching WB2 zarr array for variable: t850 at 2002-05-31T18:00:00
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:50.421 | DEBUG    | earth2studio.data.wb2:fetch_array:222 - Fetching WB2 zarr array for variable: tcwv at 2005-05-31T18:00:00
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:50.421 | DEBUG    | earth2studio.data.wb2:fetch_array:222 - Fetching WB2 zarr array for variable: z500 at 2000-05-31T18:00:00
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:50.422 | DEBUG    | earth2studio.data.wb2:fetch_array:222 - Fetching WB2 zarr array for variable: tcwv at 2004-05-31T18:00:00
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:50.423 | DEBUG    | earth2studio.data.wb2:fetch_array:222 - Fetching WB2 zarr array for variable: z300 at 2003-05-31T18:00:00
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:50.424 | DEBUG    | earth2studio.data.wb2:fetch_array:222 - Fetching WB2 zarr array for variable: z700 at 2003-05-31T18:00:00
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:50.425 | DEBUG    | earth2studio.data.wb2:fetch_array:222 - Fetching WB2 zarr array for variable: tcwv at 2003-05-31T18:00:00
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:50.425 | DEBUG    | earth2studio.data.wb2:fetch_array:222 - Fetching WB2 zarr array for variable: z300 at 2002-05-31T18:00:00
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:50.427 | DEBUG    | earth2studio.data.wb2:fetch_array:222 - Fetching WB2 zarr array for variable: z700 at 2002-05-31T18:00:00
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:50.428 | DEBUG    | earth2studio.data.wb2:fetch_array:222 - Fetching WB2 zarr array for variable: tcwv at 2002-05-31T18:00:00
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:50.429 | DEBUG    | earth2studio.data.wb2:fetch_array:222 - Fetching WB2 zarr array for variable: z1000 at 2000-05-31T18:00:00
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:50.431 | DEBUG    | earth2studio.data.wb2:fetch_array:222 - Fetching WB2 zarr array for variable: z700 at 2004-05-31T18:00:00
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:50.432 | DEBUG    | earth2studio.data.wb2:fetch_array:222 - Fetching WB2 zarr array for variable: z300 at 2001-05-31T18:00:00
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:50.433 | DEBUG    | earth2studio.data.wb2:fetch_array:222 - Fetching WB2 zarr array for variable: z1000 at 2004-05-31T18:00:00
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:50.434 | DEBUG    | earth2studio.data.wb2:fetch_array:222 - Fetching WB2 zarr array for variable: tcwv at 2001-05-31T18:00:00
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:50.434 | DEBUG    | earth2studio.data.wb2:fetch_array:222 - Fetching WB2 zarr array for variable: t850 at 2000-05-31T18:00:00
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:50.435 | DEBUG    | earth2studio.data.wb2:fetch_array:222 - Fetching WB2 zarr array for variable: z500 at 2004-05-31T18:00:00
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:50.437 | DEBUG    | earth2studio.data.wb2:fetch_array:222 - Fetching WB2 zarr array for variable: t850 at 2004-05-31T18:00:00
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:50.440 | DEBUG    | earth2studio.data.wb2:fetch_array:222 - Fetching WB2 zarr array for variable: z1000 at 2005-05-31T18:00:00
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:50.442 | DEBUG    | earth2studio.data.wb2:fetch_array:222 - Fetching WB2 zarr array for variable: tcwv at 2000-05-31T18:00:00
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:50.445 | DEBUG    | earth2studio.data.wb2:fetch_array:222 - Fetching WB2 zarr array for variable: z1000 at 2002-05-31T18:00:00
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:50.447 | DEBUG    | earth2studio.data.wb2:fetch_array:222 - Fetching WB2 zarr array for variable: z1000 at 2003-05-31T18:00:00
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:50.450 | DEBUG    | earth2studio.data.wb2:fetch_array:222 - Fetching WB2 zarr array for variable: t850 at 2005-05-31T18:00:00
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:50.506 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/geopotential/60507.0.0.0 to local cache
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:50.506 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/2m_temperature/66351.0.0 to local cache
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:50.508 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/geopotential/67811.0.0.0 to local cache
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:50.565 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/geopotential/67811.0.0.0 to local cache
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:50.572 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/2m_temperature/60507.0.0 to local cache
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:50.581 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/2m_temperature/63427.0.0 to local cache
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:50.585 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/geopotential/63427.0.0.0 to local cache
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:50.586 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/2m_temperature/61967.0.0 to local cache
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:50.604 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/temperature/60507.0.0.0 to local cache
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:50.605 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/geopotential/61967.0.0.0 to local cache
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:50.606 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/2m_temperature/64887.0.0 to local cache
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:50.607 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/geopotential/64887.0.0.0 to local cache
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:50.608 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/geopotential/60507.0.0.0 to local cache
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:50.609 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/2m_temperature/67811.0.0 to local cache
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:50.609 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/geopotential/64887.0.0.0 to local cache
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:50.610 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/total_column_water_vapour/66351.0.0 to local cache
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:50.611 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/geopotential/66351.0.0.0 to local cache
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:50.612 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/temperature/63427.0.0.0 to local cache
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:50.613 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/geopotential/60507.0.0.0 to local cache
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:50.614 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/total_column_water_vapour/60507.0.0 to local cache
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:50.614 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/geopotential/66351.0.0.0 to local cache
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:50.615 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/temperature/64887.0.0.0 to local cache
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:50.616 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/geopotential/67811.0.0.0 to local cache
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:50.617 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/temperature/66351.0.0.0 to local cache
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:50.617 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/temperature/67811.0.0.0 to local cache
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:50.618 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/geopotential/61967.0.0.0 to local cache
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:50.619 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/temperature/61967.0.0.0 to local cache
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:50.620 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/total_column_water_vapour/67811.0.0 to local cache
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:50.621 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/geopotential/63427.0.0.0 to local cache
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:50.622 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/geopotential/63427.0.0.0 to local cache
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:50.623 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/geopotential/63427.0.0.0 to local cache
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:50.627 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/total_column_water_vapour/61967.0.0 to local cache
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:50.627 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/total_column_water_vapour/63427.0.0 to local cache
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:50.628 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/total_column_water_vapour/64887.0.0 to local cache
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:50.629 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/geopotential/60507.0.0.0 to local cache
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:50.631 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/geopotential/66351.0.0.0 to local cache
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:50.635 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/geopotential/61967.0.0.0 to local cache
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:50.637 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/geopotential/64887.0.0.0 to local cache
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:50.638 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/geopotential/64887.0.0.0 to local cache
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:50.642 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/geopotential/61967.0.0.0 to local cache
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:50.643 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/geopotential/67811.0.0.0 to local cache
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:50.645 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/geopotential/66351.0.0.0 to local cache
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]    Fetching WB2 data:   2%|▏         | 1/42 [00:00<00:13,  2.98it/s]    Fetching WB2 data:  12%|█▏        | 5/42 [00:00<00:02, 13.04it/s]    Fetching WB2 data:  17%|█▋        | 7/42 [00:00<00:02, 14.72it/s]    Fetching WB2 data:  24%|██▍       | 10/42 [00:00<00:02, 15.54it/s]    Fetching WB2 data:  29%|██▊       | 12/42 [00:00<00:01, 15.77it/s]    Fetching WB2 data:  33%|███▎      | 14/42 [00:01<00:04,  6.80it/s]    Fetching WB2 data:  40%|████      | 17/42 [00:01<00:02,  9.57it/s]    Fetching WB2 data:  45%|████▌     | 19/42 [00:01<00:02,  9.94it/s]    Fetching WB2 data:  57%|█████▋    | 24/42 [00:02<00:01, 13.87it/s]    Fetching WB2 data:  62%|██████▏   | 26/42 [00:02<00:01, 12.71it/s]    Fetching WB2 data:  69%|██████▉   | 29/42 [00:02<00:00, 14.79it/s]    Fetching WB2 data:  81%|████████  | 34/42 [00:03<00:00,  9.96it/s]    Fetching WB2 data:  86%|████████▌ | 36/42 [00:03<00:00, 10.73it/s]    Fetching WB2 data:  90%|█████████ | 38/42 [00:03<00:00,  7.99it/s]    Fetching WB2 data:  95%|█████████▌| 40/42 [00:04<00:00,  7.01it/s]    Fetching WB2 data: 100%|██████████| 42/42 [00:04<00:00,  6.67it/s]    Fetching WB2 data: 100%|██████████| 42/42 [00:04<00:00,  9.41it/s]
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:54.865 | DEBUG    | earth2studio.data.wb2:fetch_array:222 - Fetching WB2 zarr array for variable: t2m at 2004-06-01T00:00:00
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:54.865 | DEBUG    | earth2studio.data.wb2:fetch_array:222 - Fetching WB2 zarr array for variable: z700 at 2005-06-01T00:00:00
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:54.866 | DEBUG    | earth2studio.data.wb2:fetch_array:222 - Fetching WB2 zarr array for variable: z300 at 2000-06-01T00:00:00
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:54.866 | DEBUG    | earth2studio.data.wb2:fetch_array:222 - Fetching WB2 zarr array for variable: t2m at 2003-06-01T00:00:00
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:54.867 | DEBUG    | earth2studio.data.wb2:fetch_array:222 - Fetching WB2 zarr array for variable: t2m at 2002-06-01T00:00:00
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:54.867 | DEBUG    | earth2studio.data.wb2:fetch_array:222 - Fetching WB2 zarr array for variable: z500 at 2003-06-01T00:00:00
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:54.868 | DEBUG    | earth2studio.data.wb2:fetch_array:222 - Fetching WB2 zarr array for variable: z500 at 2005-06-01T00:00:00
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:54.869 | DEBUG    | earth2studio.data.wb2:fetch_array:222 - Fetching WB2 zarr array for variable: t850 at 2002-06-01T00:00:00
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:54.869 | DEBUG    | earth2studio.data.wb2:fetch_array:222 - Fetching WB2 zarr array for variable: z1000 at 2001-06-01T00:00:00
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:54.870 | DEBUG    | earth2studio.data.wb2:fetch_array:222 - Fetching WB2 zarr array for variable: t2m at 2001-06-01T00:00:00
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:54.870 | DEBUG    | earth2studio.data.wb2:fetch_array:222 - Fetching WB2 zarr array for variable: z500 at 2002-06-01T00:00:00
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:54.871 | DEBUG    | earth2studio.data.wb2:fetch_array:222 - Fetching WB2 zarr array for variable: z700 at 2001-06-01T00:00:00
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:54.871 | DEBUG    | earth2studio.data.wb2:fetch_array:222 - Fetching WB2 zarr array for variable: t850 at 2000-06-01T00:00:00
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:54.872 | DEBUG    | earth2studio.data.wb2:fetch_array:222 - Fetching WB2 zarr array for variable: z300 at 2005-06-01T00:00:00
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:54.872 | DEBUG    | earth2studio.data.wb2:fetch_array:222 - Fetching WB2 zarr array for variable: t2m at 2000-06-01T00:00:00
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:54.873 | DEBUG    | earth2studio.data.wb2:fetch_array:222 - Fetching WB2 zarr array for variable: z700 at 2000-06-01T00:00:00
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:54.873 | DEBUG    | earth2studio.data.wb2:fetch_array:222 - Fetching WB2 zarr array for variable: z500 at 2001-06-01T00:00:00
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:54.874 | DEBUG    | earth2studio.data.wb2:fetch_array:222 - Fetching WB2 zarr array for variable: t2m at 2005-06-01T00:00:00
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:54.874 | DEBUG    | earth2studio.data.wb2:fetch_array:222 - Fetching WB2 zarr array for variable: z300 at 2004-06-01T00:00:00
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:54.875 | DEBUG    | earth2studio.data.wb2:fetch_array:222 - Fetching WB2 zarr array for variable: t850 at 2001-06-01T00:00:00
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:54.875 | DEBUG    | earth2studio.data.wb2:fetch_array:222 - Fetching WB2 zarr array for variable: tcwv at 2005-06-01T00:00:00
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:54.876 | DEBUG    | earth2studio.data.wb2:fetch_array:222 - Fetching WB2 zarr array for variable: z500 at 2000-06-01T00:00:00
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:54.876 | DEBUG    | earth2studio.data.wb2:fetch_array:222 - Fetching WB2 zarr array for variable: tcwv at 2004-06-01T00:00:00
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:54.877 | DEBUG    | earth2studio.data.wb2:fetch_array:222 - Fetching WB2 zarr array for variable: z300 at 2003-06-01T00:00:00
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:54.877 | DEBUG    | earth2studio.data.wb2:fetch_array:222 - Fetching WB2 zarr array for variable: z700 at 2003-06-01T00:00:00
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:54.878 | DEBUG    | earth2studio.data.wb2:fetch_array:222 - Fetching WB2 zarr array for variable: tcwv at 2003-06-01T00:00:00
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:54.878 | DEBUG    | earth2studio.data.wb2:fetch_array:222 - Fetching WB2 zarr array for variable: z300 at 2002-06-01T00:00:00
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:54.879 | DEBUG    | earth2studio.data.wb2:fetch_array:222 - Fetching WB2 zarr array for variable: z700 at 2002-06-01T00:00:00
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:54.879 | DEBUG    | earth2studio.data.wb2:fetch_array:222 - Fetching WB2 zarr array for variable: tcwv at 2002-06-01T00:00:00
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:54.880 | DEBUG    | earth2studio.data.wb2:fetch_array:222 - Fetching WB2 zarr array for variable: z1000 at 2000-06-01T00:00:00
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:54.880 | DEBUG    | earth2studio.data.wb2:fetch_array:222 - Fetching WB2 zarr array for variable: z700 at 2004-06-01T00:00:00
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:54.881 | DEBUG    | earth2studio.data.wb2:fetch_array:222 - Fetching WB2 zarr array for variable: z300 at 2001-06-01T00:00:00
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:54.881 | DEBUG    | earth2studio.data.wb2:fetch_array:222 - Fetching WB2 zarr array for variable: z1000 at 2004-06-01T00:00:00
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:54.882 | DEBUG    | earth2studio.data.wb2:fetch_array:222 - Fetching WB2 zarr array for variable: tcwv at 2001-06-01T00:00:00
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:54.882 | DEBUG    | earth2studio.data.wb2:fetch_array:222 - Fetching WB2 zarr array for variable: t850 at 2004-06-01T00:00:00
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:54.883 | DEBUG    | earth2studio.data.wb2:fetch_array:222 - Fetching WB2 zarr array for variable: z500 at 2004-06-01T00:00:00
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:54.883 | DEBUG    | earth2studio.data.wb2:fetch_array:222 - Fetching WB2 zarr array for variable: t850 at 2005-06-01T00:00:00
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:54.884 | DEBUG    | earth2studio.data.wb2:fetch_array:222 - Fetching WB2 zarr array for variable: z1000 at 2005-06-01T00:00:00
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:54.884 | DEBUG    | earth2studio.data.wb2:fetch_array:222 - Fetching WB2 zarr array for variable: tcwv at 2000-06-01T00:00:00
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:54.885 | DEBUG    | earth2studio.data.wb2:fetch_array:222 - Fetching WB2 zarr array for variable: z1000 at 2002-06-01T00:00:00
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:54.885 | DEBUG    | earth2studio.data.wb2:fetch_array:222 - Fetching WB2 zarr array for variable: z1000 at 2003-06-01T00:00:00
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:54.886 | DEBUG    | earth2studio.data.wb2:fetch_array:222 - Fetching WB2 zarr array for variable: t850 at 2003-06-01T00:00:00
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:54.932 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/geopotential/67812.0.0.0 to local cache
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:54.932 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/geopotential/63428.0.0.0 to local cache
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:54.933 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/2m_temperature/66352.0.0 to local cache
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:54.933 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/geopotential/60508.0.0.0 to local cache
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:54.934 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/2m_temperature/64888.0.0 to local cache
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:54.938 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/geopotential/61968.0.0.0 to local cache
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:54.939 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/geopotential/64888.0.0.0 to local cache
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:54.940 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/temperature/60508.0.0.0 to local cache
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:54.941 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/total_column_water_vapour/66352.0.0 to local cache
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:54.942 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/2m_temperature/61968.0.0 to local cache
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:54.942 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/geopotential/61968.0.0.0 to local cache
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:54.946 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/geopotential/60508.0.0.0 to local cache
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:54.949 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/geopotential/66352.0.0.0 to local cache
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:54.950 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/total_column_water_vapour/64888.0.0 to local cache
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:54.950 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/2m_temperature/60508.0.0 to local cache
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:54.951 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/geopotential/67812.0.0.0 to local cache
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:54.952 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/geopotential/66352.0.0.0 to local cache
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:54.953 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/total_column_water_vapour/63428.0.0 to local cache
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:54.953 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/total_column_water_vapour/67812.0.0 to local cache
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:54.954 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/geopotential/67812.0.0.0 to local cache
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:54.955 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/geopotential/63428.0.0.0 to local cache
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:54.956 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/total_column_water_vapour/61968.0.0 to local cache
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:54.957 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/2m_temperature/67812.0.0 to local cache
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:54.957 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/temperature/61968.0.0.0 to local cache
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:54.958 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/temperature/67812.0.0.0 to local cache
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:54.959 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/temperature/66352.0.0.0 to local cache
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:54.959 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/temperature/64888.0.0.0 to local cache
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:54.960 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/temperature/63428.0.0.0 to local cache
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:54.961 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/geopotential/67812.0.0.0 to local cache
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:54.961 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/2m_temperature/63428.0.0 to local cache
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:54.962 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/geopotential/61968.0.0.0 to local cache
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:54.963 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/total_column_water_vapour/60508.0.0 to local cache
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:54.964 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/geopotential/61968.0.0.0 to local cache
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:54.965 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/geopotential/64888.0.0.0 to local cache
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:54.967 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/geopotential/60508.0.0.0 to local cache
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:54.968 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/geopotential/64888.0.0.0 to local cache
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:54.970 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/geopotential/64888.0.0.0 to local cache
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:54.971 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/geopotential/60508.0.0.0 to local cache
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:54.974 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/geopotential/66352.0.0.0 to local cache
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:54.975 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/geopotential/66352.0.0.0 to local cache
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:54.976 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/geopotential/63428.0.0.0 to local cache
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-05-16 00:25:54.977 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/geopotential/63428.0.0.0 to local cache
+    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]    Fetching WB2 data:   2%|▏         | 1/42 [00:00<00:07,  5.80it/s]    Fetching WB2 data:  19%|█▉        | 8/42 [00:00<00:01, 22.36it/s]    Fetching WB2 data:  31%|███       | 13/42 [00:00<00:01, 15.41it/s]    Fetching WB2 data:  36%|███▌      | 15/42 [00:01<00:02, 11.77it/s]    Fetching WB2 data:  43%|████▎     | 18/42 [00:01<00:02,  9.47it/s]    Fetching WB2 data:  48%|████▊     | 20/42 [00:01<00:02,  9.74it/s]    Fetching WB2 data:  55%|█████▍    | 23/42 [00:02<00:01, 10.17it/s]    Fetching WB2 data:  62%|██████▏   | 26/42 [00:02<00:01, 12.89it/s]    Fetching WB2 data:  69%|██████▉   | 29/42 [00:02<00:00, 14.39it/s]    Fetching WB2 data:  79%|███████▊  | 33/42 [00:02<00:00, 15.28it/s]    Fetching WB2 data:  93%|█████████▎| 39/42 [00:02<00:00, 22.00it/s]    Fetching WB2 data: 100%|██████████| 42/42 [00:03<00:00,  8.13it/s]    Fetching WB2 data: 100%|██████████| 42/42 [00:03<00:00, 11.15it/s]
+    2025-05-16 00:25:58.823 | SUCCESS  | earth2studio.run:deterministic:106 - Fetched data from WB2ERA5
+    2025-05-16 00:25:58.827 | WARNING  | earth2studio.io.zarr:add_array:192 - Datetime64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch
+    2025-05-16 00:25:58.832 | WARNING  | earth2studio.io.zarr:add_array:198 - Timedelta64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch
+    2025-05-16 00:25:58.851 | INFO     | earth2studio.run:deterministic:136 - Inference starting!
+
+    Running inference:   0%|          | 0/21 [00:00<?, ?it/s]
+    Running inference:   5%|▍         | 1/21 [00:00<00:05,  3.54it/s]
+    Running inference:  10%|▉         | 2/21 [00:00<00:10,  1.87it/s]
+    Running inference:  14%|█▍        | 3/21 [00:01<00:10,  1.68it/s]
+    Running inference:  19%|█▉        | 4/21 [00:02<00:10,  1.59it/s]
+    Running inference:  24%|██▍       | 5/21 [00:03<00:10,  1.55it/s]
+    Running inference:  29%|██▊       | 6/21 [00:03<00:09,  1.51it/s]
+    Running inference:  33%|███▎      | 7/21 [00:04<00:09,  1.52it/s]
+    Running inference:  38%|███▊      | 8/21 [00:05<00:08,  1.49it/s]
+    Running inference:  43%|████▎     | 9/21 [00:05<00:08,  1.49it/s]
+    Running inference:  48%|████▊     | 10/21 [00:06<00:07,  1.49it/s]
+    Running inference:  52%|█████▏    | 11/21 [00:07<00:06,  1.48it/s]
+    Running inference:  57%|█████▋    | 12/21 [00:07<00:06,  1.45it/s]
+    Running inference:  62%|██████▏   | 13/21 [00:08<00:05,  1.45it/s]
+    Running inference:  67%|██████▋   | 14/21 [00:09<00:04,  1.44it/s]
+    Running inference:  71%|███████▏  | 15/21 [00:09<00:04,  1.44it/s]
+    Running inference:  76%|███████▌  | 16/21 [00:10<00:03,  1.43it/s]
+    Running inference:  81%|████████  | 17/21 [00:11<00:02,  1.44it/s]
+    Running inference:  86%|████████▌ | 18/21 [00:11<00:02,  1.43it/s]
+    Running inference:  90%|█████████ | 19/21 [00:12<00:01,  1.44it/s]
+    Running inference:  95%|█████████▌| 20/21 [00:13<00:00,  1.44it/s]
+    Running inference: 100%|██████████| 21/21 [00:14<00:00,  1.44it/s]    Running inference: 100%|██████████| 21/21 [00:14<00:00,  1.49it/s]
+    2025-05-16 00:26:12.929 | SUCCESS  | earth2studio.run:deterministic:146 - Inference complete
+    /
+    ├── lat (721,) float64
+    ├── lead_time (21,) int64
+    ├── lon (1440,) float64
+    ├── tcwv (6, 21, 721, 1440) float32
+    └── time (6,) int64
+
+
+
 
 
 .. GENERATED FROM PYTHON SOURCE LINES 161-172
@@ -228,6 +480,36 @@ allows outputs from all processes to get treated as a single data array.
             f'TCWV Forecast Lead Time - {ds.coords["lead_time"].values[-1].astype("timedelta64[ns]").astype("timedelta64[D]").astype(int)} days'
         )
         plt.savefig("outputs/08_tcwv_distributed_manager.jpg")
+
+
+
+.. image-sg:: /examples/images/sphx_glr_08_distributed_manager_001.png
+   :alt: TCWV Forecast Lead Time - 5 days, 06/01/2000, 06/01/2001, 06/01/2002, 06/01/2003, 06/01/2004, 06/01/2005
+   :srcset: /examples/images/sphx_glr_08_distributed_manager_001.png
+   :class: sphx-glr-single-img
+
+
+.. rst-class:: sphx-glr-script-out
+
+ .. code-block:: none
+
+    <xarray.Dataset> Size: 523MB
+    Dimensions:    (time: 6, lead_time: 21, lat: 721, lon: 1440)
+    Coordinates:
+      * lead_time  (lead_time) int64 168B 0 21600000000000 ... 432000000000000
+      * time       (time) int64 48B 959817600000000000 ... 1117584000000000000
+      * lat        (lat) float64 6kB 90.0 89.75 89.5 89.25 ... -89.5 -89.75 -90.0
+      * lon        (lon) float64 12kB 0.0 0.25 0.5 0.75 ... 359.0 359.2 359.5 359.8
+    Data variables:
+        tcwv       (time, lead_time, lat, lon) float32 523MB dask.array<chunksize=(1, 1, 721, 1440), meta=np.ndarray>
+
+
+
+
+
+.. rst-class:: sphx-glr-timing
+
+   **Total running time of the script:** (0 minutes 25.960 seconds)
 
 
 .. _sphx_glr_download_examples_08_distributed_manager.py:
