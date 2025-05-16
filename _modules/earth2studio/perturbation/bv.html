@@ -440,6 +440,7 @@ document.write(`
 <span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Callable</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">loguru</span><span class="w"> </span><span class="kn">import</span> <span class="n">logger</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.perturbation.base</span><span class="w"> </span><span class="kn">import</span> <span class="n">Perturbation</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.perturbation.brown</span><span class="w"> </span><span class="kn">import</span> <span class="n">Brown</span>
@@ -520,6 +521,11 @@ document.write(`
 <span class="sd">        tuple[torch.Tensor, CoordSystem]:</span>
 <span class="sd">            Output tensor and respective coordinate system dictionary</span>
 <span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="s2">&quot;lead_time&quot;</span> <span class="ow">in</span> <span class="n">coords</span> <span class="ow">and</span> <span class="n">coords</span><span class="p">[</span><span class="s2">&quot;lead_time&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                <span class="s2">&quot;Input data / models that require multiple lead times may lead to unexpected behavior&quot;</span>
+            <span class="p">)</span>
+
         <span class="n">noise_amplitude</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">noise_amplitude</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
         <span class="n">dx</span><span class="p">,</span> <span class="n">coords</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">seeding_perturbation_method</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="p">)</span>
         <span class="n">dx</span> <span class="o">-=</span> <span class="n">x</span>
