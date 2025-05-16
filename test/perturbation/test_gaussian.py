@@ -91,6 +91,7 @@ def test_correlated_spherical_gaussian_wrong_ratio():
         prtb(x, coords)
 
 
+@pytest.mark.parametrize("latents", [[2], [2, 4], [2, 4, 2]])
 @pytest.mark.parametrize("nlat", [32, 33])  # Test both even and odd latitudes
 @pytest.mark.parametrize(
     "device",
@@ -104,9 +105,9 @@ def test_correlated_spherical_gaussian_wrong_ratio():
         ),
     ],
 )
-def test_correlated_spherical_gaussian_odd_even_lats(nlat, device):
+def test_correlated_spherical_gaussian_odd_even_lats(latents: list[int], nlat, device):
     """Test CorrelatedSphericalGaussian handles both odd and even latitude counts"""
-    x = torch.randn(2, 4, nlat, 2 * 32).to(device)  # Keep lon count even
+    x = torch.randn(*latents, nlat, 2 * 32).to(device)  # Keep lon count even
     coords = OrderedDict([("batch", []), ("variable", []), ("lat", []), ("lon", [])])
 
     prtb = CorrelatedSphericalGaussian(
