@@ -1430,6 +1430,10 @@ fengwu = [
     { name = "onnx-weekly", marker = "python_full_version >= '3.13' or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-aurora-fork') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-corrdiff') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-dlwp') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-fcn') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-precip-afno') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-sfno') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-stormcast')" },
     { name = "onnxruntime-gpu" },
 ]
+fuxi = [
+    { name = "onnx-weekly", marker = "python_full_version >= '3.13' or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-aurora-fork') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-corrdiff') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-dlwp') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-fcn') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-precip-afno') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-sfno') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-stormcast')" },
+    { name = "onnxruntime-gpu" },
+]
 interp-modafno = [
     { name = "nvidia-physicsnemo" },
     { name = "onnx-weekly", marker = "python_full_version >= '3.13' or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-aurora-fork') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-corrdiff') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-dlwp') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-fcn') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-precip-afno') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-sfno') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-stormcast')" },
@@ -1586,6 +1590,7 @@ requires-dist = [
     { name = "onnx-weekly", marker = "python_full_version >= '3.13' and extra == 'dlwp'" },
     { name = "onnx-weekly", marker = "python_full_version >= '3.13' and extra == 'fcn'" },
     { name = "onnx-weekly", marker = "python_full_version >= '3.13' and extra == 'fengwu'" },
+    { name = "onnx-weekly", marker = "python_full_version >= '3.13' and extra == 'fuxi'" },
     { name = "onnx-weekly", marker = "python_full_version >= '3.13' and extra == 'interp-modafno'" },
     { name = "onnx-weekly", marker = "python_full_version >= '3.13' and extra == 'pangu'" },
     { name = "onnx-weekly", marker = "python_full_version >= '3.13' and extra == 'precip-afno'" },
@@ -1596,6 +1601,7 @@ requires-dist = [
     { name = "onnx-weekly", marker = "python_full_version >= '3.13' and extra == 'windgust-afno'" },
     { name = "onnxruntime-gpu", marker = "extra == 'all'", specifier = ">=1.21.0" },
     { name = "onnxruntime-gpu", marker = "extra == 'fengwu'", specifier = ">=1.21.0" },
+    { name = "onnxruntime-gpu", marker = "extra == 'fuxi'", specifier = ">=1.21.0" },
     { name = "onnxruntime-gpu", marker = "extra == 'pangu'", specifier = ">=1.21.0" },
     { name = "pynvml", marker = "extra == 'all'", specifier = ">=12.0.0" },
     { name = "pynvml", marker = "extra == 'sfno'", specifier = ">=12.0.0" },
@@ -1625,7 +1631,7 @@ requires-dist = [
     { name = "xarray", extras = ["parallel"], specifier = ">=2023.1.0" },
     { name = "zarr", specifier = ">=2.14.2" },
 ]
-provides-extras = ["aifs", "all", "aurora", "aurora-fork", "climatenet", "corrdiff", "cyclone", "data", "derived", "dlesym", "dlwp", "fcn", "fengwu", "interp-modafno", "pangu", "perturbation", "precip-afno", "precip-afno-v2", "sfno", "statistics", "stormcast", "windgust-afno"]
+provides-extras = ["aifs", "all", "aurora", "aurora-fork", "climatenet", "corrdiff", "cyclone", "data", "derived", "dlesym", "dlwp", "fcn", "fengwu", "fuxi", "interp-modafno", "pangu", "perturbation", "precip-afno", "precip-afno-v2", "sfno", "statistics", "stormcast", "windgust-afno"]
 
 [package.metadata.requires-dev]
 build = [
