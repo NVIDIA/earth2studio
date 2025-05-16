@@ -581,7 +581,7 @@ document.write(`
             <span class="n">length_scale</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">length_scale</span><span class="p">,</span>
             <span class="n">time_scale</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">time_scale</span><span class="p">,</span>
             <span class="n">sigma</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">sigma</span><span class="p">,</span>
-            <span class="n">N</span><span class="o">=</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">3</span><span class="p">],</span>
+            <span class="n">N</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">prod</span><span class="p">(</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">:</span><span class="o">-</span><span class="mi">2</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">),</span>
         <span class="p">)</span>
         <span class="n">sampler</span> <span class="o">=</span> <span class="n">sampler</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
 
@@ -682,6 +682,8 @@ document.write(`
         <span class="bp">self</span><span class="o">.</span><span class="n">N</span> <span class="o">=</span> <span class="n">N</span>
 
         <span class="c1"># Standard normal noise sampler.</span>
+        <span class="c1"># Why is this defined in the init? Not sure, would be a lot more flexible</span>
+        <span class="c1"># in the call function</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">gaussian_noise</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">distributions</span><span class="o">.</span><span class="n">normal</span><span class="o">.</span><span class="n">Normal</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mean</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">var</span><span class="p">)</span>
         <span class="n">xi</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">gaussian_noise</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span>
             <span class="n">torch</span><span class="o">.</span><span class="n">Size</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">N</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">nlat</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">nlat</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">))</span>
