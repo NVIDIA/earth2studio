@@ -129,7 +129,7 @@ class InterpModAFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     Warning
     -------
     The model requires a base forecast model to be set before execution. This can be
-    done by setting the `px_model` attribute.
+    done by setting the `px_model` attribute or using the `load_model` method.
 
     Parameters
     ----------
@@ -273,8 +273,24 @@ class InterpModAFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     @classmethod
     @check_extra_imports("interp-modafno", [PhysicsNemoModule, cos_zenith_angle])
-    def load_model(cls, package: Package) -> PrognosticModel:
-        """Load prognostic from package"""
+    def load_model(
+        cls, package: Package, px_model: PrognosticModel | None = None
+    ) -> PrognosticModel:
+        """Load prognostic from package
+
+        Parameters
+        ----------
+        package : Package
+            Package to load model from
+        px_model : PrognosticModel | None, optional
+            The base forecast model that produces the coarse time resolution forecasts.
+            If None, should be set manually, by default None
+
+        Returns
+        -------
+        PrognosticModel
+            Prognostic model
+        """
         model = PhysicsNemoModule.from_checkpoint(
             package.resolve("fcinterp-modafno-2x2.mdlus")
         )
@@ -301,6 +317,7 @@ class InterpModAFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             scale=local_std,
             geop=geop,
             lsm=lsm,
+            px_model=px_model,
         )
 
     def _cos_zenith(self, times: list) -> torch.Tensor:
