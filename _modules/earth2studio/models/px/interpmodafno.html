@@ -554,7 +554,7 @@ document.write(`
 <span class="sd">    Warning</span>
 <span class="sd">    -------</span>
 <span class="sd">    The model requires a base forecast model to be set before execution. This can be</span>
-<span class="sd">    done by setting the `px_model` attribute.</span>
+<span class="sd">    done by setting the `px_model` attribute or using the `load_model` method.</span>
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
@@ -703,8 +703,24 @@ document.write(`
 <a class="viewcode-back" href="../../../../modules/generated/models/px/earth2studio.models.px.InterpModAFNO.html#earth2studio.models.px.InterpModAFNO.load_model">[docs]</a>
     <span class="nd">@classmethod</span>
     <span class="nd">@check_extra_imports</span><span class="p">(</span><span class="s2">&quot;interp-modafno&quot;</span><span class="p">,</span> <span class="p">[</span><span class="n">PhysicsNemoModule</span><span class="p">,</span> <span class="n">cos_zenith_angle</span><span class="p">])</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">load_model</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">package</span><span class="p">:</span> <span class="n">Package</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">PrognosticModel</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Load prognostic from package&quot;&quot;&quot;</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">load_model</span><span class="p">(</span>
+        <span class="bp">cls</span><span class="p">,</span> <span class="n">package</span><span class="p">:</span> <span class="n">Package</span><span class="p">,</span> <span class="n">px_model</span><span class="p">:</span> <span class="n">PrognosticModel</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">PrognosticModel</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Load prognostic from package</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        package : Package</span>
+<span class="sd">            Package to load model from</span>
+<span class="sd">        px_model : PrognosticModel | None, optional</span>
+<span class="sd">            The base forecast model that produces the coarse time resolution forecasts.</span>
+<span class="sd">            If None, should be set manually, by default None</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        PrognosticModel</span>
+<span class="sd">            Prognostic model</span>
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">model</span> <span class="o">=</span> <span class="n">PhysicsNemoModule</span><span class="o">.</span><span class="n">from_checkpoint</span><span class="p">(</span>
             <span class="n">package</span><span class="o">.</span><span class="n">resolve</span><span class="p">(</span><span class="s2">&quot;fcinterp-modafno-2x2.mdlus&quot;</span><span class="p">)</span>
         <span class="p">)</span>
@@ -731,6 +747,7 @@ document.write(`
             <span class="n">scale</span><span class="o">=</span><span class="n">local_std</span><span class="p">,</span>
             <span class="n">geop</span><span class="o">=</span><span class="n">geop</span><span class="p">,</span>
             <span class="n">lsm</span><span class="o">=</span><span class="n">lsm</span><span class="p">,</span>
+            <span class="n">px_model</span><span class="o">=</span><span class="n">px_model</span><span class="p">,</span>
         <span class="p">)</span></div>
 
 
