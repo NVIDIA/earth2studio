@@ -278,7 +278,7 @@ class GFS:
                         gfs_name, modifier = GFSLexicon[v]
                     except KeyError:
                         logger.warning(
-                            f"variable id {variable} not found in GFS lexicon, good luck"
+                            f"variable id {v} not found in GFS lexicon, good luck"
                         )
                         gfs_name = v
 
