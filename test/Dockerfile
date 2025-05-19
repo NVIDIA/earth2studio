@@ -1,4 +1,4 @@
-FROM nvcr.io/nvidia/pytorch:25.03-py3
+FROM nvcr.io/nvidia/pytorch:25.04-py3
 # Install uv
 COPY --from=ghcr.io/astral-sh/uv:0.6.13 /uv /uvx /bin/
 # Install system dependencies
