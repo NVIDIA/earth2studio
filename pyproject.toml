@@ -164,8 +164,7 @@ windgust-afno = [
 # All, must not have conflicts
 all = [
     "earth2studio[data,perturbation,statistics]",
-    "earth2studio[aurora-fork,dlwp,fcn,fengwu,interp-modafno,pangu,sfno,stormcast,aifs]",
-    "earth2studio[aurora-fork,dlesym,dlwp,fcn,fengwu,interp-modafno,pangu,sfno,stormcast,aifs]",
+    "earth2studio[aurora-fork,dlesym,dlwp,fcn,fengwu,interp-modafno,pangu,sfno,stormcast]",
     "earth2studio[climatenet,corrdiff,precip-afno,cyclone,precip-afno-v2,windgust-afno]",
 ]
 
@@ -209,6 +208,7 @@ override-dependencies = ["onnx; python_full_version < '3.13'"]
 
 [tool.uv.sources]
 earth2grid = { git = "https://github.com/NVlabs/earth2grid.git", rev = "aefb10793aa372bae7d0951d627a89e2983fd0ca" }
+flash-attn = { git = "https://github.com/Dao-AILab/flash-attention.git", rev = "98edb0d29bb1db336fef845fb5fd49bc98b04b96"}
 makani = { git = "https://github.com/NickGeneva/modulus-makani.git", rev = "3da09f9e52a6393839d73d44262779ac7279bc2f" }
 microsoft-aurora = { git = "https://github.com/NickGeneva/aurora.git", rev = "ab41cf1de67d5dcc723b96fc9a6219e4b548d181" }
 torch = [
