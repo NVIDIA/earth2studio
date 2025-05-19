@@ -17,6 +17,7 @@
 import datetime
 import pathlib
 import shutil
+from importlib.metadata import version
 
 import numpy as np
 import pytest
@@ -26,6 +27,9 @@ from earth2studio.data import WB2Climatology
 
 @pytest.mark.slow
 @pytest.mark.xfail
+@pytest.mark.skipif(
+    int(version("zarr").split(".")[0]) < 3, reason="Test requires zarr version > 3.0"
+)
 @pytest.mark.timeout(15)
 @pytest.mark.parametrize(
     "time",
@@ -61,6 +65,9 @@ def test_wb2c_fetch(time, variable):
 
 @pytest.mark.slow
 @pytest.mark.xfail
+@pytest.mark.skipif(
+    int(version("zarr").split(".")[0]) < 3, reason="Test requires zarr version > 3.0"
+)
 @pytest.mark.timeout(15)
 @pytest.mark.parametrize(
     "time",
