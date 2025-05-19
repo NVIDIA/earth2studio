@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added HENS checkpoint example
 - Added Earth2Studio recipes folder, documentation and template
 - Added DLESyM and DLESyMLatLon atmosphere and ocean prognostic models
+- Added SolarRadiationAFNO diagnostic model for predicting surface solar radiation
 - HENS recipe
 
 ### Changed
