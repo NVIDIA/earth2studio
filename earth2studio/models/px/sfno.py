@@ -235,7 +235,20 @@ class SFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def load_model(
         cls, package: Package, variables: list = VARIABLES
     ) -> PrognosticModel:
-        """Load prognostic from package"""
+        """Load prognostic from package
+
+        Parameters
+        ----------
+        package : Package
+            Package to load model from
+        variables : list, optional
+            Model variable override, by default VARIABLES for SFNO 73 channel
+
+        Returns
+        -------
+        PrognosticModel
+            Prognostic model
+        """
         model = load_model_package(package)
         model.eval()
 
@@ -283,17 +296,19 @@ class SFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         x: torch.Tensor,
         coords: CoordSystem,
     ) -> tuple[torch.Tensor, CoordSystem]:
-        """Runs prognostic model 1 step.
+        """Runs prognostic model 1 step
+
         Parameters
         ----------
         x : torch.Tensor
             Input tensor
         coords : CoordSystem
             Input coordinate system
+
         Returns
         ------
-        x : torch.Tensor
-        coords : CoordSystem
+        tuple[torch.Tensor, CoordSystem]
+            Output tensor and coordinate system
         """
         return self._forward(x, coords)
 
@@ -318,12 +333,14 @@ class SFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     ) -> Iterator[tuple[torch.Tensor, CoordSystem]]:
         """Creates a iterator which can be used to perform time-integration of the
         prognostic model. Will return the initial condition first (0th step).
+
         Parameters
         ----------
         x : torch.Tensor
             Input tensor
         coords : CoordSystem
             Input coordinate system
+
         Yields
         ------
         Iterator[tuple[torch.Tensor, CoordSystem]]

@@ -108,6 +108,10 @@ fengwu = [
     "onnx-weekly ; python_full_version >= '3.13'",
     "onnxruntime-gpu>=1.21.0",
 ]
+fuxi = [
+    "onnx-weekly ; python_full_version >= '3.13'",
+    "onnxruntime-gpu>=1.21.0",
+]
 interp-modafno = [
     "onnx-weekly ; python_full_version >= '3.13'",
     "nvidia-physicsnemo>=1.0.1",
@@ -134,6 +138,7 @@ stormcast = [
     "nvtx>=0.2.11",
     "omegaconf>=2.3.0",
     "scipy>=1.15.2",
+    "pyproj>=3.7.1",
 ]
 # DX Models
 climatenet = []

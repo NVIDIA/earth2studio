@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from collections import OrderedDict
 from typing import Literal
 
 import numpy as np
@@ -255,7 +256,9 @@ def map_coords(
             indx = np.where(inc == outc[0])[0][0]
             inc_slice = inc[indx : indx + outc.shape[0]]
             if inc_slice.shape[0] == outc.shape[0] and np.all(inc_slice == outc):
-                x_slice = [slice(None)] * len(input_coords)
+                # Min here, to deal when coords have extra meta-data
+                # TODO: Improve this method / outright remove
+                x_slice = [slice(None)] * min([len(input_coords), x.ndim])
                 x_slice[dim] = slice(indx, indx + outc.shape[0])
                 x = x[x_slice]
                 mapped_coords[key] = outc
@@ -307,6 +310,9 @@ def map_coords(
         else:
             raise ValueError(f"Map method {method} not supported")
 
+    # Only keep the first x.ndim keys from mapped_coords
+    # TODO: Remove this when proper support for dim
+    mapped_coords = OrderedDict(list(mapped_coords.items())[: x.ndim])
     return x, mapped_coords
 
 
@@ -399,6 +405,11 @@ def convert_multidim_to_singledim(
     while i < len(items):
         item = items[i]
         k, v = item
+        # Temp fix: TODO: REMOVE
+        if k.startswith("_"):
+            i += 1
+            continue
+
         ndim = v.ndim
         if v.ndim < 2:
             adjusted_coords[k] = v

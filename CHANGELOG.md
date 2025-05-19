@@ -27,14 +27,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Refactored WB2ERA5 and WB2Climatology for async Zarr 3.0
 - Expanded the data source protocol to also include async fetch functions for async
   data sources
+- Updated StormCast coords to be HRRR index, output coords still provide lat lon
+- Interpolation AFNO model load_model now accepts prognostic model
 
 ### Deprecated
 
 ### Removed
 
+- Removed curvilinear from Random data source
+
 ### Fixed
 
 - Fixed the asyncio zarr access in the ARCO data source
+- Partially fixed multiple tqdm print outs when using the built in workflows
+- Generalized CorrelatedSphericalGaussian to support input tensors of higher dims
 
 ### Security
 

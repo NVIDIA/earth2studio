@@ -288,6 +288,7 @@ class HRRR:
         # https://github.com/fsspec/s3fs/issues/943
         # https://github.com/zarr-developers/zarr-python/issues/2901
         if isinstance(self.fs, s3fs.S3FileSystem):
+            await self.fs.set_session()  # Make sure the session was actually initalized
             s3fs.S3FileSystem.close_session(asyncio.get_event_loop(), self.fs.s3)
 
         xr_array = xr_array.isel(lead_time=0)

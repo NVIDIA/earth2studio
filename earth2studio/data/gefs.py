@@ -243,6 +243,7 @@ class GEFS_FX:
         # Close aiohttp client if s3fs
         # https://github.com/fsspec/s3fs/issues/943
         # https://github.com/zarr-developers/zarr-python/issues/2901
+        await self.fs.set_session()  # Make sure the session was actually initalized
         s3fs.S3FileSystem.close_session(asyncio.get_event_loop(), self.fs.s3)
 
         return xr_array
