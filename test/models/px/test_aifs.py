@@ -21,6 +21,11 @@ import numpy as np
 import pytest
 import torch
 
+try:
+    import anemoi  # noqa: F401
+except ImportError:
+    pytest.skip("anemoi not installed", allow_module_level=True)
+
 from earth2studio.data import Random, fetch_data
 from earth2studio.models.px import AIFS
 from earth2studio.utils import handshake_dim
