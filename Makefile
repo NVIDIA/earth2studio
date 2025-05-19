@@ -1,10 +1,10 @@
 install:
 	uv sync
-	uv sync --extra all
+	uv sync --extra all --extra aifs
 
 .PHONY: install-docker
 install-docker:
-	uv pip install --system --break-system-packages .[all] --group dev
+	uv pip install --system --break-system-packages .[all,aifs] --group dev
 	uv pip install --system --break-system-packages zarr==3.0.7
 
 .PHONY: setup-ci
