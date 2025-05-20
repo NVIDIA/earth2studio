@@ -42,7 +42,7 @@ uv sync
 ### Test distributed inference
 
 Start an environment with at least 2 GPUs available. The run the distributed diagnostic model
-example, substituting <NUMBER_OF_GPUS> with the number of GPUs you have:
+example, substituting `<NUMBER_OF_GPUS>` with the number of GPUs you have:
 
 ```bash
 # if you installed a uv environment
@@ -93,6 +93,10 @@ with the startup script path.
 
 To create custom applications using `DistributedInference`, you can use the provided recipes as a
 starting point.
+
+## Testing
+
+See the [testing `README`](test/README.md).
 
 ## References
 
