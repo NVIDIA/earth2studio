@@ -14,7 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import zipfile
 from collections import OrderedDict
 from datetime import datetime, timezone
 from pathlib import Path
@@ -107,7 +106,7 @@ class SolarRadiationAFNO(torch.nn.Module, AutoModelMixin):
         orography: torch.Tensor,
         landsea_mask: torch.Tensor,
         sincos_latlon: torch.Tensor,
-    ):
+    ) -> None:
         super().__init__()
         self.core_model = core_model
         self.freq = freq
@@ -118,7 +117,6 @@ class SolarRadiationAFNO(torch.nn.Module, AutoModelMixin):
         self.register_buffer("orography", orography)
         self.register_buffer("landsea_mask", landsea_mask)
         self.register_buffer("sincos_latlon", sincos_latlon)
-        self.device = "cuda" if torch.cuda.is_available() else "cpu"
 
     def input_coords(self) -> CoordSystem:
         """Input coordinate system of diagnostic model
@@ -166,19 +164,19 @@ class SolarRadiationAFNO(torch.nn.Module, AutoModelMixin):
         return output_coords
 
     def __str__(self) -> str:
-        return "solarnet"
+        return "SolarRadiationNet"
 
     @classmethod
-    def load_default_package(cls, cache=False) -> Package:
-        """Default pre-trained solar radiation model package from Nvidia model registry"""
-        return Package(
+    def load_default_package(cls) -> Package:
+        """Load prognostic package"""
+        package = Package(
             "ngc://models/nvidian/onboarding/afno_dx_solarradiation@0.0.0",
-            cache=cache,
             cache_options={
                 "cache_storage": Package.default_cache("ssrd_afno"),
                 "same_names": True,
             },
         )
+        return package
 
     @classmethod
     @check_extra_imports("solarradiation-afno", [SolarRadiationNet, cos_zenith_angle])
@@ -283,17 +281,45 @@ class SolarRadiationAFNO(torch.nn.Module, AutoModelMixin):
             model, freq, era5_mean, era5_std, ssrd_mean, ssrd_std, z, lsm, sincos_latlon
         )
 
-    def get_sza_lonlat(self, lon, lat) -> tuple[np.ndarray, np.ndarray]:
+    def get_sza_lonlat(
+        self, lon: np.ndarray, lat: np.ndarray
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """Get longitude and latitude arrays for solar zenith angle calculation.
+
+        Parameters
+        ----------
+        lon : np.ndarray
+            Longitude array
+        lat : np.ndarray
+            Latitude array
+
+        Returns
+        -------
+        tuple[np.ndarray, np.ndarray]
+            Tuple of (longitude, latitude) arrays
+        """
         grid = np.meshgrid(lon, lat)
         return (grid[0].reshape(-1), grid[1].reshape(-1))
 
-    def compute_sza(self, output_coords):
+    def compute_sza(self, output_coords: CoordSystem) -> torch.Tensor:
+        """Compute solar zenith angle for given coordinates.
+
+        Parameters
+        ----------
+        output_coords : CoordSystem
+            Output coordinate system
+
+        Returns
+        -------
+        torch.Tensor
+            Solar zenith angle tensor
+        """
         lon, lat = self.get_sza_lonlat(output_coords["lon"], output_coords["lat"])
         t = output_coords["time"] + output_coords["lead_time"]
         t = datetime.fromtimestamp(
             t.astype("datetime64[s]").astype("int")[0], tz=timezone.utc
         )
-        return torch.Tensor(cos_zenith_angle(t, lon, lat)).to(self.device)
+        return torch.Tensor(cos_zenith_angle(t, lon, lat))
 
     @torch.inference_mode()
     @batch_func()
@@ -303,18 +329,35 @@ class SolarRadiationAFNO(torch.nn.Module, AutoModelMixin):
         coords: CoordSystem,
     ) -> tuple[torch.Tensor, CoordSystem]:
         """Forward pass of diagnostic"""
-        x = x.view(x.shape[2:])
+        # Reshape to remove batch, time, and lead_time dimensions
+        batch_size = x.shape[0]
+        time_size = x.shape[1]
+        lead_time_size = x.shape[2]
+        x = x.reshape(
+            -1, *x.shape[3:]
+        )  # Combine batch, time, lead_time into one dimension
+
+        # Normalize input
         x = (x - self.era5_mean) / self.era5_std
         output_coords = self.output_coords(coords)
 
         # compute solar zenith angle and concatenate
-        sza = self.compute_sza(output_coords).reshape((1, 1, *x.shape[2:]))
+        sza = self.compute_sza(output_coords).reshape((1, 1, *x.shape[2:])).to(x.device)
+        sza = sza.repeat(x.shape[0], 1, 1, 1)
+        repeat_sincos_latlon = self.sincos_latlon.repeat(x.shape[0], 1, 1, 1)
+        repeat_orography = self.orography.repeat(x.shape[0], 1, 1, 1)
+        repeat_landsea_mask = self.landsea_mask.repeat(x.shape[0], 1, 1, 1)
         x = torch.cat(
-            (x, sza, self.sincos_latlon, self.orography, self.landsea_mask), dim=1
+            (x, sza, repeat_sincos_latlon, repeat_orography, repeat_landsea_mask), dim=1
         )
 
-        out = self.core_model(x) * self.ssrd_std + self.ssrd_mean
+        repeat_ssrd_mean = self.ssrd_mean.repeat(x.shape[0], 1, 1, 1)
+        repeat_ssrd_std = self.ssrd_std.repeat(x.shape[0], 1, 1, 1)
+        out = self.core_model(x) * repeat_ssrd_std + repeat_ssrd_mean
 
         # filter out negative values
         out[out < 0] = 0
-        return out[None, None], output_coords
+
+        # Reshape back to include batch, time, and lead_time dimensions
+        out = out.reshape(batch_size, time_size, lead_time_size, 1, *out.shape[2:])
+        return out, output_coords

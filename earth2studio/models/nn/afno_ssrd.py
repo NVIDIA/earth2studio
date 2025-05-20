@@ -14,17 +14,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from dataclasses import dataclass
 from functools import partial
-from typing import List
 
 import physicsnemo  # noqa: F401 for docs
-import physicsnemo.models.layers.fft as fft
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 from physicsnemo.models.afno.afno import Block
-from physicsnemo.models.meta import ModelMetaData
 from physicsnemo.models.module import Module
 
 Tensor = torch.Tensor

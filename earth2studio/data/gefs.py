@@ -343,7 +343,7 @@ class GEFS_FX:
             task.gefs_byte_length,
             task.gefs_modifier,
         )
-        xr_array[*task.data_array_indices] = out
+        xr_array[tuple(task.data_array_indices)] = out
 
     async def fetch_array(
         self,
