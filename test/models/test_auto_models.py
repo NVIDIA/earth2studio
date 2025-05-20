@@ -36,6 +36,7 @@ from earth2studio.models.dx import (
     CorrDiffTaiwan,
     PrecipitationAFNO,
     PrecipitationAFNOv2,
+    SolarRadiationAFNO,
     WindgustAFNO,
 )
 from earth2studio.models.px import (
@@ -73,6 +74,7 @@ from earth2studio.models.px import (
         WindgustAFNO,
         InterpModAFNO,
         PrecipitationAFNOv2,
+        SolarRadiationAFNO,
         AIFS,
     ],
 )
