@@ -597,11 +597,11 @@ It is recommend using the following commands to install using the container's Py
 interpreter:
 
 ```bash
-docker run -it -t nvcr.io/nvidia/pytorch:25.03-py3
+docker run -it -t nvcr.io/nvidia/pytorch:25.04-py3
 
 >>> apt-get update && apt-get install -y git make curl && rm -rf /var/lib/apt/lists/*
 >>> unset PIP_CONSTRAINT
->>> curl -LsSf https://astral.sh/uv/install.sh | sh && exec bash
+>>> curl -LsSf https://astral.sh/uv/install.sh | sh && source $HOME/.local/bin/env
 >>> uv pip install --system --break-system-packages "earth2studio@git+https://github.com/NVIDIA/earth2studio.git@0.7.0"
 ```
 
