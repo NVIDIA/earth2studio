@@ -20,6 +20,10 @@ gitlab-clone:
       when: always
     - if: $PIPELINE_REPO_SOURCE != "github" && $CI_COMMIT_BRANCH == "main" && $CI_PIPELINE_SOURCE == "push"
       when: always
+    - if: $PIPELINE_REPO_SOURCE == "github"
+      when: always
+    - if: '$CI_COMMIT_BRANCH =~ /^blossom/'
+      when: never
     - when: manual
   tags:
   - docker
