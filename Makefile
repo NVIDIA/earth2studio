@@ -90,7 +90,7 @@ docs-build-examples:
 .PHONY: docs-full-docker
 docs-full-docker:
 	uv pip install --system --break-system-packages .[all] --group docs
-	uv pip install --system --break-system-packages zarr==3.0.7
+	uv pip install --system --break-system-packages zarr>3.0
 	rm -rf docs/examples
 	rm -rf docs/modules/generated
 	rm -rf docs/modules/backreferences
