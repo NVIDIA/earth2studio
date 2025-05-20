@@ -170,7 +170,7 @@ class SolarRadiationAFNO(torch.nn.Module, AutoModelMixin):
     def load_default_package(cls) -> Package:
         """Load prognostic package"""
         package = Package(
-            "ngc://models/nvidian/onboarding/afno_dx_solarradiation@0.0.0",
+            "ngc://models/nvidian/onboarding/afno_dx_solarradiation@1",
             cache_options={
                 "cache_storage": Package.default_cache("ssrd_afno"),
                 "same_names": True,

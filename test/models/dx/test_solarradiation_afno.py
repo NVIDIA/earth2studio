@@ -21,6 +21,7 @@ import pytest
 import torch
 
 from earth2studio.models.dx import SolarRadiationAFNO
+from earth2studio.utils import handshake_dim
 
 
 class PhooAFNOSolarRadiation(torch.nn.Module):
@@ -183,3 +184,37 @@ def test_solarradiation_afno_exceptions(device, mock_model):
     del wrong_coords["lat"]
     with pytest.raises(ValueError):
         model(x, wrong_coords)
+
+
+@pytest.mark.ci_cache
+@pytest.mark.timeout(30)
+@pytest.mark.parametrize("device", ["cuda:0"])
+def test_solarradiation_afno_package(device, model_cache_context):
+    """Test the cached model package AFNO solar radiation.
+    Only cuda supported."""
+    with model_cache_context():
+        package = SolarRadiationAFNO.load_default_package()
+        dx = SolarRadiationAFNO.load_model(package).to(device)
+    x = torch.randn(2, 1, 1, 31, 721, 1440).to(device)
+    coords = OrderedDict(
+        {
+            "batch": np.ones(x.shape[0]),
+            "time": np.array([np.datetime64("2024-01-01T00:00")]),
+            "lead_time": np.array([np.timedelta64(6, "h")]),
+            "variable": dx.input_coords()["variable"],
+            "lat": dx.input_coords()["lat"],
+            "lon": dx.input_coords()["lon"],
+        }
+    )
+
+    out, out_coords = dx(x, coords)
+    assert out.shape == torch.Size([x.shape[0], 1, 1, 1, 721, 1440])
+    assert out_coords["variable"] == dx.output_coords(coords)["variable"]
+    handshake_dim(out_coords, "lon", 5)
+    handshake_dim(out_coords, "lat", 4)
+    handshake_dim(out_coords, "variable", 3)
+    handshake_dim(out_coords, "lead_time", 2)
+    handshake_dim(out_coords, "time", 1)
+    handshake_dim(out_coords, "batch", 0)
+    assert torch.all(out >= 0)
+    assert torch.all(out <= 1e6)
