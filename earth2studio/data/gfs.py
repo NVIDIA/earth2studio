@@ -14,24 +14,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import asyncio
-import functools
 import hashlib
 import os
 import pathlib
 import shutil
 import warnings
-from collections.abc import Callable
-from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 
-import nest_asyncio
 import numpy as np
 import s3fs
 import xarray as xr
 from fsspec.implementations.ftp import FTPFileSystem
 from loguru import logger
-from tqdm.asyncio import tqdm
+from s3fs.core import S3FileSystem
+from tqdm import tqdm
 
 from earth2studio.data.utils import (
     datasource_cache_root,
@@ -43,17 +39,6 @@ from earth2studio.utils.type import LeadTimeArray, TimeArray, VariableArray
 
 logger.remove()
 logger.add(lambda msg: tqdm.write(msg, end=""), colorize=True)
-
-
-@dataclass
-class GFSAsyncTask:
-    """Small helper struct for Async tasks"""
-
-    data_array_indices: tuple[int, int, int]
-    gfs_file_uri: str
-    gfs_byte_offset: int
-    gfs_byte_length: int
-    gfs_modifier: Callable
 
 
 class GFS:
@@ -70,9 +55,6 @@ class GFS:
         Cache data source on local memory, by default True
     verbose : bool, optional
         Print download progress, by default True
-    async_timeout : int, optional
-        Time in sec after which download will be cancelled if not finished successfully,
-        by default 600
 
     Warning
     -------
@@ -99,13 +81,7 @@ class GFS:
     GFS_LAT = np.linspace(90, -90, 721)
     GFS_LON = np.linspace(0, 359.75, 1440)
 
-    def __init__(
-        self,
-        source: str = "aws",
-        cache: bool = True,
-        verbose: bool = True,
-        async_timeout: int = 600,
-    ):
+    def __init__(self, source: str = "aws", cache: bool = True, verbose: bool = True):
         self._cache = cache
         self._verbose = verbose
 
@@ -114,7 +90,7 @@ class GFS:
 
         if source == "aws":
             self.uri_prefix = "noaa-gfs-bdp-pds"
-            self.fs = s3fs.S3FileSystem(anon=True, client_kwargs={}, asynchronous=True)
+            self.fs = s3fs.S3FileSystem(anon=True, client_kwargs={})
 
             # To update search "gfs." at https://noaa-gfs-bdp-pds.s3.amazonaws.com/index.html
             # They are slowly adding more data
@@ -141,48 +117,13 @@ class GFS:
         else:
             raise ValueError(f"Invalid GFS source {source}")
 
-        self.async_timeout = async_timeout
-
     def __call__(
         self,
         time: datetime | list[datetime] | TimeArray,
         variable: str | list[str] | VariableArray,
     ) -> xr.DataArray:
-        """Retrieve GFS initial state / analysis data
-
-        Parameters
-        ----------
-        time : datetime | list[datetime] | TimeArray
-            Timestamps to return data for (UTC).
-        variable : str | list[str] | VariableArray
-            String, list of strings or array of strings that refer to variables to
-            return. Must be in the GFS lexicon.
-
-        Returns
-        -------
-        xr.DataArray
-            GFS weather data array
-        """
-        nest_asyncio.apply()  # Patch asyncio to work in notebooks
-        try:
-            loop = asyncio.get_event_loop()
-        except RuntimeError:
-            # If no event loop exists, create one
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-
-        xr_array = loop.run_until_complete(
-            asyncio.wait_for(self.fetch(time, variable), timeout=self.async_timeout)
-        )
-
-        return xr_array
-
-    async def fetch(
-        self,
-        time: datetime | list[datetime] | TimeArray,
-        variable: str | list[str] | VariableArray,
-    ) -> xr.DataArray:
-        """Async function to get data
+        """Retrieve GFS initial data to be used for initial conditions for the given
+        time, variable information, and optional history.
 
         Parameters
         ----------
@@ -198,133 +139,59 @@ class GFS:
             GFS weather data array
         """
         time, variable = prep_data_inputs(time, variable)
+
         # Create cache dir if doesnt exist
         pathlib.Path(self.cache).mkdir(parents=True, exist_ok=True)
 
         # Make sure input time is valid
         self._validate_time(time)
 
-        # Note, this could be more memory efficient and avoid pre-allocation of the array
-        # but this is much much cleaner to deal with, compared to something seen in the
-        # NCAR data source.
-        xr_array = xr.DataArray(
-            data=np.zeros(
-                (len(time), 1, len(variable), len(self.GFS_LAT), len(self.GFS_LON))
-            ),
-            dims=["time", "lead_time", "variable", "lat", "lon"],
-            coords={
-                "time": time,
-                "lead_time": [timedelta(hours=0)],
-                "variable": variable,
-                "lat": self.GFS_LAT,
-                "lon": self.GFS_LON,
-            },
-        )
-
-        async_tasks = []
-        async_tasks = await self._create_tasks(time, [timedelta(hours=0)], variable)
-        func_map = map(
-            functools.partial(self.fetch_wrapper, xr_array=xr_array), async_tasks
-        )
-
-        await tqdm.gather(
-            *func_map, desc="Fetching GFS data", disable=(not self._verbose)
-        )
+        # Fetch index file for requested time
+        # Should really async this stuff
+        data_arrays = []
+        for t0 in time:
+            data_array = self.fetch_dataarray(t0, variable)
+            data_arrays.append(data_array)
 
         # Delete cache if needed
         if not self._cache:
             shutil.rmtree(self.cache)
 
-        return xr_array.isel(lead_time=0)
+        return xr.concat(data_arrays, dim="time")
 
-    async def _create_tasks(
-        self, time: list[datetime], lead_time: list[timedelta], variable: list[str]
-    ) -> list[GFSAsyncTask]:
-        """Create download tasks, each corresponding to one grib byte range on S3
+    def fetch_dataarray(
+        self,
+        time: datetime,
+        variables: list[str],
+    ) -> xr.DataArray:
+        """Retrives GFS initial state data array for given date time
 
         Parameters
         ----------
-        times : list[datetime]
-            Timestamps to be downloaded (UTC).
+        time : datetime
+            Date time to fetch
         variables : list[str]
-            List of variables to be downloaded.
+            List of atmosphric variables to fetch. Must be supported in GFS lexicon
 
         Returns
         -------
-        list[dict]
-            List of download tasks
+        xr.DataArray
+            GFS data array for given date time
+
+        Raises
+        ------
+        KeyError
+            Un supported variable.
         """
-        tasks: list[GFSAsyncTask] = []  # group pressure-level variables
+        da = self._fetch_gfs_dataarray(time, timedelta(hours=0), variables)
+        return da.isel(lead_time=0)
 
-        # Start with fetching all index files for each time / lead time
-        args = [self._grib_index_uri(t, lt) for t in time for lt in lead_time]
-        func_map = map(self._fetch_index, args)
-        results = await tqdm.gather(
-            *func_map, desc="Fetching GFS index files", disable=True
-        )
-        for i, t in enumerate(time):
-            for j, lt in enumerate(lead_time):
-                # Get index file dictionary
-                index_file = results.pop(0)
-                for k, v in enumerate(variable):
-                    try:
-                        gfs_name, modifier = GFSLexicon[v]
-                    except KeyError:
-                        logger.warning(
-                            f"variable id {variable} not found in GFS lexicon, good luck"
-                        )
-                        gfs_name = v
-
-                        def modifier(x: np.array) -> np.array:
-                            """Modify data (if necessary)."""
-                            return x
-
-                    byte_offset = None
-                    byte_length = None
-                    for key, value in index_file.items():
-                        if gfs_name in key:
-                            byte_offset = value[0]
-                            byte_length = value[1]
-                            break
-
-                    if byte_length is None or byte_offset is None:
-                        logger.warning(
-                            f"Variable {v} not found in index file for time {t} at {lt}, values will be unset"
-                        )
-                        continue
-
-                    tasks.append(
-                        GFSAsyncTask(
-                            data_array_indices=(i, j, k),
-                            gfs_file_uri=self._grib_uri(t, lt),
-                            gfs_byte_offset=byte_offset,
-                            gfs_byte_length=byte_length,
-                            gfs_modifier=modifier,
-                        )
-                    )
-        return tasks
-
-    async def fetch_wrapper(
+    def _fetch_gfs_dataarray(
         self,
-        task: GFSAsyncTask,
-        xr_array: xr.DataArray,
+        time: datetime,
+        lead_time: timedelta,
+        variables: list[str],
     ) -> xr.DataArray:
-        """Small wrapper to pack arrays into the DataArray"""
-        out = await self.fetch_array(
-            task.gfs_file_uri,
-            task.gfs_byte_offset,
-            task.gfs_byte_length,
-            task.gfs_modifier,
-        )
-        xr_array[*task.data_array_indices] = out
-
-    async def fetch_array(
-        self,
-        grib_uri: str,
-        byte_offset: int,
-        byte_length: int,
-        modifier: Callable,
-    ) -> np.ndarray:
         """Fetch GFS data array. This will first fetch the index file to get byte range
         of the needed data, fetch the respective grib files and lastly combining grib
         files into single data array.
@@ -343,18 +210,68 @@ class GFS:
         xr.DataArray
             FS data array for given time and lead time
         """
-        logger.debug(f"Fetching GRS grib file: {grib_uri} {byte_offset}-{byte_length}")
-        # Download the grib file to cache
-        grib_file = await self._fetch_remote_file(
-            grib_uri,
-            byte_offset=byte_offset,
-            byte_length=byte_length,
+        logger.debug(f"Fetching GFS index file: {time} lead {lead_time}")
+        index_file = self._fetch_index(self._grib_index_uri(time, lead_time))
+
+        gfsda = xr.DataArray(
+            data=np.empty((1, 1, len(variables), len(self.GFS_LAT), len(self.GFS_LON))),
+            dims=["time", "lead_time", "variable", "lat", "lon"],
+            coords={
+                "time": [time],
+                "lead_time": [lead_time],
+                "variable": variables,
+                "lat": self.GFS_LAT,
+                "lon": self.GFS_LON,
+            },
         )
-        # Open into xarray data-array
-        da = xr.open_dataarray(
-            grib_file, engine="cfgrib", backend_kwargs={"indexpath": ""}
-        )
-        return modifier(da.values)
+
+        # TODO: Add MP here
+        for i, variable in enumerate(
+            tqdm(
+                variables, desc=f"Fetching GFS for {time}", disable=(not self._verbose)
+            )
+        ):
+            # Convert from Earth2Studio variable ID to GFS id and modifier
+            # sphinx - lexicon start
+            try:
+                gfs_name, modifier = GFSLexicon[variable]
+            except KeyError:
+                logger.warning(
+                    f"variable id {variable} not found in GFS lexicon, good luck"
+                )
+                gfs_name = variable
+
+                def modifier(x: np.array) -> np.array:
+                    """Modify data (if necessary)."""
+                    return x
+
+            byte_offset = None
+            byte_length = None
+            for key, value in index_file.items():
+                if gfs_name in key:
+                    byte_offset = value[0]
+                    byte_length = value[1]
+                    break
+
+            if byte_offset is None:
+                raise KeyError(f"Could not find variable {gfs_name} in index file")
+            # Download the grib file to cache
+            logger.debug(
+                f"Fetching GFS grib file for variable: {variable} at {time}_{lead_time}"
+            )
+            grib_file = self._fetch_remote_file(
+                self._grib_uri(time, lead_time),
+                byte_offset=byte_offset,
+                byte_length=byte_length,
+            )
+            # Open into xarray data-array
+            da = xr.open_dataarray(
+                grib_file, engine="cfgrib", backend_kwargs={"indexpath": ""}
+            )
+            gfsda[0, 0, i] = modifier(da.values)
+            # sphinx - lexicon end
+
+        return gfsda
 
     def _validate_time(self, times: list[datetime]) -> None:
         """Verify if date time is valid for GFS based on offline knowledge
@@ -372,7 +289,7 @@ class GFS:
             # Check history range for given source
             self._history_range(time)
 
-    async def _fetch_index(self, index_uri: str) -> dict[str, tuple[int, int]]:
+    def _fetch_index(self, index_uri: str) -> dict[str, tuple[int, int]]:
         """Fetch GFS atmospheric index file
 
         Parameters
@@ -386,8 +303,7 @@ class GFS:
             Dictionary of GFS vairables (byte offset, byte length)
         """
         # Grab index file
-        # TODO: Change remote file to be more proper fetch
-        index_file = await self._fetch_remote_file(index_uri)
+        index_file = self._fetch_remote_file(index_uri)
         with open(index_file) as file:
             index_lines = [line.rstrip() for line in file]
 
@@ -412,8 +328,8 @@ class GFS:
         # Pop place holder
         return index_table
 
-    async def _fetch_remote_file(
-        self, path: str, byte_offset: int = 0, byte_length: int | None = None
+    def _fetch_remote_file(
+        self, path: str, byte_offset: int = 0, byte_length: int = None
     ) -> str:
         """Fetches remote file into cache"""
         sha = hashlib.sha256((path + str(byte_offset)).encode())
@@ -421,16 +337,9 @@ class GFS:
         cache_path = os.path.join(self.cache, filename)
 
         if not pathlib.Path(cache_path).is_file():
-            if self.fs.async_impl:
-                if byte_length:
-                    byte_length = int(byte_offset + byte_length)
-                data = await self.fs._cat_file(path, start=byte_offset, end=byte_length)
-            else:
-                data = await asyncio.to_thread(
-                    self.fs.read_block, path, offset=byte_offset, length=byte_length
-                )
+            data = self.fs.read_block(path, offset=byte_offset, length=byte_length)
             with open(cache_path, "wb") as file:
-                await asyncio.to_thread(file.write, data)
+                file.write(data)
 
         return cache_path
 
@@ -481,9 +390,16 @@ class GFS:
         if isinstance(time, np.datetime64):  # np.datetime64 -> datetime
             _unix = np.datetime64(0, "s")
             _ds = np.timedelta64(1, "s")
-            time = datetime.fromtimestamp((time - _unix) / _ds, timezone.utc)
+            time = datetime.utcfromtimestamp((time - _unix) / _ds)
 
-        fs = s3fs.S3FileSystem(anon=True)
+        # Offline checks
+        # try:
+        #     cls._validate_time([time])
+        # except ValueError:
+        #     return False
+
+        fs = S3FileSystem(anon=True)
+
         # Object store directory for given time
         # Should contain two keys: atmos and wave
         file_name = f"gfs.{time.year}{time.month:0>2}{time.day:0>2}/{time.hour:0>2}/"
@@ -544,46 +460,8 @@ class GFS_FX(GFS):
         xr.DataArray
             GFS weather data array
         """
-        nest_asyncio.apply()  # Patch asyncio to work in notebooks
-        try:
-            loop = asyncio.get_event_loop()
-        except RuntimeError:
-            # If no event loop exists, create one
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-
-        xr_array = loop.run_until_complete(
-            asyncio.wait_for(
-                self.fetch(time, lead_time, variable), timeout=self.async_timeout
-            )
-        )
-
-        return xr_array
-
-    async def fetch(  # type: ignore[override]
-        self,
-        time: datetime | list[datetime] | TimeArray,
-        lead_time: timedelta | list[timedelta] | LeadTimeArray,
-        variable: str | list[str] | VariableArray,
-    ) -> xr.DataArray:
-        """Async function to get data
-
-        Parameters
-        ----------
-        time : datetime | list[datetime] | TimeArray
-            Timestamps to return data for (UTC).
-        lead_time: timedelta | list[timedelta] | LeadTimeArray
-            Forecast lead times to fetch.
-        variable : str | list[str] | VariableArray
-            String, list of strings or array of strings that refer to variables to
-            return. Must be in the GFS lexicon.
-
-        Returns
-        -------
-        xr.DataArray
-            GFS weather data array
-        """
         time, lead_time, variable = prep_forecast_inputs(time, lead_time, variable)
+
         # Create cache dir if doesnt exist
         pathlib.Path(self.cache).mkdir(parents=True, exist_ok=True)
 
@@ -591,44 +469,53 @@ class GFS_FX(GFS):
         self._validate_time(time)
         self._validate_leadtime(lead_time)
 
-        # Note, this could be more memory efficient and avoid pre-allocation of the array
-        # but this is much much cleaner to deal with, compared to something seen in the
-        # NCAR data source.
-        xr_array = xr.DataArray(
-            data=np.zeros(
-                (
-                    len(time),
-                    len(lead_time),
-                    len(variable),
-                    len(self.GFS_LAT),
-                    len(self.GFS_LON),
-                )
-            ),
-            dims=["time", "lead_time", "variable", "lat", "lon"],
-            coords={
-                "time": time,
-                "lead_time": lead_time,
-                "variable": variable,
-                "lat": self.GFS_LAT,
-                "lon": self.GFS_LON,
-            },
-        )
+        # Fetch index file for requested time
+        # Should really async this stuff
+        data_arrays = []
+        for t0 in time:
+            lead_arrays = []
+            for l0 in lead_time:
+                data_array = self.fetch_dataarray(t0, l0, variable)
+                lead_arrays.append(data_array)
 
-        async_tasks = []
-        async_tasks = await self._create_tasks(time, [timedelta(hours=0)], variable)
-        func_map = map(
-            functools.partial(self.fetch_wrapper, xr_array=xr_array), async_tasks
-        )
-
-        await tqdm.gather(
-            *func_map, desc="Fetching GFS data", disable=(not self._verbose)
-        )
+            data_arrays.append(xr.concat(lead_arrays, dim="lead_time"))
 
         # Delete cache if needed
         if not self._cache:
             shutil.rmtree(self.cache)
 
-        return xr_array
+        return xr.concat(data_arrays, dim="time")
+
+    def fetch_dataarray(  # type: ignore[override]
+        self,
+        time: datetime,
+        lead_time: timedelta,
+        variables: list[str],
+    ) -> xr.DataArray:
+        """Retrives GFS data array for given date time by fetching the index file,
+        fetching variable grib files and lastly combining grib files into single data
+        array.
+
+        Parameters
+        ----------
+        time : datetime
+            Date time to fetch
+        lead_time : timedelta
+            Forecast lead time to fetch
+        variables : list[str]
+            List of atmosphric variables to fetch. Must be supported in GFS lexicon
+
+        Returns
+        -------
+        xr.DataArray
+            GFS data array for given date time
+
+        Raises
+        ------
+        KeyError
+            Un supported variable.
+        """
+        return self._fetch_gfs_dataarray(time, lead_time, variables)
 
     @classmethod
     def _validate_leadtime(cls, lead_times: list[timedelta]) -> None:
