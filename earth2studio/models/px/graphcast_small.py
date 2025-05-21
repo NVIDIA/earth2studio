@@ -164,8 +164,8 @@ INV_VOCAB = {v: k for k, v in WB2Lexicon.VOCAB.items()}
 
 
 @check_extra_imports("graphcast", ["hk", "jax", "graphcast"])
-class GraphCastMini(torch.nn.Module, AutoModelMixin, PrognosticMixin):
-    """GraphCast Mini 1.0 degree model
+class GraphCastSmall(torch.nn.Module, AutoModelMixin, PrognosticMixin):
+    """GraphCast Small 1.0 degree model
 
     A smaller, low-resolution version of GraphCast (1 degree resolution, 13 pressure
     levels and a smaller mesh), trained on ERA5 data from 1979 to 2015. This model is
