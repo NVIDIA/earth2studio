@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>earth2studio.data.gfs &#8212; Earth2Studio 0.7.0a0 documentation</title>
+    <title>earth2studio.data.gfs &#8212; Earth2Studio 0.8.0a0 documentation</title>
   
   
   
@@ -41,7 +41,7 @@
 <link rel="preload" as="script" href="../../../_static/scripts/pydata-sphinx-theme.js?digest=8d27b9dea8ad943066ae" />
   <script src="../../../_static/vendor/fontawesome/6.5.1/js/all.min.js?digest=8d27b9dea8ad943066ae"></script>
 
-    <script src="../../../_static/documentation_options.js?v=8f7eeaf6"></script>
+    <script src="../../../_static/documentation_options.js?v=96f8bfd3"></script>
     <script src="../../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script>let toggleHintShow = 'Click to show';</script>
@@ -754,7 +754,8 @@ document.write(`
             <span class="n">task</span><span class="o">.</span><span class="n">gfs_byte_length</span><span class="p">,</span>
             <span class="n">task</span><span class="o">.</span><span class="n">gfs_modifier</span><span class="p">,</span>
         <span class="p">)</span>
-        <span class="n">xr_array</span><span class="p">[</span><span class="o">*</span><span class="n">task</span><span class="o">.</span><span class="n">data_array_indices</span><span class="p">]</span> <span class="o">=</span> <span class="n">out</span>
+        <span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">,</span> <span class="n">k</span> <span class="o">=</span> <span class="n">task</span><span class="o">.</span><span class="n">data_array_indices</span>
+        <span class="n">xr_array</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">,</span> <span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="n">out</span>
 
     <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">fetch_array</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
