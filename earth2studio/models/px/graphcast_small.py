@@ -451,7 +451,9 @@ class GraphCastSmall(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         device = x.device
 
         # first batch has 2 times
-        yield x[:, :, 1:, ...], coords
+        coords_out = coords.copy()
+        coords_out["lead_time"] = coords["lead_time"][1:]
+        yield x[:, :, 1:, ...], coords_out
 
         while True:
 

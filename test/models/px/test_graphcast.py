@@ -209,6 +209,7 @@ def test_GraphCastSmall_iter(ensemble, device, mock_GraphCastSmall_model):
 
     # Get generator
     input, input_coords = next(p_iter)  # Skip first which should return the input
+    assert input_coords["lead_time"] == np.timedelta64(0, "h")
     assert len(input.shape) == 6
     for i, (out, out_coords) in enumerate(p_iter):
         assert len(out.shape) == 6
