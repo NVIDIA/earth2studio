@@ -27,7 +27,6 @@ try:
     import chex
     import haiku as hk
     import jax
-    import jax.dlpack
     from graphcast import (
         autoregressive,
         casting,
@@ -40,7 +39,6 @@ try:
 except ImportError:
     hk = None
     jax = None
-    jax.dlpack = None
     chex = None
     autoregressive = None
     casting = None
@@ -165,29 +163,15 @@ ATMOS_LEVELS = [50, 100, 150, 200, 250, 300, 400, 500, 600, 700, 850, 925, 1000]
 INV_VOCAB = {v: k for k, v in WB2Lexicon.VOCAB.items()}
 
 
-@check_extra_imports(
-    "graphcast",
-    [
-        hk,
-        jax,
-        autoregressive,
-        casting,
-        checkpoint,
-        data_utils,
-        graphcast,
-        normalization,
-        rollout,
-    ],
-)
+@check_extra_imports("graphcast", ["hk", "jax", "graphcast"])
 class GraphCastMini(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     """GraphCast Mini 1.0 degree model
 
     A smaller, low-resolution version of GraphCast (1 degree resolution, 13 pressure
     levels and a smaller mesh), trained on ERA5 data from 1979 to 2015. This model is
     useful for running with lower memory and compute constraints while maintaining good
-    forecast skill.
-
-    The model operates on a 1-degree lat-lon grid and includes:
+    forecast skill. The model operates on a 1-degree lat-lon grid (south-pole including)
+    equirectangular grid with 85 variables including:
 
     - Surface variables (2m temperature, 10m winds, etc.)
     - Pressure level variables (temperature, winds, geopotential, etc.)
@@ -588,21 +572,20 @@ class GraphCastMini(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         x: torch.Tensor,
         coords: CoordSystem,
     ) -> tuple[torch.Tensor, CoordSystem]:
-        """Execution of the diagnostic model that transforms physical data
+        """Runs prognostic model 1 step.
 
         Parameters
         ----------
         x : torch.Tensor
-            Input tensor intended to apply diagnostic function on
+            Input tensor
         coords : CoordSystem
-            Ordered dict representing coordinate system that describes the tensor
+            Input coordinate system
 
         Returns
         -------
-        tuple[torch.Tensor, CoordSystem]:
-            Output tensor and respective coordinate system dictionary
+        tuple[torch.Tensor, CoordSystem]
+            Output tensor and coordinate system 6 hours in the future
         """
-
         # Get device
         device = x.device
 
@@ -778,8 +761,18 @@ class GraphCastMini(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         cls,
         package: Package,
     ) -> PrognosticModel:
-        """Load prognostic from package"""
+        """Load prognostic from package
 
+        Parameters
+        ----------
+        package : Package
+            Package to load model from
+
+        Returns
+        -------
+        PrognosticModel
+            Prognostic model
+        """
         # Import the stats
         diffs_stddev_by_level = xr.load_dataset(
             package.resolve("stats/diffs_stddev_by_level.nc")
