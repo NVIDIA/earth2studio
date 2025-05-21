@@ -163,7 +163,7 @@ ATMOS_LEVELS = [50, 100, 150, 200, 250, 300, 400, 500, 600, 700, 850, 925, 1000]
 INV_VOCAB = {v: k for k, v in WB2Lexicon.VOCAB.items()}
 
 
-@check_extra_imports("graphcast", ["hk", "jax", "graphcast"])
+@check_extra_imports("graphcast", ["haiku", "jax", "graphcast"])
 class GraphCastSmall(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     """GraphCast Small 1.0 degree model
 
@@ -757,6 +757,7 @@ class GraphCastSmall(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         )
 
     @classmethod
+    @check_extra_imports("graphcast", ["haiku", "jax", "graphcast"])
     def load_model(
         cls,
         package: Package,

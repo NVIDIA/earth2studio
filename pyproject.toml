@@ -112,6 +112,7 @@ graphcast = [
     "graphcast",
     "dm-haiku==0.0.14",
     "jax[cuda12]>=0.4.26",
+    "flax>=0.10.6",
 ]
 interp-modafno = [
     "onnx-weekly ; python_full_version >= '3.13'",
