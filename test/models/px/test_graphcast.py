@@ -28,8 +28,6 @@ from earth2studio.data import Random, fetch_data
 from earth2studio.models.px.graphcast_small import GraphCastSmall
 from earth2studio.utils import handshake_dim
 
-CUDA_DEVICE = 0
-
 
 def mocked_chunked_prediction_generator(
     predictor_fn,
@@ -136,9 +134,9 @@ def mock_GraphCastSmall_model():
         ),  # Only len 1 time array is supported by GraphCastSmall model
     ],
 )
-@pytest.mark.parametrize("device", ["cpu", f"cuda:{CUDA_DEVICE}"])
+@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
 @mock.patch("graphcast.rollout.chunked_prediction", mocked_chunked_prediction)
-def test_GraphCastSmall_call(time, device, mock_GraphCastSmall_model):
+def test_graphcast_small_call(time, device, mock_GraphCastSmall_model):
 
     p = mock_GraphCastSmall_model.to(device)
 
@@ -175,12 +173,12 @@ def test_GraphCastSmall_call(time, device, mock_GraphCastSmall_model):
     "ensemble",
     [1, 2],
 )
-@pytest.mark.parametrize("device", ["cpu", f"cuda:{CUDA_DEVICE}"])
+@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
 @mock.patch(
     "graphcast.rollout.chunked_prediction_generator",
     mocked_chunked_prediction_generator,
 )
-def test_GraphCastSmall_iter(ensemble, device, mock_GraphCastSmall_model):
+def test_graphcast_small_iter(ensemble, device, mock_GraphCastSmall_model):
     time = np.array([np.datetime64("1993-04-05T00:00")])
     p = mock_GraphCastSmall_model.to(device)
 
@@ -231,8 +229,8 @@ def test_GraphCastSmall_iter(ensemble, device, mock_GraphCastSmall_model):
         OrderedDict({"lat": np.random.randn(720), "lon": np.random.randn(1)}),
     ],
 )
-@pytest.mark.parametrize("device", ["cpu", f"cuda:{CUDA_DEVICE}"])
-def test_GraphCastSmall_exceptions(dc, device, mock_GraphCastSmall_model):
+@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+def test_graphcast_small_exceptions(dc, device, mock_GraphCastSmall_model):
     time = np.array([np.datetime64("1993-04-05T00:00")])
     p = mock_GraphCastSmall_model.to(device)
     # Initialize Data Source
@@ -257,13 +255,13 @@ def model(model_cache_context) -> GraphCastSmall:
 
 
 @pytest.mark.ci_cache
-# @pytest.mark.timeout()
-@pytest.mark.parametrize("device", ["cpu", f"cuda:{CUDA_DEVICE}"])
-def test_GraphCastSmall_package(model, device):
+@pytest.mark.timeout(360)
+@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+def test_graphcast_small_package(model, device):
     torch.cuda.empty_cache()
     time = np.array([np.datetime64("1993-04-05T00:00")])
     # Test the cached model package graphcast
-    p = mock_GraphCastSmall_model.to(device)
+    p = model.to(device)
 
     dc = p.input_coords()
     del dc["batch"]
@@ -278,13 +276,12 @@ def test_GraphCastSmall_package(model, device):
     variable = p.input_coords()["variable"]
     x, coords = fetch_data(r, time, variable, lead_time, device=device)
 
-    nsteps = 1
     out, out_coords = p(x, coords)
 
     if not isinstance(time, Iterable):
         time = [time]
 
-    assert out.shape == torch.Size([len(time), nsteps + 1, 85, 181, 360])
+    assert out.shape == torch.Size([len(time), 1, 85, 181, 360])
     assert (out_coords["variable"] == p.output_coords(coords)["variable"]).all()
     assert (out_coords["time"] == time).all()
     handshake_dim(out_coords, "lon", 4)

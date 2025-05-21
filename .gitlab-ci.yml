@@ -86,6 +86,10 @@ pytest:
   extends:
     - .earth2studio:test:base
     - .test:cache
+  variables:
+    # https://docs.jax.dev/en/latest/gpu_memory_allocation.html
+    - XLA_PYTHON_CLIENT_ALLOCATOR: platform
+    - XLA_PYTHON_CLIENT_PREALLOCATE: false
   rules:
     - if: $PIPELINE_TEST_ALL == "true"
       when: on_success
