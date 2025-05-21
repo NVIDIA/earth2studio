@@ -180,13 +180,15 @@ INV_VOCAB = {v: k for k, v in WB2Lexicon.VOCAB.items()}
     ],
 )
 class GraphCastMini(torch.nn.Module, AutoModelMixin, PrognosticMixin):
-    """GraphCast Mini 1.0 degree model.
+    """GraphCast Mini 1.0 degree model
 
-    A smaller, low-resolution version of GraphCast (1 degree resolution, 13 pressure levels,
-    and a smaller mesh), trained on ERA5 data from 1979 to 2015. This model is useful for
-    running with lower memory and compute constraints while maintaining good forecast skill.
+    A smaller, low-resolution version of GraphCast (1 degree resolution, 13 pressure
+    levels and a smaller mesh), trained on ERA5 data from 1979 to 2015. This model is
+    useful for running with lower memory and compute constraints while maintaining good
+    forecast skill.
 
     The model operates on a 1-degree lat-lon grid and includes:
+
     - Surface variables (2m temperature, 10m winds, etc.)
     - Pressure level variables (temperature, winds, geopotential, etc.)
     - Static variables (land-sea mask, surface geopotential)
@@ -200,6 +202,11 @@ class GraphCastMini(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     - https://github.com/google-deepmind/graphcast
     - https://www.science.org/doi/10.1126/science.adi2336
 
+    Warning
+    -------
+    We encourage users to familiarize themselves with the license restrictions of this
+    model's checkpoints.
+
     Parameters
     ----------
     ckpt : graphcast.CheckPoint
@@ -212,9 +219,52 @@ class GraphCastMini(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         Standard deviation by level for normalization
     """
 
+    def __init__(
+        self,
+        ckpt: "graphcast.CheckPoint",
+        diffs_stddev_by_level: xr.Dataset,
+        mean_by_level: xr.Dataset,
+        stddev_by_level: xr.Dataset,
+    ):
+        super().__init__()
+
+        self.ckpt = ckpt
+        self.diffs_stddev_by_level = diffs_stddev_by_level
+        self.mean_by_level = mean_by_level
+        self.stddev_by_level = stddev_by_level
+        self.prng_key = jax.random.PRNGKey(0)
+
+        self.run_forward = self._load_run_forward_from_checkpoint()
+
+        self._input_coords = OrderedDict(
+            {
+                "batch": np.empty(0),
+                "time": np.empty(0),
+                "lead_time": np.array(
+                    [
+                        np.timedelta64(-6, "h"),
+                        np.timedelta64(0, "h"),
+                    ]
+                ),
+                "variable": np.array(VARIABLES),
+                "lat": np.linspace(-90, 90, 181, endpoint=True),
+                "lon": np.linspace(0, 360, 360, endpoint=False),
+            }
+        )
+
+        self._output_coords = OrderedDict(
+            {
+                "batch": np.empty(0),
+                "time": np.empty(0),
+                "lead_time": np.array([np.timedelta64(6, "h")]),
+                "variable": np.array(VARIABLES),
+                "lat": np.linspace(-90, 90, 181, endpoint=True),
+                "lon": np.linspace(0, 360, 360, endpoint=False),
+            }
+        )
+
     def _load_run_forward_from_checkpoint(self) -> "autoregressive.Predictor":
-        """
-        This function is mostly copied from
+        """This function is mostly copied from
         https://github.com/google-deepmind/graphcast/tree/main
 
         License info:
@@ -303,8 +353,7 @@ class GraphCastMini(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         batch: xr.Dataset,
         forcings: xr.Dataset,
     ) -> Generator[xr.Dataset, None, None]:
-        """
-        This is used to construct the iterator for the prognostic model.
+        """This is used to construct the iterator for the prognostic model.
 
         This function is mostly copied from
         https://github.com/google-deepmind/graphcast/tree/main
@@ -404,50 +453,6 @@ class GraphCastMini(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             # Increment index
             index += 1
 
-    def __init__(
-        self,
-        ckpt: "graphcast.CheckPoint",
-        diffs_stddev_by_level: xr.Dataset,
-        mean_by_level: xr.Dataset,
-        stddev_by_level: xr.Dataset,
-    ):
-        super().__init__()
-
-        self.ckpt = ckpt
-        self.diffs_stddev_by_level = diffs_stddev_by_level
-        self.mean_by_level = mean_by_level
-        self.stddev_by_level = stddev_by_level
-        self.prng_key = jax.random.PRNGKey(0)
-
-        self.run_forward = self._load_run_forward_from_checkpoint()
-
-        self._input_coords = OrderedDict(
-            {
-                "batch": np.empty(0),
-                "time": np.empty(0),
-                "lead_time": np.array(
-                    [
-                        np.timedelta64(-6, "h"),
-                        np.timedelta64(0, "h"),
-                    ]
-                ),
-                "variable": np.array(VARIABLES),
-                "lat": np.linspace(-90, 90, 181, endpoint=True),
-                "lon": np.linspace(0, 360, 360, endpoint=False),
-            }
-        )
-
-        self._output_coords = OrderedDict(
-            {
-                "batch": np.empty(0),
-                "time": np.empty(0),
-                "lead_time": np.array([np.timedelta64(6, "h")]),
-                "variable": np.array(VARIABLES),
-                "lat": np.linspace(-90, 90, 181, endpoint=True),
-                "lon": np.linspace(0, 360, 360, endpoint=False),
-            }
-        )
-
     @batch_func()
     def _default_generator(
         self,
@@ -525,9 +530,7 @@ class GraphCastMini(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             yield from self._default_generator(x, coords)
 
     def iterator_result_to_tensor(self, dataset: xr.Dataset) -> torch.Tensor:
-        """
-        Convert a iterator result to a tensor
-        """
+        """Convert a iterator result to a tensor"""
         for var in dataset.data_vars:
             if "level" in dataset[var].dims:
                 for level in dataset[var].level:
@@ -571,9 +574,7 @@ class GraphCastMini(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     @staticmethod
     def get_jax_device_from_tensor(x: torch.Tensor) -> "jax.Device":
-        """
-        From a tensor, get device and corresponding jax device
-        """
+        """From a tensor, get device and corresponding jax device"""
         device_id = x.get_device()
         if device_id == -1:  # -1 is CPU
             device = jax.devices("cpu")[0]
@@ -637,9 +638,7 @@ class GraphCastMini(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def from_dataarray_to_dataset(
         self, data: xr.DataArray, lead_time: int = 6, hour_steps: int = 6
     ) -> xr.Dataset:
-        """
-        From a datarray get a dataset
-        """
+        """From a datarray get a dataset"""
         if len(data.time.values) > 1:
             raise TypeError("GraphCast model only supports 1 init_time.")
         # time
