@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
     <link href="../../../../_static/favicon.ico" rel="icon" type="image/x-icon">
-    <title>earth2studio.models.px.Aurora &#8212; Earth2Studio 0.8.0a0 documentation</title>
+    <title>earth2studio.models.px.GraphCastSmall &#8212; Earth2Studio 0.8.0a0 documentation</title>
   
   
   
@@ -51,7 +51,7 @@
     <script src="../../../../_static/togglebutton.js?v=4a39c7ea"></script>
     <script src="../../../../_static/design-tabs.js?v=f930bc37"></script>
     <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
-    <script>DOCUMENTATION_OPTIONS.pagename = 'modules/generated/models/px/earth2studio.models.px.Aurora';</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'modules/generated/models/px/earth2studio.models.px.GraphCastSmall';</script>
     <script>
         DOCUMENTATION_OPTIONS.theme_version = '0.15.2';
         DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'https://raw.githubusercontent.com/NVIDIA/earth2studio/gh-pages/_static/switcher.json';
@@ -60,8 +60,8 @@
         </script>
     <link rel="index" title="Index" href="../../../../genindex.html" />
     <link rel="search" title="Search" href="../../../../search.html" />
-    <link rel="next" title="earth2studio.models.px.DLESyM" href="earth2studio.models.px.DLESyM.html" />
-    <link rel="prev" title="earth2studio.models.px.AIFS" href="earth2studio.models.px.AIFS.html" />
+    <link rel="next" title="earth2studio.models.px.InterpModAFNO" href="earth2studio.models.px.InterpModAFNO.html" />
+    <link rel="prev" title="earth2studio.models.px.FuXi" href="earth2studio.models.px.FuXi.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   </head>
@@ -381,14 +381,14 @@ document.write(`
   <div class="bd-toc-item navbar-nav"><ul class="current nav bd-sidenav">
 <li class="toctree-l1 current active has-children"><a class="reference internal" href="../../../models.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models</span></code>: Models</a><input checked="" class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-1"><i class="fa-solid fa-chevron-down"></i></label><ul class="current">
 <li class="toctree-l2"><a class="reference internal" href="earth2studio.models.px.AIFS.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.AIFS</a></li>
-<li class="toctree-l2 current active"><a class="current reference internal" href="#"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.Aurora</a></li>
+<li class="toctree-l2"><a class="reference internal" href="earth2studio.models.px.Aurora.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.Aurora</a></li>
 <li class="toctree-l2"><a class="reference internal" href="earth2studio.models.px.DLESyM.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.DLESyM</a></li>
 <li class="toctree-l2"><a class="reference internal" href="earth2studio.models.px.DLESyMLatLon.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.DLESyMLatLon</a></li>
 <li class="toctree-l2"><a class="reference internal" href="earth2studio.models.px.DLWP.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.DLWP</a></li>
 <li class="toctree-l2"><a class="reference internal" href="earth2studio.models.px.FCN.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.FCN</a></li>
 <li class="toctree-l2"><a class="reference internal" href="earth2studio.models.px.FengWu.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.FengWu</a></li>
 <li class="toctree-l2"><a class="reference internal" href="earth2studio.models.px.FuXi.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.FuXi</a></li>
-<li class="toctree-l2"><a class="reference internal" href="earth2studio.models.px.GraphCastSmall.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.GraphCastSmall</a></li>
+<li class="toctree-l2 current active"><a class="current reference internal" href="#"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.GraphCastSmall</a></li>
 <li class="toctree-l2"><a class="reference internal" href="earth2studio.models.px.InterpModAFNO.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.InterpModAFNO</a></li>
 <li class="toctree-l2"><a class="reference internal" href="earth2studio.models.px.Pangu24.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.Pangu24</a></li>
 <li class="toctree-l2"><a class="reference internal" href="earth2studio.models.px.Pangu6.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.Pangu6</a></li>
@@ -543,23 +543,30 @@ document.write(`
 <div id="searchbox"></div>
                 <article class="bd-article">
                   
-  <section id="earth2studio-models-px-aurora">
-<h1><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.Aurora<a class="headerlink" href="#earth2studio-models-px-aurora" title="Link to this heading">#</a></h1>
+  <section id="earth2studio-models-px-graphcastsmall">
+<h1><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.GraphCastSmall<a class="headerlink" href="#earth2studio-models-px-graphcastsmall" title="Link to this heading">#</a></h1>
 <dl class="py class">
-<dt class="sig sig-object py" id="earth2studio.models.px.Aurora">
-<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">earth2studio.models.px.</span></span><span class="sig-name descname"><span class="pre">Aurora</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">core_model</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">z</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">slt</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">lsm</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/earth2studio/models/px/aurora.html#Aurora"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.px.Aurora" title="Link to this definition">#</a></dt>
-<dd><p>Aurora 0.25 degree global forecast model. This model consists of single
-auto-regressive model with a time-step size of 6 hours. This model operates on
-0.25 degree lat-lon grid (720, 1440) equirectangular grid with 4 surface-level
-variables, 5 atmospheric variables with 13 pressure levels and 3 static variables.</p>
+<dt class="sig sig-object py" id="earth2studio.models.px.GraphCastSmall">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">earth2studio.models.px.</span></span><span class="sig-name descname"><span class="pre">GraphCastSmall</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ckpt</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">diffs_stddev_by_level</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mean_by_level</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">stddev_by_level</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/earth2studio/models/px/graphcast_small.html#GraphCastSmall"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.px.GraphCastSmall" title="Link to this definition">#</a></dt>
+<dd><p>GraphCast Small 1.0 degree model</p>
+<p>A smaller, low-resolution version of GraphCast (1 degree resolution, 13 pressure
+levels and a smaller mesh), trained on ERA5 data from 1979 to 2015. This model is
+useful for running with lower memory and compute constraints while maintaining good
+forecast skill. The model operates on a 1-degree lat-lon grid (south-pole including)
+equirectangular grid with 85 variables including:</p>
+<ul class="simple">
+<li><p>Surface variables (2m temperature, 10m winds, etc.)</p></li>
+<li><p>Pressure level variables (temperature, winds, geopotential, etc.)</p></li>
+<li><p>Static variables (land-sea mask, surface geopotential)</p></li>
+</ul>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>This model uses the checkpoints from the original publication.
-For additional information see the following resources:</p>
+<p>This model and checkpoint are based on the GraphCast architecture from DeepMind.
+For more information see the following references:</p>
 <ul class="simple">
-<li><p><a class="reference external" href="https://arxiv.org/abs/2405.13063">https://arxiv.org/abs/2405.13063</a></p></li>
-<li><p><a class="github reference external" href="https://github.com/microsoft/aurora">microsoft/aurora</a></p></li>
-<li><p><a class="reference external" href="https://huggingface.co/microsoft/aurora">https://huggingface.co/microsoft/aurora</a></p></li>
+<li><p><a class="reference external" href="https://arxiv.org/abs/2212.12794">https://arxiv.org/abs/2212.12794</a></p></li>
+<li><p><a class="github reference external" href="https://github.com/google-deepmind/graphcast">google-deepmind/graphcast</a></p></li>
+<li><p><a class="reference external" href="https://www.science.org/doi/10.1126/science.adi2336">https://www.science.org/doi/10.1126/science.adi2336</a></p></li>
 </ul>
 </div>
 <div class="admonition warning">
@@ -570,16 +577,16 @@ model’s checkpoints.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>core_model</strong> (<em>torch.nn.Module</em>) – Core Aurora model</p></li>
-<li><p><strong>z</strong> (<em>torch.Tensor</em>) – Geopotential</p></li>
-<li><p><strong>slt</strong> (<em>torch.Tensor</em>) – Soil type</p></li>
-<li><p><strong>lsm</strong> (<em>torch.Tensor</em>) – Land sea mask</p></li>
+<li><p><strong>ckpt</strong> (<em>graphcast.CheckPoint</em>) – Model checkpoint containing weights and configuration</p></li>
+<li><p><strong>diffs_stddev_by_level</strong> (<em>xr.Dataset</em>) – Standard deviation of differences by level for normalization</p></li>
+<li><p><strong>mean_by_level</strong> (<em>xr.Dataset</em>) – Mean values by level for normalization</p></li>
+<li><p><strong>stddev_by_level</strong> (<em>xr.Dataset</em>) – Standard deviation by level for normalization</p></li>
 </ul>
 </dd>
 </dl>
 <dl class="py method">
-<dt class="sig sig-object py" id="earth2studio.models.px.Aurora.__call__">
-<span class="sig-name descname"><span class="pre">__call__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">coords</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/earth2studio/models/px/aurora.html#Aurora.__call__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.px.Aurora.__call__" title="Link to this definition">#</a></dt>
+<dt class="sig sig-object py" id="earth2studio.models.px.GraphCastSmall.__call__">
+<span class="sig-name descname"><span class="pre">__call__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">coords</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/earth2studio/models/px/graphcast_small.html#GraphCastSmall.__call__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.px.GraphCastSmall.__call__" title="Link to this definition">#</a></dt>
 <dd><p>Runs prognostic model 1 step.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -598,8 +605,8 @@ model’s checkpoints.</p>
 </dd></dl>
 
 <dl class="py method">
-<dt class="sig sig-object py" id="earth2studio.models.px.Aurora.create_iterator">
-<span class="sig-name descname"><span class="pre">create_iterator</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">coords</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/earth2studio/models/px/aurora.html#Aurora.create_iterator"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.px.Aurora.create_iterator" title="Link to this definition">#</a></dt>
+<dt class="sig sig-object py" id="earth2studio.models.px.GraphCastSmall.create_iterator">
+<span class="sig-name descname"><span class="pre">create_iterator</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">coords</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/earth2studio/models/px/graphcast_small.html#GraphCastSmall.create_iterator"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.px.GraphCastSmall.create_iterator" title="Link to this definition">#</a></dt>
 <dd><p>Creates a iterator which can be used to perform time-integration of the
 prognostic model. Will return the initial condition first (0th step).</p>
 <dl class="field-list simple">
@@ -620,8 +627,8 @@ output data tensor and coordinate system dictionary.</p>
 </dd></dl>
 
 <dl class="py method">
-<dt class="sig sig-object py" id="earth2studio.models.px.Aurora.load_default_package">
-<em class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">load_default_package</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/earth2studio/models/px/aurora.html#Aurora.load_default_package"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.px.Aurora.load_default_package" title="Link to this definition">#</a></dt>
+<dt class="sig sig-object py" id="earth2studio.models.px.GraphCastSmall.load_default_package">
+<em class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">load_default_package</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/earth2studio/models/px/graphcast_small.html#GraphCastSmall.load_default_package"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.px.GraphCastSmall.load_default_package" title="Link to this definition">#</a></dt>
 <dd><p>Load prognostic package</p>
 <dl class="field-list simple">
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
@@ -631,15 +638,18 @@ output data tensor and coordinate system dictionary.</p>
 </dd></dl>
 
 <dl class="py method">
-<dt class="sig sig-object py" id="earth2studio.models.px.Aurora.load_model">
-<em class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">load_model</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">package</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/earth2studio/models/px/aurora.html#Aurora.load_model"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.px.Aurora.load_model" title="Link to this definition">#</a></dt>
+<dt class="sig sig-object py" id="earth2studio.models.px.GraphCastSmall.load_model">
+<em class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">load_model</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">package</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/earth2studio/models/px/graphcast_small.html#GraphCastSmall.load_model"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.px.GraphCastSmall.load_model" title="Link to this definition">#</a></dt>
 <dd><p>Load prognostic from package</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>package</strong> (<a class="reference internal" href="../earth2studio.models.auto.Package.html#earth2studio.models.auto.Package" title="earth2studio.models.auto.package.Package"><em>Package</em></a>)</p>
+<dd class="field-odd"><p><strong>package</strong> (<a class="reference internal" href="../earth2studio.models.auto.Package.html#earth2studio.models.auto.Package" title="earth2studio.models.auto.Package"><em>Package</em></a>) – Package to load model from</p>
 </dd>
-<dt class="field-even">Return type<span class="colon">:</span></dt>
-<dd class="field-even"><p><em>PrognosticModel</em></p>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Prognostic model</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>PrognosticModel</p>
 </dd>
 </dl>
 </dd></dl>
@@ -659,20 +669,20 @@ output data tensor and coordinate system dictionary.</p>
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="earth2studio.models.px.AIFS.html"
+       href="earth2studio.models.px.FuXi.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.AIFS</p>
+        <p class="prev-next-title"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.FuXi</p>
       </div>
     </a>
     <a class="right-next"
-       href="earth2studio.models.px.DLESyM.html"
+       href="earth2studio.models.px.InterpModAFNO.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.DLESyM</p>
+        <p class="prev-next-title"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.InterpModAFNO</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
@@ -694,11 +704,11 @@ output data tensor and coordinate system dictionary.</p>
   </div>
   <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="visible nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.models.px.Aurora"><code class="docutils literal notranslate"><span class="pre">Aurora</span></code></a><ul class="nav section-nav flex-column">
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.models.px.Aurora.__call__"><code class="docutils literal notranslate"><span class="pre">Aurora.__call__()</span></code></a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.models.px.Aurora.create_iterator"><code class="docutils literal notranslate"><span class="pre">Aurora.create_iterator()</span></code></a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.models.px.Aurora.load_default_package"><code class="docutils literal notranslate"><span class="pre">Aurora.load_default_package()</span></code></a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.models.px.Aurora.load_model"><code class="docutils literal notranslate"><span class="pre">Aurora.load_model()</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.models.px.GraphCastSmall"><code class="docutils literal notranslate"><span class="pre">GraphCastSmall</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.models.px.GraphCastSmall.__call__"><code class="docutils literal notranslate"><span class="pre">GraphCastSmall.__call__()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.models.px.GraphCastSmall.create_iterator"><code class="docutils literal notranslate"><span class="pre">GraphCastSmall.create_iterator()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.models.px.GraphCastSmall.load_default_package"><code class="docutils literal notranslate"><span class="pre">GraphCastSmall.load_default_package()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.models.px.GraphCastSmall.load_model"><code class="docutils literal notranslate"><span class="pre">GraphCastSmall.load_model()</span></code></a></li>
 </ul>
 </li>
 </ul>
@@ -707,7 +717,7 @@ output data tensor and coordinate system dictionary.</p>
   <div class="sidebar-secondary-item">
 
   <div class="tocsection sourcelink">
-    <a href="../../../../_sources/modules/generated/models/px/earth2studio.models.px.Aurora.rst.txt">
+    <a href="../../../../_sources/modules/generated/models/px/earth2studio.models.px.GraphCastSmall.rst.txt">
       <i class="fa-solid fa-file-lines"></i> Show Source
     </a>
   </div>
