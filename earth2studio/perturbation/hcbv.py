@@ -146,6 +146,7 @@ class HemisphericCentredBredVector:
 
             # scale dx
             dx = self.noise_amplitude * (dx / hem_norm)
+            # set dx back to zero in constant inputs
             dx[..., torch.isnan(dx).all(dim=(0, 1, 2, 4, 5)), :, :] = 0
 
             xunp = (
