@@ -46,6 +46,7 @@ from earth2studio.models.px import (
     Aurora,
     FengWu,
     FuXi,
+    GraphCastSmall,
     InterpModAFNO,
     Pangu3,
     Pangu6,
@@ -74,6 +75,7 @@ from earth2studio.models.px import (
         InterpModAFNO,
         PrecipitationAFNOv2,
         AIFS,
+        GraphCastSmall,
     ],
 )
 def test_auto_model_download(model, model_cache_context):

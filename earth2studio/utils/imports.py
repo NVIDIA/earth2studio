@@ -19,6 +19,8 @@ from functools import wraps
 from importlib.util import find_spec
 from typing import Any, TypeVar, cast
 
+from loguru import logger
+
 F = TypeVar("F", bound=Callable[..., Any])
 C = TypeVar("C", bound=type[Any])
 
@@ -57,6 +59,7 @@ def check_extra_imports(
             # If package is a string (module path like module.submodule), check if the
             #  module is available.
             if isinstance(pkg, str) and find_spec(pkg) is None:
+                logger.error(f"Could not find spec for module {pkg}")
                 raise ExtraDependencyError(extra_name, obj_name)
             elif pkg is None:
                 raise ExtraDependencyError(extra_name, obj_name)

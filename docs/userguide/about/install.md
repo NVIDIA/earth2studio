@@ -244,6 +244,26 @@ uv add earth2studio --extra fuxi
 :::
 ::::
 :::::
+:::::{tab-item} GraphCast
+Notes: Requires JAX with CUDA support and the GraphCast package.
+
+::::{tab-set}
+:::{tab-item} pip
+
+```bash
+pip install earth2studio[graphcast]
+```
+
+:::
+:::{tab-item} uv
+
+```bash
+uv add earth2studio --extra graphcast
+```
+
+:::
+::::
+:::::
 :::::{tab-item} Pangu
 Notes: Requires [ONNX GPU Runtime](https://onnxruntime.ai/docs/install/). May need
 manual install depending on CUDA version.
