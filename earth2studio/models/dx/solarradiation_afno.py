@@ -69,9 +69,9 @@ VARIABLES = [
 
 @check_extra_imports("solarradiation-afno", [SolarRadiationNet, cos_zenith_angle])
 class SolarRadiationAFNO(torch.nn.Module, AutoModelMixin):
-    """Solar Radiation AFNO diagnostic model. Predicts the accumulated global surface solar
-    radiation over 6 hours [Jm^-2]. The model uses 31 variables as input and outputs
-    one on a 0.25 degree lat-lon grid (south-pole excluding) [720 x 1440].
+    """Base class for Solar Radiation AFNO diagnostic models. Predicts the accumulated global surface solar
+    radiation [Jm^-2]. The model uses 31 variables as input and outputs one on a 0.25 degree lat-lon grid
+    (south-pole excluding) [720 x 1440].
 
     Parameters
     ----------
@@ -169,31 +169,33 @@ class SolarRadiationAFNO(torch.nn.Module, AutoModelMixin):
     @classmethod
     def load_default_package(cls) -> Package:
         """Load prognostic package"""
-        package = Package(
-            "ngc://models/nvidian/onboarding/afno_dx_solarradiation@1",
-            cache_options={
-                "cache_storage": Package.default_cache("ssrd_afno"),
-                "same_names": True,
-            },
-        )
-        return package
+        raise NotImplementedError("Use specific frequency subclass")
 
     @classmethod
     @check_extra_imports("solarradiation-afno", [SolarRadiationNet, cos_zenith_angle])
-    def load_model(cls, package: Package, freq: str = "6h") -> DiagnosticModel:
+    def load_model(cls, package: Package) -> DiagnosticModel:
         """Load diagnostic from package"""
         if SolarRadiationNet is None or cos_zenith_angle is None:
             raise ImportError(
                 "Additional SolarRadiationAFNO model dependencies are not installed. See install documentation for details."
             )
 
-        model = SolarRadiationNet.from_checkpoint(
-            str(
-                Path(
-                    package.resolve(
-                        f"ssrd_{freq}_afno/solarradiation_afno/ssrd_{freq}_afno.mdlus"
-                    )
-                )
+        model = SolarRadiationNet(
+            dim=2,
+            in_channels=31,
+            out_channels=1,
+            patch_size=[4, 4],
+            pad_size=[[3, 4], [2, 2]],
+            embed_dim=256,
+            depth=12,
+            mlp_ratio=4.0,
+            drop_rate=0.0,
+            num_blocks=8,
+            sparsity_threshold=0.01,
+        )
+        model.load(
+            package.resolve(
+                f"ssrd_{cls.freq}_afno/ssrd_{cls.freq}_afno.mdlus"
             )
         )
         model.eval()
@@ -202,7 +204,7 @@ class SolarRadiationAFNO(torch.nn.Module, AutoModelMixin):
                 str(
                     Path(
                         package.resolve(
-                            f"ssrd_{freq}_afno/solarradiation_afno/global_means.npy"
+                            f"ssrd_{cls.freq}_afno/global_means.npy"
                         )
                     )
                 )
@@ -213,7 +215,7 @@ class SolarRadiationAFNO(torch.nn.Module, AutoModelMixin):
                 str(
                     Path(
                         package.resolve(
-                            f"ssrd_{freq}_afno/solarradiation_afno/global_stds.npy"
+                            f"ssrd_{cls.freq}_afno/global_stds.npy"
                         )
                     )
                 )
@@ -224,7 +226,7 @@ class SolarRadiationAFNO(torch.nn.Module, AutoModelMixin):
                 str(
                     Path(
                         package.resolve(
-                            f"ssrd_{freq}_afno/solarradiation_afno/ssrd_means.npy"
+                            f"ssrd_{cls.freq}_afno/ssrd_means.npy"
                         )
                     )
                 )
@@ -235,7 +237,7 @@ class SolarRadiationAFNO(torch.nn.Module, AutoModelMixin):
                 str(
                     Path(
                         package.resolve(
-                            f"ssrd_{freq}_afno/solarradiation_afno/ssrd_stds.npy"
+                            f"ssrd_{cls.freq}_afno/ssrd_stds.npy"
                         )
                     )
                 )
@@ -246,7 +248,7 @@ class SolarRadiationAFNO(torch.nn.Module, AutoModelMixin):
                 str(
                     Path(
                         package.resolve(
-                            f"ssrd_{freq}_afno/solarradiation_afno/orography.npy"
+                            f"ssrd_{cls.freq}_afno/orography.npy"
                         )
                     )
                 )
@@ -259,7 +261,7 @@ class SolarRadiationAFNO(torch.nn.Module, AutoModelMixin):
                 str(
                     Path(
                         package.resolve(
-                            f"ssrd_{freq}_afno/solarradiation_afno/land_sea_mask.npy"
+                            f"ssrd_{cls.freq}_afno/land_sea_mask.npy"
                         )
                     )
                 )
@@ -271,14 +273,14 @@ class SolarRadiationAFNO(torch.nn.Module, AutoModelMixin):
                 str(
                     Path(
                         package.resolve(
-                            f"ssrd_{freq}_afno/solarradiation_afno/sincos_latlon.npy"
+                            f"ssrd_{cls.freq}_afno/sincos_latlon.npy"
                         )
                     )
                 )
             )
         ).permute(1, 0, 2, 3)
         return cls(
-            model, freq, era5_mean, era5_std, ssrd_mean, ssrd_std, z, lsm, sincos_latlon
+            model, cls.freq, era5_mean, era5_std, ssrd_mean, ssrd_std, z, lsm, sincos_latlon
         )
 
     def get_sza_lonlat(
@@ -361,3 +363,43 @@ class SolarRadiationAFNO(torch.nn.Module, AutoModelMixin):
         # Reshape back to include batch, time, and lead_time dimensions
         out = out.reshape(batch_size, time_size, lead_time_size, 1, *out.shape[2:])
         return out, output_coords
+
+
+class SolarRadiationAFNO1H(SolarRadiationAFNO):
+    """Solar Radiation AFNO diagnostic model for 1-hour frequency predictions.
+    Predicts the accumulated global surface solar radiation over 1 hour [Jm^-2].
+    """
+
+    freq = "1h"
+
+    @classmethod
+    def load_default_package(cls) -> Package:
+        """Load prognostic package"""
+        package = Package(
+            "ngc://models/nvstaging/simnet/afno_dx_sr-v1-era5@1.0.0",
+            cache_options={
+                "cache_storage": Package.default_cache("ssrd_afno_1h"),
+                "same_names": True,
+            },
+        )
+        return package
+
+
+class SolarRadiationAFNO6H(SolarRadiationAFNO):
+    """Solar Radiation AFNO diagnostic model for 6-hour frequency predictions.
+    Predicts the accumulated global surface solar radiation over 6 hours [Jm^-2].
+    """
+
+    freq = "6h"
+
+    @classmethod
+    def load_default_package(cls) -> Package:
+        """Load prognostic package"""
+        package = Package(
+            "ngc://models/nvstaging/simnet/afno_dx_sr-v1-era5@1.0.0",
+            cache_options={
+                "cache_storage": Package.default_cache("ssrd_afno_6h"),
+                "same_names": True,
+            },
+        )
+        return package

@@ -28,7 +28,11 @@ from earth2studio.models.dx.derived import (
 from earth2studio.models.dx.identity import Identity  # noqa
 from earth2studio.models.dx.precipitation_afno import PrecipitationAFNO  # noqa
 from earth2studio.models.dx.precipitation_afno_v2 import PrecipitationAFNOv2  # noqa
-from earth2studio.models.dx.solarradiation_afno import SolarRadiationAFNO  # noqa
+from earth2studio.models.dx.solarradiation_afno import (
+    SolarRadiationAFNO,
+    SolarRadiationAFNO1H,
+    SolarRadiationAFNO6H,
+)
 from earth2studio.models.dx.tc_tracking import (
     TCTrackerVitart,
     TCTrackerWuDuan,
@@ -41,3 +45,14 @@ warnings.filterwarnings("ignore")
 warnings.filterwarnings("ignore", category=SyntaxWarning)
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 warnings.filterwarnings("ignore", category=FutureWarning)
+
+__all__ = [
+    "ClimateNet",
+    "CorrDiffTaiwan",
+    "PrecipitationAFNO",
+    "PrecipitationAFNOv2",
+    "SolarRadiationAFNO",
+    "SolarRadiationAFNO1H",
+    "SolarRadiationAFNO6H",
+    "WindgustAFNO",
+]
