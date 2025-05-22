@@ -6,7 +6,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.7.0a0] - 2025-xx-xx
+## [0.8.0a0] - 2025-06-XX
+
+### Added
+
+- Added Graphcast 1 degree model
+- Added SolarRadiationAFNO diagnostic model for predicting surface solar radiation
+
+### Changed
+
+### Deprecated
+
+### Removed
+
+### Fixed
+
+### Security
+
+### Dependencies
+
+## [0.7.0] - 2025-05-21
 
 ### Added
 
@@ -15,7 +34,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added HENS checkpoint example
 - Added Earth2Studio recipes folder, documentation and template
 - Added DLESyM and DLESyMLatLon atmosphere and ocean prognostic models
-- Added SolarRadiationAFNO diagnostic model for predicting surface solar radiation
 - HENS recipe
 
 ### Changed
@@ -30,8 +48,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   data sources
 - Updated StormCast coords to be HRRR index, output coords still provide lat lon
 - Interpolation AFNO model load_model now accepts prognostic model
-
-### Deprecated
 
 ### Removed
 

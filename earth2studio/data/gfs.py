@@ -274,6 +274,7 @@ class GFS:
                 # Get index file dictionary
                 index_file = results.pop(0)
                 for k, v in enumerate(variable):
+                    # sphinx - lexicon start
                     try:
                         gfs_name, modifier = GFSLexicon[v]
                     except KeyError:
@@ -299,7 +300,7 @@ class GFS:
                             f"Variable {v} not found in index file for time {t} at {lt}, values will be unset"
                         )
                         continue
-
+                    # sphinx - lexicon end
                     tasks.append(
                         GFSAsyncTask(
                             data_array_indices=(i, j, k),
@@ -323,7 +324,8 @@ class GFS:
             task.gfs_byte_length,
             task.gfs_modifier,
         )
-        xr_array[tuple(task.data_array_indices)] = out
+        i, j, k = task.data_array_indices
+        xr_array[i, j, k] = out
 
     async def fetch_array(
         self,

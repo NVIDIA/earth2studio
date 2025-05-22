@@ -58,11 +58,11 @@ Run the template
 uv run python main.py
 
 >> Hello
->> 0.6.0rc0
+>> 0.7.0
 
 uv run python main.py print.hello False
 
->> 0.6.0rc0
+>> 0.7.0
 ```
 
 ## Documentation
