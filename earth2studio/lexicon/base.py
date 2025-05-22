@@ -45,6 +45,7 @@ E2STUDIO_VOCAB = {
     "fg10m": "maximum 10 m wind gust since previous post-processing",
     "lsm": "land-sea mask",
     "zsl": "geopotential at mean sea-level",
+    "z": "geopotential at surface",
     "uvcossza": "cosine of solar zenith angle",
     "refc": "Maximum/Composite radar reflectivity (dB)",
     "csnow": "categorical snow",
