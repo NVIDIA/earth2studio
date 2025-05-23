@@ -45,8 +45,16 @@ def mock_model():
 @pytest.mark.parametrize(
     "x",
     [
+        # Single time, single lead time
         torch.randn(1, 1, 1, 31, 721, 1440),
-        torch.randn(2, 1, 1, 31, 721, 1440),
+        # Multiple times, single lead time
+        torch.randn(1, 2, 1, 31, 721, 1440),
+        # Single time, multiple lead times
+        torch.randn(1, 1, 2, 31, 721, 1440),
+        # Multiple times, multiple lead times
+        torch.randn(1, 2, 2, 31, 721, 1440),
+        # Multiple batch, multiple times, multiple lead times
+        torch.randn(2, 2, 2, 31, 721, 1440),
     ],
 )
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
@@ -80,11 +88,24 @@ def test_solarradiation_afno(x, device, mock_model, model_class, freq):
         sincos_latlon=sincos_latlon,
     ).to(device)
     x = x.to(device)
+
+    # Create time array based on number of time steps
+    times = np.array(
+        [
+            np.datetime64("2024-01-01") + np.timedelta64(i, "h")
+            for i in range(x.shape[1])
+        ]
+    )
+    # Create lead time array based on number of lead time steps
+    lead_times = np.array(
+        [np.timedelta64(int(freq[:-1]) * i, "h") for i in range(x.shape[2])]
+    )
+
     coords = OrderedDict(
         {
             "batch": np.ones(x.shape[0]),
-            "time": np.array([np.datetime64("2024-01-01")]),
-            "lead_time": np.array([np.timedelta64(int(freq[:-1]), "h")]),
+            "time": times,
+            "lead_time": lead_times,
             "variable": model.input_coords()["variable"],
             "lat": model.input_coords()["lat"],
             "lon": model.input_coords()["lon"],
@@ -93,7 +114,7 @@ def test_solarradiation_afno(x, device, mock_model, model_class, freq):
 
     # Run model
     out, out_coords = model(x, coords)
-    assert out.shape == (x.shape[0], 1, 1, 1, 721, 1440)
+    assert out.shape == (x.shape[0], x.shape[1], x.shape[2], 1, 721, 1440)
     assert out_coords["variable"] == np.array(["ssrd"])
     assert out_coords["lat"].shape == (721,)
     assert out_coords["lon"].shape == (1440,)

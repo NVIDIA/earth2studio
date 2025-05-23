@@ -321,7 +321,7 @@ class SolarRadiationAFNO(torch.nn.Module, AutoModelMixin):
         out = self.core_model(x) * repeat_ssrd_std + repeat_ssrd_mean
 
         # filter out negative values
-        out[out < 0] = 0
+        out = torch.clamp(out, min=0)
 
         # Reshape back to include batch, time, and lead_time dimensions
         out = out.reshape(batch_size, time_size, lead_time_size, 1, *out.shape[2:])
