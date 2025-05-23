@@ -245,7 +245,27 @@ uv add earth2studio --extra fuxi
 ::::
 :::::
 :::::{tab-item} GraphCast
-Notes: Requires JAX with CUDA support and the GraphCast package.
+Notes: The GraphCast operational model requires additional dependencies for JAX and Haiku.
+
+::::{tab-set}
+:::{tab-item} pip
+
+```bash
+pip install earth2studio[graphcast]
+```
+
+:::
+:::{tab-item} uv
+
+```bash
+uv add earth2studio --extra graphcast
+```
+
+:::
+::::
+:::::
+:::::{tab-item} GraphCastSmall
+Notes: The GraphCast small model requires additional dependencies for JAX and Haiku.
 
 ::::{tab-set}
 :::{tab-item} pip
