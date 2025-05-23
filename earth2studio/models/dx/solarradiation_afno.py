@@ -156,6 +156,8 @@ class SolarRadiationAFNO(torch.nn.Module, AutoModelMixin):
         handshake_dim(input_coords, "lon", 5)
         handshake_dim(input_coords, "lat", 4)
         handshake_dim(input_coords, "variable", 3)
+        handshake_dim(input_coords, "lead_time", 2)
+        handshake_dim(input_coords, "time", 1)
         handshake_coords(input_coords, target_input_coords, "lon")
         handshake_coords(input_coords, target_input_coords, "lat")
         handshake_coords(input_coords, target_input_coords, "variable")
@@ -174,11 +176,18 @@ class SolarRadiationAFNO(torch.nn.Module, AutoModelMixin):
     @classmethod
     @check_extra_imports("solarradiation-afno", [SolarRadiationNet, cos_zenith_angle])
     def load_model(cls, package: Package) -> DiagnosticModel:
-        """Load diagnostic from package"""
-        if SolarRadiationNet is None or cos_zenith_angle is None:
-            raise ImportError(
-                "Additional SolarRadiationAFNO model dependencies are not installed. See install documentation for details."
-            )
+        """Load prognostic from package
+
+        Parameters
+        ----------
+        package : Package
+            Package to load model from
+
+        Returns
+        -------
+        PrognosticModel
+            Prognostic model
+        """
 
         model = SolarRadiationNet(
             dim=2,
