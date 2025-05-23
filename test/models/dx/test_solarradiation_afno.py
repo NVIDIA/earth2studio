@@ -20,7 +20,7 @@ import numpy as np
 import pytest
 import torch
 
-from earth2studio.models.dx import SolarRadiationAFNO
+from earth2studio.models.dx import SolarRadiationAFNO1H, SolarRadiationAFNO6H
 from earth2studio.utils import handshake_dim
 
 
@@ -50,8 +50,15 @@ def mock_model():
     ],
 )
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
-def test_solarradiation_afno(x, device, mock_model):
-    """Test basic functionality of SolarRadiationAFNO model."""
+@pytest.mark.parametrize(
+    "model_class,freq",
+    [
+        (SolarRadiationAFNO1H, "1h"),
+        (SolarRadiationAFNO6H, "6h"),
+    ],
+)
+def test_solarradiation_afno(x, device, mock_model, model_class, freq):
+    """Test basic functionality of SolarRadiationAFNO models."""
     # Create mock tensors for model initialization
     era5_mean = torch.zeros(31, 1, 1)
     era5_std = torch.ones(31, 1, 1)
@@ -61,9 +68,9 @@ def test_solarradiation_afno(x, device, mock_model):
     landsea_mask = torch.zeros(1, 1, 721, 1440)
     sincos_latlon = torch.zeros(1, 4, 721, 1440)
 
-    model = SolarRadiationAFNO(
+    model = model_class(
         core_model=mock_model,
-        freq="6h",
+        freq=freq,
         era5_mean=era5_mean,
         era5_std=era5_std,
         ssrd_mean=ssrd_mean,
@@ -77,7 +84,7 @@ def test_solarradiation_afno(x, device, mock_model):
         {
             "batch": np.ones(x.shape[0]),
             "time": np.array([np.datetime64("2024-01-01")]),
-            "lead_time": np.array([np.timedelta64(6, "h")]),
+            "lead_time": np.array([np.timedelta64(int(freq[:-1]), "h")]),
             "variable": model.input_coords()["variable"],
             "lat": model.input_coords()["lat"],
             "lon": model.input_coords()["lon"],
@@ -106,7 +113,16 @@ def test_solarradiation_afno(x, device, mock_model):
         ),  # Missing t2m component
     ],
 )
-def test_solarradiation_afno_invalid_coords(invalid_coords, mock_model):
+@pytest.mark.parametrize(
+    "model_class,freq",
+    [
+        (SolarRadiationAFNO1H, "1h"),
+        (SolarRadiationAFNO6H, "6h"),
+    ],
+)
+def test_solarradiation_afno_invalid_coords(
+    invalid_coords, mock_model, model_class, freq
+):
     """Test solar radiation model with invalid coordinates."""
     # Create mock tensors for model initialization
     era5_mean = torch.zeros(31, 1, 1)
@@ -117,9 +133,9 @@ def test_solarradiation_afno_invalid_coords(invalid_coords, mock_model):
     landsea_mask = torch.zeros(1, 1, 721, 1440)
     sincos_latlon = torch.zeros(1, 4, 721, 1440)
 
-    model = SolarRadiationAFNO(
+    model = model_class(
         core_model=mock_model,
-        freq="6h",
+        freq=freq,
         era5_mean=era5_mean,
         era5_std=era5_std,
         ssrd_mean=ssrd_mean,
@@ -135,7 +151,14 @@ def test_solarradiation_afno_invalid_coords(invalid_coords, mock_model):
 
 
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
-def test_solarradiation_afno_exceptions(device, mock_model):
+@pytest.mark.parametrize(
+    "model_class,freq",
+    [
+        (SolarRadiationAFNO1H, "1h"),
+        (SolarRadiationAFNO6H, "6h"),
+    ],
+)
+def test_solarradiation_afno_exceptions(device, mock_model, model_class, freq):
     """Test exception handling for invalid inputs."""
     # Create mock tensors for model initialization
     era5_mean = torch.zeros(31, 1, 1)
@@ -146,9 +169,9 @@ def test_solarradiation_afno_exceptions(device, mock_model):
     landsea_mask = torch.zeros(1, 1, 721, 1440)
     sincos_latlon = torch.zeros(1, 4, 721, 1440)
 
-    model = SolarRadiationAFNO(
+    model = model_class(
         core_model=mock_model,
-        freq="6h",
+        freq=freq,
         era5_mean=era5_mean,
         era5_std=era5_std,
         ssrd_mean=ssrd_mean,
@@ -164,7 +187,7 @@ def test_solarradiation_afno_exceptions(device, mock_model):
         {
             "batch": np.ones(1),
             "time": np.array([np.datetime64("2024-01-01")]),
-            "lead_time": np.array([np.timedelta64(6, "h")]),
+            "lead_time": np.array([np.timedelta64(int(freq[:-1]), "h")]),
             "variable": model.input_coords()["variable"],
             "lat": model.input_coords()["lat"],
             "lon": model.input_coords()["lon"],
@@ -189,18 +212,25 @@ def test_solarradiation_afno_exceptions(device, mock_model):
 @pytest.mark.ci_cache
 @pytest.mark.timeout(30)
 @pytest.mark.parametrize("device", ["cuda:0"])
-def test_solarradiation_afno_package(device, model_cache_context):
+@pytest.mark.parametrize(
+    "model_class,freq",
+    [
+        (SolarRadiationAFNO1H, "1h"),
+        (SolarRadiationAFNO6H, "6h"),
+    ],
+)
+def test_solarradiation_afno_package(device, model_cache_context, model_class, freq):
     """Test the cached model package AFNO solar radiation.
     Only cuda supported."""
     with model_cache_context():
-        package = SolarRadiationAFNO.load_default_package()
-        dx = SolarRadiationAFNO.load_model(package).to(device)
+        package = model_class.load_default_package()
+        dx = model_class.load_model(package).to(device)
     x = torch.randn(2, 1, 1, 31, 721, 1440).to(device)
     coords = OrderedDict(
         {
             "batch": np.ones(x.shape[0]),
             "time": np.array([np.datetime64("2024-01-01T00:00")]),
-            "lead_time": np.array([np.timedelta64(6, "h")]),
+            "lead_time": np.array([np.timedelta64(int(freq[:-1]), "h")]),
             "variable": dx.input_coords()["variable"],
             "lat": dx.input_coords()["lat"],
             "lon": dx.input_coords()["lon"],

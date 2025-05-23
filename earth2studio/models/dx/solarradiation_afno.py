@@ -193,94 +193,48 @@ class SolarRadiationAFNO(torch.nn.Module, AutoModelMixin):
             num_blocks=8,
             sparsity_threshold=0.01,
         )
-        model.load(
-            package.resolve(
-                f"ssrd_{cls.freq}_afno/ssrd_{cls.freq}_afno.mdlus"
-            )
-        )
+        model.load(package.resolve(f"ssrd_{cls.freq}_afno/ssrd_{cls.freq}_afno.mdlus"))
         model.eval()
         era5_mean = torch.Tensor(
             np.load(
-                str(
-                    Path(
-                        package.resolve(
-                            f"ssrd_{cls.freq}_afno/global_means.npy"
-                        )
-                    )
-                )
+                str(Path(package.resolve(f"ssrd_{cls.freq}_afno/global_means.npy")))
             )
         )
         era5_std = torch.Tensor(
-            np.load(
-                str(
-                    Path(
-                        package.resolve(
-                            f"ssrd_{cls.freq}_afno/global_stds.npy"
-                        )
-                    )
-                )
-            )
+            np.load(str(Path(package.resolve(f"ssrd_{cls.freq}_afno/global_stds.npy"))))
         )
         ssrd_mean = torch.Tensor(
-            np.load(
-                str(
-                    Path(
-                        package.resolve(
-                            f"ssrd_{cls.freq}_afno/ssrd_means.npy"
-                        )
-                    )
-                )
-            )
+            np.load(str(Path(package.resolve(f"ssrd_{cls.freq}_afno/ssrd_means.npy"))))
         )
         ssrd_std = torch.Tensor(
-            np.load(
-                str(
-                    Path(
-                        package.resolve(
-                            f"ssrd_{cls.freq}_afno/ssrd_stds.npy"
-                        )
-                    )
-                )
-            )
+            np.load(str(Path(package.resolve(f"ssrd_{cls.freq}_afno/ssrd_stds.npy"))))
         )
         z = torch.Tensor(
-            np.load(
-                str(
-                    Path(
-                        package.resolve(
-                            f"ssrd_{cls.freq}_afno/orography.npy"
-                        )
-                    )
-                )
-            )
+            np.load(str(Path(package.resolve(f"ssrd_{cls.freq}_afno/orography.npy"))))
         ).permute(1, 0, 2, 3)
         z = (z - z.mean()) / z.std()
 
         lsm = torch.Tensor(
             np.load(
-                str(
-                    Path(
-                        package.resolve(
-                            f"ssrd_{cls.freq}_afno/land_sea_mask.npy"
-                        )
-                    )
-                )
+                str(Path(package.resolve(f"ssrd_{cls.freq}_afno/land_sea_mask.npy")))
             )
         ).permute(1, 0, 2, 3)
 
         sincos_latlon = torch.Tensor(
             np.load(
-                str(
-                    Path(
-                        package.resolve(
-                            f"ssrd_{cls.freq}_afno/sincos_latlon.npy"
-                        )
-                    )
-                )
+                str(Path(package.resolve(f"ssrd_{cls.freq}_afno/sincos_latlon.npy")))
             )
         ).permute(1, 0, 2, 3)
         return cls(
-            model, cls.freq, era5_mean, era5_std, ssrd_mean, ssrd_std, z, lsm, sincos_latlon
+            model,
+            cls.freq,
+            era5_mean,
+            era5_std,
+            ssrd_mean,
+            ssrd_std,
+            z,
+            lsm,
+            sincos_latlon,
         )
 
     def get_sza_lonlat(
