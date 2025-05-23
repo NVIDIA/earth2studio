@@ -294,37 +294,60 @@ class SolarRadiationAFNO(torch.nn.Module, AutoModelMixin):
         coords: CoordSystem,
     ) -> tuple[torch.Tensor, CoordSystem]:
         """Forward pass of diagnostic"""
-        # Reshape to remove batch, time, and lead_time dimensions
-        batch_size = x.shape[0]
-        time_size = x.shape[1]
-        lead_time_size = x.shape[2]
-        x = x.reshape(
-            -1, *x.shape[3:]
-        )  # Combine batch, time, lead_time into one dimension
-
         # Normalize input
         x = (x - self.era5_mean) / self.era5_std
         output_coords = self.output_coords(coords)
 
-        # compute solar zenith angle and concatenate
-        sza = self.compute_sza(output_coords).reshape((1, 1, *x.shape[2:])).to(x.device)
-        sza = sza.repeat(x.shape[0], 1, 1, 1)
-        repeat_sincos_latlon = self.sincos_latlon.repeat(x.shape[0], 1, 1, 1)
-        repeat_orography = self.orography.repeat(x.shape[0], 1, 1, 1)
-        repeat_landsea_mask = self.landsea_mask.repeat(x.shape[0], 1, 1, 1)
-        x = torch.cat(
-            (x, sza, repeat_sincos_latlon, repeat_orography, repeat_landsea_mask), dim=1
+        # Initialize output tensor
+        out = torch.zeros_like(x[..., :1, :, :])
+
+        # Get lon/lat grid for SZA computation
+        grid_x, grid_y = torch.meshgrid(
+            torch.tensor(coords["lat"]), torch.tensor(coords["lon"])
         )
 
-        repeat_ssrd_mean = self.ssrd_mean.repeat(x.shape[0], 1, 1, 1)
-        repeat_ssrd_std = self.ssrd_std.repeat(x.shape[0], 1, 1, 1)
-        out = self.core_model(x) * repeat_ssrd_std + repeat_ssrd_mean
+        for j, _ in enumerate(coords["batch"]):
+            for k, t in enumerate(coords["time"]):
+                for lt, dt in enumerate(coords["lead_time"]):
+                    # Compute SZA for this specific time and lead time
+                    sza = (
+                        self.compute_sza(
+                            OrderedDict(
+                                {
+                                    "time": np.array([t]),
+                                    "lead_time": np.array([dt]),
+                                    "lat": coords["lat"],
+                                    "lon": coords["lon"],
+                                }
+                            )
+                        )
+                        .reshape((1, 1, *x.shape[4:]))
+                        .to(x.device)
+                    )
+
+                    # Get the current time/lead time slice
+                    current_x = x[j, k, lt : lt + 1]
+
+                    # Concatenate all inputs
+                    in_ = torch.cat(
+                        (
+                            current_x,
+                            sza,
+                            self.sincos_latlon,
+                            self.orography,
+                            self.landsea_mask,
+                        ),
+                        dim=1,
+                    )
+
+                    # Run model and denormalize
+                    out[j, k, lt : lt + 1] = (
+                        self.core_model(in_) * self.ssrd_std + self.ssrd_mean
+                    )
 
         # filter out negative values
         out = torch.clamp(out, min=0)
 
-        # Reshape back to include batch, time, and lead_time dimensions
-        out = out.reshape(batch_size, time_size, lead_time_size, 1, *out.shape[2:])
         return out, output_coords
 
 
