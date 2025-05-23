@@ -62,6 +62,7 @@ class NetCDF4Backend:
         self.pool_size = pool_size
         self.async_timeout = async_timeout
         # Change to asyncio.Semaphore
+        self._io_limit = asyncio.Semaphore(self.pool_size)
         self._io_futures = []
 
         self._scratch_space = "netcdf"
@@ -110,22 +111,6 @@ class NetCDF4Backend:
             )
             self._io_futures.append(future)
 
-            # Wait for pool if above capacity
-            loop.run_until_complete(self.throttle_io_pool(self.pool_size))
-
-    async def throttle_io_pool(self, pool_size: int):
-        """Simple function to await for pooled io tasks if over capacity
-
-        Parameters
-        ----------
-        pool_size : int
-            Target pool size
-        """
-        while len(self._io_futures) > pool_size:
-            out = self._io_futures.pop(0)
-            if inspect.isawaitable(out):
-                await out
-
     async def write_async(
         self, x: torch.tensor, coords: CoordSystem, ft_kwargs: dict[str, Any] = {}
     ) -> None:
@@ -141,36 +126,43 @@ class NetCDF4Backend:
             File template key word args which will be used to generate the output file
             name, by default {}
         """
-        da = xr.DataArray(x.cpu().numpy(), coords=coords)
-        ds = da.to_dataset(dim=self.split_dim)
+        # Throttles the async io to stay within the pool size
+        async with self._io_limit:
+            logger.info("hit")
 
-        file_name = os.path.join(
-            self.root, self.ft.safe_substitute(index=self._index, **ft_kwargs)
-        )
+            # Bump cls write index
+            # potential not thread safe, todo
+            self._index += 1
 
-        if "local" in self.fs.protocol:
-            with self.fs.open(file_name, "wb") as f:
-                await asyncio.to_thread(ds.to_netcdf, f, engine=self.engine)
-        elif "memory" in self.fs.protocol:
-            with self.fs.open(file_name, "wb") as f:
-                await asyncio.to_thread(ds.to_netcdf, f, engine=self.engine)
-        else:
-            temp_file = os.path.join(self.scratch, f"temp_{file_name}")
-            # Possible to maybe use a in-memory pipe to avoid the use of a temp file
-            with open(temp_file, "rb") as local_file:
-                await asyncio.to_thread(ds.to_netcdf, local_file, engine=self.engine)
-            # TODO: Check this works / is best...
-            if self.fs.async_impl:
-                # Maybe different thread pool here???
-                await self.fs._put(temp_file, file_name)
+            da = xr.DataArray(x.cpu().numpy(), coords=coords)
+            ds = da.to_dataset(dim=self.split_dim)
+
+            file_name = os.path.join(
+                self.root, self.ft.safe_substitute(index=self._index, **ft_kwargs)
+            )
+
+            if "local" in self.fs.protocol:
+                with self.fs.open(file_name, "wb") as f:
+                    await asyncio.to_thread(ds.to_netcdf, f, engine=self.engine)
+            elif "memory" in self.fs.protocol:
+                with self.fs.open(file_name, "wb") as f:
+                    await asyncio.to_thread(ds.to_netcdf, f, engine=self.engine)
             else:
-                await asyncio.to_thread(self.fs.put, temp_file, file_name)
+                temp_file = os.path.join(self.scratch, f"temp_{file_name}")
+                # Possible to maybe use a in-memory pipe to avoid the use of a temp file
+                with open(temp_file, "rb") as local_file:
+                    await asyncio.to_thread(ds.to_netcdf, local_file, engine=self.engine)
+                # TODO: Check this works / is best...
+                if self.fs.async_impl:
+                    # Maybe different thread pool here???
+                    await self.fs._put(temp_file, file_name)
+                else:
+                    await asyncio.to_thread(self.fs.put, temp_file, file_name)
 
-            os.remove(temp_file)
+                os.remove(temp_file)
 
-        # Bump cls write index
-        # potential not thread safe, todo
-        self._index += 1
+            logger.info("done")
+            
 
     def consolidate(
         self,
@@ -254,6 +246,12 @@ class NetCDF4Backend:
     async def consolidate_async(self, files: Iterator[dict[str, Any] | Iterator]):
         pass
 
+    async def _close(self):
+        while len(self._io_futures):
+            out = self._io_futures.pop(0)
+            if inspect.isawaitable(out):
+                await out
+
     def close(self):
         """Cleans up an remaining io processes that are currently running. Should be
         called explicitly at the end of an inference workflow to ensure all data has
@@ -267,12 +265,14 @@ class NetCDF4Backend:
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
         # Clean up process pool
-        loop.run_until_complete(asyncio.wait_for(self.throttle_io_pool(0), timeout=self.async_timeout))
+        loop.run_until_complete(asyncio.wait_for(self._close(), timeout=self.async_timeout))
 
     def __del__(self):
         if len(self._io_futures) > 0:
+            # TODO: Not an entirely accurate warning, all futures may be complete
             logger.warning(
-                f"IO object found {len(self._io_futures)} in flight processes, cleaning up. Call `close()` manually to avoid this warning"
+                f"IO object found {len(self._io_futures)} in flight processes, cleaning up. " +
+                "Call `close()` manually to avoid this warning."
             )
             self.close()
 
