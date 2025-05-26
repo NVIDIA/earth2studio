@@ -17,6 +17,7 @@
 from collections.abc import Callable
 
 import torch
+from loguru import logger
 
 from earth2studio.perturbation.base import Perturbation
 from earth2studio.perturbation.brown import Brown
@@ -93,6 +94,11 @@ class BredVector:
         tuple[torch.Tensor, CoordSystem]:
             Output tensor and respective coordinate system dictionary
         """
+        if "lead_time" in coords and coords["lead_time"].shape[0] > 1:
+            logger.warning(
+                "Input data / models that require multiple lead times may lead to unexpected behavior"
+            )
+
         noise_amplitude = self.noise_amplitude.to(x.device)
         dx, coords = self.seeding_perturbation_method(x, coords)
         dx -= x

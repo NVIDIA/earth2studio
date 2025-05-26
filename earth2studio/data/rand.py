@@ -90,13 +90,6 @@ class Random_FX:
     ):
         self.domain_coords = domain_coords
 
-        # Check for regular vs. curvilinear coordinates
-        _, value = list(self.domain_coords.items()).pop()
-        value = np.array(value)
-        self.curv = len(value.shape) > 1
-        if self.curv:
-            self.domain_coord_shape = value.shape
-
     def __call__(  # type: ignore[override]
         self,
         time: datetime | list[datetime] | TimeArray,
@@ -123,23 +116,11 @@ class Random_FX:
         shape = [len(time), len(lead_time), len(variable)]
         coords = {"time": time, "lead_time": lead_time, "variable": variable}
 
-        if self.curv:
-            shape.extend(self.domain_coord_shape)
-            dims = ["time", "lead_time", "variable", "y", "x"]
-            coords = coords | {
-                "lat": (("y", "x"), self.domain_coords["lat"]),
-                "lon": (("y", "x"), self.domain_coords["lon"]),
-            }
-            da = xr.DataArray(data=np.random.randn(*shape), dims=dims, coords=coords)
+        for key, value in self.domain_coords.items():
+            shape.append(len(value))
+            coords[key] = value
 
-        else:
-
-            for key, value in self.domain_coords.items():
-                shape.append(len(value))
-                coords[key] = value
-
-            da = xr.DataArray(
-                data=np.random.randn(*shape), dims=list(coords), coords=coords
-            )
-
+        da = xr.DataArray(
+            data=np.random.randn(*shape), dims=list(coords), coords=coords
+        )
         return da

@@ -79,8 +79,8 @@ def curvilinear_data_array():
         coords={
             "time": [np.datetime64("2024-01-01"), np.datetime64("2024-01-02")],
             "variable": ["temp"],
-            "lat": (["hrrr_y", "hrrr_x"], lat),
-            "lon": (["hrrr_y", "hrrr_x"], lon),
+            "_lat": (["hrrr_y", "hrrr_x"], lat),
+            "_lon": (["hrrr_y", "hrrr_x"], lon),
             "hrrr_y": np.arange(10),
             "hrrr_x": np.arange(12),
         },
@@ -118,18 +118,17 @@ def test_prep_data_array_curvilinear(equilinear_data_array, curvilinear_data_arr
     target_lat = 30 + y * 1 + np.cos(x * 0.3) * 0.3
     target_lon = x * 1 + np.sin(y * 0.3) * 0.3
 
-    target_coords = OrderedDict({"lat": target_lat, "lon": target_lon})
+    target_coords = OrderedDict({"_lat": target_lat, "_lon": target_lon})
 
     out, coords = prep_data_array(
         curvilinear_data_array, interp_to=target_coords, interp_method="linear"
     )
-
     # Check output shape matches target grid
     assert out.shape == (2, 1, 20, 24)
 
     # Check coordinates are transformed correctly
-    assert np.array_equal(coords["lat"], target_lat)
-    assert np.array_equal(coords["lon"], target_lon)
+    assert np.array_equal(coords["_lat"], target_lat)
+    assert np.array_equal(coords["_lon"], target_lon)
 
     # Check HRRR-specific coordinates are removed
     assert "hrrr_y" not in coords
@@ -143,8 +142,8 @@ def test_prep_data_array_curvilinear(equilinear_data_array, curvilinear_data_arr
     assert out.shape == (2, 1, 20, 24)
 
     # Check coordinates are transformed correctly
-    assert np.array_equal(coords["lat"], target_lat)
-    assert np.array_equal(coords["lon"], target_lon)
+    assert np.array_equal(coords["_lat"], target_lat)
+    assert np.array_equal(coords["_lon"], target_lon)
 
     # Check HRRR-specific coordinates are removed
     assert "hrrr_y" not in coords
@@ -221,8 +220,8 @@ def test_fetch_data_interp(time, lead_time, device):
     lon = np.linspace(130, 60, num=512)
     target_coords = OrderedDict(
         {
-            "lat": lat,
-            "lon": lon,
+            "_lat": lat,
+            "_lon": lon,
         }
     )
 
@@ -241,8 +240,8 @@ def test_fetch_data_interp(time, lead_time, device):
     assert np.all(coords["time"] == time)
     assert np.all(coords["lead_time"] == lead_time)
     assert np.all(coords["variable"] == variable)
-    assert coords["lat"].shape == (256,)
-    assert coords["lon"].shape == (512,)
+    assert coords["_lat"].shape == (256,)
+    assert coords["_lon"].shape == (512,)
     assert not torch.isnan(x).any()
 
     # bilinear interp
@@ -260,8 +259,8 @@ def test_fetch_data_interp(time, lead_time, device):
     assert np.all(coords["time"] == time)
     assert np.all(coords["lead_time"] == lead_time)
     assert np.all(coords["variable"] == variable)
-    assert coords["lat"].shape == (256,)
-    assert coords["lon"].shape == (512,)
+    assert coords["_lat"].shape == (256,)
+    assert coords["_lon"].shape == (512,)
     assert not torch.isnan(x).any()
 
     # Target domain, 2d lat/lon coords
@@ -270,8 +269,8 @@ def test_fetch_data_interp(time, lead_time, device):
     lat2d, lon2d = np.meshgrid(lat, lon, indexing="ij")
     target_coords = OrderedDict(
         {
-            "lat": lat2d,
-            "lon": lon2d,
+            "_lat": lat2d,
+            "_lon": lon2d,
         }
     )
 
@@ -290,8 +289,8 @@ def test_fetch_data_interp(time, lead_time, device):
     assert np.all(coords["time"] == time)
     assert np.all(coords["lead_time"] == lead_time)
     assert np.all(coords["variable"] == variable)
-    assert coords["lat"].shape == (256, 512)
-    assert coords["lon"].shape == (256, 512)
+    assert coords["_lat"].shape == (256, 512)
+    assert coords["_lon"].shape == (256, 512)
     assert not torch.isnan(x).any()
 
     # bilinear interp
@@ -309,8 +308,8 @@ def test_fetch_data_interp(time, lead_time, device):
     assert np.all(coords["time"] == time)
     assert np.all(coords["lead_time"] == lead_time)
     assert np.all(coords["variable"] == variable)
-    assert coords["lat"].shape == (256, 512)
-    assert coords["lon"].shape == (256, 512)
+    assert coords["_lat"].shape == (256, 512)
+    assert coords["_lon"].shape == (256, 512)
     assert not torch.isnan(x).any()
 
 

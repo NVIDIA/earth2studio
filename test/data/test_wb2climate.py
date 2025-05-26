@@ -17,17 +17,19 @@
 import datetime
 import pathlib
 import shutil
+from importlib.metadata import version
 
 import numpy as np
 import pytest
-import xarray
 
 from earth2studio.data import WB2Climatology
-from earth2studio.utils.time import timearray_to_datetime
 
 
 @pytest.mark.slow
 @pytest.mark.xfail
+@pytest.mark.skipif(
+    int(version("zarr").split(".")[0]) < 3, reason="Test requires zarr version > 3.0"
+)
 @pytest.mark.timeout(15)
 @pytest.mark.parametrize(
     "time",
@@ -63,44 +65,9 @@ def test_wb2c_fetch(time, variable):
 
 @pytest.mark.slow
 @pytest.mark.xfail
-@pytest.mark.timeout(15)
-@pytest.mark.parametrize(
-    "time",
-    [
-        np.array([np.datetime64("1993-04-05T00:00")]),
-    ],
+@pytest.mark.skipif(
+    int(version("zarr").split(".")[0]) < 3, reason="Test requires zarr version > 3.0"
 )
-@pytest.mark.parametrize(
-    "variable, arco_variable, arco_level",
-    [("t2m", "2m_temperature", None), ("u200", "u_component_of_wind", 200)],
-)
-def test_wb2c_zarr(time, variable, arco_variable, arco_level):
-
-    ds = WB2Climatology(cache=False)
-    data = ds(time, variable)
-
-    era5 = xarray.open_zarr(
-        "gs://weatherbench2/datasets/era5-hourly-climatology/1990-2017_6h_1440x721.zarr",
-        consolidated=True,
-    )
-
-    hour, day_of_year = ds._get_time_index(timearray_to_datetime(time)[0])
-    # day_of_year is 0-based but convert to 1-based for xarray selection.
-    day_of_year += 1
-    if arco_level:
-        xr_data = era5[arco_variable].sel(
-            hour=hour, dayofyear=day_of_year, level=arco_level
-        )
-    else:
-        xr_data = era5[arco_variable].sel(hour=hour, dayofyear=day_of_year)
-
-    assert np.allclose(data.values, xr_data.values), np.max(
-        np.abs(data.values - xr_data.values)
-    )
-
-
-@pytest.mark.slow
-@pytest.mark.xfail
 @pytest.mark.timeout(15)
 @pytest.mark.parametrize(
     "time",

@@ -157,7 +157,7 @@ def prep_data_array(
 
     # Fetch data and regrid if necessary
     if interp_to is not None:
-        if len(interp_to["lat"].shape) != len(interp_to["lon"].shape):
+        if len(interp_to["_lat"].shape) != len(interp_to["_lon"].shape):
             raise ValueError(
                 "Discrepancy in interpolation coordinates: latitude has different number of dims than longitude"
             )
@@ -169,10 +169,10 @@ def prep_data_array(
                     "fetch_data does not support interpolation methods other than linear when data source has a curvilinear grid"
                 )
             interp = LatLonInterpolation(
-                lat_in=da["lat"].values,
-                lon_in=da["lon"].values,
-                lat_out=interp_to["lat"],
-                lon_out=interp_to["lon"],
+                lat_in=da["_lat"].values,
+                lon_in=da["_lon"].values,
+                lat_out=interp_to["_lat"],
+                lon_out=interp_to["_lon"],
             ).to(device)
             data = torch.Tensor(da.values).to(device)
             out = interp(data)
@@ -184,13 +184,13 @@ def prep_data_array(
             if "hrrr_x" in out_coords:
                 del out_coords["hrrr_x"]
         else:
-            if len(interp_to["lat"].shape) > 1 or len(interp_to["lon"].shape) > 1:
+            if len(interp_to["_lat"].shape) > 1 or len(interp_to["_lon"].shape) > 1:
                 # Target grid uses curvilinear coordinates: define internal dims y, x
-                target_lat = xr.DataArray(interp_to["lat"], dims=["y", "x"])
-                target_lon = xr.DataArray(interp_to["lon"], dims=["y", "x"])
+                target_lat = xr.DataArray(interp_to["_lat"], dims=["y", "x"])
+                target_lon = xr.DataArray(interp_to["_lon"], dims=["y", "x"])
             else:
-                target_lat = xr.DataArray(interp_to["lat"], dims=["lat"])
-                target_lon = xr.DataArray(interp_to["lon"], dims=["lon"])
+                target_lat = xr.DataArray(interp_to["_lat"], dims=["_lat"])
+                target_lon = xr.DataArray(interp_to["_lon"], dims=["_lon"])
 
             da = da.interp(
                 lat=target_lat,
@@ -200,8 +200,8 @@ def prep_data_array(
 
             out = torch.Tensor(da.values).to(device)
 
-        out_coords["lat"] = interp_to["lat"]
-        out_coords["lon"] = interp_to["lon"]
+        out_coords["_lat"] = interp_to["_lat"]
+        out_coords["_lon"] = interp_to["_lon"]
 
     else:
         out = torch.Tensor(da.values).to(device)

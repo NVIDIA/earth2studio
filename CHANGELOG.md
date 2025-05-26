@@ -6,7 +6,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.7.0a0] - 2025-xx-xx
+## [0.8.0a0] - 2025-06-XX
+
+### Added
+
+- Added Graphcast 1 degree model
+
+### Changed
+
+### Deprecated
+
+### Removed
+
+### Fixed
+
+### Security
+
+### Dependencies
+
+## [0.7.0] - 2025-05-21
 
 ### Added
 
@@ -22,16 +40,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Hemispheric centred bred vector perturbation now supports single/odd batch sizes
 - Refactored NCAR ERA5 source to have async structure
 - Refactored GFS and GFS_FX to have async structure
+- Refactored GEFS and GEFS_FX to have async structure
+- Refactored HRRR and HRRR_FX to have async structure
+- Refactored WB2ERA5 and WB2Climatology for async Zarr 3.0
 - Expanded the data source protocol to also include async fetch functions for async
   data sources
-
-### Deprecated
+- Updated StormCast coords to be HRRR index, output coords still provide lat lon
+- Interpolation AFNO model load_model now accepts prognostic model
 
 ### Removed
+
+- Removed curvilinear from Random data source
 
 ### Fixed
 
 - Fixed the asyncio zarr access in the ARCO data source
+- Partially fixed multiple tqdm print outs when using the built in workflows
+- Generalized CorrelatedSphericalGaussian to support input tensors of higher dims
 
 ### Security
 

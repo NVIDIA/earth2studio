@@ -20,6 +20,7 @@ from pathlib import Path
 
 import numpy as np
 import torch
+import xarray as xr
 
 try:
     import earth2grid
@@ -32,6 +33,7 @@ except ImportError:
     OmegaConf = None
     earth2grid = None
 from earth2studio.models.auto import AutoModelMixin, Package
+from earth2studio.models.batch import batch_coords, batch_func
 from earth2studio.models.px.base import PrognosticModel
 from earth2studio.models.px.utils import PrognosticMixin
 from earth2studio.utils import check_extra_imports, handshake_coords, handshake_dim
@@ -85,20 +87,22 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         iterator = model.create_iterator(x, coords)
 
         for step, (x, coords) in enumerate(iterator):
-            # Valid atmos and ocean predictions with their respective coordinates extracted below
-            atmos_outputs, atmos_coords = model.retrieve_valid_atmos_outputs(x, coords)
-            ocean_outputs, ocean_coords = model.retrieve_valid_ocean_outputs(x, coords)
-            ...
+            if step > 0:
+                # Valid atmos and ocean predictions with their respective coordinates extracted below
+                atmos_outputs, atmos_coords = model.retrieve_valid_atmos_outputs(x, coords)
+                ocean_outputs, ocean_coords = model.retrieve_valid_ocean_outputs(x, coords)
+                ...
 
     Note
     ----
     For more information about this model see:
 
-     - https://arxiv.org/abs/2409.16247
-     - https://arxiv.org/abs/2311.06253v2
+    - https://arxiv.org/abs/2409.16247
+    - https://arxiv.org/abs/2311.06253v2
 
     For more information about the HEALPix grid see:
-     - https://github.com/NVlabs/earth2grid
+
+    - https://github.com/NVlabs/earth2grid
 
     Parameters
     ----------
@@ -262,17 +266,17 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         # Setup the variable indices for [atmos, ocean]
         self.atmos_var_idx = [
-            list(in_coords["variable"]).index(var) for var in self.atmos_variables
+            list(out_coords["variable"]).index(var) for var in self.atmos_variables
         ]
         self.ocean_var_idx = [
-            list(in_coords["variable"]).index(var) for var in self.ocean_variables
+            list(out_coords["variable"]).index(var) for var in self.ocean_variables
         ]
         self.atmos_coupling_var_idx = [
-            list(in_coords["variable"]).index(var)
+            list(out_coords["variable"]).index(var)
             for var in self.atmos_coupling_variables
         ]
         self.ocean_coupling_var_idx = [
-            list(in_coords["variable"]).index(var)
+            list(out_coords["variable"]).index(var)
             for var in self.ocean_coupling_variables
         ]
 
@@ -296,7 +300,7 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             }
         )
 
-    # @batch_coords()
+    @batch_coords()
     def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
         """Output coordinate system of the prognostic model
 
@@ -345,10 +349,14 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     @classmethod
     def load_default_package(cls) -> Package:
         """Default DLESyM model package on NGC"""
-        # TODO use NGC package when ready
-        raise NotImplementedError(
-            "DLESyM NGC package not yet available, but is expected May 2025!"
+        package = Package(
+            "ngc://models/nvidia/earth-2/dlesym-v1-era5@1.0.1",
+            cache_options={
+                "cache_storage": Package.default_cache("dlesym"),
+                "same_names": True,
+            },
         )
+        return package
 
     @classmethod
     @check_extra_imports("dlesym", [Module, OmegaConf])
@@ -364,10 +372,10 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         ----------
         package : Package
             Package to load model from
-        atmos_model_idx : int
-            Index of atmos model weights in package to load
-        ocean_model_idx : int
-            Index of ocean model weights in package to load
+        atmos_model_idx : int, optional
+            Index of atmos model weights in package to load, by default 0
+        ocean_model_idx : int, optional
+            Index of ocean model weights in package to load, by default 0
 
         Returns
         -------
@@ -705,15 +713,21 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             Output coordinates
         """
 
+        self._validate_output_coords(coords)
+
+        var_dim = list(coords.keys()).index("variable")
+        lead_dim = list(coords.keys()).index("lead_time")
         out_coords = coords.copy()
         out_coords["variable"] = np.array(self.ocean_variables)
         out_coords["lead_time"] = np.array(
             [t for t in coords["lead_time"] if t % self.ocean_output_times[0] == 0]
         )
 
-        ocean_outputs = x[:, :, self.ocean_output_lt_idx, ...]
+        ocean_outputs = x.index_select(
+            dim=var_dim, index=torch.tensor(self.ocean_var_idx, device=x.device)
+        )
         ocean_outputs = ocean_outputs.index_select(
-            dim=3, index=torch.tensor(self.ocean_var_idx, device=x.device)
+            dim=lead_dim, index=torch.tensor(self.ocean_output_lt_idx, device=x.device)
         )
         return ocean_outputs, out_coords
 
@@ -738,12 +752,38 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             Output coordinates
         """
 
+        self._validate_output_coords(coords)
+
+        var_dim = list(coords.keys()).index("variable")
+
         out_coords = coords.copy()
         out_coords["variable"] = np.array(self.atmos_variables)
 
-        atmos_outputs = x[:, :, :, self.atmos_var_idx, ...]
+        atmos_outputs = x.index_select(
+            dim=var_dim, index=torch.tensor(self.atmos_var_idx, device=x.device)
+        )
 
         return atmos_outputs, out_coords
+
+    def _validate_output_coords(self, coords: CoordSystem) -> None:
+        """Validate the coordinates passed to the output subselection methods
+
+        Parameters
+        ----------
+        coords : CoordSystem
+            Output coordinates to be validated
+
+        Raises
+        ------
+        ValueError
+            If the coordinates are invalid (missing or incorrect length lead_time dim)
+        """
+        if "lead_time" not in coords:
+            raise ValueError("Lead time is required in the output coordinates")
+        if len(coords["lead_time"]) != len(self.atmos_output_times):
+            raise ValueError(
+                f"Lead time dimension length mismatch between model and coords: expected {len(self.atmos_output_times)}, got {len(coords['lead_time'])}"
+            )
 
     @torch.inference_mode()
     def _forward(
@@ -792,7 +832,7 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         return next_x, next_coords
 
-    # @batch_func()
+    @batch_func()
     def __call__(
         self,
         x: torch.Tensor,
@@ -817,7 +857,7 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         return self._forward(x, coords), output_coords
 
-    # @batch_func()
+    @batch_func()
     def _default_generator(
         self, x: torch.Tensor, coords: CoordSystem
     ) -> Generator[tuple[torch.Tensor, CoordSystem], None, None]:
@@ -972,9 +1012,16 @@ class DLESyMLatLon(DLESyM):
         """
         coords = super().input_coords()
         coords = self.coords_to_ll(coords)
+
+        # Modify to use the base variables instead of the derived variables
+        input_variables = [
+            v for v in list(coords["variable"]) if v not in ["tau300-700", "ws10m"]
+        ]
+        input_variables.extend(["u10m", "v10m", "z300", "z700"])
+        coords["variable"] = np.array(input_variables)
         return coords
 
-    # @batch_coords()
+    @batch_coords()
     def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
         """Output coordinate system of the prognostic model
 
@@ -1060,7 +1107,86 @@ class DLESyMLatLon(DLESyM):
             ll_coords.move_to_end(dim)
         return ll_coords
 
-    # @batch_func()
+    def _nan_interpolate_sst(
+        self, sst: torch.Tensor, coords: CoordSystem
+    ) -> torch.Tensor:
+        """Custom interpolation to fill NaNs over landmasses in SST data."""
+
+        da_sst = xr.DataArray(sst.cpu().numpy(), dims=coords.keys())
+        da_interp = da_sst.interpolate_na(
+            dim="lon", method="linear", use_coordinate=False
+        )
+
+        # Second pass: roll, interpolate along longitude, and unroll
+        roll_amount_lon = int(len(da_interp.lon) / 2)
+        da_double_interp = (
+            da_interp.roll(lon=roll_amount_lon, roll_coords=False)
+            .interpolate_na(dim="lon", method="linear", use_coordinate=False)
+            .roll(lon=len(da_interp.lon) - roll_amount_lon, roll_coords=False)
+        )
+
+        # Third pass do a similar roll along latitude
+        roll_amount_lat = int(len(da_double_interp.lat) / 2)
+        da_triple_interp = (
+            da_double_interp.roll(lat=roll_amount_lat, roll_coords=False)
+            .interpolate_na(dim="lat", method="linear", use_coordinate=False)
+            .roll(lat=len(da_double_interp.lat) - roll_amount_lat, roll_coords=False)
+        )
+
+        return torch.from_numpy(da_triple_interp.values).to(sst.device)
+
+    def _prepare_derived_variables(
+        self, x: torch.Tensor, coords: CoordSystem
+    ) -> tuple[torch.Tensor, CoordSystem]:
+        """Prepare derived variables for the DLESyM model.
+
+        This method handles the preparation of derived variables from the input tensor
+        and coordinates. It ensures that the derived variables are correctly computed,
+        and performs NaN-interpolation on the SST data.
+
+        Parameters
+        ----------
+        x : torch.Tensor
+            Input tensor
+        coords : CoordSystem
+            Input coordinate system
+
+        Returns
+        -------
+        tuple[torch.Tensor, CoordSystem]
+            Output tensor and coordinate system for the derived variables
+        """
+
+        prep_coords = coords.copy()
+
+        # Fetch the base variables
+        base_vars = list(prep_coords["variable"])
+        src_vars = {
+            v: x[..., base_vars.index(v) : base_vars.index(v) + 1, :, :]
+            for v in base_vars
+        }
+
+        # Compute the derived variables
+        out_vars = {
+            "ws10m": torch.sqrt(src_vars["u10m"] ** 2 + src_vars["v10m"] ** 2),
+            "tau300-700": src_vars["z300"] - src_vars["z700"],
+        }
+        out_vars.update(src_vars)
+
+        # Fill SST nans by custom interpolation
+        out_vars["sst"] = self._nan_interpolate_sst(out_vars["sst"], coords)
+
+        # Update the tensor with the derived variables and return
+        prep_coords["variable"] = np.array(self.atmos_variables + self.ocean_variables)
+        x_out = torch.empty(
+            *[v.shape[0] for v in prep_coords.values()], device=x.device
+        )
+        for i, v in enumerate(prep_coords["variable"]):
+            x_out[..., i : i + 1, :, :] = out_vars[v]
+
+        return x_out, prep_coords
+
+    @batch_func()
     def __call__(
         self, x: torch.Tensor, coords: CoordSystem
     ) -> tuple[torch.Tensor, CoordSystem]:
@@ -1080,17 +1206,23 @@ class DLESyMLatLon(DLESyM):
         """
         output_coords = self.output_coords(coords)
 
+        x, coords = self._prepare_derived_variables(x, coords)
+
         x = self.to_hpx(x)
         x = self._forward(x, self.coords_to_hpx(coords))
         x = self.to_ll(x)
         return x, output_coords
 
-    # @batch_func()
+    @batch_func()
     def _default_generator(
         self, x: torch.Tensor, coords: CoordSystem
     ) -> Generator[tuple[torch.Tensor, CoordSystem], None, None]:
 
         coords = coords.copy()
+
+        base_vars = coords["variable"]
+
+        x, coords = self._prepare_derived_variables(x, coords)
 
         yield x, coords
 
@@ -1101,7 +1233,12 @@ class DLESyMLatLon(DLESyM):
             x, coords = self.front_hook(x, coords)
 
             x = self._forward(x, self.coords_to_hpx(coords))
-            coords = self.output_coords(coords)
+
+            # Output coords expects the input variable set to include base variables,
+            # but will return the ouptut variables with the derived variables
+            base_coords = coords.copy()
+            base_coords["variable"] = base_vars
+            coords = self.output_coords(base_coords)
 
             # Rear hook
             x, coords = self.rear_hook(x, coords)

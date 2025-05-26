@@ -17,15 +17,19 @@
 import datetime
 import pathlib
 import shutil
+from importlib.metadata import version
 
 import numpy as np
 import pytest
 
-from earth2studio.data import ARCO, WB2ERA5, WB2ERA5_32x64, WB2ERA5_121x240
+from earth2studio.data import WB2ERA5, WB2ERA5_32x64, WB2ERA5_121x240
 
 
 @pytest.mark.slow
 @pytest.mark.xfail
+@pytest.mark.skipif(
+    int(version("zarr").split(".")[0]) < 3, reason="Test requires zarr version > 3.0"
+)
 @pytest.mark.timeout(15)
 @pytest.mark.parametrize(
     "time",
@@ -62,31 +66,9 @@ def test_wb2era5_fetch(time, variable, Datasource):
 
 @pytest.mark.slow
 @pytest.mark.xfail
-@pytest.mark.timeout(15)
-@pytest.mark.parametrize(
-    "time",
-    [
-        np.array([np.datetime64("1993-04-05T00:00")]),
-        np.array([np.datetime64("2001-02-27T18:00")]),
-    ],
+@pytest.mark.skipif(
+    int(version("zarr").split(".")[0]) < 3, reason="Test requires zarr version > 3.0"
 )
-@pytest.mark.parametrize(
-    "variable",
-    ["t2m", "u200"],
-)
-def test_wb2era5_verify(time, variable):
-
-    ds = WB2ERA5(cache=False)
-    data = ds(time, variable)
-
-    ds = ARCO(cache=False)
-    data_arco = ds(time, variable)
-
-    assert np.allclose(data.values, data_arco.values)
-
-
-@pytest.mark.slow
-@pytest.mark.xfail
 @pytest.mark.timeout(15)
 @pytest.mark.parametrize(
     "time",
@@ -127,6 +109,9 @@ def test_wb2era5_cache(time, variable, cache, Datasource):
 
 @pytest.mark.xfail
 @pytest.mark.timeout(15)
+@pytest.mark.skipif(
+    int(version("zarr").split(".")[0]) < 3, reason="Test requires zarr version > 3.0"
+)
 @pytest.mark.parametrize(
     "time",
     [

@@ -19,6 +19,7 @@ from collections.abc import Generator
 
 import numpy as np
 import torch
+from loguru import logger
 
 from earth2studio.data import DataSource, fetch_data
 from earth2studio.models.px import PrognosticModel
@@ -90,6 +91,7 @@ class HemisphericCentredBredVector:
         # Initialize your IC or other necessary components
         batch_size = generator_size // 2
         input_coords = self.model.input_coords()
+
         time = to_time_array(time)
         warmup_times = (
             time
@@ -106,6 +108,11 @@ class HemisphericCentredBredVector:
         coords = OrderedDict(
             [("batch", np.arange(batch_size))] + list(data_coords.items())
         )
+
+        if input_coords["lead_time"].shape[0] > 1:
+            logger.warning(
+                "Input data / models that require multiple lead times may lead to unexpected behavior"
+            )
 
         # get unperturbed intital state, assuming tensor always has 6 dims
         xunp = input_data[:1].repeat(batch_size, 1, 1, 1, 1, 1).to(device)
@@ -236,18 +243,25 @@ class HemisphericCentredBredVector:
         """
         shape = x.shape
         # Check the required dimensions are present
-        handshake_dim(coords, required_dim="time", required_index=1)
-        handshake_dim(coords, required_dim="lead_time", required_index=2)
-        handshake_dim(coords, required_dim="variable", required_index=3)
-        handshake_dim(coords, required_dim="lat", required_index=4)
-        handshake_dim(coords, required_dim="lon", required_index=5)
+        # We should probably run the perturbation and then check the output noise can
+        # match the size of the input tensor
+        handshake_dim(coords, required_dim="time", required_index=-5)
+        handshake_dim(coords, required_dim="lead_time", required_index=-4)
+        handshake_dim(coords, required_dim="variable", required_index=-3)
+        handshake_dim(coords, required_dim="lat", required_index=-2)
+        handshake_dim(coords, required_dim="lon", required_index=-1)
         handshake_size(coords, required_dim="time", required_size=1)
-        handshake_size(coords, required_dim="lead_time", required_size=1)
-        if len(shape) != 6:
-            raise ValueError("Input tensor and coords need 6 dimensions")
+
+        if len(shape) != 5 and len(shape) != 6:
+            raise ValueError("Input tensor and coords need 5 or 6 dimensions")
 
         self.noise_amplitude = self.noise_amplitude.to(x.device)
-        batch_size = coords[list(coords.keys())[0]].shape[0]
+
+        # Not the cleanest but works
+        if len(shape) == 5:
+            batch_size = 1
+        if len(shape) == 6:
+            batch_size = coords[list(coords.keys())[0]].shape[0]
 
         # This is some pretty annoying logic to deal with storing the centered
         # perturbation for odd batch sizes... could be worse probably can be better
@@ -275,4 +289,8 @@ class HemisphericCentredBredVector:
                 "Seems something went wrong in the perturbation, open an issue with your setup"
             )
 
-        return torch.cat(noise, dim=0), coords
+        x = torch.cat(noise, dim=0)
+        if len(shape) == 5:
+            x = x.squeeze(0)
+
+        return x, coords

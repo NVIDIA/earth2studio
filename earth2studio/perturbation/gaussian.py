@@ -148,7 +148,7 @@ class CorrelatedSphericalGaussian:
             length_scale=self.length_scale,
             time_scale=self.time_scale,
             sigma=self.sigma,
-            N=shape[-3],
+            N=np.prod(shape[1:-2], dtype=int),
         )
         sampler = sampler.to(x.device)
 
@@ -247,6 +247,8 @@ class CorrelatedSphericalField(torch.nn.Module):
         self.N = N
 
         # Standard normal noise sampler.
+        # Why is this defined in the init? Not sure, would be a lot more flexible
+        # in the call function
         self.gaussian_noise = torch.distributions.normal.Normal(self.mean, self.var)
         xi = self.gaussian_noise.sample(
             torch.Size((self.N, self.nlat, self.nlat + 1, 2))

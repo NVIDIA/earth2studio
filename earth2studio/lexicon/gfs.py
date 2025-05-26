@@ -36,6 +36,7 @@ class GFSLexicon(metaclass=LexiconType):
     https://www.nco.ncep.noaa.gov/pmb/products/gfs/gfs.t00z.pgrb2.0p25.f003.shtml
     """
 
+    # sphinx - lexicon start
     VOCAB = {
         "u10m": "UGRD::10 m above ground",
         "v10m": "VGRD::10 m above ground",
@@ -64,6 +65,7 @@ class GFSLexicon(metaclass=LexiconType):
         "u50": "UGRD::50 mb",
         "u70": "UGRD::70 mb",
         "u100": "UGRD::100 mb",
+        # sphinx - lexicon end
         "u150": "UGRD::150 mb",
         "u200": "UGRD::200 mb",
         "u250": "UGRD::250 mb",
