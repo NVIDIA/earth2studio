@@ -83,20 +83,24 @@ class CorrelatedSphericalGaussian:
 
     Parameters
     ----------
-    noise_amplitude : float | Tensor, optional
-        Noise amplitude, by default 0.05. If a tensor,
-        this must be broadcastable with the input data.
-    alpha : float, optional
-        Regularity parameter. Larger means smoother, by default 2.0
-    tau : float, optional
-        Length-scale parameter. Larger means more scales, by default 3.0
-    sigma : Union[float, None], optional
-        Scale parameter. If None, sigma = tau**(0.5*(2*alpha - 2.0)), by default None
+    noise_amplitude : float | torch.Tensor
+        Overall amplitude scaling factor for the noise field. Must be provided.
+    sigma : float, optional
+        Standard deviation of the noise field, by default 1.0
+    length_scale : float, optional
+        Spatial correlation length scale in meters, by default 5.0e5
+    time_scale : float, optional
+        Temporal correlation scale in hours for the AR(1) process, by default 48.0
+
+    Raises
+    ------
+    ValueError
+        If noise_amplitude is not provided
     """
 
     def __init__(
         self,
-        noise_amplitude: float | torch.Tensor | None = None,
+        noise_amplitude: float | torch.Tensor,
         sigma: float = 1.0,
         length_scale: float = 5.0e5,
         time_scale: float = 48.0,
