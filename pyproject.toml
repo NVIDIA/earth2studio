@@ -143,6 +143,9 @@ stormcast = [
     "pyproj>=3.7.1",
 ]
 # DX Models
+cbottle = [
+    "cbottle ; python_full_version >= '3.12'",
+]
 climatenet = []
 corrdiff = [
     "einops>=0.8.1",
@@ -172,7 +175,7 @@ windgust-afno = [
 all = [
     "earth2studio[data,perturbation,statistics]",
     "earth2studio[aurora-fork,dlesym,dlwp,fcn,fengwu,interp-modafno,pangu,sfno,stormcast,graphcast]",
-    "earth2studio[climatenet,corrdiff,precip-afno,cyclone,precip-afno-v2,windgust-afno]",
+    "earth2studio[cbottle,climatenet,corrdiff,precip-afno,cyclone,precip-afno-v2,windgust-afno]",
 ]
 
 # ==== UV configuration ====
@@ -214,6 +217,7 @@ no-build-isolation-package = ["earth2grid", "flash-attn"]
 override-dependencies = ["onnx; python_full_version < '3.13'"]
 
 [tool.uv.sources]
+cbottle = { git = "https://github.com/NVlabs/cBottle.git", rev = "0b8c6787053dc80f14fbb68a54d6815749c9d0e9" }
 earth2grid = { git = "https://github.com/NVlabs/earth2grid.git", rev = "aefb10793aa372bae7d0951d627a89e2983fd0ca" }
 makani = { git = "https://github.com/NickGeneva/modulus-makani.git", rev = "3da09f9e52a6393839d73d44262779ac7279bc2f" }
 microsoft-aurora = { git = "https://github.com/NickGeneva/aurora.git", rev = "ab41cf1de67d5dcc723b96fc9a6219e4b548d181" }
