@@ -14,20 +14,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from collections.abc import Iterator
+import asyncio
 import hashlib
 import inspect
 import os
+from collections.abc import Iterator
 from string import Template
 from typing import Any
 
-from loguru import logger
-import nest_asyncio
-import asyncio
-import xarray as xr
 import fsspec
-from fsspec.implementations.local import LocalFileSystem
+import nest_asyncio
 import torch
+import xarray as xr
+from fsspec.implementations.local import LocalFileSystem
+from loguru import logger
 
 from earth2studio.data.utils import datasource_cache_root
 from earth2studio.utils.type import CoordSystem
@@ -61,6 +61,7 @@ class HDF5Backend:
         self.blocking = blocking
         self.pool_size = pool_size
         self.async_timeout = async_timeout
+        self._io_limit = asyncio.Semaphore(self.pool_size)
         self._io_futures = []
 
         self._scratch_space = "h5netcdf"
@@ -96,7 +97,7 @@ class HDF5Backend:
                 )
             )
         else:
-            # Create future but don't wait for it
+            # Create task is better here
             future = asyncio.ensure_future(
                 asyncio.wait_for(
                     self.write_async(x, coords, ft_kwargs), timeout=self.async_timeout
@@ -106,19 +107,6 @@ class HDF5Backend:
 
             # Wait for pool if above capacity
             loop.run_until_complete(self.throttle_io_pool(self.pool_size))
-
-    async def throttle_io_pool(self, pool_size: int):
-        """Simple function to await for pooled io tasks if over capacity
-
-        Parameters
-        ----------
-        pool_size : int
-            Target pool size
-        """
-        while len(self._io_futures) > pool_size:
-            out = self._io_futures.pop(0)
-            if inspect.isawaitable(out):
-                await out
 
     async def write_async(
         self, x: torch.tensor, coords: CoordSystem, ft_kwargs: dict[str, Any] = {}
@@ -135,34 +123,39 @@ class HDF5Backend:
             File template key word args which will be used to generate the output file
             name, by default {}
         """
-        da = xr.DataArray(x.cpu().numpy(), coords=coords)
-        ds = da.to_dataset(dim=self.split_dim)
 
-        file_name = os.path.join(
-            self.root, self.ft.safe_substitute(index=self._index, **ft_kwargs)
-        )
+        # Throttles the async io to stay within the pool size
+        async with self._io_limit:
+            # Bump cls write index
+            # potential not thread safe, todo
+            self._index += 1
 
-        if "local" in self.fs.protocol:
-            with self.fs.open(file_name, "wb") as f:
-                await asyncio.to_thread(ds.to_netcdf, f, engine=self.engine)
-        elif "memory" in self.fs.protocol:
-            with self.fs.open(file_name, "wb") as f:
-                await asyncio.to_thread(ds.to_netcdf, f, engine=self.engine)
-        else:
-            temp_file = os.path.join(self.scratch, f"temp_{file_name}")
-            with open(temp_file, "rb") as local_file:
-                await asyncio.to_thread(ds.to_netcdf, local_file, engine=self.engine)
-            # TODO: Check this works / is best...
-            if self.fs.async_impl:
-                await self.fs._put(temp_file, file_name)
+            da = xr.DataArray(x.cpu().numpy(), coords=coords)
+            ds = da.to_dataset(dim=self.split_dim)
+
+            file_name = os.path.join(
+                self.root, self.ft.safe_substitute(index=self._index, **ft_kwargs)
+            )
+
+            if "local" in self.fs.protocol:
+                with self.fs.open(file_name, "wb") as f:
+                    await asyncio.to_thread(ds.to_netcdf, f, engine=self.engine)
+            elif "memory" in self.fs.protocol:
+                with self.fs.open(file_name, "wb") as f:
+                    await asyncio.to_thread(ds.to_netcdf, f, engine=self.engine)
             else:
-                await asyncio.to_thread(self.fs.put, temp_file, file_name)
+                temp_file = os.path.join(self.scratch, f"temp_{file_name}")
+                with open(temp_file, "rb") as local_file:
+                    await asyncio.to_thread(
+                        ds.to_netcdf, local_file, engine=self.engine
+                    )
+                # TODO: Check this works / is best...
+                if self.fs.async_impl:
+                    await self.fs._put(temp_file, file_name)
+                else:
+                    await asyncio.to_thread(self.fs.put, temp_file, file_name)
 
-            os.remove(temp_file)
-
-        # Bump cls write index
-        # potential not thread safe, todo
-        self._index += 1
+                os.remove(temp_file)
 
     def consolidate(
         self,
@@ -259,7 +252,9 @@ class HDF5Backend:
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
         # Clean up process pool
-        loop.run_until_complete(asyncio.wait_for(self.throttle_io_pool(0), timeout=self.async_timeout))
+        loop.run_until_complete(
+            asyncio.wait_for(self.throttle_io_pool(0), timeout=self.async_timeout)
+        )
 
     def __del__(self):
         if len(self._io_futures) > 0:

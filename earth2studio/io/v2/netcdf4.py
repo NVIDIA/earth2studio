@@ -14,20 +14,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from collections.abc import Iterator
+import asyncio
 import hashlib
 import inspect
 import os
+from collections.abc import Iterator
 from string import Template
 from typing import Any
 
-from loguru import logger
-import nest_asyncio
-import asyncio
-import xarray as xr
 import fsspec
-from fsspec.implementations.local import LocalFileSystem
+import nest_asyncio
 import torch
+import xarray as xr
+from fsspec.implementations.local import LocalFileSystem
+from loguru import logger
 
 from earth2studio.data.utils import datasource_cache_root
 from earth2studio.utils.type import CoordSystem
@@ -61,7 +61,6 @@ class NetCDF4Backend:
         self.blocking = blocking
         self.pool_size = pool_size
         self.async_timeout = async_timeout
-        # Change to asyncio.Semaphore
         self._io_limit = asyncio.Semaphore(self.pool_size)
         self._io_futures = []
 
@@ -98,13 +97,7 @@ class NetCDF4Backend:
                 )
             )
         else:
-            # Create future but don't wait for it
-            # Should maybe use tasks
-
-            # Maybe should have seperate thread pool for write and upload
-
-            # Create task is better here
-            future = asyncio.ensure_future(
+            future = loop.create_task(
                 asyncio.wait_for(
                     self.write_async(x, coords, ft_kwargs), timeout=self.async_timeout
                 )
@@ -128,7 +121,6 @@ class NetCDF4Backend:
         """
         # Throttles the async io to stay within the pool size
         async with self._io_limit:
-            logger.info("hit")
 
             # Bump cls write index
             # potential not thread safe, todo
@@ -151,7 +143,9 @@ class NetCDF4Backend:
                 temp_file = os.path.join(self.scratch, f"temp_{file_name}")
                 # Possible to maybe use a in-memory pipe to avoid the use of a temp file
                 with open(temp_file, "rb") as local_file:
-                    await asyncio.to_thread(ds.to_netcdf, local_file, engine=self.engine)
+                    await asyncio.to_thread(
+                        ds.to_netcdf, local_file, engine=self.engine
+                    )
                 # TODO: Check this works / is best...
                 if self.fs.async_impl:
                     # Maybe different thread pool here???
@@ -162,7 +156,6 @@ class NetCDF4Backend:
                 os.remove(temp_file)
 
             logger.info("done")
-            
 
     def consolidate(
         self,
@@ -265,14 +258,16 @@ class NetCDF4Backend:
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
         # Clean up process pool
-        loop.run_until_complete(asyncio.wait_for(self._close(), timeout=self.async_timeout))
+        loop.run_until_complete(
+            asyncio.wait_for(self._close(), timeout=self.async_timeout)
+        )
 
     def __del__(self):
         if len(self._io_futures) > 0:
             # TODO: Not an entirely accurate warning, all futures may be complete
             logger.warning(
-                f"IO object found {len(self._io_futures)} in flight processes, cleaning up. " +
-                "Call `close()` manually to avoid this warning."
+                f"IO object found {len(self._io_futures)} in flight processes, cleaning up. "
+                + "Call `close()` manually to avoid this warning."
             )
             self.close()
 
