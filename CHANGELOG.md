@@ -20,6 +20,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Fixed NCAR data source lat / lon labels and cache reads
+
 ### Security
 
 ### Dependencies

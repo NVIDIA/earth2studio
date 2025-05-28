@@ -56,6 +56,8 @@ def test_ncar_fetch(time, variable):
     assert shape[3] == 1440
     assert not np.isnan(data.values).any()
     assert np.array_equal(data.coords["variable"].values, np.array(variable))
+    assert np.array_equal(data.coords["lat"].values, NCAR_ERA5.NCAR_EAR5_LAT)
+    assert np.array_equal(data.coords["lon"].values, NCAR_ERA5.NCAR_EAR5_LON)
 
 
 @pytest.mark.slow
