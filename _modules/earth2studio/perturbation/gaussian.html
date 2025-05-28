@@ -514,20 +514,24 @@ document.write(`
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
-<span class="sd">    noise_amplitude : float | Tensor, optional</span>
-<span class="sd">        Noise amplitude, by default 0.05. If a tensor,</span>
-<span class="sd">        this must be broadcastable with the input data.</span>
-<span class="sd">    alpha : float, optional</span>
-<span class="sd">        Regularity parameter. Larger means smoother, by default 2.0</span>
-<span class="sd">    tau : float, optional</span>
-<span class="sd">        Length-scale parameter. Larger means more scales, by default 3.0</span>
-<span class="sd">    sigma : Union[float, None], optional</span>
-<span class="sd">        Scale parameter. If None, sigma = tau**(0.5*(2*alpha - 2.0)), by default None</span>
+<span class="sd">    noise_amplitude : float | torch.Tensor</span>
+<span class="sd">        Overall amplitude scaling factor for the noise field. Must be provided.</span>
+<span class="sd">    sigma : float, optional</span>
+<span class="sd">        Standard deviation of the noise field, by default 1.0</span>
+<span class="sd">    length_scale : float, optional</span>
+<span class="sd">        Spatial correlation length scale in meters, by default 5.0e5</span>
+<span class="sd">    time_scale : float, optional</span>
+<span class="sd">        Temporal correlation scale in hours for the AR(1) process, by default 48.0</span>
+
+<span class="sd">    Raises</span>
+<span class="sd">    ------</span>
+<span class="sd">    ValueError</span>
+<span class="sd">        If noise_amplitude is not provided</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
-        <span class="n">noise_amplitude</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">noise_amplitude</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
         <span class="n">sigma</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">,</span>
         <span class="n">length_scale</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">5.0e5</span><span class="p">,</span>
         <span class="n">time_scale</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">48.0</span><span class="p">,</span>
@@ -608,7 +612,7 @@ document.write(`
 <span class="sd">    Reference publication: A.Mahesh et al. Huge Ensembles Part I: Design of Ensemble Weather Forecasts using Spherical Fourier Neural Operators https://arxiv.org/abs/2408.03100.</span>
 
 <span class="sd">    This class can be used to create noise on the sphere</span>
-<span class="sd">    with a given length scale (in km) and time scale (in hours).</span>
+<span class="sd">    with a given length scale (in m) and time scale (in hours).</span>
 
 <span class="sd">    It mimics the implementation of the SPPT: Stochastic Perturbed</span>
 <span class="sd">    Parameterized Tendency in this paper:</span>
@@ -620,10 +624,11 @@ document.write(`
 <span class="sd">    nlat : int</span>
 <span class="sd">        Number of latitudinal modes;</span>
 <span class="sd">        longitudinal modes are 2*nlat.</span>
-<span class="sd">    length_scale : int</span>
-<span class="sd">        Length scale in km</span>
+<span class="sd">    length_scale : float</span>
+<span class="sd">        Correlation length scale in meters that determines the spatial decorrelation</span>
+<span class="sd">        distance of the noise field on the sphere</span>
 <span class="sd">    time_scale : int</span>
-<span class="sd">        Time scale for the AR(1) process, that governs</span>
+<span class="sd">        Time scale in hours for the AR(1) process, that governs</span>
 <span class="sd">        the evolution of the coefficients</span>
 <span class="sd">    sigma: float</span>
 <span class="sd">        desired standard deviation of the field in grid point space</span>

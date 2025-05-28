@@ -547,7 +547,7 @@ document.write(`
 <h1><a class="reference internal" href="../../perturbation.html#module-earth2studio.perturbation" title="earth2studio.perturbation"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.perturbation</span></code></a>.CorrelatedSphericalGaussian<a class="headerlink" href="#earth2studio-perturbation-correlatedsphericalgaussian" title="Link to this heading">#</a></h1>
 <dl class="py class">
 <dt class="sig sig-object py" id="earth2studio.perturbation.CorrelatedSphericalGaussian">
-<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">earth2studio.perturbation.</span></span><span class="sig-name descname"><span class="pre">CorrelatedSphericalGaussian</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">noise_amplitude</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sigma</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">length_scale</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">500000.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">time_scale</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">48.0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/earth2studio/perturbation/gaussian.html#CorrelatedSphericalGaussian"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.perturbation.CorrelatedSphericalGaussian" title="Link to this definition">#</a></dt>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">earth2studio.perturbation.</span></span><span class="sig-name descname"><span class="pre">CorrelatedSphericalGaussian</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">noise_amplitude</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sigma</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">length_scale</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">500000.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">time_scale</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">48.0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/earth2studio/perturbation/gaussian.html#CorrelatedSphericalGaussian"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.perturbation.CorrelatedSphericalGaussian" title="Link to this definition">#</a></dt>
 <dd><p>Produces Gaussian random field on the sphere with Matern
 covariance peturbation method output to a lat lon grid</p>
 <div class="admonition warning">
@@ -558,14 +558,14 @@ N is even or [N+1, 2*N] when N is odd.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>noise_amplitude</strong> (<em>float</em><em> | </em><em>Tensor</em><em>, </em><em>optional</em>) – Noise amplitude, by default 0.05. If a tensor,
-this must be broadcastable with the input data.</p></li>
-<li><p><strong>alpha</strong> (<em>float</em><em>, </em><em>optional</em>) – Regularity parameter. Larger means smoother, by default 2.0</p></li>
-<li><p><strong>tau</strong> (<em>float</em><em>, </em><em>optional</em>) – Length-scale parameter. Larger means more scales, by default 3.0</p></li>
-<li><p><strong>sigma</strong> (<em>Union</em><em>[</em><em>float</em><em>, </em><em>None</em><em>]</em><em>, </em><em>optional</em>) – Scale parameter. If None, sigma = tau**(0.5*(2*alpha - 2.0)), by default None</p></li>
-<li><p><strong>length_scale</strong> (<em>float</em>)</p></li>
-<li><p><strong>time_scale</strong> (<em>float</em>)</p></li>
+<li><p><strong>noise_amplitude</strong> (<em>float</em><em> | </em><em>torch.Tensor</em>) – Overall amplitude scaling factor for the noise field. Must be provided.</p></li>
+<li><p><strong>sigma</strong> (<em>float</em><em>, </em><em>optional</em>) – Standard deviation of the noise field, by default 1.0</p></li>
+<li><p><strong>length_scale</strong> (<em>float</em><em>, </em><em>optional</em>) – Spatial correlation length scale in meters, by default 5.0e5</p></li>
+<li><p><strong>time_scale</strong> (<em>float</em><em>, </em><em>optional</em>) – Temporal correlation scale in hours for the AR(1) process, by default 48.0</p></li>
 </ul>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>ValueError</strong> – If noise_amplitude is not provided</p>
 </dd>
 </dl>
 <dl class="py method">
