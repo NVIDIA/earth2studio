@@ -83,20 +83,24 @@ class CorrelatedSphericalGaussian:
 
     Parameters
     ----------
-    noise_amplitude : float | Tensor, optional
-        Noise amplitude, by default 0.05. If a tensor,
-        this must be broadcastable with the input data.
-    alpha : float, optional
-        Regularity parameter. Larger means smoother, by default 2.0
-    tau : float, optional
-        Length-scale parameter. Larger means more scales, by default 3.0
-    sigma : Union[float, None], optional
-        Scale parameter. If None, sigma = tau**(0.5*(2*alpha - 2.0)), by default None
+    noise_amplitude : float | torch.Tensor
+        Overall amplitude scaling factor for the noise field. Must be provided.
+    sigma : float, optional
+        Standard deviation of the noise field, by default 1.0
+    length_scale : float, optional
+        Spatial correlation length scale in meters, by default 5.0e5
+    time_scale : float, optional
+        Temporal correlation scale in hours for the AR(1) process, by default 48.0
+
+    Raises
+    ------
+    ValueError
+        If noise_amplitude is not provided
     """
 
     def __init__(
         self,
-        noise_amplitude: float | torch.Tensor | None = None,
+        noise_amplitude: float | torch.Tensor,
         sigma: float = 1.0,
         length_scale: float = 5.0e5,
         time_scale: float = 48.0,
@@ -173,7 +177,7 @@ class CorrelatedSphericalField(torch.nn.Module):
     Reference publication: A.Mahesh et al. Huge Ensembles Part I: Design of Ensemble Weather Forecasts using Spherical Fourier Neural Operators https://arxiv.org/abs/2408.03100.
 
     This class can be used to create noise on the sphere
-    with a given length scale (in km) and time scale (in hours).
+    with a given length scale (in m) and time scale (in hours).
 
     It mimics the implementation of the SPPT: Stochastic Perturbed
     Parameterized Tendency in this paper:
@@ -185,10 +189,11 @@ class CorrelatedSphericalField(torch.nn.Module):
     nlat : int
         Number of latitudinal modes;
         longitudinal modes are 2*nlat.
-    length_scale : int
-        Length scale in km
+    length_scale : float
+        Correlation length scale in meters that determines the spatial decorrelation
+        distance of the noise field on the sphere
     time_scale : int
-        Time scale for the AR(1) process, that governs
+        Time scale in hours for the AR(1) process, that governs
         the evolution of the coefficients
     sigma: float
         desired standard deviation of the field in grid point space
