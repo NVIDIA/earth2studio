@@ -84,7 +84,7 @@ class NCAR_ERA5:
     """
 
     NCAR_EAR5_LAT = np.linspace(90, -90, 721)
-    NCAR_EAR5_LON = np.linspace(0, 359.75, 1440)
+    NCAR_EAR5_LON = np.linspace(0, 360, 1440, endpoint=False)
 
     def __init__(
         self,
@@ -279,7 +279,7 @@ class NCAR_ERA5:
         )
 
         # Rename levels coord to variable
-        out = out.rename({"level": "variable"})
+        out = out.rename({"level": "variable", "longitude": "lon", "latitude": "lat"})
         out = out.assign_coords(variable=list(task.ncar_level_indices.values()))
         # Shouldnt be needed but just in case
         out = out.assign_coords(time=list(task.ncar_time_indices.values()))
@@ -325,8 +325,9 @@ class NCAR_ERA5:
         cache_path = os.path.join(self.cache, filename)
 
         if os.path.exists(cache_path):
-            ds = await asyncio.to_thread(xr.open_dataarray, cache_path)
-            ds = await asyncio.to_thread(ds.load)
+            ds = await asyncio.to_thread(
+                xr.open_dataarray, cache_path, engine="h5netcdf", cache=False
+            )
         else:
             # New fs every call so we dont block, netcdf reads seems to not support
             # open_async -> S3AsyncStreamedFile (big sad)
