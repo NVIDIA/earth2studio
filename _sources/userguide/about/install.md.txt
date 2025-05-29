@@ -472,6 +472,26 @@ uv add earth2studio --extra precip-afno-v2
 :::
 ::::
 :::::
+:::::{tab-item} Solar Radiation AFNO
+Notes: Requires physicsnemo package for zenith angle calculations.
+
+::::{tab-set}
+:::{tab-item} pip
+
+```bash
+pip install earth2studio[solarradiation-afno]
+```
+
+:::
+:::{tab-item} uv
+
+```bash
+uv add earth2studio --extra solarradiation-afno
+```
+
+:::
+::::
+:::::
 :::::{tab-item} Windgust AFNO
 ::::{tab-set}
 :::{tab-item} pip

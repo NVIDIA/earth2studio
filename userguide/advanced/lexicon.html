@@ -528,12 +528,28 @@ Note that the class has a <code class="docutils literal notranslate"><span class
 <span class="sd">    https://www.nco.ncep.noaa.gov/pmb/products/gfs/gfs.t00z.pgrb2.0p25.f003.shtml</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="c1"># sphinx - lexicon start</span>
     <span class="n">VOCAB</span> <span class="o">=</span> <span class="p">{</span>
         <span class="s2">&quot;u10m&quot;</span><span class="p">:</span> <span class="s2">&quot;UGRD::10 m above ground&quot;</span><span class="p">,</span>
         <span class="s2">&quot;v10m&quot;</span><span class="p">:</span> <span class="s2">&quot;VGRD::10 m above ground&quot;</span><span class="p">,</span>
         <span class="s2">&quot;u100m&quot;</span><span class="p">:</span> <span class="s2">&quot;UGRD::100 m above ground&quot;</span><span class="p">,</span>
         <span class="s2">&quot;v100m&quot;</span><span class="p">:</span> <span class="s2">&quot;VGRD::100 m above ground&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;t2m&quot;</span><span class="p">:</span> <span class="s2">&quot;TMP::2 m above ground&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;d2m&quot;</span><span class="p">:</span> <span class="s2">&quot;DPT::2 m above ground&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;r2m&quot;</span><span class="p">:</span> <span class="s2">&quot;RH::2 m above ground&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;q2m&quot;</span><span class="p">:</span> <span class="s2">&quot;SPFH::2 m above ground&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;sp&quot;</span><span class="p">:</span> <span class="s2">&quot;PRES::surface&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;msl&quot;</span><span class="p">:</span> <span class="s2">&quot;PRMSL::mean sea level&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;tcwv&quot;</span><span class="p">:</span> <span class="s2">&quot;PWAT::entire atmosphere (considered as a single layer)&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;tp&quot;</span><span class="p">:</span> <span class="s2">&quot;596::APCP::surface&quot;</span><span class="p">,</span>  <span class="c1"># 3 hour acc</span>
+        <span class="s2">&quot;2d&quot;</span><span class="p">:</span> <span class="s2">&quot;DPT::2 m above ground&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;fg10m&quot;</span><span class="p">:</span> <span class="s2">&quot;GUST::surface&quot;</span><span class="p">,</span>  <span class="c1"># Surface</span>
+        <span class="s2">&quot;u1&quot;</span><span class="p">:</span> <span class="s2">&quot;UGRD::1 mb&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;u2&quot;</span><span class="p">:</span> <span class="s2">&quot;UGRD::2 mb&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;u3&quot;</span><span class="p">:</span> <span class="s2">&quot;UGRD::3 mb&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;u5&quot;</span><span class="p">:</span> <span class="s2">&quot;UGRD::5 mb&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;u7&quot;</span><span class="p">:</span> <span class="s2">&quot;UGRD::7 mb&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;u10&quot;</span><span class="p">:</span> <span class="s2">&quot;UGRD::10 mb&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;u15&quot;</span><span class="p">:</span> <span class="s2">&quot;UGRD::15 mb&quot;</span><span class="p">,</span>
 </pre></div>
 </div>
 <p>Values of each variable is left up the the data source.
@@ -542,6 +558,33 @@ to access the required data.
 For example, the variable <code class="docutils literal notranslate"><span class="pre">u100</span></code>, zonal winds at 100 hPa, the value <code class="docutils literal notranslate"><span class="pre">UGRD::100</span> <span class="pre">mb</span></code> is
 split into <code class="docutils literal notranslate"><span class="pre">UGRD</span></code> and <code class="docutils literal notranslate"><span class="pre">100</span> <span class="pre">mb</span></code> which are then used with the remote Grib index file to
 fetch the correct data.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span>                    <span class="k">try</span><span class="p">:</span>
+                        <span class="n">gfs_name</span><span class="p">,</span> <span class="n">modifier</span> <span class="o">=</span> <span class="n">GFSLexicon</span><span class="p">[</span><span class="n">v</span><span class="p">]</span>
+                    <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
+                        <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                            <span class="sa">f</span><span class="s2">&quot;variable id </span><span class="si">{</span><span class="n">v</span><span class="si">}</span><span class="s2"> not found in GFS lexicon, good luck&quot;</span>
+                        <span class="p">)</span>
+                        <span class="n">gfs_name</span> <span class="o">=</span> <span class="n">v</span>
+
+                        <span class="k">def</span><span class="w"> </span><span class="nf">modifier</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">:</span>
+<span class="w">                            </span><span class="sd">&quot;&quot;&quot;Modify data (if necessary).&quot;&quot;&quot;</span>
+                            <span class="k">return</span> <span class="n">x</span>
+
+                    <span class="n">byte_offset</span> <span class="o">=</span> <span class="kc">None</span>
+                    <span class="n">byte_length</span> <span class="o">=</span> <span class="kc">None</span>
+                    <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">index_file</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                        <span class="k">if</span> <span class="n">gfs_name</span> <span class="ow">in</span> <span class="n">key</span><span class="p">:</span>
+                            <span class="n">byte_offset</span> <span class="o">=</span> <span class="n">value</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+                            <span class="n">byte_length</span> <span class="o">=</span> <span class="n">value</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+                            <span class="k">break</span>
+
+                    <span class="k">if</span> <span class="n">byte_length</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">byte_offset</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                        <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                            <span class="sa">f</span><span class="s2">&quot;Variable </span><span class="si">{</span><span class="n">v</span><span class="si">}</span><span class="s2"> not found in index file for time </span><span class="si">{</span><span class="n">t</span><span class="si">}</span><span class="s2"> at </span><span class="si">{</span><span class="n">lt</span><span class="si">}</span><span class="s2">, values will be unset&quot;</span>
+                        <span class="p">)</span>
+                        <span class="k">continue</span>
+</pre></div>
+</div>
 <p>It is a common pattern for data source lexicons to contain a modifier function that is
 used to apply adjustments to align data more uniformly with the package.
 A good example of this is the GFS dataset which uses the modifier function to transform
