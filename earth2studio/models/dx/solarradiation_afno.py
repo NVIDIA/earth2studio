@@ -132,7 +132,7 @@ class SolarRadiationAFNO(torch.nn.Module, AutoModelMixin):
                 "time": np.empty(0),
                 "lead_time": np.empty(0),
                 "variable": np.array(VARIABLES),
-                "lat": np.linspace(90, -90, 721, endpoint=False),
+                "lat": np.linspace(90, -90, 721),
                 "lon": np.linspace(0, 360, 1440, endpoint=False),
             }
         )
@@ -362,7 +362,7 @@ class SolarRadiationAFNO1H(SolarRadiationAFNO):
     def load_default_package(cls) -> Package:
         """Load prognostic package"""
         package = Package(
-            "ngc://models/nvstaging/simnet/afno_dx_sr-v1-era5@1.0.0",
+            "ngc://models/nvidia/earth-2/afno_dx_sr-v1-era5@1.0.0",
             cache_options={
                 "cache_storage": Package.default_cache("ssrd_afno_1h"),
                 "same_names": True,
@@ -382,7 +382,7 @@ class SolarRadiationAFNO6H(SolarRadiationAFNO):
     def load_default_package(cls) -> Package:
         """Load prognostic package"""
         package = Package(
-            "ngc://models/nvstaging/simnet/afno_dx_sr-v1-era5@1.0.0",
+            "ngc://models/nvidia/earth-2/afno_dx_sr-v1-era5@1.0.0",
             cache_options={
                 "cache_storage": Package.default_cache("ssrd_afno_6h"),
                 "same_names": True,
