@@ -33,6 +33,7 @@ Thus are typically used to generate forecast predictions.
    models.px.FCN
    models.px.FengWu
    models.px.FuXi
+   models.px.GraphCastSmall
    models.px.InterpModAFNO
    models.px.Pangu24
    models.px.Pangu6
