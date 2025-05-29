@@ -260,23 +260,6 @@ class DataArrayPathList:
             [variable] if not isinstance(variable, (list, ndarray)) else variable
         )
 
-        try:
-            # Validate inputs exist in dataset
-            missing_times = [t for t in times if t not in self.da.time]
-            if missing_times:
-                raise ValueError(
-                    f"Requested times not found in dataset: {missing_times}"
-                )
-
-            missing_vars = [v for v in variables if v not in self.da.variable]
-            if missing_vars:
-                raise ValueError(
-                    f"Requested variables not found in dataset: {missing_vars}"
-                )
-
-            # Process each timestamp
-            arrays = [self.da.sel(time=t, variable=variables) for t in times]
-            return xr.concat(arrays, dim="time")
-
-        except Exception as e:
-            raise ValueError(f"Error selecting data: {str(e)}") from e
+        # Process each timestamp
+        arrays = self.da.sel(time=times, variable=variables)
+        return xr.concat(arrays, dim="time")
