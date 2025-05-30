@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
     <link href="../../../../_static/favicon.ico" rel="icon" type="image/x-icon">
-    <title>earth2studio.models.px.FCN &#8212; Earth2Studio 0.8.0a0 documentation</title>
+    <title>earth2studio.models.px.GraphCastOperational &#8212; Earth2Studio 0.8.0a0 documentation</title>
   
   
   
@@ -51,7 +51,7 @@
     <script src="../../../../_static/togglebutton.js?v=4a39c7ea"></script>
     <script src="../../../../_static/design-tabs.js?v=f930bc37"></script>
     <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
-    <script>DOCUMENTATION_OPTIONS.pagename = 'modules/generated/models/px/earth2studio.models.px.FCN';</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'modules/generated/models/px/earth2studio.models.px.GraphCastOperational';</script>
     <script>
         DOCUMENTATION_OPTIONS.theme_version = '0.15.2';
         DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'https://raw.githubusercontent.com/NVIDIA/earth2studio/gh-pages/_static/switcher.json';
@@ -60,8 +60,8 @@
         </script>
     <link rel="index" title="Index" href="../../../../genindex.html" />
     <link rel="search" title="Search" href="../../../../search.html" />
-    <link rel="next" title="earth2studio.models.px.FengWu" href="earth2studio.models.px.FengWu.html" />
-    <link rel="prev" title="earth2studio.models.px.DLWP" href="earth2studio.models.px.DLWP.html" />
+    <link rel="next" title="earth2studio.models.px.GraphCastSmall" href="earth2studio.models.px.GraphCastSmall.html" />
+    <link rel="prev" title="earth2studio.models.px.FuXi" href="earth2studio.models.px.FuXi.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   </head>
@@ -385,10 +385,10 @@ document.write(`
 <li class="toctree-l2"><a class="reference internal" href="earth2studio.models.px.DLESyM.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.DLESyM</a></li>
 <li class="toctree-l2"><a class="reference internal" href="earth2studio.models.px.DLESyMLatLon.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.DLESyMLatLon</a></li>
 <li class="toctree-l2"><a class="reference internal" href="earth2studio.models.px.DLWP.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.DLWP</a></li>
-<li class="toctree-l2 current active"><a class="current reference internal" href="#"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.FCN</a></li>
+<li class="toctree-l2"><a class="reference internal" href="earth2studio.models.px.FCN.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.FCN</a></li>
 <li class="toctree-l2"><a class="reference internal" href="earth2studio.models.px.FengWu.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.FengWu</a></li>
 <li class="toctree-l2"><a class="reference internal" href="earth2studio.models.px.FuXi.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.FuXi</a></li>
-<li class="toctree-l2"><a class="reference internal" href="earth2studio.models.px.GraphCastOperational.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.GraphCastOperational</a></li>
+<li class="toctree-l2 current active"><a class="current reference internal" href="#"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.GraphCastOperational</a></li>
 <li class="toctree-l2"><a class="reference internal" href="earth2studio.models.px.GraphCastSmall.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.GraphCastSmall</a></li>
 <li class="toctree-l2"><a class="reference internal" href="earth2studio.models.px.InterpModAFNO.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.InterpModAFNO</a></li>
 <li class="toctree-l2"><a class="reference internal" href="earth2studio.models.px.Pangu24.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.Pangu24</a></li>
@@ -546,35 +546,50 @@ document.write(`
 <div id="searchbox"></div>
                 <article class="bd-article">
                   
-  <section id="earth2studio-models-px-fcn">
-<h1><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.FCN<a class="headerlink" href="#earth2studio-models-px-fcn" title="Link to this heading">#</a></h1>
+  <section id="earth2studio-models-px-graphcastoperational">
+<h1><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.GraphCastOperational<a class="headerlink" href="#earth2studio-models-px-graphcastoperational" title="Link to this heading">#</a></h1>
 <dl class="py class">
-<dt class="sig sig-object py" id="earth2studio.models.px.FCN">
-<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">earth2studio.models.px.</span></span><span class="sig-name descname"><span class="pre">FCN</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">core_model</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">center</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scale</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/earth2studio/models/px/fcn.html#FCN"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.px.FCN" title="Link to this definition">#</a></dt>
-<dd><p>FourCastNet global prognostic model. Consists of a single model with a time-step
-size of 6 hours. FourCastNet operates on 0.25 degree lat-lon grid (south-pole
-excluding) equirectangular grid with 26 variables.</p>
+<dt class="sig sig-object py" id="earth2studio.models.px.GraphCastOperational">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">earth2studio.models.px.</span></span><span class="sig-name descname"><span class="pre">GraphCastOperational</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ckpt</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">diffs_stddev_by_level</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mean_by_level</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">stddev_by_level</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/earth2studio/models/px/graphcast_operational.html#GraphCastOperational"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.px.GraphCastOperational" title="Link to this definition">#</a></dt>
+<dd><p>GraphCast operational model</p>
+<p>A high-resolution model (0.25 degree resolution, 13 pressure levels) pre-trained on ERA5 data
+from 1979 to 2017 and fine-tuned on HRES data from 2016 to 2021. This model can be initialized
+from HRES data (does not require precipitation inputs).</p>
+<p>The model operates on a 0.25-degree lat-lon grid (south-pole including) equirectangular grid
+with 85 variables including:</p>
+<ul class="simple">
+<li><p>Surface variables (2m temperature, 10m winds, etc.)</p></li>
+<li><p>Pressure level variables (temperature, winds, geopotential, etc.)</p></li>
+<li><p>Static variables (land-sea mask, surface geopotential)</p></li>
+</ul>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>This model is a retrained version on more atmospgeric variables from the FourCastNet
-paper. For additional information see the following resources:</p>
+<p>This model and checkpoint are based on the GraphCast architecture from DeepMind.
+For more information see the following references:</p>
 <ul class="simple">
-<li><p><a class="reference external" href="https://arxiv.org/abs/2202.11214">https://arxiv.org/abs/2202.11214</a></p></li>
-<li><p><a class="reference external" href="https://catalog.ngc.nvidia.com/orgs/nvidia/teams/modulus/models/modulus_fcn">https://catalog.ngc.nvidia.com/orgs/nvidia/teams/modulus/models/modulus_fcn</a></p></li>
+<li><p><a class="reference external" href="https://arxiv.org/abs/2212.12794">https://arxiv.org/abs/2212.12794</a></p></li>
+<li><p><a class="github reference external" href="https://github.com/google-deepmind/graphcast">google-deepmind/graphcast</a></p></li>
+<li><p><a class="reference external" href="https://www.science.org/doi/10.1126/science.adi2336">https://www.science.org/doi/10.1126/science.adi2336</a></p></li>
 </ul>
+</div>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>We encourage users to familiarize themselves with the license restrictions of this
+model’s checkpoints.</p>
 </div>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>core_model</strong> (<em>torch.nn.Module</em>) – Core PyTorch model with loaded weights</p></li>
-<li><p><strong>center</strong> (<em>torch.Tensor</em>) – Model center normalization tensor of size [26]</p></li>
-<li><p><strong>scale</strong> (<em>torch.Tensor</em>) – Model scale normalization tensor of size [26]</p></li>
+<li><p><strong>ckpt</strong> (<em>graphcast.CheckPoint</em>) – Model checkpoint containing weights and configuration</p></li>
+<li><p><strong>diffs_stddev_by_level</strong> (<em>xr.Dataset</em>) – Standard deviation of differences by level for normalization</p></li>
+<li><p><strong>mean_by_level</strong> (<em>xr.Dataset</em>) – Mean values by level for normalization</p></li>
+<li><p><strong>stddev_by_level</strong> (<em>xr.Dataset</em>) – Standard deviation by level for normalization</p></li>
 </ul>
 </dd>
 </dl>
 <dl class="py method">
-<dt class="sig sig-object py" id="earth2studio.models.px.FCN.__call__">
-<span class="sig-name descname"><span class="pre">__call__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">coords</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/earth2studio/models/px/fcn.html#FCN.__call__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.px.FCN.__call__" title="Link to this definition">#</a></dt>
+<dt class="sig sig-object py" id="earth2studio.models.px.GraphCastOperational.__call__">
+<span class="sig-name descname"><span class="pre">__call__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">coords</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/earth2studio/models/px/graphcast_operational.html#GraphCastOperational.__call__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.px.GraphCastOperational.__call__" title="Link to this definition">#</a></dt>
 <dd><p>Runs prognostic model 1 step.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -593,8 +608,8 @@ paper. For additional information see the following resources:</p>
 </dd></dl>
 
 <dl class="py method">
-<dt class="sig sig-object py" id="earth2studio.models.px.FCN.create_iterator">
-<span class="sig-name descname"><span class="pre">create_iterator</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">coords</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/earth2studio/models/px/fcn.html#FCN.create_iterator"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.px.FCN.create_iterator" title="Link to this definition">#</a></dt>
+<dt class="sig sig-object py" id="earth2studio.models.px.GraphCastOperational.create_iterator">
+<span class="sig-name descname"><span class="pre">create_iterator</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">coords</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/earth2studio/models/px/graphcast_operational.html#GraphCastOperational.create_iterator"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.px.GraphCastOperational.create_iterator" title="Link to this definition">#</a></dt>
 <dd><p>Creates a iterator which can be used to perform time-integration of the
 prognostic model. Will return the initial condition first (0th step).</p>
 <dl class="field-list simple">
@@ -615,8 +630,8 @@ output data tensor and coordinate system dictionary.</p>
 </dd></dl>
 
 <dl class="py method">
-<dt class="sig sig-object py" id="earth2studio.models.px.FCN.load_default_package">
-<em class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">load_default_package</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/earth2studio/models/px/fcn.html#FCN.load_default_package"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.px.FCN.load_default_package" title="Link to this definition">#</a></dt>
+<dt class="sig sig-object py" id="earth2studio.models.px.GraphCastOperational.load_default_package">
+<em class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">load_default_package</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/earth2studio/models/px/graphcast_operational.html#GraphCastOperational.load_default_package"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.px.GraphCastOperational.load_default_package" title="Link to this definition">#</a></dt>
 <dd><p>Load prognostic package</p>
 <dl class="field-list simple">
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
@@ -626,40 +641,25 @@ output data tensor and coordinate system dictionary.</p>
 </dd></dl>
 
 <dl class="py method">
-<dt class="sig sig-object py" id="earth2studio.models.px.FCN.load_model">
-<em class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">load_model</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">package</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/earth2studio/models/px/fcn.html#FCN.load_model"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.px.FCN.load_model" title="Link to this definition">#</a></dt>
+<dt class="sig sig-object py" id="earth2studio.models.px.GraphCastOperational.load_model">
+<em class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">load_model</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">package</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/earth2studio/models/px/graphcast_operational.html#GraphCastOperational.load_model"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.px.GraphCastOperational.load_model" title="Link to this definition">#</a></dt>
 <dd><p>Load prognostic from package</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>package</strong> (<a class="reference internal" href="../earth2studio.models.auto.Package.html#earth2studio.models.auto.Package" title="earth2studio.models.auto.package.Package"><em>Package</em></a>)</p>
+<dd class="field-odd"><p><strong>package</strong> (<a class="reference internal" href="../earth2studio.models.auto.Package.html#earth2studio.models.auto.Package" title="earth2studio.models.auto.Package"><em>Package</em></a>) – Package to load model from</p>
 </dd>
-<dt class="field-even">Return type<span class="colon">:</span></dt>
-<dd class="field-even"><p><em>PrognosticModel</em></p>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Prognostic model</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>PrognosticModel</p>
 </dd>
 </dl>
 </dd></dl>
 
 </dd></dl>
 
-<section id="examples-using-earth2studio-models-px-fcn">
-<span id="sphx-glr-backref-earth2studio-models-px-fcn"></span><h2>Examples using <code class="docutils literal notranslate"><span class="pre">earth2studio.models.px.FCN</span></code><a class="headerlink" href="#examples-using-earth2studio-models-px-fcn" title="Link to this heading">#</a></h2>
-<div class="sphx-glr-thumbnails"><div class="sphx-glr-thumbcontainer" tooltip="Basic deterministic inference workflow."><img alt="" src="../../../../_images/sphx_glr_01_deterministic_workflow_thumb.png" />
-<p><a class="reference internal" href="../../../../examples/01_deterministic_workflow.html#sphx-glr-examples-01-deterministic-workflow-py"><span class="std std-ref">Running Deterministic Inference</span></a></p>
-  <div class="sphx-glr-thumbnail-title">Running Deterministic Inference</div>
-</div><div class="sphx-glr-thumbcontainer" tooltip="Basic prognostic + diagnostic inference workflow."><img alt="" src="../../../../_images/sphx_glr_02_diagnostic_workflow_thumb.png" />
-<p><a class="reference internal" href="../../../../examples/02_diagnostic_workflow.html#sphx-glr-examples-02-diagnostic-workflow-py"><span class="std std-ref">Running Diagnostic Inference</span></a></p>
-  <div class="sphx-glr-thumbnail-title">Running Diagnostic Inference</div>
-</div><div class="sphx-glr-thumbcontainer" tooltip="Simple ensemble inference workflow."><img alt="" src="../../../../_images/sphx_glr_03_ensemble_workflow_thumb.png" />
-<p><a class="reference internal" href="../../../../examples/03_ensemble_workflow.html#sphx-glr-examples-03-ensemble-workflow-py"><span class="std std-ref">Running Ensemble Inference</span></a></p>
-  <div class="sphx-glr-thumbnail-title">Running Ensemble Inference</div>
-</div><div class="sphx-glr-thumbcontainer" tooltip="Tropical cyclone tracking with tracker diagnostic models."><img alt="" src="../../../../_images/sphx_glr_13_cyclone_tracking_thumb.png" />
-<p><a class="reference internal" href="../../../../examples/13_cyclone_tracking.html#sphx-glr-examples-13-cyclone-tracking-py"><span class="std std-ref">Tropical Cyclone Tracking</span></a></p>
-  <div class="sphx-glr-thumbnail-title">Tropical Cyclone Tracking</div>
-</div><div class="sphx-glr-thumbcontainer" tooltip="Implementing a custom data source"><img alt="" src="../../../../_images/sphx_glr_03_custom_datasource_thumb.png" />
-<p><a class="reference internal" href="../../../../examples/extend/03_custom_datasource.html#sphx-glr-examples-extend-03-custom-datasource-py"><span class="std std-ref">Extending Data Sources</span></a></p>
-  <div class="sphx-glr-thumbnail-title">Extending Data Sources</div>
-</div></div><div class="clearer"></div></section>
-</section>
+<div class="clearer"></div></section>
 
 
                 </article>
@@ -672,20 +672,20 @@ output data tensor and coordinate system dictionary.</p>
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="earth2studio.models.px.DLWP.html"
+       href="earth2studio.models.px.FuXi.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.DLWP</p>
+        <p class="prev-next-title"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.FuXi</p>
       </div>
     </a>
     <a class="right-next"
-       href="earth2studio.models.px.FengWu.html"
+       href="earth2studio.models.px.GraphCastSmall.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.FengWu</p>
+        <p class="prev-next-title"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.GraphCastSmall</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
@@ -707,21 +707,20 @@ output data tensor and coordinate system dictionary.</p>
   </div>
   <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="visible nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.models.px.FCN"><code class="docutils literal notranslate"><span class="pre">FCN</span></code></a><ul class="nav section-nav flex-column">
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.models.px.FCN.__call__"><code class="docutils literal notranslate"><span class="pre">FCN.__call__()</span></code></a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.models.px.FCN.create_iterator"><code class="docutils literal notranslate"><span class="pre">FCN.create_iterator()</span></code></a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.models.px.FCN.load_default_package"><code class="docutils literal notranslate"><span class="pre">FCN.load_default_package()</span></code></a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.models.px.FCN.load_model"><code class="docutils literal notranslate"><span class="pre">FCN.load_model()</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.models.px.GraphCastOperational"><code class="docutils literal notranslate"><span class="pre">GraphCastOperational</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.models.px.GraphCastOperational.__call__"><code class="docutils literal notranslate"><span class="pre">GraphCastOperational.__call__()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.models.px.GraphCastOperational.create_iterator"><code class="docutils literal notranslate"><span class="pre">GraphCastOperational.create_iterator()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.models.px.GraphCastOperational.load_default_package"><code class="docutils literal notranslate"><span class="pre">GraphCastOperational.load_default_package()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.models.px.GraphCastOperational.load_model"><code class="docutils literal notranslate"><span class="pre">GraphCastOperational.load_model()</span></code></a></li>
 </ul>
 </li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#examples-using-earth2studio-models-px-fcn">Examples using <code class="docutils literal notranslate"><span class="pre">earth2studio.models.px.FCN</span></code></a></li>
 </ul>
   </nav></div>
 
   <div class="sidebar-secondary-item">
 
   <div class="tocsection sourcelink">
-    <a href="../../../../_sources/modules/generated/models/px/earth2studio.models.px.FCN.rst.txt">
+    <a href="../../../../_sources/modules/generated/models/px/earth2studio.models.px.GraphCastOperational.rst.txt">
       <i class="fa-solid fa-file-lines"></i> Show Source
     </a>
   </div>
