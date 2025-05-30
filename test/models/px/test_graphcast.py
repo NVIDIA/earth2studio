@@ -78,7 +78,6 @@ def mock_GraphCastSmall_model():
         def __init__(self, model_config, task_config):
             self.model_config = model_config
             self.task_config = task_config
-            # Initialize with empty parameters that will be properly initialized
             self.params = {}
             self.description = "some"
             self.license = "license"
@@ -272,7 +271,10 @@ def test_graphcast_small_package(model, device):
     variable = p.input_coords()["variable"]
     x, coords = fetch_data(r, time, variable, lead_time, device=device)
 
-    out, out_coords = p(x, coords)
+    # Check iter
+    p_iter = p.create_iterator(x, coords)
+    for i in range(3):
+        out, out_coords = next(p_iter)
 
     if not isinstance(time, Iterable):
         time = [time]
@@ -346,21 +348,27 @@ def mock_GraphCastOperational_model():
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
 @mock.patch("graphcast.rollout.chunked_prediction", mocked_chunked_prediction)
 def test_graphcast_operational_call(device, mock_GraphCastOperational_model):
+
     p = mock_GraphCastOperational_model.to(device)
+
     dc = p.input_coords()
     del dc["batch"]
     del dc["time"]
     del dc["lead_time"]
     del dc["variable"]
+
+    # Initialize Data Source
     r = Random(dc)
-    time = np.array([np.datetime64("2019-01-01T00:00")])
+
+    # Get Data and convert to tensor, coords
+    time = np.array([np.datetime64("2010-01-01T00:00")])
     lead_time = p.input_coords()["lead_time"]
     variable = p.input_coords()["variable"]
     x, coords = fetch_data(r, time, variable, lead_time, device=device)
     out, out_coords = p(x, coords)
-    assert out.shape[3:] == (85, 721, 1440)
-    assert out_coords["lat"].shape[0] == 721
-    assert out_coords["lon"].shape[0] == 1440
+    assert out.shape == (1, 1, 85, 721, 1440)
+    assert (out_coords["variable"] == p.output_coords(coords)["variable"]).all()
+    assert (out_coords["time"] == time).all()
     handshake_dim(out_coords, "lon", 4)
     handshake_dim(out_coords, "lat", 3)
     handshake_dim(out_coords, "variable", 2)
@@ -475,7 +483,10 @@ def test_graphcast_operational_package(operational_model, device):
     variable = p.input_coords()["variable"]
     x, coords = fetch_data(r, time, variable, lead_time, device=device)
 
-    out, out_coords = p(x, coords)
+    # Check iter
+    p_iter = p.create_iterator(x, coords)
+    for i in range(3):
+        out, out_coords = next(p_iter)
 
     if not isinstance(time, Iterable):
         time = [time]
