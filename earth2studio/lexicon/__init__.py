@@ -15,6 +15,7 @@
 # limitations under the License.
 
 from .arco import ARCOLexicon
+from .cbottle import CBottleLexicon
 from .cds import CDSLexicon
 from .gefs import GEFSLexicon, GEFSLexiconSel
 from .gfs import GFSLexicon
