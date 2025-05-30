@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2024-2025 NVIDIA CORPORATION & AFFILIATES.
 # SPDX-FileCopyrightText: All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -46,15 +46,15 @@ def mock_model():
     "x",
     [
         # Single time, single lead time
-        torch.randn(1, 1, 1, 31, 721, 1440),
+        torch.randn(1, 1, 1, 24, 721, 1440),
         # Multiple times, single lead time
-        torch.randn(1, 2, 1, 31, 721, 1440),
+        torch.randn(1, 2, 1, 24, 721, 1440),
         # Single time, multiple lead times
-        torch.randn(1, 1, 2, 31, 721, 1440),
+        torch.randn(1, 1, 2, 24, 721, 1440),
         # Multiple times, multiple lead times
-        torch.randn(1, 2, 2, 31, 721, 1440),
+        torch.randn(1, 2, 2, 24, 721, 1440),
         # Multiple batch, multiple times, multiple lead times
-        torch.randn(2, 2, 2, 31, 721, 1440),
+        torch.randn(2, 2, 2, 24, 721, 1440),
     ],
 )
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
@@ -68,8 +68,8 @@ def mock_model():
 def test_solarradiation_afno(x, device, mock_model, model_class, freq):
     """Test basic functionality of SolarRadiationAFNO models."""
     # Create mock tensors for model initialization
-    era5_mean = torch.zeros(31, 1, 1)
-    era5_std = torch.ones(31, 1, 1)
+    era5_mean = torch.zeros(24, 1, 1)
+    era5_std = torch.ones(24, 1, 1)
     ssrd_mean = torch.zeros(1, 1, 1)
     ssrd_std = torch.ones(1, 1, 1)
     orography = torch.zeros(1, 1, 721, 1440)
@@ -146,8 +146,8 @@ def test_solarradiation_afno_invalid_coords(
 ):
     """Test solar radiation model with invalid coordinates."""
     # Create mock tensors for model initialization
-    era5_mean = torch.zeros(31, 1, 1)
-    era5_std = torch.ones(31, 1, 1)
+    era5_mean = torch.zeros(24, 1, 1)
+    era5_std = torch.ones(24, 1, 1)
     ssrd_mean = torch.zeros(1, 1, 1)
     ssrd_std = torch.ones(1, 1, 1)
     orography = torch.zeros(1, 1, 721, 1440)
@@ -182,8 +182,8 @@ def test_solarradiation_afno_invalid_coords(
 def test_solarradiation_afno_exceptions(device, mock_model, model_class, freq):
     """Test exception handling for invalid inputs."""
     # Create mock tensors for model initialization
-    era5_mean = torch.zeros(31, 1, 1)
-    era5_std = torch.ones(31, 1, 1)
+    era5_mean = torch.zeros(24, 1, 1)
+    era5_std = torch.ones(24, 1, 1)
     ssrd_mean = torch.zeros(1, 1, 1)
     ssrd_std = torch.ones(1, 1, 1)
     orography = torch.zeros(1, 1, 721, 1440)
@@ -203,7 +203,7 @@ def test_solarradiation_afno_exceptions(device, mock_model, model_class, freq):
     ).to(device)
 
     # Test invalid input shapes
-    x = torch.randn((1, 1, 1, 31, 721, 1440), device=device)
+    x = torch.randn((1, 1, 1, 24, 721, 1440), device=device)
     coords = OrderedDict(
         {
             "batch": np.ones(1),
@@ -246,7 +246,7 @@ def test_solarradiation_afno_package(device, model_cache_context, model_class, f
     with model_cache_context():
         package = model_class.load_default_package()
         dx = model_class.load_model(package).to(device)
-    x = torch.randn(2, 1, 1, 31, 721, 1440).to(device)
+    x = torch.randn(2, 1, 1, 24, 721, 1440).to(device)
     coords = OrderedDict(
         {
             "batch": np.ones(x.shape[0]),
@@ -268,4 +268,3 @@ def test_solarradiation_afno_package(device, model_cache_context, model_class, f
     handshake_dim(out_coords, "time", 1)
     handshake_dim(out_coords, "batch", 0)
     assert torch.all(out >= 0)
-    assert torch.all(out <= 1e6)

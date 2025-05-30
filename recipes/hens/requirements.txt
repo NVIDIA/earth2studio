@@ -378,7 +378,7 @@ toolz==1.0.0
     #   partd
 torch==2.7.0
     # via earth2studio
-tornado==6.4.2
+tornado==6.5.1
     # via
     #   bokeh
     #   distributed
@@ -1038,7 +1038,7 @@ torch-harmonics==0.7.4
     #   makani
 torchvision==0.22.0
     # via timm
-tornado==6.4.2
+tornado==6.5.1
     # via
     #   bokeh
     #   distributed
