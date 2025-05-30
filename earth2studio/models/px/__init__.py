@@ -38,24 +38,3 @@ warnings.filterwarnings("ignore")
 warnings.filterwarnings("ignore", category=SyntaxWarning)
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 warnings.filterwarnings("ignore", category=FutureWarning)
-
-__all__ = [
-    "AIFS",
-    "Aurora",
-    "DLESyM",
-    "DLESyMLatLon",
-    "DLWP",
-    "FCN",
-    "FengWu",
-    "FuXi",
-    "GraphCastOperational",
-    "GraphCastSmall",
-    "InterpModAFNO",
-    "Pangu3",
-    "Pangu6",
-    "Pangu24",
-    "Persistence",
-    "PrognosticModel",
-    "SFNO",
-    "StormCast",
-]
