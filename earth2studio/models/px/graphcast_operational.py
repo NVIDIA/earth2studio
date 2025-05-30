@@ -167,11 +167,11 @@ INV_VOCAB = {v: k for k, v in WB2Lexicon.VOCAB.items()}
 class GraphCastOperational(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     """GraphCast operational model
 
-    A high-resolution model (0.25 degree resolution, 13 pressure levels) pre-trained on ERA5 data 
-    from 1979 to 2017 and fine-tuned on HRES data from 2016 to 2021. This model can be initialized 
+    A high-resolution model (0.25 degree resolution, 13 pressure levels) pre-trained on ERA5 data
+    from 1979 to 2017 and fine-tuned on HRES data from 2016 to 2021. This model can be initialized
     from HRES data (does not require precipitation inputs).
 
-    The model operates on a 0.25-degree lat-lon grid (south-pole including) equirectangular grid 
+    The model operates on a 0.25-degree lat-lon grid (south-pole including) equirectangular grid
     with 85 variables including:
 
     - Surface variables (2m temperature, 10m winds, etc.)
