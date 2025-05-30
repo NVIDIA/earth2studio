@@ -34,10 +34,8 @@ class HENSPerturbation:
     ----------
     model : PrognosticModel
         The prognostic model to be used for ensemble forecasting
-    data : DataSource
-        Data source for obtaining initial conditions
-    start_time : datetime
-        The initial time for the ensemble forecast
+    data_source : DataSource
+        Data source for obtaining initial conditions. Uses the synchronous __call__ interface.
     skill_path : str
         Path to the file containing forecast skill scores for noise amplification
     noise_amplification : float
@@ -62,7 +60,7 @@ class HENSPerturbation:
             model,
             skill_path=skill_path,
             noise_amplification=noise_amplification,
-            vars=perturbed_var,
+            perturbed_var=perturbed_var,
         )
         noise_amp_iter = self.get_noise_vector(
             model,
@@ -92,7 +90,7 @@ class HENSPerturbation:
         model: PrognosticModel,
         skill_path: str | None = None,
         noise_amplification: float = 1.0,
-        vars: str | list[str] | None = None,
+        perturbed_var: str | list[str] | None = None,
         lead_time: int = 48,
     ) -> Tensor:
         """Generate a noise vector for the HemisphericCentredBredVector perturbation method.
@@ -109,7 +107,7 @@ class HENSPerturbation:
             Path to the file containing model skill scores (RMSE/MSE), by default None
         noise_amplification : float, optional
             Base amplification factor for the noise vector, by default 1.0
-        vars : str | list[str] | None, optional
+        perturbed_var : str | list[str] | None, optional
             Variables to be perturbed. If None, all model variables are perturbed, by default None
         lead_time : int, optional
             Lead time at which to evaluate model skill, by default 48
@@ -130,10 +128,10 @@ class HENSPerturbation:
             )
 
         model_vars = model.input_coords()["variable"]
-        if vars is None:
-            vars = model_vars
-        elif isinstance(vars, str):
-            vars = [vars]
+        if perturbed_var is None:
+            perturbed_var = model_vars
+        elif isinstance(perturbed_var, str):
+            perturbed_var = [perturbed_var]
 
         # set noise for variables which shall not be perturbed to 0.
         skill = open_dataset(skill_path)
@@ -142,7 +140,7 @@ class HENSPerturbation:
                 [
                     (
                         skill.sel(channel=var, lead_time=lead_time)["value"].item()
-                        if var in vars
+                        if var in perturbed_var
                         else 0.0
                     )
                     for var in model_vars
