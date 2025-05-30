@@ -245,7 +245,7 @@ uv add earth2studio --extra fuxi
 ::::
 :::::
 :::::{tab-item} GraphCast
-Notes: The GraphCast models (both operational and small) require additional dependencies for JAX and Haiku.
+Notes: The GraphCast models (operational and small) require additional dependencies for JAX and Haiku.
 
 ::::{tab-set}
 :::{tab-item} pip
