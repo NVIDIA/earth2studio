@@ -97,7 +97,7 @@ class ZarrBackend:
                 dims = self.root[array].attrs["_ARRAY_DIMENSIONS"]
             for dim in dims:
                 if dim not in self.coords:
-                    self.coords[dim] = self.root[dim]
+                    self.coords[dim] = self.root[dim][:]
 
         for array in self.root:
             if array not in self.coords:

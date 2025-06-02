@@ -10,7 +10,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added GraphCast operational model (0.25 degree resolution)
 - Added Graphcast 1 degree model
+- Added SolarRadiationAFNO diagnostic model for predicting surface solar radiation
+- Added DataArrayPathList for reading local data using glob patterns or explicit file lists
 
 ### Changed
 
@@ -19,6 +22,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed
 
 ### Fixed
+
+- Fixed NCAR data source lat / lon labels and cache reads
 
 ### Security
 
