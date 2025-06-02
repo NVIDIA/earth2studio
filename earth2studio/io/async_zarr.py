@@ -15,6 +15,8 @@
 # limitations under the License.
 
 import asyncio
+import inspect
+from asyncio.events import AbstractEventLoop
 from importlib.metadata import version
 from typing import Any
 
@@ -56,6 +58,9 @@ class AsyncZarrBackend:
     :py:class:`earth2studio.io.ZarrBackend`. While cross compatability is supported,
     users are encouraged to familiarize themselves with the other APIs this provides.
 
+    Warning
+    -------
+    When running in non-blocking mode, users should be mindful to not modify
 
     Parameters
     ----------
@@ -73,8 +78,8 @@ class AsyncZarrBackend:
     blocking : bool, optional
         Blocking sync write calls. If false IO writes will be added to a thread pool and
         not wait for completion before returning, by default True
-    pool_size : int, optional
-        Max works in async io thread pool. Only applied when using sync call function.
+    max_pool_size : int, optional
+        Max workers in async io thread pool. Only applied when using sync call function.
         Should the number of needed IO threads exceed the pool size, sync write calls
         will become blocking, by default 4
     async_timeout : int, optional
@@ -93,8 +98,9 @@ class AsyncZarrBackend:
         root: str,
         index_coords: dict[str, np.array] = {},
         fs: fsspec.spec.AbstractFileSystem = LocalFileSystem(),
-        blocking: bool = False,
-        pool_size: int = 4,
+        blocking: bool = True,
+        max_pool_size: int = 4,
+        loop: AbstractEventLoop | None = None,
         async_timeout: int = 600,
         backend_kwargs: dict[str, Any] = {},
     ) -> None:
@@ -113,8 +119,10 @@ class AsyncZarrBackend:
 
         # Async items
         self.blocking = blocking
-        self.pool_size = pool_size
+        self.max_pool_size = max_pool_size
         self.async_timeout = async_timeout
+        self.loop = loop
+        self.io_futures: list[asyncio.Future | asyncio.Task] = []
 
         try:
             self.fs.mkdir(root)
@@ -212,6 +220,20 @@ class AsyncZarrBackend:
             dimension_names=list(coords.keys()),
         )
 
+    async def _limit_pool_size(self, max_pool_size: int) -> None:
+        """Helper function to limit the number of parallel io processes
+
+        Parameters
+        ----------
+        max_pool_size : int
+            Max number of io futures allowed to be queued
+        """
+        while len(self.io_futures) > max_pool_size:
+            io_future = self.io_futures.pop(0)
+            if inspect.isawaitable(io_future):
+                logger.debug("In Asyunc Zarr IO pool throttle")
+                await io_future
+
     def add_array(
         self,
         coords: CoordSystem,
@@ -244,24 +266,34 @@ class AsyncZarrBackend:
         array_name : str | list[str]
             Name(s) of the array(s) that will be written to.
         """
+        nest_asyncio.apply()  # Patch asyncio to work in notebooks
+        try:
+            loop = asyncio.get_event_loop()
+        except RuntimeError:
+            # If no event loop exists, create one
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
 
-        if not self.blocking:
-            nest_asyncio.apply()  # Patch asyncio to work in notebooks
-            try:
-                loop = asyncio.get_event_loop()
-            except RuntimeError:
-                # If no event loop exists, create one
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-
+        if self.blocking:
             loop.run_until_complete(
                 asyncio.wait_for(
                     self.async_write(x, coords, array_name), timeout=self.async_timeout
                 )
             )
         else:
-            # TODO:
-            pass
+            # First block if we have space in the pool
+            loop.run_until_complete(self._limit_pool_size(self.max_pool_size - 1))
+            # Launch async write
+            io_future = loop.run_in_executor(
+                None,
+                lambda: asyncio.run(
+                    asyncio.wait_for(
+                        self.async_write(x, coords, array_name),
+                        timeout=self.async_timeout,
+                    )
+                ),
+            )
+            self.io_futures.append(io_future)
 
     async def async_write(
         self,
@@ -377,8 +409,8 @@ class AsyncZarrBackend:
                 # Finally set the selection in the array
                 async def write(
                     name: str,
-                    array_slice: list[slice[int | Any, int | Any, int | Any]],
-                    input_slice: list[slice[int | Any, int | Any, int | Any]],
+                    array_slice: list[Any],
+                    input_slice: list[Any],
                 ) -> None:
                     """Small helper function"""
                     zarray = await self.root.get(name)
@@ -406,3 +438,27 @@ class AsyncZarrBackend:
             device to place the read data from, by default 'cpu'
         """
         raise NotImplementedError("Not implemented yet")
+
+    def close(self) -> None:
+        """Cleans up an remaining io processes that are currently running. Should be
+        called explicitly at the end of an inference workflow to ensure all data has
+        been written.
+        """
+        nest_asyncio.apply()  # Patch asyncio to work in notebooks
+        try:
+            loop = asyncio.get_event_loop()
+        except RuntimeError:
+            # If no event loop exists, create one
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+        # Clean up process pool
+        loop.run_until_complete(
+            asyncio.wait_for(self._limit_pool_size(0), timeout=self.async_timeout)
+        )
+
+    def __del__(self) -> None:
+        if len(self.io_futures) > 0:
+            logger.warning(
+                f"IO object found {len(self.io_futures)} in flight processes, cleaning up. Call `close()` manually to avoid this warning"
+            )
+            self.close()
