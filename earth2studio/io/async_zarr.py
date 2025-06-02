@@ -422,7 +422,7 @@ class AsyncZarrBackend:
                 writes.append(
                     asyncio.create_task(write(array, array_slice, input_slice))
                 )
-
+        # Every single chunk is written async...
         await asyncio.gather(*writes)
 
     def read(
