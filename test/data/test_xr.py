@@ -23,7 +23,12 @@ import numpy as np
 import pytest
 import xarray as xr
 
-from earth2studio.data import DataArrayDirectory, DataArrayFile, DataSetFile
+from earth2studio.data import (
+    DataArrayDirectory,
+    DataArrayFile,
+    DataArrayPathList,
+    DataSetFile,
+)
 
 
 @pytest.fixture
@@ -146,28 +151,76 @@ def foo_dat_arr(
     ],
 )
 @pytest.mark.parametrize("variable", ["u10m", ["u10m", "v10m"]])
-def test_data_array_dir(time, variable):
-    os.makedirs("test_dat/2018", exist_ok=True)
-    foo_dat_arr(
-        [
-            datetime.datetime(year=2018, month=1, day=1),
-            datetime.datetime(year=2018, month=1, day=8),
-        ]
-    ).to_netcdf("test_dat/2018/2018_01.nc")
-    os.makedirs("test_dat/2019", exist_ok=True)
-    foo_dat_arr(
-        [
-            datetime.datetime(year=2019, month=1, day=1),
-            datetime.datetime(year=2019, month=1, day=8),
-        ]
-    ).to_netcdf("test_dat/2019/2019_01.nc")
+@pytest.mark.parametrize(
+    "data_source_type", ["directory", "path_list_glob", "path_list_explicit"]
+)
+def test_data_array_sources(time, variable, data_source_type):
+    # Create test data structure
+    base_dir = "test_data_source"
+    os.makedirs(base_dir, exist_ok=True)
 
-    # Load data source and request data array
-    data_source = DataArrayDirectory("test_dat")
+    test_files = []
+
+    # Create test data for both years
+    test_data = {
+        year: foo_dat_arr(
+            [
+                datetime.datetime(year=year, month=1, day=1),
+                datetime.datetime(year=year, month=1, day=8),
+            ]
+        )
+        for year in [2018, 2019]
+    }
+
+    # Save data to appropriate locations based on source type
+    if data_source_type == "directory":
+        # Directory structure with year subdirs
+        for year, data in test_data.items():
+            year_dir = os.path.join(base_dir, str(year))
+            os.makedirs(year_dir, exist_ok=True)
+            file_path = os.path.join(year_dir, f"{year}_01.nc")
+            data.to_netcdf(file_path)
+            test_files.append(file_path)
+        data_source = DataArrayDirectory(base_dir)
+    elif data_source_type in ["path_list_glob", "path_list_explicit"]:
+        # Flat structure for path list
+        for year, data in test_data.items():
+            file_path = os.path.join(base_dir, f"data_{year}.nc")
+            data.to_netcdf(file_path)
+            test_files.append(file_path)
+
+        if data_source_type == "path_list_glob":
+            data_source = DataArrayPathList(os.path.join(base_dir, "*.nc"))
+        elif data_source_type == "path_list_explicit":  # path_list_explicit
+            data_source = DataArrayPathList(test_files)
+
+    # Request data
     data = data_source(time, variable)
 
-    # Delete directory
-    shutil.rmtree("test_dat")
+    # Cleanup
+    shutil.rmtree(base_dir)
 
-    # Check consisten
+    # Verify results
     assert np.all(data.sel(time=time, variable=variable).values == data.values)
+
+
+def test_data_array_path_list_exceptions(tmp_path):
+    # Test 1: Missing dimensions
+    time = [datetime.datetime(year=2018, month=1, day=1)]
+    variable = ["u10m"]
+    da = xr.DataArray(
+        data=np.random.randn(len(time), len(variable)),
+        dims=["time", "variable"],
+        coords={
+            "time": time,
+            "variable": variable,
+        },
+    )
+    missing_dims_file = tmp_path / "missing_dims.nc"
+    da.to_netcdf(missing_dims_file)
+    with pytest.raises(ValueError):
+        DataArrayPathList(missing_dims_file)
+
+    # Test 2: Non-existent file pattern
+    with pytest.raises(OSError):
+        DataArrayPathList("nonexistent_pattern*.nc")

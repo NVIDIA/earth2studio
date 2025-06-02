@@ -48,6 +48,7 @@ from earth2studio.models.px import (
     Aurora,
     FengWu,
     FuXi,
+    GraphCastOperational,
     GraphCastSmall,
     InterpModAFNO,
     Pangu3,
@@ -79,6 +80,7 @@ from earth2studio.models.px import (
         SolarRadiationAFNO1H,
         SolarRadiationAFNO6H,
         AIFS,
+        GraphCastOperational,
         GraphCastSmall,
     ],
 )
