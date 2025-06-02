@@ -202,3 +202,25 @@ def test_data_array_sources(time, variable, data_source_type):
 
     # Verify results
     assert np.all(data.sel(time=time, variable=variable).values == data.values)
+
+
+def test_data_array_path_list_exceptions(tmp_path):
+    # Test 1: Missing dimensions
+    time = [datetime.datetime(year=2018, month=1, day=1)]
+    variable = ["u10m"]
+    da = xr.DataArray(
+        data=np.random.randn(len(time), len(variable)),
+        dims=["time", "variable"],
+        coords={
+            "time": time,
+            "variable": variable,
+        },
+    )
+    missing_dims_file = tmp_path / "missing_dims.nc"
+    da.to_netcdf(missing_dims_file)
+    with pytest.raises(ValueError):
+        DataArrayPathList(missing_dims_file)
+
+    # Test 2: Non-existent file pattern
+    with pytest.raises(OSError):
+        DataArrayPathList("nonexistent_pattern*.nc")

@@ -208,27 +208,21 @@ class DataArrayPathList:
     def __init__(self, paths: str | list[str], **xr_args: Any):
         self.paths = paths
 
-        try:
-            # Open multiple files as a single dataset
-            dataset = xr.open_mfdataset(self.paths, **xr_args)
+        # Open multiple files as a single dataset
+        dataset = xr.open_mfdataset(self.paths, **xr_args)
 
-            # Convert to DataArray with proper dimension ordering and coordinates
-            self.da = xr.DataArray(
-                dataset.to_dataarray().data.squeeze(),
-                dims=dataset.dims,
-                coords=dataset.coords,
-            )
+        # Convert to DataArray with proper dimension ordering and coordinates
+        self.da = xr.DataArray(
+            dataset.to_dataarray().data.squeeze(),
+            dims=dataset.dims,
+            coords=dataset.coords,
+        )
 
-            # Validate required dimensions
-            required_dims = {"time", "variable", "lat", "lon"}
-            missing_dims = required_dims - set(self.da.dims)
-            if missing_dims:
-                raise ValueError(f"Dataset missing required dimensions: {missing_dims}")
-
-        except FileNotFoundError as e:
-            raise FileNotFoundError(f"No files found matching pattern: {paths}") from e
-        except Exception as e:
-            raise RuntimeError(f"Error processing dataset: {str(e)}") from e
+        # Validate required dimensions
+        required_dims = {"time", "variable", "lat", "lon"}
+        missing_dims = required_dims - set(self.da.dims)
+        if missing_dims:
+            raise ValueError(f"Dataset missing required dimensions: {missing_dims}")
 
     def __call__(
         self,
