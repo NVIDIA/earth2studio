@@ -456,6 +456,7 @@ class AsyncZarrBackend:
             asyncio.set_event_loop(loop)
         # Clean up process pool
         self._limit_pool_size(0)
+        self.thread_pool.shutdown(wait=False, cancel_futures=True)
 
     def __del__(self) -> None:
         if len(self.io_futures) > 0:
