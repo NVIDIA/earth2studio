@@ -15,7 +15,8 @@
 # limitations under the License.
 
 import asyncio
-import inspect
+import concurrent
+import threading
 from asyncio.events import AbstractEventLoop
 from importlib.metadata import version
 from typing import Any
@@ -117,12 +118,16 @@ class AsyncZarrBackend:
         self.index_coords = index_coords
         self.fs = fs
 
-        # Async items
+        # Async / multi-thread items
         self.blocking = blocking
         self.max_pool_size = max_pool_size
         self.async_timeout = async_timeout
         self.loop = loop
-        self.io_futures: list[asyncio.Future | asyncio.Task] = []
+        self.thread_pool = concurrent.futures.ThreadPoolExecutor(
+            max_workers=max_pool_size
+        )
+        self.init_sem = threading.Semaphore(1)
+        self.io_futures: list[concurrent.futures._base.Future] = []
 
         try:
             self.fs.mkdir(root)
@@ -140,7 +145,6 @@ class AsyncZarrBackend:
         self.root = asyncio.run(
             zarr.api.asynchronous.open(store=zstore, mode="a", **backend_kwargs)
         )
-        self.init_sem = asyncio.Semaphore(1)
 
         # Initialize index coords
         # Verify all index coordinate arrays have unique values
@@ -220,7 +224,7 @@ class AsyncZarrBackend:
             dimension_names=list(coords.keys()),
         )
 
-    async def _limit_pool_size(self, max_pool_size: int) -> None:
+    def _limit_pool_size(self, max_pool_size: int) -> None:
         """Helper function to limit the number of parallel io processes
 
         Parameters
@@ -230,9 +234,9 @@ class AsyncZarrBackend:
         """
         while len(self.io_futures) > max_pool_size:
             io_future = self.io_futures.pop(0)
-            if inspect.isawaitable(io_future):
-                logger.debug("In Asyunc Zarr IO pool throttle")
-                await io_future
+            if not io_future.done():
+                logger.debug("In IO thread pool throttle, limiting ")
+                io_future.result()
 
     def add_array(
         self,
@@ -282,17 +286,16 @@ class AsyncZarrBackend:
             )
         else:
             # First block if we have space in the pool
-            loop.run_until_complete(self._limit_pool_size(self.max_pool_size - 1))
+            self._limit_pool_size(self.max_pool_size - 1)
             # Launch async write
-            io_future = loop.run_in_executor(
-                None,
-                lambda: asyncio.run(
-                    asyncio.wait_for(
-                        self.async_write(x, coords, array_name),
-                        timeout=self.async_timeout,
-                    )
+            io_future = self.thread_pool.submit(
+                asyncio.run,
+                asyncio.wait_for(
+                    self.async_write(x, coords, array_name),
+                    timeout=self.async_timeout,
                 ),
             )
+
             self.io_futures.append(io_future)
 
     async def async_write(
@@ -324,7 +327,7 @@ class AsyncZarrBackend:
 
         # Check to see whats intialized, only one process can do this at a time
         # Should be a one time process, so lock here doesnt matter too much for perf
-        async with self.init_sem:
+        with self.init_sem:
             new_coords = {}
             for key, value in coords.items():
                 if not await self.root.contains(key):
@@ -452,9 +455,7 @@ class AsyncZarrBackend:
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
         # Clean up process pool
-        loop.run_until_complete(
-            asyncio.wait_for(self._limit_pool_size(0), timeout=self.async_timeout)
-        )
+        self._limit_pool_size(0)
 
     def __del__(self) -> None:
         if len(self.io_futures) > 0:
