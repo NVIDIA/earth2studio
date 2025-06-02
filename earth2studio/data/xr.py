@@ -169,3 +169,91 @@ class DataArrayDirectory:
             arrs.append(self.das[yr][mon].sel(time=tt, variable=variable))
 
         return xr.concat(arrs, dim="time")
+
+
+class DataArrayPathList:
+    """A local xarray dataarray directory data source that handles multiple files.
+
+    This class provides functionality to work with multiple xarray-compatible files (e.g., netCDF)
+    as a single data source. All input files must have consistent dimensions and variables.
+    Under the hood, it uses xarray's open_mfdataset which leverages Dask for parallel and
+    memory-efficient data processing.
+
+    Parameters
+    ----------
+    paths : str | list[str]
+        Either a string glob pattern (e.g., "path/to/files/*.nc") or an explicit list of files.
+        All specified files must exist and be readable.
+    xr_args : Any
+        Additional keyword arguments passed to xarray's open_mfdataset method.
+
+    Raises
+    ------
+    FileNotFoundError
+        If no files match the provided path pattern or if any specified file doesn't exist.
+    ValueError
+        If the files have inconsistent dimensions or variables.
+    RuntimeError
+        If there are issues opening or processing the dataset.
+
+    Notes
+    -----
+    - The class uses Dask arrays internally through xarray's open_mfdataset, providing efficient
+      parallel processing and lazy evaluation. Operations are only computed when data is actually
+      requested through the __call__ method.
+    - All files must share the same coordinate system and variable structure.
+    - Required dimensions are: time, variable, lat, and lon.
+    """
+
+    def __init__(self, paths: str | list[str], **xr_args: Any):
+        self.paths = paths
+
+        # Open multiple files as a single dataset
+        dataset = xr.open_mfdataset(self.paths, **xr_args)
+
+        # Convert to DataArray with proper dimension ordering and coordinates
+        self.da = xr.DataArray(
+            dataset.to_dataarray().data.squeeze(),
+            dims=dataset.dims,
+            coords=dataset.coords,
+        )
+
+        # Validate required dimensions
+        required_dims = {"time", "variable", "lat", "lon"}
+        missing_dims = required_dims - set(self.da.dims)
+        if missing_dims:
+            raise ValueError(f"Dataset missing required dimensions: {missing_dims}")
+
+    def __call__(
+        self,
+        time: datetime | list[datetime] | TimeArray,
+        variable: str | list[str] | VariableArray,
+    ) -> xr.DataArray:
+        """Retrieve data for specified timestamps and variables.
+
+        Parameters
+        ----------
+        time : datetime | list[datetime] | TimeArray
+            Single timestamp or list of timestamps to retrieve data for.
+        variable : str | list[str] | VariableArray
+            Single variable name or list of variable names to retrieve.
+
+        Returns
+        -------
+        xr.DataArray
+            Data array containing the requested time and variable selections.
+
+        Raises
+        ------
+        ValueError
+            If requested time or variable values are not present in the dataset.
+        """
+        # Ensure inputs are lists for consistent processing
+        times = [time] if not isinstance(time, (list, ndarray)) else time
+        variables = (
+            [variable] if not isinstance(variable, (list, ndarray)) else variable
+        )
+
+        # Process each timestamp
+        arrays = self.da.sel(time=times, variable=variables)
+        return xr.concat(arrays, dim="time")
