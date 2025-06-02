@@ -36,6 +36,8 @@ from earth2studio.models.dx import (
     CorrDiffTaiwan,
     PrecipitationAFNO,
     PrecipitationAFNOv2,
+    SolarRadiationAFNO1H,
+    SolarRadiationAFNO6H,
     WindgustAFNO,
 )
 from earth2studio.models.px import (
@@ -46,6 +48,8 @@ from earth2studio.models.px import (
     Aurora,
     FengWu,
     FuXi,
+    GraphCastOperational,
+    GraphCastSmall,
     InterpModAFNO,
     Pangu3,
     Pangu6,
@@ -73,7 +77,11 @@ from earth2studio.models.px import (
         WindgustAFNO,
         InterpModAFNO,
         PrecipitationAFNOv2,
+        SolarRadiationAFNO1H,
+        SolarRadiationAFNO6H,
         AIFS,
+        GraphCastOperational,
+        GraphCastSmall,
     ],
 )
 def test_auto_model_download(model, model_cache_context):
@@ -351,3 +359,22 @@ async def test_ngc_unsupported_operations():
         NotImplementedError, match="Glob / recursive patterns not supported"
     ):
         await fs.find("some/path", maxdepth=1)
+
+
+@pytest.mark.parametrize(
+    "model_class",
+    [
+        ClimateNet,
+        CorrDiffTaiwan,
+        PrecipitationAFNO,
+        PrecipitationAFNOv2,
+        SolarRadiationAFNO1H,
+        SolarRadiationAFNO6H,
+        WindgustAFNO,
+    ],
+)
+def test_auto_models(model_class):
+    """Test auto model loading."""
+    package = model_class.load_default_package()
+    model = model_class.load_model(package)
+    assert model is not None

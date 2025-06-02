@@ -45,7 +45,7 @@ Note that the class has a `metaclass=LexiconType` which is present in
 {py:mod}`earth2studio.lexicon.base.py` used for type checking.
 
 ```{literalinclude} ../../../earth2studio/lexicon/gfs.py
-    :lines: 24-44
+    :lines: 24-60
     :language: python
 ```
 

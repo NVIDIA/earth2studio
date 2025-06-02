@@ -33,6 +33,8 @@ Thus are typically used to generate forecast predictions.
    models.px.FCN
    models.px.FengWu
    models.px.FuXi
+   models.px.GraphCastOperational
+   models.px.GraphCastSmall
    models.px.InterpModAFNO
    models.px.Pangu24
    models.px.Pangu6
@@ -70,6 +72,8 @@ etc.
    models.dx.DerivedWS
    models.dx.PrecipitationAFNO
    models.dx.PrecipitationAFNOv2
+   models.dx.SolarRadiationAFNO1H
+   models.dx.SolarRadiationAFNO6H
    models.dx.TCTrackerWuDuan
    models.dx.TCTrackerVitart
    models.dx.WindgustAFNO
