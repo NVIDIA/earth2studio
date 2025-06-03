@@ -55,15 +55,6 @@ from earth2studio.utils import (
 )
 from earth2studio.utils.type import CoordSystem
 
-# Input variables for the model
-INPUT_VARIABLES = ["..."]
-
-# Output variables for the model
-OUTPUT_VARIABLES = ["..."]
-
-# Input LatLon grid resolution (degrees)
-LATLON_RES = 0.25
-
 
 @check_extra_imports(
     "corrdiff", [PhysicsNemoModule, StackedRandomGenerator, deterministic_sampler]
@@ -124,6 +115,8 @@ class CorrDiff(torch.nn.Module, AutoModelMixin):
         Whether to use high-res mean conditioning, by default True
     seed : Optional[int], optional
         Random seed for reproducibility, by default None
+    latlon_res: float
+        Resolution of the input regular LatLon grid, by default 0.25˚
     """
 
     def __init__(
@@ -149,6 +142,7 @@ class CorrDiff(torch.nn.Module, AutoModelMixin):
         inference_mode: Literal["regression", "diffusion", "both"] = "both",
         hr_mean_conditioning: bool = True,
         seed: int | None = None,
+        latlon_res: float = 0.25,
     ):
         super().__init__()
 
@@ -176,6 +170,7 @@ class CorrDiff(torch.nn.Module, AutoModelMixin):
         # Store variable names
         self.input_variables = input_variables
         self.output_variables = output_variables
+        self.latlon_res = latlon_res
 
         # Register buffers for model parameters
         self._register_buffers(
@@ -267,10 +262,10 @@ class CorrDiff(torch.nn.Module, AutoModelMixin):
         # Calculate lat-lon box surrounding patch coordinates
         lat_grid_cpu = self.lat_grid.cpu()
         lon_grid_cpu = self.lon_grid.cpu()
-        lat0 = np.floor(lat_grid_cpu.min() / LATLON_RES) * LATLON_RES
-        lat1 = np.ceil(lat_grid_cpu.max() / LATLON_RES) * LATLON_RES
-        lon0 = np.floor(lon_grid_cpu.min() / LATLON_RES) * LATLON_RES
-        lon1 = np.ceil(lon_grid_cpu.max() / LATLON_RES) * LATLON_RES
+        lat0 = np.floor(lat_grid_cpu.min() / self.latlon_res) * self.latlon_res
+        lat1 = np.ceil(lat_grid_cpu.max() / self.latlon_res) * self.latlon_res
+        lon0 = np.floor(lon_grid_cpu.min() / self.latlon_res) * self.latlon_res
+        lon1 = np.ceil(lon_grid_cpu.max() / self.latlon_res) * self.latlon_res
         return OrderedDict(
             {
                 "batch": np.empty(0),
@@ -357,18 +352,25 @@ class CorrDiff(torch.nn.Module, AutoModelMixin):
         ).eval()
 
         # Load normalization statistics
+        with open(package.resolve("metadata.json")) as f:
+            metadata = json.load(f)
+        input_variables = metadata["input_variables"]
+        output_variables = metadata["output_variables"]
+        latlon_res = metadata["latlon_res"]
+
+        # Load normalization statistics
         with open(package.resolve("stats.json")) as f:
             stats = json.load(f)
 
         # Load input normalization parameters
-        in_center = torch.Tensor([stats["input"][v]["mean"] for v in INPUT_VARIABLES])
-        in_scale = torch.Tensor([stats["input"][v]["std"] for v in INPUT_VARIABLES])
+        in_center = torch.Tensor([stats["input"][v]["mean"] for v in input_variables])
+        in_scale = torch.Tensor([stats["input"][v]["std"] for v in input_variables])
 
         # Load output normalization parameters
         out_center = torch.Tensor(
-            [stats["output"][v]["mean"] for v in OUTPUT_VARIABLES]
+            [stats["output"][v]["mean"] for v in output_variables]
         )
-        out_scale = torch.Tensor([stats["output"][v]["std"] for v in OUTPUT_VARIABLES])
+        out_scale = torch.Tensor([stats["output"][v]["std"] for v in output_variables])
 
         # Load lat/lon grid
         with xr.open_dataset(package.resolve("latlon_grid.nc")) as ds:
@@ -396,12 +398,13 @@ class CorrDiff(torch.nn.Module, AutoModelMixin):
             invariant_scale = None
 
         return cls(
-            input_variables=INPUT_VARIABLES,
-            output_variables=OUTPUT_VARIABLES,
+            input_variables=input_variables,
+            output_variables=output_variables,
             residual_model=residual,
             regression_model=regression,
             lat_grid=lat_grid,
             lon_grid=lon_grid,
+            latlon_res=latlon_res,
             in_center=in_center,
             in_scale=in_scale,
             invariant_center=invariant_center,
