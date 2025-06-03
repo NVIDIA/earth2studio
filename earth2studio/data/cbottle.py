@@ -41,24 +41,41 @@ HPX_LEVEL = 6
 
 @check_extra_imports("cbottle", ["cbottle", "earth2grid"])
 class CBottle3D(torch.nn.Module, AutoModelMixin):
-    """_summary_
+    """Climate in a bottle data source
+    Climate in a Bottle (cBottle) is a AI model for emulating global km-scale climate
+    simulations and reanalysis on the equal-area HEALPix grid. The cBottle data source
+    uses the a globally-trained coarse-resolution image generator that generates 100km
+    (50k-pixel) fields given monthly average sea surface temperatures and solar
+    conditioning.
+
+    Note
+    ----
+    For more information see the following references:
+
+    - https://arxiv.org/abs/2505.06474v1
+    - https://github.com/NVlabs/cBottle
+    - https://catalog.ngc.nvidia.com/orgs/nvidia/teams/earth-2/models/cbottle
 
     Parameters
     ----------
     core_model : torch.nn.Module
-        _description_
+        Core Pytorch model
     sst_ds : xr.Dataset
-        _description_
+        Sea surface temperature xarray dataset
     lat_lon : bool, optional
-        _description_, by default True
+        Lat/lon toggle, if true data source will return output on a 0.25 deg lat/lon
+        grid. If false, the native nested HealPix grid will be returned, by default True
     sigma_max : float, optional
-        _description_, by default 80
+        Noise amplitude used to generate latent variables, by default 80
+    batch_size : int, optional
+        Batch size to generate time samples at, consider adjusting based on hardware
+        being used, by default 4
     seed : int, optional
-        _description_, by default 0
+        Random generator seed for latent variables, by default 0
     cache : bool, optional
-        _description_, by default False
+        Does nothing at the moment, by default False
     verbose : bool, optional
-        _description_, by default True
+        Print generation progress, by default True
     """
 
     VARIABLES = np.array(list(CBottleLexicon.VOCAB.keys()))
@@ -69,6 +86,7 @@ class CBottle3D(torch.nn.Module, AutoModelMixin):
         sst_ds: xr.Dataset,
         lat_lon: bool = True,
         sigma_max: float = 80,
+        batch_size: int = 4,
         seed: int = 0,
         cache: bool = False,
         verbose: bool = True,
@@ -79,7 +97,9 @@ class CBottle3D(torch.nn.Module, AutoModelMixin):
         self.sst = sst_ds
         self.lat_lon = lat_lon
         self.sigma_max = sigma_max
+        self.batch_size = batch_size
         self.seed = seed
+        self.rng = torch.Generator()
         self.variables = np.array(list(CBottleLexicon.VOCAB.keys()))
 
         self._cache = cache
@@ -134,39 +154,40 @@ class CBottle3D(torch.nn.Module, AutoModelMixin):
         # Make sure input time is valid
         self._validate_time(time)
 
-        input = self.get_cbottle_input(time[0])
+        input = self.get_cbottle_input(time)
         batch_info = get_batch_info(time_step=0, time_unit=TimeUnit.HOUR)
 
-        varidx = np.where(variable == self.variables)[0]
-        print(varidx)
+        varidx = []
+        for var in variable:
+            idx = np.where(self.variables == var)[0]
+            if len(idx) == 0:
+                raise ValueError(
+                    f"Variable {var} not found in CBottle3D lexicon variables"
+                )
+            varidx.append(idx[0])
+        varidx = np.array(varidx)
 
         device = self.device_buffer.device
         condition = input["condition"].to(device)
-        labels = input["labels"].unsqueeze(0).to(device)
-        images = input["target"].unsqueeze(0).to(device)
-        second_of_day = input["second_of_day"].unsqueeze(0).to(device).float()
-        day_of_year = input["day_of_year"].unsqueeze(0).to(device).float()
+        labels = input["labels"].to(device)
+        images = input["target"].to(device)
+        second_of_day = input["second_of_day"].to(device)
+        day_of_year = input["day_of_year"].to(device)
         sigma_max = torch.Tensor([self.sigma_max]).to(device)
 
-        # Hack right now
-        self.rnd = StackedRandomGenerator(device, seeds=[self.seed] * images.shape[0])
-        latents = self.rnd.randn(
+        # rnd = StackedRandomGenerator(device, seeds=[self.seed] * images.shape[0])
+        rnd = torch
+        latents = rnd.randn(
             (
                 images.shape[0],
                 self.core_model.img_channels,
                 self.core_model.time_length,
                 self.core_model.domain.numel(),
             ),
-            device=device,
-        )
+            generator=self.rng,
+        ).to(device)
 
         xT = latents * sigma_max
-
-        # labels_when_nan = None
-        # if config.denoiser_type == DenoiserType.mask_filling:
-        #     labels_when_nan = build_labels(labels, config.denoiser_when_nan)
-        # elif config.denoiser_type == DenoiserType.infill:
-        #     labels = build_labels(labels, config.denoiser_when_nan)
 
         # Gets appropriate denoiser based on config
         D = get_denoiser(
@@ -190,6 +211,7 @@ class CBottle3D(torch.nn.Module, AutoModelMixin):
 
         x = batch_info.denormalize(out)
         x = x[:, varidx]
+        print(x.shape)
         # ring_order = self.core_model.domain._grid.reorder(earth2grid.healpix.PixelOrder.RING, x)
 
         if self.lat_lon:
@@ -204,84 +226,103 @@ class CBottle3D(torch.nn.Module, AutoModelMixin):
             field_regridded = regridder(x).squeeze(2)
 
             return xr.DataArray(
-                data=field_regridded[None, :].cpu().numpy(),
-                dims=["time", "lead_time", "variable", "lat", "lon"],
+                data=field_regridded.cpu().numpy(),
+                dims=["time", "variable", "lat", "lon"],
                 coords={
                     "time": np.array(time),
-                    "lead_time": np.array([timedelta(0)]),
                     "variable": np.array(variable),
                     "lat": np.linspace(90, -90, nlat, endpoint=False),
                     "lon": np.linspace(0, 360, nlon, endpoint=False),
                 },
             )
+        else:
+            return xr.DataArray(
+                data=x[None, :].cpu().numpy(),
+                dims=["time", "variable", "lat", "lon"],
+                coords={
+                    "time": np.array(time),
+                    "variable": np.array(variable),
+                    "hpx": np.arange(x.shape[-1]),
+                },
+            )
 
     def get_cbottle_input(
         self,
-        time: datetime,
+        time: list[datetime],
         label: int = 1,  # 0 for ICON, 1 for ERA5
     ) -> dict[str, torch.Tensor]:
+        """Prepares the CBottle inputs
+
+        Adopted from:
+
+        - https://github.com/NVlabs/cBottle/blob/ed96dfe35d87ecefa4846307807e8241c4b24e71/src/cbottle/datasets/amip_sst_loader.py#L55
+        - https://github.com/NVlabs/cBottle/blob/ed96dfe35d87ecefa4846307807e8241c4b24e71/src/cbottle/datasets/dataset_3d.py#L247
+
+        Parameters
+        ----------
+        time : list[datetime]
+            List of times for inference
+        label : int, optional
+            Label ID, by default 1
+
+        Returns
+        -------
+        dict[str, torch.Tensor]
+            Dictionary of input tensors for CBottle
         """
-
-        Args:
-            arr: (c, x) in NEST order. in standard units
-            sst: (c, x) in NEST order. in deg K
-
-        Returns:
-            output dict, condition and target in HEALPIX_PAD_XY order
-
-        """
-        labels = torch.nn.functional.one_hot(torch.tensor(label), num_classes=1024)
-
-        time_arr = np.array([time], dtype="datetime64[ns]")
+        time_arr = np.array(time, dtype="datetime64[ns]")
         sst_data = torch.from_numpy(
             self.sst["tosbcs"].interp(time=time_arr, method="linear").values + 273.15
         ).to(self.device_buffer.device)
+        print(sst_data.shape)
         sst_data = self.sst_regridder(sst_data)
 
         cond = encode_sst(sst_data.cpu())
 
         def reorder(x: torch.Tensor) -> torch.Tensor:
             x = torch.as_tensor(x)
-            return earth2grid.healpix.reorder(
+            x = earth2grid.healpix.reorder(
                 x, earth2grid.healpix.PixelOrder.NEST, earth2grid.healpix.HEALPIX_PAD_XY
             )
+            return torch.permute(x, (2, 0, 1, 3))
 
-        day_start = time.replace(hour=0, minute=0, second=0)
-        year_start = day_start.replace(month=1, day=1)
+        day_start = np.array([t.replace(hour=0, minute=0, second=0) for t in time])
+        year_start = np.array([d.replace(month=1, day=1) for d in day_start])
         second_of_day = (time - day_start) / timedelta(seconds=1)
         day_of_year = (time - year_start) / timedelta(seconds=86400)
 
         # ["rlut", "rsut", "rsds"]
         nan_channels = [38, 39, 42]
         target = np.zeros(
-            (self.variables.shape[0], 1, 4**HPX_LEVEL * 12), dtype=np.float32
+            (len(time), self.variables.shape[0], 1, 4**HPX_LEVEL * 12), dtype=np.float32
         )
-        target[nan_channels, ...] = np.nan
+        target[:, nan_channels, ...] = np.nan
+
+        labels = torch.nn.functional.one_hot(torch.tensor(label), num_classes=1024)
+        labels = labels.unsqueeze(0).repeat(len(time), 1)
 
         out = {
             "target": torch.tensor(target),
             "labels": labels,
             "condition": reorder(cond),
-            "second_of_day": torch.tensor([second_of_day]),
-            "day_of_year": torch.tensor([day_of_year]),
+            "second_of_day": torch.tensor(second_of_day.astype(np.float32)).unsqueeze(
+                1
+            ),
+            "day_of_year": torch.tensor(day_of_year.astype(np.float32)).unsqueeze(1),
         }
-        # out["timestamp"] = datetime.timestamp(time)
 
         return out
 
     def set_seed(self, seed: int) -> None:
-        """Set seed of CBottle latent variable generator
+        """Re-init and set seed of CBottle latent variable generator
 
         Parameters
         ----------
         seed : int
             Seed value
         """
-        # batch = images.shape[0]
-        batch = 1
-        self.rnd = StackedRandomGenerator(
-            self.device_buffer.device, seeds=[seed] * batch
-        )
+        self.rng = torch.Generator(device=self.device_buffer.device)
+        self.rng.manual_seed(seed)
 
     @property
     def cache(self) -> str:
