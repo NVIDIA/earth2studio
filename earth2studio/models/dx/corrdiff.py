@@ -61,6 +61,9 @@ INPUT_VARIABLES = ["..."]
 # Output variables for the model
 OUTPUT_VARIABLES = ["..."]
 
+# Input LatLon grid resolution (degrees)
+LATLON_RES = 0.25
+
 
 @check_extra_imports(
     "corrdiff", [PhysicsNemoModule, StackedRandomGenerator, deterministic_sampler]
@@ -262,13 +265,12 @@ class CorrDiff(torch.nn.Module, AutoModelMixin):
             Dictionary containing the input coordinate system
         """
         # Calculate lat-lon box surrounding patch coordinates
-        latlon_res = 0.25
         lat_grid_cpu = self.lat_grid.cpu()
         lon_grid_cpu = self.lon_grid.cpu()
-        lat0 = np.floor(lat_grid_cpu.min() / latlon_res) * latlon_res
-        lat1 = np.ceil(lat_grid_cpu.max() / latlon_res) * latlon_res
-        lon0 = np.floor(lon_grid_cpu.min() / latlon_res) * latlon_res
-        lon1 = np.ceil(lon_grid_cpu.max() / latlon_res) * latlon_res
+        lat0 = np.floor(lat_grid_cpu.min() / LATLON_RES) * LATLON_RES
+        lat1 = np.ceil(lat_grid_cpu.max() / LATLON_RES) * LATLON_RES
+        lon0 = np.floor(lon_grid_cpu.min() / LATLON_RES) * LATLON_RES
+        lon1 = np.ceil(lon_grid_cpu.max() / LATLON_RES) * LATLON_RES
         return OrderedDict(
             {
                 "batch": np.empty(0),
