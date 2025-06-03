@@ -208,3 +208,30 @@ def test_cbottle_package_fetch(time, variable, device, model_cache_context):
     assert (data.sel(variable="t2m").values >= 184).all() and (
         data.sel(variable="t2m").values <= 330
     ).all()
+
+
+@pytest.mark.slow
+@pytest.mark.ci_cache
+@pytest.mark.timeout(30)
+@pytest.mark.parametrize("time", [datetime.datetime(year=2000, month=12, day=31)])
+@pytest.mark.parametrize("variable", [["sic", "u10m", "t2m"]])
+def test_cbottle_package_cpu(time, variable, model_cache_context):
+    # Test the cached model package
+    with model_cache_context():
+        package = CBottle3D.load_default_package()
+        ds = CBottle3D.load_model(package)
+        ds.sampler_steps = 2  # Speed up sampler for testing
+
+    data = ds(time, variable)
+    shape = data.shape
+
+    if isinstance(variable, str):
+        variable = [variable]
+
+    if isinstance(time, datetime.datetime):
+        time = [time]
+
+    assert shape[0] == len(time)
+    assert shape[1] == len(variable)
+    assert shape[2] == 721
+    assert shape[3] == 1440
