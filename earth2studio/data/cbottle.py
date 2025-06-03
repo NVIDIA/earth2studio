@@ -7,6 +7,7 @@ import numpy as np
 import torch
 import xarray as xr
 from loguru import logger
+from tqdm import tqdm
 
 try:
     import earth2grid
@@ -42,7 +43,7 @@ HPX_LEVEL = 6
 @check_extra_imports("cbottle", ["cbottle", "earth2grid"])
 class CBottle3D(torch.nn.Module, AutoModelMixin):
     """Climate in a bottle data source
-    Climate in a Bottle (cBottle) is a AI model for emulating global km-scale climate
+    Climate in a Bottle (cBottle) is an AI model for emulating global km-scale climate
     simulations and reanalysis on the equal-area HEALPix grid. The cBottle data source
     uses the a globally-trained coarse-resolution image generator that generates 100km
     (50k-pixel) fields given monthly average sea surface temperatures and solar
@@ -103,7 +104,7 @@ class CBottle3D(torch.nn.Module, AutoModelMixin):
         self.variables = np.array(list(CBottleLexicon.VOCAB.keys()))
 
         self._cache = cache
-        self.verbose = verbose
+        self._verbose = verbose
 
         # Set up SST Lat Lon to HPX regridder
         target_grid = earth2grid.healpix.Grid(
@@ -175,43 +176,66 @@ class CBottle3D(torch.nn.Module, AutoModelMixin):
         day_of_year = input["day_of_year"].to(device)
         sigma_max = torch.Tensor([self.sigma_max]).to(device)
 
-        # rnd = StackedRandomGenerator(device, seeds=[self.seed] * images.shape[0])
-        rnd = torch
-        latents = rnd.randn(
-            (
-                images.shape[0],
-                self.core_model.img_channels,
-                self.core_model.time_length,
-                self.core_model.domain.numel(),
-            ),
-            generator=self.rng,
-        ).to(device)
+        # Process in batches with progress bar if verbose is enabled
+        batch_size = self.batch_size
+        n_samples = images.shape[0]
+        n_batches = (n_samples + batch_size - 1) // batch_size
 
-        xT = latents * sigma_max
+        outputs = []
+        for i in tqdm(
+            range(n_batches),
+            desc="Generating cBottle Data",
+            disable=(not self._verbose),
+        ):
+            start_idx = i * batch_size
+            end_idx = min((i + 1) * batch_size, n_samples)
 
-        # Gets appropriate denoiser based on config
-        D = get_denoiser(
-            net=self.core_model,
-            images=images,
-            labels=labels,
-            condition=condition,
-            second_of_day=second_of_day,
-            day_of_year=day_of_year,
-            denoiser_type="standard",  # 'mask_filling', 'infill', 'standard'
-            sigma_max=sigma_max,
-            labels_when_nan=None,
-        )
+            # Get batch slices
+            batch_images = images[start_idx:end_idx]
+            batch_labels = labels[start_idx:end_idx]
+            batch_condition = condition[start_idx:end_idx]
+            batch_second_of_day = second_of_day[start_idx:end_idx]
+            batch_day_of_year = day_of_year[start_idx:end_idx]
 
-        out = edm_sampler_from_sigma(
-            D,
-            xT,
-            randn_like=torch.randn_like,
-            sigma_max=int(sigma_max),  # Convert to int for type compatibility
-        )
+            # Generate latents for this batch
+            batch_latents = torch.randn(
+                (
+                    end_idx - start_idx,
+                    self.core_model.img_channels,
+                    self.core_model.time_length,
+                    self.core_model.domain.numel(),
+                ),
+                generator=self.rng,
+            ).to(device)
 
-        x = batch_info.denormalize(out)
-        x = x[:, varidx]
-        # ring_order = self.core_model.domain._grid.reorder(earth2grid.healpix.PixelOrder.RING, x)
+            batch_xT = batch_latents * sigma_max
+
+            # Gets appropriate denoiser based on config
+            batch_D = get_denoiser(
+                net=self.core_model,
+                images=batch_images,
+                labels=batch_labels,
+                condition=batch_condition,
+                second_of_day=batch_second_of_day,
+                day_of_year=batch_day_of_year,
+                denoiser_type="standard",  # 'mask_filling', 'infill', 'standard'
+                sigma_max=sigma_max,
+                labels_when_nan=None,
+            )
+
+            batch_out = edm_sampler_from_sigma(
+                batch_D,
+                batch_xT,
+                randn_like=torch.randn_like,
+                sigma_max=int(sigma_max),  # Convert to int for type compatibility
+            )
+
+            batch_x = batch_info.denormalize(batch_out)
+            batch_x = batch_x[:, varidx]
+            outputs.append(batch_x)
+
+        # Concatenate all batches
+        x = torch.cat(outputs, dim=0)
 
         if self.lat_lon:
             # Convert back into lat lon
@@ -273,7 +297,6 @@ class CBottle3D(torch.nn.Module, AutoModelMixin):
         sst_data = torch.from_numpy(
             self.sst["tosbcs"].interp(time=time_arr, method="linear").values + 273.15
         ).to(self.device_buffer.device)
-        print(sst_data.shape)
         sst_data = self.sst_regridder(sst_data)
 
         cond = encode_sst(sst_data.cpu())
