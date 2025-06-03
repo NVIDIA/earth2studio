@@ -56,6 +56,22 @@ Typically used in intercomparison workflows.
    data.GEFS_FX_721x1440
    data.HRRR_FX
 
+AI Sources
+~~~~~~~~~~
+
+Data sources that leverage an AI model to generate weather / climate data at that can be
+used for downstream tasks.
+Unlike prognostic or diagnostic models, these sources do not require any input state
+for subsequent predictions.
+
+.. currentmodule:: earth2studio
+
+.. autosummary::
+   :toctree: generated/data/
+   :template: diagnostic.rst
+
+   data.CBottle3D
+
 Functions
 ~~~~~~~~~
 .. currentmodule:: earth2studio

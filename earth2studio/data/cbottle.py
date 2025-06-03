@@ -211,7 +211,6 @@ class CBottle3D(torch.nn.Module, AutoModelMixin):
 
         x = batch_info.denormalize(out)
         x = x[:, varidx]
-        print(x.shape)
         # ring_order = self.core_model.domain._grid.reorder(earth2grid.healpix.PixelOrder.RING, x)
 
         if self.lat_lon:
