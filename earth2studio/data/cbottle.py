@@ -213,7 +213,7 @@ class CBottle3D(torch.nn.Module, AutoModelMixin):
             batch_second_of_day = second_of_day[start_idx:end_idx]
             batch_day_of_year = day_of_year[start_idx:end_idx]
 
-            # Generate latents for this batch
+            # Generate latents
             batch_latents = torch.randn(
                 (
                     end_idx - start_idx,
@@ -405,8 +405,40 @@ class CBottle3D(torch.nn.Module, AutoModelMixin):
 
     @classmethod
     @check_extra_imports("cbottle", ["cbottle", "earth2grid"])
-    def load_model(cls, package: Package) -> DataSource:
-        """Load AI datasource from package"""
+    def load_model(
+        cls,
+        package: Package,
+        lat_lon: bool = True,
+        sigma_max: float = 80,
+        batch_size: int = 4,
+        seed: int = 0,
+        verbose: bool = True,
+    ) -> DataSource:
+        """Load AI datasource from package
+
+        Parameters
+        ----------
+        package : Package
+            CBottle AI model package
+        lat_lon : bool, optional
+            Lat/lon toggle, if true data source will return output on a 0.25 deg lat/lon
+            grid. If false, the native nested HealPix grid will be returned, by default
+            True
+        sigma_max : float, optional
+            Noise amplitude used to generate latent variables, by default 80
+        batch_size : int, optional
+            Batch size to generate time samples at, consider adjusting based on hardware
+            being used, by default 4
+        seed : int, optional
+            Random generator seed for latent variables, by default 0
+        verbose : bool, optional
+            Print generation progress, by default True
+
+        Returns
+        -------
+        DataSource
+            Data source
+        """
 
         with Checkpoint(package.resolve("cBottle-3d.zip")) as checkpoint:
             core_model = checkpoint.read_model()
@@ -440,4 +472,12 @@ class CBottle3D(torch.nn.Module, AutoModelMixin):
             cache=False,
         ).load()
 
-        return cls(core_model, sst_ds)
+        return cls(
+            core_model,
+            sst_ds,
+            lat_lon=lat_lon,
+            sigma_max=sigma_max,
+            batch_size=batch_size,
+            seed=seed,
+            verbose=verbose,
+        )
