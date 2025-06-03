@@ -114,6 +114,7 @@ class CBottle3D(torch.nn.Module, AutoModelMixin):
         self.sst = sst_ds
         self.lat_lon = lat_lon
         self.sigma_max = sigma_max
+        self.sampler_steps = 18
         self.batch_size = batch_size
         self.seed = seed
         self.rng = torch.Generator()
@@ -242,6 +243,7 @@ class CBottle3D(torch.nn.Module, AutoModelMixin):
             batch_out = edm_sampler_from_sigma(
                 batch_D,
                 batch_xT,
+                num_steps=self.sampler_steps,
                 randn_like=torch.randn_like,
                 sigma_max=int(sigma_max),  # Convert to int for type compatibility
             )
@@ -276,8 +278,8 @@ class CBottle3D(torch.nn.Module, AutoModelMixin):
             )
         else:
             return xr.DataArray(
-                data=x[None, :].cpu().numpy(),
-                dims=["time", "variable", "lat", "lon"],
+                data=x[:, :, 0].cpu().numpy(),
+                dims=["time", "variable", "hpx"],
                 coords={
                     "time": np.array(time),
                     "variable": np.array(variable),

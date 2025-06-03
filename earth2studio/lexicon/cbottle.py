@@ -45,8 +45,8 @@ class CBottleLexicon(metaclass=LexiconType):
             "tclw": ("cllvi", -1),  # liquid water path
             "tciw": ("clivi", -1),  # ice water path
             "t2m": ("tas", -1),  # t2m
-            "u2m": ("uas", -1),  # u2m
-            "vas": ("vas", -1),  # v2m
+            "u10m": ("uas", -1),  # zonal wind at surface
+            "v10m": ("vas", -1),  # meridional at surface
             "rlut": ("rlut", -1),  # Outgoing long wave radiation
             "rsut": ("rsut", -1),  # Outgoing short wave radiation
             "msl": ("pres_msl", -1),  # mean sea level pressure
