@@ -176,6 +176,21 @@ class AsyncZarrBackend:
 
             logger.debug(f"Writing coordinate array {key} to zarr store")
 
+            # Dates types not supported in zarr 3.0 at the moment
+            # https://github.com/zarr-developers/zarr-python/issues/2616
+            # TODO: Remove once fixed
+            if np.issubdtype(value.dtype, np.datetime64):
+                logger.warning(
+                    "Datetime64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch"
+                )
+                value = value.astype("datetime64[ns]").astype("int64")
+
+            if np.issubdtype(value.dtype, np.timedelta64):
+                logger.warning(
+                    "Timedelta64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch"
+                )
+                value = value.astype("timedelta64[ns]").astype("int64")
+
             array = await self.root.create_array(
                 name=key,
                 shape=value.shape,
@@ -324,10 +339,25 @@ class AsyncZarrBackend:
             raise ValueError(
                 f"Input tensors and array names must same length but got {len(x)} and {len(array_name)}."
             )
+        for key, value in coords.items():
+            # Dates types not supported in zarr 3.0 at the moment
+            # https://github.com/zarr-developers/zarr-python/issues/2616
+            # TODO: Remove once fixed
+            if np.issubdtype(value.dtype, np.datetime64):
+                logger.warning(
+                    "Datetime64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch"
+                )
+                coords[key] = value.astype("datetime64[ns]").astype("int64")
+
+            if np.issubdtype(value.dtype, np.timedelta64):
+                logger.warning(
+                    "Timedelta64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch"
+                )
+                coords[key] = value.astype("timedelta64[ns]").astype("int64")
 
         # Check to see whats intialized, only one process can do this at a time
         # Should be a one time process, so lock here doesnt matter too much for perf
-        with self.init_sem:
+        async with self.init_sem:  # noqa TODO: Fix!
             new_coords = {}
             for key, value in coords.items():
                 if not await self.root.contains(key):
@@ -399,28 +429,28 @@ class AsyncZarrBackend:
         logger.debug(f"Writing {n_writes} chunks to {len(array_name)} Zarr arrays")
         writes = []
         for i, array in enumerate(array_name):
-            data = x[i]
-            input_slice = [slice(None) for _ in data.shape]
-            array_slice = [slice(None) for _ in data.shape]
+            input_slice = [slice(None) for _ in x[i].shape]
+            array_slice = [slice(None) for _ in x[i].shape]
             # Loop through each element of the index mesh (chunk to write)
-            for i in range(n_writes):
+            for j in range(n_writes):
                 # Set the respective dim index in the slice
                 for key, value in indexed_dims.items():
-                    input_slice[value] = input_tensor_indices[key][i]
-                    array_slice[value] = output_zarr_indices[key][i]
+                    input_slice[value] = input_tensor_indices[key][j]
+                    array_slice[value] = output_zarr_indices[key][j]
 
                 # Finally set the selection in the array
                 async def write(
                     name: str,
+                    index: int,
                     array_slice: list[Any],
                     input_slice: list[Any],
                 ) -> None:
                     """Small helper function"""
                     zarray = await self.root.get(name)
-                    await zarray.setitem(tuple(array_slice), data[*input_slice])
+                    await zarray.setitem(tuple(array_slice), x[index][*input_slice])
 
                 writes.append(
-                    asyncio.create_task(write(array, array_slice, input_slice))
+                    asyncio.create_task(write(array, i, array_slice, input_slice))
                 )
         # Every single chunk is written async...
         await asyncio.gather(*writes)
