@@ -32,6 +32,8 @@ class CBottleLexicon(metaclass=LexiconType):
     ----
     Additional resources:
     https://github.com/NVlabs/cBottle
+    https://ceres.larc.nasa.gov/documents/cmip5-data/Tech-Note_CERES-EBAF-Surface_L3B_Ed2-8.pdf
+    https://ceres.larc.nasa.gov/documents/cmip5-data/Tech-Note_rlut_CERES-EBAF_L3B_Ed2-6r_20121101.pdf
     """
 
     @staticmethod
@@ -40,18 +42,18 @@ class CBottleLexicon(metaclass=LexiconType):
 
         surface_params = {
             "tcwv": ("tcwv", -1),
-            "cllvi": ("cllvi", -1),  # liquid water path
-            "clivi": ("clivi", -1),  # ice water path
+            "tclw": ("cllvi", -1),  # liquid water path
+            "tciw": ("clivi", -1),  # ice water path
             "t2m": ("tas", -1),  # t2m
             "u2m": ("uas", -1),  # u2m
             "vas": ("vas", -1),  # v2m
-            "olr": ("rlut", -1),  # Outgoing long wave radiation
-            "osr": ("rsut", -1),  # Outgoing short wave radiation
+            "rlut": ("rlut", -1),  # Outgoing long wave radiation
+            "rsut": ("rsut", -1),  # Outgoing short wave radiation
             "msl": ("pres_msl", -1),  # mean sea level pressure
             "tp": ("pr", -1),  # total precip
             "rsds": ("rsds", -1),  # downwelling SW at surface
             "sst": ("sst", -1),  # sea surface temp
-            "sic": ("sic", -1),  # sea ice
+            "sic": ("sic", -1),  # sea ice concentration
         }
 
         pressure_params = ["u", "v", "t", "z"]
