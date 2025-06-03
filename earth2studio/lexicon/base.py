@@ -41,7 +41,6 @@ E2STUDIO_VOCAB = {
     "tcwv": "total column water vapor / precipitable water (kg m-2)",
     "tclw": "total column liquid water / vertically integrated liquid water path (kg m-2)",
     "tciw": "total column ice water / vertically integrated ice water path (kg m-2)",
-    "tcw": "total column water (kg m-2)",
     "tp": "total precipitation (m)",
     "tpp": "total precipitation probability",
     "tpi": "total precipitation index",
