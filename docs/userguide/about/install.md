@@ -245,7 +245,7 @@ uv add earth2studio --extra fuxi
 ::::
 :::::
 :::::{tab-item} GraphCast
-Notes: Requires JAX with CUDA support and the GraphCast package.
+Notes: The GraphCast models (operational and small) require additional dependencies for JAX and Haiku.
 
 ::::{tab-set}
 :::{tab-item} pip
@@ -467,6 +467,26 @@ pip install earth2studio[precip-afno-v2]
 
 ```bash
 uv add earth2studio --extra precip-afno-v2
+```
+
+:::
+::::
+:::::
+:::::{tab-item} Solar Radiation AFNO
+Notes: Requires physicsnemo package for zenith angle calculations.
+
+::::{tab-set}
+:::{tab-item} pip
+
+```bash
+pip install earth2studio[solarradiation-afno]
+```
+
+:::
+:::{tab-item} uv
+
+```bash
+uv add earth2studio --extra solarradiation-afno
 ```
 
 :::

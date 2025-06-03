@@ -31,7 +31,7 @@ from .rand import Random, Random_FX
 from .rx import CosineSolarZenith, LandSeaMask, SurfaceGeoPotential
 from .utils import datasource_to_file, fetch_data, prep_data_array
 from .wb2 import WB2ERA5, WB2Climatology, WB2ERA5_32x64, WB2ERA5_121x240
-from .xr import DataArrayDirectory, DataArrayFile, DataSetFile
+from .xr import DataArrayDirectory, DataArrayFile, DataArrayPathList, DataSetFile
 
 # TODO: Remove upon physics-nemo update...
 # package turned on logging of warnings in 1.1.0, this is silencing them

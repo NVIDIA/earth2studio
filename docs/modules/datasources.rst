@@ -37,6 +37,7 @@ Used for fetching initial conditions for inference and validation data for scori
    data.WB2Climatology
    data.DataArrayFile
    data.DataSetFile
+   data.DataArrayPathList
 
 Forecast Sources
 ~~~~~~~~~~~~~~~~
