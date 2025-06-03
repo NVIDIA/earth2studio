@@ -437,6 +437,36 @@ class CorrDiff(torch.nn.Module, AutoModelMixin):
             self.lon_grid,
         )
 
+    def preprocess_input(self, x: torch.Tensor) -> torch.Tensor:
+        """Normalize input tensor using model's center and scale parameters.
+
+        Parameters
+        ----------
+        x : torch.Tensor
+            Input tensor to normalize
+
+        Returns
+        -------
+        torch.Tensor
+            Normalized input tensor (x - center) / scale
+        """
+        return (x - self.in_center) / self.in_scale
+
+    def postprocess_output(self, x: torch.Tensor) -> torch.Tensor:
+        """Denormalize output tensor using model's center and scale parameters.
+
+        Parameters
+        ----------
+        x : torch.Tensor
+            Normalized output tensor to denormalize
+
+        Returns
+        -------
+        torch.Tensor
+            Denormalized output tensor x * scale + center
+        """
+        return x * self.out_scale + self.out_center
+
     @torch.inference_mode()
     def _forward(self, x: torch.Tensor) -> torch.Tensor:
         """Forward pass of the model.
@@ -468,7 +498,7 @@ class CorrDiff(torch.nn.Module, AutoModelMixin):
             x = torch.concat([x, self.invariants.unsqueeze(0)], dim=1)
 
         # Normalize input
-        image_lr = (x - self.in_center) / self.in_scale
+        image_lr = self.preprocess_input(x)
         image_lr = image_lr.to(torch.float32).to(memory_format=torch.channels_last)
 
         # Run regression model
@@ -523,7 +553,7 @@ class CorrDiff(torch.nn.Module, AutoModelMixin):
         )
 
         # Denormalize output
-        image_out = image_out * self.out_scale + self.out_center
+        image_out = self.postprocess_output(image_out)
 
         return image_out
 
