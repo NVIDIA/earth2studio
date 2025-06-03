@@ -16,7 +16,8 @@
 
 import asyncio
 import concurrent
-import threading
+
+# import threading
 from asyncio.events import AbstractEventLoop
 from importlib.metadata import version
 from typing import Any
@@ -126,7 +127,8 @@ class AsyncZarrBackend:
         self.thread_pool = concurrent.futures.ThreadPoolExecutor(
             max_workers=max_pool_size
         )
-        self.init_sem = threading.Semaphore(1)
+        # self.init_sem = threading.Semaphore(1)
+        self.init_sem = asyncio.Semaphore(1)
         self.io_futures: list[concurrent.futures._base.Future] = []
 
         try:
