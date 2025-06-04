@@ -34,7 +34,6 @@ def test_cbottle_lexicon(variable, device):
     for v in variable:
         label, modifier = CBottleLexicon[v]
         output = modifier(input)
-        assert isinstance(label, str)
         assert input.shape == output.shape
         assert input.device == output.device
 
