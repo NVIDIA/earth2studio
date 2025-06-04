@@ -137,7 +137,7 @@ def test_cbottle_batches(time, variable, batch_size, mock_core_model, mock_sst_d
         ]
     ],
 )
-@pytest.mark.parametrize("variable", [["v10m"], ["rlut", "tp"]])
+@pytest.mark.parametrize("variable", [["v10m"], ["rlut", "tpf"]])
 def test_cbottle_hpx(time, variable, mock_core_model, mock_sst_ds):
     device = "cuda" if torch.cuda.is_available() else "cpu"
     ds = CBottle3D(mock_core_model, mock_sst_ds, lat_lon=False, seed=1).to(device)
