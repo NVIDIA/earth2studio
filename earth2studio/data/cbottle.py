@@ -33,7 +33,7 @@ try:
     from cbottle.datasets.dataset_3d import get_batch_info
     from cbottle.denoiser_factories import get_denoiser
     from cbottle.diffusion_samplers import edm_sampler_from_sigma
-except ImportError:  # pragma: no cover
+except ImportError:
     earth2grid = None
     Checkpoint = None
     edm_sampler_from_sigma = None
