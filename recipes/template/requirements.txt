@@ -376,7 +376,7 @@ toolz==1.0.0
     #   dask
     #   distributed
     #   partd
-torch==2.7.0
+torch==2.7.1
     # via earth2studio
 tornado==6.5.1
     # via
