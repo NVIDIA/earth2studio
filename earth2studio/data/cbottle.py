@@ -351,7 +351,7 @@ class CBottle3D(torch.nn.Module, AutoModelMixin):
         return out
 
     def set_seed(self, seed: int) -> None:
-        """Re-init and set seed of CBottle latent variable generator
+        """Set seed of CBottle latent variable generator
 
         Parameters
         ----------
