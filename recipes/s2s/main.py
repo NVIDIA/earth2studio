@@ -27,7 +27,6 @@ def main(cfg: DictConfig) -> None:
     # Configure logging
     configure_logging()
 
-
     (
         ensemble_configs,
         model_dict,

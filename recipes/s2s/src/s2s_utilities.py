@@ -128,7 +128,11 @@ def build_package_list(cfg: DictConfig) -> list[str]:
         # DLESyM models are not stored in a registry, and the default package contains all atmos/ocean checkpoints
         # Loading specific checkpoint pairs is controlled by passing the model indices to `DLESyMLatLon.load_model`
         natmos, nocean = cfg.forecast_model.natmos, cfg.forecast_model.nocean
-        pkg_list = [f"dlesym_atmos{i:02d}_ocean{j:02d}" for i in range(natmos) for j in range(nocean)]
+        pkg_list = [
+            f"dlesym_atmos{i:02d}_ocean{j:02d}"
+            for i in range(natmos)
+            for j in range(nocean)
+        ]
 
         if "max_num_checkpoint_pairs" in cfg.forecast_model:
             max_num_ckpts = cfg.forecast_model.max_num_checkpoint_pairs
@@ -252,7 +256,9 @@ def initialize_output(
     if "file_output" not in cfg:
         return {}
 
-    io_dict = build_io_dict(cfg, list(output_coords_dict.keys()), create_store=add_arrays)
+    io_dict = build_io_dict(
+        cfg, list(output_coords_dict.keys()), create_store=add_arrays
+    )
 
     # Populate with expected coords, dims
     ens_members = np.array(np.arange(cfg.nperturbed * cfg.ncheckpoints))
@@ -1079,6 +1085,7 @@ def get_batch_seeds(cfg: DictConfig) -> tuple[str | int, list[int]]:
 
     return base_random_seed, batch_ids_produce
 
+
 def calculate_all_torch_seeds(
     base_seed_string: str, batch_ids: list[int]
 ) -> tuple[np.array, np.array]:
@@ -1201,7 +1208,9 @@ def configure_logging() -> None:
     logger.add(sys.stdout, level="INFO", filter=noisy_packages)
 
 
-def run_with_rank_ordered_execution(func: Callable, *args: Any, first_rank: int = 0, **kwargs: Any) -> Any:
+def run_with_rank_ordered_execution(
+    func: Callable, *args: Any, first_rank: int = 0, **kwargs: Any
+) -> Any:
     """Executes `func(*args, **kwargs)` safely in a distributed setting:
     - First on the specified `rank`
     - Then, after synchronization, on the other ranks

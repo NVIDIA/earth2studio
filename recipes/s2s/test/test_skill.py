@@ -85,10 +85,12 @@ def main() -> None:
             )
 
             # Load verification data
-            interp_coords = OrderedDict({
-                "_lat": fcst.lat.values,
-                "_lon": fcst.lon.values,
-            })
+            interp_coords = OrderedDict(
+                {
+                    "_lat": fcst.lat.values,
+                    "_lon": fcst.lon.values,
+                }
+            )
             verif, verif_coords = fetch_data(
                 source=data_source,
                 variable=var,
