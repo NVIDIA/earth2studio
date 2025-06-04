@@ -1,4 +1,4 @@
-# Seasonal-to-Subseasonal (S2S) Forecasting Recipe
+# Subseasonal-to-Seasonal (S2S) Forecasting Recipe
 
 ## Table of Contents
 
@@ -22,9 +22,9 @@
 
 ## Overview
 
-Seasonal-to-subseasonal forecasting bridges the gap between weather forecasts (up to 2
+Subseasonal-to-seasonal (S2S) forecasting bridges the gap between weather forecasts (up to 2
 weeks) and seasonal forecasts (3-6 months). This recipe demonstrates how to run ensemble
-forecasts for seasonal-to-subseasonal (S2S) timescales using Earth2Studio.
+forecasts for S2S timescales using Earth2Studio.
 Reflecting the need for larger ensembles and longer forecast
 timescales, the recipe supports multi-GPU distributed inference, along with parallel I/O to
 efficiently save forecast data as it is generated, and permits only saving a subset of the
@@ -246,7 +246,7 @@ defaults:
 > [!TIP]
 > Not all perturbation methods in earth2studio are compatible with
 > the DLESyM model, currently. In particular, multi-timestep perturbation
-> methods like lagged ensembles and bred vectors will not work.
+> methods like (normal/hemispheric-centered) bred vectors will not work.
 <!-- markdownlint-enable MD028 -->
 
 Aside from these main config items, there are also options to choose a `data_source` and
