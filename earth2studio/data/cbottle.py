@@ -116,9 +116,7 @@ class CBottle3D(torch.nn.Module, AutoModelMixin):
         self.sigma_max = sigma_max
         self.sampler_steps = 18
         self.batch_size = batch_size
-        self.seed = seed
         self.rng = torch.Generator()
-        self.variables = np.array(list(CBottleLexicon.VOCAB.keys()))
 
         self._cache = cache
         self._verbose = verbose
@@ -177,7 +175,7 @@ class CBottle3D(torch.nn.Module, AutoModelMixin):
 
         varidx = []
         for var in variable:
-            idx = np.where(self.variables == var)[0]
+            idx = np.where(self.VARIABLES == var)[0]
             if len(idx) == 0:
                 raise ValueError(
                     f"Variable {var} not found in CBottle3D lexicon variables"
@@ -224,7 +222,6 @@ class CBottle3D(torch.nn.Module, AutoModelMixin):
                 ),
                 generator=self.rng,
             ).to(device)
-
             batch_xT = batch_latents * sigma_max
 
             # Gets appropriate denoiser based on config
@@ -334,7 +331,7 @@ class CBottle3D(torch.nn.Module, AutoModelMixin):
         # ["rlut", "rsut", "rsds"]
         nan_channels = [38, 39, 42]
         target = np.zeros(
-            (len(time), self.variables.shape[0], 1, 4**HPX_LEVEL * 12), dtype=np.float32
+            (len(time), self.VARIABLES.shape[0], 1, 4**HPX_LEVEL * 12), dtype=np.float32
         )
         target[:, nan_channels, ...] = np.nan
 
@@ -361,7 +358,6 @@ class CBottle3D(torch.nn.Module, AutoModelMixin):
         seed : int
             Seed value
         """
-        self.rng = torch.Generator(device=self.device_buffer.device)
         self.rng.manual_seed(seed)
 
     @property
