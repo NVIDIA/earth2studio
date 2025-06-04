@@ -1,11 +1,14 @@
-from AI_WQ_package import retrieve_evaluation_data
+import os
+from datetime import datetime, timedelta
+
 import numpy as np
 import xarray as xr
-from datetime import datetime, timedelta
-import os
+from AI_WQ_package import retrieve_evaluation_data
 
 
-def get_verif_data(forecast_date: str, variable: str) -> tuple[xr.DataArray, xr.DataArray]:
+def get_verif_data(
+    forecast_date: str, variable: str
+) -> tuple[xr.DataArray, xr.DataArray]:
     """
     Retrieve official AIWQ verification data for a given forecast date and variable.
 
@@ -26,14 +29,20 @@ def get_verif_data(forecast_date: str, variable: str) -> tuple[xr.DataArray, xr.
 
     fc_valid_date1, fc_valid_date2 = valid_dates(forecast_date)
 
-    # Download observations    
-    obs1 = retrieve_evaluation_data.retrieve_weekly_obs(fc_valid_date1, variable, password=os.getenv('AIWQ_SUBMIT_PWD'))
-    obs2 = retrieve_evaluation_data.retrieve_weekly_obs(fc_valid_date2, variable, password=os.getenv('AIWQ_SUBMIT_PWD'))
+    # Download observations
+    obs1 = retrieve_evaluation_data.retrieve_weekly_obs(
+        fc_valid_date1, variable, password=os.getenv("AIWQ_SUBMIT_PWD")
+    )
+    obs2 = retrieve_evaluation_data.retrieve_weekly_obs(
+        fc_valid_date2, variable, password=os.getenv("AIWQ_SUBMIT_PWD")
+    )
 
     return obs1, obs2
 
 
-def get_quintile_clim(forecast_date: str, variable: str) -> tuple[xr.DataArray, xr.DataArray]:
+def get_quintile_clim(
+    forecast_date: str, variable: str
+) -> tuple[xr.DataArray, xr.DataArray]:
     """
     Retrieve the official AIWQ quintile climatology for a given forecast date and variable.
 
@@ -54,8 +63,12 @@ def get_quintile_clim(forecast_date: str, variable: str) -> tuple[xr.DataArray, 
 
     fc_valid_date1, fc_valid_date2 = valid_dates(forecast_date)
 
-    clim1 =  retrieve_evaluation_data.retrieve_20yr_quintile_clim(fc_valid_date1,variable,password=os.getenv('AIWQ_SUBMIT_PWD'))
-    clim2 =  retrieve_evaluation_data.retrieve_20yr_quintile_clim(fc_valid_date2,variable,password=os.getenv('AIWQ_SUBMIT_PWD'))
+    clim1 = retrieve_evaluation_data.retrieve_20yr_quintile_clim(
+        fc_valid_date1, variable, password=os.getenv("AIWQ_SUBMIT_PWD")
+    )
+    clim2 = retrieve_evaluation_data.retrieve_20yr_quintile_clim(
+        fc_valid_date2, variable, password=os.getenv("AIWQ_SUBMIT_PWD")
+    )
 
     return clim1, clim2
 
@@ -71,19 +84,28 @@ def valid_dates(forecast_date: str) -> tuple[str, str]:
 
     Returns
     -------
-        tuple: A tuple containing the valid dates for the forecast. 
+        tuple: A tuple containing the valid dates for the forecast.
     """
 
-    date_obj = datetime.strptime(forecast_date,"%Y%m%d") # get initial date as a date obj
+    date_obj = datetime.strptime(
+        forecast_date, "%Y%m%d"
+    )  # get initial date as a date obj
 
     # add number of days to date object depending on lead time
-    fc_valid_date_obj1 = date_obj + timedelta(days=4+(7*2)) # get to the next Monday then add number of weeks
-    fc_valid_date_obj2 = date_obj + timedelta(days=4+(7*3))
+    fc_valid_date_obj1 = date_obj + timedelta(
+        days=4 + (7 * 2)
+    )  # get to the next Monday then add number of weeks
+    fc_valid_date_obj2 = date_obj + timedelta(days=4 + (7 * 3))
 
-    fc_valid_date1 = fc_valid_date_obj1.strftime("%Y%m%d") # convert date obj back to a string
-    fc_valid_date2 = fc_valid_date_obj2.strftime("%Y%m%d") # convert date obj back to a string
+    fc_valid_date1 = fc_valid_date_obj1.strftime(
+        "%Y%m%d"
+    )  # convert date obj back to a string
+    fc_valid_date2 = fc_valid_date_obj2.strftime(
+        "%Y%m%d"
+    )  # convert date obj back to a string
 
     return fc_valid_date1, fc_valid_date2
+
 
 def convert_to_quintile_probs(data: xr.DataArray, edges: xr.DataArray) -> xr.DataArray:
     """
@@ -103,37 +125,42 @@ def convert_to_quintile_probs(data: xr.DataArray, edges: xr.DataArray) -> xr.Dat
     """
 
     full_edges = xr.concat(
-    [
-        xr.full_like(edges.isel(quantile=0), -np.inf),
-        edges,
-        xr.full_like(edges.isel(quantile=-1), np.inf)
-    ],
-    dim='quantile'
+        [
+            xr.full_like(edges.isel(quantile=0), -np.inf),
+            edges,
+            xr.full_like(edges.isel(quantile=-1), np.inf),
+        ],
+        dim="quantile",
     )
 
     # Now digitize the ensemble values into these bins
     # np.digitize assigns bin indices in [1, ..., len(bins)-1]
     # So subtract 1 to get bin index in [0, ..., n_bins-1]
-    bin_indices = xr.apply_ufunc(
-        np.digitize,
-        data,
-        full_edges,
-        input_core_dims=[['ensemble'], ['quantile']],
-        output_core_dims=[['ensemble']],
-        vectorize=True,
-        dask="parallelized",
-        dask_gufunc_kwargs={"allow_rechunk": True},
-        output_dtypes=[int]
-    ) - 1
+    bin_indices = (
+        xr.apply_ufunc(
+            np.digitize,
+            data,
+            full_edges,
+            input_core_dims=[["ensemble"], ["quantile"]],
+            output_core_dims=[["ensemble"]],
+            vectorize=True,
+            dask="parallelized",
+            dask_gufunc_kwargs={"allow_rechunk": True},
+            output_dtypes=[int],
+        )
+        - 1
+    )
 
     # Count occurrences of each bin index (0-4) along 'ensemble'
     quintile_probs = []
     for i in range(5):
-        prob = (bin_indices == i).sum(dim='ensemble') / data.sizes['ensemble']
+        prob = (bin_indices == i).sum(dim="ensemble") / data.sizes["ensemble"]
         quintile_probs.append(prob)
 
     # Stack along new 'quintile' dimension
-    result = xr.concat(quintile_probs, dim='quantile')
-    result = result.assign_coords(quantile=np.linspace(0.2, 1., endpoint=True, num=5)).rename({"quantile": "quintile"})
+    result = xr.concat(quintile_probs, dim="quantile")
+    result = result.assign_coords(
+        quantile=np.linspace(0.2, 1.0, endpoint=True, num=5)
+    ).rename({"quantile": "quintile"})
 
     return result

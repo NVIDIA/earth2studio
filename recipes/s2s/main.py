@@ -16,12 +16,8 @@
 
 import hydra
 from omegaconf import DictConfig
-from physicsnemo.distributed import DistributedManager
-from loguru import logger
-import sys
-
 from src.s2s_run import run_inference
-from src.s2s_utilities import initialize, configure_logging
+from src.s2s_utilities import configure_logging, initialize
 
 
 @hydra.main(version_base=None, config_path="cfg", config_name="pnw_dlesym")
@@ -31,8 +27,6 @@ def main(cfg: DictConfig) -> None:
     # Configure logging
     configure_logging()
 
-    DistributedManager.initialize()
-    dist = DistributedManager()
 
     (
         ensemble_configs,
@@ -52,7 +46,6 @@ def main(cfg: DictConfig) -> None:
         output_coords_dict,
         base_random_seed,
     )
-        
 
 
 if __name__ == "__main__":

@@ -14,26 +14,30 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os
 from collections.abc import Iterator
+from concurrent.futures import Future, ThreadPoolExecutor
 from datetime import datetime
 from math import ceil
-from concurrent.futures import ThreadPoolExecutor, Future
+
 import numpy as np
 import torch
-import xarray as xr
 from loguru import logger
 from tqdm import tqdm
 
 from earth2studio.data import DataSource, fetch_data
-from earth2studio.io import IOBackend
+from earth2studio.io import ZarrBackend
 from earth2studio.models.dx import DiagnosticModel
 from earth2studio.models.px import PrognosticModel
 from earth2studio.perturbation import Perturbation
 from earth2studio.utils.coords import CoordSystem, map_coords, split_coords
 from earth2studio.utils.time import to_time_array
 
-from .s2s_utilities import cat_coords, get_batchid_from_ensid, calculate_torch_seed, run_with_rank_ordered_execution
+from .s2s_utilities import (
+    calculate_torch_seed,
+    cat_coords,
+    get_batchid_from_ensid,
+    run_with_rank_ordered_execution,
+)
 
 logger.remove()
 logger.add(lambda msg: tqdm.write(msg, end=""), colorize=True)
@@ -89,7 +93,7 @@ class S2SEnsembleRunner:
         ncheckpoints: int,
         prognostic: PrognosticModel,
         data: DataSource,
-        io_dict: dict[str, IOBackend],
+        io_dict: dict[str, ZarrBackend],
         perturbation: Perturbation,
         output_coords_dict: dict[str, CoordSystem],
         dx_model_dict: dict[str, DiagnosticModel] = {},
@@ -126,7 +130,7 @@ class S2SEnsembleRunner:
 
         # Fetch data from data source and load onto device
         run_with_rank_ordered_execution(self.fetch_ics, data, time)
-        
+
         # Compute batch sizes
         self.set_batch_size(batch_size)
 
@@ -205,7 +209,9 @@ class S2SEnsembleRunner:
             np.isin(batch_ids, self.batch_ids_produce)
         ]
         total_coords = {"ensemble": ensemble_members_to_produce} | self.coords0.copy()
-        total_coords["ensemble"] = np.array(np.arange(self.nperturbed*self.ncheckpoints))
+        total_coords["ensemble"] = np.array(
+            np.arange(self.nperturbed * self.ncheckpoints)
+        )
 
         # add lead time dimension
         total_coords["lead_time"] = np.asarray(
@@ -228,9 +234,7 @@ class S2SEnsembleRunner:
                 # initialise place for variables in io backend
                 variables_to_save = total_coords.pop("variable")
 
-            if (
-                self.io_dict[k] is not None
-            ):
+            if self.io_dict[k] is not None:
                 self.io_dict[k].add_array(total_coords, variables_to_save)
 
         return
@@ -307,7 +311,7 @@ class S2SEnsembleRunner:
 
         return model, mini_batch_size, full_seed_string, torch_seed
 
-    def write(self, xx_sub, coords_sub):
+    def write(self, xx_sub: torch.Tensor, coords_sub: CoordSystem) -> None:
         """Write data to IO backend. Supports async writing.
 
         Args:
@@ -328,13 +332,13 @@ class S2SEnsembleRunner:
                 self.io_dict[k].write(*split_coords(xx_sub, coords_sub))
 
     @torch.inference_mode()
-    def __call__(self) -> dict[str, IOBackend]:
+    def __call__(self) -> dict[str, ZarrBackend]:
         """Run ensemble inference pipeline with diagnostic model on top
         saving specified variables.
 
         Returns
         -------
-        dict[str, IOBackend]
+        dict[str, ZarrBackend]
             Dictionary of io objects containing data of ensemble inference
         """
         logger.info(
@@ -380,7 +384,7 @@ class S2SEnsembleRunner:
             for thread in list(self.writer_threads):
                 thread.result()
                 self.writer_threads.remove(thread)
-            self.writer_executor.shutdown() 
+            self.writer_executor.shutdown()
 
         logger.success("Inference complete")
         return self.io_dict

@@ -14,11 +14,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from typing import Any
+
 from numpy import asarray
+from omegaconf import DictConfig
 from torch import Tensor, inference_mode
 from xarray import open_dataset
-from omegaconf import DictConfig
-from typing import Any
 
 from earth2studio.data import DataSource
 from earth2studio.models.px import PrognosticModel
@@ -29,9 +30,11 @@ from earth2studio.perturbation import (
 from earth2studio.utils.coords import CoordSystem
 
 
-def initialize_perturbation(cfg: DictConfig, model: PrognosticModel, data_source: DataSource) -> Any:
+def initialize_perturbation(
+    cfg: DictConfig, model: PrognosticModel, data_source: DataSource
+) -> Any:
     """Initialize the perturbation method for the ensemble forecast
-    
+
     Parameters
     ----------
     cfg : DictConfig

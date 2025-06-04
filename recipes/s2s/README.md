@@ -33,6 +33,7 @@ and HENS-SFNO are best-posed for S2S forecasting, so this recipe supports both m
 can be extended to support other models as well.
 
 Key features include:
+
 - Multi-GPU inference
 - Parallel, non-blocking I/O using zarr format
 - Usage of one or more diagnostic models in the forecast pipeline
@@ -40,12 +41,11 @@ Key features include:
 - Multi-GPU scoring of forecast outputs
 - Capability to score using ECMWF AIWQ S2S metrics
 
-<!-- markdownlint-disable MD033 -->
+<!-- markdownlint-disable MD033 MD013 -->
 <div align="center">
 <img src="https://huggingface.co/datasets/NickGeneva/Earth2StudioAssets/resolve/main/recipes/pnw_demo.png" width="90%" alt="Earth2Studio S2S Banner">
 </div>
-<!-- markdowmlint-disable MD033 -->
-
+<!-- markdownlint-disable MD033 -->
 
 ## Prerequisites
 
@@ -105,6 +105,7 @@ pip install -r requirements.txt
 ```
 
 To run an example ensemble forecast with DLESyM, run
+
 ```bash
 # With uv
 uv run python main.py --config-name=pnw_dlesym ncheckpoints=2
@@ -149,6 +150,7 @@ uv run main.py --config-name=pnw_dlesym
 ```
 
 We also provide a corresponding config for the HENS-SFNO model to run for this case-study:
+
 ```bash
 uv run main.py --config-name=pnw_sfno
 ```
@@ -211,7 +213,7 @@ which are composed with the `output_path` to determine where all run outputs and
 will be saved (`${output_path}/${project}_${run_id}`). Then, the core settings for
 ensemble size and forecast duration are specified as:
 
-```
+```yaml
 nsteps: 12         # number of steps to run the forecast
 nperturbed: 4      # Number of perturbations applied to the initial condition for each model checkpoint
                     # Total ensemble size is nperturbed * ncheckpoints
@@ -220,7 +222,7 @@ ncheckpoints: 16 # number of model checkpoints to use
 batch_size: 4      # inference batch size
 ```
 
-As mentioned in the in-line comments, this recipe creates ensembles by combining initial 
+As mentioned in the in-line comments, this recipe creates ensembles by combining initial
 condition perturbations with multiple model checkpoints to produce variability in the
 ensemble. Each model checkpoint (set of trained weights) is paired with `nperturbed`
 initial condition perturbations to produce a total of `ncheckpoitnts*nperturbed` ensemble
@@ -234,7 +236,7 @@ folders. This allows one to add additional models/perturbations, if desired. To 
 specific combination, set the defaults in the top-level config file (see existing configs
 for a reference):
 
-```
+```yaml
 defaults:
     - forecast_model: dlesym
     - perturbation: gaussian
@@ -275,12 +277,13 @@ as was used when running it.
 The scoring script will read data from the output of the forecast run (`forecast.zarr` in)
 the run's output directory and write scores to a new file `score.zarr`. There are two
 general ways of scoring model outputs:
+
 1. Using metrics defined in earth2studio
 2. Using metrics defined as part of the ECMWF AI Weather Quest competition
 
 These can be configured under the `scoring` section of the config file:
 
-```
+```yaml
 scoring:
     aiwq:
         variables: ["t2m"]
@@ -322,6 +325,7 @@ competition verification data. The AI Weather Quest focues on RPSS scores of
 weekly-averaged forecast outputs, computed against climatological quintiles.
 
 There are a number of limitations associated with using `AI_WQ_package` for scoring:
+
 - The initialization date of the forecast must be on a Thursday
 - The initialization date must be recent (on or after March 2025) to be able to download
   the corresponding verification data. This precludes using some ERA5 data sources.
@@ -338,6 +342,7 @@ execution. Example commands in this document make use of the `torchrun` launcher
 by PyTorch as it is widely available and compatible. To turn a single-GPU run (e.g., one
 launched by `uv run python main.py --config-name pnw_dlesym.yaml`) into a multi-GPU run,
 simply add `torchrun` and the number of GPUs `$ngpu` you'd like to parallelize over:
+
 ```bash
 uv run torchrun --nproc_per_node=$ngpu --standalone main.py --config-name global_dlesym
 ```
@@ -353,6 +358,7 @@ There are a number of considerations with multi-GPU execution worth highlighting
 more advanced users and developers. Primarily, certain download/caching operations in
 earth2studio utilities are not thread-safe, and can cause uncontrolled behavior if not run
 in a coordinated fashion:
+
 - `load_default_package` of an earth2studio model
 - `fetch_data` of some earth2studio data sources
 - `__call__` of some perturbation methods, which implicitly call `fetch_data`
@@ -376,6 +382,7 @@ around 10MB, but other sizes may work well too in this case depending on the out
 (resolution or cropbox size) data is being saved on.
 
 ## References
+
 - [The 2021 Western North American Heatwave and Its Subseasonal Predictions][pnw-heatwave-s2s]
 - [A Deep Learning Earth System Model for Efficient Simulation of the Observed Climate][dlesym-paper]
 - [Huge Ensembles Part I: Design of Ensemble Weather Forecasts using Spherical Fourier Neural Operators][hens-paper]

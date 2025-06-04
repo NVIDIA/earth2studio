@@ -14,12 +14,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import torch
 from typing import Any
-from loguru import logger
-import zarr
 
 import numpy as np
+import zarr
+from loguru import logger
 from omegaconf import DictConfig
 from physicsnemo.distributed import DistributedManager
 
@@ -27,11 +26,11 @@ from earth2studio.data.base import DataSource
 from src.s2s_ensemble import S2SEnsembleRunner
 from src.s2s_perturbation import initialize_perturbation
 from src.s2s_utilities import (
-    initialize_output,
-    update_model_dict,
     create_base_seed_string,
+    initialize_output,
     initialize_output_structures,
     run_with_rank_ordered_execution,
+    update_model_dict,
 )
 
 
@@ -45,8 +44,8 @@ def run_inference(
     base_random_seed: str | int,
 ) -> None:
     """S2S run inference function for subseasonal forecasting
-    
-    This function coordinates the ensemble forecast process for seasonal-to-subseasonal 
+
+    This function coordinates the ensemble forecast process for seasonal-to-subseasonal
     forecasting.
     """
     # We iterate through each ensemble configuration to generate ensemble members
@@ -56,15 +55,15 @@ def run_inference(
     # Before running the ensemble, initialize the full output zarr file across all ranks
     # Done in a rank-ordered manner to avoid race conditions: rank 0 creates the zarr first
     dist = DistributedManager()
-    times = np.array(sorted(list(set([ic for (_, ic, _, _) in ensemble_configs]))))
-    
+    times = np.array(sorted(list({ic for (_, ic, _, _) in ensemble_configs})))
+
     io_dict = run_with_rank_ordered_execution(
-        initialize_output, 
-        cfg, 
-        times, 
-        model_dict, 
-        output_coords_dict, 
-        add_arrays= (dist.rank == 0)
+        initialize_output,
+        cfg,
+        times,
+        model_dict,
+        output_coords_dict,
+        add_arrays=(dist.rank == 0),
     )
 
     for pkg, ic, ens_idx, batch_ids_produce in ensemble_configs:
@@ -78,7 +77,9 @@ def run_inference(
         writer_executor, writer_threads = initialize_output_structures(cfg)
 
         # Initialize the S2S perturbation method
-        perturbation = initialize_perturbation(cfg=cfg, model=model_dict["model"], data_source=data_source)
+        perturbation = initialize_perturbation(
+            cfg=cfg, model=model_dict["model"], data_source=data_source
+        )
 
         # Initialize ensemble runner for S2S forecasting
         ensemble_runner = S2SEnsembleRunner(
@@ -109,6 +110,3 @@ def run_inference(
         logger.info("Consolidating metadata in zarr files")
         for k in io_dict.keys():
             zarr.consolidate_metadata(io_dict[k].store)
-
-
-

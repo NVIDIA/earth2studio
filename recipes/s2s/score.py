@@ -17,9 +17,7 @@
 import hydra
 from omegaconf import DictConfig
 from physicsnemo.distributed import DistributedManager
-from loguru import logger
-
-from src.s2s_utilities import configure_logging, build_io_dict
+from src.s2s_utilities import configure_logging
 from src.score_utilities import initialize, run_scoring
 
 
@@ -35,7 +33,7 @@ def main(cfg: DictConfig) -> None:
     (
         io_dict,
         metric_dict,
-        score_io_dict,  
+        score_io_dict,
         data_source,
     ) = initialize(cfg)
 
@@ -49,4 +47,4 @@ def main(cfg: DictConfig) -> None:
 
 
 if __name__ == "__main__":
-    main() 
+    main()

@@ -14,31 +14,31 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os
-import sys
-import shutil
+import hashlib
 import logging
+import os
+import secrets
+import shutil
+import sys
 from collections import OrderedDict
+from collections.abc import Callable
 from concurrent.futures import Future, ThreadPoolExecutor
 from functools import partial
 from typing import Any
-import hashlib
-import secrets
 
 import hydra
 import numpy as np
 import torch
-import xarray as xr
 from loguru import logger
 from omegaconf import DictConfig, open_dict
 from physicsnemo.distributed import DistributedManager
 
 from earth2studio.data import DataSource
-from earth2studio.io import IOBackend, KVBackend, XarrayBackend
+from earth2studio.io import ZarrBackend
 from earth2studio.models.auto import Package
 from earth2studio.models.px import PrognosticModel
 from earth2studio.perturbation import Perturbation
-from earth2studio.utils.coords import CoordSystem, map_coords, handshake_coords
+from earth2studio.utils.coords import CoordSystem, handshake_coords, map_coords
 from earth2studio.utils.time import to_time_array
 
 
@@ -98,7 +98,9 @@ def build_package_list(cfg: DictConfig) -> list[str]:
     list[str]
         Available model packages.
     """
-    if "registry" in cfg.forecast_model:  # pointing to single package; used to load HENS-SFNO models
+    if (
+        "registry" in cfg.forecast_model
+    ):  # pointing to single package; used to load HENS-SFNO models
         if cfg.forecast_model.registry == "default":
             return ["default"]
 
@@ -126,10 +128,7 @@ def build_package_list(cfg: DictConfig) -> list[str]:
         # DLESyM models are not stored in a registry, and the default package contains all atmos/ocean checkpoints
         # Loading specific checkpoint pairs is controlled by passing the model indices to `DLESyMLatLon.load_model`
         natmos, nocean = cfg.forecast_model.natmos, cfg.forecast_model.nocean
-        pkg_list = []
-        for i in range(natmos):
-            for j in range(nocean):
-                pkg_list.append(f"dlesym_atmos{i:02d}_ocean{j:02d}")
+        pkg_list = [f"dlesym_atmos{i:02d}_ocean{j:02d}" for i in range(natmos) for j in range(nocean)]
 
         if "max_num_checkpoint_pairs" in cfg.forecast_model:
             max_num_ckpts = cfg.forecast_model.max_num_checkpoint_pairs
@@ -211,8 +210,12 @@ def set_initial_times(cfg: DictConfig) -> list[np.datetime64]:
 
 
 def initialize_output(
-    cfg: DictConfig, times: list[np.datetime64], model_dict: dict, output_coords_dict: dict, add_arrays: bool = False
-) -> dict[str, IOBackend]:
+    cfg: DictConfig,
+    times: list[np.datetime64],
+    model_dict: dict,
+    output_coords_dict: dict,
+    add_arrays: bool = False,
+) -> dict[str, ZarrBackend]:
     """Initialize data output.
 
     This function sets up the data output based on the provided configuration. It creates an IO handler for storing the
@@ -235,9 +238,9 @@ def initialize_output(
 
     Returns
     -------
-    dict[str, IOBackend]
+    dict[str, ZarrBackend]
         A dictionary where the keys are the names of different cropbox areas (e.g., 'Global', 'North', 'South'),
-        and the values are the corresponding IOBackend objects (e.g., ZarrBackend) for storing the data.
+        and the values are the corresponding ZarrBackend objects for storing the data.
 
     Notes
     -----
@@ -249,14 +252,16 @@ def initialize_output(
     if "file_output" not in cfg:
         return {}
 
-    io_dict = build_io_dict(cfg, output_coords_dict.keys(), create_store=add_arrays)
-    
+    io_dict = build_io_dict(cfg, list(output_coords_dict.keys()), create_store=add_arrays)
+
     # Populate with expected coords, dims
-    ens_members = np.array(np.arange(cfg.nperturbed*cfg.ncheckpoints))
-    total_coords = OrderedDict({'ensemble': ens_members}) | model_dict["model"].input_coords()
-    total_coords.pop("batch") # batch dimension not needed for output zarr
+    ens_members = np.array(np.arange(cfg.nperturbed * cfg.ncheckpoints))
+    total_coords = (
+        OrderedDict({"ensemble": ens_members}) | model_dict["model"].input_coords()
+    )
+    total_coords.pop("batch")  # batch dimension not needed for output zarr
     total_coords["time"] = times
-    
+
     input_coords = model_dict["model"].input_coords()
     output_coords = model_dict["model"].output_coords(total_coords)
     inp_lead_time = input_coords["lead_time"]
@@ -264,7 +269,9 @@ def initialize_output(
         output_coords["lead_time"] + output_coords["lead_time"][-1] * i
         for i in range(cfg.nsteps)
     ]
-    total_coords["lead_time"] = np.concatenate([inp_lead_time, *out_lead_times]).astype('timedelta64[ns]')
+    total_coords["lead_time"] = np.concatenate([inp_lead_time, *out_lead_times]).astype(
+        "timedelta64[ns]"
+    )
 
     for i, (k, oc) in enumerate(output_coords_dict.items()):
 
@@ -276,9 +283,7 @@ def initialize_output(
             # initialize place for variables in io backend
             variables_to_save = total_coords.pop("variable")
 
-        if (
-            io_dict[k] is not None
-        ):
+        if io_dict[k] is not None:
             if add_arrays:
                 # Add the array to the IO backend, overwriting any existing arrays
                 io_dict[k].add_array(total_coords, variables_to_save)
@@ -286,16 +291,22 @@ def initialize_output(
                 # Output file exists, check for required variables
                 for v in variables_to_save:
                     if v not in io_dict[k]:
-                        raise ValueError(f"Variable {v} not found in initialized {k} IO backend")
-            
+                        raise ValueError(
+                            f"Variable {v} not found in initialized {k} IO backend"
+                        )
+
                 # Modify the inherited time/lead time coords in the io backend to be datetime64/timedelta64
                 # Needed as datetime64/timedelta64 are not supported by Zarr 3.0 yet
                 # https://github.com/zarr-developers/zarr-python/issues/2616
                 # TODO: Remove once fixed
                 if "time" in io_dict[k].coords:
-                    io_dict[k].coords["time"] = np.array(io_dict[k].coords["time"], dtype="datetime64[ns]")
+                    io_dict[k].coords["time"] = np.array(
+                        io_dict[k].coords["time"], dtype="datetime64[ns]"
+                    )
                 if "lead_time" in io_dict[k].coords:
-                    io_dict[k].coords["lead_time"] = np.array(io_dict[k].coords["lead_time"], dtype="timedelta64[ns]")
+                    io_dict[k].coords["lead_time"] = np.array(
+                        io_dict[k].coords["lead_time"], dtype="timedelta64[ns]"
+                    )
 
                 # Verify expected coords
                 for c in total_coords.keys():
@@ -304,8 +315,13 @@ def initialize_output(
     return io_dict
 
 
-def build_io_dict(cfg: DictConfig, coords: list[str], create_store: bool = False, file_name: str = "forecast") -> dict[str, IOBackend]:
-    """Build a dictionary of IOBackends for each cropbox area.
+def build_io_dict(
+    cfg: DictConfig,
+    coords: list[str],
+    create_store: bool = False,
+    file_name: str = "forecast",
+) -> dict[str, ZarrBackend]:
+    """Build a dictionary of ZarrBackends for each cropbox area.
 
     Parameters
     ----------
@@ -320,9 +336,9 @@ def build_io_dict(cfg: DictConfig, coords: list[str], create_store: bool = False
 
     Returns
     -------
-    dict[str, IOBackend]
+    dict[str, ZarrBackend]
         A dictionary where the keys are the names of different cropbox areas (e.g., 'Global', 'North', 'South'),
-        and the values are the corresponding IOBackend objects (e.g., ZarrBackend) for storing the data.
+        and the values are the corresponding ZarrBackend objects for storing the data.
     """
 
     if "path" not in cfg.file_output:
@@ -338,10 +354,22 @@ def build_io_dict(cfg: DictConfig, coords: list[str], create_store: bool = False
         io = hydra.utils.instantiate(cfg.file_output.format)
         if isinstance(io, partial):  # add out file names
             file_name = out_path + ".zarr"
-            if os.path.exists(file_name) and not cfg.file_output.overwrite_store and create_store:
-                raise ValueError(f"File {file_name} already exists. Set overwrite_store to True to overwrite.")
-            elif os.path.exists(file_name) and cfg.file_output.overwrite_store and create_store:
-                logging.warning(f"Overwriting existing file {file_name} with new arrays.")
+            if (
+                os.path.exists(file_name)
+                and not cfg.file_output.overwrite_store
+                and create_store
+            ):
+                raise ValueError(
+                    f"File {file_name} already exists. Set overwrite_store to True to overwrite."
+                )
+            elif (
+                os.path.exists(file_name)
+                and cfg.file_output.overwrite_store
+                and create_store
+            ):
+                logging.warning(
+                    f"Overwriting existing file {file_name} with new arrays."
+                )
                 shutil.rmtree(file_name)
 
             io = io(file_name=file_name)
@@ -382,7 +410,6 @@ def pair_packages_ics(
     num_batch_per_ic = int(np.ceil(ensemble_size / batch_size))
     batch_ids_complete = list(range(0, num_batch_per_ic * len(model_packages)))
 
-
     for ii, pkg in enumerate(model_packages):
         for ic in ics:
             # Determine the batch IDs for the current package and initial condition
@@ -403,7 +430,9 @@ def pair_packages_ics(
 
         # Currently needed to prevent deadlock in distributed setting with uneven batch amounts per GPU
         if len(configs) % dist.world_size != 0:
-            raise ValueError(f"Number of runs to make {len(configs)} is not divisible by number of ranks {dist.world_size}. Exiting.")
+            raise ValueError(
+                f"Number of runs to make {len(configs)} is not divisible by number of ranks {dist.world_size}. Exiting."
+            )
 
         nconfigs_proc = len(configs) // dist.world_size
 
@@ -419,7 +448,6 @@ def pair_packages_ics(
     # )
 
     return configs
-
 
 
 def initialize(
@@ -499,12 +527,11 @@ def initialize(
         batch_ids_produce,
     ) = get_batch_seeds(cfg)
 
-
     # get ensemble configs
     ensemble_configs = pair_packages_ics(
         ics, model_packages, cfg.nperturbed, batch_ids_produce, cfg.batch_size
     )
-    
+
     # get data source
     data_source = hydra.utils.instantiate(cfg.data_source)
 
@@ -630,8 +657,10 @@ def initialize_cropbox(
         elif cfg["file_output"]["resolution"] == "latlon721x1440":
             coords_dict["global"] = (lat_coords, lon_coords)
         else:
-            raise ValueError(f"Resolution {cfg['file_output']['resolution']} not supported")
-    
+            raise ValueError(
+                f"Resolution {cfg['file_output']['resolution']} not supported"
+            )
+
     return coords_dict
 
 
@@ -835,7 +864,11 @@ def update_model_dict(model_dict: dict, root: str) -> dict:
             # Select appropriate model checkpoint pair for DLESyM
             atmos_model_idx = int(root.split("_")[-2].replace("atmos", ""))
             ocean_model_idx = int(root.split("_")[-1].replace("ocean", ""))
-            model_dict["model"] = model_dict["class"].load_model(package=package, atmos_model_idx=atmos_model_idx, ocean_model_idx=ocean_model_idx)
+            model_dict["model"] = model_dict["class"].load_model(
+                package=package,
+                atmos_model_idx=atmos_model_idx,
+                ocean_model_idx=ocean_model_idx,
+            )
         else:
             model_dict["model"] = model_dict["class"].load_model(package=package)
 
@@ -847,7 +880,7 @@ def initialize_output_structures(
 ) -> tuple[ThreadPoolExecutor | None, list[Future]]:
     """Initialize writer thread pool and threads
 
-    This function initializes a thread pool executor for parallel file I/O 
+    This function initializes a thread pool executor for parallel file I/O
     operations, if configured.
 
     Parameters
@@ -916,6 +949,7 @@ def get_batchid_from_ensid(
 
     return batch_id
 
+
 def cat_coords(
     xx: torch.Tensor,
     cox: CoordSystem,
@@ -964,6 +998,7 @@ def cat_coords(
 
     return zz, coords
 
+
 def calculate_torch_seed(s: str) -> int:
     """Calculates torch seed based on a given string.
     String s is used as input to sha256 hash algorithm.
@@ -983,6 +1018,7 @@ def calculate_torch_seed(s: str) -> int:
     """
     torch_seed = int(hashlib.sha256(s.encode("utf-8")).hexdigest(), 16) % (2**64) - 1
     return torch_seed
+
 
 def create_base_seed_string(pkg: str, ic: np.datetime64, base_random_seed: str) -> str:
     """Concatenates information of model package name, initial condition time and and
@@ -1010,6 +1046,7 @@ def create_base_seed_string(pkg: str, ic: np.datetime64, base_random_seed: str) 
     s2 = str(ic.astype("datetime64[s]"))
     base_seed_string = "_".join([s0, s1, s2])
     return base_seed_string
+
 
 def get_batch_seeds(cfg: DictConfig) -> tuple[str | int, list[int]]:
     """Retrieve random seed cfg elements or their default values
@@ -1032,10 +1069,7 @@ def get_batch_seeds(cfg: DictConfig) -> tuple[str | int, list[int]]:
         batch_ids_produce = list(
             range(
                 0,
-                int(
-                    np.ceil(cfg.nperturbed / cfg.batch_size)
-                    * cfg.ncheckpoints
-                ),
+                int(np.ceil(cfg.nperturbed / cfg.batch_size) * cfg.ncheckpoints),
             )
         )
     try:
@@ -1044,34 +1078,6 @@ def get_batch_seeds(cfg: DictConfig) -> tuple[str | int, list[int]]:
         base_random_seed = secrets.randbelow(1_000_000)
 
     return base_random_seed, batch_ids_produce
-
-def create_base_seed_string(pkg: str, ic: np.datetime64, base_random_seed: str) -> str:
-    """Concatenates information of model package name, initial condition time and and
-    base_random seed into one base seed string.
-
-    Parameters
-    ----------
-    pkg : str
-        Model package name
-    ic : np.datetime64
-        Initial condition time
-    base_random_seed : str
-        Base seed string
-
-    Returns
-    -------
-    base_seed_string: str
-        string that can be used as random seed
-
-    """
-    s0 = str(base_random_seed)
-    s1 = "".join(
-        e for e in pkg if e.isalnum()
-    )  # remove all special characters from package name
-    s2 = str(ic.astype("datetime64[s]"))
-    base_seed_string = "_".join([s0, s1, s2])
-    return base_seed_string
-
 
 def calculate_all_torch_seeds(
     base_seed_string: str, batch_ids: list[int]
@@ -1166,10 +1172,11 @@ def ensure_all_torch_seeds_are_unique(
     else:
         raise ValueError("Torch seeds could not be calculated.")
 
-def configure_logging():
+
+def configure_logging() -> None:
     """Configure logging to suppress noisy packages"""
-    
-    def noisy_packages(record):
+
+    def noisy_packages(record: Any) -> bool:
         if record["name"] == "makani.models.model_package":
             return False
         elif record["name"] == "numba.core.transforms":
@@ -1177,7 +1184,7 @@ def configure_logging():
         return True
 
     class InterceptHandler(logging.Handler):
-        def emit(self, record):
+        def emit(self, record: Any) -> None:
             # Get corresponding Loguru level if it exists
             try:
                 level = logger.level(record.levelname).name
@@ -1187,15 +1194,14 @@ def configure_logging():
             # Log the message through loguru
             logger_opt = logger.opt(depth=6, exception=record.exc_info)
             logger_opt.log(level, record.getMessage())
+
     logging.basicConfig(handlers=[InterceptHandler()], level=logging.DEBUG, force=True)
 
     logger.remove()
     logger.add(sys.stdout, level="INFO", filter=noisy_packages)
 
 
-
-
-def run_with_rank_ordered_execution(func, *args, first_rank=0, **kwargs):
+def run_with_rank_ordered_execution(func: Callable, *args: Any, first_rank: int = 0, **kwargs: Any) -> Any:
     """Executes `func(*args, **kwargs)` safely in a distributed setting:
     - First on the specified `rank`
     - Then, after synchronization, on the other ranks
@@ -1211,7 +1217,7 @@ def run_with_rank_ordered_execution(func, *args, first_rank=0, **kwargs):
     """
     if kwargs is None:
         kwargs = {}
-    
+
     dist = DistributedManager()
     current_rank = dist.rank
 

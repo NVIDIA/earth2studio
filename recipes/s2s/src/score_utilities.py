@@ -14,26 +14,27 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import hydra
 import os
+
+import hydra
 import numpy as np
+import torch
 import xarray as xr
+from AI_WQ_package.forecast_evaluation import conditional_obs_probs, work_out_RPSS
+from AI_WQ_package.retrieve_evaluation_data import retrieve_land_sea_mask
 from omegaconf import DictConfig
 from physicsnemo.distributed import DistributedManager
-from loguru import logger
-import torch
-import datetime
-from AI_WQ_package.forecast_evaluation import work_out_RPSS, conditional_obs_probs
-from AI_WQ_package.retrieve_evaluation_data import retrieve_land_sea_mask
 
-from earth2studio.io import IOBackend
 from earth2studio.data import DataSource
 from earth2studio.data.utils import fetch_data
-from earth2studio.utils.coords import CoordSystem, map_coords
-from earth2studio.utils.interp import latlon_interpolation_regular, LatLonInterpolation
-
+from earth2studio.io import ZarrBackend
+from earth2studio.utils.coords import CoordSystem
+from src.aiwq_utilities import (
+    convert_to_quintile_probs,
+    get_quintile_clim,
+    get_verif_data,
+)
 from src.s2s_utilities import build_io_dict, run_with_rank_ordered_execution
-from src.aiwq_utilities import get_verif_data, get_quintile_clim, convert_to_quintile_probs
 
 
 def initialize(cfg: DictConfig) -> tuple[dict, dict, dict, DataSource]:
@@ -61,9 +62,11 @@ def initialize(cfg: DictConfig) -> tuple[dict, dict, dict, DataSource]:
         region_keys = cfg["file_output"]["cropboxes"].keys()
     else:
         region_keys = ["global"]
-    
+
     io_dict = build_io_dict(cfg, region_keys, create_store=False)
-    metric_dict = {m: hydra.utils.instantiate(cfg.scoring.metrics[m]) for m in cfg.scoring.metrics}
+    metric_dict = {
+        m: hydra.utils.instantiate(cfg.scoring.metrics[m]) for m in cfg.scoring.metrics
+    }
 
     for k in io_dict.keys():
         # Modify the inherited time/lead time coords in the io backend to be datetime64/timedelta64
@@ -71,12 +74,18 @@ def initialize(cfg: DictConfig) -> tuple[dict, dict, dict, DataSource]:
         # https://github.com/zarr-developers/zarr-python/issues/2616
         # TODO: Remove once fixed
         if "time" in io_dict[k].coords:
-            io_dict[k].coords["time"] = np.array(io_dict[k].coords["time"], dtype="datetime64[ns]")
+            io_dict[k].coords["time"] = np.array(
+                io_dict[k].coords["time"], dtype="datetime64[ns]"
+            )
         if "lead_time" in io_dict[k].coords:
-            io_dict[k].coords["lead_time"] = np.array(io_dict[k].coords["lead_time"], dtype="timedelta64[ns]")
+            io_dict[k].coords["lead_time"] = np.array(
+                io_dict[k].coords["lead_time"], dtype="timedelta64[ns]"
+            )
 
     # Initialize the IO backend to write scores
-    score_io_dict = run_with_rank_ordered_execution(prepare_score_io_dict, cfg, io_dict, create_store = (dist.rank == 0))
+    score_io_dict = run_with_rank_ordered_execution(
+        prepare_score_io_dict, cfg, io_dict, create_store=(dist.rank == 0)
+    )
 
     # get data source
     data_source = hydra.utils.instantiate(cfg.data_source)
@@ -84,9 +93,11 @@ def initialize(cfg: DictConfig) -> tuple[dict, dict, dict, DataSource]:
     return io_dict, metric_dict, score_io_dict, data_source
 
 
-def prepare_score_io_dict(cfg: DictConfig, io_dict: dict, create_store: bool = False) -> dict:
+def prepare_score_io_dict(
+    cfg: DictConfig, io_dict: dict, create_store: bool = False
+) -> dict:
     """Prepare the IO backend to write scores
-    
+
     Parameters
     ----------
     cfg : DictConfig
@@ -102,12 +113,14 @@ def prepare_score_io_dict(cfg: DictConfig, io_dict: dict, create_store: bool = F
         The IO backend for writing scores
     """
     # Initialize the IO backend to write scores
-    score_io_dict = build_io_dict(cfg, io_dict.keys(), create_store=create_store, file_name="score")
+    score_io_dict = build_io_dict(
+        cfg, io_dict.keys(), create_store=create_store, file_name="score"
+    )
 
     # Populate the IO backend with the metrics and variables being scored
     metrics = [m for m in cfg.scoring.metrics]
     variables = cfg.scoring.variables
-    array_list = [m+"_"+v for m in metrics for v in variables]
+    array_list = [m + "_" + v for m in metrics for v in variables]
 
     for k in io_dict.keys():
 
@@ -117,15 +130,21 @@ def prepare_score_io_dict(cfg: DictConfig, io_dict: dict, create_store: bool = F
         for dim in ["time", "lead_time", "lat", "lon"]:
             # Manually reset dimension order as io_dict[k].coords does not preserve order
             score_coords.move_to_end(dim, last=True)
-    
+
         lead_times = score_coords["lead_time"]
         score_coords["lead_time"] = lead_times[lead_times >= 0]
         if "temporal_aggregation" in cfg.scoring:
             if cfg.scoring.temporal_aggregation == "weekly":
-                score_coords["lead_time"] = np.array(sorted(list(set(score_coords["lead_time"].astype('timedelta64[W]'))))).astype('timedelta64[ns]')
+                score_coords["lead_time"] = np.array(
+                    sorted(
+                        list(set(score_coords["lead_time"].astype("timedelta64[W]")))
+                    )
+                ).astype("timedelta64[ns]")
             else:
-                raise ValueError(f"Temporal aggregation {cfg.scoring.temporal_aggregation} not supported")
-        
+                raise ValueError(
+                    f"Temporal aggregation {cfg.scoring.temporal_aggregation} not supported"
+                )
+
         if create_store:
             for m in metrics:
                 for v in variables:
@@ -133,24 +152,30 @@ def prepare_score_io_dict(cfg: DictConfig, io_dict: dict, create_store: bool = F
                     if "reduction_dimensions" in cfg.scoring.metrics[m]:
                         for dim in cfg.scoring.metrics[m].reduction_dimensions:
                             write_coords.pop(dim)
-                    score_io_dict[k].add_array(write_coords, m+"_"+v)
+                    score_io_dict[k].add_array(write_coords, m + "_" + v)
             if "aiwq" in cfg.scoring:
                 for v in cfg.scoring.aiwq.variables:
                     write_coords = score_coords.copy()
                     for d in ["lead_time", "lat", "lon"]:
                         write_coords.pop(d)
-                    score_io_dict[k].add_array(write_coords, "rpss_wk3_"+v)
-                    score_io_dict[k].add_array(write_coords, "rpss_wk4_"+v)
+                    score_io_dict[k].add_array(write_coords, "rpss_wk3_" + v)
+                    score_io_dict[k].add_array(write_coords, "rpss_wk4_" + v)
         else:
             for a in array_list:
                 if a not in score_io_dict[k]:
-                    raise ValueError(f"Array {a} not found in initialized {k} IO backend")
+                    raise ValueError(
+                        f"Array {a} not found in initialized {k} IO backend"
+                    )
             # Convert time and lead time coords to datetime64 and timedelta64
             # Needed as datetime64/timedelta64 are not supported by Zarr 3.0 yet
             # https://github.com/zarr-developers/zarr-python/issues/2616
             # TODO: Remove once fixed
-            score_io_dict[k].coords["time"] = np.array(score_io_dict[k].coords["time"], dtype="datetime64[ns]")
-            score_io_dict[k].coords["lead_time"] = np.array(score_io_dict[k].coords["lead_time"], dtype="timedelta64[ns]")
+            score_io_dict[k].coords["time"] = np.array(
+                score_io_dict[k].coords["time"], dtype="datetime64[ns]"
+            )
+            score_io_dict[k].coords["lead_time"] = np.array(
+                score_io_dict[k].coords["lead_time"], dtype="timedelta64[ns]"
+            )
 
     return score_io_dict
 
@@ -174,10 +199,17 @@ def distribute_ics(all_ics: np.ndarray) -> np.ndarray:
     ics_to_score = all_ics[dist.rank * ics_per_rank : (dist.rank + 1) * ics_per_rank]
     return ics_to_score
 
+
 @torch.inference_mode()
-def run_scoring(cfg: DictConfig, io_dict: dict, metric_dict: dict, score_io_dict: dict, data_source: DataSource) -> None:
+def run_scoring(
+    cfg: DictConfig,
+    io_dict: dict,
+    metric_dict: dict,
+    score_io_dict: dict,
+    data_source: DataSource,
+) -> None:
     """Run the scoring system on the supplied configuration
-    
+
     Parameters
     ----------
     cfg : DictConfig
@@ -198,7 +230,7 @@ def run_scoring(cfg: DictConfig, io_dict: dict, metric_dict: dict, score_io_dict
 
     dist = DistributedManager()
     device = dist.device
-    
+
     for k in io_dict.keys():
         all_ics = io_dict[k].coords["time"]
         ics_to_score = distribute_ics(all_ics)
@@ -211,32 +243,58 @@ def run_scoring(cfg: DictConfig, io_dict: dict, metric_dict: dict, score_io_dict
             for var in cfg.scoring.variables:
 
                 # Prepare evaluation data
-                fcst_data, fcst_coords = load_forecast_data(cfg, io_backend, ic, array=var, score_coords=score_coords, device=device)
-                verif_data, verif_coords = load_verification_data(cfg, data_source, ic, fcst_coords=io_backend.coords, variable=var, score_coords=score_coords, device=device)
+                fcst_data, fcst_coords = load_forecast_data(
+                    cfg,
+                    io_backend,
+                    ic,
+                    array=var,
+                    score_coords=score_coords,
+                    device=device,
+                )
+                verif_data, verif_coords = load_verification_data(
+                    cfg,
+                    data_source,
+                    ic,
+                    fcst_coords=io_backend.coords,
+                    variable=var,
+                    score_coords=score_coords,
+                    device=device,
+                )
 
                 # Score the forecast
-                scores = score_forecast(fcst_data, fcst_coords, verif_data, verif_coords, metric_dict, var)
+                scores = score_forecast(
+                    fcst_data, fcst_coords, verif_data, verif_coords, metric_dict, var
+                )
 
                 # Write results
                 write_scores(score_io_dict, scores)
 
             # If initial condition is on a Thursday, compute the AIWQ RPSS if specified
-            ic_dayofweek = (ic.astype('datetime64[D]').view('int64') - 4) % 7
+            ic_dayofweek = (ic.astype("datetime64[D]").view("int64") - 4) % 7
             if "aiwq" in cfg.scoring and ic_dayofweek == 3:
                 for var in cfg.scoring.aiwq.variables:
-                    fcst_data, fcst_coords = load_forecast_for_aiwq(io_backend, ic, array=var, device=device)
+                    fcst_data, fcst_coords = load_forecast_for_aiwq(
+                        io_backend, ic, array=var, device=device
+                    )
                     rpss_wk3, rpss_wk4 = compute_aiwq_rpss(fcst_data, fcst_coords, var)
                     write_aiwq_scores(score_io_dict, rpss_wk3, rpss_wk4, var)
 
 
-def load_forecast_data(cfg: DictConfig, io: IOBackend, ic: np.datetime64, array: str, score_coords: CoordSystem, device: torch.device) -> tuple[torch.Tensor, CoordSystem]:
+def load_forecast_data(
+    cfg: DictConfig,
+    io: ZarrBackend,
+    ic: np.datetime64,
+    array: str,
+    score_coords: CoordSystem,
+    device: torch.device,
+) -> tuple[torch.Tensor, CoordSystem]:
     """Load the forecast data for scoring
-    
+
     Parameters
     ----------
     cfg : DictConfig
         The configuration object
-    io : IOBackend
+    io : ZarrBackend
         The IO backend for loading forecast data
     ic : np.datetime64
         The initial condition to score
@@ -259,20 +317,32 @@ def load_forecast_data(cfg: DictConfig, io: IOBackend, ic: np.datetime64, array:
     for dim in io.root[array].metadata.dimension_names:
         read_coords[dim] = io.coords[dim]
     read_coords["time"] = np.array([ic])
-    read_data, read_coords = io.read(coords=read_coords, array_name=array, device=device)
+    read_data, read_coords = io.read(
+        coords=read_coords, array_name=array, device=device
+    )
 
     # Apply temporal aggregation if specified
     if "temporal_aggregation" in cfg.scoring:
-        fcst_data, fcst_coords = apply_temporal_aggregation(cfg.scoring.temporal_aggregation, read_data, read_coords, score_coords)
+        fcst_data, fcst_coords = apply_temporal_aggregation(
+            cfg.scoring.temporal_aggregation, read_data, read_coords, score_coords
+        )
     else:
         fcst_data, fcst_coords = read_data, read_coords
 
     return fcst_data, fcst_coords
 
 
-def load_verification_data(cfg: DictConfig, data_source: DataSource, ic: np.datetime64, fcst_coords: CoordSystem, variable: str, score_coords: CoordSystem, device: torch.device) -> tuple[torch.Tensor, CoordSystem]:
+def load_verification_data(
+    cfg: DictConfig,
+    data_source: DataSource,
+    ic: np.datetime64,
+    fcst_coords: CoordSystem,
+    variable: str,
+    score_coords: CoordSystem,
+    device: torch.device,
+) -> tuple[torch.Tensor, CoordSystem]:
     """Load the verification data for scoring
-    
+
     Parameters
     ----------
     cfg : DictConfig
@@ -297,7 +367,7 @@ def load_verification_data(cfg: DictConfig, data_source: DataSource, ic: np.date
     verif_coords : CoordSystem
         The coordinates of the verification data
     """
-   
+
     interp_coords = {
         "_lat": fcst_coords["lat"],
         "_lon": fcst_coords["lon"],
@@ -321,16 +391,20 @@ def load_verification_data(cfg: DictConfig, data_source: DataSource, ic: np.date
 
     # Apply temporal aggregation if specified
     if "temporal_aggregation" in cfg.scoring:
-        verif_data, verif_coords = apply_temporal_aggregation(cfg.scoring.temporal_aggregation, read_data, read_coords, score_coords)
+        verif_data, verif_coords = apply_temporal_aggregation(
+            cfg.scoring.temporal_aggregation, read_data, read_coords, score_coords
+        )
     else:
         verif_data, verif_coords = read_data, read_coords
 
     return verif_data, verif_coords
 
 
-def apply_temporal_aggregation(agg_window: str, data: torch.Tensor, coords: CoordSystem, score_coords: CoordSystem) -> tuple[torch.Tensor, CoordSystem]:
+def apply_temporal_aggregation(
+    agg_window: str, data: torch.Tensor, coords: CoordSystem, score_coords: CoordSystem
+) -> tuple[torch.Tensor, CoordSystem]:
     """Apply temporal aggregation to the data
-    
+
     Parameters
     ----------
     agg_window : str
@@ -370,7 +444,9 @@ def apply_temporal_aggregation(agg_window: str, data: torch.Tensor, coords: Coor
         tgt_shape[2] = len(score_coords["lead_time"])
         fcst_data = torch.empty(*tgt_shape, device=data.device)
         for i, wk in enumerate(score_coords["lead_time"]):
-            avg_slice = np.where((leads >= wk) & (leads < wk + np.timedelta64(7, "D")))[0]
+            avg_slice = np.where((leads >= wk) & (leads < wk + np.timedelta64(7, "D")))[
+                0
+            ]
             fcst_data[:, :, i, ...] = data[:, :, avg_slice, ...].mean(dim=2)
 
         fcst_coords = coords.copy()
@@ -386,9 +462,16 @@ def apply_temporal_aggregation(agg_window: str, data: torch.Tensor, coords: Coor
     return fcst_data, fcst_coords
 
 
-def score_forecast(fcst_data: torch.Tensor, fcst_coords: CoordSystem, verif_data: torch.Tensor, verif_coords: CoordSystem, metric_dict: dict, var: str) -> dict:
+def score_forecast(
+    fcst_data: torch.Tensor,
+    fcst_coords: CoordSystem,
+    verif_data: torch.Tensor,
+    verif_coords: CoordSystem,
+    metric_dict: dict,
+    var: str,
+) -> dict:
     """Score the forecast
-    
+
     Parameters
     ----------
     fcst_data : torch.Tensor
@@ -412,15 +495,17 @@ def score_forecast(fcst_data: torch.Tensor, fcst_coords: CoordSystem, verif_data
 
     scores = {}
     for metric_name, metric in metric_dict.items():
-        m, m_coords = metric(x=fcst_data, x_coords=fcst_coords, y=verif_data, y_coords=verif_coords)
-        scores[metric_name+"_"+var] = (m, m_coords)
+        m, m_coords = metric(
+            x=fcst_data, x_coords=fcst_coords, y=verif_data, y_coords=verif_coords
+        )
+        scores[metric_name + "_" + var] = (m, m_coords)
 
     return scores
 
 
 def write_scores(score_io_dict: dict, scores: dict) -> None:
     """Write the scores to the score IO backend
-    
+
     Parameters
     ----------
     score_io_dict : dict
@@ -438,12 +523,14 @@ def write_scores(score_io_dict: dict, scores: dict) -> None:
             score_io_dict[k].write(data, coords=coords, array_name=m)
 
 
-def load_forecast_for_aiwq(io: IOBackend, ic: np.datetime64, array: str, device: torch.device) -> tuple[torch.Tensor, CoordSystem]:
+def load_forecast_for_aiwq(
+    io: ZarrBackend, ic: np.datetime64, array: str, device: torch.device
+) -> tuple[torch.Tensor, CoordSystem]:
     """Load the forecast data for AIWQ scoring
-    
+
     Parameters
     ----------
-    io : IOBackend
+    io : ZarrBackend
         The IO backend for loading forecast data
     ic : np.datetime64
         The initial condition to score
@@ -458,22 +545,32 @@ def load_forecast_for_aiwq(io: IOBackend, ic: np.datetime64, array: str, device:
     for dim in io.root[array].metadata.dimension_names:
         read_coords[dim] = io.coords[dim]
     read_coords["time"] = np.array([ic])
-    read_data, read_coords = io.read(coords=read_coords, array_name=array, device=device)
-    
+    read_data, read_coords = io.read(
+        coords=read_coords, array_name=array, device=device
+    )
+
     # Apply temporal aggregation over days 19-25, 26-32
     wk3_start_day, wk3_end_day = 19, 25
     wk4_start_day, wk4_end_day = 26, 32
     weekly_averaged = []
-    for wk_start, wk_end in [(wk3_start_day, wk3_end_day), (wk4_start_day, wk4_end_day)]:
-        lead_time_slice = np.where((read_coords["lead_time"] >= np.timedelta64(wk_start, "D")) & (read_coords["lead_time"] <= np.timedelta64(wk_end, "D")))[0]
+    for wk_start, wk_end in [
+        (wk3_start_day, wk3_end_day),
+        (wk4_start_day, wk4_end_day),
+    ]:
+        lead_time_slice = np.where(
+            (read_coords["lead_time"] >= np.timedelta64(wk_start, "D"))
+            & (read_coords["lead_time"] <= np.timedelta64(wk_end, "D"))
+        )[0]
         weekly_averaged.append(read_data[:, :, lead_time_slice, ...].mean(dim=2))
-    
-    return weekly_averaged, read_coords
-    
 
-def compute_aiwq_rpss(fcst_data: list[torch.Tensor], fcst_coords: CoordSystem, var: str) -> tuple[torch.Tensor, torch.Tensor]:
+    return weekly_averaged, read_coords
+
+
+def compute_aiwq_rpss(
+    fcst_data: list[torch.Tensor], fcst_coords: CoordSystem, var: str
+) -> tuple[torch.Tensor, torch.Tensor]:
     """Compute the AIWQ RPSS
-    
+
     Parameters
     ----------
     fcst_data : list[torch.Tensor]
@@ -500,9 +597,15 @@ def compute_aiwq_rpss(fcst_data: list[torch.Tensor], fcst_coords: CoordSystem, v
     forecast_date = np.datetime_as_string(fcst_coords["time"][0], unit="D")
 
     ecmwf_varname = ecmwf_names[var]
-    verif_wk3, verif_wk4 = run_with_rank_ordered_execution(get_verif_data, forecast_date.replace("-", ""), ecmwf_varname)
-    q_clim_wk3, q_clim_wk4 = run_with_rank_ordered_execution(get_quintile_clim, forecast_date.replace("-", ""), ecmwf_varname)
-    land_sea_mask = run_with_rank_ordered_execution(retrieve_land_sea_mask, os.getenv("AIWQ_SUBMIT_PWD"))
+    verif_wk3, verif_wk4 = run_with_rank_ordered_execution(
+        get_verif_data, forecast_date.replace("-", ""), ecmwf_varname
+    )
+    q_clim_wk3, q_clim_wk4 = run_with_rank_ordered_execution(
+        get_quintile_clim, forecast_date.replace("-", ""), ecmwf_varname
+    )
+    land_sea_mask = run_with_rank_ordered_execution(
+        retrieve_land_sea_mask, os.getenv("AIWQ_SUBMIT_PWD")
+    )
     eval_lat, eval_lon = verif_wk3.latitude.values, verif_wk3.longitude.values
 
     # Load the forecast data into xarray
@@ -528,15 +631,30 @@ def compute_aiwq_rpss(fcst_data: list[torch.Tensor], fcst_coords: CoordSystem, v
 
     data_q_pbs_wk3 = convert_to_quintile_probs(data_wk3, q_clim_wk3)
     data_q_pbs_wk4 = convert_to_quintile_probs(data_wk4, q_clim_wk4)
-    
-    rpss_wk3 = work_out_RPSS(data_q_pbs_wk3, verif_q_pbs_wk3, ecmwf_varname, land_sea_mask, quantile_dim='quintile')
-    rpss_wk4 = work_out_RPSS(data_q_pbs_wk4, verif_q_pbs_wk4, ecmwf_varname, land_sea_mask, quantile_dim='quintile')
+
+    rpss_wk3 = work_out_RPSS(
+        data_q_pbs_wk3,
+        verif_q_pbs_wk3,
+        ecmwf_varname,
+        land_sea_mask,
+        quantile_dim="quintile",
+    )
+    rpss_wk4 = work_out_RPSS(
+        data_q_pbs_wk4,
+        verif_q_pbs_wk4,
+        ecmwf_varname,
+        land_sea_mask,
+        quantile_dim="quintile",
+    )
 
     return rpss_wk3, rpss_wk4
 
-def write_aiwq_scores(score_io_dict: dict, rpss_wk3: torch.Tensor, rpss_wk4: torch.Tensor, var: str) -> None:
+
+def write_aiwq_scores(
+    score_io_dict: dict, rpss_wk3: torch.Tensor, rpss_wk4: torch.Tensor, var: str
+) -> None:
     """Write the AIWQ scores to the score IO backend
-    
+
     Parameters
     ----------
     score_io_dict : dict
@@ -555,6 +673,8 @@ def write_aiwq_scores(score_io_dict: dict, rpss_wk3: torch.Tensor, rpss_wk4: tor
 
     for k in score_io_dict.keys():
         for wk, rpss in zip([3, 4], [rpss_wk3, rpss_wk4]):
-            write_coords = {"time": rpss.time.values.astype('datetime64[ns]')}
+            write_coords = {"time": rpss.time.values.astype("datetime64[ns]")}
             write_data = torch.from_numpy(rpss.values)
-            score_io_dict[k].write(write_data, coords=write_coords, array_name=f"rpss_wk{wk}_{var}")
+            score_io_dict[k].write(
+                write_data, coords=write_coords, array_name=f"rpss_wk{wk}_{var}"
+            )
