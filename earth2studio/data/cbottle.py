@@ -32,14 +32,10 @@ try:
     from cbottle.datasets.dataset_2d import encode_sst
     from cbottle.datasets.dataset_3d import get_batch_info
     from cbottle.denoiser_factories import get_denoiser
-    from cbottle.diffusion_samplers import (
-        StackedRandomGenerator,
-        edm_sampler_from_sigma,
-    )
-except ImportError:
+    from cbottle.diffusion_samplers import edm_sampler_from_sigma
+except ImportError:  # pragma: no cover
     earth2grid = None
     Checkpoint = None
-    StackedRandomGenerator = None
     edm_sampler_from_sigma = None
     get_batch_info = None
     TimeUnit = None
