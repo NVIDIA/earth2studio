@@ -1,0 +1,5 @@
+type: CorrelatedSphericalGaussian
+noise_amplitude: 0.25
+sigma: 1.0
+length_scale: 5.0e5
+time_scale: 48.0

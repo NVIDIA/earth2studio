@@ -1,0 +1,41 @@
+[project]
+name = "earth2studio.recipe.s2s"
+version = "0.1.0"
+description = "Subseasonal-to-Seasonal (S2S) Recipe"
+readme = "README.md"
+# Restrict to below 3.13 until rapids updates for 3.13
+requires-python = ">=3.11,<3.13"
+authors = [
+  { name="NVIDIA Earth-2 Team" },
+]
+dependencies = [
+    "earth2studio[dlesym,sfno,data]",
+    "hydra-core>=1.3.0",
+    "omegaconf",
+    "termcolor>=3.0.1",
+    "AI-WQ-package",
+    "zarr>=3.0.0"
+]
+
+[project.urls]
+Homepage = "https://github.com/NVIDIA/earth2studio/recipes/s2s"
+Documentation = "https://github.com/NVIDIA/earth2studio/recipes/s2s/README.md"
+Issues = "https://github.com/NVIDIA/earth2studio/issues"
+Changelog = "https://github.com/NVIDIA/earth2studio/blob/main/CHANGELOG.md"
+
+# ==== UV configuration ====
+[tool.uv]
+# Force onnx to only try to install when below 3.13, otherwise we will use onnx weekly
+override-dependencies = ["onnx; python_full_version < '3.13'"]
+
+[tool.uv.sources]
+earth2studio = { path = "../../", editable = true }
+
+[tool.hatch.build.targets.sdist]
+include = ["src/**/*.py"]
+exclude = []
+
+[dependency-groups]
+dev = [
+    "jupytext>=1.17.1",
+]

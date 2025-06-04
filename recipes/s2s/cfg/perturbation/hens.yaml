@@ -1,0 +1,5 @@
+type: HENSPerturbation
+skill_path: s2s_model_registry/d2m_sfno_linear_74chq_sc2_layers8_edim620_wstgl2-epoch70_seed16.nc
+noise_amplification: 0.35
+perturbed_var: 'z500'
+integration_steps: 3
