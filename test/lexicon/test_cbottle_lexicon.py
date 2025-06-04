@@ -14,13 +14,28 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from .arco import ARCOLexicon
-from .cbottle import CBottleLexicon
-from .cds import CDSLexicon
-from .gefs import GEFSLexicon, GEFSLexiconSel
-from .gfs import GFSLexicon
-from .hrrr import HRRRFXLexicon, HRRRLexicon
-from .ifs import IFSLexicon
-from .imerg import IMERGLexicon
-from .ncar import NCAR_ERA5Lexicon
-from .wb2 import WB2ClimatetologyLexicon, WB2Lexicon
+import pytest
+import torch
+
+from earth2studio.lexicon import CBottleLexicon
+
+
+@pytest.mark.parametrize(
+    "variable",
+    [
+        ["t2m"],
+        ["u10m", "v200"],
+        ["tpf", "z500", "tcwv", "t1000"],
+    ],
+)
+@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+def test_cbottle_lexicon(variable, device):
+    input = torch.randn(len(variable), 8).to(device)
+    for v in variable:
+        label, modifier = CBottleLexicon[v]
+        output = modifier(input)
+        assert input.shape == output.shape
+        assert input.device == output.device
+
+        if label[-1] != -1:
+            assert v[0] in ["u", "v", "t", "z"]
