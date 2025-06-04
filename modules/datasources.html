@@ -435,6 +435,7 @@ document.write(`
 <li class="toctree-l2"><a class="reference internal" href="generated/data/earth2studio.data.GEFS_FX.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.GEFS_FX</a></li>
 <li class="toctree-l2"><a class="reference internal" href="generated/data/earth2studio.data.GEFS_FX_721x1440.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.GEFS_FX_721x1440</a></li>
 <li class="toctree-l2"><a class="reference internal" href="generated/data/earth2studio.data.HRRR_FX.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.HRRR_FX</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generated/data/earth2studio.data.CBottle3D.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.CBottle3D</a></li>
 <li class="toctree-l2"><a class="reference internal" href="generated/data/earth2studio.data.datasource_to_file.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.datasource_to_file</a></li>
 <li class="toctree-l2"><a class="reference internal" href="generated/data/earth2studio.data.fetch_data.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.fetch_data</a></li>
 <li class="toctree-l2"><a class="reference internal" href="generated/data/earth2studio.data.prep_data_array.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.prep_data_array</a></li>
@@ -626,6 +627,20 @@ Typically used in intercomparison workflows.</p>
 </tbody>
 </table>
 </section>
+<section id="ai-sources">
+<h2>AI Sources<a class="headerlink" href="#ai-sources" title="Link to this heading">#</a></h2>
+<p>Data sources that leverage an AI model to generate weather / climate data at that can be
+used for downstream tasks.
+Unlike prognostic or diagnostic models, these sources do not require any input state
+for subsequent predictions.</p>
+<table class="autosummary longtable table">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/data/earth2studio.data.CBottle3D.html#earth2studio.data.CBottle3D" title="earth2studio.data.CBottle3D"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data.CBottle3D</span></code></a>(core_model, sst_ds[, ...])</p></td>
+<td><p>Climate in a bottle data source Climate in a Bottle (cBottle) is an AI model for emulating global km-scale climate simulations and reanalysis on the equal-area HEALPix grid.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
 <section id="functions">
 <h2>Functions<a class="headerlink" href="#functions" title="Link to this heading">#</a></h2>
 <table class="autosummary longtable table">
@@ -691,6 +706,7 @@ Typically used in intercomparison workflows.</p>
   <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="visible nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#forecast-sources">Forecast Sources</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#ai-sources">AI Sources</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#functions">Functions</a></li>
 </ul>
   </nav></div>

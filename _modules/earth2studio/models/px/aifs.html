@@ -1241,16 +1241,18 @@ document.write(`
         <span class="n">coords</span><span class="p">:</span> <span class="n">CoordSystem</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">CoordSystem</span><span class="p">]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Runs prognostic model 1 step.</span>
+
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
 <span class="sd">        x : torch.Tensor</span>
 <span class="sd">            Input tensor</span>
 <span class="sd">        coords : CoordSystem</span>
 <span class="sd">            Input coordinate system</span>
+
 <span class="sd">        Returns</span>
-<span class="sd">        ------</span>
-<span class="sd">        x : torch.Tensor</span>
-<span class="sd">        coords : CoordSystem</span>
+<span class="sd">        -------</span>
+<span class="sd">        tuple[torch.Tensor, CoordSystem]</span>
+<span class="sd">            Output tensor and coordinate system 6 hours in the future</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">_</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">output_coords</span><span class="p">(</span><span class="n">coords</span><span class="p">)</span>  <span class="c1"># NOTE: Quick fix for exception handling</span>
         <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_prepare_input</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="p">)</span>
