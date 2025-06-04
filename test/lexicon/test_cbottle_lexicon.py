@@ -25,7 +25,7 @@ from earth2studio.lexicon import CBottleLexicon
     [
         ["t2m"],
         ["u10m", "v200"],
-        ["tp", "z500", "tcwv", "t1000"],
+        ["tpf", "z500", "tcwv", "t1000"],
     ],
 )
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])

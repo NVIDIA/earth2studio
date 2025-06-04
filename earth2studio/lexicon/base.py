@@ -44,6 +44,7 @@ E2STUDIO_VOCAB = {
     "tp": "total precipitation (m)",
     "tpp": "total precipitation probability",
     "tpi": "total precipitation index",
+    "tpf": "total precipitation flux (kg m-2 s-1)",
     "tp06": "total precipitation accumulated over past 6 hours",
     "fg10m": "maximum 10 m wind gust since previous post-processing",
     "rlut": "outgoing longwave radiation (W m-2)",
