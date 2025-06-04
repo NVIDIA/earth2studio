@@ -65,6 +65,7 @@ etc.
    :template: diagnostic.rst
 
    models.dx.CorrDiffTaiwan
+   models.dx.CBottleSR
    models.dx.ClimateNet
    models.dx.DerivedRH
    models.dx.DerivedRHDewpoint

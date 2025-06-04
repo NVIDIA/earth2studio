@@ -510,6 +510,24 @@ uv add earth2studio --extra windgust-afno
 :::
 ::::
 :::::
+:::::{tab-item} CBottleSR
+::::{tab-set}
+:::{tab-item} pip
+
+```bash
+pip install earth2studio[cbottle]
+```
+
+:::
+:::{tab-item} uv
+
+```bash
+uv add earth2studio --extra cbottle
+```
+
+:::
+::::
+:::::
 ::::::
 
 ### Submodule Dependencies
