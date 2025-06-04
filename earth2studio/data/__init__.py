@@ -18,6 +18,7 @@ import warnings
 
 from .arco import ARCO
 from .base import DataSource, ForecastSource
+from .cbottle import CBottle3D
 from .cds import CDS
 from .const import Constant, Constant_FX
 from .gefs import GEFS_FX, GEFS_FX_721x1440
