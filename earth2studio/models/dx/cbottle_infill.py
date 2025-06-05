@@ -412,11 +412,20 @@ class CBottleInFill(torch.nn.Module, AutoModelMixin):
         dict[str, torch.Tensor]
             Dictionary of input tensors for CBottle
         """
-        time_arr = np.array(time, dtype="datetime64[ns]")
-        sst_data = torch.from_numpy(
-            self.sst["tosbcs"].interp(time=time_arr, method="linear").values + 273.15
-        ).to(self.device_buffer.device)
-        sst_data = self.sst_regridder(sst_data)
+        # If SST is part of our inputs, use this for the condition
+        if "sst" in self.input_coords()["variable"]:
+            sst_idx = self.input_coords()["variable"].index("sst")
+            sst_data = x[..., sst_idx, :, :].clone()
+            sst_data = self.input_regridder(sst_data.double())
+        # If not we will use the AMIP SST the model was trained with to condition
+        else:
+            self._validate_sst_time(time)
+            time_arr = np.array(time, dtype="datetime64[ns]")
+            sst_data = torch.from_numpy(
+                self.sst["tosbcs"].interp(time=time_arr, method="linear").values
+                + 273.15
+            ).to(self.device_buffer.device)
+            sst_data = self.sst_regridder(sst_data)
 
         # Regrid in known variables and normalize, the BatchInfo will handle the denorm
         # for all outputs in the call function
@@ -476,24 +485,21 @@ class CBottleInFill(torch.nn.Module, AutoModelMixin):
         """
         self.rng.manual_seed(seed)
 
-    @classmethod
-    def _validate_time(cls, times: list[datetime]) -> None:
-        """Verify if date time is valid for CBottle3D, governed but the CMIP SST data
-        used to train it
+    def _validate_sst_time(self, times: list[datetime]) -> None:
+        """Verify if date time is valid for use with the default AMIP mid-month SST data
 
         Parameters
         ----------
         times : list[datetime]
-            list of date times to fetch data
+            list of date times of input data
         """
         for time in times:
-
             if time < datetime(year=1940, month=1, day=1):
                 raise ValueError(
-                    f"Requested date time {time} needs to be after January 1st, 1940 for CBottle3D"
+                    f"Input data at {time} needs to be after January 1st, 1940 for CBottle infill if no input SST fields are provided"
                 )
 
             if time >= datetime(year=2022, month=12, day=16, hour=12):
                 raise ValueError(
-                    f"Requested date time {time} needs to be before December 16th, 2022 for CBottle3D"
+                    f"Input data at {time} needs to be before December 16th, 2022 for CBottle infill if no input SST fields are provided"
                 )
