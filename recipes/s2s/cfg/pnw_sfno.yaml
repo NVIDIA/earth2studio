@@ -1,0 +1,49 @@
+defaults:
+    - forecast_model: sfno
+    - perturbation: hens
+
+project: 'pnw_heatwave'
+random_seed: 42
+run_id: 'sfnohens_16c4p' # unique identifier for the ensemble run
+
+# Set initial condition to early June 2021
+start_times: ["2021-06-10 00:00:00"]
+nsteps: 176         # number of steps to run the forecast
+nperturbed: 4      # Number of perturbations applied to the initial condition for each model checkpoint
+                    # Total ensemble size is nperturbed * ncheckpoints
+ncheckpoints: 16 # number of model checkpoints to use
+                # For DLESyM, ncheckpoints represents the total number of atmos/ocean model checkpoint pairs
+
+batch_size: 4      # inference batch size
+output_path: "outputs"
+
+data_source:
+    _target_: earth2studio.data.ARCO # Using ERA5 data source
+    verbose: False
+
+file_output:
+    path: '${output_path}/${project}_${run_id}'  # directory to which outfiles are written
+    output_vars: ['t2m', 'z500']  # Variables to be saved
+    thread_io: True
+    overwrite_store: True # Whether or not to overwrite an existing output file
+    format:               # io backend class
+        _target_: earth2studio.io.ZarrBackend
+        _partial_: True
+        chunks:
+            ensemble: 1
+            time: 1
+            lead_time: 1
+        backend_kwargs:
+            overwrite: False # Needs to be False for multi-GPU runs (so other ranks don't overwrite what rank 0 creates)
+
+    # North America region cropbox
+    cropboxes:
+        north_america:
+            lat_min: 20
+            lat_max: 70
+            lon_min: 210
+            lon_max: 260
+
+hydra:
+    run:
+        dir: '${output_path}/${project}_${run_id}'

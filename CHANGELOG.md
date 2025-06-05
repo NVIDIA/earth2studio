@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added DataArrayPathList for reading local data using glob patterns or explicit file lists
 - Added Climate in a Bottle (cBottle) data source
 - Added Climate in a Bottle (cBottle) Infilling diagnostic model
+- Added S2S recipe
 
 ### Changed
 
