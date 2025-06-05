@@ -31,10 +31,9 @@ class CBottleLexicon(metaclass=LexiconType):
     Note
     ----
     Additional resources:
-
-    - https://github.com/NVlabs/cBottle/blob/ed96dfe35d87ecefa4846307807e8241c4b24e71/src/cbottle/datasets/dataset_2d.py#L25
-    - https://ceres.larc.nasa.gov/documents/cmip5-data/Tech-Note_CERES-EBAF-Surface_L3B_Ed2-8.pdf
-    - https://ceres.larc.nasa.gov/documents/cmip5-data/Tech-Note_rlut_CERES-EBAF_L3B_Ed2-6r_20121101.pdf
+    https://github.com/NVlabs/cBottle/blob/ed96dfe35d87ecefa4846307807e8241c4b24e71/src/cbottle/datasets/dataset_2d.py#L25
+    https://ceres.larc.nasa.gov/documents/cmip5-data/Tech-Note_CERES-EBAF-Surface_L3B_Ed2-8.pdf
+    https://ceres.larc.nasa.gov/documents/cmip5-data/Tech-Note_rlut_CERES-EBAF_L3B_Ed2-6r_20121101.pdf
     """
 
     @staticmethod
@@ -51,7 +50,7 @@ class CBottleLexicon(metaclass=LexiconType):
             "rlut": ("rlut", -1),  # Outgoing long wave radiation
             "rsut": ("rsut", -1),  # Outgoing short wave radiation
             "msl": ("pres_msl", -1),  # mean sea level pressure
-            "tpf": ("pr", -1),  # total precip flux
+            "tpf": ("pr", -1),  # precip flux
             "rsds": ("rsds", -1),  # downwelling SW at surface
             "sst": ("sst", -1),  # sea surface temp
             "sic": ("sic", -1),  # sea ice concentration

@@ -17,12 +17,10 @@
 import os
 import pathlib
 from datetime import datetime, timedelta
-from urllib.parse import urljoin
 
 import numpy as np
 import torch
 import xarray as xr
-from loguru import logger
 from tqdm import tqdm
 
 try:
@@ -390,7 +388,7 @@ class CBottle3D(torch.nn.Module, AutoModelMixin):
     def load_default_package(cls) -> Package:
         """Default pre-trained CBottle3D model package from Nvidia model registry"""
         return Package(
-            "ngc://models/nvidia/earth-2/cbottle@1.0",
+            "ngc://models/nvidia/earth-2/cbottle@1.1",
             cache_options={
                 "cache_storage": Package.default_cache("cbottle"),
                 "same_names": True,
@@ -441,28 +439,22 @@ class CBottle3D(torch.nn.Module, AutoModelMixin):
         core_model.requires_grad_(False)
         core_model.float()
 
-        # Manually handle the sst data, its a OpenDAP data source which isnt fsspec
-        # supported so we are doing things manually. Hopefully we can clean this up
-        # with the NGC file system
-        sst_url = "https://esgf.ceda.ac.uk/thredds/dodsC/esg_cmip6/input4MIPs/CMIP6Plus/CMIP/PCMDI/PCMDI-AMIP-1-1-9/ocean/mon/tosbcs/gn/v20230512/"
-        sst_file = (
-            "tosbcs_input4MIPs_SSTsAndSeaIce_CMIP_PCMDI-AMIP-1-1-9_gn_187001-202212.nc"
-        )
-        sst_cached = os.path.join(Package.default_cache("cbottle"), sst_file)
-
-        if not os.path.isfile(sst_cached):
-            logger.warning("Downloading SST dataset for CBottle3D")
-            sst_ds = xr.open_dataset(
-                urljoin(sst_url, sst_file),
-                engine="netcdf4",
-                cache=False,
-            ).load()
-            sst_ds.to_netcdf(sst_cached)
+        # The following code is left here for reference of how to access the AMIP SST
+        # data from the original data store. NGC is faster and cleaner so it is also
+        # provided there.
+        # sst_url = "https://esgf.ceda.ac.uk/thredds/dodsC/esg_cmip6/input4MIPs/CMIP6Plus/CMIP/PCMDI/PCMDI-AMIP-1-1-9/ocean/mon/tosbcs/gn/v20230512/"
+        # sst_file = (
+        #     "tosbcs_input4MIPs_SSTsAndSeaIce_CMIP_PCMDI-AMIP-1-1-9_gn_187001-202212.nc"
+        # )
+        # sst_ds = xr.open_dataset(
+        #     urljoin(sst_url, sst_file),
+        #     engine="netcdf4",
+        #     cache=False,
+        # ).load()
 
         sst_ds = xr.open_dataset(
-            sst_cached,
-            engine="h5netcdf",
-            storage_options=None,
+            package.resolve("amip_midmonth_sst.nc"),
+            engine="netcdf4",
             cache=False,
         ).load()
 
