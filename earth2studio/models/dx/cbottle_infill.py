@@ -54,7 +54,7 @@ VARIABLES = np.array(list(CBottleLexicon.VOCAB.keys()))
 
 
 @check_extra_imports("cbottle", ["cbottle", "earth2grid"])
-class CBottleInFill(torch.nn.Module, AutoModelMixin):
+class CBottleInfill(torch.nn.Module, AutoModelMixin):
     """Climate in a bottle infill diagnostic
     Climate in a Bottle (cBottle) is an AI model for emulating global km-scale climate
     simulations and reanalysis on the equal-area HEALPix grid. The cBottle infill
@@ -79,7 +79,7 @@ class CBottleInFill(torch.nn.Module, AutoModelMixin):
 
     Note
     ----
-    For HealPix variant see CBottleInFillHPX (TODO)
+    For HealPix variant see CBottleInfillHPX (TODO)
 
     Parameters
     ----------
@@ -371,17 +371,9 @@ class CBottleInFill(torch.nn.Module, AutoModelMixin):
 
         # Concatenate all batches
         x = torch.cat(outputs, dim=0)
+        # Regrid as needed
+        output = self._regrid_outputs(x)
 
-        # Convert back into lat lon
-        nlat, nlon = 721, 1440
-        latlon_grid = earth2grid.latlon.equiangular_lat_lon_grid(
-            nlat, nlon, includes_south_pole=True
-        )
-        regridder = earth2grid.get_regridder(
-            self.core_model.domain._grid, latlon_grid
-        ).to(device)
-
-        output = regridder(x).squeeze().float()
         output = output.reshape(
             output_coords["batch"].shape[0],
             output_coords["time"].shape[0],
@@ -482,6 +474,20 @@ class CBottleInFill(torch.nn.Module, AutoModelMixin):
         }
 
         return out
+
+    def _regrid_outputs(self, x: torch.Tensor) -> torch.Tensor:
+        """Regrids output tensor from model as needed (in this case to lat / lon)"""
+        # Convert back into lat lon
+        nlat, nlon = 721, 1440
+        device = self.device_buffer.device
+        latlon_grid = earth2grid.latlon.equiangular_lat_lon_grid(
+            nlat, nlon, includes_south_pole=True
+        )
+        regridder = earth2grid.get_regridder(
+            self.core_model.domain._grid, latlon_grid
+        ).to(device)
+
+        return regridder(x).squeeze().float()
 
     def set_seed(self, seed: int) -> None:
         """Set seed of CBottle latent variable generator, this is not sufficient for

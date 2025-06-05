@@ -27,7 +27,7 @@ try:
 except ImportError:
     pytest.skip("cbottle dependencies not installed", allow_module_level=True)
 
-from earth2studio.models.dx import CBottleInFill
+from earth2studio.models.dx import CBottleInfill
 from earth2studio.utils import handshake_dim
 
 
@@ -85,7 +85,7 @@ def mock_sst_ds() -> torch.nn.Module:
 def test_cbottle_infill(
     input_variables, time, lead_time, device, mock_core_model, mock_sst_ds
 ):
-    dx = CBottleInFill(mock_core_model, mock_sst_ds, input_variables).to(device)
+    dx = CBottleInfill(mock_core_model, mock_sst_ds, input_variables).to(device)
     dx.sampler_steps = 2  # Speed up sampler
 
     x = torch.randn(
@@ -122,7 +122,7 @@ def test_cbottle_infill(
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
 def test_cbottle_infill_exceptions(device, mock_core_model, mock_sst_ds):
 
-    dx = CBottleInFill(mock_core_model, mock_sst_ds, ["t2m"]).to(device)
+    dx = CBottleInfill(mock_core_model, mock_sst_ds, ["t2m"]).to(device)
     dx.sampler_steps = 2  # Speed up sampler
 
     x = torch.randn(1).to(device)
@@ -178,7 +178,7 @@ def test_cbottle_infill_exceptions(device, mock_core_model, mock_sst_ds):
 @pytest.mark.parametrize("device", ["cuda:0"])
 def test_cbottle_infill_sst(input_variables, device, mock_core_model, mock_sst_ds):
 
-    dx = CBottleInFill(mock_core_model, mock_sst_ds, input_variables).to(device)
+    dx = CBottleInfill(mock_core_model, mock_sst_ds, input_variables).to(device)
     dx.sampler_steps = 2  # Speed up sampler
 
     # With AMIP time range
@@ -214,7 +214,7 @@ def test_cbottle_infill_sst(input_variables, device, mock_core_model, mock_sst_d
 def test_cbottle_infill_invariant_inputs(device, mock_core_model, mock_sst_ds):
     # Checks a few invariant inputs that should produce the same result
     input_variables = np.array(["u10m", "v10m"])
-    dx = CBottleInFill(mock_core_model, mock_sst_ds, input_variables).to(device)
+    dx = CBottleInfill(mock_core_model, mock_sst_ds, input_variables).to(device)
     dx.sampler_steps = 2  # Speed up sampler
 
     time = np.array([datetime(1995, 8, 2, 3, 12)])
@@ -246,7 +246,7 @@ def test_cbottle_infill_invariant_inputs(device, mock_core_model, mock_sst_ds):
 
     # Permute variables
     input_variables = np.array(["v10m", "u10m"])
-    dx = CBottleInFill(mock_core_model, mock_sst_ds, input_variables).to(device)
+    dx = CBottleInfill(mock_core_model, mock_sst_ds, input_variables).to(device)
     dx.sampler_steps = 2  # Speed up sampler
 
     coords["variable"] = input_variables
@@ -259,7 +259,7 @@ def test_cbottle_infill_invariant_inputs(device, mock_core_model, mock_sst_ds):
     assert torch.allclose(out0, out2)
 
 
-# @pytest.mark.ci_cache
+@pytest.mark.ci_cache
 @pytest.mark.slow
 @pytest.mark.timeout(30)
 @pytest.mark.parametrize("device", ["cuda:0"])
@@ -267,9 +267,11 @@ def test_cnet_package(device, model_cache_context):
     # Test the cached model package AFNO precip
     # Only cuda supported
     input_variables = np.array(["tpf"])
-    # with model_cache_context():
-    package = CBottleInFill.load_default_package()
-    dx = CBottleInFill.load_model(package, input_variables=input_variables).to(device)
+    with model_cache_context():
+        package = CBottleInfill.load_default_package()
+        dx = CBottleInfill.load_model(package, input_variables=input_variables).to(
+            device
+        )
 
     time = np.array([datetime(2020, 1, 1, 1), datetime(2021, 1, 1, 1)])
     lead_time = np.array([timedelta(hours=1)])

@@ -64,6 +64,7 @@ etc.
    :toctree: generated/models/dx/
    :template: diagnostic.rst
 
+   models.dx.CBottleInfill
    models.dx.CorrDiffTaiwan
    models.dx.ClimateNet
    models.dx.DerivedRH
