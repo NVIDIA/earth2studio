@@ -1236,10 +1236,14 @@ def run_with_rank_ordered_execution(
         result = None
 
     # Synchronize all processes after the first rank runs the function
-    torch.distributed.barrier()
+    # Skip the barrier if single-process (no distributed process group)
+    if dist.distributed:
+        torch.distributed.barrier()
+
     if current_rank != first_rank:
         result = func(*args, **kwargs)
 
-    torch.distributed.barrier()
+    if dist.distributed:
+        torch.distributed.barrier()
 
     return result
