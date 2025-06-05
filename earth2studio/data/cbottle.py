@@ -29,7 +29,7 @@ try:
     from cbottle.datasets.base import TimeUnit
     from cbottle.datasets.dataset_2d import encode_sst
     from cbottle.datasets.dataset_3d import get_batch_info
-    from cbottle.denoiser_factories import get_denoiser
+    from cbottle.denoiser_factories import DenoiserType, get_denoiser
     from cbottle.diffusion_samplers import edm_sampler_from_sigma
 except ImportError:
     earth2grid = None
@@ -226,7 +226,7 @@ class CBottle3D(torch.nn.Module, AutoModelMixin):
                 condition=batch_condition,
                 second_of_day=batch_second_of_day,
                 day_of_year=batch_day_of_year,
-                denoiser_type="standard",  # 'mask_filling', 'infill', 'standard'
+                denoiser_type=DenoiserType.standard,  # 'mask_filling', 'infill', 'standard'
                 sigma_max=sigma_max,
                 labels_when_nan=None,
             )
