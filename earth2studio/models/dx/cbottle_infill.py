@@ -18,10 +18,12 @@ from collections import OrderedDict
 from datetime import datetime, timedelta
 
 import numpy as np
+import pandas as pd
 import torch
 import xarray as xr
 
 from earth2studio.models.batch import batch_coords, batch_func
+from earth2studio.models.dx.base import DiagnosticModel
 from earth2studio.utils.coords import handshake_coords, handshake_dim
 
 try:
@@ -40,7 +42,6 @@ except ImportError:
     TimeUnit = None
     get_denoiser = None
 
-from earth2studio.data.base import DataSource
 from earth2studio.lexicon import CBottleLexicon
 from earth2studio.models.auto import Package
 from earth2studio.models.auto.mixin import AutoModelMixin
@@ -172,8 +173,8 @@ class CBottleInFill(torch.nn.Module, AutoModelMixin):
     def input_variable_idx(self) -> np.array:
         """List of input variables expected for conditioning"""
         varidx = []
-        for var in self._input_variables:
-            idx = np.where(self.VARIABLES == var)[0]
+        for var in self.input_variables:
+            idx = np.where(self.output_variables == var)[0]
             varidx.append(idx[0])
         return np.array(varidx)
 
@@ -244,7 +245,7 @@ class CBottleInFill(torch.nn.Module, AutoModelMixin):
         input_variables: list[str] = ["u10m", "v10m"],
         sigma_max: float = 80,
         seed: int = 0,
-    ) -> DataSource:
+    ) -> DiagnosticModel:
         """Load AI datasource from package
 
         Parameters
@@ -261,8 +262,8 @@ class CBottleInFill(torch.nn.Module, AutoModelMixin):
 
         Returns
         -------
-        DataSource
-            Data source
+        DiagnosticModel
+            Diagnostic model
         """
 
         with Checkpoint(package.resolve("cBottle-3d.zip")) as checkpoint:
@@ -297,8 +298,9 @@ class CBottleInFill(torch.nn.Module, AutoModelMixin):
         output_coords = self.output_coords(coords)
 
         time = output_coords["time"][:, None]
-        lead = output_coords["lead_time"][None:,]
-        time = (time + lead).reshape(-1).astype(datetime)
+        lead = output_coords["lead_time"][None, :]
+        print(time, lead)
+        time = [pd.to_datetime(t) for t in (time + lead).reshape(-1)]
         x = x.reshape(-1, x.shape[-3], x.shape[-2], x.shape[-1])
 
         input = self.get_cbottle_input(time, x)
@@ -349,7 +351,7 @@ class CBottleInFill(torch.nn.Module, AutoModelMixin):
                 condition=batch_condition,
                 second_of_day=batch_second_of_day,
                 day_of_year=batch_day_of_year,
-                denoiser_type="standard",  # 'mask_filling', 'infill', 'standard'
+                denoiser_type="infill",  # 'mask_filling', 'infill', 'standard'
                 sigma_max=sigma_max,
                 labels_when_nan=None,
             )
@@ -377,7 +379,19 @@ class CBottleInFill(torch.nn.Module, AutoModelMixin):
             self.core_model.domain._grid, latlon_grid
         ).to(device)
 
-        return regridder(x).squeeze(2)
+        output = regridder(x).squeeze()
+        output = output.reshape(
+            output_coords["batch"].shape[0],
+            output_coords["time"].shape[0],
+            output_coords["lead_time"].shape[0],
+            output_coords["variable"].shape[0],
+            output_coords["lat"].shape[0],
+            output_coords["lon"].shape[0],
+        )
+
+        print(output.shape)
+
+        return output, output_coords
 
     def get_cbottle_input(
         self,
@@ -396,6 +410,8 @@ class CBottleInFill(torch.nn.Module, AutoModelMixin):
         ----------
         time : list[datetime]
             List of times for inference
+        x : torch.Tensor
+            Input lat/lon variables used to condition infill
         label : int, optional
             Label ID, by default 1
 
@@ -410,8 +426,9 @@ class CBottleInFill(torch.nn.Module, AutoModelMixin):
         ).to(self.device_buffer.device)
         sst_data = self.sst_regridder(sst_data)
 
-        x_data = self.input_regridder(x)
-        print(x_data.shape)
+        print(time, x.shape)
+
+        x_data = self.input_regridder(x.double())
 
         cond = encode_sst(sst_data.cpu())
 
@@ -435,7 +452,9 @@ class CBottleInFill(torch.nn.Module, AutoModelMixin):
         )
         target[:, nan_channels, ...] = np.nan
         target = torch.tensor(target)
-        target[:, self.input_variable_idx] = x_data
+
+        # Add known channels
+        target[:, self.input_variable_idx] = x_data.float().cpu()
 
         labels = torch.nn.functional.one_hot(torch.tensor(label), num_classes=1024)
         labels = labels.unsqueeze(0).repeat(len(time), 1)
