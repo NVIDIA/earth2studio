@@ -147,7 +147,7 @@ from earth2studio.io import ZarrBackend
 
 # Create CBottleSR model
 package = CBottleSR.load_default_package()
-cbottle_sr = CBottleSR.load_model(package, num_steps=1)
+cbottle_sr = CBottleSR.load_model(package, num_steps=18)
 
 # Create the data source
 package = CBottle3D.load_default_package()
@@ -192,7 +192,7 @@ ax0 = fig.add_subplot(1, 3, 1, projection=projection)
 c = ax0.pcolormesh(
     io["lon"][:],
     io["lat"][:],
-    io["tp"][0],
+    io["tpf"][0],
     transform=ccrs.PlateCarree(),
     cmap="viridis",
 )
