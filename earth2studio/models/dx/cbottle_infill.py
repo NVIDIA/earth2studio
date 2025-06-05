@@ -46,7 +46,7 @@ from earth2studio.lexicon import CBottleLexicon
 from earth2studio.models.auto import Package
 from earth2studio.models.auto.mixin import AutoModelMixin
 from earth2studio.utils.imports import check_extra_imports
-from earth2studio.utils.type import CoordSystem
+from earth2studio.utils.type import CoordSystem, VariableArray
 
 HPX_LEVEL = 6
 
@@ -61,6 +61,13 @@ class CBottleInFill(torch.nn.Module, AutoModelMixin):
     diagnostic enables users to generate all variables supported by cBottle from just
     a subset ontop of existing monthly average sea surface temperatures and solar
     conditioning.
+
+    Note
+    ----
+    Unlike other diagnostics that have a fixed input,this diagnostic expects users to
+    specify the input fields that can be provided given it is part of cBottle's outputs.
+    Namely, the model can be adapted to the data present in the inference pipeline but
+    will always generate all output fields based on the information provided.
 
     Note
     ----
@@ -80,7 +87,7 @@ class CBottleInFill(torch.nn.Module, AutoModelMixin):
         Core Pytorch model
     sst_ds : xr.Dataset
         Sea surface temperature xarray dataset
-    input_variables: list[str]
+    input_variables: list[str] | VariableArray
         List of input variables that will be expected to be provided for conditioning
         the output field generation. Must be a subset of the cBottle output / supported
         variables. See cBottle lexicon for full list
@@ -99,7 +106,7 @@ class CBottleInFill(torch.nn.Module, AutoModelMixin):
         self,
         core_model: torch.nn.Module,
         sst_ds: xr.Dataset,
-        input_variables: list[str],
+        input_variables: list[str] | VariableArray,
         sigma_max: float = 80,
         seed: int = 0,
     ):
@@ -138,17 +145,17 @@ class CBottleInFill(torch.nn.Module, AutoModelMixin):
         self.set_seed(seed=seed)
 
     @property
-    def input_variables(self) -> list[str]:
+    def input_variables(self) -> VariableArray:
         """List of input variables expected for conditioning"""
         return self._input_variables
 
     @input_variables.setter
-    def input_variables(self, value: list[str]) -> None:
+    def input_variables(self, value: list[str] | VariableArray) -> None:
         """Set input variables, validating they exist in VARIABLES
 
         Parameters
         ----------
-        value : list[str]
+        value : list[str] | VariableArray
             List of variable names to validate and set
 
         Raises
@@ -161,10 +168,10 @@ class CBottleInFill(torch.nn.Module, AutoModelMixin):
                 raise ValueError(
                     f"Variable {var} not found in CBottle supported variables"
                 )
-        self._input_variables = value
+        self._input_variables = np.array(value)
 
     @property
-    def input_variable_idx(self) -> np.array:
+    def input_variable_idx(self) -> np.ndarray:
         """List of input variables expected for conditioning"""
         varidx = []
         for var in self.input_variables:
@@ -236,7 +243,7 @@ class CBottleInFill(torch.nn.Module, AutoModelMixin):
     def load_model(
         cls,
         package: Package,
-        input_variables: list[str] = ["u10m", "v10m"],
+        input_variables: list[str] | VariableArray = ["u10m", "v10m"],
         sigma_max: float = 80,
         seed: int = 0,
     ) -> DiagnosticModel:
@@ -246,7 +253,7 @@ class CBottleInFill(torch.nn.Module, AutoModelMixin):
         ----------
         package : Package
             CBottle AI model package
-        input_variables: list[str]
+        input_variables: list[str] | VariableArray
             List of input variables that will be expected to be provided for
             conditioning the output field generation, by default ["u10m", "v10m"]
         sigma_max : float, optional
@@ -282,6 +289,7 @@ class CBottleInFill(torch.nn.Module, AutoModelMixin):
             seed=seed,
         )
 
+    @torch.inference_mode()
     @batch_func()
     def __call__(
         self,
@@ -373,7 +381,7 @@ class CBottleInFill(torch.nn.Module, AutoModelMixin):
             self.core_model.domain._grid, latlon_grid
         ).to(device)
 
-        output = regridder(x).squeeze()
+        output = regridder(x).squeeze().float()
         output = output.reshape(
             output_coords["batch"].shape[0],
             output_coords["time"].shape[0],
@@ -414,9 +422,9 @@ class CBottleInFill(torch.nn.Module, AutoModelMixin):
         """
         # If SST is part of our inputs, use this for the condition
         if "sst" in self.input_coords()["variable"]:
-            sst_idx = self.input_coords()["variable"].index("sst")
+            sst_idx = np.where(self.input_coords()["variable"] == "sst")[0]
             sst_data = x[..., sst_idx, :, :].clone()
-            sst_data = self.input_regridder(sst_data.double())
+            sst_data = self.input_regridder(sst_data.double()).squeeze()
         # If not we will use the AMIP SST the model was trained with to condition
         else:
             self._validate_sst_time(time)
@@ -476,7 +484,9 @@ class CBottleInFill(torch.nn.Module, AutoModelMixin):
         return out
 
     def set_seed(self, seed: int) -> None:
-        """Set seed of CBottle latent variable generator
+        """Set seed of CBottle latent variable generator, this is not sufficient for
+        exact reproducibility due to the sampler. Also set torch.manual_seed before
+        executing model.
 
         Parameters
         ----------
