@@ -29,4 +29,5 @@ directly.
 ## Index
 
 - [Huge Ensembles (HENS)](./hens/)
+- [Subseasonal-to-Seasonal (S2S)](./s2s/)
 - [Recipe Template](./template/)

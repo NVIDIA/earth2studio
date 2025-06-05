@@ -3,13 +3,12 @@ name = "earth2studio.recipe.s2s"
 version = "0.1.0"
 description = "Subseasonal-to-Seasonal (S2S) Recipe"
 readme = "README.md"
-# Restrict to below 3.13 until rapids updates for 3.13
-requires-python = ">=3.11,<3.13"
+requires-python = ">=3.11"
 authors = [
   { name="NVIDIA Earth-2 Team" },
 ]
 dependencies = [
-    "earth2studio[dlesym,sfno,data]",
+    "earth2studio[dlesym,sfno,data,precip-afno]",
     "hydra-core>=1.3.0",
     "omegaconf",
     "termcolor>=3.0.1",
@@ -34,8 +33,3 @@ earth2studio = { path = "../../", editable = true }
 [tool.hatch.build.targets.sdist]
 include = ["src/**/*.py"]
 exclude = []
-
-[dependency-groups]
-dev = [
-    "jupytext>=1.17.1",
-]

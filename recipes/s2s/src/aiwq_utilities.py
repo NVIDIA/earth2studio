@@ -26,8 +26,7 @@ from AI_WQ_package import retrieve_evaluation_data
 def get_verif_data(
     forecast_date: str, variable: str
 ) -> tuple[xr.DataArray, xr.DataArray]:
-    """
-    Retrieve official AIWQ verification data for a given forecast date and variable.
+    """Retrieve official AIWQ verification data for a given forecast date and variable.
 
     Parameters
     ----------
@@ -60,8 +59,7 @@ def get_verif_data(
 def get_quintile_clim(
     forecast_date: str, variable: str
 ) -> tuple[xr.DataArray, xr.DataArray]:
-    """
-    Retrieve the official AIWQ quintile climatology for a given forecast date and variable.
+    """Retrieve the official AIWQ quintile climatology for a given forecast date and variable.
 
     Parameters
     ----------
@@ -91,8 +89,7 @@ def get_quintile_clim(
 
 
 def valid_dates(forecast_date: str) -> tuple[str, str]:
-    """
-    Specify the valid dates for a given forecast date.
+    """Specify the valid dates for a given forecast date.
 
     Parameters
     ----------
@@ -101,7 +98,8 @@ def valid_dates(forecast_date: str) -> tuple[str, str]:
 
     Returns
     -------
-        tuple: A tuple containing the valid dates for the forecast.
+    tuple[str, str]
+        A tuple containing the valid dates for the forecast.
     """
 
     date_obj = datetime.strptime(
@@ -125,8 +123,7 @@ def valid_dates(forecast_date: str) -> tuple[str, str]:
 
 
 def convert_to_quintile_probs(data: xr.DataArray, edges: xr.DataArray) -> xr.DataArray:
-    """
-    Convert data to quintile probabilities based on the given edges.
+    """Convert data to quintile probabilities based on the given edges.
 
     Parameters
     ----------

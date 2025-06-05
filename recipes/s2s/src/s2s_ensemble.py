@@ -314,12 +314,16 @@ class S2SEnsembleRunner:
     def write(self, xx_sub: torch.Tensor, coords_sub: CoordSystem) -> None:
         """Write data to IO backend. Supports async writing.
 
-        Args:
-            xx_sub (torch.Tensor): data to write
-            coords_sub (dict): coordinates of data
+        Parameters
+        ----------
+        xx_sub : torch.Tensor
+            data to write
+        coords_sub : CoordSystem
+            coordinates of data
 
-        Returns:
-            None
+        Returns
+        -------
+        None
         """
 
         for k in self.io_dict.keys():

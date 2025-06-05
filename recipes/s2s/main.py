@@ -16,6 +16,7 @@
 
 import hydra
 from omegaconf import DictConfig
+from physicsnemo.distributed import DistributedManager
 from src.s2s_run import run_inference
 from src.s2s_utilities import configure_logging, initialize
 
@@ -23,6 +24,8 @@ from src.s2s_utilities import configure_logging, initialize
 @hydra.main(version_base=None, config_path="cfg", config_name="pnw_dlesym")
 def main(cfg: DictConfig) -> None:
     """Main Hydra function with instantiation"""
+
+    DistributedManager.initialize()
 
     # Configure logging
     configure_logging()

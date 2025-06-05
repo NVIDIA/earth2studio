@@ -28,7 +28,7 @@ forecasts for S2S timescales using Earth2Studio.
 Reflecting the need for larger ensembles and longer forecast
 timescales, the recipe supports multi-GPU distributed inference, along with parallel I/O to
 efficiently save forecast data as it is generated, and permits only saving a subset of the
-forecast outputs if storage space is a constraint. Among the models in earth2studio, DLESyM
+forecast outputs if storage space is a constraint. Among the models in Earth2studio, DLESyM
 and HENS-SFNO are best-posed for S2S forecasting, so this recipe supports both models; it
 can be extended to support other models as well.
 
@@ -89,7 +89,7 @@ The HENS checkpoints have a larger memory footprint than other models supported 
 Earth2Studio.
 For the best experience the following hardware specifications are recommended:
 
-- GPU: CUDA Compute Compatability >8.0
+- GPU: CUDA Compute Compatibility >8.0
 - GPU Memory: >40Gb
 - Storage: >512Gb NVMe SSD
 
@@ -225,7 +225,7 @@ batch_size: 4      # inference batch size
 As mentioned in the in-line comments, this recipe creates ensembles by combining initial
 condition perturbations with multiple model checkpoints to produce variability in the
 ensemble. Each model checkpoint (set of trained weights) is paired with `nperturbed`
-initial condition perturbations to produce a total of `ncheckpoitnts*nperturbed` ensemble
+initial condition perturbations to produce a total of `ncheckpoints*nperturbed` ensemble
 members. With DLESyM, there are 4 atmosphere and 4 ocean models available, leading to a
 total of 16 possible checkpoints; HENS-SFNO has up to 29 model checkpoints available for
 use in an ensemble.
@@ -244,7 +244,7 @@ defaults:
 
 <!-- markdownlint-disable MD028 -->
 > [!TIP]
-> Not all perturbation methods in earth2studio are compatible with
+> Not all perturbation methods in Earth2studio are compatible with
 > the DLESyM model, currently. In particular, multi-timestep perturbation
 > methods like (normal/hemispheric-centered) bred vectors will not work.
 <!-- markdownlint-enable MD028 -->
@@ -270,7 +270,7 @@ specify the name of the region and the min/max latitude/longitude values of it. 
 #### Scoring forecast outputs
 
 This recipe also provides mechanisms to score model outputs using a variety of metrics. The
-scoring script is `score.py` and is run in much the same same way `main.py` is used to run
+scoring script is `score.py` and is run in much the same way `main.py` is used to run
 a forecast. It is expected that the same config file is used when scoring a given forecast
 as was used when running it.
 
@@ -278,7 +278,7 @@ The scoring script will read data from the output of the forecast run (`forecast
 the run's output directory and write scores to a new file `score.zarr`. There are two
 general ways of scoring model outputs:
 
-1. Using metrics defined in earth2studio
+1. Using metrics defined in Earth2studio
 2. Using metrics defined as part of the ECMWF AI Weather Quest competition
 
 These can be configured under the `scoring` section of the config file:
@@ -356,13 +356,13 @@ process groups initialized with SLURM (`srun`) or MPI (`mpirun`).
 
 There are a number of considerations with multi-GPU execution worth highlighting here for
 more advanced users and developers. Primarily, certain download/caching operations in
-earth2studio utilities are not thread-safe, and can cause uncontrolled behavior if not run
+Earth2studio utilities are not thread-safe, and can cause uncontrolled behavior if not run
 in a coordinated fashion:
 
-- `load_default_package` of an earth2studio model
-- `fetch_data` of some earth2studio data sources
+- `load_default_package` of an Earth2studio model
+- `fetch_data` of some Earth2studio data sources
 - `__call__` of some perturbation methods, which implicitly call `fetch_data`
-- Initialiation of output files in an I/O backend
+- Initialization of output files in an I/O backend
 
 To handle these, a utility routine `run_with_rank_ordered_execution` is provided and used
 in this recipe, which can wrap a function call and ensure that one rank (by default rank 0)
@@ -374,7 +374,7 @@ all ranks enter and leave the function the same number of times (i.e., execution
 load-balanced so all ranks enter and exit the barriers in the routine as expected).
 
 For the parallel I/O capabilities in this recipe, it is important to consider the chunk
-size used with the outut zarr file. Execution is parallelized across GPUs over the ensemble
+size used with the output zarr file. Execution is parallelized across GPUs over the ensemble
 and time (initial condition) dimensions, so for safe concurrent writes we keep the chunk
 size at 1 in those dimensions; I/O performance then depends on the chunking used for the
 remaining dimensions. A good rule of thumb for zarr chunking is to aim for chunk size of
