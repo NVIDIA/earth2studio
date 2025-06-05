@@ -31,8 +31,8 @@ try:
     from cbottle.checkpointing import Checkpoint
     from cbottle.datasets.base import TimeUnit
     from cbottle.datasets.dataset_2d import encode_sst
-    from cbottle.datasets.dataset_3d import get_batch_info
-    from cbottle.denoiser_factories import get_denoiser
+    from cbottle.datasets.dataset_3d import get_batch_info, get_mean, get_std
+    from cbottle.denoiser_factories import DenoiserType, get_denoiser
     from cbottle.diffusion_samplers import edm_sampler_from_sigma
 except ImportError:
     earth2grid = None
@@ -118,24 +118,18 @@ class CBottleInFill(torch.nn.Module, AutoModelMixin):
         target_grid = earth2grid.healpix.Grid(
             HPX_LEVEL, pixel_order=earth2grid.healpix.PixelOrder.NEST
         )
-        lon_center = self.sst.lon.values
-        # need to workaround bug where earth2grid fails to interpolate in circular manner
-        # if lon[0] > 0
-        # hack: rotate both src and target grids by the same amount so that src_lon[0] == 0
-        # See https://github.com/NVlabs/earth2grid/issues/21
-        src_lon = lon_center - lon_center[0]
-        target_lon = (target_grid.lon - lon_center[0]) % 360
-        grid = earth2grid.latlon.LatLonGrid(self.sst.lat.values, src_lon)
+
+        grid = earth2grid.latlon.LatLonGrid(self.sst.lat.values, self.sst.lon.values)
         self.sst_regridder = grid.get_bilinear_regridder_to(
-            target_grid.lat, lon=target_lon
+            target_grid.lat, lon=target_grid.lon
         )
 
         # Set up regridder for input
         grid = earth2grid.latlon.LatLonGrid(
-            self.input_coords()["lat"], self.input_coords()["lon"]
+            self.input_coords()["lat"].tolist(), self.input_coords()["lon"].tolist()
         )
         self.input_regridder = grid.get_bilinear_regridder_to(
-            target_grid.lat, lon=target_lon
+            self.core_model.domain._grid.lat, lon=self.core_model.domain._grid.lon
         )
 
         # Empty tensor just to make tracking current device easier
@@ -299,7 +293,6 @@ class CBottleInFill(torch.nn.Module, AutoModelMixin):
 
         time = output_coords["time"][:, None]
         lead = output_coords["lead_time"][None, :]
-        print(time, lead)
         time = [pd.to_datetime(t) for t in (time + lead).reshape(-1)]
         x = x.reshape(-1, x.shape[-3], x.shape[-2], x.shape[-1])
 
@@ -341,6 +334,7 @@ class CBottleInFill(torch.nn.Module, AutoModelMixin):
                 ),
                 generator=self.rng,
             ).to(device)
+
             batch_xT = batch_latents * sigma_max
 
             # Gets appropriate denoiser based on config
@@ -351,7 +345,7 @@ class CBottleInFill(torch.nn.Module, AutoModelMixin):
                 condition=batch_condition,
                 second_of_day=batch_second_of_day,
                 day_of_year=batch_day_of_year,
-                denoiser_type="infill",  # 'mask_filling', 'infill', 'standard'
+                denoiser_type=DenoiserType.infill,  # 'mask_filling', 'infill', 'standard'
                 sigma_max=sigma_max,
                 labels_when_nan=None,
             )
@@ -389,8 +383,6 @@ class CBottleInFill(torch.nn.Module, AutoModelMixin):
             output_coords["lon"].shape[0],
         )
 
-        print(output.shape)
-
         return output, output_coords
 
     def get_cbottle_input(
@@ -426,9 +418,13 @@ class CBottleInFill(torch.nn.Module, AutoModelMixin):
         ).to(self.device_buffer.device)
         sst_data = self.sst_regridder(sst_data)
 
-        print(time, x.shape)
-
+        # Regrid in known variables and normalize, the BatchInfo will handle the denorm
+        # for all outputs in the call function
+        # I'd like to formally apologize for the inefficiencies in this part of the code
         x_data = self.input_regridder(x.double())
+        input_means = get_mean()[self.input_variable_idx, None]
+        input_stds = get_std()[self.input_variable_idx, None]
+        x_data = (x_data.cpu() - input_means) / input_stds
 
         cond = encode_sst(sst_data.cpu())
 
@@ -444,17 +440,16 @@ class CBottleInFill(torch.nn.Module, AutoModelMixin):
         second_of_day = (time - day_start) / timedelta(seconds=1)
         day_of_year = (time - year_start) / timedelta(seconds=86400)
 
-        # ["rlut", "rsut", "rsds"]
-        nan_channels = [38, 39, 42]
-        target = np.zeros(
+        # For infill we set everything to NaNs except the known fields
+        # The denoiser will then fill in anything thats NaN
+        target = np.full(
             (len(time), self.output_variables.shape[0], 1, 4**HPX_LEVEL * 12),
+            np.nan,
             dtype=np.float32,
         )
-        target[:, nan_channels, ...] = np.nan
         target = torch.tensor(target)
-
         # Add known channels
-        target[:, self.input_variable_idx] = x_data.float().cpu()
+        target[:, self.input_variable_idx] = x_data.float().unsqueeze(-2).cpu()
 
         labels = torch.nn.functional.one_hot(torch.tensor(label), num_classes=1024)
         labels = labels.unsqueeze(0).repeat(len(time), 1)
