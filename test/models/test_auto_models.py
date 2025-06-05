@@ -22,6 +22,7 @@ import fsspec
 import ngcbase
 import pytest
 
+from earth2studio.data import CBottle3D
 from earth2studio.models.auto import (
     AutoModelMixin,
     Package,
@@ -63,6 +64,7 @@ from earth2studio.models.px import (
     "model",
     [
         Aurora,
+        CBottle3D,
         DLWP,
         FCN,
         FengWu,
