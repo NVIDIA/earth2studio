@@ -147,7 +147,7 @@ from earth2studio.io import ZarrBackend
 
 # Create CBottleSR model
 package = CBottleSR.load_default_package()
-cbottle_sr = CBottleSR.load_model(package)
+cbottle_sr = CBottleSR.load_model(package, num_steps=1)
 
 # Create the data source
 package = CBottle3D.load_default_package()

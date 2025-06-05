@@ -256,13 +256,13 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
                         x_lr=lr_hpx,
                         t_hat=t,
                         class_labels=None,
-                        batch_size=1,
+                        batch_size=128,
                         global_lr=global_lr,
                         inbox_patch_index=None,
                         device=self.device,
                     )
                     .to(torch.float64)
-                    .cuda()
+                    .to(self.device)
                 )
 
             denoiser.sigma_max = self.core_model.sigma_max
