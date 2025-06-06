@@ -510,7 +510,10 @@ uv add earth2studio --extra windgust-afno
 :::
 ::::
 :::::
-:::::{tab-item} CBottleSR
+:::::{tab-item} CBottle
+Notes: Additional dependencies needed for CBottle3D data source,
+CBottleInfill diagnostic and CBottleSR diagnostic.
+
 ::::{tab-set}
 :::{tab-item} pip
 
