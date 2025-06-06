@@ -125,10 +125,16 @@ class CBottleInfill(torch.nn.Module, AutoModelMixin):
         target_grid = earth2grid.healpix.Grid(
             HPX_LEVEL, pixel_order=earth2grid.healpix.PixelOrder.NEST
         )
-
-        grid = earth2grid.latlon.LatLonGrid(self.sst.lat.values, self.sst.lon.values)
+        lon_center = self.sst.lon.values
+        # need to workaround bug where earth2grid fails to interpolate in circular manner
+        # if lon[0] > 0
+        # hack: rotate both src and target grids by the same amount so that src_lon[0] == 0
+        # See https://github.com/NVlabs/earth2grid/issues/21
+        src_lon = lon_center - lon_center[0]
+        target_lon = (target_grid.lon - lon_center[0]) % 360
+        grid = earth2grid.latlon.LatLonGrid(self.sst.lat.values, src_lon)
         self.sst_regridder = grid.get_bilinear_regridder_to(
-            target_grid.lat, lon=target_grid.lon
+            target_grid.lat, lon=target_lon
         )
 
         # Set up regridder for input
@@ -310,7 +316,7 @@ class CBottleInfill(torch.nn.Module, AutoModelMixin):
         device = self.device_buffer.device
         condition = input["condition"].to(device)
         labels = input["labels"].to(device)
-        images = input["target"].to(device)
+        images = input["images"].to(device)
         second_of_day = input["second_of_day"].to(device)
         day_of_year = input["day_of_year"].to(device)
         sigma_max = torch.Tensor([self.sigma_max]).to(device)
@@ -420,7 +426,7 @@ class CBottleInfill(torch.nn.Module, AutoModelMixin):
         # If not we will use the AMIP SST the model was trained with to condition
         else:
             self._validate_sst_time(time)
-            time_arr = np.array(time, dtype="datetime64[ns]")
+            time_arr = np.array(time, dtype="datetime64")
             sst_data = torch.from_numpy(
                 self.sst["tosbcs"].interp(time=time_arr, method="linear").values
                 + 273.15
@@ -451,20 +457,20 @@ class CBottleInfill(torch.nn.Module, AutoModelMixin):
 
         # For infill we set everything to NaNs except the known fields
         # The denoiser will then fill in anything thats NaN
-        target = np.full(
+        images = np.full(
             (len(time), self.output_variables.shape[0], 1, 4**HPX_LEVEL * 12),
             np.nan,
             dtype=np.float32,
         )
-        target = torch.tensor(target)
+        images = torch.tensor(images)
         # Add known channels
-        target[:, self.input_variable_idx] = x_data.float().unsqueeze(-2).cpu()
+        images[:, self.input_variable_idx] = x_data.float().unsqueeze(-2).cpu()
 
         labels = torch.nn.functional.one_hot(torch.tensor(label), num_classes=1024)
         labels = labels.unsqueeze(0).repeat(len(time), 1)
 
         out = {
-            "target": target,
+            "images": images.double(),  # Important for reproducibility
             "labels": labels,
             "condition": reorder(cond),
             "second_of_day": torch.tensor(second_of_day.astype(np.float32)).unsqueeze(
