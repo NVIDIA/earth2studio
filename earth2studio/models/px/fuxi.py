@@ -351,6 +351,11 @@ class FuXi(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         # name: output (for short model its 15379)
         # tensor: float32[1,ScatterNDoutput_dim_1,70,721,1440]
 
+        # Convert tp06 to mm
+        tp06_index = np.ind1(coords["variable"] == "tp06")
+        x[:, :, tp06_index] = torch.nan_to_num(x[:, :, tp06_index])
+        x[:, :, tp06_index] = torch.clip(x[:, :, tp06_index] * 1000, 0, 1000)
+
         # Flatten batch and time dim
         time_array = self._time_encoding(
             np.tile(coords["time"] + coords["lead_time"][-1], x.shape[0])
@@ -371,6 +376,10 @@ class FuXi(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         # Reshape to batch and time dimension
         output = output.view(-1, coords["time"].shape[0], *output.shape[1:])
+
+        # Convert tp06 back to m
+        output[:, :, tp06_index] = output[:, :, tp06_index] / 1000
+
         return output, output_coords
 
     @batch_func()
