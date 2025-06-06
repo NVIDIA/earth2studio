@@ -15,7 +15,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added SolarRadiationAFNO diagnostic model for predicting surface solar radiation
 - Added DataArrayPathList for reading local data using glob patterns or explicit file lists
 - Added Climate in a Bottle (cBottle) data source
-- Added Climate in a Bottle Super Resolution diagnostic model
+- Added Climate in a Bottle (cBottle) Infilling diagnostic model
+- Added Climate in a Bottle (cBottle) Super Resolution diagnostic model
 - Added S2S recipe
 
 ### Changed
