@@ -107,7 +107,7 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
         Core pytorch model implementing the diffusion-based super-resolution
     hr_latlon : Tuple[int, int], optional
         High-resolution output dimensions (lat, lon), by default (2161, 4320)
-    num_steps : int, optional
+    sampler_steps : int, optional
         Number of diffusion steps, by default 18
     sigma_max : int, optional
         Maximum noise level for diffusion process, by default 800
@@ -117,7 +117,7 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
         self,
         core_model: torch.nn.Module,
         hr_latlon: Tuple[int, int] = (2161, 4320),
-        num_steps: int = 18,
+        sampler_steps: int = 18,
         sigma_max: int = 800,
     ):
         super().__init__()
@@ -129,7 +129,7 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
         self.hr_latlon = hr_latlon
 
         # Sampler
-        self.num_steps = num_steps
+        self.sampler_steps = sampler_steps
         self.sigma_max = sigma_max
 
         # Make in and out regridders
@@ -189,7 +189,7 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
             {
                 "batch": np.empty(0),
                 "variable": np.array(VARIABLES),
-                "lat": np.linspace(90, -90, 721, endpoint=False),
+                "lat": np.linspace(90, -90, 721),
                 "lon": np.linspace(0, 360, 1440, endpoint=False),
             }
         )
@@ -214,7 +214,7 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
             {
                 "batch": np.empty(0),
                 "variable": np.array(VARIABLES),
-                "lat": np.linspace(90, -90, self.hr_latlon[0], endpoint=False),
+                "lat": np.linspace(90, -90, self.hr_latlon[0]),
                 "lon": np.linspace(0, 360, self.hr_latlon[1], endpoint=False),
             }
         )
@@ -234,7 +234,7 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
     def load_default_package(cls) -> Package:
         """Default pre-trained CBottle3D model package from Nvidia model registry"""
         return Package(
-            "ngc://models/nvidia/earth-2/cbottle@1.0",
+            "ngc://models/nvidia/earth-2/cbottle@1.1",
             cache_options={
                 "cache_storage": Package.default_cache("cbottle"),
                 "same_names": True,
@@ -246,7 +246,7 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
     def load_model(
         cls,
         package: Package,
-        num_steps: int = 18,
+        sampler_steps: int = 18,
         sigma_max: int = 800,
         hr_latlon: Tuple[int, int] = (2161, 4320),
     ) -> DiagnosticModel:
@@ -259,7 +259,7 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
         core_model.requires_grad_(False)
         core_model.float()
 
-        return cls(core_model, num_steps=num_steps, sigma_max=sigma_max, hr_latlon=hr_latlon)
+        return cls(core_model, sampler_steps=sampler_steps, sigma_max=sigma_max, hr_latlon=hr_latlon)
 
     @torch.inference_mode()
     def _forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -309,7 +309,7 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
             pred = edm_sampler(
                 denoiser,
                 latents,
-                num_steps=self.num_steps,
+                num_steps=self.sampler_steps,
                 sigma_max=self.sigma_max,
             )
 
