@@ -80,7 +80,7 @@ def test_cbottle_sr(x, device, hr_latlon, mock_cbottle_core_model):
         mock_cbottle_core_model,
         hr_latlon=hr_latlon,
         sampler_steps=1,  # Reduced for testing speed
-        sigma_max=800  # Reduced for testing
+        sigma_max=800,  # Reduced for testing
     ).to(device)
 
     x = x.to(device)
@@ -179,9 +179,9 @@ def test_cbottle_sr_package(device, model_cache_context):
     with model_cache_context():
         package = CBottleSR.load_default_package()
         dx = CBottleSR.load_model(
-            package, 
+            package,
             sampler_steps=1,  # Reduced for testing
-            hr_latlon=(721, 1440)  # Reduced for testing
+            hr_latlon=(721, 1440),  # Reduced for testing
         ).to(device)
 
     x = torch.randn(1, 12, 721, 1440).to(device)

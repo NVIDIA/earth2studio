@@ -183,7 +183,7 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
             ],
             dtype=torch.float64,
         )[:, None]
-        
+
         self.register_buffer("scale", scale)
         self.register_buffer("center", center)
 
