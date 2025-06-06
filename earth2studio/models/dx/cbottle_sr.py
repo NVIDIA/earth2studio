@@ -149,7 +149,7 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
         ).to(torch.float64)
 
         # Hard set scale and center
-        self.scale = torch.tensor(
+        scale = torch.tensor(
             [
                 1.4847e-01,
                 2.7247e-02,
@@ -166,7 +166,7 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
             ],
             dtype=torch.float64,
         )[:, None]
-        self.center = torch.tensor(
+        center = torch.tensor(
             [
                 5.4994e-02,
                 1.1090e-02,
@@ -183,6 +183,9 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
             ],
             dtype=torch.float64,
         )[:, None]
+        
+        self.register_buffer("scale", scale)
+        self.register_buffer("center", center)
 
     def input_coords(self) -> CoordSystem:
         """Input coordinate system"""
