@@ -22,7 +22,6 @@ import torch
 
 try:
     import cbottle
-    import earth2grid
 except ImportError:
     pytest.skip("cbottle dependencies not installed", allow_module_level=True)
 
@@ -36,19 +35,19 @@ def mock_cbottle_core_model() -> torch.nn.Module:
     # Create a more realistic mock using cbottle config like in test_cbottle.py
     # Actual parameters,
     # "architecture": "unet_hpx1024_patch"
-    # "model_channels": 128, 
-    # "label_dim": 0, 
-    # "out_channels": 12, 
-    # "condition_channels": 24, 
-    # "time_length": 1, 
-    # "label_dropout": 0.0, 
-    # "position_embed_channels": 20, 
+    # "model_channels": 128,
+    # "label_dim": 0,
+    # "out_channels": 12,
+    # "condition_channels": 24,
+    # "time_length": 1,
+    # "label_dropout": 0.0,
+    # "position_embed_channels": 20,
     # "img_resolution": 128
 
     model_config = cbottle.config.models.ModelConfigV1()
     model_config.architecture = "unet_hpx1024_patch"
     model_config.model_channels = 8  # Reduced for testing
-    model_config.label_dim = 0 
+    model_config.label_dim = 0
     model_config.out_channels = 12  # Number of variables
     model_config.condition_channels = 24
     model_config.time_length = 1
@@ -56,7 +55,7 @@ def mock_cbottle_core_model() -> torch.nn.Module:
     model_config.position_embed_channels = 20
     model_config.img_resolution = 128
     model_config.level = 2
-    
+
     model = cbottle.models.get_model(model_config)
     model.sigma_min = 0.002
     model.sigma_max = 80.0
@@ -75,7 +74,7 @@ def mock_cbottle_core_model() -> torch.nn.Module:
 @pytest.mark.parametrize("hr_latlon", [(721, 1440)])
 def test_cbottle_sr(x, device, hr_latlon, mock_cbottle_core_model):
     """Test CBottleSR forward pass with different input shapes and output resolutions"""
-    
+
     # Create CBottleSR model with mock core model
     dx = CBottleSR(
         mock_cbottle_core_model,
@@ -83,7 +82,7 @@ def test_cbottle_sr(x, device, hr_latlon, mock_cbottle_core_model):
         sampler_steps=1,  # Reduced for testing speed
         sigma_max=800  # Reduced for testing
     ).to(device)
-    
+
     x = x.to(device)
 
     # Create input coordinates
@@ -100,19 +99,22 @@ def test_cbottle_sr(x, device, hr_latlon, mock_cbottle_core_model):
     out, out_coords = dx(x, coords)
 
     # Check output shape
-    expected_shape = torch.Size([x.shape[0], len(dx.input_coords()["variable"]), hr_latlon[0], hr_latlon[1]])
+    expected_shape = torch.Size(
+        [x.shape[0], len(dx.input_coords()["variable"]), hr_latlon[0], hr_latlon[1]]
+    )
     assert out.shape == expected_shape
-    
+
     # Check output coordinates
     assert all(out_coords["variable"] == dx.output_coords(coords)["variable"])
     handshake_dim(out_coords, "lon", 3)
     handshake_dim(out_coords, "lat", 2)
     handshake_dim(out_coords, "variable", 1)
     handshake_dim(out_coords, "batch", 0)
-    
+
     # Check coordinate values
     assert len(out_coords["lat"]) == hr_latlon[0]
     assert len(out_coords["lon"]) == hr_latlon[1]
+
 
 @pytest.mark.parametrize(
     "x",
@@ -124,10 +126,10 @@ def test_cbottle_sr(x, device, hr_latlon, mock_cbottle_core_model):
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
 def test_cbottle_sr_exceptions(x, device, mock_cbottle_core_model):
     """Test CBottleSR exception handling"""
-    
+
     dx = CBottleSR(mock_cbottle_core_model).to(device)
     x = x.to(device)
-    
+
     # Wrong coordinate keys
     wrong_coords = OrderedDict(
         {
@@ -137,10 +139,10 @@ def test_cbottle_sr_exceptions(x, device, mock_cbottle_core_model):
             "lon": dx.input_coords()["lon"],
         }
     )
-    
+
     with pytest.raises((KeyError, ValueError)):
         dx(x, wrong_coords)
-    
+
     # Wrong coordinate order
     wrong_coords = OrderedDict(
         {
@@ -150,10 +152,10 @@ def test_cbottle_sr_exceptions(x, device, mock_cbottle_core_model):
             "lat": dx.input_coords()["lat"],  # Wrong order
         }
     )
-    
+
     with pytest.raises(ValueError):
         dx(x, wrong_coords)
-    
+
     # Wrong coordinate values
     wrong_coords = OrderedDict(
         {
@@ -163,7 +165,7 @@ def test_cbottle_sr_exceptions(x, device, mock_cbottle_core_model):
             "lon": dx.input_coords()["lon"],
         }
     )
-    
+
     with pytest.raises(ValueError):
         dx(x, wrong_coords)
 
@@ -200,4 +202,4 @@ def test_cbottle_sr_package(device, model_cache_context):
     handshake_dim(out_coords, "lon", 3)
     handshake_dim(out_coords, "lat", 2)
     handshake_dim(out_coords, "variable", 1)
-    handshake_dim(out_coords, "batch", 0) 
+    handshake_dim(out_coords, "batch", 0)
