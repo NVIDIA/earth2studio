@@ -37,6 +37,8 @@ except ImportError:
     Checkpoint = None
     edm_sampler_from_sigma = None
     get_denoiser = None
+    get_mean = None
+    get_std = None
 
 from earth2studio.lexicon import CBottleLexicon
 from earth2studio.models.auto import Package
