@@ -352,7 +352,7 @@ class FuXi(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         # tensor: float32[1,ScatterNDoutput_dim_1,70,721,1440]
 
         # Convert tp06 to mm
-        tp06_index = np.ind1(coords["variable"] == "tp06")
+        tp06_index = np.isin(coords["variable"] == "tp06")
         x[:, :, tp06_index] = torch.nan_to_num(x[:, :, tp06_index])
         x[:, :, tp06_index] = torch.clip(x[:, :, tp06_index] * 1000, 0, 1000)
 
