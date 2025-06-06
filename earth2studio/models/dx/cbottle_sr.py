@@ -14,43 +14,34 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import zipfile
 from collections import OrderedDict
-from collections.abc import Callable
-from importlib.metadata import version
-from pathlib import Path
-from typing import Literal, Tuple
 
 import numpy as np
 import torch
-import zarr
 
 try:
     import earth2grid
-    from earth2grid import healpix
-    from earth2grid.latlon import equiangular_lat_lon_grid
     from cbottle import patchify
-    from cbottle.diffusion_samplers import edm_sampler
     from cbottle.checkpointing import Checkpoint
     from cbottle.datasets.base import TimeUnit
-    from cbottle.datasets.dataset_2d import encode_sst
     from cbottle.datasets.dataset_3d import get_batch_info
     from cbottle.denoiser_factories import get_denoiser
     from cbottle.diffusion_samplers import (
         StackedRandomGenerator,
+        edm_sampler,
         edm_sampler_from_sigma,
     )
+    from earth2grid import healpix
 except ImportError:
     earth2grid = None
     healpix = None
-    equiangular_lat_lon_grid = None
     patchify = None
-    edm_sampler = None
     Checkpoint = None
+    TimeUnit = None
+    get_batch_info = None
+    edm_sampler = None
     StackedRandomGenerator = None
     edm_sampler_from_sigma = None
-    get_batch_info = None
-    TimeUnit = None
     get_denoiser = None
 
 from earth2studio.models.auto import AutoModelMixin, Package
@@ -61,7 +52,6 @@ from earth2studio.utils import (
     handshake_coords,
     handshake_dim,
 )
-from earth2studio.utils.interp import latlon_interpolation_regular
 from earth2studio.utils.type import CoordSystem
 
 VARIABLES = [
@@ -116,7 +106,7 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
     def __init__(
         self,
         core_model: torch.nn.Module,
-        hr_latlon: Tuple[int, int] = (2161, 4320),
+        hr_latlon: tuple[int, int] = (2161, 4320),
         num_steps: int = 18,
         sigma_max: int = 800,
     ):
@@ -133,34 +123,46 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
         self.sigma_max = sigma_max
 
         # Make in and out regridders
-        lat_lon_low_res_grid = equiangular_lat_lon_grid(721, 1440, includes_south_pole=False)
-        self.hpx_high_res_grid = healpix.Grid(level=HPX_LEVEL_HR, pixel_order=healpix.PixelOrder.NEST)
-        lat_lon_high_res_grid = equiangular_lat_lon_grid(self.hr_latlon[0], self.hr_latlon[1], includes_south_pole=False)
-        self.regrid_latlon_low_res_to_hpx_high_res = earth2grid.get_regridder(lat_lon_low_res_grid, self.hpx_high_res_grid)
+        lat_lon_low_res_grid = earth2grid.equiangular_lat_lon_grid(
+            721, 1440, includes_south_pole=False
+        )
+        self.hpx_high_res_grid = healpix.Grid(
+            level=HPX_LEVEL_HR, pixel_order=healpix.PixelOrder.NEST
+        )
+        lat_lon_high_res_grid = earth2grid.equiangular_lat_lon_grid(
+            self.hr_latlon[0], self.hr_latlon[1], includes_south_pole=False
+        )
+        self.regrid_latlon_low_res_to_hpx_high_res = earth2grid.get_regridder(
+            lat_lon_low_res_grid, self.hpx_high_res_grid
+        )
         self.regrid_latlon_low_res_to_hpx_high_res.double()
-        self.regrid_hpx_high_res_to_latlon_high_res = earth2grid.get_regridder(self.hpx_high_res_grid, lat_lon_high_res_grid)
+        self.regrid_hpx_high_res_to_latlon_high_res = earth2grid.get_regridder(
+            self.hpx_high_res_grid, lat_lon_high_res_grid
+        )
         self.regrid_hpx_high_res_to_latlon_high_res.double()
 
         # Make global lat lon regridder
         lat = torch.linspace(-90, 90, 128)[:, None].double()
         lon = torch.linspace(0, 360, 128)[None, :].double()
-        self.regrid_to_latlon = self.hpx_high_res_grid.get_bilinear_regridder_to(lat, lon).to(torch.float64)
+        self.regrid_to_latlon = self.hpx_high_res_grid.get_bilinear_regridder_to(
+            lat, lon
+        ).to(torch.float64)
 
         # Hard set scale and center
         self.scale = torch.tensor(
             [
                 1.4847e-01,
                 2.7247e-02,
-                1.5605e+01,
-                5.1746e+00,
-                4.6485e+00,
-                4.1996e+01,
-                1.2832e+02,
-                1.1094e+03,
+                1.5605e01,
+                5.1746e00,
+                4.6485e00,
+                4.1996e01,
+                1.2832e02,
+                1.1094e03,
                 1.0940e-04,
-                3.0466e+02,
-                8.5142e+00,
-                1.4541e-01
+                3.0466e02,
+                8.5142e00,
+                1.4541e-01,
             ],
             dtype=torch.float64,
         )[:, None]
@@ -168,20 +170,19 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
             [
                 5.4994e-02,
                 1.1090e-02,
-                2.8609e+02,
+                2.8609e02,
                 -1.5407e-01,
                 -3.8198e-01,
-                2.4358e+02,
-                8.8927e+01,
-                1.0116e+05,
+                2.4358e02,
+                8.8927e01,
+                1.0116e05,
                 1.7416e-05,
-                2.1382e+02,
-                2.9097e+02,
+                2.1382e02,
+                2.9097e02,
                 2.5404e-02,
             ],
             dtype=torch.float64,
         )[:, None]
-
 
     def input_coords(self) -> CoordSystem:
         """Input coordinate system"""
@@ -248,7 +249,7 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
         package: Package,
         num_steps: int = 18,
         sigma_max: int = 800,
-        hr_latlon: Tuple[int, int] = (2161, 4320),
+        hr_latlon: tuple[int, int] = (2161, 4320),
     ) -> DiagnosticModel:
         """Load AI datasource from package"""
 
@@ -259,7 +260,9 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
         core_model.requires_grad_(False)
         core_model.float()
 
-        return cls(core_model, num_steps=num_steps, sigma_max=sigma_max, hr_latlon=hr_latlon)
+        return cls(
+            core_model, num_steps=num_steps, sigma_max=sigma_max, hr_latlon=hr_latlon
+        )
 
     @torch.inference_mode()
     def _forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -283,7 +286,7 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
 
         with torch.no_grad():
             # scope with global_lr and other inputs present
-            def denoiser(x, t):
+            def denoiser(x: torch.Tensor, t: torch.Tensor) -> torch.Tensor:
                 return (
                     patchify.apply_on_patches(
                         self.core_model,
@@ -302,9 +305,9 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
                     .to(x.device)
                 )
 
-            denoiser.sigma_max = self.core_model.sigma_max
-            denoiser.sigma_min = self.core_model.sigma_min
-            denoiser.round_sigma = self.core_model.round_sigma
+            denoiser.sigma_max = self.core_model.sigma_max  # type: ignore[attr-defined]
+            denoiser.sigma_min = self.core_model.sigma_min  # type: ignore[attr-defined]
+            denoiser.round_sigma = self.core_model.round_sigma  # type: ignore[attr-defined]
 
             pred = edm_sampler(
                 denoiser,
@@ -313,14 +316,21 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
                 sigma_max=self.sigma_max,
             )
 
-       
         # Unnormalize
         pred = pred[0] * self.scale.to(x.device) + self.center.to(x.device)
 
         # Get lat lon high res
-        hr_latlon = torch.zeros(x.shape[0], self.hr_latlon[0], self.hr_latlon[1], device=x.device, dtype=torch.float32)
+        hr_latlon = torch.zeros(
+            x.shape[0],
+            self.hr_latlon[0],
+            self.hr_latlon[1],
+            device=x.device,
+            dtype=torch.float32,
+        )
         for i in range(x.shape[0]):
-            hr_latlon[i:i+1] = self.regrid_hpx_high_res_to_latlon_high_res(pred[i:i+1]).to(torch.float32)
+            hr_latlon[i : i + 1] = self.regrid_hpx_high_res_to_latlon_high_res(
+                pred[i : i + 1]
+            ).to(torch.float32)
 
         return hr_latlon
 
