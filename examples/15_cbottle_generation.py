@@ -84,7 +84,7 @@ era5_ds = WB2ERA5()
 #
 # Note that this diffusion model is stochastic, so querying the same timestamp will
 # generate different fields that are reflective of the requested time and SST state.
-# One can use :py:function:`set_seed` for reproducibility.
+# One can use `set_seed` for reproducibility.
 
 # %%
 
@@ -140,6 +140,8 @@ for i in range(n_samples):
         cbottle_da.sel(variable=variable).isel(time=i),
         transform=ccrs.PlateCarree(),
         cmap="cubehelix",
+        vmin=0,
+        vmax=90,
     )
     ax[i + 1].set_title(f"CBottle Sample {i}")
 
@@ -189,7 +191,6 @@ print(output_0.shape)
 # information.
 
 # %%
-# Input variables 2
 input_variables = [
     "u10m",
     "v10m",
@@ -275,8 +276,10 @@ plot_contour(
 )
 
 ax[0, 0].set_title("ERA5")
-ax[0, 1].set_title("3 Input Variables")
-ax[0, 2].set_title("13 Input Variables")
+ax[0, 1].set_title("3 Input Variables Mean")
+ax[0, 2].set_title("13 Input Variables Mean")
+ax[1, 1].set_title("3 Input Variables Std")
+ax[1, 2].set_title("13 Input Variables Std")
 
 plt.tight_layout()
 plt.savefig("outputs/12_tcwv_cbottle_infill.jpg")
