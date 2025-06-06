@@ -55,8 +55,8 @@ class CBottle3D(torch.nn.Module, AutoModelMixin):
     """Climate in a bottle data source
     Climate in a Bottle (cBottle) is an AI model for emulating global km-scale climate
     simulations and reanalysis on the equal-area HEALPix grid. The cBottle data source
-    uses the a globally-trained coarse-resolution image generator that generates 100km
-    (50k-pixel) fields given monthly average sea surface temperatures and solar
+    uses the a globally-trained coarse-resolution image diffusion model that generates
+    100km (50k-pixel) fields given monthly average sea surface temperatures and solar
     conditioning.
 
     Note

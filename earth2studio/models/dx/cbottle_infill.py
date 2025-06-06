@@ -60,13 +60,14 @@ class CBottleInfill(torch.nn.Module, AutoModelMixin):
     simulations and reanalysis on the equal-area HEALPix grid. The cBottle infill
     diagnostic enables users to generate all variables supported by cBottle from just
     a subset ontop of existing monthly average sea surface temperatures and solar
-    conditioning.
+    conditioning. The cBottle infill model uses the a globally-trained coarse-resolution
+    image diffusion model that generates 100km (50k-pixel) fields
 
     Note
     ----
-    Unlike other diagnostics that have a fixed input,this diagnostic expects users to
-    specify the input fields that can be provided given it is part of cBottle's outputs.
-    Namely, the model can be adapted to the data present in the inference pipeline but
+    Unlike other diagnostics that have a fixed input, this diagnostic allows users to
+    specify the input to be any subset of cBottle's output variables.
+    Namely, the model can be adapted to the data present in the inference pipeline and
     will always generate all output fields based on the information provided.
 
     Note
@@ -77,10 +78,6 @@ class CBottleInfill(torch.nn.Module, AutoModelMixin):
     - https://github.com/NVlabs/cBottle
     - https://catalog.ngc.nvidia.com/orgs/nvidia/teams/earth-2/models/cbottle
 
-    Note
-    ----
-    For HealPix variant see CBottleInfillHPX (TODO)
-
     Parameters
     ----------
     core_model : torch.nn.Module
@@ -88,9 +85,9 @@ class CBottleInfill(torch.nn.Module, AutoModelMixin):
     sst_ds : xr.Dataset
         Sea surface temperature xarray dataset
     input_variables: list[str] | VariableArray
-        List of input variables that will be expected to be provided for conditioning
-        the output field generation. Must be a subset of the cBottle output / supported
-        variables. See cBottle lexicon for full list
+        List of input variables that will be provided for conditioning the output
+        generation. Must be a subset of the cBottle output / supported variables.
+        See cBottle lexicon for full list.
     sigma_max : float, optional
         Noise amplitude used to generate latent variables, by default 80
     batch_size : int, optional
@@ -260,8 +257,8 @@ class CBottleInfill(torch.nn.Module, AutoModelMixin):
         package : Package
             CBottle AI model package
         input_variables: list[str] | VariableArray
-            List of input variables that will be expected to be provided for
-            conditioning the output field generation, by default ["u10m", "v10m"]
+            List of input variables that will be provided for conditioning the output
+            generation, by default ["u10m", "v10m"]
         sigma_max : float, optional
             Noise amplitude used to generate latent variables, by default 80
         seed : int, optional
@@ -497,8 +494,8 @@ class CBottleInfill(torch.nn.Module, AutoModelMixin):
 
     def set_seed(self, seed: int) -> None:
         """Set seed of CBottle latent variable generator, this is not sufficient for
-        exact reproducibility due to the sampler. Also set torch.manual_seed before
-        executing model.
+        exact reproducibility due to the sampler. Also set torch.manual_seed and or
+        torch.cuda.manual_seed before executing model.
 
         Parameters
         ----------
