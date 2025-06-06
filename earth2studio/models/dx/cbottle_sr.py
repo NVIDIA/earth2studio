@@ -146,6 +146,43 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
         lon = torch.linspace(0, 360, 128)[None, :].double()
         self.regrid_to_latlon = self.hpx_high_res_grid.get_bilinear_regridder_to(lat, lon).to(torch.float64)
 
+        # Hard set scale and center
+        self.scale = torch.tensor(
+            [
+                1.4847e-01,
+                2.7247e-02,
+                1.5605e+01,
+                5.1746e+00,
+                4.6485e+00,
+                4.1996e+01,
+                1.2832e+02,
+                1.1094e+03,
+                1.0940e-04,
+                3.0466e+02,
+                8.5142e+00,
+                1.4541e-01
+            ],
+            dtype=torch.float64,
+        )[:, None]
+        self.center = torch.tensor(
+            [
+                5.4994e-02,
+                1.1090e-02,
+                2.8609e+02,
+                -1.5407e-01,
+                -3.8198e-01,
+                2.4358e+02,
+                8.8927e+01,
+                1.0116e+05,
+                1.7416e-05,
+                2.1382e+02,
+                2.9097e+02,
+                2.5404e-02,
+            ],
+            dtype=torch.float64,
+        )[:, None]
+
+
     def input_coords(self) -> CoordSystem:
         """Input coordinate system"""
         return OrderedDict(
@@ -230,6 +267,9 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
         # Get high res
         lr_hpx = self.regrid_latlon_low_res_to_hpx_high_res(x.double())
 
+        # Normalize
+        lr_hpx = (lr_hpx - self.center.to(x.device)) / self.scale.to(x.device)
+
         # Get global lat lon
         global_lr = self.regrid_to_latlon(lr_hpx)
 
@@ -273,13 +313,14 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
                 sigma_max=self.sigma_max,
             )
 
-        # Reorder to ring order
-        #pred = self.hpx_high_res_grid.reorder(healpix.PixelOrder.RING, pred)
+       
+        # Unnormalize
+        pred = pred[0] * self.scale.to(x.device) + self.center.to(x.device)
 
         # Get lat lon high res
         hr_latlon = torch.zeros(x.shape[0], self.hr_latlon[0], self.hr_latlon[1], device=x.device, dtype=torch.float32)
         for i in range(x.shape[0]):
-            hr_latlon[i:i+1] = self.regrid_hpx_high_res_to_latlon_high_res(pred[0, i:i+1]).to(torch.float32)
+            hr_latlon[i:i+1] = self.regrid_hpx_high_res_to_latlon_high_res(pred[i:i+1]).to(torch.float32)
 
         return hr_latlon
 
