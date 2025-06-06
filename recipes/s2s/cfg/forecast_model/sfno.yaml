@@ -1,0 +1,3 @@
+architecture: earth2studio.models.px.SFNO   # forecast model class
+registry: s2s_model_registry
+max_num_checkpoints: ${ncheckpoints}  # max number of checkpoints which will be used
