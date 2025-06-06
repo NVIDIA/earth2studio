@@ -123,13 +123,13 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
         self.sigma_max = sigma_max
 
         # Make in and out regridders
-        lat_lon_low_res_grid = earth2grid.equiangular_lat_lon_grid(
+        lat_lon_low_res_grid = earth2grid.latlon.equiangular_lat_lon_grid(
             721, 1440, includes_south_pole=False
         )
         self.hpx_high_res_grid = healpix.Grid(
             level=HPX_LEVEL_HR, pixel_order=healpix.PixelOrder.NEST
         )
-        lat_lon_high_res_grid = earth2grid.equiangular_lat_lon_grid(
+        lat_lon_high_res_grid = earth2grid.latlon.equiangular_lat_lon_grid(
             self.hr_latlon[0], self.hr_latlon[1], includes_south_pole=False
         )
         self.regrid_latlon_low_res_to_hpx_high_res = earth2grid.get_regridder(
