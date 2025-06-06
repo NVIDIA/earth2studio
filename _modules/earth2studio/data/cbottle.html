@@ -452,7 +452,7 @@ document.write(`
     <span class="kn">from</span><span class="w"> </span><span class="nn">cbottle.datasets.base</span><span class="w"> </span><span class="kn">import</span> <span class="n">TimeUnit</span>
     <span class="kn">from</span><span class="w"> </span><span class="nn">cbottle.datasets.dataset_2d</span><span class="w"> </span><span class="kn">import</span> <span class="n">encode_sst</span>
     <span class="kn">from</span><span class="w"> </span><span class="nn">cbottle.datasets.dataset_3d</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_batch_info</span>
-    <span class="kn">from</span><span class="w"> </span><span class="nn">cbottle.denoiser_factories</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_denoiser</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">cbottle.denoiser_factories</span><span class="w"> </span><span class="kn">import</span> <span class="n">DenoiserType</span><span class="p">,</span> <span class="n">get_denoiser</span>
     <span class="kn">from</span><span class="w"> </span><span class="nn">cbottle.diffusion_samplers</span><span class="w"> </span><span class="kn">import</span> <span class="n">edm_sampler_from_sigma</span>
 <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
     <span class="n">earth2grid</span> <span class="o">=</span> <span class="kc">None</span>
@@ -480,8 +480,8 @@ document.write(`
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Climate in a bottle data source</span>
 <span class="sd">    Climate in a Bottle (cBottle) is an AI model for emulating global km-scale climate</span>
 <span class="sd">    simulations and reanalysis on the equal-area HEALPix grid. The cBottle data source</span>
-<span class="sd">    uses the a globally-trained coarse-resolution image generator that generates 100km</span>
-<span class="sd">    (50k-pixel) fields given monthly average sea surface temperatures and solar</span>
+<span class="sd">    uses the a globally-trained coarse-resolution image diffusion model that generates</span>
+<span class="sd">    100km (50k-pixel) fields given monthly average sea surface temperatures and solar</span>
 <span class="sd">    conditioning.</span>
 
 <span class="sd">    Note</span>
@@ -501,6 +501,8 @@ document.write(`
 <span class="sd">    lat_lon : bool, optional</span>
 <span class="sd">        Lat/lon toggle, if true data source will return output on a 0.25 deg lat/lon</span>
 <span class="sd">        grid. If false, the native nested HealPix grid will be returned, by default True</span>
+<span class="sd">    sampler_steps : int, optional</span>
+<span class="sd">        Number of diffusion steps, by default 18</span>
 <span class="sd">    sigma_max : float, optional</span>
 <span class="sd">        Noise amplitude used to generate latent variables, by default 80</span>
 <span class="sd">    batch_size : int, optional</span>
@@ -521,6 +523,7 @@ document.write(`
         <span class="n">core_model</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">,</span>
         <span class="n">sst_ds</span><span class="p">:</span> <span class="n">xr</span><span class="o">.</span><span class="n">Dataset</span><span class="p">,</span>
         <span class="n">lat_lon</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="n">sampler_steps</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">18</span><span class="p">,</span>
         <span class="n">sigma_max</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mi">80</span><span class="p">,</span>
         <span class="n">batch_size</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">4</span><span class="p">,</span>
         <span class="n">seed</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span>
@@ -533,7 +536,7 @@ document.write(`
         <span class="bp">self</span><span class="o">.</span><span class="n">sst</span> <span class="o">=</span> <span class="n">sst_ds</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">lat_lon</span> <span class="o">=</span> <span class="n">lat_lon</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">sigma_max</span> <span class="o">=</span> <span class="n">sigma_max</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">sampler_steps</span> <span class="o">=</span> <span class="mi">18</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">sampler_steps</span> <span class="o">=</span> <span class="n">sampler_steps</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">batch_size</span> <span class="o">=</span> <span class="n">batch_size</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">rng</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">Generator</span><span class="p">()</span>
 
@@ -653,7 +656,7 @@ document.write(`
                 <span class="n">condition</span><span class="o">=</span><span class="n">batch_condition</span><span class="p">,</span>
                 <span class="n">second_of_day</span><span class="o">=</span><span class="n">batch_second_of_day</span><span class="p">,</span>
                 <span class="n">day_of_year</span><span class="o">=</span><span class="n">batch_day_of_year</span><span class="p">,</span>
-                <span class="n">denoiser_type</span><span class="o">=</span><span class="s2">&quot;standard&quot;</span><span class="p">,</span>  <span class="c1"># &#39;mask_filling&#39;, &#39;infill&#39;, &#39;standard&#39;</span>
+                <span class="n">denoiser_type</span><span class="o">=</span><span class="n">DenoiserType</span><span class="o">.</span><span class="n">standard</span><span class="p">,</span>  <span class="c1"># &#39;mask_filling&#39;, &#39;infill&#39;, &#39;standard&#39;</span>
                 <span class="n">sigma_max</span><span class="o">=</span><span class="n">sigma_max</span><span class="p">,</span>
                 <span class="n">labels_when_nan</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
             <span class="p">)</span>
@@ -834,7 +837,6 @@ document.write(`
         <span class="bp">cls</span><span class="p">,</span>
         <span class="n">package</span><span class="p">:</span> <span class="n">Package</span><span class="p">,</span>
         <span class="n">lat_lon</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
-        <span class="n">sigma_max</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mi">80</span><span class="p">,</span>
         <span class="n">batch_size</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">4</span><span class="p">,</span>
         <span class="n">seed</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span>
         <span class="n">verbose</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
@@ -849,8 +851,6 @@ document.write(`
 <span class="sd">            Lat/lon toggle, if true data source will return output on a 0.25 deg lat/lon</span>
 <span class="sd">            grid. If false, the native nested HealPix grid will be returned, by default</span>
 <span class="sd">            True</span>
-<span class="sd">        sigma_max : float, optional</span>
-<span class="sd">            Noise amplitude used to generate latent variables, by default 80</span>
 <span class="sd">        batch_size : int, optional</span>
 <span class="sd">            Batch size to generate time samples at, consider adjusting based on hardware</span>
 <span class="sd">            being used, by default 4</span>
@@ -895,7 +895,6 @@ document.write(`
             <span class="n">core_model</span><span class="p">,</span>
             <span class="n">sst_ds</span><span class="p">,</span>
             <span class="n">lat_lon</span><span class="o">=</span><span class="n">lat_lon</span><span class="p">,</span>
-            <span class="n">sigma_max</span><span class="o">=</span><span class="n">sigma_max</span><span class="p">,</span>
             <span class="n">batch_size</span><span class="o">=</span><span class="n">batch_size</span><span class="p">,</span>
             <span class="n">seed</span><span class="o">=</span><span class="n">seed</span><span class="p">,</span>
             <span class="n">verbose</span><span class="o">=</span><span class="n">verbose</span><span class="p">,</span>
