@@ -29,16 +29,13 @@ from earth2studio.utils.coords import handshake_coords, handshake_dim
 try:
     import earth2grid
     from cbottle.checkpointing import Checkpoint
-    from cbottle.datasets.base import TimeUnit
-    from cbottle.datasets.dataset_3d import get_batch_info, get_mean, get_std
+    from cbottle.datasets.dataset_3d import get_mean, get_std
     from cbottle.denoiser_factories import DenoiserType, get_denoiser
     from cbottle.diffusion_samplers import edm_sampler_from_sigma
 except ImportError:
     earth2grid = None
     Checkpoint = None
     edm_sampler_from_sigma = None
-    get_batch_info = None
-    TimeUnit = None
     get_denoiser = None
 
 from earth2studio.lexicon import CBottleLexicon
@@ -152,6 +149,8 @@ class CBottleInfill(torch.nn.Module, AutoModelMixin):
         self.register_buffer(
             "input_stds", torch.Tensor(get_std()[self.input_variable_idx, None])
         )
+        self.register_buffer("output_means", torch.Tensor(get_mean()[:, None, None]))
+        self.register_buffer("output_stds", torch.Tensor(get_std()[:, None, None]))
         # Set seed of random generator
         self.set_seed(seed=seed)
 
@@ -320,7 +319,6 @@ class CBottleInfill(torch.nn.Module, AutoModelMixin):
         x = x.reshape(-1, x.shape[-3], x.shape[-2], x.shape[-1])
 
         input = self.get_cbottle_input(time, x)
-        batch_info = get_batch_info(time_step=0, time_unit=TimeUnit.HOUR)
 
         device = self.device_buffer.device
         condition = input["condition"].to(device)
@@ -381,8 +379,8 @@ class CBottleInfill(torch.nn.Module, AutoModelMixin):
                 sigma_max=int(sigma_max),  # Convert to int for type compatibility
             )
 
-            batch_x = batch_info.denormalize(batch_out)
-            outputs.append(batch_x)
+            batch_out = batch_out * self.output_stds + self.output_means
+            outputs.append(batch_out)
 
         # Concatenate all batches
         x = torch.cat(outputs, dim=0)
