@@ -30,7 +30,6 @@ try:
     import earth2grid
     from cbottle.checkpointing import Checkpoint
     from cbottle.datasets.base import TimeUnit
-    from cbottle.datasets.dataset_2d import encode_sst
     from cbottle.datasets.dataset_3d import get_batch_info, get_mean, get_std
     from cbottle.denoiser_factories import DenoiserType, get_denoiser
     from cbottle.diffusion_samplers import edm_sampler_from_sigma
@@ -147,6 +146,12 @@ class CBottleInfill(torch.nn.Module, AutoModelMixin):
 
         # Empty tensor just to make tracking current device easier
         self.register_buffer("device_buffer", torch.empty(0))
+        self.register_buffer(
+            "input_means", torch.Tensor(get_mean()[self.input_variable_idx, None])
+        )
+        self.register_buffer(
+            "input_stds", torch.Tensor(get_std()[self.input_variable_idx, None])
+        )
         # Set seed of random generator
         self.set_seed(seed=seed)
 
@@ -441,18 +446,27 @@ class CBottleInfill(torch.nn.Module, AutoModelMixin):
         # for all outputs in the call function
         # I'd like to formally apologize for the inefficiencies in this part of the code
         x_data = self.input_regridder(x.double())
-        input_means = get_mean()[self.input_variable_idx, None]
-        input_stds = get_std()[self.input_variable_idx, None]
-        x_data = (x_data.cpu() - input_means) / input_stds
+        x_data = (x_data - self.input_means) / self.input_stds
 
-        cond = encode_sst(sst_data.cpu())
+        def encode_sst(sstk: torch.Tensor, offset: float = 0.0) -> torch.Tensor:
+            # https://github.com/NVlabs/cBottle/blob/ed96dfe35d87ecefa4846307807e8241c4b24e71/src/cbottle/datasets/dataset_2d.py#L925
+            SST_LAND_FILL_VALUE = 290
+            SST_MEAN = 287.6897  # K
+            SST_SCALE = 15.5862  # K
+            is_land = torch.isnan(sstk)
+            monthly_sst = sstk + offset
+            monthly_sst = torch.where(is_land, SST_LAND_FILL_VALUE, monthly_sst)
+            condition = (monthly_sst - SST_MEAN) / SST_SCALE
+            condition = condition[None, None, :]
+            return condition
 
         def reorder(x: torch.Tensor) -> torch.Tensor:
-            x = torch.as_tensor(x)
             x = earth2grid.healpix.reorder(
                 x, earth2grid.healpix.PixelOrder.NEST, earth2grid.healpix.HEALPIX_PAD_XY
             )
             return torch.permute(x, (2, 0, 1, 3))
+
+        cond = reorder(encode_sst(sst_data))
 
         day_start = np.array([t.replace(hour=0, minute=0, second=0) for t in time])
         year_start = np.array([d.replace(month=1, day=1) for d in day_start])
@@ -461,22 +475,22 @@ class CBottleInfill(torch.nn.Module, AutoModelMixin):
 
         # For infill we set everything to NaNs except the known fields
         # The denoiser will then fill in anything thats NaN
-        images = np.full(
+        images = torch.full(
             (len(time), self.output_variables.shape[0], 1, 4**HPX_LEVEL * 12),
-            np.nan,
-            dtype=np.float32,
+            float("nan"),
+            dtype=torch.double,  # Important for reproducibility
+            device=self.device_buffer.device,
         )
-        images = torch.tensor(images)
         # Add known channels
-        images[:, self.input_variable_idx] = x_data.float().unsqueeze(-2).cpu()
+        images[:, self.input_variable_idx] = x_data.unsqueeze(-2)
 
         labels = torch.nn.functional.one_hot(torch.tensor(label), num_classes=1024)
         labels = labels.unsqueeze(0).repeat(len(time), 1)
 
         out = {
-            "images": images.double(),  # Important for reproducibility
+            "images": images,
             "labels": labels,
-            "condition": reorder(cond),
+            "condition": cond,
             "second_of_day": torch.tensor(second_of_day.astype(np.float32)).unsqueeze(
                 1
             ),
