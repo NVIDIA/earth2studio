@@ -76,6 +76,8 @@ class CBottle3D(torch.nn.Module, AutoModelMixin):
     lat_lon : bool, optional
         Lat/lon toggle, if true data source will return output on a 0.25 deg lat/lon
         grid. If false, the native nested HealPix grid will be returned, by default True
+    sampler_steps : int, optional
+        Number of diffusion steps, by default 18
     sigma_max : float, optional
         Noise amplitude used to generate latent variables, by default 80
     batch_size : int, optional
@@ -96,6 +98,7 @@ class CBottle3D(torch.nn.Module, AutoModelMixin):
         core_model: torch.nn.Module,
         sst_ds: xr.Dataset,
         lat_lon: bool = True,
+        sampler_steps: int = 18,
         sigma_max: float = 80,
         batch_size: int = 4,
         seed: int = 0,
@@ -108,7 +111,7 @@ class CBottle3D(torch.nn.Module, AutoModelMixin):
         self.sst = sst_ds
         self.lat_lon = lat_lon
         self.sigma_max = sigma_max
-        self.sampler_steps = 18
+        self.sampler_steps = sampler_steps
         self.batch_size = batch_size
         self.rng = torch.Generator()
 
@@ -401,7 +404,6 @@ class CBottle3D(torch.nn.Module, AutoModelMixin):
         cls,
         package: Package,
         lat_lon: bool = True,
-        sigma_max: float = 80,
         batch_size: int = 4,
         seed: int = 0,
         verbose: bool = True,
@@ -416,8 +418,6 @@ class CBottle3D(torch.nn.Module, AutoModelMixin):
             Lat/lon toggle, if true data source will return output on a 0.25 deg lat/lon
             grid. If false, the native nested HealPix grid will be returned, by default
             True
-        sigma_max : float, optional
-            Noise amplitude used to generate latent variables, by default 80
         batch_size : int, optional
             Batch size to generate time samples at, consider adjusting based on hardware
             being used, by default 4
@@ -462,7 +462,6 @@ class CBottle3D(torch.nn.Module, AutoModelMixin):
             core_model,
             sst_ds,
             lat_lon=lat_lon,
-            sigma_max=sigma_max,
             batch_size=batch_size,
             seed=seed,
             verbose=verbose,

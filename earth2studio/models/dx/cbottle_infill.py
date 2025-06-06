@@ -88,6 +88,8 @@ class CBottleInfill(torch.nn.Module, AutoModelMixin):
         List of input variables that will be provided for conditioning the output
         generation. Must be a subset of the cBottle output / supported variables.
         See cBottle lexicon for full list.
+    sampler_steps : int, optional
+        Number of diffusion steps, by default 18
     sigma_max : float, optional
         Noise amplitude used to generate latent variables, by default 80
     batch_size : int, optional
@@ -104,6 +106,7 @@ class CBottleInfill(torch.nn.Module, AutoModelMixin):
         core_model: torch.nn.Module,
         sst_ds: xr.Dataset,
         input_variables: list[str] | VariableArray,
+        sampler_steps: int = 18,
         sigma_max: float = 80,
         seed: int = 0,
     ):
@@ -112,7 +115,7 @@ class CBottleInfill(torch.nn.Module, AutoModelMixin):
         self.core_model = core_model
         self.sst = sst_ds
         self.sigma_max = sigma_max
-        self.sampler_steps = 18
+        self.sampler_steps = sampler_steps
         self.batch_size = 4
         self.rng = torch.Generator().manual_seed(seed)
 
@@ -247,6 +250,7 @@ class CBottleInfill(torch.nn.Module, AutoModelMixin):
         cls,
         package: Package,
         input_variables: list[str] | VariableArray = ["u10m", "v10m"],
+        sampler_steps: int = 18,
         sigma_max: float = 80,
         seed: int = 0,
     ) -> DiagnosticModel:
@@ -259,6 +263,8 @@ class CBottleInfill(torch.nn.Module, AutoModelMixin):
         input_variables: list[str] | VariableArray
             List of input variables that will be provided for conditioning the output
             generation, by default ["u10m", "v10m"]
+        sampler_steps : int, optional
+            Number of diffusion steps, by default 18
         sigma_max : float, optional
             Noise amplitude used to generate latent variables, by default 80
         seed : int, optional
@@ -288,6 +294,7 @@ class CBottleInfill(torch.nn.Module, AutoModelMixin):
             core_model,
             sst_ds,
             input_variables=input_variables,
+            sampler_steps=sampler_steps,
             sigma_max=sigma_max,
             seed=seed,
         )
