@@ -277,7 +277,7 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
         lr_hpx = self.regrid_latlon_low_res_to_hpx_high_res(x.double())
 
         # Normalize
-        lr_hpx = (lr_hpx - self.center.to(x.device)) / self.scale.to(x.device)
+        lr_hpx = (lr_hpx - self.center) / self.scale
 
         # Get global lat lon
         global_lr = self.regrid_to_latlon(lr_hpx)
@@ -323,7 +323,7 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
             )
 
         # Unnormalize
-        pred = pred[0] * self.scale.to(x.device) + self.center.to(x.device)
+        pred = pred[0] * self.scale + self.center
 
         # Get lat lon high res
         hr_latlon = torch.zeros(
