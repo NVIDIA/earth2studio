@@ -708,7 +708,7 @@ document.write(`
         <span class="n">lr_hpx</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">regrid_latlon_low_res_to_hpx_high_res</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">double</span><span class="p">())</span>
 
         <span class="c1"># Normalize</span>
-        <span class="n">lr_hpx</span> <span class="o">=</span> <span class="p">(</span><span class="n">lr_hpx</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">center</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">device</span><span class="p">))</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">scale</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+        <span class="n">lr_hpx</span> <span class="o">=</span> <span class="p">(</span><span class="n">lr_hpx</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">center</span><span class="p">)</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">scale</span>
 
         <span class="c1"># Get global lat lon</span>
         <span class="n">global_lr</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">regrid_to_latlon</span><span class="p">(</span><span class="n">lr_hpx</span><span class="p">)</span>
@@ -754,7 +754,7 @@ document.write(`
             <span class="p">)</span>
 
         <span class="c1"># Unnormalize</span>
-        <span class="n">pred</span> <span class="o">=</span> <span class="n">pred</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">scale</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">device</span><span class="p">)</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">center</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+        <span class="n">pred</span> <span class="o">=</span> <span class="n">pred</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">scale</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">center</span>
 
         <span class="c1"># Get lat lon high res</span>
         <span class="n">hr_latlon</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span>
