@@ -33,6 +33,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Dependencies
 
+- Moved NGC SDK to optional dependencies due to it causing slow version resolutions
+
 ## [0.7.0] - 2025-05-21
 
 ### Added
