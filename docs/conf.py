@@ -80,7 +80,7 @@ autodoc_typehints = "description"
 html_theme = "pydata_sphinx_theme"
 html_static_path = ["_static"]
 html_css_files = [
-    "css/custom.css",
+    "css/nvidia-sphinx-theme.css",
 ]
 html_theme_options = {
     "logo": {
@@ -98,6 +98,10 @@ html_theme_options = {
         "version_match": doc_version,  # Set DOC_VERSION env variable to change
     },
     "external_links": [
+        {
+            "name": "Recipes",
+            "url": "https://github.com/NVIDIA/earth2studio/tree/main/recipes",
+        },
         {
             "name": "Changelog",
             "url": "https://github.com/NVIDIA/earth2studio/blob/main/CHANGELOG.md",
