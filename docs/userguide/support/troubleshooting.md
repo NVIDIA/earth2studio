@@ -120,3 +120,13 @@ There are a few options to try outside of just waiting for the build to complete
     export FLASH_ATTENTION_DISABLE_HDIM192=TRUE
     export FLASH_ATTENTION_DISABLE_HDIM256=TRUE
     ```
+
+## Failed to Install Earth2Grid `Python.h: No such file or directory`
+
+[Earth2Grid](https://github.com/NVlabs/earth2grid) needs to be installed from source.
+To build the python developer library is needed, on debian systems this can be installed
+with:
+
+```bash
+sudo apt-get install python3-dev
+```
