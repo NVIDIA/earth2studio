@@ -25,7 +25,6 @@ from earth2studio.data import DataSource, fetch_data
 from earth2studio.models.px import PrognosticModel
 from earth2studio.perturbation.base import Perturbation
 from earth2studio.utils import handshake_dim, handshake_size
-from earth2studio.utils.coords import map_coords
 from earth2studio.utils.time import to_time_array
 from earth2studio.utils.type import CoordSystem, TimeArray
 
@@ -106,9 +105,6 @@ class HemisphericCentredBredVector:
             lead_time=input_coords["lead_time"],
             device="cpu",
         )
-        input_coords["time"] = warmup_times
-        input_data, data_coords = map_coords(input_data, data_coords, input_coords)
-
         coords = OrderedDict(
             [("batch", np.arange(batch_size))] + list(data_coords.items())
         )
@@ -132,10 +128,6 @@ class HemisphericCentredBredVector:
             xper, _ = self.model(xper, coords)
 
             dx = xper - xunp
-
-            # remove zero elements, when inputs are constant
-            dx[..., dx.sum(dim=(0, 1, 2, 4, 5)) == 0, :, :] = torch.nan
-
             hem_norm = self.hemispheric_norm(dx, device)
 
             # if zero elements are requierd, replace NaNs in scaled dx with 0
@@ -146,8 +138,6 @@ class HemisphericCentredBredVector:
 
             # scale dx
             dx = self.noise_amplitude * (dx / hem_norm)
-            # set dx back to zero in constant inputs
-            dx[..., torch.isnan(dx).all(dim=(0, 1, 2, 4, 5)), :, :] = 0
 
             xunp = (
                 input_data[ii + 1]
