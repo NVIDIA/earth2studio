@@ -26,6 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Fixed NCAR data source lat / lon labels and cache reads
+- Fixed FuXi tp06 field input to be mm
 
 ### Security
 
