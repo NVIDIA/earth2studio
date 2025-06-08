@@ -274,7 +274,7 @@ docs = [
     "sphinx-togglebutton>=0.3.0",
     "myst-parser>=0.18.0",
     "sphinx-favicon>=1.0.1",
-    "pydata-sphinx-theme==0.15.2",
+    "pydata-sphinx-theme==0.16.1"
 ]
 
 [tool.hatch.version]
