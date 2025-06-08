@@ -353,8 +353,8 @@ class FuXi(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         # Convert tp06 to mm
         tp06_index = np.isin(coords["variable"], "tp06")
-        x[..., tp06_index, :, :] = torch.nan_to_num(x[..., tp06_index, :, :])
-        x[..., tp06_index, :, :] = torch.clip(x[..., tp06_index, :, :] * 1000, 0, 1000)
+        x[..., tp06_index, :, :] = torch.nan_to_num(x[..., tp06_index, :, :], nan=0)
+        x[..., tp06_index, :, :] = torch.clip(x[..., tp06_index, :, :] * 1000, min=0)
 
         # Flatten batch and time dim
         time_array = self._time_encoding(
