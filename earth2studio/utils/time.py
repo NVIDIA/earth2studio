@@ -21,7 +21,7 @@ from earth2studio.utils.type import LeadTimeArray, TimeArray
 
 
 def timearray_to_datetime(time: TimeArray) -> list[datetime]:
-    """Simple converter from numpy datetime64 array into a list of datetimes
+    """Simple converter from numpy datetime64 array into a list of datetimes.
 
     Parameters
     ----------
