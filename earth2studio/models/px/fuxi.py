@@ -352,9 +352,12 @@ class FuXi(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         # tensor: float32[1,ScatterNDoutput_dim_1,70,721,1440]
 
         # Convert tp06 to mm
+        # https://github.com/tpys/FuXi/blob/9292fe0692156a01cd3d62bcb427cc3798cf8add/make_era5_input.py#L19-L22
         tp06_index = np.isin(coords["variable"], "tp06")
         x[..., tp06_index, :, :] = torch.nan_to_num(x[..., tp06_index, :, :], nan=0)
-        x[..., tp06_index, :, :] = torch.clip(x[..., tp06_index, :, :] * 1000, min=0)
+        x[..., tp06_index, :, :] = torch.clip(
+            x[..., tp06_index, :, :] * 1000, min=0, max=1000
+        )
 
         # Flatten batch and time dim
         time_array = self._time_encoding(
