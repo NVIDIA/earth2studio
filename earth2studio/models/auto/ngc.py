@@ -25,10 +25,19 @@ from fsspec.asyn import sync_wrapper
 from fsspec.callbacks import DEFAULT_CALLBACK
 from fsspec.implementations.http import HTTPFileSystem
 from loguru import logger
-from ngcbase.api import utils as rest_utils
-from ngcbase.api.configuration import Configuration
-from ngcsdk import Client
-from registry.api.models import ModelAPI
+
+try:
+    from ngcbase.api import utils as rest_utils
+    from ngcbase.api.configuration import Configuration
+    from ngcsdk import Client
+    from registry.api.models import ModelAPI
+except ImportError:
+    rest_utils = None
+    Configuration = None
+    Client = None
+    ModelAPI = None
+
+from earth2studio.utils.imports import check_extra_imports
 
 
 async def get_client(**kwargs) -> aiohttp.ClientSession:  # type: ignore
@@ -36,6 +45,7 @@ async def get_client(**kwargs) -> aiohttp.ClientSession:  # type: ignore
     return aiohttp.ClientSession(**kwargs)
 
 
+@check_extra_imports("dlwp", ["ngcbase", "ngcsdk", "registry"])
 class NGCModelFileSystem(HTTPFileSystem):
     """NGC model registry file system for pulling and opening files that are stored
     on both public and private model registries. Largely a wrapper ontop of fsspec
