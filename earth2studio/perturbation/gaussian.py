@@ -73,8 +73,8 @@ class Gaussian:
 
 @check_extra_imports("perturbation", [InverseRealSHT])
 class CorrelatedSphericalGaussian:
-    """Produces Gaussian random field on the sphere with Matern
-    covariance peturbation method output to a lat lon grid
+    """Produces Gaussian random field on the sphere with Matern covariance peturbation
+    method output to a lat lon grid.
 
     Warning
     -------
@@ -269,11 +269,8 @@ class CorrelatedSphericalField(torch.nn.Module):
     def calculateF0(
         self, sigma: float, phi: float, nlat: int, kT: float
     ) -> torch.Tensor:
-        """
-        This function scales the coefficients such that their
-        grid-point standard deviation is sigma.
-        sigma is the desired variance
-        phi is a np.exp(-dt/time_scale)
+        """This function scales the coefficients such that their grid-point standarddeviation is sigma.
+        sigma is the desired variance phi is a np.exp(-dt/time_scale)
         """
         numerator = sigma**2 * (1 - (phi**2))
         wavenumbers = torch.arange(1, nlat)
@@ -285,8 +282,7 @@ class CorrelatedSphericalField(torch.nn.Module):
         return (numerator / denominator) ** 0.5
 
     def forward(self, x: torch.Tensor, time: np.datetime64 = None) -> torch.Tensor:
-        """
-        Generate and return a field with a correlated length scale.
+        """Generate and return a field with a correlated length scale.
 
         Update the coefficients using an AR(1) process.
         """
