@@ -115,6 +115,8 @@ class EnsembleBase:
         if cyclone_tracking:
             self.cyclone_tracking = cyclone_tracking.tracker
             self.cyclone_tracking_out_path = cyclone_tracking.out_path
+        else:
+            self.cyclone_tracking = None
 
         if len(time) > 1:
             raise ValueError("Only a single IC can be passed here")

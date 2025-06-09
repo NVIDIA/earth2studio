@@ -4,7 +4,6 @@
     :no-members:
     :no-inherited-members:
 
-.. currentmodule:: earth2studio
 
 .. _earth2studio.models.px:
 
@@ -20,28 +19,30 @@ Thus are typically used to generate forecast predictions.
    under different licenses. We encourage users to familiarize themselves with each
    prior to use.
 
+.. currentmodule:: earth2studio.models.px
+
 .. autosummary::
    :nosignatures:
    :toctree: generated/models/px/
    :template: prognostic.rst
 
-   models.px.AIFS
-   models.px.Aurora
-   models.px.DLESyM
-   models.px.DLESyMLatLon
-   models.px.DLWP
-   models.px.FCN
-   models.px.FengWu
-   models.px.FuXi
-   models.px.GraphCastOperational
-   models.px.GraphCastSmall
-   models.px.InterpModAFNO
-   models.px.Pangu24
-   models.px.Pangu6
-   models.px.Pangu3
-   models.px.Persistence
-   models.px.SFNO
-   models.px.StormCast
+   AIFS
+   Aurora
+   DLESyM
+   DLESyMLatLon
+   DLWP
+   FCN
+   FengWu
+   FuXi
+   GraphCastOperational
+   GraphCastSmall
+   InterpModAFNO
+   Pangu24
+   Pangu6
+   Pangu3
+   Persistence
+   SFNO
+   StormCast
 
 .. _earth2studio.models.dx:
 
@@ -59,32 +60,39 @@ etc.
    under different licenses. We encourage users to familiarize themselves with each
    prior to use.
 
+.. currentmodule:: earth2studio.models.dx
+
 .. autosummary::
    :nosignatures:
    :toctree: generated/models/dx/
    :template: diagnostic.rst
 
-   models.dx.CorrDiffTaiwan
-   models.dx.ClimateNet
-   models.dx.DerivedRH
-   models.dx.DerivedRHDewpoint
-   models.dx.DerivedVPD
-   models.dx.DerivedWS
-   models.dx.PrecipitationAFNO
-   models.dx.PrecipitationAFNOv2
-   models.dx.SolarRadiationAFNO1H
-   models.dx.SolarRadiationAFNO6H
-   models.dx.TCTrackerWuDuan
-   models.dx.TCTrackerVitart
-   models.dx.WindgustAFNO
-   models.dx.Identity
+   CBottleInfill
+   CBottleSR
+   CorrDiffTaiwan
+   ClimateNet
+   DerivedRH
+   DerivedRHDewpoint
+   DerivedVPD
+   DerivedWS
+   PrecipitationAFNO
+   PrecipitationAFNOv2
+   SolarRadiationAFNO1H
+   SolarRadiationAFNO6H
+   TCTrackerWuDuan
+   TCTrackerVitart
+   WindgustAFNO
+   Identity
 
 :mod:`earth2studio.models`: Utilities
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. currentmodule:: earth2studio.models
+
 .. autosummary::
    :nosignatures:
    :toctree: generated/models/
    :template: class.rst
 
-   models.auto.Package
-   models.batch.batch_func
+   auto.Package
+   batch.batch_func

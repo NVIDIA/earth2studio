@@ -31,3 +31,8 @@ Examples demonstrating various common Earth2Studio usage patterns.
 
 examples/index
 ```
+
+## Recipes
+
+Recipes provide more complex workflows that can be found in the
+[recipes folder](https://github.com/NVIDIA/earth2studio/tree/main/recipes).

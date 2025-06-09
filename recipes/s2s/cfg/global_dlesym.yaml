@@ -1,0 +1,54 @@
+defaults:
+    - forecast_model: dlesym
+    - perturbation: gaussian
+
+project: 'globalscore'
+random_seed: 42
+run_id: 'dlesym_4a4o4p_gaussian' # unique identifier for the ensemble run
+
+# Sweep over initial conditions
+ic_block_start: "2018-01-01 00:00:00"
+ic_block_end: "2018-12-27 00:00:00"
+ic_block_step: 96 # step between ICs is in hours
+
+nsteps: 12         # number of steps to run the forecast
+nperturbed: 4      # Number of perturbations applied to the initial condition for each model checkpoint
+                    # Total ensemble size is nperturbed * ncheckpoints
+ncheckpoints: 16 # number of model checkpoints to use
+                # For DLESyM, ncheckpoints represents the total number of atmos/ocean model checkpoint pairs
+
+batch_size: 4      # inference batch size
+output_path: "outputs"
+
+data_source:
+    _target_: earth2studio.data.ARCO # Using ERA5 data source
+    verbose: False
+
+file_output:
+    path: '${output_path}/${project}_${run_id}'  # directory to which outfiles are written
+    output_vars: ['t2m', 'z500']  # Variables to be saved
+    thread_io: True
+    overwrite_store: True # Whether or not to overwrite an existing output file
+    resolution: "latlon121x240" # What resolution to use when saving global output data (does not apply to cropboxes)
+                         # Options: "latlon721x1440", "latlon121x240"
+    format:               # io backend class
+        _target_: earth2studio.io.ZarrBackend
+        _partial_: True
+        chunks:
+            ensemble: 1
+            time: 1
+        backend_kwargs:
+            overwrite: False # Needs to be False for multi-GPU runs (so other ranks don't overwrite what rank 0 creates)
+
+scoring:
+    variables: ["t2m", "z500"] # variables to score
+    temporal_aggregation: "weekly" # temporal aggregation to apply before scoring
+    metrics:
+        crps:
+            _target_: earth2studio.statistics.crps
+            ensemble_dimension: "ensemble"
+            fair: True
+
+hydra:
+    run:
+        dir: '${output_path}/${project}_${run_id}'

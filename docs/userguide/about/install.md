@@ -350,6 +350,27 @@ uv add earth2studio --extra interp-modafno
 #### Diagnostics
 
 ::::::{tab-set}
+:::::{tab-item} CBottle
+Notes: Additional dependencies needed for CBottle3D data source,
+CBottleInfill diagnostic and CBottleSR diagnostic.
+
+::::{tab-set}
+:::{tab-item} pip
+
+```bash
+pip install earth2studio[cbottle]
+```
+
+:::
+:::{tab-item} uv
+
+```bash
+uv add earth2studio --extra cbottle
+```
+
+:::
+::::
+:::::
 :::::{tab-item} ClimateNet
 Notes: No additional dependencies are needed for ClimateNet but included for
 completeness.

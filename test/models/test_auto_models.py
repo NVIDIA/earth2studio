@@ -22,6 +22,7 @@ import fsspec
 import ngcbase
 import pytest
 
+from earth2studio.data import CBottle3D
 from earth2studio.models.auto import (
     AutoModelMixin,
     Package,
@@ -32,6 +33,8 @@ from earth2studio.models.auto.package import (
     TqdmFormat,
 )
 from earth2studio.models.dx import (
+    CBottleInfill,
+    CBottleSR,
     ClimateNet,
     CorrDiffTaiwan,
     PrecipitationAFNO,
@@ -63,6 +66,7 @@ from earth2studio.models.px import (
     "model",
     [
         Aurora,
+        CBottle3D,
         DLWP,
         FCN,
         FengWu,
@@ -74,6 +78,8 @@ from earth2studio.models.px import (
         PrecipitationAFNO,
         ClimateNet,
         CorrDiffTaiwan,
+        CBottleInfill,
+        CBottleSR,
         WindgustAFNO,
         InterpModAFNO,
         PrecipitationAFNOv2,
