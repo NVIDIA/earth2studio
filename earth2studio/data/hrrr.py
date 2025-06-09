@@ -123,7 +123,51 @@ class HRRR:
         self.lexicon = HRRRLexicon
         self.async_timeout = async_timeout
 
-        if self._source not in ["aws", "google", "azure", "nomads"]:
+        if self._source == "aws":
+            self.uri_prefix = "noaa-hrrr-bdp-pds"
+
+            # To update look at https://aws.amazon.com/marketplace/pp/prodview-yd5ydptv3vuz2#resources
+            def _range(time: datetime) -> None:
+                # sfc goes back to 2016 for anl, limit based on pressure
+                # frst starts on on the same date pressure starts
+                if time < datetime(year=2018, month=7, day=12, hour=13):
+                    raise ValueError(
+                        f"Requested date time {time} needs to be after July 12th, 2018 13:00 for HRRR"
+                    )
+
+            self._history_range = _range
+        elif self._source == "google":
+            self.uri_prefix = "high-resolution-rapid-refresh"
+
+            # To update look at https://console.cloud.google.com/marketplace/product/noaa-public/hrrr
+            # Needs confirmation
+            def _range(time: datetime) -> None:
+                # sfc goes back to 2016 for anl, limit based on pressure
+                # frst starts on on the same date pressure starts
+                if time < datetime(year=2018, month=7, day=12, hour=13):
+                    raise ValueError(
+                        f"Requested date time {time} needs to be after July 12th, 2018 13:00 for HRRR"
+                    )
+
+            self._history_range = _range
+        elif self._source == "azure":
+            raise NotImplementedError(
+                "Azure data source not implemented yet, open an issue if needed"
+            )
+        elif self._source == "nomads":
+            # https://nomads.ncep.noaa.gov/pub/data/nccf/com/hrrr/prod/
+            self.uri_prefix = (
+                "https://nomads.ncep.noaa.gov/pub/data/nccf/com/hrrr/prod/"
+            )
+
+            def _range(time: datetime) -> None:
+                if time + timedelta(days=2) < datetime.today():
+                    raise ValueError(
+                        f"Requested date time {time} needs to be within past 2 days for HRRR nomads source"
+                    )
+
+            self._history_range = _range
+        else:
             raise ValueError(f"Invalid HRRR source { self._source}")
 
         try:
@@ -142,60 +186,21 @@ class HRRR:
         Async fsspec expects initialization inside of the execution loop
         """
         if self._source == "aws":
-            self.uri_prefix = "noaa-hrrr-bdp-pds"
             self.fs = s3fs.S3FileSystem(anon=True, client_kwargs={}, asynchronous=True)
-
-            # To update look at https://aws.amazon.com/marketplace/pp/prodview-yd5ydptv3vuz2#resources
-            def _range(time: datetime) -> None:
-                # sfc goes back to 2016 for anl, limit based on pressure
-                # frst starts on on the same date pressure starts
-                if time < datetime(year=2018, month=7, day=12, hour=13):
-                    raise ValueError(
-                        f"Requested date time {time} needs to be after July 12th, 2018 13:00 for HRRR"
-                    )
-
-            self._history_range = _range
         elif self._source == "google":
-            self.uri_prefix = "high-resolution-rapid-refresh"
             self.fs = gcsfs.GCSFileSystem(
                 cache_timeout=-1,
                 token="anon",  # noqa: S106 # nosec B106
                 access="read_only",
                 block_size=8**20,
             )
-
-            # To update look at https://console.cloud.google.com/marketplace/product/noaa-public/hrrr
-            # Needs confirmation
-            def _range(time: datetime) -> None:
-                # sfc goes back to 2016 for anl, limit based on pressure
-                # frst starts on on the same date pressure starts
-                if time < datetime(year=2018, month=7, day=12, hour=13):
-                    raise ValueError(
-                        f"Requested date time {time} needs to be after July 12th, 2018 13:00 for HRRR"
-                    )
-
-            self._history_range = _range
         elif self._source == "azure":
             raise NotImplementedError(
                 "Azure data source not implemented yet, open an issue if needed"
             )
         elif self._source == "nomads":
             # HTTP file system, tried FTP but didnt work
-            # https://nomads.ncep.noaa.gov/pub/data/nccf/com/hrrr/prod/
             self.fs = HTTPFileSystem(asynchronous=True)
-            self.uri_prefix = (
-                "https://nomads.ncep.noaa.gov/pub/data/nccf/com/hrrr/prod/"
-            )
-
-            def _range(time: datetime) -> None:
-                if time + timedelta(days=2) < datetime.today():
-                    raise ValueError(
-                        f"Requested date time {time} needs to be within past 2 days for HRRR nomads source"
-                    )
-
-            self._history_range = _range
-        else:
-            raise ValueError(f"Invalid HRRR source { self._source}")
 
     def __call__(
         self,
@@ -760,6 +765,9 @@ class HRRR_FX(HRRR):
             concurrent.futures.ThreadPoolExecutor(max_workers=self._max_workers)
         )
 
+        if self.fs is None:
+            loop.run_until_complete(self._async_init())
+
         xr_array = loop.run_until_complete(
             asyncio.wait_for(
                 self.fetch(time, lead_time, variable), timeout=self.async_timeout
@@ -799,6 +807,12 @@ class HRRR_FX(HRRR):
         self._validate_time(time)
         self._validate_leadtime(lead_time)
 
+        # https://filesystem-spec.readthedocs.io/en/latest/async.html#using-from-async
+        if isinstance(self.fs, s3fs.S3FileSystem):
+            session = await self.fs.set_session()
+        else:
+            session = None
+
         # Note, this could be more memory efficient and avoid pre-allocation of the array
         # but this is much much cleaner to deal with, compared to something seen in the
         # NCAR data source.
@@ -837,10 +851,8 @@ class HRRR_FX(HRRR):
             shutil.rmtree(self.cache)
 
         # Close aiohttp client if s3fs
-        # https://github.com/fsspec/s3fs/issues/943
-        # https://github.com/zarr-developers/zarr-python/issues/2901
-        if isinstance(self.fs, s3fs.S3FileSystem):
-            s3fs.S3FileSystem.close_session(asyncio.get_event_loop(), self.fs.s3)
+        if session:
+            await session.close()
 
         return xr_array
 

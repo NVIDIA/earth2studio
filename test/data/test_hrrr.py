@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import asyncio
 import pathlib
 import shutil
 from datetime import datetime, timedelta
@@ -114,17 +115,39 @@ def test_hrrr_init():
     """Test HRRR initialization with different sources and parameters"""
     # Test AWS source
     ds = HRRR(source="aws", cache=True, verbose=True, async_timeout=300)
+    try:
+        loop = asyncio.get_event_loop()
+    except RuntimeError:
+        # If no event loop exists, create one
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+    loop.run_until_complete(ds._async_init())
+
     assert ds.uri_prefix == "noaa-hrrr-bdp-pds"
     assert isinstance(ds.fs, s3fs.S3FileSystem)
     assert ds.async_timeout == 300
 
     # Test Google source
     ds = HRRR(source="google", cache=False, verbose=False)
+    try:
+        loop = asyncio.get_event_loop()
+    except RuntimeError:
+        # If no event loop exists, create one
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+    loop.run_until_complete(ds._async_init())
     assert ds.uri_prefix == "high-resolution-rapid-refresh"
     assert isinstance(ds.fs, gcsfs.GCSFileSystem)
 
     # Test Nomads source
     ds = HRRR(source="nomads")
+    try:
+        loop = asyncio.get_event_loop()
+    except RuntimeError:
+        # If no event loop exists, create one
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+    loop.run_until_complete(ds._async_init())
     assert ds.uri_prefix == "https://nomads.ncep.noaa.gov/pub/data/nccf/com/hrrr/prod/"
     assert isinstance(ds.fs, HTTPFileSystem)
 
