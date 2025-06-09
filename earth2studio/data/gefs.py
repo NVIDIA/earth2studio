@@ -124,9 +124,26 @@ class GEFS_FX:
         self._product_class = "atmos"
         self._product_resolution = "0p50"  # 0p50 or 0p25
         self._member = member
-        self.fs = s3fs.S3FileSystem(anon=True, client_kwargs={}, asynchronous=True)
         self.async_timeout = async_timeout
         self.lexicon = GEFSLexicon
+
+        # Check to see if there is a running loop (initialized in async)
+        try:
+            loop = asyncio.get_running_loop()
+            loop.run_until_complete(self._async_init())
+        except RuntimeError:
+            # Else we assume that async calls will be used which in that case
+            # we will init the group in the call function when we have the loop
+            self.fs = None
+
+    async def _async_init(self) -> None:
+        """Async initialization of zarr group
+
+        Note
+        ----
+        Async fsspec expects initialization inside of the execution loop
+        """
+        self.fs = s3fs.S3FileSystem(anon=True, client_kwargs={}, asynchronous=True)
 
     def __call__(
         self,
@@ -164,6 +181,9 @@ class GEFS_FX:
             concurrent.futures.ThreadPoolExecutor(max_workers=self._max_workers)
         )
 
+        if self.fs is None:
+            loop.run_until_complete(self._async_init())
+
         xr_array = loop.run_until_complete(
             asyncio.wait_for(
                 self.fetch(time, lead_time, variable), timeout=self.async_timeout
@@ -195,6 +215,13 @@ class GEFS_FX:
         xr.DataArray
             GEFS forecast data array
         """
+        if self.fs is None:
+            raise ValueError(
+                "File store is not initialized! If you are calling this \
+            function directly make sure the data source is initialized inside the async \
+            loop!"
+            )
+
         time, lead_time, variable = prep_forecast_inputs(time, lead_time, variable)
         # Create cache dir if doesnt exist
         pathlib.Path(self.cache).mkdir(parents=True, exist_ok=True)
@@ -202,6 +229,12 @@ class GEFS_FX:
         # Make sure input time is valid
         self._validate_time(time)
         self._validate_leadtime(lead_time)
+
+        # https://filesystem-spec.readthedocs.io/en/latest/async.html#using-from-async
+        if isinstance(self.fs, s3fs.S3FileSystem):
+            session = await self.fs.set_session()
+        else:
+            session = None
 
         # Note, this could be more memory efficient and avoid pre-allocation of the array
         # but this is much much cleaner to deal with, compared to something seen in the
@@ -241,10 +274,8 @@ class GEFS_FX:
             shutil.rmtree(self.cache)
 
         # Close aiohttp client if s3fs
-        # https://github.com/fsspec/s3fs/issues/943
-        # https://github.com/zarr-developers/zarr-python/issues/2901
-        await self.fs.set_session()  # Make sure the session was actually initalized
-        s3fs.S3FileSystem.close_session(asyncio.get_event_loop(), self.fs.s3)
+        if session:
+            await session.close()
 
         return xr_array
 
@@ -472,6 +503,9 @@ class GEFS_FX:
         self, path: str, byte_offset: int = 0, byte_length: int | None = None
     ) -> str:
         """Fetches remote file into cache"""
+        if self.fs is None:
+            raise ValueError("File system is not initialized")
+
         sha = hashlib.sha256((path + str(byte_offset)).encode())
         filename = sha.hexdigest()
         cache_path = os.path.join(self.cache, filename)
