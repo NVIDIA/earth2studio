@@ -154,11 +154,11 @@ class WindgustAFNO(torch.nn.Module, AutoModelMixin):
 
     @classmethod
     def load_default_package(cls) -> Package:
-        """Default pre-trained climatenet model package from Nvidia model registry"""
+        """Default pre-trained windgustnet model package from Nvidia model registry"""
         return Package(
             "ngc://models/nvidia/earth-2/afno_dx_wg-v1-era5@v0.1.0",
             cache_options={
-                "cache_storage": Package.default_cache("climatenet"),
+                "cache_storage": Package.default_cache("windgustnet"),
                 "same_names": True,
             },
         )
