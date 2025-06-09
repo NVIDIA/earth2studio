@@ -167,6 +167,8 @@ plt.savefig("outputs/12_tcwv_cbottle_datasource.jpg")
 # variables.
 
 # %%
+import numpy as np
+
 from earth2studio.data.utils import fetch_data
 
 # Input variables
@@ -181,7 +183,8 @@ model.set_seed(0)
 torch.manual_seed(0)
 torch.cuda.manual_seed(0)
 
-x, coords = fetch_data(era5_ds, [timestamp] * n_samples, input_variables, device=device)
+times = np.array([timestamp] * n_samples, dtype="datetime64[ns]")
+x, coords = fetch_data(era5_ds, times, input_variables, device=device)
 output_0, output_coords = model(x, coords)
 print(output_0.shape)
 
@@ -216,7 +219,7 @@ model.set_seed(0)
 torch.manual_seed(0)
 torch.cuda.manual_seed(0)
 
-x, coords = fetch_data(era5_ds, [timestamp] * n_samples, input_variables, device=device)
+x, coords = fetch_data(era5_ds, times, input_variables, device=device)
 output_1, output_coords = model(x, coords)
 print(output_1.shape)
 
@@ -231,11 +234,10 @@ print(output_1.shape)
 # truth due the additional information provided.
 
 # %%
-import numpy as np
 
 variable = "tcwv"
 var_idx = np.where(output_coords["variable"] == "tcwv")[0][0]
-era5_data, _ = fetch_data(era5_ds, [timestamp], [variable], device=device)
+era5_data, _ = fetch_data(era5_ds, times[:1], [variable], device=device)
 
 plt.close("all")
 projection = ccrs.Mollweide(central_longitude=0)

@@ -13,7 +13,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+import importlib
 from collections.abc import Callable
 from functools import wraps
 from importlib.util import find_spec
@@ -58,9 +58,18 @@ def check_extra_imports(
         for pkg in package_objs:
             # If package is a string (module path like module.submodule), check if the
             #  module is available.
-            if isinstance(pkg, str) and find_spec(pkg) is None:
-                logger.error(f"Could not find spec for module {pkg}")
-                raise ExtraDependencyError(extra_name, obj_name)
+            if isinstance(pkg, str):
+                if find_spec(pkg) is None:
+                    logger.error(f"Could not find spec for module {pkg}")
+                    raise ExtraDependencyError(extra_name, obj_name)
+                else:
+                    # Check to make sure that we can actually import the package
+                    try:
+                        importlib.import_module(pkg)
+                    except ImportError as e:
+                        raise ImportError(
+                            f"Unexpected extra dependency import error of package {pkg}:\n{e}"
+                        )
             elif pkg is None:
                 raise ExtraDependencyError(extra_name, obj_name)
 
