@@ -592,6 +592,9 @@ class GFS_FX(GFS):
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
 
+        if self.fs is None:
+            loop.run_until_complete(self._async_init())
+
         xr_array = loop.run_until_complete(
             asyncio.wait_for(
                 self.fetch(time, lead_time, variable), timeout=self.async_timeout
@@ -623,6 +626,13 @@ class GFS_FX(GFS):
         xr.DataArray
             GFS weather data array
         """
+        if self.fs is None:
+            raise ValueError(
+                "File store is not initialized! If you are calling this \
+            function directly make sure the data source is initialized inside the async \
+            loop!"
+            )
+
         time, lead_time, variable = prep_forecast_inputs(time, lead_time, variable)
         # Create cache dir if doesnt exist
         pathlib.Path(self.cache).mkdir(parents=True, exist_ok=True)
@@ -630,6 +640,12 @@ class GFS_FX(GFS):
         # Make sure input time is valid
         self._validate_time(time)
         self._validate_leadtime(lead_time)
+
+        # https://filesystem-spec.readthedocs.io/en/latest/async.html#using-from-async
+        if isinstance(self.fs, s3fs.S3FileSystem):
+            session = await self.fs.set_session()
+        else:
+            session = None
 
         # Note, this could be more memory efficient and avoid pre-allocation of the array
         # but this is much much cleaner to deal with, compared to something seen in the
@@ -663,6 +679,10 @@ class GFS_FX(GFS):
         await tqdm.gather(
             *func_map, desc="Fetching GFS data", disable=(not self._verbose)
         )
+
+        # Close aiohttp client if s3fs
+        if session:
+            await session.close()
 
         # Delete cache if needed
         if not self._cache:
