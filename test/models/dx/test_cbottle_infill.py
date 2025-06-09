@@ -263,7 +263,7 @@ def test_cbottle_infill_invariant_inputs(device, mock_core_model, mock_sst_ds):
 @pytest.mark.slow
 @pytest.mark.timeout(30)
 @pytest.mark.parametrize("device", ["cuda:0"])
-def test_cnet_package(device, model_cache_context):
+def test_cbottle_package(device, model_cache_context):
     # Test the cached model package AFNO precip
     # Only cuda supported
     input_variables = np.array(["tpf"])
