@@ -115,11 +115,33 @@ class HRRR:
         verbose: bool = True,
         async_timeout: int = 600,
     ):
+        self._source = source
         self._cache = cache
         self._verbose = verbose
         self._max_workers = max_workers
 
-        if source == "aws":
+        self.lexicon = HRRRLexicon
+        self.async_timeout = async_timeout
+
+        if self._source not in ["aws", "google", "azure", "nomads"]:
+            raise ValueError(f"Invalid HRRR source { self._source}")
+
+        try:
+            loop = asyncio.get_running_loop()
+            loop.run_until_complete(self._async_init())
+        except RuntimeError:
+            # Else we assume that async calls will be used which in that case
+            # we will init the group in the call function when we have the loop
+            self.fs = None
+
+    async def _async_init(self) -> None:
+        """Async initialization of fsspec file stores
+
+        Note
+        ----
+        Async fsspec expects initialization inside of the execution loop
+        """
+        if self._source == "aws":
             self.uri_prefix = "noaa-hrrr-bdp-pds"
             self.fs = s3fs.S3FileSystem(anon=True, client_kwargs={}, asynchronous=True)
 
@@ -133,7 +155,7 @@ class HRRR:
                     )
 
             self._history_range = _range
-        elif source == "google":
+        elif self._source == "google":
             self.uri_prefix = "high-resolution-rapid-refresh"
             self.fs = gcsfs.GCSFileSystem(
                 cache_timeout=-1,
@@ -153,17 +175,17 @@ class HRRR:
                     )
 
             self._history_range = _range
-        elif source == "azure":
+        elif self._source == "azure":
             raise NotImplementedError(
                 "Azure data source not implemented yet, open an issue if needed"
             )
-        elif source == "nomads":
+        elif self._source == "nomads":
             # HTTP file system, tried FTP but didnt work
             # https://nomads.ncep.noaa.gov/pub/data/nccf/com/hrrr/prod/
+            self.fs = HTTPFileSystem(asynchronous=True)
             self.uri_prefix = (
                 "https://nomads.ncep.noaa.gov/pub/data/nccf/com/hrrr/prod/"
             )
-            self.fs = HTTPFileSystem(asynchronous=True)
 
             def _range(time: datetime) -> None:
                 if time + timedelta(days=2) < datetime.today():
@@ -173,10 +195,7 @@ class HRRR:
 
             self._history_range = _range
         else:
-            raise ValueError(f"Invalid HRRR source {source}")
-
-        self.lexicon = HRRRLexicon
-        self.async_timeout = async_timeout
+            raise ValueError(f"Invalid HRRR source { self._source}")
 
     def __call__(
         self,
@@ -211,6 +230,9 @@ class HRRR:
             concurrent.futures.ThreadPoolExecutor(max_workers=self._max_workers)
         )
 
+        if self.fs is None:
+            loop.run_until_complete(self._async_init())
+
         xr_array = loop.run_until_complete(
             asyncio.wait_for(self.fetch(time, variable), timeout=self.async_timeout)
         )
@@ -237,12 +259,25 @@ class HRRR:
         xr.DataArray
             HRRR weather data array
         """
+        if self.fs is None:
+            raise ValueError(
+                "File store is not initialized! If you are calling this \
+            function directly make sure the data source is initialized inside the async \
+            loop!"
+            )
+
         time, variable = prep_data_inputs(time, variable)
         # Create cache dir if doesnt exist
         pathlib.Path(self.cache).mkdir(parents=True, exist_ok=True)
 
         # Make sure input time is valid
         self._validate_time(time)
+
+        # https://filesystem-spec.readthedocs.io/en/latest/async.html#using-from-async
+        if isinstance(self.fs, s3fs.S3FileSystem):
+            session = await self.fs.set_session()
+        else:
+            session = None
 
         # Generate HRRR lat-lon grid to append onto data array
         lat, lon = self.grid()
@@ -285,11 +320,8 @@ class HRRR:
             shutil.rmtree(self.cache)
 
         # Close aiohttp client if s3fs
-        # https://github.com/fsspec/s3fs/issues/943
-        # https://github.com/zarr-developers/zarr-python/issues/2901
-        if isinstance(self.fs, s3fs.S3FileSystem):
-            await self.fs.set_session()  # Make sure the session was actually initalized
-            s3fs.S3FileSystem.close_session(asyncio.get_event_loop(), self.fs.s3)
+        if session:
+            await session.close()
 
         xr_array = xr_array.isel(lead_time=0)
         del xr_array.coords["lead_time"]
@@ -505,6 +537,9 @@ class HRRR:
         self, path: str, byte_offset: int = 0, byte_length: int | None = None
     ) -> str:
         """Fetches remote file into cache"""
+        if self.fs is None:
+            raise ValueError("File system is not initialized")
+
         sha = hashlib.sha256((path + str(byte_offset)).encode())
         filename = sha.hexdigest()
         cache_path = os.path.join(self.cache, filename)
