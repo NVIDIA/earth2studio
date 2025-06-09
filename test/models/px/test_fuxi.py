@@ -21,6 +21,11 @@ import numpy as np
 import pytest
 import torch
 
+try:
+    import onnx  # noqa
+except ImportError:
+    pytest.skip("onnx not installed which is needed for tests", allow_module_level=True)
+
 from earth2studio.data import Random, fetch_data
 from earth2studio.models.auto import Package
 from earth2studio.models.px import FuXi
@@ -112,7 +117,8 @@ def test_fuxi_call(time, fuxi_test_package, device):
     assert (out_coords["variable"] == p.output_coords(coords)["variable"]).all()
     assert (out_coords["time"] == time).all()
     assert torch.allclose(
-        out, (x[:, 1:] + 1)
+        out[:, :, :-1],
+        (x[:, 1:, :-1] + 1),  # Ignore last field with is tp b/c mm conversion
     )  # Phoo model should add by delta t each call
     handshake_dim(out_coords, "lon", 4)
     handshake_dim(out_coords, "lat", 3)
@@ -156,7 +162,9 @@ def test_fuxi_iter(ensemble, fuxi_test_package, device):
 
     # Get generator
     out, out_coords = next(p_iter)  # Skip first which should return the input
-    assert torch.allclose(out, x[:, 1:])
+    assert torch.allclose(
+        out[:, :, :-1], x[:, 1:, :-1]
+    )  # Ignore last field with is tp b/c mm conversion
 
     step_index = 0
     for i, (out, out_coords) in enumerate(p_iter):
@@ -176,7 +184,7 @@ def test_fuxi_iter(ensemble, fuxi_test_package, device):
         assert (out_coords["time"] == time).all()
         assert out_coords["lead_time"][0] == np.timedelta64(6 * (i + 1), "h")
         assert torch.allclose(
-            out, (x[:, 1:] + step_index)
+            out[:, :, :-1], (x[:, 1:, :-1] + step_index)
         )  # Phoo model should add by delta t each call
         handshake_dim(out_coords, "lon", 5)
         handshake_dim(out_coords, "lat", 4)
@@ -204,7 +212,8 @@ def test_fuxi_iter(ensemble, fuxi_test_package, device):
         out_coords["variable"] == p.output_coords(p.input_coords())["variable"]
     ).all()
     assert torch.allclose(
-        out, (x[:, 1:] + 1)
+        out[:, :, :-1],
+        (x[:, 1:, :-1] + 1),  # Ignore last field with is tp b/c mm conversion
     )  # Phoo model should add by delta t each call
 
 
