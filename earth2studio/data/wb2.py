@@ -55,23 +55,13 @@ class _WB2Base:
         verbose: bool = True,
         async_timeout: int = 600,
     ):
+
+        self._zarr_store_name = wb2_zarr_store
+        self._product = wb2_product
+
         self._cache = cache
         self._verbose = verbose
-
-        fs = gcsfs.GCSFileSystem(
-            cache_timeout=-1,
-            token="anon",  # noqa: S106 # nosec B106
-            access="read_only",
-            block_size=2**20,
-            asynchronous=True,
-        )
-
-        if self._cache:
-            cache_options = {
-                "cache_storage": self.cache,
-                "expiry_time": 31622400,  # 1 year
-            }
-            fs = AsyncCachingFileSystem(fs=fs, **cache_options, asynchronous=True)
+        self.async_timeout = async_timeout
 
         # Check Zarr version and use appropriate method
         try:
@@ -84,13 +74,46 @@ class _WB2Base:
         if zarr_major_version < 3:
             raise ModuleNotFoundError("Zarr 3.0 and above support only")
 
+        # Check to see if there is a running loop (initialized in async)
+        try:
+            loop = asyncio.get_running_loop()
+            loop.run_until_complete(self._async_init())
+        except RuntimeError:
+            # Else we assume that async calls will be used which in that case
+            # we will init the group in the call function when we have the loop
+            self.zarr_group = None
+            self.level_coords = None
+
+    async def _async_init(self) -> None:
+        """Async initialization of zarr group
+
+        Note
+        ----
+        Async fsspec expects initialization inside of the execution loop
+        """
+        fs = gcsfs.GCSFileSystem(
+            cache_timeout=-1,
+            token="anon",  # noqa: S106 # nosec B106
+            access="read_only",
+            block_size=8**20,
+            asynchronous=True,
+        )
+
+        if self._cache:
+            cache_options = {
+                "cache_storage": self.cache,
+                "expiry_time": 31622400,  # 1 year
+            }
+            fs = AsyncCachingFileSystem(fs=fs, **cache_options, asynchronous=True)
+
         zstore = zarr.storage.FsspecStore(
             fs,
-            path=f"/weatherbench2/datasets/{wb2_product}/{wb2_zarr_store}",
+            path=f"/weatherbench2/datasets/{self._product}/{self._zarr_store_name}",
         )
-        self.zarr_group = zarr.api.asynchronous.open(store=zstore, mode="r")
-
-        self.async_timeout = async_timeout
+        self.zarr_group = await zarr.api.asynchronous.open(store=zstore, mode="r")
+        self.level_coords = await (await self.zarr_group.get("level")).getitem(  # type: ignore
+            slice(None)
+        )
 
     def __call__(
         self,
@@ -120,6 +143,9 @@ class _WB2Base:
             # If no event loop exists, create one
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
+
+        if self.zarr_group is None:
+            loop.run_until_complete(self._async_init())
 
         xr_array = loop.run_until_complete(
             asyncio.wait_for(self.fetch(time, variable), timeout=self.async_timeout)
@@ -151,6 +177,13 @@ class _WB2Base:
         xr.DataArray
             ERA5 weather data array from weather bench 2
         """
+        if self.zarr_group is None:
+            raise ValueError(
+                "Zarr group is not initialized! If you are calling this \
+            function directly make sure the data source is initialized inside the async \
+            loop!"
+            )
+
         time, variable = prep_data_inputs(time, variable)
         # Create cache dir if doesnt exist
         pathlib.Path(self.cache).mkdir(parents=True, exist_ok=True)
@@ -181,12 +214,6 @@ class _WB2Base:
         ]
         func_map = map(functools.partial(self.fetch_wrapper, xr_array=xr_array), args)
 
-        # Before anything wait until the group gets opened
-        if inspect.isawaitable(self.zarr_group):
-            self.zarr_group = await self.zarr_group
-        self.level_coords = await (await self.zarr_group.get("level")).getitem(
-            slice(None)
-        )
         # Launch all fetch requests
         await tqdm.gather(
             *func_map, desc="Fetching WB2 data", disable=(not self._verbose)
@@ -217,6 +244,8 @@ class _WB2Base:
         np.ndarray
             Data
         """
+        if self.zarr_group is None:
+            raise ValueError("Zarr group is not initialized")
         # Get time index (vanilla zarr doesnt support date indices)
         time_index = self._get_time_index(time)
         logger.debug(
@@ -540,6 +569,13 @@ class WB2Climatology(_WB2Base):
         xr.DataArray
             ERA5 weather data array from weather bench 2
         """
+        if self.zarr_group is None:
+            raise ValueError(
+                "Zarr group is not initialized! If you are calling this \
+            function directly make sure the data source is initialized inside the async \
+            loop!"
+            )
+
         time, variable = prep_data_inputs(time, variable)
         # Create cache dir if doesnt exist
         pathlib.Path(self.cache).mkdir(parents=True, exist_ok=True)
@@ -600,6 +636,9 @@ class WB2Climatology(_WB2Base):
         np.ndarray
             Data
         """
+        if self.zarr_group is None:
+            raise ValueError("Zarr group is not initialized")
+
         # Get time index (vanilla zarr doesnt support date indices)
         hour_index, day_of_year_index = self._get_time_index(time)
         logger.debug(
