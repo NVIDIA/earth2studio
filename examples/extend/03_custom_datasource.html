@@ -8,25 +8,27 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
     <link href="../../_static/favicon.ico" rel="icon" type="image/x-icon">
-    <title>Extending Data Sources &#8212; Earth2Studio 0.7.0a0 documentation</title>
+    <title>Extending Data Sources &#8212; Earth2Studio 0.8.0a0 documentation</title>
   
   
   
   <script data-cfasync="false">
     document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
-    document.documentElement.dataset.theme = localStorage.getItem("theme") || "light";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
   </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
   
   <!-- Loaded before other Sphinx assets -->
-  <link href="../../_static/styles/theme.css?digest=8d27b9dea8ad943066ae" rel="stylesheet" />
-<link href="../../_static/styles/bootstrap.css?digest=8d27b9dea8ad943066ae" rel="stylesheet" />
-<link href="../../_static/styles/pydata-sphinx-theme.css?digest=8d27b9dea8ad943066ae" rel="stylesheet" />
-
-  
-  <link href="../../_static/vendor/fontawesome/6.5.1/css/all.min.css?digest=8d27b9dea8ad943066ae" rel="stylesheet" />
-  <link rel="preload" as="font" type="font/woff2" crossorigin href="../../_static/vendor/fontawesome/6.5.1/webfonts/fa-solid-900.woff2" />
-<link rel="preload" as="font" type="font/woff2" crossorigin href="../../_static/vendor/fontawesome/6.5.1/webfonts/fa-brands-400.woff2" />
-<link rel="preload" as="font" type="font/woff2" crossorigin href="../../_static/vendor/fontawesome/6.5.1/webfonts/fa-regular-400.woff2" />
+  <link href="../../_static/styles/theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+<link href="../../_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
 
     <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=8f2a1f02" />
     <link rel="stylesheet" type="text/css" href="../../_static/togglebutton.css?v=13237357" />
@@ -35,14 +37,15 @@
     <link rel="stylesheet" type="text/css" href="../../_static/sg_gallery-dataframe.css?v=2082cf3c" />
     <link rel="stylesheet" type="text/css" href="../../_static/sg_gallery-rendered-html.css?v=1277b6f3" />
     <link rel="stylesheet" type="text/css" href="../../_static/sphinx-design.min.css?v=95c83b7e" />
-    <link rel="stylesheet" type="text/css" href="../../_static/css/custom.css?v=94338acd" />
+    <link rel="stylesheet" type="text/css" href="../../_static/css/nvidia-sphinx-theme.css?v=418c9516" />
   
+  <!-- So that users can add custom icons -->
+  <script src="../../_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
   <!-- Pre-loaded scripts that we'll load fully later -->
-  <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=8d27b9dea8ad943066ae" />
-<link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=8d27b9dea8ad943066ae" />
-  <script src="../../_static/vendor/fontawesome/6.5.1/js/all.min.js?digest=8d27b9dea8ad943066ae"></script>
+  <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
+<link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
 
-    <script src="../../_static/documentation_options.js?v=8f7eeaf6"></script>
+    <script src="../../_static/documentation_options.js?v=96f8bfd3"></script>
     <script src="../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script>let toggleHintShow = 'Click to show';</script>
@@ -53,16 +56,18 @@
     <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
     <script>DOCUMENTATION_OPTIONS.pagename = 'examples/extend/03_custom_datasource';</script>
     <script>
-        DOCUMENTATION_OPTIONS.theme_version = '0.15.2';
+        DOCUMENTATION_OPTIONS.theme_version = '0.16.1';
         DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'https://raw.githubusercontent.com/NVIDIA/earth2studio/gh-pages/_static/switcher.json';
         DOCUMENTATION_OPTIONS.theme_switcher_version_match = 'main';
-        DOCUMENTATION_OPTIONS.show_version_warning_banner = false;
+        DOCUMENTATION_OPTIONS.show_version_warning_banner =
+            false;
         </script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
     <link rel="prev" title="Extending Diagnostic Models" href="02_custom_diagnostic.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="0.8" />
   </head>
   
   
@@ -70,31 +75,16 @@
 
   
   
-  <a id="pst-skip-link" class="skip-link" href="#main-content">Skip to main content</a>
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
   
   <div id="pst-scroll-pixel-helper"></div>
   
   <button type="button" class="btn rounded-pill" id="pst-back-to-top">
-    <i class="fa-solid fa-arrow-up"></i>
-    Back to top
-  </button>
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
 
   
-  <input type="checkbox"
-          class="sidebar-toggle"
-          name="__primary"
-          id="__primary"/>
-  <label class="overlay overlay-primary" for="__primary"></label>
-  
-  <input type="checkbox"
-          class="sidebar-toggle"
-          name="__secondary"
-          id="__secondary"/>
-  <label class="overlay overlay-secondary" for="__secondary"></label>
-  
-  <div class="search-button__wrapper">
-    <div class="search-button__overlay"></div>
-    <div class="search-button__search-container">
+  <dialog id="pst-search-dialog">
+    
 <form class="bd-search d-flex align-items-center"
       action="../../search.html"
       method="get">
@@ -102,7 +92,6 @@
   <input type="search"
          class="form-control"
          name="q"
-         id="search-input"
          placeholder="Search the docs ..."
          aria-label="Search the docs ..."
          autocomplete="off"
@@ -110,20 +99,27 @@
          autocapitalize="off"
          spellcheck="false"/>
   <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
-</form></div>
-  </div>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
   
-    <header class="bd-header navbar navbar-expand-lg bd-navbar">
+    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
 <div class="bd-header__inner bd-page-width">
-  <label class="sidebar-toggle primary-toggle" for="__primary">
+  <button class="pst-navbar-icon sidebar-toggle primary-toggle" aria-label="Site navigation">
     <span class="fa-solid fa-bars"></span>
-  </label>
+  </button>
   
   
   <div class="col-lg-3 navbar-header-items__start">
     
       <div class="navbar-item">
 
+  
+    
   
 
 <a class="navbar-brand logo" href="../../index.html">
@@ -138,7 +134,7 @@
     
     
     <img src="../../_static/NVIDIA-Logo-V-ForScreen-ForLightBG.png" class="logo__image only-light" alt=""/>
-    <script>document.write(`<img src="../../_static/NVIDIA-Logo-V-ForScreen-ForDarkBG.png" class="logo__image only-dark" alt=""/>`);</script>
+    <img src="../../_static/NVIDIA-Logo-V-ForScreen-ForDarkBG.png" class="logo__image only-dark pst-js-only" alt=""/>
   
   
     <p class="title logo__title">Earth2Studio</p>
@@ -146,28 +142,24 @@
 </a></div>
     
       <div class="navbar-item">
-<script>
-document.write(`
-  <div class="version-switcher__container dropdown">
-    <button id="pst-version-switcher-button-2"
-      type="button"
-      class="version-switcher__button btn btn-sm navbar-btn dropdown-toggle"
-      data-bs-toggle="dropdown"
-      aria-haspopup="listbox"
-      aria-controls="pst-version-switcher-list-2"
-      aria-label="Version switcher list"
-    >
-      Choose version  <!-- this text may get changed later by javascript -->
-      <span class="caret"></span>
-    </button>
-    <div id="pst-version-switcher-list-2"
-      class="version-switcher__menu dropdown-menu list-group-flush py-0"
-      role="listbox" aria-labelledby="pst-version-switcher-button-2">
-      <!-- dropdown will be populated by javascript on page load -->
-    </div>
+<div class="version-switcher__container dropdown pst-js-only">
+  <button id="pst-version-switcher-button-2"
+    type="button"
+    class="version-switcher__button btn btn-sm dropdown-toggle"
+    data-bs-toggle="dropdown"
+    aria-haspopup="listbox"
+    aria-controls="pst-version-switcher-list-2"
+    aria-label="Version switcher list"
+  >
+    Choose version  <!-- this text may get changed later by javascript -->
+    <span class="caret"></span>
+  </button>
+  <div id="pst-version-switcher-list-2"
+    class="version-switcher__menu dropdown-menu list-group-flush py-0"
+    role="listbox" aria-labelledby="pst-version-switcher-button-2">
+    <!-- dropdown will be populated by javascript on page load -->
   </div>
-`);
-</script></div>
+</div></div>
     
   </div>
   
@@ -176,36 +168,43 @@ document.write(`
     <div class="me-auto navbar-header-items__center">
       
         <div class="navbar-item">
-<nav class="navbar-nav">
+<nav>
   <ul class="bd-navbar-elements navbar-nav">
     
-                    <li class="nav-item">
-                      <a class="nav-link nav-internal" href="../../userguide/index.html">
-                        User Guide
-                      </a>
-                    </li>
-                
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../userguide/index.html">
+    User Guide
+  </a>
+</li>
 
-                    <li class="nav-item">
-                      <a class="nav-link nav-internal" href="../../modules/index.html">
-                        API
-                      </a>
-                    </li>
-                
 
-                    <li class="nav-item current active">
-                      <a class="nav-link nav-internal" href="../index.html">
-                        Examples
-                      </a>
-                    </li>
-                
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../modules/index.html">
+    API
+  </a>
+</li>
 
-                <li class="nav-item">
-                  <a class="nav-link nav-external" href="https://github.com/NVIDIA/earth2studio/blob/main/CHANGELOG.md">
-                    Changelog
-                  </a>
-                </li>
-                
+
+<li class="nav-item current active">
+  <a class="nav-link nav-internal" href="../index.html">
+    Examples
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-external" href="https://github.com/NVIDIA/earth2studio/tree/main/recipes">
+    Recipes
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-external" href="https://github.com/NVIDIA/earth2studio/blob/main/CHANGELOG.md">
+    Changelog
+  </a>
+</li>
+
   </ul>
 </nav></div>
       
@@ -217,31 +216,23 @@ document.write(`
         <div class="navbar-item navbar-persistent--container">
           
 
- <script>
- document.write(`
-   <button class="btn navbar-btn search-button-field search-button__button" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
-    <i class="fa-solid fa-magnifying-glass"></i>
-    <span class="search-button__default-text">Search</span>
-    <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
-   </button>
- `);
- </script>
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
         </div>
       
       
         <div class="navbar-item">
 
-<script>
-document.write(`
-  <button class="btn btn-sm navbar-btn theme-switch-button" title="light/dark" aria-label="light/dark" data-bs-placement="bottom" data-bs-toggle="tooltip">
-    <span class="theme-switch nav-link" data-mode="light"><i class="fa-solid fa-sun fa-lg"></i></span>
-    <span class="theme-switch nav-link" data-mode="dark"><i class="fa-solid fa-moon fa-lg"></i></span>
-    <span class="theme-switch nav-link" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg"></i></span>
-  </button>
-`);
-</script></div>
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button></div>
       
-        <div class="navbar-item"><ul class="navbar-icon-links navbar-nav"
+        <div class="navbar-item"><ul class="navbar-icon-links"
     aria-label="Icon Links">
         <li class="nav-item">
           
@@ -252,7 +243,7 @@ document.write(`
           
           
           
-          <a href="https://github.com/NVIDIA/earth2studio" title="Github" class="nav-link" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><span><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i></span>
+          <a href="https://github.com/NVIDIA/earth2studio" title="Github" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i>
             <span class="sr-only">Github</span></a>
         </li>
 </ul></div>
@@ -264,22 +255,18 @@ document.write(`
   
     <div class="navbar-persistent--mobile">
 
- <script>
- document.write(`
-   <button class="btn navbar-btn search-button-field search-button__button" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
-    <i class="fa-solid fa-magnifying-glass"></i>
-    <span class="search-button__default-text">Search</span>
-    <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
-   </button>
- `);
- </script>
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
     </div>
   
 
   
-    <label class="sidebar-toggle secondary-toggle" for="__secondary" tabindex="0">
+    <button class="pst-navbar-icon sidebar-toggle secondary-toggle" aria-label="On this page">
       <span class="fa-solid fa-outdent"></span>
-    </label>
+    </button>
   
 </div>
 
@@ -291,7 +278,8 @@ document.write(`
       
       
       
-      <div class="bd-sidebar-primary bd-sidebar">
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar">
         
 
   
@@ -300,39 +288,49 @@ document.write(`
     
       <div class="sidebar-header-items__center">
         
-          <div class="navbar-item">
-<nav class="navbar-nav">
+          
+          
+            <div class="navbar-item">
+<nav>
   <ul class="bd-navbar-elements navbar-nav">
     
-                    <li class="nav-item">
-                      <a class="nav-link nav-internal" href="../../userguide/index.html">
-                        User Guide
-                      </a>
-                    </li>
-                
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../userguide/index.html">
+    User Guide
+  </a>
+</li>
 
-                    <li class="nav-item">
-                      <a class="nav-link nav-internal" href="../../modules/index.html">
-                        API
-                      </a>
-                    </li>
-                
 
-                    <li class="nav-item current active">
-                      <a class="nav-link nav-internal" href="../index.html">
-                        Examples
-                      </a>
-                    </li>
-                
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../modules/index.html">
+    API
+  </a>
+</li>
 
-                <li class="nav-item">
-                  <a class="nav-link nav-external" href="https://github.com/NVIDIA/earth2studio/blob/main/CHANGELOG.md">
-                    Changelog
-                  </a>
-                </li>
-                
+
+<li class="nav-item current active">
+  <a class="nav-link nav-internal" href="../index.html">
+    Examples
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-external" href="https://github.com/NVIDIA/earth2studio/tree/main/recipes">
+    Recipes
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-external" href="https://github.com/NVIDIA/earth2studio/blob/main/CHANGELOG.md">
+    Changelog
+  </a>
+</li>
+
   </ul>
 </nav></div>
+          
         
       </div>
     
@@ -342,17 +340,13 @@ document.write(`
         
           <div class="navbar-item">
 
-<script>
-document.write(`
-  <button class="btn btn-sm navbar-btn theme-switch-button" title="light/dark" aria-label="light/dark" data-bs-placement="bottom" data-bs-toggle="tooltip">
-    <span class="theme-switch nav-link" data-mode="light"><i class="fa-solid fa-sun fa-lg"></i></span>
-    <span class="theme-switch nav-link" data-mode="dark"><i class="fa-solid fa-moon fa-lg"></i></span>
-    <span class="theme-switch nav-link" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg"></i></span>
-  </button>
-`);
-</script></div>
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button></div>
         
-          <div class="navbar-item"><ul class="navbar-icon-links navbar-nav"
+          <div class="navbar-item"><ul class="navbar-icon-links"
     aria-label="Icon Links">
         <li class="nav-item">
           
@@ -363,7 +357,7 @@ document.write(`
           
           
           
-          <a href="https://github.com/NVIDIA/earth2studio" title="Github" class="nav-link" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><span><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i></span>
+          <a href="https://github.com/NVIDIA/earth2studio" title="Github" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i>
             <span class="sr-only">Github</span></a>
         </li>
 </ul></div>
@@ -392,14 +386,15 @@ document.write(`
 <li class="toctree-l1"><a class="reference internal" href="../12_temporal_interpolation.html">Temporal Interpolation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../13_cyclone_tracking.html">Tropical Cyclone Tracking</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../14_dlesym_example.html">Running DLESyM Inference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../15_cbottle_generation.html">cBottle Data Generation and Infilling</a></li>
 </ul>
 <ul class="current nav bd-sidenav">
-<li class="toctree-l1 current active has-children"><a class="reference internal" href="index.html">Extending Earth2Studio</a><input checked="" class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-1"><i class="fa-solid fa-chevron-down"></i></label><ul class="current">
+<li class="toctree-l1 current active has-children"><a class="reference internal" href="index.html">Extending Earth2Studio</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
 <li class="toctree-l2"><a class="reference internal" href="01_custom_prognostic.html">Extending Prognostic Models</a></li>
 <li class="toctree-l2"><a class="reference internal" href="02_custom_diagnostic.html">Extending Diagnostic Models</a></li>
 <li class="toctree-l2 current active"><a class="current reference internal" href="#">Extending Data Sources</a></li>
 </ul>
-</li>
+</details></li>
 </ul>
 </div>
 </nav></div>
@@ -407,29 +402,32 @@ document.write(`
   
   
   <div class="sidebar-primary-items__end sidebar-primary__section">
+      <div class="sidebar-primary-item">
+<div id="ethical-ad-placement"
+      class="flat"
+      data-ea-publisher="readthedocs"
+      data-ea-type="readthedocs-sidebar"
+      data-ea-manual="true">
+</div></div>
   </div>
-  
-  <div id="rtd-footer-container"></div>
 
 
       </div>
       
-      <main id="main-content" class="bd-main">
+      <main id="main-content" class="bd-main" role="main">
         
         
           <div class="bd-content">
             <div class="bd-article-container">
               
-              <div class="bd-header-article">
+              <div class="bd-header-article d-print-none">
 <div class="header-article-items header-article__inner">
   
     <div class="header-article-items__start">
       
         <div class="header-article-item">
 
-
-
-<nav aria-label="Breadcrumb">
+<nav aria-label="Breadcrumb" class="d-print-none">
   <ul class="bd-breadcrumbs">
     
     <li class="breadcrumb-item breadcrumb-home">
@@ -443,7 +441,7 @@ document.write(`
     
     <li class="breadcrumb-item"><a href="index.html" class="nav-link">Extending Earth2Studio</a></li>
     
-    <li class="breadcrumb-item active" aria-current="page">Extending...</li>
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">Extending Data Sources</span></li>
   </ul>
 </nav>
 </div>
@@ -652,32 +650,32 @@ consistent with when GFS provides for relative humidity.</p>
 </div>
 <div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>Fetching ARCO data:   0%|          | 0/2 [00:00&lt;?, ?it/s]
 
-2025-05-16 00:47:46.374 | DEBUG    | earth2studio.data.arco:fetch_array:252 - Fetching ARCO zarr array for variable: q500 at 2022-01-01T00:00:00
+2025-06-09 03:34:19.217 | DEBUG    | earth2studio.data.arco:fetch_array:252 - Fetching ARCO zarr array for variable: t500 at 2022-01-01T00:00:00
 
 Fetching ARCO data:   0%|          | 0/2 [00:00&lt;?, ?it/s]
 
-2025-05-16 00:47:46.375 | DEBUG    | earth2studio.data.arco:fetch_array:252 - Fetching ARCO zarr array for variable: t500 at 2022-01-01T00:00:00
+2025-06-09 03:34:19.217 | DEBUG    | earth2studio.data.arco:fetch_array:252 - Fetching ARCO zarr array for variable: q500 at 2022-01-01T00:00:00
 
 Fetching ARCO data:   0%|          | 0/2 [00:00&lt;?, ?it/s]
 
-2025-05-16 00:47:46.454 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/temperature/1069440.0.0.0 to local cache
+2025-06-09 03:34:19.296 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/specific_humidity/1069440.0.0.0 to local cache
 
 Fetching ARCO data:   0%|          | 0/2 [00:00&lt;?, ?it/s]
 
-2025-05-16 00:47:46.456 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/specific_humidity/1069440.0.0.0 to local cache
+2025-06-09 03:34:19.298 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/temperature/1069440.0.0.0 to local cache
 
 Fetching ARCO data:   0%|          | 0/2 [00:00&lt;?, ?it/s]
-Fetching ARCO data:  50%|█████     | 1/2 [00:01&lt;00:01,  1.52s/it]
-Fetching ARCO data: 100%|██████████| 2/2 [00:01&lt;00:00,  1.20it/s]
-Fetching ARCO data: 100%|██████████| 2/2 [00:01&lt;00:00,  1.07it/s]
+Fetching ARCO data:  50%|█████     | 1/2 [00:01&lt;00:01,  1.82s/it]
+Fetching ARCO data: 100%|██████████| 2/2 [00:02&lt;00:00,  1.03it/s]
+Fetching ARCO data: 100%|██████████| 2/2 [00:02&lt;00:00,  1.10s/it]
 
 Fetching GFS data:   0%|          | 0/1 [00:00&lt;?, ?it/s]
 
-2025-05-16 00:47:48.267 | DEBUG    | earth2studio.data.gfs:fetch_array:353 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20220101/00/atmos/gfs.t00z.pgrb2.0p25.f000 259807518-809409
+2025-06-09 03:34:21.438 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20220101/00/atmos/gfs.t00z.pgrb2.0p25.f000 259807518-809409
 
 Fetching GFS data:   0%|          | 0/1 [00:00&lt;?, ?it/s]
-Fetching GFS data: 100%|██████████| 1/1 [00:00&lt;00:00,  1.19it/s]
-Fetching GFS data: 100%|██████████| 1/1 [00:00&lt;00:00,  1.19it/s]
+Fetching GFS data: 100%|██████████| 1/1 [00:00&lt;00:00,  1.25it/s]
+Fetching GFS data: 100%|██████████| 1/1 [00:00&lt;00:00,  1.25it/s]
 &lt;xarray.DataArray (time: 1, variable: 1, lat: 721, lon: 1440)&gt; Size: 8MB
 array([[[[ 28.01413468,  28.01413468,  28.01413468, ...,  28.01413468,
            28.01413468,  28.01413468],
@@ -763,257 +761,252 @@ we are using ARCO, we can run inference for a time quite far back in time.</p>
 <span class="nb">print</span><span class="p">(</span><span class="n">io</span><span class="o">.</span><span class="n">root</span><span class="o">.</span><span class="n">tree</span><span class="p">())</span>
 </pre></div>
 </div>
-<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>2025-05-16 00:47:54.373 | INFO     | earth2studio.run:deterministic:75 - Running simple workflow!
-2025-05-16 00:47:54.373 | INFO     | earth2studio.run:deterministic:82 - Inference device: cuda
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>2025-06-09 03:34:27.175 | INFO     | earth2studio.run:deterministic:75 - Running simple workflow!
+2025-06-09 03:34:27.175 | INFO     | earth2studio.run:deterministic:82 - Inference device: cuda
 
 Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
-2025-05-16 00:47:54.913 | DEBUG    | earth2studio.data.arco:fetch_array:252 - Fetching ARCO zarr array for variable: v10m at 1993-04-05T00:00:00
+2025-06-09 03:34:27.683 | DEBUG    | earth2studio.data.arco:fetch_array:252 - Fetching ARCO zarr array for variable: t250 at 1993-04-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
-2025-05-16 00:47:54.914 | DEBUG    | earth2studio.data.arco:fetch_array:252 - Fetching ARCO zarr array for variable: u10m at 1993-04-05T00:00:00
+2025-06-09 03:34:27.684 | DEBUG    | earth2studio.data.arco:fetch_array:252 - Fetching ARCO zarr array for variable: t850 at 1993-04-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
-2025-05-16 00:47:54.915 | DEBUG    | earth2studio.data.arco:fetch_array:252 - Fetching ARCO zarr array for variable: v850 at 1993-04-05T00:00:00
+2025-06-09 03:34:27.685 | DEBUG    | earth2studio.data.arco:fetch_array:252 - Fetching ARCO zarr array for variable: v1000 at 1993-04-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
-2025-05-16 00:47:54.916 | DEBUG    | earth2studio.data.arco:fetch_array:252 - Fetching ARCO zarr array for variable: t250 at 1993-04-05T00:00:00
+2025-06-09 03:34:27.685 | DEBUG    | earth2studio.data.arco:fetch_array:252 - Fetching ARCO zarr array for variable: v250 at 1993-04-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
-2025-05-16 00:47:54.917 | DEBUG    | earth2studio.data.arco:fetch_array:252 - Fetching ARCO zarr array for variable: v250 at 1993-04-05T00:00:00
+2025-06-09 03:34:27.686 | DEBUG    | earth2studio.data.arco:fetch_array:252 - Fetching ARCO zarr array for variable: z1000 at 1993-04-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
-2025-05-16 00:47:54.918 | DEBUG    | earth2studio.data.arco:fetch_array:252 - Fetching ARCO zarr array for variable: v500 at 1993-04-05T00:00:00
+2025-06-09 03:34:27.687 | DEBUG    | earth2studio.data.arco:fetch_array:252 - Fetching ARCO zarr array for variable: v500 at 1993-04-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
-2025-05-16 00:47:54.919 | DEBUG    | earth2studio.data.arco:fetch_array:252 - Fetching ARCO zarr array for variable: q850 at 1993-04-05T00:00:00
+2025-06-09 03:34:27.687 | DEBUG    | earth2studio.data.arco:fetch_array:252 - Fetching ARCO zarr array for variable: u850 at 1993-04-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
-2025-05-16 00:47:54.920 | DEBUG    | earth2studio.data.arco:fetch_array:252 - Fetching ARCO zarr array for variable: t2m at 1993-04-05T00:00:00
+2025-06-09 03:34:27.688 | DEBUG    | earth2studio.data.arco:fetch_array:252 - Fetching ARCO zarr array for variable: u500 at 1993-04-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
-2025-05-16 00:47:54.921 | DEBUG    | earth2studio.data.arco:fetch_array:252 - Fetching ARCO zarr array for variable: z1000 at 1993-04-05T00:00:00
+2025-06-09 03:34:27.689 | DEBUG    | earth2studio.data.arco:fetch_array:252 - Fetching ARCO zarr array for variable: z500 at 1993-04-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
-2025-05-16 00:47:54.922 | DEBUG    | earth2studio.data.arco:fetch_array:252 - Fetching ARCO zarr array for variable: z500 at 1993-04-05T00:00:00
+2025-06-09 03:34:27.689 | DEBUG    | earth2studio.data.arco:fetch_array:252 - Fetching ARCO zarr array for variable: v100m at 1993-04-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
-2025-05-16 00:47:54.923 | DEBUG    | earth2studio.data.arco:fetch_array:252 - Fetching ARCO zarr array for variable: t850 at 1993-04-05T00:00:00
+2025-06-09 03:34:27.690 | DEBUG    | earth2studio.data.arco:fetch_array:252 - Fetching ARCO zarr array for variable: u250 at 1993-04-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
-2025-05-16 00:47:54.924 | DEBUG    | earth2studio.data.arco:fetch_array:252 - Fetching ARCO zarr array for variable: tcwv at 1993-04-05T00:00:00
+2025-06-09 03:34:27.690 | DEBUG    | earth2studio.data.arco:fetch_array:252 - Fetching ARCO zarr array for variable: tcwv at 1993-04-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
-2025-05-16 00:47:54.925 | DEBUG    | earth2studio.data.arco:fetch_array:252 - Fetching ARCO zarr array for variable: v1000 at 1993-04-05T00:00:00
+2025-06-09 03:34:27.691 | DEBUG    | earth2studio.data.arco:fetch_array:252 - Fetching ARCO zarr array for variable: t500 at 1993-04-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
-2025-05-16 00:47:54.926 | DEBUG    | earth2studio.data.arco:fetch_array:252 - Fetching ARCO zarr array for variable: u100m at 1993-04-05T00:00:00
+2025-06-09 03:34:27.691 | DEBUG    | earth2studio.data.arco:fetch_array:252 - Fetching ARCO zarr array for variable: sp at 1993-04-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
-2025-05-16 00:47:54.927 | DEBUG    | earth2studio.data.arco:fetch_array:252 - Fetching ARCO zarr array for variable: t500 at 1993-04-05T00:00:00
+2025-06-09 03:34:27.692 | DEBUG    | earth2studio.data.arco:fetch_array:252 - Fetching ARCO zarr array for variable: v10m at 1993-04-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
-2025-05-16 00:47:54.928 | DEBUG    | earth2studio.data.arco:fetch_array:252 - Fetching ARCO zarr array for variable: v100m at 1993-04-05T00:00:00
+2025-06-09 03:34:27.692 | DEBUG    | earth2studio.data.arco:fetch_array:252 - Fetching ARCO zarr array for variable: t2m at 1993-04-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
-2025-05-16 00:47:54.929 | DEBUG    | earth2studio.data.arco:fetch_array:252 - Fetching ARCO zarr array for variable: z850 at 1993-04-05T00:00:00
+2025-06-09 03:34:27.693 | DEBUG    | earth2studio.data.arco:fetch_array:252 - Fetching ARCO zarr array for variable: u10m at 1993-04-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
-2025-05-16 00:47:54.930 | DEBUG    | earth2studio.data.arco:fetch_array:252 - Fetching ARCO zarr array for variable: msl at 1993-04-05T00:00:00
+2025-06-09 03:34:27.693 | DEBUG    | earth2studio.data.arco:fetch_array:252 - Fetching ARCO zarr array for variable: z50 at 1993-04-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
-2025-05-16 00:47:54.931 | DEBUG    | earth2studio.data.arco:fetch_array:252 - Fetching ARCO zarr array for variable: z250 at 1993-04-05T00:00:00
+2025-06-09 03:34:27.694 | DEBUG    | earth2studio.data.arco:fetch_array:252 - Fetching ARCO zarr array for variable: u100m at 1993-04-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
-2025-05-16 00:47:54.932 | DEBUG    | earth2studio.data.arco:fetch_array:252 - Fetching ARCO zarr array for variable: u250 at 1993-04-05T00:00:00
+2025-06-09 03:34:27.695 | DEBUG    | earth2studio.data.arco:fetch_array:252 - Fetching ARCO zarr array for variable: q500 at 1993-04-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
-2025-05-16 00:47:54.933 | DEBUG    | earth2studio.data.arco:fetch_array:252 - Fetching ARCO zarr array for variable: u500 at 1993-04-05T00:00:00
+2025-06-09 03:34:27.695 | DEBUG    | earth2studio.data.arco:fetch_array:252 - Fetching ARCO zarr array for variable: msl at 1993-04-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
-2025-05-16 00:47:54.934 | DEBUG    | earth2studio.data.arco:fetch_array:252 - Fetching ARCO zarr array for variable: u850 at 1993-04-05T00:00:00
+2025-06-09 03:34:27.696 | DEBUG    | earth2studio.data.arco:fetch_array:252 - Fetching ARCO zarr array for variable: q850 at 1993-04-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
-2025-05-16 00:47:54.935 | DEBUG    | earth2studio.data.arco:fetch_array:252 - Fetching ARCO zarr array for variable: u1000 at 1993-04-05T00:00:00
+2025-06-09 03:34:27.696 | DEBUG    | earth2studio.data.arco:fetch_array:252 - Fetching ARCO zarr array for variable: v850 at 1993-04-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
-2025-05-16 00:47:54.936 | DEBUG    | earth2studio.data.arco:fetch_array:252 - Fetching ARCO zarr array for variable: z50 at 1993-04-05T00:00:00
+2025-06-09 03:34:27.697 | DEBUG    | earth2studio.data.arco:fetch_array:252 - Fetching ARCO zarr array for variable: z850 at 1993-04-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
-2025-05-16 00:47:54.937 | DEBUG    | earth2studio.data.arco:fetch_array:252 - Fetching ARCO zarr array for variable: q500 at 1993-04-05T00:00:00
+2025-06-09 03:34:27.697 | DEBUG    | earth2studio.data.arco:fetch_array:252 - Fetching ARCO zarr array for variable: z250 at 1993-04-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
-2025-05-16 00:47:54.938 | DEBUG    | earth2studio.data.arco:fetch_array:252 - Fetching ARCO zarr array for variable: sp at 1993-04-05T00:00:00
+2025-06-09 03:34:27.698 | DEBUG    | earth2studio.data.arco:fetch_array:252 - Fetching ARCO zarr array for variable: u1000 at 1993-04-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
-2025-05-16 00:47:55.042 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/10m_u_component_of_wind/817488.0.0 to local cache
+2025-06-09 03:34:27.791 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/temperature/817488.0.0.0 to local cache
 
 Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
-2025-05-16 00:47:55.046 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/10m_v_component_of_wind/817488.0.0 to local cache
+2025-06-09 03:34:27.804 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/temperature/817488.0.0.0 to local cache
 
 Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
-2025-05-16 00:47:55.092 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/v_component_of_wind/817488.0.0.0 to local cache
+2025-06-09 03:34:27.844 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/v_component_of_wind/817488.0.0.0 to local cache
 
 Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
-2025-05-16 00:47:55.093 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/geopotential/817488.0.0.0 to local cache
+2025-06-09 03:34:27.846 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/100m_u_component_of_wind/817488.0.0 to local cache
 
 Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
-2025-05-16 00:47:55.103 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/2m_temperature/817488.0.0 to local cache
+2025-06-09 03:34:27.846 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/v_component_of_wind/817488.0.0.0 to local cache
 
 Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
-2025-05-16 00:47:55.106 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/v_component_of_wind/817488.0.0.0 to local cache
+2025-06-09 03:34:27.848 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/temperature/817488.0.0.0 to local cache
 
 Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
-2025-05-16 00:47:55.121 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/specific_humidity/817488.0.0.0 to local cache
+2025-06-09 03:34:27.849 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/10m_u_component_of_wind/817488.0.0 to local cache
 
 Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
-2025-05-16 00:47:55.124 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/mean_sea_level_pressure/817488.0.0 to local cache
+2025-06-09 03:34:27.852 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/total_column_water_vapour/817488.0.0 to local cache
 
 Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
-2025-05-16 00:47:55.126 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/100m_v_component_of_wind/817488.0.0 to local cache
+2025-06-09 03:34:27.853 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/geopotential/817488.0.0.0 to local cache
 
 Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
-2025-05-16 00:47:55.127 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/temperature/817488.0.0.0 to local cache
+2025-06-09 03:34:27.854 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/v_component_of_wind/817488.0.0.0 to local cache
 
 Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
-2025-05-16 00:47:55.128 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/100m_u_component_of_wind/817488.0.0 to local cache
+2025-06-09 03:34:27.855 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/v_component_of_wind/817488.0.0.0 to local cache
 
 Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
-2025-05-16 00:47:55.129 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/u_component_of_wind/817488.0.0.0 to local cache
+2025-06-09 03:34:27.863 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/geopotential/817488.0.0.0 to local cache
 
 Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
-2025-05-16 00:47:55.131 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/temperature/817488.0.0.0 to local cache
+2025-06-09 03:34:27.864 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/specific_humidity/817488.0.0.0 to local cache
 
 Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
-2025-05-16 00:47:55.132 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/specific_humidity/817488.0.0.0 to local cache
+2025-06-09 03:34:27.867 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/u_component_of_wind/817488.0.0.0 to local cache
 
 Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
-2025-05-16 00:47:55.132 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/surface_pressure/817488.0.0 to local cache
+2025-06-09 03:34:27.867 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/2m_temperature/817488.0.0 to local cache
 
 Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
-2025-05-16 00:47:55.133 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/geopotential/817488.0.0.0 to local cache
+2025-06-09 03:34:27.869 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/geopotential/817488.0.0.0 to local cache
 
 Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
-2025-05-16 00:47:55.133 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/u_component_of_wind/817488.0.0.0 to local cache
+2025-06-09 03:34:27.871 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/geopotential/817488.0.0.0 to local cache
 
 Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
-2025-05-16 00:47:55.149 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/geopotential/817488.0.0.0 to local cache
+2025-06-09 03:34:27.879 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/geopotential/817488.0.0.0 to local cache
 
 Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
-2025-05-16 00:47:55.153 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/geopotential/817488.0.0.0 to local cache
+2025-06-09 03:34:27.879 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/surface_pressure/817488.0.0 to local cache
 
 Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
-2025-05-16 00:47:55.154 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/geopotential/817488.0.0.0 to local cache
+2025-06-09 03:34:27.882 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/u_component_of_wind/817488.0.0.0 to local cache
 
 Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
-2025-05-16 00:47:55.162 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/total_column_water_vapour/817488.0.0 to local cache
+2025-06-09 03:34:27.883 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/mean_sea_level_pressure/817488.0.0 to local cache
 
 Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
-2025-05-16 00:47:55.170 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/v_component_of_wind/817488.0.0.0 to local cache
+2025-06-09 03:34:27.885 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/u_component_of_wind/817488.0.0.0 to local cache
 
 Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
-2025-05-16 00:47:55.171 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/v_component_of_wind/817488.0.0.0 to local cache
+2025-06-09 03:34:27.886 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/u_component_of_wind/817488.0.0.0 to local cache
 
 Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
-Fetching ARCO data:   4%|▍         | 1/26 [00:00&lt;00:06,  3.81it/s]
 
-2025-05-16 00:47:55.184 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/u_component_of_wind/817488.0.0.0 to local cache
+2025-06-09 03:34:27.893 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/specific_humidity/817488.0.0.0 to local cache
 
-Fetching ARCO data:   4%|▍         | 1/26 [00:00&lt;00:06,  3.81it/s]
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
-2025-05-16 00:47:55.185 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/temperature/817488.0.0.0 to local cache
+2025-06-09 03:34:27.895 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/10m_v_component_of_wind/817488.0.0 to local cache
 
-Fetching ARCO data:   4%|▍         | 1/26 [00:00&lt;00:06,  3.81it/s]
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
-2025-05-16 00:47:55.227 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/u_component_of_wind/817488.0.0.0 to local cache
+2025-06-09 03:34:27.910 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/100m_v_component_of_wind/817488.0.0 to local cache
 
-Fetching ARCO data:   4%|▍         | 1/26 [00:00&lt;00:06,  3.81it/s]
-Fetching ARCO data:   8%|▊         | 2/26 [00:00&lt;00:05,  4.21it/s]
-Fetching ARCO data:  15%|█▌        | 4/26 [00:00&lt;00:02,  7.46it/s]
-Fetching ARCO data:  19%|█▉        | 5/26 [00:00&lt;00:02,  8.01it/s]
-Fetching ARCO data:  35%|███▍      | 9/26 [00:02&lt;00:04,  3.95it/s]
-Fetching ARCO data:  38%|███▊      | 10/26 [00:02&lt;00:05,  3.16it/s]
-Fetching ARCO data:  42%|████▏     | 11/26 [00:02&lt;00:04,  3.60it/s]
-Fetching ARCO data:  46%|████▌     | 12/26 [00:03&lt;00:05,  2.48it/s]
-Fetching ARCO data:  50%|█████     | 13/26 [00:03&lt;00:05,  2.58it/s]
-Fetching ARCO data:  58%|█████▊    | 15/26 [00:04&lt;00:03,  3.17it/s]
-Fetching ARCO data:  62%|██████▏   | 16/26 [00:04&lt;00:03,  3.28it/s]
-Fetching ARCO data:  65%|██████▌   | 17/26 [00:05&lt;00:02,  3.07it/s]
-Fetching ARCO data:  69%|██████▉   | 18/26 [00:05&lt;00:03,  2.42it/s]
-Fetching ARCO data:  77%|███████▋  | 20/26 [00:05&lt;00:01,  3.80it/s]
-Fetching ARCO data:  81%|████████  | 21/26 [00:06&lt;00:01,  3.53it/s]
-Fetching ARCO data:  85%|████████▍ | 22/26 [00:06&lt;00:00,  4.15it/s]
-Fetching ARCO data:  88%|████████▊ | 23/26 [00:07&lt;00:01,  2.66it/s]
-Fetching ARCO data:  92%|█████████▏| 24/26 [00:07&lt;00:00,  2.60it/s]
-Fetching ARCO data:  96%|█████████▌| 25/26 [00:08&lt;00:00,  1.43it/s]
-Fetching ARCO data: 100%|██████████| 26/26 [00:09&lt;00:00,  2.88it/s]
-2025-05-16 00:48:04.052 | SUCCESS  | earth2studio.run:deterministic:106 - Fetched data from CustomDataSource
-2025-05-16 00:48:04.053 | WARNING  | earth2studio.io.zarr:add_array:192 - Datetime64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch
-2025-05-16 00:48:04.055 | WARNING  | earth2studio.io.zarr:add_array:198 - Timedelta64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch
-2025-05-16 00:48:04.078 | INFO     | earth2studio.run:deterministic:136 - Inference starting!
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+Fetching ARCO data:   4%|▍         | 1/26 [00:00&lt;00:09,  2.66it/s]
+Fetching ARCO data:  15%|█▌        | 4/26 [00:00&lt;00:02,  9.84it/s]
+Fetching ARCO data:  31%|███       | 8/26 [00:00&lt;00:01, 15.24it/s]
+Fetching ARCO data:  38%|███▊      | 10/26 [00:02&lt;00:04,  3.77it/s]
+Fetching ARCO data:  46%|████▌     | 12/26 [00:02&lt;00:03,  3.63it/s]
+Fetching ARCO data:  54%|█████▍    | 14/26 [00:03&lt;00:03,  3.71it/s]
+Fetching ARCO data:  58%|█████▊    | 15/26 [00:03&lt;00:02,  3.90it/s]
+Fetching ARCO data:  65%|██████▌   | 17/26 [00:03&lt;00:01,  4.90it/s]
+Fetching ARCO data:  69%|██████▉   | 18/26 [00:04&lt;00:02,  3.51it/s]
+Fetching ARCO data:  85%|████████▍ | 22/26 [00:04&lt;00:00,  5.80it/s]
+Fetching ARCO data:  88%|████████▊ | 23/26 [00:04&lt;00:00,  6.06it/s]
+Fetching ARCO data:  92%|█████████▏| 24/26 [00:04&lt;00:00,  5.31it/s]
+Fetching ARCO data:  96%|█████████▌| 25/26 [00:05&lt;00:00,  5.86it/s]
+Fetching ARCO data: 100%|██████████| 26/26 [00:05&lt;00:00,  4.21it/s]
+Fetching ARCO data: 100%|██████████| 26/26 [00:05&lt;00:00,  4.72it/s]
+2025-06-09 03:34:33.276 | SUCCESS  | earth2studio.run:deterministic:106 - Fetched data from CustomDataSource
+2025-06-09 03:34:33.278 | WARNING  | earth2studio.io.zarr:add_array:192 - Datetime64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch
+2025-06-09 03:34:33.281 | WARNING  | earth2studio.io.zarr:add_array:198 - Timedelta64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch
+2025-06-09 03:34:33.327 | INFO     | earth2studio.run:deterministic:136 - Inference starting!
 
 
 Running inference:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-Running inference:  20%|██        | 1/5 [00:02&lt;00:09,  2.26s/it]
+Running inference:  20%|██        | 1/5 [00:02&lt;00:10,  2.52s/it]
 
-Running inference:  40%|████      | 2/5 [00:05&lt;00:08,  2.72s/it]
+Running inference:  40%|████      | 2/5 [00:05&lt;00:09,  3.06s/it]
 
-Running inference:  60%|██████    | 3/5 [00:08&lt;00:06,  3.05s/it]
+Running inference:  60%|██████    | 3/5 [00:09&lt;00:06,  3.40s/it]
 
-Running inference:  80%|████████  | 4/5 [00:13&lt;00:03,  3.59s/it]
+Running inference:  80%|████████  | 4/5 [00:13&lt;00:03,  3.71s/it]
 
-Running inference: 100%|██████████| 5/5 [00:17&lt;00:00,  4.00s/it]
-Running inference: 100%|██████████| 5/5 [00:17&lt;00:00,  3.58s/it]
-2025-05-16 00:48:21.978 | SUCCESS  | earth2studio.run:deterministic:146 - Inference complete
+Running inference: 100%|██████████| 5/5 [00:18&lt;00:00,  4.06s/it]
+Running inference: 100%|██████████| 5/5 [00:18&lt;00:00,  3.73s/it]
+2025-06-09 03:34:51.969 | SUCCESS  | earth2studio.run:deterministic:146 - Inference complete
 /
 ├── lat (720,) float64
 ├── lead_time (5,) int64
@@ -1079,7 +1072,7 @@ vapor field for a few time-steps.</p>
 <span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="s2">&quot;outputs/03_custom_datasource_prediction.jpg&quot;</span><span class="p">,</span> <span class="n">bbox_inches</span><span class="o">=</span><span class="s2">&quot;tight&quot;</span><span class="p">)</span>
 </pre></div>
 </div>
-<img src="../../_images/sphx_glr_03_custom_datasource_002.png" srcset="../../_images/sphx_glr_03_custom_datasource_002.png" alt="tcwv - 1993-04-05, Lead time: 0hrs, Lead time: 6hrs, Lead time: 12hrs, Lead time: 18hrs" class = "sphx-glr-single-img"/><p class="sphx-glr-timing"><strong>Total running time of the script:</strong> (0 minutes 37.179 seconds)</p>
+<img src="../../_images/sphx_glr_03_custom_datasource_002.png" srcset="../../_images/sphx_glr_03_custom_datasource_002.png" alt="tcwv - 1993-04-05, Lead time: 0hrs, Lead time: 6hrs, Lead time: 12hrs, Lead time: 18hrs" class = "sphx-glr-single-img"/><p class="sphx-glr-timing"><strong>Total running time of the script:</strong> (0 minutes 34.296 seconds)</p>
 <div class="sphx-glr-footer sphx-glr-footer-example docutils container" id="sphx-glr-download-examples-extend-03-custom-datasource-py">
 <div class="sphx-glr-download sphx-glr-download-jupyter docutils container">
 <p><a class="reference download internal" download="" href="../../_downloads/94cd5407c844023b4f11ecbc0e4de0a1/03_custom_datasource.ipynb"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">Jupyter</span> <span class="pre">notebook:</span> <span class="pre">03_custom_datasource.ipynb</span></code></a></p>
@@ -1102,7 +1095,7 @@ vapor field for a few time-steps.</p>
               
               
               
-                <footer class="prev-next-footer">
+                <footer class="prev-next-footer d-print-none">
                   
 <div class="prev-next-area">
     <a class="left-prev"
@@ -1121,7 +1114,8 @@ vapor field for a few time-steps.</p>
             
             
               
-                <div class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+                <dialog id="pst-secondary-sidebar-modal"></dialog>
+                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
 
 
   <div class="sidebar-secondary-item">
@@ -1144,13 +1138,13 @@ vapor field for a few time-steps.</p>
   </nav></div>
 
   <div class="sidebar-secondary-item">
-
-  <div class="tocsection sourcelink">
-    <a href="../../_sources/examples/extend/03_custom_datasource.rst.txt">
-      <i class="fa-solid fa-file-lines"></i> Show Source
-    </a>
-  </div>
-</div>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="../../_sources/examples/extend/03_custom_datasource.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div></div>
 
 </div></div>
               
@@ -1165,8 +1159,8 @@ vapor field for a few time-steps.</p>
   </div>
   
   <!-- Scripts loaded after <body> so the DOM is not blocked -->
-  <script src="../../_static/scripts/bootstrap.js?digest=8d27b9dea8ad943066ae"></script>
-<script src="../../_static/scripts/pydata-sphinx-theme.js?digest=8d27b9dea8ad943066ae"></script>
+  <script defer src="../../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf"></script>
+<script defer src="../../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf"></script>
 
   <footer class="bd-footer">
 <div class="bd-footer__inner bd-page-width">
@@ -1199,7 +1193,8 @@ vapor field for a few time-steps.</p>
       
         <div class="footer-item">
 <p class="theme-version">
-  Built with the <a href="https://pydata-sphinx-theme.readthedocs.io/en/stable/index.html">PyData Sphinx Theme</a> 0.15.2.
+  <!-- # L10n: Setting the PST URL as an argument as this does not need to be localized -->
+  Built with the <a href="https://pydata-sphinx-theme.readthedocs.io/en/stable/index.html">PyData Sphinx Theme</a> 0.16.1.
 </p></div>
       
     </div>
