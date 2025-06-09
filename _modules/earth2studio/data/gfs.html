@@ -536,7 +536,14 @@
 
         <span class="k">if</span> <span class="n">source</span> <span class="o">==</span> <span class="s2">&quot;aws&quot;</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">uri_prefix</span> <span class="o">=</span> <span class="s2">&quot;noaa-gfs-bdp-pds&quot;</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">fs</span> <span class="o">=</span> <span class="n">s3fs</span><span class="o">.</span><span class="n">S3FileSystem</span><span class="p">(</span><span class="n">anon</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">client_kwargs</span><span class="o">=</span><span class="p">{},</span> <span class="n">asynchronous</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="c1"># Check to see if there is a running loop (initialized in async)</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">loop</span> <span class="o">=</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">get_running_loop</span><span class="p">()</span>
+                <span class="n">loop</span><span class="o">.</span><span class="n">run_until_complete</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_async_init</span><span class="p">())</span>
+            <span class="k">except</span> <span class="ne">RuntimeError</span><span class="p">:</span>
+                <span class="c1"># Else we assume that async calls will be used which in that case</span>
+                <span class="c1"># we will init the group in the call function when we have the loop</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">fs</span> <span class="o">=</span> <span class="kc">None</span>
 
             <span class="c1"># To update search &quot;gfs.&quot; at https://noaa-gfs-bdp-pds.s3.amazonaws.com/index.html</span>
             <span class="c1"># They are slowly adding more data</span>
@@ -551,7 +558,7 @@
             <span class="c1"># Could use http location, but using ftp since better for larger data</span>
             <span class="c1"># https://nomads.ncep.noaa.gov/pub/data/nccf/com/gfs/prod/</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">uri_prefix</span> <span class="o">=</span> <span class="s2">&quot;pub/data/nccf/com/gfs/prod/&quot;</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">fs</span> <span class="o">=</span> <span class="n">FTPFileSystem</span><span class="p">(</span><span class="n">host</span><span class="o">=</span><span class="s2">&quot;ftpprd.ncep.noaa.gov&quot;</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">fs</span> <span class="o">=</span> <span class="n">FTPFileSystem</span><span class="p">(</span><span class="n">host</span><span class="o">=</span><span class="s2">&quot;ftpprd.ncep.noaa.gov&quot;</span><span class="p">)</span>  <span class="c1"># Not async</span>
 
             <span class="k">def</span><span class="w"> </span><span class="nf">_range</span><span class="p">(</span><span class="n">time</span><span class="p">:</span> <span class="n">datetime</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
                 <span class="k">if</span> <span class="n">time</span> <span class="o">+</span> <span class="n">timedelta</span><span class="p">(</span><span class="n">days</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">datetime</span><span class="o">.</span><span class="n">today</span><span class="p">():</span>
@@ -564,6 +571,15 @@
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Invalid GFS source </span><span class="si">{</span><span class="n">source</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">async_timeout</span> <span class="o">=</span> <span class="n">async_timeout</span>
+
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">_async_init</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Async initialization of zarr group</span>
+
+<span class="sd">        Note</span>
+<span class="sd">        ----</span>
+<span class="sd">        Async fsspec expects initialization inside of the execution loop</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">fs</span> <span class="o">=</span> <span class="n">s3fs</span><span class="o">.</span><span class="n">S3FileSystem</span><span class="p">(</span><span class="n">anon</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">client_kwargs</span><span class="o">=</span><span class="p">{},</span> <span class="n">asynchronous</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
 <div class="viewcode-block" id="GFS.__call__">
 <a class="viewcode-back" href="../../../modules/generated/data/earth2studio.data.GFS.html#earth2studio.data.GFS.__call__">[docs]</a>
@@ -595,6 +611,9 @@
             <span class="n">loop</span> <span class="o">=</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">new_event_loop</span><span class="p">()</span>
             <span class="n">asyncio</span><span class="o">.</span><span class="n">set_event_loop</span><span class="p">(</span><span class="n">loop</span><span class="p">)</span>
 
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">fs</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">loop</span><span class="o">.</span><span class="n">run_until_complete</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_async_init</span><span class="p">())</span>
+
         <span class="n">xr_array</span> <span class="o">=</span> <span class="n">loop</span><span class="o">.</span><span class="n">run_until_complete</span><span class="p">(</span>
             <span class="n">asyncio</span><span class="o">.</span><span class="n">wait_for</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fetch</span><span class="p">(</span><span class="n">time</span><span class="p">,</span> <span class="n">variable</span><span class="p">),</span> <span class="n">timeout</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">async_timeout</span><span class="p">)</span>
         <span class="p">)</span>
@@ -624,12 +643,25 @@
 <span class="sd">        xr.DataArray</span>
 <span class="sd">            GFS weather data array</span>
 <span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">fs</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;File store is not initialized! If you are calling this </span><span class="se">\</span>
+<span class="s2">            function directly make sure the data source is initialized inside the async </span><span class="se">\</span>
+<span class="s2">            loop!&quot;</span>
+            <span class="p">)</span>
+
         <span class="n">time</span><span class="p">,</span> <span class="n">variable</span> <span class="o">=</span> <span class="n">prep_data_inputs</span><span class="p">(</span><span class="n">time</span><span class="p">,</span> <span class="n">variable</span><span class="p">)</span>
         <span class="c1"># Create cache dir if doesnt exist</span>
         <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cache</span><span class="p">)</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
         <span class="c1"># Make sure input time is valid</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_validate_time</span><span class="p">(</span><span class="n">time</span><span class="p">)</span>
+
+        <span class="c1"># https://filesystem-spec.readthedocs.io/en/latest/async.html#using-from-async</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fs</span><span class="p">,</span> <span class="n">s3fs</span><span class="o">.</span><span class="n">S3FileSystem</span><span class="p">):</span>
+            <span class="n">session</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">fs</span><span class="o">.</span><span class="n">set_session</span><span class="p">()</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">session</span> <span class="o">=</span> <span class="kc">None</span>
 
         <span class="c1"># Note, this could be more memory efficient and avoid pre-allocation of the array</span>
         <span class="c1"># but this is much much cleaner to deal with, compared to something seen in the</span>
@@ -658,16 +690,13 @@
             <span class="o">*</span><span class="n">func_map</span><span class="p">,</span> <span class="n">desc</span><span class="o">=</span><span class="s2">&quot;Fetching GFS data&quot;</span><span class="p">,</span> <span class="n">disable</span><span class="o">=</span><span class="p">(</span><span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_verbose</span><span class="p">)</span>
         <span class="p">)</span>
 
+        <span class="c1"># Close aiohttp client if s3fs</span>
+        <span class="k">if</span> <span class="n">session</span><span class="p">:</span>
+            <span class="k">await</span> <span class="n">session</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+
         <span class="c1"># Delete cache if needed</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span><span class="p">:</span>
             <span class="n">shutil</span><span class="o">.</span><span class="n">rmtree</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cache</span><span class="p">)</span>
-
-        <span class="c1"># Close aiohttp client if s3fs</span>
-        <span class="c1"># https://github.com/fsspec/s3fs/issues/943</span>
-        <span class="c1"># https://github.com/zarr-developers/zarr-python/issues/2901</span>
-        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fs</span><span class="p">,</span> <span class="n">s3fs</span><span class="o">.</span><span class="n">S3FileSystem</span><span class="p">):</span>
-            <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">fs</span><span class="o">.</span><span class="n">set_session</span><span class="p">()</span>  <span class="c1"># Make sure the session was actually initalized</span>
-            <span class="n">s3fs</span><span class="o">.</span><span class="n">S3FileSystem</span><span class="o">.</span><span class="n">close_session</span><span class="p">(</span><span class="n">asyncio</span><span class="o">.</span><span class="n">get_event_loop</span><span class="p">(),</span> <span class="bp">self</span><span class="o">.</span><span class="n">fs</span><span class="o">.</span><span class="n">s3</span><span class="p">)</span>
 
         <span class="k">return</span> <span class="n">xr_array</span><span class="o">.</span><span class="n">isel</span><span class="p">(</span><span class="n">lead_time</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span></div>
 
@@ -852,6 +881,9 @@
         <span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">byte_offset</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span> <span class="n">byte_length</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Fetches remote file into cache&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">fs</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;File system is not initialized&quot;</span><span class="p">)</span>
+
         <span class="n">sha</span> <span class="o">=</span> <span class="n">hashlib</span><span class="o">.</span><span class="n">sha256</span><span class="p">((</span><span class="n">path</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">byte_offset</span><span class="p">))</span><span class="o">.</span><span class="n">encode</span><span class="p">())</span>
         <span class="n">filename</span> <span class="o">=</span> <span class="n">sha</span><span class="o">.</span><span class="n">hexdigest</span><span class="p">()</span>
         <span class="n">cache_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cache</span><span class="p">,</span> <span class="n">filename</span><span class="p">)</span>
@@ -996,6 +1028,9 @@
             <span class="n">loop</span> <span class="o">=</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">new_event_loop</span><span class="p">()</span>
             <span class="n">asyncio</span><span class="o">.</span><span class="n">set_event_loop</span><span class="p">(</span><span class="n">loop</span><span class="p">)</span>
 
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">fs</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">loop</span><span class="o">.</span><span class="n">run_until_complete</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_async_init</span><span class="p">())</span>
+
         <span class="n">xr_array</span> <span class="o">=</span> <span class="n">loop</span><span class="o">.</span><span class="n">run_until_complete</span><span class="p">(</span>
             <span class="n">asyncio</span><span class="o">.</span><span class="n">wait_for</span><span class="p">(</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">fetch</span><span class="p">(</span><span class="n">time</span><span class="p">,</span> <span class="n">lead_time</span><span class="p">,</span> <span class="n">variable</span><span class="p">),</span> <span class="n">timeout</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">async_timeout</span>
@@ -1030,6 +1065,13 @@
 <span class="sd">        xr.DataArray</span>
 <span class="sd">            GFS weather data array</span>
 <span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">fs</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;File store is not initialized! If you are calling this </span><span class="se">\</span>
+<span class="s2">            function directly make sure the data source is initialized inside the async </span><span class="se">\</span>
+<span class="s2">            loop!&quot;</span>
+            <span class="p">)</span>
+
         <span class="n">time</span><span class="p">,</span> <span class="n">lead_time</span><span class="p">,</span> <span class="n">variable</span> <span class="o">=</span> <span class="n">prep_forecast_inputs</span><span class="p">(</span><span class="n">time</span><span class="p">,</span> <span class="n">lead_time</span><span class="p">,</span> <span class="n">variable</span><span class="p">)</span>
         <span class="c1"># Create cache dir if doesnt exist</span>
         <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cache</span><span class="p">)</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
@@ -1037,6 +1079,12 @@
         <span class="c1"># Make sure input time is valid</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_validate_time</span><span class="p">(</span><span class="n">time</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_validate_leadtime</span><span class="p">(</span><span class="n">lead_time</span><span class="p">)</span>
+
+        <span class="c1"># https://filesystem-spec.readthedocs.io/en/latest/async.html#using-from-async</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fs</span><span class="p">,</span> <span class="n">s3fs</span><span class="o">.</span><span class="n">S3FileSystem</span><span class="p">):</span>
+            <span class="n">session</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">fs</span><span class="o">.</span><span class="n">set_session</span><span class="p">()</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">session</span> <span class="o">=</span> <span class="kc">None</span>
 
         <span class="c1"># Note, this could be more memory efficient and avoid pre-allocation of the array</span>
         <span class="c1"># but this is much much cleaner to deal with, compared to something seen in the</span>
@@ -1070,6 +1118,10 @@
         <span class="k">await</span> <span class="n">tqdm</span><span class="o">.</span><span class="n">gather</span><span class="p">(</span>
             <span class="o">*</span><span class="n">func_map</span><span class="p">,</span> <span class="n">desc</span><span class="o">=</span><span class="s2">&quot;Fetching GFS data&quot;</span><span class="p">,</span> <span class="n">disable</span><span class="o">=</span><span class="p">(</span><span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_verbose</span><span class="p">)</span>
         <span class="p">)</span>
+
+        <span class="c1"># Close aiohttp client if s3fs</span>
+        <span class="k">if</span> <span class="n">session</span><span class="p">:</span>
+            <span class="k">await</span> <span class="n">session</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
 
         <span class="c1"># Delete cache if needed</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span><span class="p">:</span>

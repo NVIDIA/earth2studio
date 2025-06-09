@@ -475,23 +475,13 @@
         <span class="n">verbose</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
         <span class="n">async_timeout</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">600</span><span class="p">,</span>
     <span class="p">):</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_zarr_store_name</span> <span class="o">=</span> <span class="n">wb2_zarr_store</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_product</span> <span class="o">=</span> <span class="n">wb2_product</span>
+
         <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span> <span class="o">=</span> <span class="n">cache</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_verbose</span> <span class="o">=</span> <span class="n">verbose</span>
-
-        <span class="n">fs</span> <span class="o">=</span> <span class="n">gcsfs</span><span class="o">.</span><span class="n">GCSFileSystem</span><span class="p">(</span>
-            <span class="n">cache_timeout</span><span class="o">=-</span><span class="mi">1</span><span class="p">,</span>
-            <span class="n">token</span><span class="o">=</span><span class="s2">&quot;anon&quot;</span><span class="p">,</span>  <span class="c1"># noqa: S106 # nosec B106</span>
-            <span class="n">access</span><span class="o">=</span><span class="s2">&quot;read_only&quot;</span><span class="p">,</span>
-            <span class="n">block_size</span><span class="o">=</span><span class="mi">2</span><span class="o">**</span><span class="mi">20</span><span class="p">,</span>
-            <span class="n">asynchronous</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-        <span class="p">)</span>
-
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span><span class="p">:</span>
-            <span class="n">cache_options</span> <span class="o">=</span> <span class="p">{</span>
-                <span class="s2">&quot;cache_storage&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">cache</span><span class="p">,</span>
-                <span class="s2">&quot;expiry_time&quot;</span><span class="p">:</span> <span class="mi">31622400</span><span class="p">,</span>  <span class="c1"># 1 year</span>
-            <span class="p">}</span>
-            <span class="n">fs</span> <span class="o">=</span> <span class="n">AsyncCachingFileSystem</span><span class="p">(</span><span class="n">fs</span><span class="o">=</span><span class="n">fs</span><span class="p">,</span> <span class="o">**</span><span class="n">cache_options</span><span class="p">,</span> <span class="n">asynchronous</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">async_timeout</span> <span class="o">=</span> <span class="n">async_timeout</span>
 
         <span class="c1"># Check Zarr version and use appropriate method</span>
         <span class="k">try</span><span class="p">:</span>
@@ -504,13 +494,46 @@
         <span class="k">if</span> <span class="n">zarr_major_version</span> <span class="o">&lt;</span> <span class="mi">3</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ModuleNotFoundError</span><span class="p">(</span><span class="s2">&quot;Zarr 3.0 and above support only&quot;</span><span class="p">)</span>
 
+        <span class="c1"># Check to see if there is a running loop (initialized in async)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">loop</span> <span class="o">=</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">get_running_loop</span><span class="p">()</span>
+            <span class="n">loop</span><span class="o">.</span><span class="n">run_until_complete</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_async_init</span><span class="p">())</span>
+        <span class="k">except</span> <span class="ne">RuntimeError</span><span class="p">:</span>
+            <span class="c1"># Else we assume that async calls will be used which in that case</span>
+            <span class="c1"># we will init the group in the call function when we have the loop</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">zarr_group</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">level_coords</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">_async_init</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Async initialization of zarr group</span>
+
+<span class="sd">        Note</span>
+<span class="sd">        ----</span>
+<span class="sd">        Async fsspec expects initialization inside of the execution loop</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">fs</span> <span class="o">=</span> <span class="n">gcsfs</span><span class="o">.</span><span class="n">GCSFileSystem</span><span class="p">(</span>
+            <span class="n">cache_timeout</span><span class="o">=-</span><span class="mi">1</span><span class="p">,</span>
+            <span class="n">token</span><span class="o">=</span><span class="s2">&quot;anon&quot;</span><span class="p">,</span>  <span class="c1"># noqa: S106 # nosec B106</span>
+            <span class="n">access</span><span class="o">=</span><span class="s2">&quot;read_only&quot;</span><span class="p">,</span>
+            <span class="n">block_size</span><span class="o">=</span><span class="mi">8</span><span class="o">**</span><span class="mi">20</span><span class="p">,</span>
+            <span class="n">asynchronous</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span><span class="p">:</span>
+            <span class="n">cache_options</span> <span class="o">=</span> <span class="p">{</span>
+                <span class="s2">&quot;cache_storage&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">cache</span><span class="p">,</span>
+                <span class="s2">&quot;expiry_time&quot;</span><span class="p">:</span> <span class="mi">31622400</span><span class="p">,</span>  <span class="c1"># 1 year</span>
+            <span class="p">}</span>
+            <span class="n">fs</span> <span class="o">=</span> <span class="n">AsyncCachingFileSystem</span><span class="p">(</span><span class="n">fs</span><span class="o">=</span><span class="n">fs</span><span class="p">,</span> <span class="o">**</span><span class="n">cache_options</span><span class="p">,</span> <span class="n">asynchronous</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
         <span class="n">zstore</span> <span class="o">=</span> <span class="n">zarr</span><span class="o">.</span><span class="n">storage</span><span class="o">.</span><span class="n">FsspecStore</span><span class="p">(</span>
             <span class="n">fs</span><span class="p">,</span>
-            <span class="n">path</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;/weatherbench2/datasets/</span><span class="si">{</span><span class="n">wb2_product</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">wb2_zarr_store</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
+            <span class="n">path</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;/weatherbench2/datasets/</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_product</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_zarr_store_name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
         <span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">zarr_group</span> <span class="o">=</span> <span class="n">zarr</span><span class="o">.</span><span class="n">api</span><span class="o">.</span><span class="n">asynchronous</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="n">store</span><span class="o">=</span><span class="n">zstore</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;r&quot;</span><span class="p">)</span>
-
-        <span class="bp">self</span><span class="o">.</span><span class="n">async_timeout</span> <span class="o">=</span> <span class="n">async_timeout</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">zarr_group</span> <span class="o">=</span> <span class="k">await</span> <span class="n">zarr</span><span class="o">.</span><span class="n">api</span><span class="o">.</span><span class="n">asynchronous</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="n">store</span><span class="o">=</span><span class="n">zstore</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;r&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">level_coords</span> <span class="o">=</span> <span class="k">await</span> <span class="p">(</span><span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">zarr_group</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;level&quot;</span><span class="p">))</span><span class="o">.</span><span class="n">getitem</span><span class="p">(</span>  <span class="c1"># type: ignore</span>
+            <span class="nb">slice</span><span class="p">(</span><span class="kc">None</span><span class="p">)</span>
+        <span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__call__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
@@ -540,6 +563,9 @@
             <span class="c1"># If no event loop exists, create one</span>
             <span class="n">loop</span> <span class="o">=</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">new_event_loop</span><span class="p">()</span>
             <span class="n">asyncio</span><span class="o">.</span><span class="n">set_event_loop</span><span class="p">(</span><span class="n">loop</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">zarr_group</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">loop</span><span class="o">.</span><span class="n">run_until_complete</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_async_init</span><span class="p">())</span>
 
         <span class="n">xr_array</span> <span class="o">=</span> <span class="n">loop</span><span class="o">.</span><span class="n">run_until_complete</span><span class="p">(</span>
             <span class="n">asyncio</span><span class="o">.</span><span class="n">wait_for</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fetch</span><span class="p">(</span><span class="n">time</span><span class="p">,</span> <span class="n">variable</span><span class="p">),</span> <span class="n">timeout</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">async_timeout</span><span class="p">)</span>
@@ -571,6 +597,13 @@
 <span class="sd">        xr.DataArray</span>
 <span class="sd">            ERA5 weather data array from weather bench 2</span>
 <span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">zarr_group</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;Zarr group is not initialized! If you are calling this </span><span class="se">\</span>
+<span class="s2">            function directly make sure the data source is initialized inside the async </span><span class="se">\</span>
+<span class="s2">            loop!&quot;</span>
+            <span class="p">)</span>
+
         <span class="n">time</span><span class="p">,</span> <span class="n">variable</span> <span class="o">=</span> <span class="n">prep_data_inputs</span><span class="p">(</span><span class="n">time</span><span class="p">,</span> <span class="n">variable</span><span class="p">)</span>
         <span class="c1"># Create cache dir if doesnt exist</span>
         <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cache</span><span class="p">)</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
@@ -601,12 +634,6 @@
         <span class="p">]</span>
         <span class="n">func_map</span> <span class="o">=</span> <span class="nb">map</span><span class="p">(</span><span class="n">functools</span><span class="o">.</span><span class="n">partial</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fetch_wrapper</span><span class="p">,</span> <span class="n">xr_array</span><span class="o">=</span><span class="n">xr_array</span><span class="p">),</span> <span class="n">args</span><span class="p">)</span>
 
-        <span class="c1"># Before anything wait until the group gets opened</span>
-        <span class="k">if</span> <span class="n">inspect</span><span class="o">.</span><span class="n">isawaitable</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">zarr_group</span><span class="p">):</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">zarr_group</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">zarr_group</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">level_coords</span> <span class="o">=</span> <span class="k">await</span> <span class="p">(</span><span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">zarr_group</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;level&quot;</span><span class="p">))</span><span class="o">.</span><span class="n">getitem</span><span class="p">(</span>
-            <span class="nb">slice</span><span class="p">(</span><span class="kc">None</span><span class="p">)</span>
-        <span class="p">)</span>
         <span class="c1"># Launch all fetch requests</span>
         <span class="k">await</span> <span class="n">tqdm</span><span class="o">.</span><span class="n">gather</span><span class="p">(</span>
             <span class="o">*</span><span class="n">func_map</span><span class="p">,</span> <span class="n">desc</span><span class="o">=</span><span class="s2">&quot;Fetching WB2 data&quot;</span><span class="p">,</span> <span class="n">disable</span><span class="o">=</span><span class="p">(</span><span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_verbose</span><span class="p">)</span>
@@ -637,6 +664,8 @@
 <span class="sd">        np.ndarray</span>
 <span class="sd">            Data</span>
 <span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">zarr_group</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Zarr group is not initialized&quot;</span><span class="p">)</span>
         <span class="c1"># Get time index (vanilla zarr doesnt support date indices)</span>
         <span class="n">time_index</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_time_index</span><span class="p">(</span><span class="n">time</span><span class="p">)</span>
         <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
@@ -973,6 +1002,13 @@
 <span class="sd">        xr.DataArray</span>
 <span class="sd">            ERA5 weather data array from weather bench 2</span>
 <span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">zarr_group</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;Zarr group is not initialized! If you are calling this </span><span class="se">\</span>
+<span class="s2">            function directly make sure the data source is initialized inside the async </span><span class="se">\</span>
+<span class="s2">            loop!&quot;</span>
+            <span class="p">)</span>
+
         <span class="n">time</span><span class="p">,</span> <span class="n">variable</span> <span class="o">=</span> <span class="n">prep_data_inputs</span><span class="p">(</span><span class="n">time</span><span class="p">,</span> <span class="n">variable</span><span class="p">)</span>
         <span class="c1"># Create cache dir if doesnt exist</span>
         <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cache</span><span class="p">)</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
@@ -1034,6 +1070,9 @@
 <span class="sd">        np.ndarray</span>
 <span class="sd">            Data</span>
 <span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">zarr_group</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Zarr group is not initialized&quot;</span><span class="p">)</span>
+
         <span class="c1"># Get time index (vanilla zarr doesnt support date indices)</span>
         <span class="n">hour_index</span><span class="p">,</span> <span class="n">day_of_year_index</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_time_index</span><span class="p">(</span><span class="n">time</span><span class="p">)</span>
         <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
