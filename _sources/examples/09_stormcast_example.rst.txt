@@ -91,21 +91,6 @@ data source such as ARCO could also be used with appropriate time stamps.
     io = ZarrBackend()
 
 
-
-
-
-.. rst-class:: sphx-glr-script-out
-
- .. code-block:: none
-
-    Downloading model.yaml: 0%|          | 0.00/2.53k [00:00<?, ?B/s]    Downloading model.yaml: 100%|██████████| 2.53k/2.53k [00:00<00:00, 2.43MB/s]
-    Downloading StormCastUNet.0.0.mdlus: 0%|          | 0.00/300M [00:00<?, ?B/s]    Downloading StormCastUNet.0.0.mdlus: 7%|▋         | 19.6M/300M [00:00<00:01, 205MB/s]    Downloading StormCastUNet.0.0.mdlus: 13%|█▎        | 39.3M/300M [00:00<00:01, 153MB/s]    Downloading StormCastUNet.0.0.mdlus: 19%|█▊        | 55.7M/300M [00:00<00:01, 160MB/s]    Downloading StormCastUNet.0.0.mdlus: 27%|██▋       | 80.5M/300M [00:00<00:01, 195MB/s]    Downloading StormCastUNet.0.0.mdlus: 35%|███▍      | 104M/300M [00:00<00:00, 214MB/s]     Downloading StormCastUNet.0.0.mdlus: 44%|████▍     | 132M/300M [00:00<00:00, 238MB/s]    Downloading StormCastUNet.0.0.mdlus: 55%|█████▌    | 165M/300M [00:00<00:00, 273MB/s]    Downloading StormCastUNet.0.0.mdlus: 68%|██████▊   | 205M/300M [00:00<00:00, 316MB/s]    Downloading StormCastUNet.0.0.mdlus: 78%|███████▊  | 235M/300M [00:00<00:00, 289MB/s]    Downloading StormCastUNet.0.0.mdlus: 88%|████████▊ | 263M/300M [00:01<00:00, 272MB/s]    Downloading StormCastUNet.0.0.mdlus: 98%|█████████▊| 294M/300M [00:01<00:00, 285MB/s]    Downloading StormCastUNet.0.0.mdlus: 100%|██████████| 300M/300M [00:01<00:00, 255MB/s]
-    Downloading EDMPrecond.0.0.mdlus: 0%|          | 0.00/462M [00:00<?, ?B/s]    Downloading EDMPrecond.0.0.mdlus: 1%|          | 5.46M/462M [00:00<00:11, 43.3MB/s]    Downloading EDMPrecond.0.0.mdlus: 5%|▍         | 21.7M/462M [00:00<00:04, 109MB/s]     Downloading EDMPrecond.0.0.mdlus: 13%|█▎        | 59.7M/462M [00:00<00:01, 232MB/s]    Downloading EDMPrecond.0.0.mdlus: 19%|█▉        | 89.6M/462M [00:00<00:01, 262MB/s]    Downloading EDMPrecond.0.0.mdlus: 28%|██▊       | 127M/462M [00:00<00:01, 307MB/s]     Downloading EDMPrecond.0.0.mdlus: 35%|███▍      | 161M/462M [00:00<00:00, 324MB/s]    Downloading EDMPrecond.0.0.mdlus: 43%|████▎     | 197M/462M [00:00<00:00, 339MB/s]    Downloading EDMPrecond.0.0.mdlus: 50%|█████     | 231M/462M [00:00<00:00, 347MB/s]    Downloading EDMPrecond.0.0.mdlus: 57%|█████▋    | 265M/462M [00:00<00:00, 302MB/s]    Downloading EDMPrecond.0.0.mdlus: 65%|██████▌   | 301M/462M [00:01<00:00, 323MB/s]    Downloading EDMPrecond.0.0.mdlus: 72%|███████▏  | 333M/462M [00:01<00:00, 220MB/s]    Downloading EDMPrecond.0.0.mdlus: 80%|████████  | 372M/462M [00:01<00:00, 261MB/s]    Downloading EDMPrecond.0.0.mdlus: 87%|████████▋ | 401M/462M [00:01<00:00, 248MB/s]    Downloading EDMPrecond.0.0.mdlus: 93%|█████████▎| 429M/462M [00:01<00:00, 258MB/s]    Downloading EDMPrecond.0.0.mdlus: 99%|█████████▉| 456M/462M [00:01<00:00, 235MB/s]    Downloading EDMPrecond.0.0.mdlus: 100%|██████████| 462M/462M [00:01<00:00, 256MB/s]
-    Downloading metadata.zarr.zip: 0%|          | 0.00/1.95M [00:00<?, ?B/s]    Downloading metadata.zarr.zip: 100%|██████████| 1.95M/1.95M [00:00<00:00, 162MB/s]
-
-
-
-
 .. GENERATED FROM PYTHON SOURCE LINES 88-96
 
 Execute the Workflow
@@ -129,552 +114,6 @@ For the forecast we will predict for 4 hours
     io = run.deterministic([date], nsteps, model, data, io)
 
     print(io.root.tree())
-
-
-
-
-
-.. rst-class:: sphx-glr-script-out
-
- .. code-block:: none
-
-    2025-06-09 03:15:07.346 | INFO     | earth2studio.run:deterministic:75 - Running simple workflow!
-    2025-06-09 03:15:07.346 | INFO     | earth2studio.run:deterministic:82 - Inference device: cuda
-    Fetching HRRR data:   0%|          | 0/99 [00:00<?, ?it/s]                                                              2025-06-09 03:15:08.567 | DEBUG    | earth2studio.data.hrrr:fetch_array:435 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250608/conus/hrrr.t00z.wrfnatf00.grib2 322128261-794324
-    Fetching HRRR data:   0%|          | 0/99 [00:00<?, ?it/s]                                                              2025-06-09 03:15:08.570 | DEBUG    | earth2studio.data.hrrr:fetch_array:435 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250608/conus/hrrr.t00z.wrfnatf00.grib2 321141721-986540
-    Fetching HRRR data:   0%|          | 0/99 [00:00<?, ?it/s]                                                              2025-06-09 03:15:08.571 | DEBUG    | earth2studio.data.hrrr:fetch_array:435 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250608/conus/hrrr.t00z.wrfnatf00.grib2 94207414-994014
-    Fetching HRRR data:   0%|          | 0/99 [00:00<?, ?it/s]                                                              2025-06-09 03:15:08.573 | DEBUG    | earth2studio.data.hrrr:fetch_array:435 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250608/conus/hrrr.t00z.wrfnatf00.grib2 63381418-1459564
-    Fetching HRRR data:   0%|          | 0/99 [00:00<?, ?it/s]                                                              2025-06-09 03:15:08.575 | DEBUG    | earth2studio.data.hrrr:fetch_array:435 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250608/conus/hrrr.t00z.wrfnatf00.grib2 4080219-2274565
-    Fetching HRRR data:   0%|          | 0/99 [00:00<?, ?it/s]                                                              2025-06-09 03:15:08.576 | DEBUG    | earth2studio.data.hrrr:fetch_array:435 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250608/conus/hrrr.t00z.wrfnatf00.grib2 50440882-1076794
-    Fetching HRRR data:   0%|          | 0/99 [00:00<?, ?it/s]                                                              2025-06-09 03:15:08.578 | DEBUG    | earth2studio.data.hrrr:fetch_array:435 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250608/conus/hrrr.t00z.wrfnatf00.grib2 371869992-802212
-    Fetching HRRR data:   0%|          | 0/99 [00:00<?, ?it/s]                                                              2025-06-09 03:15:08.579 | DEBUG    | earth2studio.data.hrrr:fetch_array:435 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250608/conus/hrrr.t00z.wrfnatf00.grib2 34847473-1461605
-    Fetching HRRR data:   0%|          | 0/99 [00:00<?, ?it/s]                                                              2025-06-09 03:15:08.581 | DEBUG    | earth2studio.data.hrrr:fetch_array:435 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250608/conus/hrrr.t00z.wrfnatf00.grib2 153164742-1002841
-    Fetching HRRR data:   0%|          | 0/99 [00:00<?, ?it/s]                                                              2025-06-09 03:15:08.582 | DEBUG    | earth2studio.data.hrrr:fetch_array:435 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250608/conus/hrrr.t00z.wrfnatf00.grib2 27192873-2204735
-    Fetching HRRR data:   0%|          | 0/99 [00:00<?, ?it/s]                                                              2025-06-09 03:15:08.584 | DEBUG    | earth2studio.data.hrrr:fetch_array:435 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250608/conus/hrrr.t00z.wrfnatf00.grib2 149776923-1023254
-    Fetching HRRR data:   0%|          | 0/99 [00:00<?, ?it/s]                                                              2025-06-09 03:15:08.585 | DEBUG    | earth2studio.data.hrrr:fetch_array:435 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250608/conus/hrrr.t00z.wrfnatf00.grib2 267391101-819578
-    Fetching HRRR data:   0%|          | 0/99 [00:00<?, ?it/s]                                                              2025-06-09 03:15:08.587 | DEBUG    | earth2studio.data.hrrr:fetch_array:435 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250608/conus/hrrr.t00z.wrfnatf00.grib2 107477458-1508476
-    Fetching HRRR data:   0%|          | 0/99 [00:00<?, ?it/s]                                                              2025-06-09 03:15:08.588 | DEBUG    | earth2studio.data.hrrr:fetch_array:435 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250608/conus/hrrr.t00z.wrfnatf00.grib2 269626428-808215
-    Fetching HRRR data:   0%|          | 0/99 [00:00<?, ?it/s]                                                              2025-06-09 03:15:08.590 | DEBUG    | earth2studio.data.hrrr:fetch_array:435 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250608/conus/hrrr.t00z.wrfnatf00.grib2 136585013-1472102
-    Fetching HRRR data:   0%|          | 0/99 [00:00<?, ?it/s]                                                              2025-06-09 03:15:08.591 | DEBUG    | earth2studio.data.hrrr:fetch_array:435 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250608/conus/hrrr.t00z.wrfnatf00.grib2 370164292-583802
-    Fetching HRRR data:   0%|          | 0/99 [00:00<?, ?it/s]                                                              2025-06-09 03:15:08.592 | DEBUG    | earth2studio.data.hrrr:fetch_array:435 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250608/conus/hrrr.t00z.wrfnatf00.grib2 322922585-791710
-    Fetching HRRR data:   0%|          | 0/99 [00:00<?, ?it/s]                                                              2025-06-09 03:15:08.593 | DEBUG    | earth2studio.data.hrrr:fetch_array:435 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250608/conus/hrrr.t00z.wrfnatf00.grib2 103885148-2493892
-    Fetching HRRR data:   0%|          | 0/99 [00:00<?, ?it/s]                                                              2025-06-09 03:15:08.594 | DEBUG    | earth2studio.data.hrrr:fetch_array:435 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250608/conus/hrrr.t00z.wrfnatf00.grib2 177870093-991852
-    Fetching HRRR data:   0%|          | 0/99 [00:00<?, ?it/s]                                                              2025-06-09 03:15:08.595 | DEBUG    | earth2studio.data.hrrr:fetch_array:435 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250608/conus/hrrr.t00z.wrfnatf00.grib2 147257825-2519098
-    Fetching HRRR data:   0%|          | 0/99 [00:00<?, ?it/s]                                                              2025-06-09 03:15:08.596 | DEBUG    | earth2studio.data.hrrr:fetch_array:435 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250608/conus/hrrr.t00z.wrfnatf00.grib2 142389447-2187200
-    Fetching HRRR data:   0%|          | 0/99 [00:00<?, ?it/s]                                                              2025-06-09 03:15:08.598 | DEBUG    | earth2studio.data.hrrr:fetch_array:435 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250608/conus/hrrr.t00z.wrfnatf00.grib2 40787576-2207225
-    Fetching HRRR data:   0%|          | 0/99 [00:00<?, ?it/s]                                                              2025-06-09 03:15:08.599 | DEBUG    | earth2studio.data.hrrr:fetch_array:435 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250608/conus/hrrr.t00z.wrfnatf00.grib2 23810914-1103326
-    Fetching HRRR data:   0%|          | 0/99 [00:00<?, ?it/s]                                                              2025-06-09 03:15:08.600 | DEBUG    | earth2studio.data.hrrr:fetch_array:435 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250608/conus/hrrr.t00z.wrfnatf00.grib2 181143419-978484
-    Fetching HRRR data:   0%|          | 0/99 [00:00<?, ?it/s]                                                              2025-06-09 03:15:08.601 | DEBUG    | earth2studio.data.hrrr:fetch_array:435 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250608/conus/hrrr.t00z.wrfnatf00.grib2 170307940-2378469
-    Fetching HRRR data:   0%|          | 0/99 [00:00<?, ?it/s]                                                              2025-06-09 03:15:08.602 | DEBUG    | earth2studio.data.hrrr:fetch_array:435 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250608/conus/hrrr.t00z.wrfnatf00.grib2 113596761-2212085
-    Fetching HRRR data:   0%|          | 0/99 [00:00<?, ?it/s]                                                              2025-06-09 03:15:08.603 | DEBUG    | earth2studio.data.hrrr:fetch_array:435 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250608/conus/hrrr.t00z.wrfnatf00.grib2 55032227-2213019
-    Fetching HRRR data:   0%|          | 0/99 [00:00<?, ?it/s]                                                              2025-06-09 03:15:08.604 | DEBUG    | earth2studio.data.hrrr:fetch_array:435 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250608/conus/hrrr.t00z.wrfnatf00.grib2 33728159-1119314
-    Fetching HRRR data:   0%|          | 0/99 [00:00<?, ?it/s]                                                              2025-06-09 03:15:08.605 | DEBUG    | earth2studio.data.hrrr:fetch_array:435 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250608/conus/hrrr.t00z.wrfnatf00.grib2 133003720-2518507
-    Fetching HRRR data:   0%|          | 0/99 [00:00<?, ?it/s]                                                              2025-06-09 03:15:08.606 | DEBUG    | earth2studio.data.hrrr:fetch_array:435 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250608/conus/hrrr.t00z.wrfsfcf00.grib2 0-277755
-    Fetching HRRR data:   0%|          | 0/99 [00:00<?, ?it/s]                                                              2025-06-09 03:15:08.607 | DEBUG    | earth2studio.data.hrrr:fetch_array:435 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250608/conus/hrrr.t00z.wrfnatf00.grib2 64840982-1042070
-    Fetching HRRR data:   0%|          | 0/99 [00:00<?, ?it/s]                                                              2025-06-09 03:15:08.608 | DEBUG    | earth2studio.data.hrrr:fetch_array:435 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250608/conus/hrrr.t00z.wrfnatf00.grib2 10210156-1100959
-    Fetching HRRR data:   0%|          | 0/99 [00:00<?, ?it/s]                                                              2025-06-09 03:15:08.609 | DEBUG    | earth2studio.data.hrrr:fetch_array:435 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250608/conus/hrrr.t00z.wrfnatf00.grib2 368726775-1437517
-    Fetching HRRR data:   0%|          | 0/99 [00:00<?, ?it/s]                                                              2025-06-09 03:15:08.610 | DEBUG    | earth2studio.data.hrrr:fetch_array:435 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250608/conus/hrrr.t00z.wrfnatf00.grib2 7536831-1562927
-    Fetching HRRR data:   0%|          | 0/99 [00:00<?, ?it/s]                                                              2025-06-09 03:15:08.611 | DEBUG    | earth2studio.data.hrrr:fetch_array:435 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250608/conus/hrrr.t00z.wrfnatf00.grib2 95201428-1029348
-    Fetching HRRR data:   0%|          | 0/99 [00:00<?, ?it/s]                                                              2025-06-09 03:15:08.612 | DEBUG    | earth2studio.data.hrrr:fetch_array:435 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250608/conus/hrrr.t00z.wrfnatf00.grib2 121121149-1094610
-    Fetching HRRR data:   0%|          | 0/99 [00:00<?, ?it/s]                                                              2025-06-09 03:15:08.613 | DEBUG    | earth2studio.data.hrrr:fetch_array:435 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250608/conus/hrrr.t00z.wrfnatf00.grib2 320471986-669735
-    Fetching HRRR data:   0%|          | 0/99 [00:00<?, ?it/s]                                                              2025-06-09 03:15:08.614 | DEBUG    | earth2studio.data.hrrr:fetch_array:435 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250608/conus/hrrr.t00z.wrfnatf00.grib2 78019215-1491055
-    Fetching HRRR data:   0%|          | 0/99 [00:00<?, ?it/s]                                                              2025-06-09 03:15:08.614 | DEBUG    | earth2studio.data.hrrr:fetch_array:435 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250608/conus/hrrr.t00z.wrfnatf00.grib2 92716303-1491111
-    Fetching HRRR data:   0%|          | 0/99 [00:00<?, ?it/s]                                                              2025-06-09 03:15:08.615 | DEBUG    | earth2studio.data.hrrr:fetch_array:435 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250608/conus/hrrr.t00z.wrfnatf00.grib2 139039848-1010087
-    Fetching HRRR data:   0%|          | 0/99 [00:00<?, ?it/s]                                                              2025-06-09 03:15:08.615 | DEBUG    | earth2studio.data.hrrr:fetch_array:435 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250608/conus/hrrr.t00z.wrfnatf00.grib2 31338504-2389655
-    Fetching HRRR data:   0%|          | 0/99 [00:00<?, ?it/s]                                                              2025-06-09 03:15:08.616 | DEBUG    | earth2studio.data.hrrr:fetch_array:435 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250608/conus/hrrr.t00z.wrfnatf00.grib2 47883264-1107164
-    Fetching HRRR data:   0%|          | 0/99 [00:00<?, ?it/s]                                                              2025-06-09 03:15:08.616 | DEBUG    | earth2studio.data.hrrr:fetch_array:435 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250608/conus/hrrr.t00z.wrfnatf00.grib2 118618062-2503087
-    Fetching HRRR data:   0%|          | 0/99 [00:00<?, ?it/s]                                                              2025-06-09 03:15:08.617 | DEBUG    | earth2studio.data.hrrr:fetch_array:435 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250608/conus/hrrr.t00z.wrfnatf00.grib2 20042840-1134129
-    Fetching HRRR data:   0%|          | 0/99 [00:00<?, ?it/s]                                                              2025-06-09 03:15:08.617 | DEBUG    | earth2studio.data.hrrr:fetch_array:435 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250608/conus/hrrr.t00z.wrfnatf00.grib2 45474165-2409099
-    Fetching HRRR data:   0%|          | 0/99 [00:00<?, ?it/s]                                                              2025-06-09 03:15:08.618 | DEBUG    | earth2studio.data.hrrr:fetch_array:435 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250608/conus/hrrr.t00z.wrfnatf00.grib2 124719337-1015685
-    Fetching HRRR data:   0%|          | 0/99 [00:00<?, ?it/s]                                                              2025-06-09 03:15:08.619 | DEBUG    | earth2studio.data.hrrr:fetch_array:435 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250608/conus/hrrr.t00z.wrfnatf00.grib2 122215759-1516863
-    Fetching HRRR data:   0%|          | 0/99 [00:00<?, ?it/s]                                                              2025-06-09 03:15:08.619 | DEBUG    | earth2studio.data.hrrr:fetch_array:435 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250608/conus/hrrr.t00z.wrfnatf00.grib2 0-2204750
-    Fetching HRRR data:   0%|          | 0/99 [00:00<?, ?it/s]                                                              2025-06-09 03:15:08.620 | DEBUG    | earth2studio.data.hrrr:fetch_array:435 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250608/conus/hrrr.t00z.wrfnatf00.grib2 175369007-2501086
-    Fetching HRRR data:   0%|          | 0/99 [00:00<?, ?it/s]                                                              2025-06-09 03:15:08.620 | DEBUG    | earth2studio.data.hrrr:fetch_array:435 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250608/conus/hrrr.t00z.wrfnatf00.grib2 98831609-2229268
-    Fetching HRRR data:   0%|          | 0/99 [00:00<?, ?it/s]                                                              2025-06-09 03:15:08.621 | DEBUG    | earth2studio.data.hrrr:fetch_array:435 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250608/conus/hrrr.t00z.wrfnatf00.grib2 178861945-1330505
-    Fetching HRRR data:   0%|          | 0/99 [00:00<?, ?it/s]                                                              2025-06-09 03:15:08.621 | DEBUG    | earth2studio.data.hrrr:fetch_array:435 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250608/conus/hrrr.t00z.wrfnatf00.grib2 76913211-1106004
-    Fetching HRRR data:   0%|          | 0/99 [00:00<?, ?it/s]                                                              2025-06-09 03:15:08.622 | DEBUG    | earth2studio.data.hrrr:fetch_array:435 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250608/conus/hrrr.t00z.wrfnatf00.grib2 205839817-1250687
-    Fetching HRRR data:   0%|          | 0/99 [00:00<?, ?it/s]                                                              2025-06-09 03:15:08.622 | DEBUG    | earth2studio.data.hrrr:fetch_array:435 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250608/conus/hrrr.t00z.wrfnatf00.grib2 202427115-2461633
-    Fetching HRRR data:   0%|          | 0/99 [00:00<?, ?it/s]                                                              2025-06-09 03:15:08.623 | DEBUG    | earth2studio.data.hrrr:fetch_array:435 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250608/conus/hrrr.t00z.wrfnatf00.grib2 270434643-810456
-    Fetching HRRR data:   0%|          | 0/99 [00:00<?, ?it/s]                                                              2025-06-09 03:15:08.623 | DEBUG    | earth2studio.data.hrrr:fetch_array:435 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250608/conus/hrrr.t00z.wrfnatf00.grib2 9099758-1110398
-    Fetching HRRR data:   0%|          | 0/99 [00:00<?, ?it/s]                                                              2025-06-09 03:15:08.624 | DEBUG    | earth2studio.data.hrrr:fetch_array:435 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250608/conus/hrrr.t00z.wrfnatf00.grib2 13577623-2204333
-    Fetching HRRR data:   0%|          | 0/99 [00:00<?, ?it/s]                                                              2025-06-09 03:15:08.624 | DEBUG    | earth2studio.data.hrrr:fetch_array:435 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250608/conus/hrrr.t00z.wrfnatf00.grib2 109968234-1023695
-    Fetching HRRR data:   0%|          | 0/99 [00:00<?, ?it/s]                                                              2025-06-09 03:15:08.625 | DEBUG    | earth2studio.data.hrrr:fetch_array:435 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250608/conus/hrrr.t00z.wrfnatf00.grib2 106379040-1098418
-    Fetching HRRR data:   0%|          | 0/99 [00:00<?, ?it/s]                                                              2025-06-09 03:15:08.626 | DEBUG    | earth2studio.data.hrrr:fetch_array:435 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250608/conus/hrrr.t00z.wrfnatf00.grib2 84150969-2224209
-    Fetching HRRR data:   0%|          | 0/99 [00:00<?, ?it/s]                                                              2025-06-09 03:15:08.626 | DEBUG    | earth2studio.data.hrrr:fetch_array:435 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250608/conus/hrrr.t00z.wrfnatf00.grib2 370748094-1121898
-    Fetching HRRR data:   0%|          | 0/99 [00:00<?, ?it/s]                                                              2025-06-09 03:15:08.627 | DEBUG    | earth2studio.data.hrrr:fetch_array:435 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250608/conus/hrrr.t00z.wrfnatf00.grib2 207090504-912880
-    Fetching HRRR data:   0%|          | 0/99 [00:00<?, ?it/s]                                                              2025-06-09 03:15:08.627 | DEBUG    | earth2studio.data.hrrr:fetch_array:435 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250608/conus/hrrr.t00z.wrfnatf00.grib2 69534314-2220276
-    Fetching HRRR data:   0%|          | 0/99 [00:00<?, ?it/s]                                                              2025-06-09 03:15:08.628 | DEBUG    | earth2studio.data.hrrr:fetch_array:435 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250608/conus/hrrr.t00z.wrfnatf00.grib2 80524881-1041591
-    Fetching HRRR data:   0%|          | 0/99 [00:00<?, ?it/s]                                                              2025-06-09 03:15:08.628 | DEBUG    | earth2studio.data.hrrr:fetch_array:435 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250608/conus/hrrr.t00z.wrfnatf00.grib2 22691419-1119495
-    Fetching HRRR data:   0%|          | 0/99 [00:00<?, ?it/s]                                                              2025-06-09 03:15:08.629 | DEBUG    | earth2studio.data.hrrr:fetch_array:435 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250608/conus/hrrr.t00z.wrfnatf00.grib2 65883052-1056251
-    Fetching HRRR data:   0%|          | 0/99 [00:00<?, ?it/s]                                                              2025-06-09 03:15:08.629 | DEBUG    | earth2studio.data.hrrr:fetch_array:435 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250608/conus/hrrr.t00z.wrfnatf00.grib2 74455807-2457404
-    Fetching HRRR data:   0%|          | 0/99 [00:00<?, ?it/s]                                                              2025-06-09 03:15:08.630 | DEBUG    | earth2studio.data.hrrr:fetch_array:435 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250608/conus/hrrr.t00z.wrfnatf00.grib2 138057115-982733
-    Fetching HRRR data:   0%|          | 0/99 [00:00<?, ?it/s]                                                              2025-06-09 03:15:08.630 | DEBUG    | earth2studio.data.hrrr:fetch_array:435 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250608/conus/hrrr.t00z.wrfnatf00.grib2 204888748-951069
-    Fetching HRRR data:   0%|          | 0/99 [00:00<?, ?it/s]                                                              2025-06-09 03:15:08.631 | DEBUG    | earth2studio.data.hrrr:fetch_array:435 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250608/conus/hrrr.t00z.wrfnatf00.grib2 91612702-1103601
-    Fetching HRRR data:   0%|          | 0/99 [00:00<?, ?it/s]                                                              2025-06-09 03:15:08.632 | DEBUG    | earth2studio.data.hrrr:fetch_array:435 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250608/conus/hrrr.t00z.wrfnatf00.grib2 180192450-950969
-    Fetching HRRR data:   0%|          | 0/99 [00:00<?, ?it/s]                                                              2025-06-09 03:15:08.632 | DEBUG    | earth2studio.data.hrrr:fetch_array:435 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250608/conus/hrrr.t00z.wrfnatf00.grib2 135522227-1062786
-    Fetching HRRR data:   0%|          | 0/99 [00:00<?, ?it/s]                                                              2025-06-09 03:15:08.633 | DEBUG    | earth2studio.data.hrrr:fetch_array:435 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250608/conus/hrrr.t00z.wrfnatf00.grib2 6354784-1182047
-    Fetching HRRR data:   0%|          | 0/99 [00:00<?, ?it/s]                                                              2025-06-09 03:15:08.633 | DEBUG    | earth2studio.data.hrrr:fetch_array:435 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250608/conus/hrrr.t00z.wrfnatf00.grib2 59847751-2431378
-    Fetching HRRR data:   0%|          | 0/99 [00:00<?, ?it/s]                                                              2025-06-09 03:15:08.634 | DEBUG    | earth2studio.data.hrrr:fetch_array:435 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250608/conus/hrrr.t00z.wrfnatf00.grib2 123732622-986715
-    Fetching HRRR data:   0%|          | 0/99 [00:00<?, ?it/s]                                                              2025-06-09 03:15:08.634 | DEBUG    | earth2studio.data.hrrr:fetch_array:435 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250608/conus/hrrr.t00z.wrfnatf00.grib2 265186374-2204727
-    Fetching HRRR data:   0%|          | 0/99 [00:00<?, ?it/s]                                                              2025-06-09 03:15:08.635 | DEBUG    | earth2studio.data.hrrr:fetch_array:435 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250608/conus/hrrr.t00z.wrfsfcf00.grib2 43729621-2381615
-    Fetching HRRR data:   0%|          | 0/99 [00:00<?, ?it/s]                                                              2025-06-09 03:15:08.635 | DEBUG    | earth2studio.data.hrrr:fetch_array:435 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250608/conus/hrrr.t00z.wrfnatf00.grib2 48990428-1450454
-    Fetching HRRR data:   0%|          | 0/99 [00:00<?, ?it/s]                                                              2025-06-09 03:15:08.636 | DEBUG    | earth2studio.data.hrrr:fetch_array:435 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250608/conus/hrrr.t00z.wrfsfcf00.grib2 46111236-2381615
-    Fetching HRRR data:   0%|          | 0/99 [00:00<?, ?it/s]                                                              2025-06-09 03:15:08.636 | DEBUG    | earth2studio.data.hrrr:fetch_array:435 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250608/conus/hrrr.t00z.wrfnatf00.grib2 372672204-783559
-    Fetching HRRR data:   0%|          | 0/99 [00:00<?, ?it/s]                                                              2025-06-09 03:15:08.637 | DEBUG    | earth2studio.data.hrrr:fetch_array:435 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250608/conus/hrrr.t00z.wrfnatf00.grib2 128124189-2213918
-    Fetching HRRR data:   0%|          | 0/99 [00:00<?, ?it/s]                                                              2025-06-09 03:15:08.637 | DEBUG    | earth2studio.data.hrrr:fetch_array:435 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250608/conus/hrrr.t00z.wrfnatf00.grib2 152187296-977446
-    Fetching HRRR data:   0%|          | 0/99 [00:00<?, ?it/s]                                                              2025-06-09 03:15:08.638 | DEBUG    | earth2studio.data.hrrr:fetch_array:435 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250608/conus/hrrr.t00z.wrfsfcf00.grib2 36153205-1264997
-    Fetching HRRR data:   0%|          | 0/99 [00:00<?, ?it/s]                                                              2025-06-09 03:15:08.639 | DEBUG    | earth2studio.data.hrrr:fetch_array:435 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250608/conus/hrrr.t00z.wrfnatf00.grib2 37416607-1092102
-    Fetching HRRR data:   0%|          | 0/99 [00:00<?, ?it/s]                                                              2025-06-09 03:15:08.639 | DEBUG    | earth2studio.data.hrrr:fetch_array:435 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250608/conus/hrrr.t00z.wrfnatf00.grib2 268210679-1415749
-    Fetching HRRR data:   0%|          | 0/99 [00:00<?, ?it/s]                                                              2025-06-09 03:15:08.640 | DEBUG    | earth2studio.data.hrrr:fetch_array:435 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250608/conus/hrrr.t00z.wrfnatf00.grib2 89135520-2477182
-    Fetching HRRR data:   0%|          | 0/99 [00:00<?, ?it/s]                                                              2025-06-09 03:15:08.640 | DEBUG    | earth2studio.data.hrrr:fetch_array:435 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250608/conus/hrrr.t00z.wrfnatf00.grib2 261295846-2231253
-    Fetching HRRR data:   0%|          | 0/99 [00:00<?, ?it/s]                                                              2025-06-09 03:15:08.641 | DEBUG    | earth2studio.data.hrrr:fetch_array:435 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250608/conus/hrrr.t00z.wrfnatf00.grib2 17680494-2362346
-    Fetching HRRR data:   0%|          | 0/99 [00:00<?, ?it/s]                                                              2025-06-09 03:15:08.641 | DEBUG    | earth2studio.data.hrrr:fetch_array:435 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250608/conus/hrrr.t00z.wrfnatf00.grib2 36309078-1107529
-    Fetching HRRR data:   0%|          | 0/99 [00:00<?, ?it/s]                                                              2025-06-09 03:15:08.642 | DEBUG    | earth2studio.data.hrrr:fetch_array:435 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250608/conus/hrrr.t00z.wrfnatf00.grib2 208003384-934058
-    Fetching HRRR data:   0%|          | 0/99 [00:00<?, ?it/s]                                                              2025-06-09 03:15:08.642 | DEBUG    | earth2studio.data.hrrr:fetch_array:435 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250608/conus/hrrr.t00z.wrfnatf00.grib2 197585948-2305842
-    Fetching HRRR data:   0%|          | 0/99 [00:00<?, ?it/s]                                                              2025-06-09 03:15:08.643 | DEBUG    | earth2studio.data.hrrr:fetch_array:435 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250608/conus/hrrr.t00z.wrfnatf00.grib2 79510270-1014611
-    Fetching HRRR data:   0%|          | 0/99 [00:00<?, ?it/s]                                                              2025-06-09 03:15:08.643 | DEBUG    | earth2studio.data.hrrr:fetch_array:435 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250608/conus/hrrr.t00z.wrfnatf00.grib2 51517676-1074638
-    Fetching HRRR data:   0%|          | 0/99 [00:00<?, ?it/s]                                                              2025-06-09 03:15:08.644 | DEBUG    | earth2studio.data.hrrr:fetch_array:435 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250608/conus/hrrr.t00z.wrfsfcf00.grib2 25465038-630383
-    Fetching HRRR data:   0%|          | 0/99 [00:00<?, ?it/s]                                                              2025-06-09 03:15:08.645 | DEBUG    | earth2studio.data.hrrr:fetch_array:435 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250608/conus/hrrr.t00z.wrfnatf00.grib2 318620169-1851817
-    Fetching HRRR data:   0%|          | 0/99 [00:00<?, ?it/s]                                                              2025-06-09 03:15:08.645 | DEBUG    | earth2studio.data.hrrr:fetch_array:435 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250608/conus/hrrr.t00z.wrfnatf00.grib2 62279129-1102289
-    Fetching HRRR data:   0%|          | 0/99 [00:00<?, ?it/s]                                                              2025-06-09 03:15:08.646 | DEBUG    | earth2studio.data.hrrr:fetch_array:435 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250608/conus/hrrr.t00z.wrfnatf00.grib2 108985934-982300
-    Fetching HRRR data:   0%|          | 0/99 [00:00<?, ?it/s]                                                              2025-06-09 03:15:08.646 | DEBUG    | earth2studio.data.hrrr:fetch_array:435 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250608/conus/hrrr.t00z.wrfnatf00.grib2 21176969-1514450
-    Fetching HRRR data:   0%|          | 0/99 [00:00<?, ?it/s]                                                              2025-06-09 03:15:08.647 | DEBUG    | earth2studio.data.hrrr:fetch_array:435 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250608/conus/hrrr.t00z.wrfnatf00.grib2 150800177-1387119
-    Fetching HRRR data:   0%|          | 0/99 [00:00<?, ?it/s]    Fetching HRRR data:   1%|          | 1/99 [00:00<01:07,  1.45it/s]    Fetching HRRR data:   2%|▏         | 2/99 [00:00<00:34,  2.84it/s]    Fetching HRRR data:   5%|▌         | 5/99 [00:00<00:12,  7.59it/s]    Fetching HRRR data:   7%|▋         | 7/99 [00:01<00:10,  8.50it/s]    Fetching HRRR data:  11%|█         | 11/99 [00:01<00:06, 13.10it/s]    Fetching HRRR data:  17%|█▋        | 17/99 [00:01<00:04, 20.05it/s]    Fetching HRRR data:  21%|██        | 21/99 [00:01<00:04, 18.64it/s]    Fetching HRRR data:  27%|██▋       | 27/99 [00:01<00:03, 22.26it/s]    Fetching HRRR data:  30%|███       | 30/99 [00:02<00:03, 21.27it/s]    Fetching HRRR data:  35%|███▌      | 35/99 [00:02<00:02, 25.50it/s]    Fetching HRRR data:  38%|███▊      | 38/99 [00:02<00:02, 25.41it/s]    Fetching HRRR data:  41%|████▏     | 41/99 [00:02<00:02, 25.44it/s]    Fetching HRRR data:  44%|████▍     | 44/99 [00:02<00:02, 22.98it/s]    Fetching HRRR data:  47%|████▋     | 47/99 [00:02<00:02, 23.37it/s]    Fetching HRRR data:  51%|█████     | 50/99 [00:02<00:02, 20.20it/s]    Fetching HRRR data:  57%|█████▋    | 56/99 [00:03<00:01, 25.17it/s]    Fetching HRRR data:  60%|█████▉    | 59/99 [00:03<00:01, 23.36it/s]    Fetching HRRR data:  65%|██████▍   | 64/99 [00:03<00:01, 21.10it/s]    Fetching HRRR data:  71%|███████   | 70/99 [00:03<00:01, 27.07it/s]    Fetching HRRR data:  76%|███████▌  | 75/99 [00:03<00:00, 26.24it/s]    Fetching HRRR data:  79%|███████▉  | 78/99 [00:03<00:00, 25.04it/s]    Fetching HRRR data:  83%|████████▎ | 82/99 [00:04<00:00, 26.78it/s]    Fetching HRRR data:  87%|████████▋ | 86/99 [00:04<00:00, 24.60it/s]    Fetching HRRR data:  92%|█████████▏| 91/99 [00:04<00:00, 24.69it/s]    Fetching HRRR data:  96%|█████████▌| 95/99 [00:04<00:00, 25.10it/s]    Fetching HRRR data: 100%|██████████| 99/99 [00:04<00:00, 21.13it/s]
-    2025-06-09 03:15:13.661 | SUCCESS  | earth2studio.run:deterministic:106 - Fetched data from HRRR
-    2025-06-09 03:15:13.662 | WARNING  | earth2studio.io.zarr:add_array:192 - Datetime64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch
-    2025-06-09 03:15:13.665 | WARNING  | earth2studio.io.zarr:add_array:198 - Timedelta64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch
-    2025-06-09 03:15:13.734 | INFO     | earth2studio.run:deterministic:136 - Inference starting!
-
-    Running inference:   0%|          | 0/5 [00:00<?, ?it/s]
-    Running inference:  20%|██        | 1/5 [00:04<00:17,  4.39s/it]    Fetching GFS data:   0%|          | 0/26 [00:00<?, ?it/s]                                                         
-                                                                    2025-06-09 03:15:18.551 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250608/00/atmos/gfs.t00z.pgrb2.0p25.f000 260454644-819251
-    Fetching GFS data:   0%|          | 0/26 [00:00<?, ?it/s]
-    Running inference:  20%|██        | 1/5 [00:04<00:17,  4.39s/it]                                                         
-                                                                    2025-06-09 03:15:18.553 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250608/00/atmos/gfs.t00z.pgrb2.0p25.f000 409151831-837885
-    Fetching GFS data:   0%|          | 0/26 [00:00<?, ?it/s]
-    Running inference:  20%|██        | 1/5 [00:04<00:17,  4.39s/it]                                                         
-                                                                    2025-06-09 03:15:18.555 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250608/00/atmos/gfs.t00z.pgrb2.0p25.f000 213180400-606441
-    Fetching GFS data:   0%|          | 0/26 [00:00<?, ?it/s]
-    Running inference:  20%|██        | 1/5 [00:04<00:17,  4.39s/it]                                                         
-                                                                    2025-06-09 03:15:18.557 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250608/00/atmos/gfs.t00z.pgrb2.0p25.f000 206709368-736135
-    Fetching GFS data:   0%|          | 0/26 [00:00<?, ?it/s]
-    Running inference:  20%|██        | 1/5 [00:04<00:17,  4.39s/it]                                                         
-                                                                    2025-06-09 03:15:18.559 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250608/00/atmos/gfs.t00z.pgrb2.0p25.f000 207445503-750306
-    Fetching GFS data:   0%|          | 0/26 [00:00<?, ?it/s]
-    Running inference:  20%|██        | 1/5 [00:04<00:17,  4.39s/it]                                                         
-                                                                    2025-06-09 03:15:18.561 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250608/00/atmos/gfs.t00z.pgrb2.0p25.f000 212583585-596815
-    Fetching GFS data:   0%|          | 0/26 [00:00<?, ?it/s]
-    Running inference:  20%|██        | 1/5 [00:04<00:17,  4.39s/it]                                                         
-                                                                    2025-06-09 03:15:18.563 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250608/00/atmos/gfs.t00z.pgrb2.0p25.f000 340364257-855361
-    Fetching GFS data:   0%|          | 0/26 [00:00<?, ?it/s]
-    Running inference:  20%|██        | 1/5 [00:04<00:17,  4.39s/it]                                                         
-                                                                    2025-06-09 03:15:18.565 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250608/00/atmos/gfs.t00z.pgrb2.0p25.f000 263255586-1315512
-    Fetching GFS data:   0%|          | 0/26 [00:00<?, ?it/s]
-    Running inference:  20%|██        | 1/5 [00:04<00:17,  4.39s/it]                                                         
-                                                                    2025-06-09 03:15:18.567 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250608/00/atmos/gfs.t00z.pgrb2.0p25.f000 402109894-974689
-    Fetching GFS data:   0%|          | 0/26 [00:00<?, ?it/s]
-    Running inference:  20%|██        | 1/5 [00:04<00:17,  4.39s/it]                                                         
-                                                                    2025-06-09 03:15:18.569 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250608/00/atmos/gfs.t00z.pgrb2.0p25.f000 346370518-955172
-    Fetching GFS data:   0%|          | 0/26 [00:00<?, ?it/s]
-    Running inference:  20%|██        | 1/5 [00:04<00:17,  4.39s/it]                                                         
-                                                                    2025-06-09 03:15:18.570 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250608/00/atmos/gfs.t00z.pgrb2.0p25.f000 407096246-957331
-    Fetching GFS data:   0%|          | 0/26 [00:00<?, ?it/s]
-    Running inference:  20%|██        | 1/5 [00:04<00:17,  4.39s/it]                                                         
-                                                                    2025-06-09 03:15:18.572 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250608/00/atmos/gfs.t00z.pgrb2.0p25.f000 347325690-963526
-    Fetching GFS data:   0%|          | 0/26 [00:00<?, ?it/s]
-    Running inference:  20%|██        | 1/5 [00:04<00:17,  4.39s/it]                                                         
-                                                                    2025-06-09 03:15:18.574 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250608/00/atmos/gfs.t00z.pgrb2.0p25.f000 339458177-906080
-    Fetching GFS data:   0%|          | 0/26 [00:00<?, ?it/s]
-    Running inference:  20%|██        | 1/5 [00:04<00:17,  4.39s/it]                                                         
-                                                                    2025-06-09 03:15:18.576 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250608/00/atmos/gfs.t00z.pgrb2.0p25.f000 342555335-1395244
-    Fetching GFS data:   0%|          | 0/26 [00:00<?, ?it/s]
-    Running inference:  20%|██        | 1/5 [00:04<00:17,  4.39s/it]                                                         
-                                                                    2025-06-09 03:15:18.577 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250608/00/atmos/gfs.t00z.pgrb2.0p25.f000 209474155-1202157
-    Fetching GFS data:   0%|          | 0/26 [00:00<?, ?it/s]
-    Running inference:  20%|██        | 1/5 [00:04<00:17,  4.39s/it]                                                         
-                                                                    2025-06-09 03:15:18.579 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250608/00/atmos/gfs.t00z.pgrb2.0p25.f000 403084583-957465
-    Fetching GFS data:   0%|          | 0/26 [00:00<?, ?it/s]
-    Running inference:  20%|██        | 1/5 [00:04<00:17,  4.39s/it]                                                         
-                                                                    2025-06-09 03:15:18.581 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250608/00/atmos/gfs.t00z.pgrb2.0p25.f000 267879765-942961
-    Fetching GFS data:   0%|          | 0/26 [00:00<?, ?it/s]
-    Running inference:  20%|██        | 1/5 [00:04<00:17,  4.39s/it]                                                         
-                                                                    2025-06-09 03:15:18.583 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250608/00/atmos/gfs.t00z.pgrb2.0p25.f000 417254219-509982
-    Fetching GFS data:   0%|          | 0/26 [00:00<?, ?it/s]
-    Running inference:  20%|██        | 1/5 [00:04<00:17,  4.39s/it]                                                         
-                                                                    2025-06-09 03:15:18.584 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250608/00/atmos/gfs.t00z.pgrb2.0p25.f000 420871799-973750
-    Fetching GFS data:   0%|          | 0/26 [00:00<?, ?it/s]
-    Running inference:  20%|██        | 1/5 [00:04<00:17,  4.39s/it]                                                         
-                                                                    2025-06-09 03:15:18.586 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250608/00/atmos/gfs.t00z.pgrb2.0p25.f000 261273895-736632
-    Fetching GFS data:   0%|          | 0/26 [00:00<?, ?it/s]
-    Running inference:  20%|██        | 1/5 [00:04<00:17,  4.39s/it]                                                         
-                                                                    2025-06-09 03:15:18.588 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250608/00/atmos/gfs.t00z.pgrb2.0p25.f000 421845549-949373
-    Fetching GFS data:   0%|          | 0/26 [00:00<?, ?it/s]
-    Running inference:  20%|██        | 1/5 [00:04<00:17,  4.39s/it]                                                         
-                                                                    2025-06-09 03:15:18.589 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250608/00/atmos/gfs.t00z.pgrb2.0p25.f000 397081615-865490
-    Fetching GFS data:   0%|          | 0/26 [00:00<?, ?it/s]
-    Running inference:  20%|██        | 1/5 [00:04<00:17,  4.39s/it]                                                         
-                                                                    2025-06-09 03:15:18.591 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250608/00/atmos/gfs.t00z.pgrb2.0p25.f000 0-880854
-    Fetching GFS data:   0%|          | 0/26 [00:00<?, ?it/s]
-    Running inference:  20%|██        | 1/5 [00:04<00:17,  4.39s/it]                                                         
-                                                                    2025-06-09 03:15:18.592 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250608/00/atmos/gfs.t00z.pgrb2.0p25.f000 398971980-1249462
-    Fetching GFS data:   0%|          | 0/26 [00:00<?, ?it/s]
-    Running inference:  20%|██        | 1/5 [00:04<00:17,  4.39s/it]                                                         
-                                                                    2025-06-09 03:15:18.593 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250608/00/atmos/gfs.t00z.pgrb2.0p25.f000 428714116-1230695
-    Fetching GFS data:   0%|          | 0/26 [00:00<?, ?it/s]
-    Running inference:  20%|██        | 1/5 [00:04<00:17,  4.39s/it]                                                         
-                                                                    2025-06-09 03:15:18.595 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250608/00/atmos/gfs.t00z.pgrb2.0p25.f000 266940877-938888
-    Fetching GFS data:   0%|          | 0/26 [00:00<?, ?it/s]
-    Running inference:  20%|██        | 1/5 [00:04<00:17,  4.39s/it]    Fetching GFS data:   4%|▍         | 1/26 [00:00<00:09,  2.59it/s]    Fetching GFS data:   8%|▊         | 2/26 [00:00<00:06,  3.96it/s]    Fetching GFS data:  12%|█▏        | 3/26 [00:00<00:04,  5.42it/s]    Fetching GFS data:  27%|██▋       | 7/26 [00:00<00:01, 12.44it/s]    Fetching GFS data:  54%|█████▍    | 14/26 [00:00<00:00, 22.50it/s]    Fetching GFS data:  85%|████████▍ | 22/26 [00:01<00:00, 34.12it/s]    Fetching GFS data: 100%|██████████| 26/26 [00:01<00:00, 22.25it/s]
-
-    Running inference:  40%|████      | 2/5 [00:22<00:36, 12.27s/it]    Fetching GFS data:   0%|          | 0/26 [00:00<?, ?it/s]                                                         
-                                                                    2025-06-09 03:15:35.927 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250608/00/atmos/gfs.t00z.pgrb2.0p25.f000 263255586-1315512
-    Fetching GFS data:   0%|          | 0/26 [00:00<?, ?it/s]
-    Running inference:  40%|████      | 2/5 [00:22<00:36, 12.27s/it]                                                         
-                                                                    2025-06-09 03:15:35.972 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250608/00/atmos/gfs.t00z.pgrb2.0p25.f000 403084583-957465
-    Fetching GFS data:   0%|          | 0/26 [00:00<?, ?it/s]
-    Running inference:  40%|████      | 2/5 [00:22<00:36, 12.27s/it]                                                         
-                                                                    2025-06-09 03:15:35.995 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250608/00/atmos/gfs.t00z.pgrb2.0p25.f000 407096246-957331
-    Fetching GFS data:   0%|          | 0/26 [00:00<?, ?it/s]
-    Running inference:  40%|████      | 2/5 [00:22<00:36, 12.27s/it]                                                         
-                                                                    2025-06-09 03:15:36.017 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250608/00/atmos/gfs.t00z.pgrb2.0p25.f000 206709368-736135
-    Fetching GFS data:   0%|          | 0/26 [00:00<?, ?it/s]
-    Running inference:  40%|████      | 2/5 [00:22<00:36, 12.27s/it]                                                         
-                                                                    2025-06-09 03:15:36.039 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250608/00/atmos/gfs.t00z.pgrb2.0p25.f000 0-880854
-    Fetching GFS data:   0%|          | 0/26 [00:00<?, ?it/s]
-    Running inference:  40%|████      | 2/5 [00:22<00:36, 12.27s/it]                                                         
-                                                                    2025-06-09 03:15:36.061 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250608/00/atmos/gfs.t00z.pgrb2.0p25.f000 398971980-1249462
-    Fetching GFS data:   0%|          | 0/26 [00:00<?, ?it/s]
-    Running inference:  40%|████      | 2/5 [00:22<00:36, 12.27s/it]                                                         
-                                                                    2025-06-09 03:15:36.084 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250608/00/atmos/gfs.t00z.pgrb2.0p25.f000 340364257-855361
-    Fetching GFS data:   0%|          | 0/26 [00:00<?, ?it/s]
-    Running inference:  40%|████      | 2/5 [00:22<00:36, 12.27s/it]                                                         
-                                                                    2025-06-09 03:15:36.106 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250608/00/atmos/gfs.t00z.pgrb2.0p25.f000 212583585-596815
-    Fetching GFS data:   0%|          | 0/26 [00:00<?, ?it/s]
-    Running inference:  40%|████      | 2/5 [00:22<00:36, 12.27s/it]                                                         
-                                                                    2025-06-09 03:15:36.128 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250608/00/atmos/gfs.t00z.pgrb2.0p25.f000 417254219-509982
-    Fetching GFS data:   0%|          | 0/26 [00:00<?, ?it/s]
-    Running inference:  40%|████      | 2/5 [00:22<00:36, 12.27s/it]                                                         
-                                                                    2025-06-09 03:15:36.150 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250608/00/atmos/gfs.t00z.pgrb2.0p25.f000 402109894-974689
-    Fetching GFS data:   0%|          | 0/26 [00:00<?, ?it/s]
-    Running inference:  40%|████      | 2/5 [00:22<00:36, 12.27s/it]                                                         
-                                                                    2025-06-09 03:15:36.173 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250608/00/atmos/gfs.t00z.pgrb2.0p25.f000 420871799-973750
-    Fetching GFS data:   0%|          | 0/26 [00:00<?, ?it/s]
-    Running inference:  40%|████      | 2/5 [00:22<00:36, 12.27s/it]                                                         
-                                                                    2025-06-09 03:15:36.195 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250608/00/atmos/gfs.t00z.pgrb2.0p25.f000 346370518-955172
-    Fetching GFS data:   0%|          | 0/26 [00:00<?, ?it/s]
-    Running inference:  40%|████      | 2/5 [00:22<00:36, 12.27s/it]                                                         
-                                                                    2025-06-09 03:15:36.218 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250608/00/atmos/gfs.t00z.pgrb2.0p25.f000 261273895-736632
-    Fetching GFS data:   0%|          | 0/26 [00:00<?, ?it/s]
-    Running inference:  40%|████      | 2/5 [00:22<00:36, 12.27s/it]                                                         
-                                                                    2025-06-09 03:15:36.240 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250608/00/atmos/gfs.t00z.pgrb2.0p25.f000 213180400-606441
-    Fetching GFS data:   0%|          | 0/26 [00:00<?, ?it/s]
-    Running inference:  40%|████      | 2/5 [00:22<00:36, 12.27s/it]                                                         
-                                                                    2025-06-09 03:15:36.261 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250608/00/atmos/gfs.t00z.pgrb2.0p25.f000 397081615-865490
-    Fetching GFS data:   0%|          | 0/26 [00:00<?, ?it/s]
-    Running inference:  40%|████      | 2/5 [00:22<00:36, 12.27s/it]                                                         
-                                                                    2025-06-09 03:15:36.284 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250608/00/atmos/gfs.t00z.pgrb2.0p25.f000 207445503-750306
-    Fetching GFS data:   0%|          | 0/26 [00:00<?, ?it/s]
-    Running inference:  40%|████      | 2/5 [00:22<00:36, 12.27s/it]                                                         
-                                                                    2025-06-09 03:15:36.306 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250608/00/atmos/gfs.t00z.pgrb2.0p25.f000 260454644-819251
-    Fetching GFS data:   0%|          | 0/26 [00:00<?, ?it/s]
-    Running inference:  40%|████      | 2/5 [00:22<00:36, 12.27s/it]                                                         
-                                                                    2025-06-09 03:15:36.328 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250608/00/atmos/gfs.t00z.pgrb2.0p25.f000 409151831-837885
-    Fetching GFS data:   0%|          | 0/26 [00:00<?, ?it/s]
-    Running inference:  40%|████      | 2/5 [00:22<00:36, 12.27s/it]                                                         
-                                                                    2025-06-09 03:15:36.350 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250608/00/atmos/gfs.t00z.pgrb2.0p25.f000 209474155-1202157
-    Fetching GFS data:   0%|          | 0/26 [00:00<?, ?it/s]
-    Running inference:  40%|████      | 2/5 [00:22<00:36, 12.27s/it]                                                         
-                                                                    2025-06-09 03:15:36.376 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250608/00/atmos/gfs.t00z.pgrb2.0p25.f000 267879765-942961
-    Fetching GFS data:   0%|          | 0/26 [00:00<?, ?it/s]
-    Running inference:  40%|████      | 2/5 [00:22<00:36, 12.27s/it]                                                         
-                                                                    2025-06-09 03:15:36.399 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250608/00/atmos/gfs.t00z.pgrb2.0p25.f000 347325690-963526
-    Fetching GFS data:   0%|          | 0/26 [00:00<?, ?it/s]
-    Running inference:  40%|████      | 2/5 [00:22<00:36, 12.27s/it]                                                         
-                                                                    2025-06-09 03:15:36.422 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250608/00/atmos/gfs.t00z.pgrb2.0p25.f000 421845549-949373
-    Fetching GFS data:   0%|          | 0/26 [00:00<?, ?it/s]
-    Running inference:  40%|████      | 2/5 [00:22<00:36, 12.27s/it]                                                         
-                                                                    2025-06-09 03:15:36.446 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250608/00/atmos/gfs.t00z.pgrb2.0p25.f000 342555335-1395244
-    Fetching GFS data:   0%|          | 0/26 [00:00<?, ?it/s]
-    Running inference:  40%|████      | 2/5 [00:22<00:36, 12.27s/it]                                                         
-                                                                    2025-06-09 03:15:36.471 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250608/00/atmos/gfs.t00z.pgrb2.0p25.f000 266940877-938888
-    Fetching GFS data:   0%|          | 0/26 [00:00<?, ?it/s]
-    Running inference:  40%|████      | 2/5 [00:22<00:36, 12.27s/it]                                                         
-                                                                    2025-06-09 03:15:36.496 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250608/00/atmos/gfs.t00z.pgrb2.0p25.f000 428714116-1230695
-    Fetching GFS data:   0%|          | 0/26 [00:00<?, ?it/s]
-    Running inference:  40%|████      | 2/5 [00:22<00:36, 12.27s/it]                                                         
-                                                                    2025-06-09 03:15:36.520 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250608/00/atmos/gfs.t00z.pgrb2.0p25.f000 339458177-906080
-    Fetching GFS data:   0%|          | 0/26 [00:00<?, ?it/s]
-    Running inference:  40%|████      | 2/5 [00:22<00:36, 12.27s/it]    Fetching GFS data:   4%|▍         | 1/26 [00:00<00:15,  1.62it/s]    Fetching GFS data: 100%|██████████| 26/26 [00:00<00:00, 42.01it/s]
-
-    Running inference:  60%|██████    | 3/5 [00:39<00:29, 14.78s/it]    Fetching GFS data:   0%|          | 0/26 [00:00<?, ?it/s]                                                         
-                                                                    2025-06-09 03:15:53.678 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250608/00/atmos/gfs.t00z.pgrb2.0p25.f000 263255586-1315512
-    Fetching GFS data:   0%|          | 0/26 [00:00<?, ?it/s]
-    Running inference:  60%|██████    | 3/5 [00:39<00:29, 14.78s/it]                                                         
-                                                                    2025-06-09 03:15:53.725 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250608/00/atmos/gfs.t00z.pgrb2.0p25.f000 403084583-957465
-    Fetching GFS data:   0%|          | 0/26 [00:00<?, ?it/s]
-    Running inference:  60%|██████    | 3/5 [00:39<00:29, 14.78s/it]                                                         
-                                                                    2025-06-09 03:15:53.750 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250608/00/atmos/gfs.t00z.pgrb2.0p25.f000 407096246-957331
-    Fetching GFS data:   0%|          | 0/26 [00:00<?, ?it/s]
-    Running inference:  60%|██████    | 3/5 [00:40<00:29, 14.78s/it]                                                         
-                                                                    2025-06-09 03:15:53.772 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250608/00/atmos/gfs.t00z.pgrb2.0p25.f000 206709368-736135
-    Fetching GFS data:   0%|          | 0/26 [00:00<?, ?it/s]
-    Running inference:  60%|██████    | 3/5 [00:40<00:29, 14.78s/it]                                                         
-                                                                    2025-06-09 03:15:53.795 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250608/00/atmos/gfs.t00z.pgrb2.0p25.f000 428714116-1230695
-    Fetching GFS data:   0%|          | 0/26 [00:00<?, ?it/s]
-    Running inference:  60%|██████    | 3/5 [00:40<00:29, 14.78s/it]                                                         
-                                                                    2025-06-09 03:15:53.817 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250608/00/atmos/gfs.t00z.pgrb2.0p25.f000 398971980-1249462
-    Fetching GFS data:   0%|          | 0/26 [00:00<?, ?it/s]
-    Running inference:  60%|██████    | 3/5 [00:40<00:29, 14.78s/it]                                                         
-                                                                    2025-06-09 03:15:53.839 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250608/00/atmos/gfs.t00z.pgrb2.0p25.f000 340364257-855361
-    Fetching GFS data:   0%|          | 0/26 [00:00<?, ?it/s]
-    Running inference:  60%|██████    | 3/5 [00:40<00:29, 14.78s/it]                                                         
-                                                                    2025-06-09 03:15:53.862 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250608/00/atmos/gfs.t00z.pgrb2.0p25.f000 212583585-596815
-    Fetching GFS data:   0%|          | 0/26 [00:00<?, ?it/s]
-    Running inference:  60%|██████    | 3/5 [00:40<00:29, 14.78s/it]                                                         
-                                                                    2025-06-09 03:15:53.884 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250608/00/atmos/gfs.t00z.pgrb2.0p25.f000 417254219-509982
-    Fetching GFS data:   0%|          | 0/26 [00:00<?, ?it/s]
-    Running inference:  60%|██████    | 3/5 [00:40<00:29, 14.78s/it]                                                         
-                                                                    2025-06-09 03:15:53.905 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250608/00/atmos/gfs.t00z.pgrb2.0p25.f000 402109894-974689
-    Fetching GFS data:   0%|          | 0/26 [00:00<?, ?it/s]
-    Running inference:  60%|██████    | 3/5 [00:40<00:29, 14.78s/it]                                                         
-                                                                    2025-06-09 03:15:53.927 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250608/00/atmos/gfs.t00z.pgrb2.0p25.f000 420871799-973750
-    Fetching GFS data:   0%|          | 0/26 [00:00<?, ?it/s]
-    Running inference:  60%|██████    | 3/5 [00:40<00:29, 14.78s/it]                                                         
-                                                                    2025-06-09 03:15:53.949 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250608/00/atmos/gfs.t00z.pgrb2.0p25.f000 346370518-955172
-    Fetching GFS data:   0%|          | 0/26 [00:00<?, ?it/s]
-    Running inference:  60%|██████    | 3/5 [00:40<00:29, 14.78s/it]                                                         
-                                                                    2025-06-09 03:15:53.971 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250608/00/atmos/gfs.t00z.pgrb2.0p25.f000 261273895-736632
-    Fetching GFS data:   0%|          | 0/26 [00:00<?, ?it/s]
-    Running inference:  60%|██████    | 3/5 [00:40<00:29, 14.78s/it]                                                         
-                                                                    2025-06-09 03:15:53.993 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250608/00/atmos/gfs.t00z.pgrb2.0p25.f000 213180400-606441
-    Fetching GFS data:   0%|          | 0/26 [00:00<?, ?it/s]
-    Running inference:  60%|██████    | 3/5 [00:40<00:29, 14.78s/it]                                                         
-                                                                    2025-06-09 03:15:54.015 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250608/00/atmos/gfs.t00z.pgrb2.0p25.f000 397081615-865490
-    Fetching GFS data:   0%|          | 0/26 [00:00<?, ?it/s]
-    Running inference:  60%|██████    | 3/5 [00:40<00:29, 14.78s/it]                                                         
-                                                                    2025-06-09 03:15:54.038 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250608/00/atmos/gfs.t00z.pgrb2.0p25.f000 207445503-750306
-    Fetching GFS data:   0%|          | 0/26 [00:00<?, ?it/s]
-    Running inference:  60%|██████    | 3/5 [00:40<00:29, 14.78s/it]                                                         
-                                                                    2025-06-09 03:15:54.060 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250608/00/atmos/gfs.t00z.pgrb2.0p25.f000 260454644-819251
-    Fetching GFS data:   0%|          | 0/26 [00:00<?, ?it/s]
-    Running inference:  60%|██████    | 3/5 [00:40<00:29, 14.78s/it]                                                         
-                                                                    2025-06-09 03:15:54.083 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250608/00/atmos/gfs.t00z.pgrb2.0p25.f000 409151831-837885
-    Fetching GFS data:   0%|          | 0/26 [00:00<?, ?it/s]
-    Running inference:  60%|██████    | 3/5 [00:40<00:29, 14.78s/it]                                                         
-                                                                    2025-06-09 03:15:54.105 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250608/00/atmos/gfs.t00z.pgrb2.0p25.f000 209474155-1202157
-    Fetching GFS data:   0%|          | 0/26 [00:00<?, ?it/s]
-    Running inference:  60%|██████    | 3/5 [00:40<00:29, 14.78s/it]                                                         
-                                                                    2025-06-09 03:15:54.128 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250608/00/atmos/gfs.t00z.pgrb2.0p25.f000 267879765-942961
-    Fetching GFS data:   0%|          | 0/26 [00:00<?, ?it/s]
-    Running inference:  60%|██████    | 3/5 [00:40<00:29, 14.78s/it]                                                         
-                                                                    2025-06-09 03:15:54.150 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250608/00/atmos/gfs.t00z.pgrb2.0p25.f000 347325690-963526
-    Fetching GFS data:   0%|          | 0/26 [00:00<?, ?it/s]
-    Running inference:  60%|██████    | 3/5 [00:40<00:29, 14.78s/it]                                                         
-                                                                    2025-06-09 03:15:54.173 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250608/00/atmos/gfs.t00z.pgrb2.0p25.f000 421845549-949373
-    Fetching GFS data:   0%|          | 0/26 [00:00<?, ?it/s]
-    Running inference:  60%|██████    | 3/5 [00:40<00:29, 14.78s/it]                                                         
-                                                                    2025-06-09 03:15:54.196 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250608/00/atmos/gfs.t00z.pgrb2.0p25.f000 342555335-1395244
-    Fetching GFS data:   0%|          | 0/26 [00:00<?, ?it/s]
-    Running inference:  60%|██████    | 3/5 [00:40<00:29, 14.78s/it]                                                         
-                                                                    2025-06-09 03:15:54.219 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250608/00/atmos/gfs.t00z.pgrb2.0p25.f000 266940877-938888
-    Fetching GFS data:   0%|          | 0/26 [00:00<?, ?it/s]
-    Running inference:  60%|██████    | 3/5 [00:40<00:29, 14.78s/it]                                                         
-                                                                    2025-06-09 03:15:54.241 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250608/00/atmos/gfs.t00z.pgrb2.0p25.f000 0-880854
-    Fetching GFS data:   0%|          | 0/26 [00:00<?, ?it/s]
-    Running inference:  60%|██████    | 3/5 [00:40<00:29, 14.78s/it]                                                         
-                                                                    2025-06-09 03:15:54.263 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250608/00/atmos/gfs.t00z.pgrb2.0p25.f000 339458177-906080
-    Fetching GFS data:   0%|          | 0/26 [00:00<?, ?it/s]
-    Running inference:  60%|██████    | 3/5 [00:40<00:29, 14.78s/it]    Fetching GFS data:   4%|▍         | 1/26 [00:00<00:15,  1.64it/s]    Fetching GFS data: 100%|██████████| 26/26 [00:00<00:00, 42.71it/s]
-
-    Running inference:  80%|████████  | 4/5 [00:58<00:16, 16.16s/it]    Fetching GFS data:   0%|          | 0/26 [00:00<?, ?it/s]                                                         
-                                                                    2025-06-09 03:16:11.968 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250608/00/atmos/gfs.t00z.pgrb2.0p25.f000 263255586-1315512
-    Fetching GFS data:   0%|          | 0/26 [00:00<?, ?it/s]
-    Running inference:  80%|████████  | 4/5 [00:58<00:16, 16.16s/it]                                                         
-                                                                    2025-06-09 03:16:12.005 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250608/00/atmos/gfs.t00z.pgrb2.0p25.f000 403084583-957465
-    Fetching GFS data:   0%|          | 0/26 [00:00<?, ?it/s]
-    Running inference:  80%|████████  | 4/5 [00:58<00:16, 16.16s/it]                                                         
-                                                                    2025-06-09 03:16:12.030 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250608/00/atmos/gfs.t00z.pgrb2.0p25.f000 407096246-957331
-    Fetching GFS data:   0%|          | 0/26 [00:00<?, ?it/s]
-    Running inference:  80%|████████  | 4/5 [00:58<00:16, 16.16s/it]                                                         
-                                                                    2025-06-09 03:16:12.053 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250608/00/atmos/gfs.t00z.pgrb2.0p25.f000 206709368-736135
-    Fetching GFS data:   0%|          | 0/26 [00:00<?, ?it/s]
-    Running inference:  80%|████████  | 4/5 [00:58<00:16, 16.16s/it]                                                         
-                                                                    2025-06-09 03:16:12.075 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250608/00/atmos/gfs.t00z.pgrb2.0p25.f000 0-880854
-    Fetching GFS data:   0%|          | 0/26 [00:00<?, ?it/s]
-    Running inference:  80%|████████  | 4/5 [00:58<00:16, 16.16s/it]                                                         
-                                                                    2025-06-09 03:16:12.096 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250608/00/atmos/gfs.t00z.pgrb2.0p25.f000 398971980-1249462
-    Fetching GFS data:   0%|          | 0/26 [00:00<?, ?it/s]
-    Running inference:  80%|████████  | 4/5 [00:58<00:16, 16.16s/it]                                                         
-                                                                    2025-06-09 03:16:12.119 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250608/00/atmos/gfs.t00z.pgrb2.0p25.f000 340364257-855361
-    Fetching GFS data:   0%|          | 0/26 [00:00<?, ?it/s]
-    Running inference:  80%|████████  | 4/5 [00:58<00:16, 16.16s/it]                                                         
-                                                                    2025-06-09 03:16:12.142 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250608/00/atmos/gfs.t00z.pgrb2.0p25.f000 212583585-596815
-    Fetching GFS data:   0%|          | 0/26 [00:00<?, ?it/s]
-    Running inference:  80%|████████  | 4/5 [00:58<00:16, 16.16s/it]                                                         
-                                                                    2025-06-09 03:16:12.163 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250608/00/atmos/gfs.t00z.pgrb2.0p25.f000 417254219-509982
-    Fetching GFS data:   0%|          | 0/26 [00:00<?, ?it/s]
-    Running inference:  80%|████████  | 4/5 [00:58<00:16, 16.16s/it]                                                         
-                                                                    2025-06-09 03:16:12.185 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250608/00/atmos/gfs.t00z.pgrb2.0p25.f000 402109894-974689
-    Fetching GFS data:   0%|          | 0/26 [00:00<?, ?it/s]
-    Running inference:  80%|████████  | 4/5 [00:58<00:16, 16.16s/it]                                                         
-                                                                    2025-06-09 03:16:12.207 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250608/00/atmos/gfs.t00z.pgrb2.0p25.f000 420871799-973750
-    Fetching GFS data:   0%|          | 0/26 [00:00<?, ?it/s]
-    Running inference:  80%|████████  | 4/5 [00:58<00:16, 16.16s/it]                                                         
-                                                                    2025-06-09 03:16:12.229 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250608/00/atmos/gfs.t00z.pgrb2.0p25.f000 346370518-955172
-    Fetching GFS data:   0%|          | 0/26 [00:00<?, ?it/s]
-    Running inference:  80%|████████  | 4/5 [00:58<00:16, 16.16s/it]                                                         
-                                                                    2025-06-09 03:16:12.251 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250608/00/atmos/gfs.t00z.pgrb2.0p25.f000 261273895-736632
-    Fetching GFS data:   0%|          | 0/26 [00:00<?, ?it/s]
-    Running inference:  80%|████████  | 4/5 [00:58<00:16, 16.16s/it]                                                         
-                                                                    2025-06-09 03:16:12.273 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250608/00/atmos/gfs.t00z.pgrb2.0p25.f000 213180400-606441
-    Fetching GFS data:   0%|          | 0/26 [00:00<?, ?it/s]
-    Running inference:  80%|████████  | 4/5 [00:58<00:16, 16.16s/it]                                                         
-                                                                    2025-06-09 03:16:12.295 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250608/00/atmos/gfs.t00z.pgrb2.0p25.f000 397081615-865490
-    Fetching GFS data:   0%|          | 0/26 [00:00<?, ?it/s]
-    Running inference:  80%|████████  | 4/5 [00:58<00:16, 16.16s/it]                                                         
-                                                                    2025-06-09 03:16:12.318 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250608/00/atmos/gfs.t00z.pgrb2.0p25.f000 207445503-750306
-    Fetching GFS data:   0%|          | 0/26 [00:00<?, ?it/s]
-    Running inference:  80%|████████  | 4/5 [00:58<00:16, 16.16s/it]                                                         
-                                                                    2025-06-09 03:16:12.340 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250608/00/atmos/gfs.t00z.pgrb2.0p25.f000 260454644-819251
-    Fetching GFS data:   0%|          | 0/26 [00:00<?, ?it/s]
-    Running inference:  80%|████████  | 4/5 [00:58<00:16, 16.16s/it]                                                         
-                                                                    2025-06-09 03:16:12.363 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250608/00/atmos/gfs.t00z.pgrb2.0p25.f000 409151831-837885
-    Fetching GFS data:   0%|          | 0/26 [00:00<?, ?it/s]
-    Running inference:  80%|████████  | 4/5 [00:58<00:16, 16.16s/it]                                                         
-                                                                    2025-06-09 03:16:12.385 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250608/00/atmos/gfs.t00z.pgrb2.0p25.f000 209474155-1202157
-    Fetching GFS data:   0%|          | 0/26 [00:00<?, ?it/s]
-    Running inference:  80%|████████  | 4/5 [00:58<00:16, 16.16s/it]                                                         
-                                                                    2025-06-09 03:16:12.409 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250608/00/atmos/gfs.t00z.pgrb2.0p25.f000 267879765-942961
-    Fetching GFS data:   0%|          | 0/26 [00:00<?, ?it/s]
-    Running inference:  80%|████████  | 4/5 [00:58<00:16, 16.16s/it]                                                         
-                                                                    2025-06-09 03:16:12.431 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250608/00/atmos/gfs.t00z.pgrb2.0p25.f000 347325690-963526
-    Fetching GFS data:   0%|          | 0/26 [00:00<?, ?it/s]
-    Running inference:  80%|████████  | 4/5 [00:58<00:16, 16.16s/it]                                                         
-                                                                    2025-06-09 03:16:12.454 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250608/00/atmos/gfs.t00z.pgrb2.0p25.f000 421845549-949373
-    Fetching GFS data:   0%|          | 0/26 [00:00<?, ?it/s]
-    Running inference:  80%|████████  | 4/5 [00:58<00:16, 16.16s/it]                                                         
-                                                                    2025-06-09 03:16:12.476 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250608/00/atmos/gfs.t00z.pgrb2.0p25.f000 342555335-1395244
-    Fetching GFS data:   0%|          | 0/26 [00:00<?, ?it/s]
-    Running inference:  80%|████████  | 4/5 [00:58<00:16, 16.16s/it]                                                         
-                                                                    2025-06-09 03:16:12.499 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250608/00/atmos/gfs.t00z.pgrb2.0p25.f000 266940877-938888
-    Fetching GFS data:   0%|          | 0/26 [00:00<?, ?it/s]
-    Running inference:  80%|████████  | 4/5 [00:58<00:16, 16.16s/it]                                                         
-                                                                    2025-06-09 03:16:12.522 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250608/00/atmos/gfs.t00z.pgrb2.0p25.f000 428714116-1230695
-    Fetching GFS data:   0%|          | 0/26 [00:00<?, ?it/s]
-    Running inference:  80%|████████  | 4/5 [00:58<00:16, 16.16s/it]                                                         
-                                                                    2025-06-09 03:16:12.544 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250608/00/atmos/gfs.t00z.pgrb2.0p25.f000 339458177-906080
-    Fetching GFS data:   0%|          | 0/26 [00:00<?, ?it/s]
-    Running inference:  80%|████████  | 4/5 [00:58<00:16, 16.16s/it]    Fetching GFS data:   4%|▍         | 1/26 [00:00<00:15,  1.67it/s]    Fetching GFS data: 100%|██████████| 26/26 [00:00<00:00, 43.30it/s]
-
-    Running inference: 100%|██████████| 5/5 [01:17<00:00, 17.13s/it]    Running inference: 100%|██████████| 5/5 [01:17<00:00, 15.42s/it]
-    2025-06-09 03:16:30.817 | SUCCESS  | earth2studio.run:deterministic:146 - Inference complete
-    /
-    ├── Z10hl (1, 5, 512, 640) float32
-    ├── Z11hl (1, 5, 512, 640) float32
-    ├── Z13hl (1, 5, 512, 640) float32
-    ├── Z15hl (1, 5, 512, 640) float32
-    ├── Z1hl (1, 5, 512, 640) float32
-    ├── Z20hl (1, 5, 512, 640) float32
-    ├── Z25hl (1, 5, 512, 640) float32
-    ├── Z2hl (1, 5, 512, 640) float32
-    ├── Z30hl (1, 5, 512, 640) float32
-    ├── Z3hl (1, 5, 512, 640) float32
-    ├── Z4hl (1, 5, 512, 640) float32
-    ├── Z5hl (1, 5, 512, 640) float32
-    ├── Z6hl (1, 5, 512, 640) float32
-    ├── Z7hl (1, 5, 512, 640) float32
-    ├── Z8hl (1, 5, 512, 640) float32
-    ├── Z9hl (1, 5, 512, 640) float32
-    ├── hrrr_x (640,) int64
-    ├── hrrr_y (512,) int64
-    ├── lead_time (5,) int64
-    ├── mslp (1, 5, 512, 640) float32
-    ├── p10hl (1, 5, 512, 640) float32
-    ├── p11hl (1, 5, 512, 640) float32
-    ├── p13hl (1, 5, 512, 640) float32
-    ├── p15hl (1, 5, 512, 640) float32
-    ├── p1hl (1, 5, 512, 640) float32
-    ├── p20hl (1, 5, 512, 640) float32
-    ├── p2hl (1, 5, 512, 640) float32
-    ├── p3hl (1, 5, 512, 640) float32
-    ├── p4hl (1, 5, 512, 640) float32
-    ├── p5hl (1, 5, 512, 640) float32
-    ├── p6hl (1, 5, 512, 640) float32
-    ├── p7hl (1, 5, 512, 640) float32
-    ├── p8hl (1, 5, 512, 640) float32
-    ├── p9hl (1, 5, 512, 640) float32
-    ├── q10hl (1, 5, 512, 640) float32
-    ├── q11hl (1, 5, 512, 640) float32
-    ├── q13hl (1, 5, 512, 640) float32
-    ├── q15hl (1, 5, 512, 640) float32
-    ├── q1hl (1, 5, 512, 640) float32
-    ├── q20hl (1, 5, 512, 640) float32
-    ├── q25hl (1, 5, 512, 640) float32
-    ├── q2hl (1, 5, 512, 640) float32
-    ├── q30hl (1, 5, 512, 640) float32
-    ├── q3hl (1, 5, 512, 640) float32
-    ├── q4hl (1, 5, 512, 640) float32
-    ├── q5hl (1, 5, 512, 640) float32
-    ├── q6hl (1, 5, 512, 640) float32
-    ├── q7hl (1, 5, 512, 640) float32
-    ├── q8hl (1, 5, 512, 640) float32
-    ├── q9hl (1, 5, 512, 640) float32
-    ├── refc (1, 5, 512, 640) float32
-    ├── t10hl (1, 5, 512, 640) float32
-    ├── t11hl (1, 5, 512, 640) float32
-    ├── t13hl (1, 5, 512, 640) float32
-    ├── t15hl (1, 5, 512, 640) float32
-    ├── t1hl (1, 5, 512, 640) float32
-    ├── t20hl (1, 5, 512, 640) float32
-    ├── t25hl (1, 5, 512, 640) float32
-    ├── t2hl (1, 5, 512, 640) float32
-    ├── t2m (1, 5, 512, 640) float32
-    ├── t30hl (1, 5, 512, 640) float32
-    ├── t3hl (1, 5, 512, 640) float32
-    ├── t4hl (1, 5, 512, 640) float32
-    ├── t5hl (1, 5, 512, 640) float32
-    ├── t6hl (1, 5, 512, 640) float32
-    ├── t7hl (1, 5, 512, 640) float32
-    ├── t8hl (1, 5, 512, 640) float32
-    ├── t9hl (1, 5, 512, 640) float32
-    ├── time (1,) int64
-    ├── u10hl (1, 5, 512, 640) float32
-    ├── u10m (1, 5, 512, 640) float32
-    ├── u11hl (1, 5, 512, 640) float32
-    ├── u13hl (1, 5, 512, 640) float32
-    ├── u15hl (1, 5, 512, 640) float32
-    ├── u1hl (1, 5, 512, 640) float32
-    ├── u20hl (1, 5, 512, 640) float32
-    ├── u25hl (1, 5, 512, 640) float32
-    ├── u2hl (1, 5, 512, 640) float32
-    ├── u30hl (1, 5, 512, 640) float32
-    ├── u3hl (1, 5, 512, 640) float32
-    ├── u4hl (1, 5, 512, 640) float32
-    ├── u5hl (1, 5, 512, 640) float32
-    ├── u6hl (1, 5, 512, 640) float32
-    ├── u7hl (1, 5, 512, 640) float32
-    ├── u8hl (1, 5, 512, 640) float32
-    ├── u9hl (1, 5, 512, 640) float32
-    ├── v10hl (1, 5, 512, 640) float32
-    ├── v10m (1, 5, 512, 640) float32
-    ├── v11hl (1, 5, 512, 640) float32
-    ├── v13hl (1, 5, 512, 640) float32
-    ├── v15hl (1, 5, 512, 640) float32
-    ├── v1hl (1, 5, 512, 640) float32
-    ├── v20hl (1, 5, 512, 640) float32
-    ├── v25hl (1, 5, 512, 640) float32
-    ├── v2hl (1, 5, 512, 640) float32
-    ├── v30hl (1, 5, 512, 640) float32
-    ├── v3hl (1, 5, 512, 640) float32
-    ├── v4hl (1, 5, 512, 640) float32
-    ├── v5hl (1, 5, 512, 640) float32
-    ├── v6hl (1, 5, 512, 640) float32
-    ├── v7hl (1, 5, 512, 640) float32
-    ├── v8hl (1, 5, 512, 640) float32
-    └── v9hl (1, 5, 512, 640) float32
-
-
-
 
 
 .. GENERATED FROM PYTHON SOURCE LINES 108-115
@@ -733,22 +172,6 @@ Notice that the Zarr IO function has additional APIs to interact with the stored
     ax.coastlines()
     ax.gridlines()
     plt.savefig(f"outputs/09_{date}_t2m_prediction.jpg")
-
-
-
-.. image-sg:: /examples/images/sphx_glr_09_stormcast_example_001.png
-   :alt: 2025-06-08 - Lead time: 4hrs
-   :srcset: /examples/images/sphx_glr_09_stormcast_example_001.png
-   :class: sphx-glr-single-img
-
-
-
-
-
-
-.. rst-class:: sphx-glr-timing
-
-   **Total running time of the script:** (1 minutes 33.167 seconds)
 
 
 .. _sphx_glr_download_examples_09_stormcast_example.py:

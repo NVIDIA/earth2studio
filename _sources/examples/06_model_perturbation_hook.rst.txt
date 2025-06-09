@@ -113,12 +113,6 @@ inference request.
 
 
 
-
-
-
-
-
-
 .. GENERATED FROM PYTHON SOURCE LINES 108-116
 
 Execute the Workflow
@@ -156,152 +150,6 @@ saving to file. Check the API docs for more information.
         output_coords=output_coords,
         batch_size=batch_size,
     )
-
-
-
-
-
-.. rst-class:: sphx-glr-script-out
-
- .. code-block:: none
-
-    2025-06-09 03:11:39.717 | INFO     | earth2studio.run:ensemble:315 - Running ensemble inference!
-    2025-06-09 03:11:39.717 | INFO     | earth2studio.run:ensemble:323 - Inference device: cuda
-    Fetching GFS data:   0%|          | 0/7 [00:00<?, ?it/s]                                                            2025-06-09 03:11:40.073 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240129/18/atmos/gfs.t18z.pgrb2.0p25.f000 333455139-848796
-    Fetching GFS data:   0%|          | 0/7 [00:00<?, ?it/s]                                                            2025-06-09 03:11:40.075 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240129/18/atmos/gfs.t18z.pgrb2.0p25.f000 298404811-863710
-    Fetching GFS data:   0%|          | 0/7 [00:00<?, ?it/s]                                                            2025-06-09 03:11:40.077 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240129/18/atmos/gfs.t18z.pgrb2.0p25.f000 255947617-818002
-    Fetching GFS data:   0%|          | 0/7 [00:00<?, ?it/s]                                                            2025-06-09 03:11:40.079 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240129/18/atmos/gfs.t18z.pgrb2.0p25.f000 213960931-731790
-    Fetching GFS data:   0%|          | 0/7 [00:00<?, ?it/s]                                                            2025-06-09 03:11:40.080 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240129/18/atmos/gfs.t18z.pgrb2.0p25.f000 412982869-882301
-    Fetching GFS data:   0%|          | 0/7 [00:00<?, ?it/s]                                                            2025-06-09 03:11:40.081 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240129/18/atmos/gfs.t18z.pgrb2.0p25.f000 424587978-1175298
-    Fetching GFS data:   0%|          | 0/7 [00:00<?, ?it/s]                                                            2025-06-09 03:11:40.082 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240129/18/atmos/gfs.t18z.pgrb2.0p25.f000 402393843-1000454
-    Fetching GFS data:   0%|          | 0/7 [00:00<?, ?it/s]    Fetching GFS data:  14%|█▍        | 1/7 [00:00<00:03,  1.87it/s]    Fetching GFS data:  71%|███████▏  | 5/7 [00:00<00:00,  9.52it/s]    Fetching GFS data: 100%|██████████| 7/7 [00:00<00:00,  9.86it/s]
-    Fetching GFS data:   0%|          | 0/7 [00:00<?, ?it/s]                                                            2025-06-09 03:11:41.147 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240130/00/atmos/gfs.t00z.pgrb2.0p25.f000 419044588-1178697
-    Fetching GFS data:   0%|          | 0/7 [00:00<?, ?it/s]                                                            2025-06-09 03:11:41.150 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240130/00/atmos/gfs.t00z.pgrb2.0p25.f000 256366833-813140
-    Fetching GFS data:   0%|          | 0/7 [00:00<?, ?it/s]                                                            2025-06-09 03:11:41.151 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240130/00/atmos/gfs.t00z.pgrb2.0p25.f000 397114008-995975
-    Fetching GFS data:   0%|          | 0/7 [00:00<?, ?it/s]                                                            2025-06-09 03:11:41.153 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240130/00/atmos/gfs.t00z.pgrb2.0p25.f000 297270945-860182
-    Fetching GFS data:   0%|          | 0/7 [00:00<?, ?it/s]                                                            2025-06-09 03:11:41.154 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240130/00/atmos/gfs.t00z.pgrb2.0p25.f000 214406883-731397
-    Fetching GFS data:   0%|          | 0/7 [00:00<?, ?it/s]                                                            2025-06-09 03:11:41.156 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240130/00/atmos/gfs.t00z.pgrb2.0p25.f000 407596993-877008
-    Fetching GFS data:   0%|          | 0/7 [00:00<?, ?it/s]                                                            2025-06-09 03:11:41.158 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240130/00/atmos/gfs.t00z.pgrb2.0p25.f000 330480536-845677
-    Fetching GFS data:   0%|          | 0/7 [00:00<?, ?it/s]    Fetching GFS data:  14%|█▍        | 1/7 [00:00<00:03,  1.56it/s]    Fetching GFS data:  86%|████████▌ | 6/7 [00:01<00:00,  6.32it/s]    Fetching GFS data: 100%|██████████| 7/7 [00:01<00:00,  6.16it/s]
-    2025-06-09 03:11:42.302 | SUCCESS  | earth2studio.run:ensemble:345 - Fetched data from GFS
-    2025-06-09 03:11:42.313 | WARNING  | earth2studio.io.zarr:add_array:192 - Datetime64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch
-    2025-06-09 03:11:42.316 | WARNING  | earth2studio.io.zarr:add_array:198 - Timedelta64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch
-    2025-06-09 03:11:42.327 | INFO     | earth2studio.run:ensemble:373 - Starting 16 Member Ensemble Inference with             4 number of batches.
-
-
-    Total Ensemble Batches:   0%|          | 0/4 [00:00<?, ?it/s]
-    Running batch 0 inference:   0%|          | 0/49 [00:00<?, ?it/s]
-    Running batch 0 inference:   6%|▌         | 3/49 [00:00<00:01, 25.06it/s]
-    Running batch 0 inference:  12%|█▏        | 6/49 [00:00<00:01, 23.23it/s]
-    Running batch 0 inference:  18%|█▊        | 9/49 [00:00<00:01, 24.35it/s]
-    Running batch 0 inference:  24%|██▍       | 12/49 [00:00<00:01, 23.07it/s]
-    Running batch 0 inference:  31%|███       | 15/49 [00:00<00:01, 22.51it/s]
-    Running batch 0 inference:  37%|███▋      | 18/49 [00:00<00:01, 18.90it/s]
-    Running batch 0 inference:  41%|████      | 20/49 [00:00<00:01, 17.88it/s]
-    Running batch 0 inference:  45%|████▍     | 22/49 [00:01<00:01, 17.10it/s]
-    Running batch 0 inference:  49%|████▉     | 24/49 [00:01<00:01, 16.60it/s]
-    Running batch 0 inference:  53%|█████▎    | 26/49 [00:01<00:01, 16.22it/s]
-    Running batch 0 inference:  57%|█████▋    | 28/49 [00:01<00:01, 15.86it/s]
-    Running batch 0 inference:  61%|██████    | 30/49 [00:01<00:01, 15.66it/s]
-    Running batch 0 inference:  65%|██████▌   | 32/49 [00:01<00:01, 15.52it/s]
-    Running batch 0 inference:  69%|██████▉   | 34/49 [00:01<00:00, 15.34it/s]
-    Running batch 0 inference:  73%|███████▎  | 36/49 [00:02<00:00, 15.21it/s]
-    Running batch 0 inference:  78%|███████▊  | 38/49 [00:02<00:00, 15.19it/s]
-    Running batch 0 inference:  82%|████████▏ | 40/49 [00:02<00:00, 15.16it/s]
-    Running batch 0 inference:  86%|████████▌ | 42/49 [00:02<00:00, 15.13it/s]
-    Running batch 0 inference:  90%|████████▉ | 44/49 [00:02<00:00, 15.15it/s]
-    Running batch 0 inference:  94%|█████████▍| 46/49 [00:02<00:00, 15.17it/s]
-    Running batch 0 inference:  98%|█████████▊| 48/49 [00:02<00:00, 15.18it/s]
-                                                                              
-
-    Total Ensemble Batches:  25%|██▌       | 1/4 [00:02<00:08,  2.89s/it]
-    Running batch 4 inference:   0%|          | 0/49 [00:00<?, ?it/s]
-    Running batch 4 inference:   4%|▍         | 2/49 [00:00<00:03, 15.54it/s]
-    Running batch 4 inference:   8%|▊         | 4/49 [00:00<00:02, 15.31it/s]
-    Running batch 4 inference:  12%|█▏        | 6/49 [00:00<00:02, 15.30it/s]
-    Running batch 4 inference:  16%|█▋        | 8/49 [00:00<00:02, 15.28it/s]
-    Running batch 4 inference:  20%|██        | 10/49 [00:00<00:02, 15.15it/s]
-    Running batch 4 inference:  24%|██▍       | 12/49 [00:00<00:02, 15.14it/s]
-    Running batch 4 inference:  29%|██▊       | 14/49 [00:00<00:02, 15.15it/s]
-    Running batch 4 inference:  33%|███▎      | 16/49 [00:01<00:02, 15.06it/s]
-    Running batch 4 inference:  37%|███▋      | 18/49 [00:01<00:02, 15.13it/s]
-    Running batch 4 inference:  41%|████      | 20/49 [00:01<00:01, 15.19it/s]
-    Running batch 4 inference:  45%|████▍     | 22/49 [00:01<00:01, 15.26it/s]
-    Running batch 4 inference:  49%|████▉     | 24/49 [00:01<00:01, 15.24it/s]
-    Running batch 4 inference:  53%|█████▎    | 26/49 [00:01<00:01, 15.18it/s]
-    Running batch 4 inference:  57%|█████▋    | 28/49 [00:01<00:01, 15.24it/s]
-    Running batch 4 inference:  61%|██████    | 30/49 [00:01<00:01, 15.28it/s]
-    Running batch 4 inference:  65%|██████▌   | 32/49 [00:02<00:01, 15.21it/s]
-    Running batch 4 inference:  69%|██████▉   | 34/49 [00:02<00:00, 15.20it/s]
-    Running batch 4 inference:  73%|███████▎  | 36/49 [00:02<00:00, 15.13it/s]
-    Running batch 4 inference:  78%|███████▊  | 38/49 [00:02<00:00, 15.22it/s]
-    Running batch 4 inference:  82%|████████▏ | 40/49 [00:02<00:00, 15.21it/s]
-    Running batch 4 inference:  86%|████████▌ | 42/49 [00:02<00:00, 15.19it/s]
-    Running batch 4 inference:  90%|████████▉ | 44/49 [00:02<00:00, 15.17it/s]
-    Running batch 4 inference:  94%|█████████▍| 46/49 [00:03<00:00, 15.22it/s]
-    Running batch 4 inference:  98%|█████████▊| 48/49 [00:03<00:00, 15.26it/s]
-                                                                              
-
-    Total Ensemble Batches:  50%|█████     | 2/4 [00:06<00:06,  3.08s/it]
-    Running batch 8 inference:   0%|          | 0/49 [00:00<?, ?it/s]
-    Running batch 8 inference:   4%|▍         | 2/49 [00:00<00:03, 15.32it/s]
-    Running batch 8 inference:   8%|▊         | 4/49 [00:00<00:02, 15.38it/s]
-    Running batch 8 inference:  12%|█▏        | 6/49 [00:00<00:02, 15.41it/s]
-    Running batch 8 inference:  16%|█▋        | 8/49 [00:00<00:02, 15.47it/s]
-    Running batch 8 inference:  20%|██        | 10/49 [00:00<00:02, 15.42it/s]
-    Running batch 8 inference:  24%|██▍       | 12/49 [00:00<00:02, 15.34it/s]
-    Running batch 8 inference:  29%|██▊       | 14/49 [00:00<00:02, 15.23it/s]
-    Running batch 8 inference:  33%|███▎      | 16/49 [00:01<00:02, 15.18it/s]
-    Running batch 8 inference:  37%|███▋      | 18/49 [00:01<00:02, 15.17it/s]
-    Running batch 8 inference:  41%|████      | 20/49 [00:01<00:01, 15.19it/s]
-    Running batch 8 inference:  45%|████▍     | 22/49 [00:01<00:01, 15.17it/s]
-    Running batch 8 inference:  49%|████▉     | 24/49 [00:01<00:01, 15.13it/s]
-    Running batch 8 inference:  53%|█████▎    | 26/49 [00:01<00:01, 15.06it/s]
-    Running batch 8 inference:  57%|█████▋    | 28/49 [00:01<00:01, 15.07it/s]
-    Running batch 8 inference:  61%|██████    | 30/49 [00:01<00:01, 15.06it/s]
-    Running batch 8 inference:  65%|██████▌   | 32/49 [00:02<00:01, 15.05it/s]
-    Running batch 8 inference:  69%|██████▉   | 34/49 [00:02<00:00, 15.06it/s]
-    Running batch 8 inference:  73%|███████▎  | 36/49 [00:02<00:00, 15.09it/s]
-    Running batch 8 inference:  78%|███████▊  | 38/49 [00:02<00:00, 15.12it/s]
-    Running batch 8 inference:  82%|████████▏ | 40/49 [00:02<00:00, 15.01it/s]
-    Running batch 8 inference:  86%|████████▌ | 42/49 [00:02<00:00, 15.02it/s]
-    Running batch 8 inference:  90%|████████▉ | 44/49 [00:02<00:00, 15.04it/s]
-    Running batch 8 inference:  94%|█████████▍| 46/49 [00:03<00:00, 14.97it/s]
-    Running batch 8 inference:  98%|█████████▊| 48/49 [00:03<00:00, 14.97it/s]
-                                                                              
-
-    Total Ensemble Batches:  75%|███████▌  | 3/4 [00:09<00:03,  3.15s/it]
-    Running batch 12 inference:   0%|          | 0/49 [00:00<?, ?it/s]
-    Running batch 12 inference:   4%|▍         | 2/49 [00:00<00:03, 15.15it/s]
-    Running batch 12 inference:   8%|▊         | 4/49 [00:00<00:02, 15.24it/s]
-    Running batch 12 inference:  12%|█▏        | 6/49 [00:00<00:02, 15.21it/s]
-    Running batch 12 inference:  16%|█▋        | 8/49 [00:00<00:02, 16.35it/s]
-    Running batch 12 inference:  20%|██        | 10/49 [00:00<00:02, 16.08it/s]
-    Running batch 12 inference:  24%|██▍       | 12/49 [00:00<00:02, 15.60it/s]
-    Running batch 12 inference:  29%|██▊       | 14/49 [00:00<00:02, 15.35it/s]
-    Running batch 12 inference:  33%|███▎      | 16/49 [00:01<00:02, 15.31it/s]
-    Running batch 12 inference:  37%|███▋      | 18/49 [00:01<00:02, 15.18it/s]
-    Running batch 12 inference:  41%|████      | 20/49 [00:01<00:01, 15.16it/s]
-    Running batch 12 inference:  45%|████▍     | 22/49 [00:01<00:01, 15.17it/s]
-    Running batch 12 inference:  49%|████▉     | 24/49 [00:01<00:01, 15.17it/s]
-    Running batch 12 inference:  53%|█████▎    | 26/49 [00:01<00:01, 15.18it/s]
-    Running batch 12 inference:  57%|█████▋    | 28/49 [00:01<00:01, 15.16it/s]
-    Running batch 12 inference:  61%|██████    | 30/49 [00:01<00:01, 15.17it/s]
-    Running batch 12 inference:  65%|██████▌   | 32/49 [00:02<00:01, 15.06it/s]
-    Running batch 12 inference:  69%|██████▉   | 34/49 [00:02<00:01, 14.99it/s]
-    Running batch 12 inference:  73%|███████▎  | 36/49 [00:02<00:00, 15.04it/s]
-    Running batch 12 inference:  78%|███████▊  | 38/49 [00:02<00:00, 15.02it/s]
-    Running batch 12 inference:  82%|████████▏ | 40/49 [00:02<00:00, 15.08it/s]
-    Running batch 12 inference:  86%|████████▌ | 42/49 [00:02<00:00, 15.02it/s]
-    Running batch 12 inference:  90%|████████▉ | 44/49 [00:02<00:00, 15.01it/s]
-    Running batch 12 inference:  94%|█████████▍| 46/49 [00:03<00:00, 14.97it/s]
-    Running batch 12 inference:  98%|█████████▊| 48/49 [00:03<00:00, 15.01it/s]
-                                                                               
-
-    Total Ensemble Batches: 100%|██████████| 4/4 [00:12<00:00,  3.17s/it]    Total Ensemble Batches: 100%|██████████| 4/4 [00:12<00:00,  3.14s/it]
-    2025-06-09 03:11:54.869 | SUCCESS  | earth2studio.run:ensemble:423 - Inference complete
-
-
 
 
 .. GENERATED FROM PYTHON SOURCE LINES 142-147
@@ -343,153 +191,6 @@ To switch out the model, consider removing the :py:meth:`unsqueeze` .
         output_coords=output_coords,
         batch_size=batch_size,
     )
-
-
-
-
-
-.. rst-class:: sphx-glr-script-out
-
- .. code-block:: none
-
-    2025-06-09 03:11:54.874 | INFO     | earth2studio.run:ensemble:315 - Running ensemble inference!
-    2025-06-09 03:11:54.874 | INFO     | earth2studio.run:ensemble:323 - Inference device: cuda
-    Fetching GFS data:   0%|          | 0/7 [00:00<?, ?it/s]                                                            2025-06-09 03:11:54.892 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240129/18/atmos/gfs.t18z.pgrb2.0p25.f000 255947617-818002
-    Fetching GFS data:   0%|          | 0/7 [00:00<?, ?it/s]                                                            2025-06-09 03:11:54.925 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240129/18/atmos/gfs.t18z.pgrb2.0p25.f000 402393843-1000454
-    Fetching GFS data:   0%|          | 0/7 [00:00<?, ?it/s]                                                            2025-06-09 03:11:54.944 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240129/18/atmos/gfs.t18z.pgrb2.0p25.f000 412982869-882301
-    Fetching GFS data:   0%|          | 0/7 [00:00<?, ?it/s]                                                            2025-06-09 03:11:54.964 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240129/18/atmos/gfs.t18z.pgrb2.0p25.f000 298404811-863710
-    Fetching GFS data:   0%|          | 0/7 [00:00<?, ?it/s]                                                            2025-06-09 03:11:54.983 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240129/18/atmos/gfs.t18z.pgrb2.0p25.f000 333455139-848796
-    Fetching GFS data:   0%|          | 0/7 [00:00<?, ?it/s]                                                            2025-06-09 03:11:55.003 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240129/18/atmos/gfs.t18z.pgrb2.0p25.f000 424587978-1175298
-    Fetching GFS data:   0%|          | 0/7 [00:00<?, ?it/s]                                                            2025-06-09 03:11:55.022 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240129/18/atmos/gfs.t18z.pgrb2.0p25.f000 213960931-731790
-    Fetching GFS data:   0%|          | 0/7 [00:00<?, ?it/s]    Fetching GFS data:  14%|█▍        | 1/7 [00:00<00:00,  6.67it/s]    Fetching GFS data: 100%|██████████| 7/7 [00:00<00:00, 46.60it/s]
-    Fetching GFS data:   0%|          | 0/7 [00:00<?, ?it/s]                                                            2025-06-09 03:11:55.050 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240130/00/atmos/gfs.t00z.pgrb2.0p25.f000 397114008-995975
-    Fetching GFS data:   0%|          | 0/7 [00:00<?, ?it/s]                                                            2025-06-09 03:11:55.070 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240130/00/atmos/gfs.t00z.pgrb2.0p25.f000 330480536-845677
-    Fetching GFS data:   0%|          | 0/7 [00:00<?, ?it/s]                                                            2025-06-09 03:11:55.089 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240130/00/atmos/gfs.t00z.pgrb2.0p25.f000 407596993-877008
-    Fetching GFS data:   0%|          | 0/7 [00:00<?, ?it/s]                                                            2025-06-09 03:11:55.108 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240130/00/atmos/gfs.t00z.pgrb2.0p25.f000 214406883-731397
-    Fetching GFS data:   0%|          | 0/7 [00:00<?, ?it/s]                                                            2025-06-09 03:11:55.128 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240130/00/atmos/gfs.t00z.pgrb2.0p25.f000 297270945-860182
-    Fetching GFS data:   0%|          | 0/7 [00:00<?, ?it/s]                                                            2025-06-09 03:11:55.147 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240130/00/atmos/gfs.t00z.pgrb2.0p25.f000 419044588-1178697
-    Fetching GFS data:   0%|          | 0/7 [00:00<?, ?it/s]                                                            2025-06-09 03:11:55.167 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240130/00/atmos/gfs.t00z.pgrb2.0p25.f000 256366833-813140
-    Fetching GFS data:   0%|          | 0/7 [00:00<?, ?it/s]    Fetching GFS data:  14%|█▍        | 1/7 [00:00<00:00,  7.32it/s]    Fetching GFS data: 100%|██████████| 7/7 [00:00<00:00, 51.15it/s]
-    2025-06-09 03:11:55.204 | SUCCESS  | earth2studio.run:ensemble:345 - Fetched data from GFS
-    2025-06-09 03:11:55.215 | WARNING  | earth2studio.io.zarr:add_array:192 - Datetime64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch
-    2025-06-09 03:11:55.218 | WARNING  | earth2studio.io.zarr:add_array:198 - Timedelta64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch
-    2025-06-09 03:11:55.230 | INFO     | earth2studio.run:ensemble:373 - Starting 16 Member Ensemble Inference with             4 number of batches.
-
-
-    Total Ensemble Batches:   0%|          | 0/4 [00:00<?, ?it/s]
-    Running batch 0 inference:   0%|          | 0/49 [00:00<?, ?it/s]
-    Running batch 0 inference:   6%|▌         | 3/49 [00:00<00:01, 29.97it/s]
-    Running batch 0 inference:  12%|█▏        | 6/49 [00:00<00:01, 22.53it/s]
-    Running batch 0 inference:  18%|█▊        | 9/49 [00:00<00:02, 19.40it/s]
-    Running batch 0 inference:  24%|██▍       | 12/49 [00:00<00:02, 16.79it/s]
-    Running batch 0 inference:  29%|██▊       | 14/49 [00:00<00:02, 16.23it/s]
-    Running batch 0 inference:  33%|███▎      | 16/49 [00:00<00:02, 15.91it/s]
-    Running batch 0 inference:  37%|███▋      | 18/49 [00:01<00:01, 15.54it/s]
-    Running batch 0 inference:  41%|████      | 20/49 [00:01<00:01, 15.34it/s]
-    Running batch 0 inference:  45%|████▍     | 22/49 [00:01<00:01, 15.21it/s]
-    Running batch 0 inference:  49%|████▉     | 24/49 [00:01<00:01, 15.07it/s]
-    Running batch 0 inference:  53%|█████▎    | 26/49 [00:01<00:01, 15.02it/s]
-    Running batch 0 inference:  57%|█████▋    | 28/49 [00:01<00:01, 15.07it/s]
-    Running batch 0 inference:  61%|██████    | 30/49 [00:01<00:01, 15.03it/s]
-    Running batch 0 inference:  65%|██████▌   | 32/49 [00:01<00:01, 15.02it/s]
-    Running batch 0 inference:  69%|██████▉   | 34/49 [00:02<00:00, 15.04it/s]
-    Running batch 0 inference:  73%|███████▎  | 36/49 [00:02<00:00, 15.03it/s]
-    Running batch 0 inference:  78%|███████▊  | 38/49 [00:02<00:00, 14.96it/s]
-    Running batch 0 inference:  82%|████████▏ | 40/49 [00:02<00:00, 14.92it/s]
-    Running batch 0 inference:  86%|████████▌ | 42/49 [00:02<00:00, 14.88it/s]
-    Running batch 0 inference:  90%|████████▉ | 44/49 [00:02<00:00, 14.93it/s]
-    Running batch 0 inference:  94%|█████████▍| 46/49 [00:02<00:00, 14.85it/s]
-    Running batch 0 inference:  98%|█████████▊| 48/49 [00:03<00:00, 14.93it/s]
-                                                                              
-
-    Total Ensemble Batches:  25%|██▌       | 1/4 [00:03<00:09,  3.12s/it]
-    Running batch 4 inference:   0%|          | 0/49 [00:00<?, ?it/s]
-    Running batch 4 inference:   4%|▍         | 2/49 [00:00<00:03, 14.83it/s]
-    Running batch 4 inference:   8%|▊         | 4/49 [00:00<00:03, 14.67it/s]
-    Running batch 4 inference:  12%|█▏        | 6/49 [00:00<00:02, 14.80it/s]
-    Running batch 4 inference:  16%|█▋        | 8/49 [00:00<00:02, 14.97it/s]
-    Running batch 4 inference:  20%|██        | 10/49 [00:00<00:02, 15.02it/s]
-    Running batch 4 inference:  24%|██▍       | 12/49 [00:00<00:02, 15.02it/s]
-    Running batch 4 inference:  29%|██▊       | 14/49 [00:00<00:02, 14.89it/s]
-    Running batch 4 inference:  33%|███▎      | 16/49 [00:01<00:02, 14.84it/s]
-    Running batch 4 inference:  37%|███▋      | 18/49 [00:01<00:02, 14.90it/s]
-    Running batch 4 inference:  41%|████      | 20/49 [00:01<00:01, 14.93it/s]
-    Running batch 4 inference:  45%|████▍     | 22/49 [00:01<00:01, 15.01it/s]
-    Running batch 4 inference:  49%|████▉     | 24/49 [00:01<00:01, 15.01it/s]
-    Running batch 4 inference:  53%|█████▎    | 26/49 [00:01<00:01, 15.10it/s]
-    Running batch 4 inference:  57%|█████▋    | 28/49 [00:01<00:01, 15.13it/s]
-    Running batch 4 inference:  61%|██████    | 30/49 [00:02<00:01, 15.13it/s]
-    Running batch 4 inference:  65%|██████▌   | 32/49 [00:02<00:01, 14.88it/s]
-    Running batch 4 inference:  69%|██████▉   | 34/49 [00:02<00:01, 14.95it/s]
-    Running batch 4 inference:  73%|███████▎  | 36/49 [00:02<00:00, 15.03it/s]
-    Running batch 4 inference:  78%|███████▊  | 38/49 [00:02<00:00, 14.68it/s]
-    Running batch 4 inference:  82%|████████▏ | 40/49 [00:02<00:00, 14.59it/s]
-    Running batch 4 inference:  86%|████████▌ | 42/49 [00:02<00:00, 14.54it/s]
-    Running batch 4 inference:  90%|████████▉ | 44/49 [00:02<00:00, 14.49it/s]
-    Running batch 4 inference:  94%|█████████▍| 46/49 [00:03<00:00, 14.50it/s]
-    Running batch 4 inference:  98%|█████████▊| 48/49 [00:03<00:00, 14.47it/s]
-                                                                              
-
-    Total Ensemble Batches:  50%|█████     | 2/4 [00:06<00:06,  3.22s/it]
-    Running batch 8 inference:   0%|          | 0/49 [00:00<?, ?it/s]
-    Running batch 8 inference:   4%|▍         | 2/49 [00:00<00:03, 14.51it/s]
-    Running batch 8 inference:   8%|▊         | 4/49 [00:00<00:03, 14.46it/s]
-    Running batch 8 inference:  12%|█▏        | 6/49 [00:00<00:02, 14.47it/s]
-    Running batch 8 inference:  16%|█▋        | 8/49 [00:00<00:02, 14.48it/s]
-    Running batch 8 inference:  20%|██        | 10/49 [00:00<00:02, 14.51it/s]
-    Running batch 8 inference:  24%|██▍       | 12/49 [00:00<00:02, 14.47it/s]
-    Running batch 8 inference:  29%|██▊       | 14/49 [00:00<00:02, 14.39it/s]
-    Running batch 8 inference:  33%|███▎      | 16/49 [00:01<00:02, 14.44it/s]
-    Running batch 8 inference:  37%|███▋      | 18/49 [00:01<00:02, 14.40it/s]
-    Running batch 8 inference:  41%|████      | 20/49 [00:01<00:02, 14.45it/s]
-    Running batch 8 inference:  45%|████▍     | 22/49 [00:01<00:01, 14.48it/s]
-    Running batch 8 inference:  49%|████▉     | 24/49 [00:01<00:01, 14.42it/s]
-    Running batch 8 inference:  53%|█████▎    | 26/49 [00:01<00:01, 14.55it/s]
-    Running batch 8 inference:  57%|█████▋    | 28/49 [00:01<00:01, 14.62it/s]
-    Running batch 8 inference:  61%|██████    | 30/49 [00:02<00:01, 14.55it/s]
-    Running batch 8 inference:  65%|██████▌   | 32/49 [00:02<00:01, 14.57it/s]
-    Running batch 8 inference:  69%|██████▉   | 34/49 [00:02<00:01, 14.65it/s]
-    Running batch 8 inference:  73%|███████▎  | 36/49 [00:02<00:00, 14.67it/s]
-    Running batch 8 inference:  78%|███████▊  | 38/49 [00:02<00:00, 14.63it/s]
-    Running batch 8 inference:  82%|████████▏ | 40/49 [00:02<00:00, 14.57it/s]
-    Running batch 8 inference:  86%|████████▌ | 42/49 [00:02<00:00, 14.60it/s]
-    Running batch 8 inference:  90%|████████▉ | 44/49 [00:03<00:00, 14.71it/s]
-    Running batch 8 inference:  94%|█████████▍| 46/49 [00:03<00:00, 14.77it/s]
-    Running batch 8 inference:  98%|█████████▊| 48/49 [00:03<00:00, 14.74it/s]
-                                                                              
-
-    Total Ensemble Batches:  75%|███████▌  | 3/4 [00:09<00:03,  3.28s/it]
-    Running batch 12 inference:   0%|          | 0/49 [00:00<?, ?it/s]
-    Running batch 12 inference:   4%|▍         | 2/49 [00:00<00:03, 14.84it/s]
-    Running batch 12 inference:   8%|▊         | 4/49 [00:00<00:03, 14.80it/s]
-    Running batch 12 inference:  12%|█▏        | 6/49 [00:00<00:02, 14.62it/s]
-    Running batch 12 inference:  16%|█▋        | 8/49 [00:00<00:02, 14.66it/s]
-    Running batch 12 inference:  20%|██        | 10/49 [00:00<00:02, 14.62it/s]
-    Running batch 12 inference:  24%|██▍       | 12/49 [00:00<00:02, 14.73it/s]
-    Running batch 12 inference:  29%|██▊       | 14/49 [00:00<00:02, 14.71it/s]
-    Running batch 12 inference:  33%|███▎      | 16/49 [00:01<00:02, 14.67it/s]
-    Running batch 12 inference:  37%|███▋      | 18/49 [00:01<00:02, 14.70it/s]
-    Running batch 12 inference:  41%|████      | 20/49 [00:01<00:01, 14.63it/s]
-    Running batch 12 inference:  45%|████▍     | 22/49 [00:01<00:01, 14.68it/s]
-    Running batch 12 inference:  49%|████▉     | 24/49 [00:01<00:01, 14.74it/s]
-    Running batch 12 inference:  53%|█████▎    | 26/49 [00:01<00:01, 14.73it/s]
-    Running batch 12 inference:  57%|█████▋    | 28/49 [00:01<00:01, 14.69it/s]
-    Running batch 12 inference:  61%|██████    | 30/49 [00:02<00:01, 14.61it/s]
-    Running batch 12 inference:  65%|██████▌   | 32/49 [00:02<00:01, 14.62it/s]
-    Running batch 12 inference:  69%|██████▉   | 34/49 [00:02<00:01, 14.63it/s]
-    Running batch 12 inference:  73%|███████▎  | 36/49 [00:02<00:00, 14.63it/s]
-    Running batch 12 inference:  78%|███████▊  | 38/49 [00:02<00:00, 14.63it/s]
-    Running batch 12 inference:  82%|████████▏ | 40/49 [00:02<00:00, 14.65it/s]
-    Running batch 12 inference:  86%|████████▌ | 42/49 [00:02<00:00, 14.55it/s]
-    Running batch 12 inference:  90%|████████▉ | 44/49 [00:03<00:00, 14.51it/s]
-    Running batch 12 inference:  94%|█████████▍| 46/49 [00:03<00:00, 14.50it/s]
-    Running batch 12 inference:  98%|█████████▊| 48/49 [00:03<00:00, 14.50it/s]
-                                                                               
-
-    Total Ensemble Batches: 100%|██████████| 4/4 [00:13<00:00,  3.30s/it]    Total Ensemble Batches: 100%|██████████| 4/4 [00:13<00:00,  3.28s/it]
-    2025-06-09 03:12:08.332 | SUCCESS  | earth2studio.run:ensemble:423 - Inference complete
-
-
 
 
 .. GENERATED FROM PYTHON SOURCE LINES 178-185
@@ -641,22 +342,6 @@ Notice that the Zarr IO function has additional APIs to interact with the stored
             dpi=300,
             bbox_inches="tight",
         )
-
-
-
-.. image-sg:: /examples/images/sphx_glr_06_model_perturbation_hook_001.png
-   :alt: Forecast Starting on 2024-01-30 - Lead Time - 864000000000000, Unperturbed Ensemble Mean - tcwv + z500 countors, Unperturbed Ensemble Std - tcwv, Perturbed Ensemble Mean - tcwv + z500 contours, Perturbed Ensemble Std - tcwv
-   :srcset: /examples/images/sphx_glr_06_model_perturbation_hook_001.png
-   :class: sphx-glr-single-img
-
-
-
-
-
-
-.. rst-class:: sphx-glr-timing
-
-   **Total running time of the script:** (0 minutes 39.211 seconds)
 
 
 .. _sphx_glr_download_examples_06_model_perturbation_hook.py:
