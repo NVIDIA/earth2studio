@@ -128,7 +128,7 @@ Before the ensemble workflow can get executed the following set up is needed:
 If multiple GPUs are being used, one could parallelize inference using different
 checkpoints on each card.
 
-.. GENERATED FROM PYTHON SOURCE LINES 126-180
+.. GENERATED FROM PYTHON SOURCE LINES 126-181
 
 .. code-block:: Python
 
@@ -152,7 +152,8 @@ checkpoints on each card.
         # Perturbation method
         # Here we will simplify the process that's in the original paper for conciseness
         noise_amplification = torch.zeros(model.input_coords()["variable"].shape[0])
-        noise_amplification[40] = 1.0  # z500
+        index_z500 = list(model.input_coords()["variable"]).index("z500")
+        noise_amplification[index_z500] = 30  # z500
         noise_amplification = noise_amplification.reshape(1, 1, 1, -1, 1, 1)
 
         seed_perturbation = CorrelatedSphericalGaussian(noise_amplitude=noise_amplification)
@@ -187,7 +188,7 @@ checkpoints on each card.
         torch.cuda.empty_cache()
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 181-187
+.. GENERATED FROM PYTHON SOURCE LINES 182-188
 
 Post Processing
 ---------------
@@ -196,7 +197,7 @@ respective checkpoints used.
 The rest of the example is focused on some basic post processing to visualize the
 results.
 
-.. GENERATED FROM PYTHON SOURCE LINES 189-247
+.. GENERATED FROM PYTHON SOURCE LINES 190-248
 
 .. code-block:: Python
 
