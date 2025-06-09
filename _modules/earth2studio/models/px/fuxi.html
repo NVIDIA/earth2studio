@@ -779,6 +779,14 @@
         <span class="c1"># name: output (for short model its 15379)</span>
         <span class="c1"># tensor: float32[1,ScatterNDoutput_dim_1,70,721,1440]</span>
 
+        <span class="c1"># Convert tp06 to mm</span>
+        <span class="c1"># https://github.com/tpys/FuXi/blob/9292fe0692156a01cd3d62bcb427cc3798cf8add/make_era5_input.py#L19-L22</span>
+        <span class="n">tp06_index</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="n">coords</span><span class="p">[</span><span class="s2">&quot;variable&quot;</span><span class="p">],</span> <span class="s2">&quot;tp06&quot;</span><span class="p">)</span>
+        <span class="n">x</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">tp06_index</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:]</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">nan_to_num</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">tp06_index</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:],</span> <span class="n">nan</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+        <span class="n">x</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">tp06_index</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:]</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span>
+            <span class="n">x</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">tp06_index</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:]</span> <span class="o">*</span> <span class="mi">1000</span><span class="p">,</span> <span class="nb">min</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="nb">max</span><span class="o">=</span><span class="mi">1000</span>
+        <span class="p">)</span>
+
         <span class="c1"># Flatten batch and time dim</span>
         <span class="n">time_array</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_time_encoding</span><span class="p">(</span>
             <span class="n">np</span><span class="o">.</span><span class="n">tile</span><span class="p">(</span><span class="n">coords</span><span class="p">[</span><span class="s2">&quot;time&quot;</span><span class="p">]</span> <span class="o">+</span> <span class="n">coords</span><span class="p">[</span><span class="s2">&quot;lead_time&quot;</span><span class="p">][</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
@@ -799,6 +807,10 @@
 
         <span class="c1"># Reshape to batch and time dimension</span>
         <span class="n">output</span> <span class="o">=</span> <span class="n">output</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">coords</span><span class="p">[</span><span class="s2">&quot;time&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="o">*</span><span class="n">output</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">:])</span>
+
+        <span class="c1"># Convert tp06 back to m</span>
+        <span class="n">output</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">tp06_index</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:]</span> <span class="o">=</span> <span class="n">output</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">tp06_index</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:]</span> <span class="o">/</span> <span class="mi">1000</span>
+
         <span class="k">return</span> <span class="n">output</span><span class="p">,</span> <span class="n">output_coords</span>
 
 <div class="viewcode-block" id="FuXi.__call__">
