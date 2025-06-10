@@ -84,7 +84,7 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
     (2161, 4320) which corresponds to 10km resolution at the equator or (4321, 8640)
     which corresponds to 5km resolution at the equator. The model can also be used
     to generate results on a smaller region of the globe by specifying a super-resolution
-    window. This can often be desirable as full global results are often extremely
+    window. This can often be desirable as full global results are extremely
     expensive to generate.
 
     Note
