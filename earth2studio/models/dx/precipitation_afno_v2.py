@@ -173,7 +173,17 @@ class PrecipitationAFNOv2(torch.nn.Module, AutoModelMixin):
     @check_extra_imports("precip-afno-v2", [PrecipNet, cos_zenith_angle])
     def load_model(cls, package: Package) -> DiagnosticModel:
         """Load diagnostic from package"""
-        model = PrecipNet.from_checkpoint(package.resolve("afno_precip.mdlus"))
+        model = PrecipNet(
+            inp_shape=[720, 1440],
+            patch_size=[8, 8],
+            in_channels=23,
+            out_channels=1,
+            embed_dim=768,
+            depth=12,
+            num_blocks=8,
+            mlp_ratio=8,
+        )
+        model.load(package.resolve("afno_precip.mdlus"))
         model.eval()
 
         input_center = torch.Tensor(np.load(package.resolve("global_means.npy")))

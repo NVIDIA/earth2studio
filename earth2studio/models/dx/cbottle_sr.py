@@ -331,6 +331,10 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
         lr_hpx = lr_hpx[None,].float()
         global_lr = global_lr[None,]
 
+        # Set device inbox patch index
+        if self.inbox_patch_index is not None:
+            self.inbox_patch_index = self.inbox_patch_index.to(x.device)
+
         with torch.no_grad():
             # scope with global_lr and other inputs present
             def denoiser(x: torch.Tensor, t: torch.Tensor) -> torch.Tensor:
@@ -345,7 +349,7 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
                         class_labels=None,
                         batch_size=128,
                         global_lr=global_lr,
-                        inbox_patch_index=self.inbox_patch_index.to(x.device),
+                        inbox_patch_index=self.inbox_patch_index,
                         device=x.device,
                     )
                     .to(torch.float64)
