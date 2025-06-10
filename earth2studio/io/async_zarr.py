@@ -102,7 +102,6 @@ class AsyncZarrBackend:
         fs: fsspec.spec.AbstractFileSystem = LocalFileSystem(),
         blocking: bool = True,
         max_pool_size: int = 4,
-        loop: AbstractEventLoop | None = None,
         async_timeout: int = 600,
         backend_kwargs: dict[str, Any] = {},
     ) -> None:
@@ -123,7 +122,6 @@ class AsyncZarrBackend:
         self.blocking = blocking
         self.max_pool_size = max_pool_size
         self.async_timeout = async_timeout
-        self.loop = loop
         self.thread_pool = concurrent.futures.ThreadPoolExecutor(
             max_workers=max_pool_size
         )
@@ -137,28 +135,33 @@ class AsyncZarrBackend:
             pass
 
         if "local" in fs.protocol:
-            zstore = zarr.storage.LocalStore(root=root)
+            self.zstore = zarr.storage.LocalStore(root=root)
         elif "memory" in fs.protocol:
-            zstore = zarr.storage.MemoryStore()
+            self.zstore = zarr.storage.MemoryStore()
         else:
             # Needs to be an sync fs atm
-            zstore = zarr.storage.FsspecStore(fs, path=root)
+            self.zstore = zarr.storage.FsspecStore(fs, path=root)
 
-        self.root = asyncio.run(
-            zarr.api.asynchronous.open(store=zstore, mode="a", **backend_kwargs)
-        )
-
-        # Initialize index coords
         # Verify all index coordinate arrays have unique values
         for key, value in self.index_coords.items():
             if len(np.unique(value)) != len(value):
                 raise ValueError(
-                    f"Index coordinate array '{key}' contains duplicate values. All index coordinates must have unique values."
+                    f"Index coordinate array '{key}' contains duplicate values. " + \
+                    "All index coordinates must have unique values."
                 )
-        asyncio.run(self._initilize_coords(self.index_coords))
-
+        try:
+            loop = asyncio.get_running_loop()
+            loop.run_until_complete(self._async_init())
+        except RuntimeError:
+            # Else we assume that async calls will be used which in that case
+            # we will init the group in the call function when we have the loop
+            self.fs = None
+    
     async def _initilize_coords(
-        self, coords: dict[str, np.array], overwrite_coords: bool = False
+        self, 
+        root: zarr.core.group.AsyncGroup,
+        coords: dict[str, np.array],
+        overwrite_coords: bool = False
     ) -> None:
         """Initializes the provided coordinate dictionary as an array in the zarr store
 
@@ -173,8 +176,11 @@ class AsyncZarrBackend:
 
         for key, value in coords.items():
 
-            if not overwrite_coords and await self.root.contains(key):
+            if not overwrite_coords and await root.contains(key):
                 continue
+
+            if key in self.index_coords:
+                value = self.index_coords[key]
 
             logger.debug(f"Writing coordinate array {key} to zarr store")
 
@@ -193,7 +199,7 @@ class AsyncZarrBackend:
                 )
                 value = value.astype("timedelta64[ns]").astype("int64")
 
-            array = await self.root.create_array(
+            array = await root.create_array(
                 name=key,
                 shape=value.shape,
                 chunks=value.shape,
@@ -204,6 +210,7 @@ class AsyncZarrBackend:
 
     async def _initilize_array(
         self,
+        root: zarr.core.group.AsyncGroup,
         name: str,
         slice_coords: dict[str, np.array],
         dtype: np.dtype = "float",
@@ -233,13 +240,33 @@ class AsyncZarrBackend:
         logger.debug(
             f"Initializing array {name} with shape {shape} with chunks {chunks}"
         )
-        await self.root.create_array(
+        await root.create_array(
             name=name,
             shape=shape,
             chunks=chunks,
             dtype=dtype,
             dimension_names=list(coords.keys()),
         )
+
+    async def _async_initilize_store(self,
+        coords: dict[str, np.array],
+        array_name: list[str] = [],
+        dtype = np.float32,
+    ) -> zarr.core.group.AsyncGroup:
+        # Create zarr store
+        root = await zarr.api.asynchronous.open(store=self.zstore, mode="a")
+        # Initializing coords if does not exist
+        await self._initilize_coords(root, coords)
+        # Initialize arrays in parallel if they don't exist
+        tasks = []
+        for i, name in enumerate(array_name):
+            # TODO: If does exist already, check that coords are consistent
+            if not await root.contains(name):
+                tasks.append(self._initilize_array(root, name, coords, dtype))
+        if tasks:
+            await asyncio.gather(*tasks)
+        return root
+
 
     def _limit_pool_size(self, max_pool_size: int) -> None:
         """Helper function to limit the number of parallel io processes
@@ -341,6 +368,7 @@ class AsyncZarrBackend:
             raise ValueError(
                 f"Input tensors and array names must same length but got {len(x)} and {len(array_name)}."
             )
+
         for key, value in coords.items():
             # Dates types not supported in zarr 3.0 at the moment
             # https://github.com/zarr-developers/zarr-python/issues/2616
@@ -357,24 +385,7 @@ class AsyncZarrBackend:
                 )
                 coords[key] = value.astype("timedelta64[ns]").astype("int64")
 
-        # Check to see whats intialized, only one process can do this at a time
-        # Should be a one time process, so lock here doesnt matter too much for perf
-        async with self.init_sem:  # noqa TODO: Fix!
-            new_coords = {}
-            for key, value in coords.items():
-                if not await self.root.contains(key):
-                    new_coords[key] = value
-            await self._initilize_coords(new_coords)
-
-            # Initialize arrays in parallel if they don't exist
-            tasks = []
-            for i, name in enumerate(array_name):
-                # TODO: If does exist already, check that coords are consistent
-                if not await self.root.contains(name):
-                    x_dtype = torch_to_numpy_dtype_dict[x[i].dtype]
-                    tasks.append(self._initilize_array(name, coords, x_dtype))
-            if tasks:
-                await asyncio.gather(*tasks)
+        root = await self._async_initilize_store(coords, array_name)
 
         # Move data to CPU
         # TODO: could this be asynced?
@@ -392,9 +403,10 @@ class AsyncZarrBackend:
                 # Convert input indices into zarr array indices
                 # Probably cooler way to do this, but this is readable
                 z_idx = []
-                zarr_coord = await (await self.root.get(key)).getitem(
+                zarr_coord = await (await root.get(key)).getitem(
                     ...
                 )  # Fetch coord array
+                print(zarr_coord)
                 for i in range(coords[key].shape[0]):
                     z0 = np.where(zarr_coord == coords[key][i : i + 1])[
                         0
@@ -411,7 +423,7 @@ class AsyncZarrBackend:
         if len(input_tensor_indices) == 0:
             logger.debug("No indexed coordinates present, writing entire Zarr array")
             for i, array in enumerate(array_name):
-                await (await self.root.get(name)).setitem(Ellipsis, x[i])
+                await (await root.get(name)).setitem(Ellipsis, x[i])
 
         # Mesh together all indices (i.e. all chunk indexes that need writing)
         # Basically we are getting a full array of index combinations
@@ -448,7 +460,7 @@ class AsyncZarrBackend:
                     input_slice: list[Any],
                 ) -> None:
                     """Small helper function"""
-                    zarray = await self.root.get(name)
+                    zarray = await root.get(name)
                     await zarray.setitem(tuple(array_slice), x[index][*input_slice])
 
                 writes.append(
@@ -457,35 +469,11 @@ class AsyncZarrBackend:
         # Every single chunk is written async...
         await asyncio.gather(*writes)
 
-    def read(
-        self, coords: CoordSystem, array_name: str, device: torch.device = "cpu"
-    ) -> tuple[torch.Tensor, CoordSystem]:
-        """
-        Read data from the current zarr group using the passed array_name.
-
-        Parameters
-        ----------
-        coords : OrderedDict
-            Coordinates of the data to be read.
-        array_name : str | list[str]
-            Name(s) of the array(s) to read from.
-        device : torch.device
-            device to place the read data from, by default 'cpu'
-        """
-        raise NotImplementedError("Not implemented yet")
-
     def close(self) -> None:
         """Cleans up an remaining io processes that are currently running. Should be
         called explicitly at the end of an inference workflow to ensure all data has
         been written.
         """
-        nest_asyncio.apply()  # Patch asyncio to work in notebooks
-        try:
-            loop = asyncio.get_event_loop()
-        except RuntimeError:
-            # If no event loop exists, create one
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
         # Clean up process pool
         self._limit_pool_size(0)
         self.thread_pool.shutdown(wait=False, cancel_futures=True)
