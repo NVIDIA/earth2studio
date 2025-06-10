@@ -329,7 +329,7 @@ pyyaml==6.0.2
     #   donfig
     #   huggingface-hub
     #   omegaconf
-requests==2.32.3
+requests==2.32.4
     # via
     #   docker
     #   gcsfs
