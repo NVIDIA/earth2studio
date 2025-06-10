@@ -658,7 +658,7 @@ It is recommend using the following commands to install using the container's Py
 interpreter:
 
 ```bash
-docker run -it -t nvcr.io/nvidia/pytorch:25.04-py3
+docker run -it -t nvcr.io/nvidia/pytorch:25.05-py3
 
 >>> apt-get update && apt-get install -y git make curl && rm -rf /var/lib/apt/lists/*
 >>> unset PIP_CONSTRAINT
@@ -689,7 +689,7 @@ There is some complexity to undo the pip constraints from the PyTorch container,
 otherwise the install process is the same.
 
 ```dockerfile
-FROM nvcr.io/nvidia/pytorch:25.03-py3
+FROM nvcr.io/nvidia/pytorch:25.05-py3
 COPY --from=ghcr.io/astral-sh/uv:0.6.13 /uv /uvx /bin/
 
 # Install system dependencies
