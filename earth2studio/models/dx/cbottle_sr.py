@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from typing import Union, Tuple
 from collections import OrderedDict
 
 import numpy as np
@@ -82,7 +83,10 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
     results at 5km resolution on a healpix grid with 10 levels of resolution (1024x1024).
     The results are then regridded to a lat/lon grid. Suggested output dimensions are
     (2161, 4320) which corresponds to 10km resolution at the equator or (4321, 8640)
-    which corresponds to 5km resolution at the equator.
+    which corresponds to 5km resolution at the equator. The model can also be used
+    to generate results on a smaller region of the globe by specifying a super-resolution
+    window. This can often be desirable as full global results are often extremely
+    expensive to generate.
 
     Note
     ----
@@ -95,8 +99,12 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
     ----------
     core_model : torch.nn.Module
         Core pytorch model implementing the diffusion-based super-resolution
-    hr_latlon : Tuple[int, int], optional
-        High-resolution output dimensions (lat, lon), by default (2161, 4320)
+    output_resolution : Tuple[int, int], optional
+        High-resolution output dimensions, by default (2161, 4320).
+    super_resolution_window : Union[None, Tuple[int, int, int, int]], optional
+        Super-resolution window, by default None. If None, super-resolution is done
+        on the entire global grid. If provided, the super-resolution window is a tuple
+        of (lat_start, lat_end, lon_start, lon_end) and will return 
     sampler_steps : int, optional
         Number of diffusion steps, by default 18
     sigma_max : int, optional
@@ -106,7 +114,8 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
     def __init__(
         self,
         core_model: torch.nn.Module,
-        hr_latlon: tuple[int, int] = (2161, 4320),
+        output_resolution: tuple[int, int] = (2161, 4320),
+        super_resolution_window: Union[None, Tuple[int, int, int, int]] = None,
         sampler_steps: int = 18,
         sigma_max: int = 800,
     ):
@@ -116,12 +125,26 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
         self.core_model = core_model
 
         # Output shape
-        self.hr_latlon = hr_latlon
+        self.output_resolution = output_resolution
 
         # Sampler
         self.sampler_steps = sampler_steps
         self.sigma_max = sigma_max
 
+        # Super resolution window
+        self.super_resolution_window = super_resolution_window
+        if super_resolution_window is not None:
+            self.output_lat = np.linspace(super_resolution_window[0], super_resolution_window[2], self.output_resolution[0])
+            self.output_lon = np.linspace(super_resolution_window[1], super_resolution_window[3], self.output_resolution[1])
+            self.inbox_patch_index = patchify.patch_index_from_bounding_box(
+                HPX_LEVEL_HR, super_resolution_window, 128, 32, "cpu"
+            )
+        else:
+            self.output_lat = np.linspace(90, -90, self.output_resolution[0])
+            self.output_lon = np.linspace(0, 360, self.output_resolution[1], endpoint=False)
+            self.inbox_patch_index = None
+
+ 
         # Make in and out regridders
         lat_lon_low_res_grid = earth2grid.latlon.equiangular_lat_lon_grid(
             721, 1440, includes_south_pole=False
@@ -129,9 +152,14 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
         self.hpx_high_res_grid = healpix.Grid(
             level=HPX_LEVEL_HR, pixel_order=healpix.PixelOrder.NEST
         )
-        lat_lon_high_res_grid = earth2grid.latlon.equiangular_lat_lon_grid(
-            self.hr_latlon[0], self.hr_latlon[1], includes_south_pole=False
-        )
+        if super_resolution_window is not None:
+            lat_lon_high_res_grid = earth2grid.latlon.LatLonGrid(
+                self.output_lat, self.output_lon
+            )
+        else:
+            lat_lon_high_res_grid = earth2grid.latlon.equiangular_lat_lon_grid(
+                self.output_resolution[0], self.output_resolution[1], includes_south_pole=False
+            )
         self.regrid_latlon_low_res_to_hpx_high_res = earth2grid.get_regridder(
             lat_lon_low_res_grid, self.hpx_high_res_grid
         )
@@ -218,8 +246,8 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
             {
                 "batch": np.empty(0),
                 "variable": np.array(VARIABLES),
-                "lat": np.linspace(90, -90, self.hr_latlon[0]),
-                "lon": np.linspace(0, 360, self.hr_latlon[1], endpoint=False),
+                "lat": self.output_lat,
+                "lon": self.output_lon,
             }
         )
 
@@ -250,9 +278,10 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
     def load_model(
         cls,
         package: Package,
+        output_resolution: tuple[int, int] = (2161, 4320),
+        super_resolution_window: Union[None, Tuple[int, int, int, int]] = None,
         sampler_steps: int = 18,
         sigma_max: int = 800,
-        hr_latlon: tuple[int, int] = (2161, 4320),
     ) -> DiagnosticModel:
         """Load AI datasource from package"""
 
@@ -265,9 +294,10 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
 
         return cls(
             core_model,
+            output_resolution=output_resolution,
+            super_resolution_window=super_resolution_window,
             sampler_steps=sampler_steps,
             sigma_max=sigma_max,
-            hr_latlon=hr_latlon,
         )
 
     @torch.inference_mode()
@@ -277,7 +307,7 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
         lr_hpx = self.regrid_latlon_low_res_to_hpx_high_res(x.double())
 
         # Normalize
-        lr_hpx = (lr_hpx - self.center) / self.scale
+        lr_hpx = (lr_hpx - self.center.to(x.device)) / self.scale.to(x.device)
 
         # Get global lat lon
         global_lr = self.regrid_to_latlon(lr_hpx)
@@ -286,8 +316,8 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
         latents = torch.randn_like(lr_hpx, device=x.device, dtype=torch.float64)
 
         # Add 1 batch dimension
-        latents = latents[None,]
-        lr_hpx = lr_hpx[None,]
+        latents = latents[None,].float()
+        lr_hpx = lr_hpx[None,].float()
         global_lr = global_lr[None,]
 
         with torch.no_grad():
@@ -304,7 +334,7 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
                         class_labels=None,
                         batch_size=128,
                         global_lr=global_lr,
-                        inbox_patch_index=None,
+                        inbox_patch_index=self.inbox_patch_index.to(x.device),
                         device=x.device,
                     )
                     .to(torch.float64)
@@ -323,22 +353,22 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
             )
 
         # Unnormalize
-        pred = pred[0] * self.scale + self.center
+        pred = pred[0] * self.scale.to(x.device) + self.center.to(x.device)
 
         # Get lat lon high res
-        hr_latlon = torch.zeros(
+        output = torch.zeros(
             x.shape[0],
-            self.hr_latlon[0],
-            self.hr_latlon[1],
+            self.output_lat.shape[0],
+            self.output_lon.shape[0],
             device=x.device,
             dtype=torch.float32,
         )
         for i in range(x.shape[0]):
-            hr_latlon[i : i + 1] = self.regrid_hpx_high_res_to_latlon_high_res(
+            output[i : i + 1] = self.regrid_hpx_high_res_to_latlon_high_res(
                 pred[i : i + 1]
             ).to(torch.float32)
 
-        return hr_latlon
+        return output
 
     @batch_func()
     def __call__(
