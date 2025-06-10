@@ -263,25 +263,13 @@ def test_cbottle_infill_invariant_inputs(device, mock_core_model, mock_sst_ds):
 @pytest.mark.slow
 @pytest.mark.timeout(30)
 @pytest.mark.parametrize("device", ["cuda:0"])
-def test_cbottle_package(device, model_cache_context):
+def test_cbottle_infill_package(device, model_cache_context):
     # Test the cached model package AFNO precip
     # Only cuda supported
     input_variables = np.array(["tpf"])
     import os
 
-    from earth2studio.models.auto import Package
-
-    with model_cache_context():
-        cache_dir = Package.default_cache()
-        for root, dirs, files in os.walk(cache_dir):
-            for file in files:
-                print(os.path.join(root, file))
-
-    print("=====")
-    cache_dir = Package.default_cache()
-    for root, dirs, files in os.walk(cache_dir):
-        for file in files:
-            print(os.path.join(root, file))
+    print("~~~~~~", os.environ.get("EARTH2STUDIO_CACHE", "Not set"))
     package = CBottleInfill.load_default_package()
     dx = CBottleInfill.load_model(package, input_variables=input_variables).to(device)
 
