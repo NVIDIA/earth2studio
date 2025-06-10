@@ -267,11 +267,11 @@ def test_cbottle_infill_package(device, model_cache_context):
     # Test the cached model package AFNO precip
     # Only cuda supported
     input_variables = np.array(["tpf"])
-    import os
-
-    print("~~~~~~", os.environ.get("EARTH2STUDIO_CACHE", "Not set"))
-    package = CBottleInfill.load_default_package()
-    dx = CBottleInfill.load_model(package, input_variables=input_variables).to(device)
+    with model_cache_context():
+        package = CBottleInfill.load_default_package()
+        dx = CBottleInfill.load_model(package, input_variables=input_variables).to(
+            device
+        )
 
     time = np.array([datetime(2020, 1, 1, 1), datetime(2021, 1, 1, 1)])
     lead_time = np.array([timedelta(hours=1)])
