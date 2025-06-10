@@ -63,7 +63,7 @@ load_dotenv()  # TODO: make common example prep function
 
 import torch
 
-from earth2studio.data import CBottle3D, WB2ERA5, fetch_data
+from earth2studio.data import WB2ERA5, CBottle3D, fetch_data
 from earth2studio.models.dx import CBottleInfill, CBottleSR
 
 # Get the device
@@ -75,15 +75,26 @@ cbottle_ds = CBottle3D.load_model(package)
 cbottle_ds = cbottle_ds.to(device)
 
 # Load the super resolution model
-super_resolution_window = (0, -120, 50, -40) # (lat south, lon west, lat north, lon east)
+super_resolution_window = (
+    0,
+    -120,
+    50,
+    -40,
+)  # (lat south, lon west, lat north, lon east)
 package = CBottleSR.load_default_package()
-cbottle_sr = CBottleSR.load_model(package, output_resolution=(1024, 1024), super_resolution_window=super_resolution_window)
+cbottle_sr = CBottleSR.load_model(
+    package,
+    output_resolution=(1024, 1024),
+    super_resolution_window=super_resolution_window,
+)
 cbottle_sr = cbottle_sr.to(device)
 
 # Load the infill model
 input_variables = ["u10m", "v10m"]
 package = CBottleInfill.load_default_package()
-cbottle_infill = CBottleInfill.load_model(package, input_variables=input_variables, sampler_steps=18)
+cbottle_infill = CBottleInfill.load_model(
+    package, input_variables=input_variables, sampler_steps=18
+)
 cbottle_infill = cbottle_infill.to(device)
 
 # Load the ERA5 data source
@@ -99,8 +110,7 @@ era5_ds = WB2ERA5()
 # %%
 
 import datetime
-from collections import OrderedDict
-import numpy as np
+
 from earth2studio.utils.coords import map_coords
 
 # Generate some samples from cBottle
@@ -112,7 +122,7 @@ synth_x, synth_coords = fetch_data(
 )
 
 # Perform super resolution on synthetic data
-synth_x, synth_coords =  map_coords(synth_x, synth_coords, cbottle_sr.input_coords())
+synth_x, synth_coords = map_coords(synth_x, synth_coords, cbottle_sr.input_coords())
 sr_synth_x, sr_synth_coords = cbottle_sr(synth_x, synth_coords)
 
 # %%
@@ -136,8 +146,8 @@ era5_x, era5_coords = fetch_data(
 infill_x, infill_coords = cbottle_infill(era5_x, era5_coords)
 
 # Select the required variables and reshape for super resolution
-infill_x, infill_coords =  map_coords(infill_x, infill_coords, cbottle_sr.input_coords())
-sr_infill_x, sr_infill_coords = cbottle_sr(x, coords)
+infill_x, infill_coords = map_coords(infill_x, infill_coords, cbottle_sr.input_coords())
+sr_infill_x, sr_infill_coords = cbottle_sr(infill_x, infill_coords)
 
 # %%
 # Post Processing CBottle Super Resolution Data
@@ -158,12 +168,17 @@ fig = plt.figure(figsize=(24, 24))
 
 # Plot synthetic data
 ax0 = fig.add_subplot(2, 2, 1, projection=projection)
-extent = [super_resolution_window[1]-10, super_resolution_window[3]+10, super_resolution_window[0]-10, super_resolution_window[2]+10]
+extent = [
+    super_resolution_window[1] - 10,
+    super_resolution_window[3] + 10,
+    super_resolution_window[0] - 10,
+    super_resolution_window[2] + 10,
+]
 ax0.set_extent(extent, crs=ccrs.PlateCarree())
 c = ax0.pcolormesh(
-    coords["lon"],
-    coords["lat"],
-    x[0, 0, 3, :, :].cpu().numpy(),  # u10m (variable index 3)
+    synth_coords["lon"],
+    synth_coords["lat"],
+    synth_x[0, 0, 3, :, :].cpu().numpy(),  # u10m (variable index 3)
     transform=ccrs.PlateCarree(),
     cmap="RdBu_r",
     vmin=-20,
@@ -197,7 +212,7 @@ ax2.set_extent(extent, crs=ccrs.PlateCarree())
 c = ax2.pcolormesh(
     era5_coords["lon"],
     era5_coords["lat"],
-    era5_x[0, 0, 3, :, :].cpu().numpy(),  # u10m (variable index 3)
+    era5_x[0, 0, 0, :, :].cpu().numpy(),  # u10m (variable index 0)
     transform=ccrs.PlateCarree(),
     cmap="RdBu_r",
     vmin=-20,
@@ -214,7 +229,7 @@ ax3.set_extent(extent, crs=ccrs.PlateCarree())
 c = ax3.pcolormesh(
     sr_infill_coords["lon"],
     sr_infill_coords["lat"],
-    sr_infill_x[0, 3, :, :].cpu().numpy(),  # u10m
+    sr_infill_x[0, 0, 3, :, :].cpu().numpy(),  # u10m (variable index 3)
     transform=ccrs.PlateCarree(),
     cmap="RdBu_r",
     vmin=-20,

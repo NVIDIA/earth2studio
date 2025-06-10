@@ -14,7 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Union, Tuple
 from collections import OrderedDict
 
 import numpy as np
@@ -116,7 +115,7 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
         self,
         core_model: torch.nn.Module,
         output_resolution: tuple[int, int] = (2161, 4320),
-        super_resolution_window: Union[None, Tuple[int, int, int, int]] = None,
+        super_resolution_window: None | tuple[int, int, int, int] = None,
         sampler_steps: int = 18,
         sigma_max: int = 800,
     ):
@@ -135,17 +134,26 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
         # Super resolution window
         self.super_resolution_window = super_resolution_window
         if super_resolution_window is not None:
-            self.output_lat = np.linspace(super_resolution_window[0], super_resolution_window[2], self.output_resolution[0])
-            self.output_lon = np.linspace(super_resolution_window[1], super_resolution_window[3], self.output_resolution[1])
+            self.output_lat = np.linspace(
+                super_resolution_window[0],
+                super_resolution_window[2],
+                self.output_resolution[0],
+            )
+            self.output_lon = np.linspace(
+                super_resolution_window[1],
+                super_resolution_window[3],
+                self.output_resolution[1],
+            )
             self.inbox_patch_index = patchify.patch_index_from_bounding_box(
                 HPX_LEVEL_HR, super_resolution_window, 128, 32, "cpu"
             )
         else:
             self.output_lat = np.linspace(90, -90, self.output_resolution[0])
-            self.output_lon = np.linspace(0, 360, self.output_resolution[1], endpoint=False)
+            self.output_lon = np.linspace(
+                0, 360, self.output_resolution[1], endpoint=False
+            )
             self.inbox_patch_index = None
 
- 
         # Make in and out regridders
         lat_lon_low_res_grid = earth2grid.latlon.equiangular_lat_lon_grid(
             721, 1440, includes_south_pole=False
@@ -159,7 +167,9 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
             )
         else:
             lat_lon_high_res_grid = earth2grid.latlon.equiangular_lat_lon_grid(
-                self.output_resolution[0], self.output_resolution[1], includes_south_pole=False
+                self.output_resolution[0],
+                self.output_resolution[1],
+                includes_south_pole=False,
             )
         self.regrid_latlon_low_res_to_hpx_high_res = earth2grid.get_regridder(
             lat_lon_low_res_grid, self.hpx_high_res_grid
@@ -280,7 +290,7 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
         cls,
         package: Package,
         output_resolution: tuple[int, int] = (2161, 4320),
-        super_resolution_window: Union[None, Tuple[int, int, int, int]] = None,
+        super_resolution_window: None | tuple[int, int, int, int] = None,
         sampler_steps: int = 18,
         sigma_max: int = 800,
     ) -> DiagnosticModel:
