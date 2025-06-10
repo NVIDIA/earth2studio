@@ -104,7 +104,7 @@ import numpy as np
 from earth2studio.utils.coords import map_coords
 
 # Generate some samples from cBottle
-x, coords = fetch_data(
+synth_x, synth_coords = fetch_data(
     cbottle_ds,
     [datetime.datetime(2020, 1, 1)],
     cbottle_sr.input_coords()["variable"],
@@ -112,8 +112,8 @@ x, coords = fetch_data(
 )
 
 # Perform super resolution on synthetic data
-x, coords =  map_coords(x, coords, cbottle_sr.input_coords())
-sr_synth_x, sr_synth_coords = cbottle_sr(x, coords)
+synth_x, synth_coords =  map_coords(synth_x, synth_coords, cbottle_sr.input_coords())
+sr_synth_x, sr_synth_coords = cbottle_sr(synth_x, synth_coords)
 
 # %%
 # Super Resolution on ERA5 Data
@@ -125,7 +125,7 @@ sr_synth_x, sr_synth_coords = cbottle_sr(x, coords)
 # %%
 
 # Get the ERA5 data (only u10m and v10m available)
-x, coords = fetch_data(
+era5_x, era5_coords = fetch_data(
     era5_ds,
     [datetime.datetime(2020, 1, 1)],
     input_variables,
@@ -133,10 +133,10 @@ x, coords = fetch_data(
 )
 
 # Perform infilling to get all required variables
-x, infill_coords = cbottle_infill(x, coords)
+infill_x, infill_coords = cbottle_infill(era5_x, era5_coords)
 
 # Select the required variables and reshape for super resolution
-x, coords =  map_coords(x, infill_coords, cbottle_sr.input_coords())
+infill_x, infill_coords =  map_coords(infill_x, infill_coords, cbottle_sr.input_coords())
 sr_infill_x, sr_infill_coords = cbottle_sr(x, coords)
 
 # %%
@@ -154,10 +154,10 @@ plt.close("all")
 
 # Create projection focused on a region of interest (North Atlantic/Europe)
 projection = ccrs.PlateCarree()
-fig = plt.figure(figsize=(36, 18))
+fig = plt.figure(figsize=(24, 24))
 
 # Plot synthetic data
-ax0 = fig.add_subplot(1, 3, 1, projection=projection)
+ax0 = fig.add_subplot(2, 2, 1, projection=projection)
 extent = [super_resolution_window[1]-10, super_resolution_window[3]+10, super_resolution_window[0]-10, super_resolution_window[2]+10]
 ax0.set_extent(extent, crs=ccrs.PlateCarree())
 c = ax0.pcolormesh(
@@ -175,7 +175,7 @@ ax0.gridlines(draw_labels=True)
 ax0.set_title("Synthetic Data (cBottle3D, low resolution)")
 
 # Plot the synthetic super resolution data
-ax1 = fig.add_subplot(1, 3, 2, projection=projection)
+ax1 = fig.add_subplot(2, 2, 2, projection=projection)
 ax1.set_extent(extent, crs=ccrs.PlateCarree())
 c = ax1.pcolormesh(
     sr_synth_coords["lon"],
@@ -191,13 +191,13 @@ ax1.coastlines()
 ax1.gridlines(draw_labels=True)
 ax1.set_title("Synthetic Data Super Resolution (cBottle3D → CBottleSR)")
 
-# Plot the ERA5 infilled super resolution data
-ax2 = fig.add_subplot(1, 3, 3, projection=projection)
+# Plot the ERA5 data
+ax2 = fig.add_subplot(2, 2, 3, projection=projection)
 ax2.set_extent(extent, crs=ccrs.PlateCarree())
 c = ax2.pcolormesh(
-    sr_infill_coords["lon"],
-    sr_infill_coords["lat"],
-    sr_infill_x[0, 3, :, :].cpu().numpy(),  # u10m
+    era5_coords["lon"],
+    era5_coords["lat"],
+    era5_x[0, 0, 3, :, :].cpu().numpy(),  # u10m (variable index 3)
     transform=ccrs.PlateCarree(),
     cmap="RdBu_r",
     vmin=-20,
@@ -206,7 +206,24 @@ c = ax2.pcolormesh(
 plt.colorbar(c, ax=ax2, shrink=0.6, label="u10m (m/s)")
 ax2.coastlines()
 ax2.gridlines(draw_labels=True)
-ax2.set_title("ERA5 Infilled Super Resolution (ERA5 → CBottleInfill → CBottleSR)")
+ax2.set_title("ERA5 Data (low resolution)")
+
+# Plot the ERA5 infilled super resolution data
+ax3 = fig.add_subplot(2, 2, 4, projection=projection)
+ax3.set_extent(extent, crs=ccrs.PlateCarree())
+c = ax3.pcolormesh(
+    sr_infill_coords["lon"],
+    sr_infill_coords["lat"],
+    sr_infill_x[0, 3, :, :].cpu().numpy(),  # u10m
+    transform=ccrs.PlateCarree(),
+    cmap="RdBu_r",
+    vmin=-20,
+    vmax=20,
+)
+plt.colorbar(c, ax=ax3, shrink=0.6, label="u10m (m/s)")
+ax3.coastlines()
+ax3.gridlines(draw_labels=True)
+ax3.set_title("ERA5 Infilled Super Resolution (ERA5 → CBottleInfill → CBottleSR)")
 
 plt.tight_layout()
 plt.savefig("outputs/16_cbottle_super_resolution.jpg", dpi=150, bbox_inches="tight")

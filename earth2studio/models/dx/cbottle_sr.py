@@ -104,7 +104,8 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
     super_resolution_window : Union[None, Tuple[int, int, int, int]], optional
         Super-resolution window, by default None. If None, super-resolution is done
         on the entire global grid. If provided, the super-resolution window is a tuple
-        of (lat_start, lat_end, lon_start, lon_end) and will return 
+        of (lat south, lon west, lat north, lon east) and will return results for the
+        specified window.
     sampler_steps : int, optional
         Number of diffusion steps, by default 18
     sigma_max : int, optional
