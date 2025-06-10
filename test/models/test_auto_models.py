@@ -349,6 +349,7 @@ def test_whole_file_cache(tmp_path, same_names):
     assert (cache_path / file2).is_file() is same_names
 
 
+@pytest.mark.asyncio
 async def test_ngc_unsupported_operations():
     fs = NGCModelFileSystem()
     with pytest.raises(
