@@ -217,6 +217,7 @@ default-groups = ["dev", "build"]
 # Needed for some packages that build with PEP 518
 no-build-isolation-package = ["earth2grid", "flash-attn"]
 override-dependencies = []
+managed = true
 
 [tool.uv.sources]
 cbottle = { git = "https://github.com/NVlabs/cBottle.git", rev = "0b8c6787053dc80f14fbb68a54d6815749c9d0e9" }
