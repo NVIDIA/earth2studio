@@ -476,10 +476,9 @@ class CorrDiffTaiwan(torch.nn.Module, AutoModelMixin):
         -------
         torch.Tensor: Predicted output at the next time step.
         """
-
         # Adjust noise levels based on what's supported by the network.
-        sigma_min = max(sigma_min, net.sigma_min)
-        sigma_max = min(sigma_max, net.sigma_max)
+        sigma_min = max(sigma_min, 0)
+        sigma_max = min(sigma_max, np.inf)
 
         # Time step discretization.
         step_indices = torch.arange(
@@ -500,8 +499,7 @@ class CorrDiffTaiwan(torch.nn.Module, AutoModelMixin):
 
         # Main sampling loop.
         x_hat = latents.to(torch.float64) * t_steps[0]
-        t_hat = torch.tensor(1.0).to(torch.float64).to(latents.device)
 
-        x_next = net(x_hat, x_lr, t_hat, class_labels).to(torch.float64)
+        x_next = net(x_hat, x_lr).to(torch.float64)
 
         return x_next
