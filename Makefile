@@ -57,6 +57,10 @@ pytest-submodule:
 pytest-submodule-docker:
 	coverage run --source=$(COVERAGE_SOURCE) -m pytest --ci-cache --slow -s $(PYTEST_SOURCE)
 
+.PHONY: pytest-automodels-docker
+pytest:
+	pytest -s test/models/test_auto_models.py -k test_auto_model_download --model-download
+
 .PHONY: doctest
 doctest:
 	echo "Skipping doc test"
