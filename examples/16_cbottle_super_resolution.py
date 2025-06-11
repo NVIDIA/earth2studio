@@ -16,7 +16,7 @@
 
 # %%
 """
-cBottle Super Resolution
+CBottle Super Resolution
 ========================
 
 Climate in a Bottle (cBottle) super resolution workflows for global weather.
