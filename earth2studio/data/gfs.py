@@ -20,7 +20,6 @@ import hashlib
 import os
 import pathlib
 import shutil
-import warnings
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
@@ -108,9 +107,6 @@ class GFS:
     ):
         self._cache = cache
         self._verbose = verbose
-
-        # Silence cfgrib warning, TODO Remove this
-        warnings.simplefilter(action="ignore", category=FutureWarning)
 
         if source == "aws":
             self.uri_prefix = "noaa-gfs-bdp-pds"

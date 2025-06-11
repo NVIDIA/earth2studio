@@ -165,7 +165,15 @@ class PrecipitationAFNO(torch.nn.Module, AutoModelMixin):
         with zipfile.ZipFile(checkpoint_zip, "r") as zip_ref:
             zip_ref.extractall(checkpoint_zip.parent)
 
-        model = PrecipNet.from_checkpoint(
+        # Hack because old checkpoint
+        model = PrecipNet(
+            inp_shape=[720, 1440],
+            in_channels=20,
+            out_channels=1,
+            patch_size=[8, 8],
+            embed_dim=768,
+        )
+        model.load(
             str(
                 checkpoint_zip.parent
                 / Path("precipitation_afno/precipitation_afno.mdlus")
