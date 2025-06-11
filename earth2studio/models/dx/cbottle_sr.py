@@ -101,10 +101,10 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
     output_resolution : Tuple[int, int], optional
         High-resolution output dimensions, by default (2161, 4320).
     super_resolution_window : Union[None, Tuple[int, int, int, int]], optional
-        Super-resolution window, by default None. If None, super-resolution is done
+        Super-resolution window. If None, super-resolution is done
         on the entire global grid. If provided, the super-resolution window is a tuple
         of (lat south, lon west, lat north, lon east) and will return results for the
-        specified window.
+        specified window, by default None
     sampler_steps : int, optional
         Number of diffusion steps, by default 18
     sigma_max : int, optional
@@ -275,7 +275,7 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
 
     @classmethod
     def load_default_package(cls) -> Package:
-        """Default pre-trained CBottle3D model package from Nvidia model registry"""
+        """Default pre-trained cBottle model package from Nvidia model registry"""
         return Package(
             "ngc://models/nvidia/earth-2/cbottle@1.1",
             cache_options={
@@ -294,7 +294,26 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
         sampler_steps: int = 18,
         sigma_max: int = 800,
     ) -> DiagnosticModel:
-        """Load AI datasource from package"""
+        """Load AI datasource from package
+
+        Parameters
+        ----------
+        package : Package
+            CBottle AI model package
+        output_resolution : tuple[int, int], optional
+            High-resolution output dimensions, by default (2161, 4320)
+        super_resolution_window : None | tuple[int, int, int, int], optional
+            Super-resolution window, by default None
+        sampler_steps : int, optional
+            Number of diffusion steps, by default 18
+        sigma_max : float, optional
+            Noise amplitude used to generate latent variables, by default 800
+
+        Returns
+        -------
+        DiagnosticModel
+            Diagnostic model
+        """
 
         with Checkpoint(package.resolve("cBottle-SR.zip")) as checkpoint:
             core_model = checkpoint.read_model()
