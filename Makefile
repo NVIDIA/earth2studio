@@ -55,7 +55,7 @@ pytest-submodule:
 
 .PHONY: pytest-submodule-docker
 pytest-submodule-docker:
-	coverage run --source=$(COVERAGE_SOURCE) -m pytest --ci-cache --slow $(PYTEST_SOURCE)
+	coverage run --source=$(COVERAGE_SOURCE) -m pytest --ci-cache --slow -s $(PYTEST_SOURCE)
 
 .PHONY: doctest
 doctest:
