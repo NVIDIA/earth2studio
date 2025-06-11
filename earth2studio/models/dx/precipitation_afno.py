@@ -165,6 +165,7 @@ class PrecipitationAFNO(torch.nn.Module, AutoModelMixin):
         with zipfile.ZipFile(checkpoint_zip, "r") as zip_ref:
             zip_ref.extractall(checkpoint_zip.parent)
 
+        # Hack because old checkpoint
         model = PrecipNet(
             inp_shape=[720, 1440],
             in_channels=20,

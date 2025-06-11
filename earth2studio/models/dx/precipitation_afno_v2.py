@@ -24,9 +24,9 @@ import xarray as xr
 try:
     from physicsnemo.utils.zenith_angle import cos_zenith_angle
 
-    from earth2studio.models.nn.afno_precip_v2 import PrecipNet
+    from earth2studio.models.nn.afno_precip_v2 import PrecipNet_v2
 except ImportError:
-    PrecipNet = None
+    PrecipNet_v2 = None
     cos_zenith_angle = None
 
 from earth2studio.models.auto import AutoModelMixin, Package
@@ -63,7 +63,7 @@ VARIABLES = [
 ]
 
 
-@check_extra_imports("precip-afno-v2", [PrecipNet, cos_zenith_angle])
+@check_extra_imports("precip-afno-v2", ["physicsnemo"])
 class PrecipitationAFNOv2(torch.nn.Module, AutoModelMixin):
     """Improved Precipitation AFNO diagnostic model. Predicts the total precipitation
     for the past 6 hours [t-6h, t] with the units m. This model uses an 20 atmospheric
@@ -170,10 +170,12 @@ class PrecipitationAFNOv2(torch.nn.Module, AutoModelMixin):
         return package
 
     @classmethod
-    @check_extra_imports("precip-afno-v2", [PrecipNet, cos_zenith_angle])
+    @check_extra_imports("precip-afno-v2", ["physicsnemo"])
     def load_model(cls, package: Package) -> DiagnosticModel:
         """Load diagnostic from package"""
-        model = PrecipNet(
+
+        # Hack because old checkpoint
+        model = PrecipNet_v2(
             inp_shape=[720, 1440],
             patch_size=[8, 8],
             in_channels=23,

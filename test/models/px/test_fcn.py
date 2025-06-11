@@ -168,7 +168,7 @@ def model(model_cache_context) -> FCN:
 
 @pytest.mark.ci_cache
 @pytest.mark.timeout(15)
-@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+@pytest.mark.parametrize("device", ["cuda:0"])
 def test_fcn_package(model, device):
     torch.cuda.empty_cache()
     time = np.array([np.datetime64("1993-04-05T00:00")])

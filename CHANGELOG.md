@@ -28,6 +28,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Dependencies
 
 - Moved NGC SDK to optional dependencies due to it causing slow version resolutions
+- Removing upper Python restriction on Rapids install for TC trackers
 
 ## [0.7.0] - 2025-05-21
 
