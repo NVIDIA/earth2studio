@@ -71,14 +71,18 @@ def mock_cbottle_core_model() -> torch.nn.Module:
     ],
 )
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
-@pytest.mark.parametrize("hr_latlon", [(721, 1440)])
-def test_cbottle_sr(x, device, hr_latlon, mock_cbottle_core_model):
+@pytest.mark.parametrize("output_resolution", [(721, 1440)])
+@pytest.mark.parametrize("super_resolution_window", [None, (0, -120, 50, -40)])
+def test_cbottle_sr(
+    x, device, output_resolution, super_resolution_window, mock_cbottle_core_model
+):
     """Test CBottleSR forward pass with different input shapes and output resolutions"""
 
     # Create CBottleSR model with mock core model
     dx = CBottleSR(
         mock_cbottle_core_model,
-        hr_latlon=hr_latlon,
+        output_resolution=output_resolution,
+        super_resolution_window=super_resolution_window,
         sampler_steps=1,  # Reduced for testing speed
         sigma_max=800,  # Reduced for testing
     ).to(device)
@@ -100,7 +104,12 @@ def test_cbottle_sr(x, device, hr_latlon, mock_cbottle_core_model):
 
     # Check output shape
     expected_shape = torch.Size(
-        [x.shape[0], len(dx.input_coords()["variable"]), hr_latlon[0], hr_latlon[1]]
+        [
+            x.shape[0],
+            len(dx.input_coords()["variable"]),
+            output_resolution[0],
+            output_resolution[1],
+        ]
     )
     assert out.shape == expected_shape
 
@@ -112,8 +121,8 @@ def test_cbottle_sr(x, device, hr_latlon, mock_cbottle_core_model):
     handshake_dim(out_coords, "batch", 0)
 
     # Check coordinate values
-    assert len(out_coords["lat"]) == hr_latlon[0]
-    assert len(out_coords["lon"]) == hr_latlon[1]
+    assert len(out_coords["lat"]) == output_resolution[0]
+    assert len(out_coords["lon"]) == output_resolution[1]
 
 
 @pytest.mark.parametrize(
@@ -181,7 +190,7 @@ def test_cbottle_sr_package(device, model_cache_context):
         dx = CBottleSR.load_model(
             package,
             sampler_steps=1,  # Reduced for testing
-            hr_latlon=(721, 1440),  # Reduced for testing
+            output_resolution=(721, 1440),  # Reduced for testing
         ).to(device)
 
     x = torch.randn(1, 12, 721, 1440).to(device)
