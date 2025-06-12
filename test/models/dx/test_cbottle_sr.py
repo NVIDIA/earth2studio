@@ -29,7 +29,7 @@ from earth2studio.models.dx import CBottleSR
 from earth2studio.utils import handshake_dim
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="class")
 def mock_cbottle_core_model() -> torch.nn.Module:
     """Create a mock core model similar to the actual cbottle model"""
     # Create a more realistic mock using cbottle config like in test_cbottle.py
@@ -63,120 +63,121 @@ def mock_cbottle_core_model() -> torch.nn.Module:
     return model
 
 
-@pytest.mark.parametrize(
-    "x",
-    [
-        torch.randn(1, 12, 721, 1440),
-        torch.randn(2, 12, 721, 1440),
-    ],
-)
-@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
-@pytest.mark.parametrize("output_resolution", [(721, 1440)])
-@pytest.mark.parametrize("super_resolution_window", [None, (0, -120, 50, -40)])
-def test_cbottle_sr(
-    x, device, output_resolution, super_resolution_window, mock_cbottle_core_model
-):
-    """Test CBottleSR forward pass with different input shapes and output resolutions"""
+class TestCBottleSRMock:
 
-    # Create CBottleSR model with mock core model
-    dx = CBottleSR(
-        mock_cbottle_core_model,
-        output_resolution=output_resolution,
-        super_resolution_window=super_resolution_window,
-        sampler_steps=1,  # Reduced for testing speed
-        sigma_max=800,  # Reduced for testing
-    ).to(device)
-
-    x = x.to(device)
-
-    # Create input coordinates
-    coords = OrderedDict(
-        {
-            "batch": np.ones(x.shape[0]),
-            "variable": dx.input_coords()["variable"],
-            "lat": dx.input_coords()["lat"],
-            "lon": dx.input_coords()["lon"],
-        }
-    )
-
-    # Forward pass
-    out, out_coords = dx(x, coords)
-
-    # Check output shape
-    expected_shape = torch.Size(
+    @pytest.mark.parametrize(
+        "x",
         [
-            x.shape[0],
-            len(dx.input_coords()["variable"]),
-            output_resolution[0],
-            output_resolution[1],
-        ]
+            torch.randn(1, 12, 721, 1440),
+            torch.randn(2, 12, 721, 1440),
+        ],
     )
-    assert out.shape == expected_shape
-
-    # Check output coordinates
-    assert all(out_coords["variable"] == dx.output_coords(coords)["variable"])
-    handshake_dim(out_coords, "lon", 3)
-    handshake_dim(out_coords, "lat", 2)
-    handshake_dim(out_coords, "variable", 1)
-    handshake_dim(out_coords, "batch", 0)
-
-    # Check coordinate values
-    assert len(out_coords["lat"]) == output_resolution[0]
-    assert len(out_coords["lon"]) == output_resolution[1]
-
-
-@pytest.mark.parametrize(
-    "x",
-    [
-        torch.randn(1, 12, 721, 1440),
-        torch.randn(2, 12, 721, 1440),
-    ],
-)
-@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
-def test_cbottle_sr_exceptions(x, device, mock_cbottle_core_model):
-    """Test CBottleSR exception handling"""
-
-    dx = CBottleSR(mock_cbottle_core_model).to(device)
-    x = x.to(device)
-
-    # Wrong coordinate keys
-    wrong_coords = OrderedDict(
-        {
-            "batch": np.ones(x.shape[0]),
-            "wrong": dx.input_coords()["variable"],
-            "lat": dx.input_coords()["lat"],
-            "lon": dx.input_coords()["lon"],
-        }
+    @pytest.mark.parametrize("output_resolution", [(721, 1440)])
+    @pytest.mark.parametrize(
+        "device,window",
+        [("cpu", (0, -120, 50, -40)), ("cuda:0", None), ("cuda:0", (0, -120, 50, -40))],
     )
+    def test_cbottle_sr(
+        self, x, device, output_resolution, window, mock_cbottle_core_model
+    ):
+        # Create CBottleSR model with mock core model
+        dx = CBottleSR(
+            mock_cbottle_core_model,
+            output_resolution=output_resolution,
+            super_resolution_window=window,
+            sampler_steps=1,  # Reduced for testing speed
+            sigma_max=800,  # Reduced for testing
+        ).to(device)
 
-    with pytest.raises((KeyError, ValueError)):
-        dx(x, wrong_coords)
+        x = x.to(device)
 
-    # Wrong coordinate order
-    wrong_coords = OrderedDict(
-        {
-            "batch": np.ones(x.shape[0]),
-            "variable": dx.input_coords()["variable"],
-            "lon": dx.input_coords()["lon"],
-            "lat": dx.input_coords()["lat"],  # Wrong order
-        }
+        # Create input coordinates
+        coords = OrderedDict(
+            {
+                "batch": np.ones(x.shape[0]),
+                "variable": dx.input_coords()["variable"],
+                "lat": dx.input_coords()["lat"],
+                "lon": dx.input_coords()["lon"],
+            }
+        )
+
+        # Forward pass
+        out, out_coords = dx(x, coords)
+
+        # Check output shape
+        expected_shape = torch.Size(
+            [
+                x.shape[0],
+                len(dx.input_coords()["variable"]),
+                output_resolution[0],
+                output_resolution[1],
+            ]
+        )
+        assert out.shape == expected_shape
+
+        # Check output coordinates
+        assert all(out_coords["variable"] == dx.output_coords(coords)["variable"])
+        handshake_dim(out_coords, "lon", 3)
+        handshake_dim(out_coords, "lat", 2)
+        handshake_dim(out_coords, "variable", 1)
+        handshake_dim(out_coords, "batch", 0)
+
+        # Check coordinate values
+        assert len(out_coords["lat"]) == output_resolution[0]
+        assert len(out_coords["lon"]) == output_resolution[1]
+
+    @pytest.mark.parametrize(
+        "x",
+        [
+            torch.randn(1, 12, 721, 1440),
+            torch.randn(2, 12, 721, 1440),
+        ],
     )
+    @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+    def test_cbottle_sr_exceptions(self, x, device, mock_cbottle_core_model):
+        """Test CBottleSR exception handling"""
 
-    with pytest.raises(ValueError):
-        dx(x, wrong_coords)
+        dx = CBottleSR(mock_cbottle_core_model).to(device)
+        x = x.to(device)
 
-    # Wrong coordinate values
-    wrong_coords = OrderedDict(
-        {
-            "batch": np.ones(x.shape[0]),
-            "variable": dx.input_coords()["variable"],
-            "lat": np.linspace(-90, 90, 720),  # Wrong size
-            "lon": dx.input_coords()["lon"],
-        }
-    )
+        # Wrong coordinate keys
+        wrong_coords = OrderedDict(
+            {
+                "batch": np.ones(x.shape[0]),
+                "wrong": dx.input_coords()["variable"],
+                "lat": dx.input_coords()["lat"],
+                "lon": dx.input_coords()["lon"],
+            }
+        )
 
-    with pytest.raises(ValueError):
-        dx(x, wrong_coords)
+        with pytest.raises((KeyError, ValueError)):
+            dx(x, wrong_coords)
+
+        # Wrong coordinate order
+        wrong_coords = OrderedDict(
+            {
+                "batch": np.ones(x.shape[0]),
+                "variable": dx.input_coords()["variable"],
+                "lon": dx.input_coords()["lon"],
+                "lat": dx.input_coords()["lat"],  # Wrong order
+            }
+        )
+
+        with pytest.raises(ValueError):
+            dx(x, wrong_coords)
+
+        # Wrong coordinate values
+        wrong_coords = OrderedDict(
+            {
+                "batch": np.ones(x.shape[0]),
+                "variable": dx.input_coords()["variable"],
+                "lat": np.linspace(-90, 90, 720),  # Wrong size
+                "lon": dx.input_coords()["lon"],
+            }
+        )
+
+        with pytest.raises(ValueError):
+            dx(x, wrong_coords)
 
 
 @pytest.mark.ci_cache

@@ -300,7 +300,7 @@ def test_dlesym_iterator(device, grid_type, batch_size):
         )
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="function")
 def model(model_cache_context) -> DLESyM:
     # Test only on cuda device
     with model_cache_context():
