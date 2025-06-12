@@ -62,7 +62,7 @@ def onnx_test_package(tmp_path_factory):
     return Package(str(tmp_path))
 
 
-class TestPanguMock(onnx_test_package):
+class TestPanguMock:
     @pytest.mark.parametrize(
         "time",
         [
