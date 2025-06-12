@@ -14,7 +14,7 @@ etc.
 
 ### Software
 
-Pyproject TOML / reqirements.recipe handles any Python dependencies.
+Pyproject TOML / recipe-requirements.txt handles any Python dependencies.
 
 ```bash
 uv export --format requirements-txt --no-hashes > recipe-requirements.txt
