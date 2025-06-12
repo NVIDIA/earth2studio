@@ -70,9 +70,9 @@ class AsyncZarrBackend:
         if zarr_major_version < 3:
             raise ImportError("This IO store only support Zarr 3.0 and above")
 
-        self.index_coords = index_coords
         self.fs = fs
         self.overwrite = False
+        self.index_coords = self._scrub_coordinates(index_coords)
 
         # Async / multi-thread items
         self.blocking = blocking
@@ -120,8 +120,8 @@ class AsyncZarrBackend:
     def _initialize_arrays(
         self,
         coords: CoordSystem,
-        array_name: list[str],
-        dtype: list[np.dtype],
+        array_names: list[str],
+        dtypes: list[np.dtype],
     ) -> None:
         # ======
         # Coordinate arrays
@@ -137,7 +137,7 @@ class AsyncZarrBackend:
                 value = self.index_coords[key]
 
             # Skip if coordinate array exists
-            if self.zs.contains(key) and not self.overwrite:
+            if key in self.zs.array_keys() and not self.overwrite:
                 continue
 
             logger.debug(f"Writing coordinate array {key} to zarr store")
@@ -147,14 +147,17 @@ class AsyncZarrBackend:
                 chunks=value.shape,
                 dtype=value.dtype,
                 dimension_names=[key],
+                overwrite=True,
             )
-            array.setitem(Ellipsis, value)
+            # array.setitem(Ellipsis, value)
+            array[:] = value
 
         # ======
         # Data arrays
         # ======
-        for name in array_name:
-            if self.zs.contains(name) and not self.overwrite:
+        for name, dtype in zip(array_names, dtypes):
+            # if self.zs.contains(name) and not self.overwrite:
+            if name in self.zs.array_keys() and not self.overwrite:
                 continue
             array_coords = coords.copy()
             chunked: dict[str, int] = {
@@ -169,7 +172,7 @@ class AsyncZarrBackend:
             chunks = tuple(value for value in chunked.values())
 
             logger.debug(
-                f"Initializing array {name} with shape {shape} with chunks {chunks}"
+                f"Initializing array {name} with shape {shape} with chunks {chunks} dtype {dtype}"
             )
             self.zs.create_array(
                 name=name,
@@ -179,6 +182,8 @@ class AsyncZarrBackend:
                 dimension_names=list(coords.keys()),
                 overwrite=True,
             )
+        # TODO: Remove, this is really bad
+        self.overwrite = False
 
     def _scrub_coordinates(self, coords: CoordSystem) -> CoordSystem:
         coords = coords.copy()
@@ -198,6 +203,20 @@ class AsyncZarrBackend:
                 )
                 coords[key] = value.astype("timedelta64[ns]").astype("int64")
         return coords
+
+    def _limit_pool_size(self, max_pool_size: int) -> None:
+        """Helper function to limit the number of parallel io processes
+
+        Parameters
+        ----------
+        max_pool_size : int
+            Max number of io futures allowed to be queued
+        """
+        while len(self.io_futures) > max_pool_size:
+            io_future = self.io_futures.pop(0)
+            if not io_future.done():
+                logger.debug("In IO thread pool throttle, limiting ")
+                io_future.result()
 
     async def _init_async_zs(self) -> zarr.core.group.AsyncGroup:
         return await zarr.api.asynchronous.open(store=self.zstore, mode="a")
@@ -229,6 +248,8 @@ class AsyncZarrBackend:
                 f"Input tensors and array names must same length but got {len(x)} and {len(array_name)}."
             )
 
+        coords = self._scrub_coordinates(coords)
+
         nest_asyncio.apply()  # Patch asyncio to work in notebooks
         try:
             loop = asyncio.get_event_loop()
@@ -240,7 +261,7 @@ class AsyncZarrBackend:
         # Note that this is blocking, which is intentional so we avoid race conditions
         # upon array creation
         self._initialize_arrays(
-            coords, array_name, dtype=[torch_to_numpy_dtype_dict[x0.dtype] for x0 in x]
+            coords, array_name, dtypes=[torch_to_numpy_dtype_dict[x0.dtype] for x0 in x]
         )
 
         if self.blocking:
@@ -251,7 +272,7 @@ class AsyncZarrBackend:
             )
         else:
             # First block if we have space in the pool
-            # self._limit_pool_size(self.max_pool_size - 1)
+            self._limit_pool_size(self.max_pool_size - 1)
             # Launch async write
             io_future = self.thread_pool.submit(
                 asyncio.run,
@@ -284,10 +305,12 @@ class AsyncZarrBackend:
             x = [x]
         if isinstance(array_name, str):
             array_name = [array_name]
+
+        coords = self._scrub_coordinates(coords)
         # TODO: Duplicate as write function, I know, but need to execute this here if
         # someone calls the async API
         self._initialize_arrays(
-            coords, array_name, dtype=[torch_to_numpy_dtype_dict[x0.dtype] for x0 in x]
+            coords, array_name, dtypes=[torch_to_numpy_dtype_dict[x0.dtype] for x0 in x]
         )
         # Initialize async zarr store
         # TODO: doing this every write call could be avoided but needs to be done with
@@ -392,3 +415,19 @@ class AsyncZarrBackend:
                 )
         # Every single chunk is written async...
         await asyncio.gather(*writes)
+
+    def close(self) -> None:
+        """Cleans up an remaining io processes that are currently running. Should be
+        called explicitly at the end of an inference workflow to ensure all data has
+        been written.
+        """
+        # Clean up process pool
+        self._limit_pool_size(0)
+        self.thread_pool.shutdown(wait=False, cancel_futures=True)
+
+    def __del__(self) -> None:
+        if len(self.io_futures) > 0:
+            logger.warning(
+                f"IO object found {len(self.io_futures)} in flight processes, cleaning up. Call `close()` manually to avoid this warning"
+            )
+            self.close()
