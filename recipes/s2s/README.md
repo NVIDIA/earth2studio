@@ -79,7 +79,7 @@ Start by installing the required packages with pip:
 # If using uv package manager
 uv sync
 # Pip
-pip install -r requirements.recipe
+pip install -r recipe-requirements.txt
 ```
 
 To run an example ensemble forecast with DLESyM, run

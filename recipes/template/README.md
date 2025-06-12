@@ -17,7 +17,7 @@ etc.
 Pyproject TOML / reqirements.recipe handles any Python dependencies.
 
 ```bash
-uv export --format requirements-txt --no-hashes > requirements.recipe
+uv export --format requirements-txt --no-hashes > recipe-requirements.txt
 ```
 
 Note that this is not called `requirements.txt` due to tooling conflicts.
