@@ -86,7 +86,7 @@ class TestCBottleMock:
     )
     @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
     def test_cbottle_infill(
-        input_variables, time, lead_time, device, mock_core_model, mock_sst_ds
+        self, input_variables, time, lead_time, device, mock_core_model, mock_sst_ds
     ):
         dx = CBottleInfill(mock_core_model, mock_sst_ds, input_variables).to(device)
         dx.sampler_steps = 2  # Speed up sampler
@@ -128,7 +128,7 @@ class TestCBottleMock:
         torch.allclose(out[:, :, dx.input_variable_idx], x, rtol=0.05)
 
     @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
-    def test_cbottle_infill_exceptions(device, mock_core_model, mock_sst_ds):
+    def test_cbottle_infill_exceptions(self, device, mock_core_model, mock_sst_ds):
 
         dx = CBottleInfill(mock_core_model, mock_sst_ds, ["t2m"]).to(device)
         dx.sampler_steps = 2  # Speed up sampler
@@ -183,7 +183,9 @@ class TestCBottleMock:
         ],
     )
     @pytest.mark.parametrize("device", ["cuda:0"])
-    def test_cbottle_infill_sst(input_variables, device, mock_core_model, mock_sst_ds):
+    def test_cbottle_infill_sst(
+        self, input_variables, device, mock_core_model, mock_sst_ds
+    ):
 
         dx = CBottleInfill(mock_core_model, mock_sst_ds, input_variables).to(device)
         dx.sampler_steps = 2  # Speed up sampler
@@ -217,7 +219,9 @@ class TestCBottleMock:
                 out, coords = dx(x, coords)
 
     @pytest.mark.parametrize("device", ["cuda:0"])
-    def test_cbottle_infill_invariant_inputs(device, mock_core_model, mock_sst_ds):
+    def test_cbottle_infill_invariant_inputs(
+        self, device, mock_core_model, mock_sst_ds
+    ):
         # Checks a few invariant inputs that should produce the same result
         input_variables = np.array(["u10m", "v10m"])
         dx = CBottleInfill(mock_core_model, mock_sst_ds, input_variables).to(device)

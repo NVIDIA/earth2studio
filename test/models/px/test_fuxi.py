@@ -89,7 +89,7 @@ class TestFuXiMock:
         ],
     )
     @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
-    def test_fuxi_call(time, fuxi_test_package, device):
+    def test_fuxi_call(self, time, fuxi_test_package, device):
 
         # Use dummy package
         p = FuXi.load_model(fuxi_test_package).to(device)
@@ -138,7 +138,7 @@ class TestFuXiMock:
         [2],
     )
     @pytest.mark.parametrize("device", ["cpu", "cuda"])
-    def test_fuxi_iter(ensemble, fuxi_test_package, device):
+    def test_fuxi_iter(self, ensemble, fuxi_test_package, device):
         time = np.array([np.datetime64("1993-04-05T00:00")])
         # Use dummy package
         p = FuXi.load_model(fuxi_test_package).to(device)
@@ -231,7 +231,7 @@ class TestFuXiMock:
         ],
     )
     @pytest.mark.parametrize("device", ["cuda:0"])
-    def test_fuxi_exceptions(dc, fuxi_test_package, device):
+    def test_fuxi_exceptions(self, dc, fuxi_test_package, device):
         # Test invalid coordinates error
         time = np.array([np.datetime64("1993-04-05T00:00")])
         # Use dummy package

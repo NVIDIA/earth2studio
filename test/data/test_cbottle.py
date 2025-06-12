@@ -73,7 +73,7 @@ class TestCBottleMock:
         ],
     )
     @pytest.mark.parametrize("variable", ["tcwv", ["u500", "u200"]])
-    def test_cbottle_fetch(time, variable, mock_core_model, mock_sst_ds):
+    def test_cbottle_fetch(self, time, variable, mock_core_model, mock_sst_ds):
 
         device = "cuda" if torch.cuda.is_available() else "cpu"
         ds = CBottle3D(mock_core_model, mock_sst_ds).to(device)
@@ -107,7 +107,9 @@ class TestCBottleMock:
     )
     @pytest.mark.parametrize("variable", [["sst", "sic", "t700"]])
     @pytest.mark.parametrize("batch_size", [4, 2, 1])
-    def test_cbottle_batches(time, variable, batch_size, mock_core_model, mock_sst_ds):
+    def test_cbottle_batches(
+        self, time, variable, batch_size, mock_core_model, mock_sst_ds
+    ):
         device = "cuda" if torch.cuda.is_available() else "cpu"
         ds = CBottle3D(mock_core_model, mock_sst_ds, batch_size=batch_size).to(device)
         ds.sampler_steps = 4  # Speed up sampler
@@ -137,7 +139,7 @@ class TestCBottleMock:
         ],
     )
     @pytest.mark.parametrize("variable", [["v10m"], ["rlut", "tpf"]])
-    def test_cbottle_hpx(time, variable, mock_core_model, mock_sst_ds):
+    def test_cbottle_hpx(self, time, variable, mock_core_model, mock_sst_ds):
         device = "cuda" if torch.cuda.is_available() else "cpu"
         ds = CBottle3D(mock_core_model, mock_sst_ds, lat_lon=False, seed=1).to(device)
         ds.sampler_steps = 4  # Speed up sampler

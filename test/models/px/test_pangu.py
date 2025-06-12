@@ -79,7 +79,7 @@ class TestPanguMock(onnx_test_package):
         [(Pangu24, 24), (Pangu6, 6), (Pangu3, 3)],
     )
     @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
-    def test_pangu_call(time, PanguModel, delta_t, onnx_test_package, device):
+    def test_pangu_call(self, time, PanguModel, delta_t, onnx_test_package, device):
 
         # Use dummy package
         p = PanguModel.load_model(onnx_test_package).to(device)
@@ -126,7 +126,7 @@ class TestPanguMock(onnx_test_package):
         [(Pangu24, 24), (Pangu6, 6), (Pangu3, 3)],
     )
     @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
-    def test_pangu_iter(ensemble, PanguModel, delta_t, onnx_test_package, device):
+    def test_pangu_iter(self, ensemble, PanguModel, delta_t, onnx_test_package, device):
         time = np.array([np.datetime64("1993-04-05T00:00")])
         # Use dummy package
         p = PanguModel.load_model(onnx_test_package).to(device)
@@ -191,7 +191,7 @@ class TestPanguMock(onnx_test_package):
         [(Pangu24, 24), (Pangu6, 6), (Pangu3, 3)],
     )
     @pytest.mark.parametrize("device", ["cuda:0"])
-    def test_pangu_exceptions(dc, PanguModel, delta_t, onnx_test_package, device):
+    def test_pangu_exceptions(self, dc, PanguModel, delta_t, onnx_test_package, device):
         # Test invalid coordinates error
         time = np.array([np.datetime64("1993-04-05T00:00")])
         # Use dummy package

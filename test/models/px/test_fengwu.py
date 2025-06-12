@@ -78,7 +78,7 @@ class TestFengWuMock:
         ],
     )
     @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
-    def test_fengwu_call(time, fengwu_test_package, device):
+    def test_fengwu_call(self, time, fengwu_test_package, device):
 
         # Use dummy package
         p = FengWu.load_model(fengwu_test_package).to(device)
@@ -121,7 +121,7 @@ class TestFengWuMock:
         [1, 2],
     )
     @pytest.mark.parametrize("device", ["cpu", "cuda"])
-    def test_fengwu_iter(ensemble, fengwu_test_package, device):
+    def test_fengwu_iter(self, ensemble, fengwu_test_package, device):
         time = np.array([np.datetime64("1993-04-05T00:00")])
         # Use dummy package
         p = FengWu.load_model(fengwu_test_package).to(device)
@@ -182,7 +182,7 @@ class TestFengWuMock:
         ],
     )
     @pytest.mark.parametrize("device", ["cuda:0"])
-    def test_fengwu_exceptions(dc, fengwu_test_package, device):
+    def test_fengwu_exceptions(self, dc, fengwu_test_package, device):
         # Test invalid coordinates error
         time = np.array([np.datetime64("1993-04-05T00:00")])
         # Use dummy package
