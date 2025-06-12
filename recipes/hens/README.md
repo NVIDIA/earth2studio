@@ -93,7 +93,7 @@ Start by installing the required packages with pip:
 # If using uv package manager
 uv sync
 # Pip
-pip install -r requirements.txt
+pip install -r requirements.recipe
 ```
 
 The provided JupyText python script `hens_notebook.py` is already set up to run
