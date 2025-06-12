@@ -239,7 +239,7 @@ def test_graphcast_small_exceptions(dc, device, mock_GraphCastSmall_model):
         p(x, coords)
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="function")
 def model(model_cache_context) -> GraphCastSmall:
     # Test only on cuda device
     with model_cache_context():
@@ -451,7 +451,7 @@ def test_graphcast_operational_exceptions(dc, device, mock_GraphCastOperational_
         p(x, coords)
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="function")
 def operational_model(model_cache_context) -> GraphCastOperational:
     with model_cache_context():
         package = GraphCastOperational.load_default_package()
