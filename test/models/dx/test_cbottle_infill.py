@@ -31,7 +31,7 @@ from earth2studio.models.dx import CBottleInfill
 from earth2studio.utils import handshake_dim
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="class")
 def mock_core_model() -> torch.nn.Module:
     # Real model checkpoint has
     # {"model_channels": 192, "label_dim": 1024, "out_channels": 45, "condition_channels": 1}
@@ -44,7 +44,7 @@ def mock_core_model() -> torch.nn.Module:
     return cbottle.models.get_model(model_config)
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="class")
 def mock_sst_ds() -> torch.nn.Module:
     times = [np.datetime64("1870-01-16T12:00:00"), np.datetime64("2022-12-16T12:00:00")]
     lats = np.arange(-89.5, 90, 1.0)
@@ -61,209 +61,219 @@ def mock_sst_ds() -> torch.nn.Module:
     )
 
 
-@pytest.mark.parametrize(
-    "input_variables",
-    [
-        np.array(["u10m", "v10m"]),
-        np.array(["t2m", "z1000", "sic"]),
-    ],
-)
-@pytest.mark.parametrize(
-    "time,lead_time",
-    [
-        (
-            np.array([datetime(2020, 1, 1, 6, 2, 3), datetime(1990, 5, 6, 7, 8, 9)]),
-            np.array([timedelta(0)]),
-        ),
-        (
-            np.array([datetime(2006, 12, 13, 12, 36)]),
-            np.array([timedelta(hours=6), timedelta(hours=12, minutes=5)]),
-        ),
-    ],
-)
-@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
-def test_cbottle_infill(
-    input_variables, time, lead_time, device, mock_core_model, mock_sst_ds
-):
-    dx = CBottleInfill(mock_core_model, mock_sst_ds, input_variables).to(device)
-    dx.sampler_steps = 2  # Speed up sampler
-
-    x = torch.randn(
-        time.shape[0], lead_time.shape[0], input_variables.shape[0], 721, 1440
-    ).to(device)
-    coords = OrderedDict(
-        {
-            "time": time,
-            "lead_time": lead_time,
-            "variable": input_variables,
-            "lat": np.linspace(90, -90, 721),
-            "lon": np.linspace(0, 360, 1440, endpoint=False),
-        }
+class TestCBottleMock:
+    @pytest.mark.parametrize(
+        "input_variables",
+        [
+            np.array(["u10m", "v10m"]),
+            np.array(["t2m", "z1000", "sic"]),
+        ],
     )
-
-    out, out_coords = dx(x, coords)
-
-    assert out.shape == torch.Size(
-        [time.shape[0], lead_time.shape[0], out_coords["variable"].shape[0], 721, 1440]
+    @pytest.mark.parametrize(
+        "time,lead_time",
+        [
+            (
+                np.array(
+                    [datetime(2020, 1, 1, 6, 2, 3), datetime(1990, 5, 6, 7, 8, 9)]
+                ),
+                np.array([timedelta(0)]),
+            ),
+            (
+                np.array([datetime(2006, 12, 13, 12, 36)]),
+                np.array([timedelta(hours=6), timedelta(hours=12, minutes=5)]),
+            ),
+        ],
     )
-    assert np.all(out_coords["variable"] == dx.output_coords(coords)["variable"])
-    assert np.all(out_coords["time"] == time)
-    assert np.all(out_coords["lead_time"] == lead_time)
-    handshake_dim(out_coords, "lon", 4)
-    handshake_dim(out_coords, "lat", 3)
-    handshake_dim(out_coords, "variable", 2)
-    handshake_dim(out_coords, "lead_time", 1)
-    handshake_dim(out_coords, "time", 0)
-    assert not torch.isnan(out).any()
-    # Assert the provided fields the same (fairly close, theres still interpolation)
-    torch.allclose(out[:, :, dx.input_variable_idx], x, rtol=0.05)
+    @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+    def test_cbottle_infill(
+        self, input_variables, time, lead_time, device, mock_core_model, mock_sst_ds
+    ):
+        dx = CBottleInfill(mock_core_model, mock_sst_ds, input_variables).to(device)
+        dx.sampler_steps = 2  # Speed up sampler
 
+        x = torch.randn(
+            time.shape[0], lead_time.shape[0], input_variables.shape[0], 721, 1440
+        ).to(device)
+        coords = OrderedDict(
+            {
+                "time": time,
+                "lead_time": lead_time,
+                "variable": input_variables,
+                "lat": np.linspace(90, -90, 721),
+                "lon": np.linspace(0, 360, 1440, endpoint=False),
+            }
+        )
 
-@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
-def test_cbottle_infill_exceptions(device, mock_core_model, mock_sst_ds):
+        out, out_coords = dx(x, coords)
 
-    dx = CBottleInfill(mock_core_model, mock_sst_ds, ["t2m"]).to(device)
-    dx.sampler_steps = 2  # Speed up sampler
+        assert out.shape == torch.Size(
+            [
+                time.shape[0],
+                lead_time.shape[0],
+                out_coords["variable"].shape[0],
+                721,
+                1440,
+            ]
+        )
+        assert np.all(out_coords["variable"] == dx.output_coords(coords)["variable"])
+        assert np.all(out_coords["time"] == time)
+        assert np.all(out_coords["lead_time"] == lead_time)
+        handshake_dim(out_coords, "lon", 4)
+        handshake_dim(out_coords, "lat", 3)
+        handshake_dim(out_coords, "variable", 2)
+        handshake_dim(out_coords, "lead_time", 1)
+        handshake_dim(out_coords, "time", 0)
+        assert not torch.isnan(out).any()
+        # Assert the provided fields the same (fairly close, theres still interpolation)
+        torch.allclose(out[:, :, dx.input_variable_idx], x, rtol=0.05)
 
-    x = torch.randn(1).to(device)
-    wrong_coords = OrderedDict(
-        {
-            "batch": np.ones(x.shape[0]),
-            "time": dx.input_coords()["time"],
-            "lead_time": dx.input_coords()["lead_time"],
-            "wrong": dx.input_coords()["variable"],
-            "lat": dx.input_coords()["lat"],
-            "lon": dx.input_coords()["lon"],
-        }
-    )
+    @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+    def test_cbottle_infill_exceptions(self, device, mock_core_model, mock_sst_ds):
 
-    with pytest.raises((KeyError, ValueError)):
-        dx(x, wrong_coords)
+        dx = CBottleInfill(mock_core_model, mock_sst_ds, ["t2m"]).to(device)
+        dx.sampler_steps = 2  # Speed up sampler
 
-    wrong_coords = OrderedDict(
-        {
-            "batch": np.ones(x.shape[0]),
-            "time": dx.input_coords()["time"],
-            "variable": dx.input_coords()["variable"],
-            "lon": dx.input_coords()["lon"],
-            "lat": dx.input_coords()["lat"],
-        }
-    )
+        x = torch.randn(1).to(device)
+        wrong_coords = OrderedDict(
+            {
+                "batch": np.ones(x.shape[0]),
+                "time": dx.input_coords()["time"],
+                "lead_time": dx.input_coords()["lead_time"],
+                "wrong": dx.input_coords()["variable"],
+                "lat": dx.input_coords()["lat"],
+                "lon": dx.input_coords()["lon"],
+            }
+        )
 
-    with pytest.raises(ValueError):
-        dx(x, wrong_coords)
+        with pytest.raises((KeyError, ValueError)):
+            dx(x, wrong_coords)
 
-    wrong_coords = OrderedDict(
-        {
-            "batch": np.ones(x.shape[0]),
-            "time": dx.input_coords()["time"],
-            "lead_time": dx.input_coords()["lead_time"],
-            "variable": dx.input_coords()["variable"],
-            "lat": np.linspace(-90, 90, 720),
-            "lon": dx.input_coords()["lon"],
-        }
-    )
-    with pytest.raises(ValueError):
-        dx(x, wrong_coords)
+        wrong_coords = OrderedDict(
+            {
+                "batch": np.ones(x.shape[0]),
+                "time": dx.input_coords()["time"],
+                "variable": dx.input_coords()["variable"],
+                "lon": dx.input_coords()["lon"],
+                "lat": dx.input_coords()["lat"],
+            }
+        )
 
-
-@pytest.mark.parametrize(
-    "input_variables",
-    [
-        np.array(["u10m"]),
-        np.array(["sst", "z1000", "sic"]),
-        np.array(["v1000", "sst"]),
-    ],
-)
-@pytest.mark.parametrize("device", ["cuda:0"])
-def test_cbottle_infill_sst(input_variables, device, mock_core_model, mock_sst_ds):
-
-    dx = CBottleInfill(mock_core_model, mock_sst_ds, input_variables).to(device)
-    dx.sampler_steps = 2  # Speed up sampler
-
-    # With AMIP time range
-    time = np.array([datetime(2020, 1, 1, 1), datetime(2021, 1, 1, 1)])
-    lead_time = np.array([timedelta(hours=1)])
-
-    x = torch.randn(
-        1, time.shape[0], lead_time.shape[0], input_variables.shape[0], 721, 1440
-    ).to(device)
-    coords = OrderedDict(
-        {
-            "ensemble": np.array([1]),
-            "time": time,
-            "lead_time": lead_time,
-            "variable": input_variables,
-            "lat": np.linspace(90, -90, 721),
-            "lon": np.linspace(0, 360, 1440, endpoint=False),
-        }
-    )
-    out, out_coords = dx(x, coords)
-
-    # Outside of AMIP time range
-    coords["time"] = np.array([datetime(2023, 1, 1, 1), datetime(2002, 2, 2, 2)])
-
-    if "sst" in input_variables:
-        out, coords = dx(x, coords)
-    else:
         with pytest.raises(ValueError):
-            out, coords = dx(x, coords)
+            dx(x, wrong_coords)
 
+        wrong_coords = OrderedDict(
+            {
+                "batch": np.ones(x.shape[0]),
+                "time": dx.input_coords()["time"],
+                "lead_time": dx.input_coords()["lead_time"],
+                "variable": dx.input_coords()["variable"],
+                "lat": np.linspace(-90, 90, 720),
+                "lon": dx.input_coords()["lon"],
+            }
+        )
+        with pytest.raises(ValueError):
+            dx(x, wrong_coords)
 
-@pytest.mark.parametrize("device", ["cuda:0"])
-def test_cbottle_infill_invariant_inputs(device, mock_core_model, mock_sst_ds):
-    # Checks a few invariant inputs that should produce the same result
-    input_variables = np.array(["u10m", "v10m"])
-    dx = CBottleInfill(mock_core_model, mock_sst_ds, input_variables).to(device)
-    dx.sampler_steps = 2  # Speed up sampler
-
-    time = np.array([datetime(1995, 8, 2, 3, 12)])
-    lead_time = np.array([timedelta(hours=6)])
-
-    x = torch.randn(
-        1, time.shape[0], lead_time.shape[0], input_variables.shape[0], 721, 1440
-    ).to(device)
-    coords = OrderedDict(
-        {
-            "ensemble": np.array([1]),
-            "time": time,
-            "lead_time": lead_time,
-            "variable": input_variables,
-            "lat": np.linspace(90, -90, 721),
-            "lon": np.linspace(0, 360, 1440, endpoint=False),
-        }
+    @pytest.mark.parametrize(
+        "input_variables",
+        [
+            np.array(["u10m"]),
+            np.array(["sst", "z1000", "sic"]),
+            np.array(["v1000", "sst"]),
+        ],
     )
-    torch.manual_seed(0)
-    dx.set_seed(0)
-    out0, out_coords = dx(x, coords)
+    @pytest.mark.parametrize("device", ["cuda:0"])
+    def test_cbottle_infill_sst(
+        self, input_variables, device, mock_core_model, mock_sst_ds
+    ):
 
-    # Adjust time and lead time dim so data is at same timestamp
-    coords["time"] = np.array([datetime(1995, 8, 2, 9, 12)])
-    coords["lead_time"] = np.array([timedelta(hours=0)])
-    torch.manual_seed(0)
-    dx.set_seed(0)
-    out1, out_coords = dx(x, coords)
+        dx = CBottleInfill(mock_core_model, mock_sst_ds, input_variables).to(device)
+        dx.sampler_steps = 2  # Speed up sampler
 
-    # Permute variables
-    input_variables = np.array(["v10m", "u10m"])
-    dx = CBottleInfill(mock_core_model, mock_sst_ds, input_variables).to(device)
-    dx.sampler_steps = 2  # Speed up sampler
+        # With AMIP time range
+        time = np.array([datetime(2020, 1, 1, 1), datetime(2021, 1, 1, 1)])
+        lead_time = np.array([timedelta(hours=1)])
 
-    coords["variable"] = input_variables
-    x = torch.flip(x, dims=[-3])
-    torch.manual_seed(0)
-    dx.set_seed(0)
-    out2, out_coords = dx(x, coords)
+        x = torch.randn(
+            1, time.shape[0], lead_time.shape[0], input_variables.shape[0], 721, 1440
+        ).to(device)
+        coords = OrderedDict(
+            {
+                "ensemble": np.array([1]),
+                "time": time,
+                "lead_time": lead_time,
+                "variable": input_variables,
+                "lat": np.linspace(90, -90, 721),
+                "lon": np.linspace(0, 360, 1440, endpoint=False),
+            }
+        )
+        out, out_coords = dx(x, coords)
 
-    assert torch.allclose(out0, out1)
-    assert torch.allclose(out0, out2)
+        # Outside of AMIP time range
+        coords["time"] = np.array([datetime(2023, 1, 1, 1), datetime(2002, 2, 2, 2)])
+
+        if "sst" in input_variables:
+            out, coords = dx(x, coords)
+        else:
+            with pytest.raises(ValueError):
+                out, coords = dx(x, coords)
+
+    @pytest.mark.parametrize("device", ["cuda:0"])
+    def test_cbottle_infill_invariant_inputs(
+        self, device, mock_core_model, mock_sst_ds
+    ):
+        # Checks a few invariant inputs that should produce the same result
+        input_variables = np.array(["u10m", "v10m"])
+        dx = CBottleInfill(mock_core_model, mock_sst_ds, input_variables).to(device)
+        dx.sampler_steps = 2  # Speed up sampler
+
+        time = np.array([datetime(1995, 8, 2, 3, 12)])
+        lead_time = np.array([timedelta(hours=6)])
+
+        x = torch.randn(
+            1, time.shape[0], lead_time.shape[0], input_variables.shape[0], 721, 1440
+        ).to(device)
+        coords = OrderedDict(
+            {
+                "ensemble": np.array([1]),
+                "time": time,
+                "lead_time": lead_time,
+                "variable": input_variables,
+                "lat": np.linspace(90, -90, 721),
+                "lon": np.linspace(0, 360, 1440, endpoint=False),
+            }
+        )
+        torch.manual_seed(0)
+        dx.set_seed(0)
+        out0, out_coords = dx(x, coords)
+
+        # Adjust time and lead time dim so data is at same timestamp
+        coords["time"] = np.array([datetime(1995, 8, 2, 9, 12)])
+        coords["lead_time"] = np.array([timedelta(hours=0)])
+        torch.manual_seed(0)
+        dx.set_seed(0)
+        out1, out_coords = dx(x, coords)
+
+        # Permute variables
+        input_variables = np.array(["v10m", "u10m"])
+        dx = CBottleInfill(mock_core_model, mock_sst_ds, input_variables).to(device)
+        dx.sampler_steps = 2  # Speed up sampler
+
+        coords["variable"] = input_variables
+        x = torch.flip(x, dims=[-3])
+        torch.manual_seed(0)
+        dx.set_seed(0)
+        out2, out_coords = dx(x, coords)
+
+        assert torch.allclose(out0, out1)
+        assert torch.allclose(out0, out2)
 
 
 @pytest.mark.ci_cache
 @pytest.mark.slow
 @pytest.mark.timeout(30)
 @pytest.mark.parametrize("device", ["cuda:0"])
-def test_cbottle_infill_package(device, model_cache_context):
+def test_cbottle_package(device, model_cache_context):
     # Test the cached model package AFNO precip
     # Only cuda supported
     input_variables = np.array(["tpf"])
