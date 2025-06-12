@@ -667,7 +667,7 @@ class GFS_FX(GFS):
         )
 
         async_tasks = []
-        async_tasks = await self._create_tasks(time, [timedelta(hours=0)], variable)
+        async_tasks = await self._create_tasks(time, lead_time, variable)
         func_map = map(
             functools.partial(self.fetch_wrapper, xr_array=xr_array), async_tasks
         )

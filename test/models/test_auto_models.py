@@ -49,6 +49,7 @@ from earth2studio.models.px import (
     FCN,
     SFNO,
     Aurora,
+    DLESyM,
     FengWu,
     FuXi,
     GraphCastOperational,
@@ -57,6 +58,7 @@ from earth2studio.models.px import (
     Pangu3,
     Pangu6,
     Pangu24,
+    StormCast,
 )
 
 
@@ -65,12 +67,16 @@ from earth2studio.models.px import (
 @pytest.mark.parametrize(
     "model",
     [
+        AIFS,
         Aurora,
         CBottle3D,
+        DLESyM,
         DLWP,
         FCN,
         FengWu,
         FuXi,
+        GraphCastOperational,
+        GraphCastSmall,
         Pangu24,
         Pangu6,
         Pangu3,
@@ -85,9 +91,7 @@ from earth2studio.models.px import (
         PrecipitationAFNOv2,
         SolarRadiationAFNO1H,
         SolarRadiationAFNO6H,
-        AIFS,
-        GraphCastOperational,
-        GraphCastSmall,
+        StormCast,
     ],
 )
 def test_auto_model_download(model, model_cache_context):
