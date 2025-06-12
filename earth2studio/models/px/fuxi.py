@@ -294,7 +294,7 @@ class FuXi(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         )
         time_array = np.array(time_array[:, None] + time_deltas[None])
 
-        pd_array = [pd.Period(date, "H") for date in time_array.reshape(-1)]
+        pd_array = [pd.Period(date, "h") for date in time_array.reshape(-1)]
         hour_array = np.array([dt.hour / 24 for dt in pd_array]).reshape(-1, 3)
         day_array = np.array([dt.day_of_year / 366 for dt in pd_array]).reshape(-1, 3)
 
