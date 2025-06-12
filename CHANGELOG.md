@@ -19,11 +19,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added Climate in a Bottle (cBottle) Super Resolution diagnostic model
 - Added S2S recipe
 
+### Changed
+
+- In recipes, renamed `requirements.txt` -> `recipe-requirements.txt`
+
 ### Fixed
 
 - Fixed NCAR data source lat / lon labels and cache reads
 - Fixed FuXi tp06 field input to be mm
 - Fixed fsspec async filesystem initialization in data sources
+- Fixed bug in GFS_FX forecast source which had lead time fixed at 0
 
 ### Dependencies
 
