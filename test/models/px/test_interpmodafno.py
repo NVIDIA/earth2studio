@@ -240,7 +240,7 @@ def test_forecast_interpolation_exceptions(dc, device):
         model.input_coords()
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="function")
 def model(model_cache_context) -> InterpModAFNO:
 
     from earth2studio.models.px.interpmodafno import VARIABLES
