@@ -41,7 +41,7 @@ class PhooFengWuModel(torch.nn.Module):
         )
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="class")
 def fengwu_test_package(tmp_path_factory):
     """Creates a bunch of spoof ONNX models to unit test with"""
     tmp_path = tmp_path_factory.mktemp("data")
@@ -63,141 +63,141 @@ def fengwu_test_package(tmp_path_factory):
     return Package(str(tmp_path))
 
 
-@pytest.mark.parametrize(
-    "time",
-    [
-        np.array([np.datetime64("1993-04-05T00:00")]),
-        np.array(
-            [
-                np.datetime64("1999-10-11T12:00"),
-                np.datetime64("2001-06-04T00:00"),
-            ]
-        ),
-    ],
-)
-@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
-def test_fengwu_call(time, fengwu_test_package, device):
+class TestFengWuMock:
 
-    # Use dummy package
-    p = FengWu.load_model(fengwu_test_package).to(device)
-
-    dc = p.input_coords()
-    del dc["batch"]
-    del dc["lead_time"]
-    del dc["variable"]
-    # Initialize Data Source
-    r = Random(dc)
-
-    # Get Data and convert to tensor, coords
-    lead_time = p.input_coords()["lead_time"]
-    variable = p.input_coords()["variable"]
-    x, coords = fetch_data(r, time, variable, lead_time, device=device)
-
-    out, out_coords = p(x, coords)
-
-    if not isinstance(time, Iterable):
-        time = [time]
-
-    assert out.shape == torch.Size(
-        [len(time), 1, len(p.output_coords(coords)["variable"]), 721, 1440]
+    @pytest.mark.parametrize(
+        "time",
+        [
+            np.array([np.datetime64("1993-04-05T00:00")]),
+            np.array(
+                [
+                    np.datetime64("1999-10-11T12:00"),
+                    np.datetime64("2001-06-04T00:00"),
+                ]
+            ),
+        ],
     )
-    assert (out_coords["variable"] == p.output_coords(coords)["variable"]).all()
-    assert (out_coords["time"] == time).all()
-    assert torch.allclose(
-        out, (x[:, 1:] + 6)
-    )  # Phoo model should add by delta t each call
-    handshake_dim(out_coords, "lon", 4)
-    handshake_dim(out_coords, "lat", 3)
-    handshake_dim(out_coords, "variable", 2)
-    handshake_dim(out_coords, "lead_time", 1)
-    handshake_dim(out_coords, "time", 0)
+    @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+    def test_fengwu_call(time, fengwu_test_package, device):
 
-    torch.cuda.empty_cache()
+        # Use dummy package
+        p = FengWu.load_model(fengwu_test_package).to(device)
 
+        dc = p.input_coords()
+        del dc["batch"]
+        del dc["lead_time"]
+        del dc["variable"]
+        # Initialize Data Source
+        r = Random(dc)
 
-@pytest.mark.parametrize(
-    "ensemble",
-    [1, 2],
-)
-@pytest.mark.parametrize("device", ["cpu", "cuda"])
-def test_fengwu_iter(ensemble, fengwu_test_package, device):
-    time = np.array([np.datetime64("1993-04-05T00:00")])
-    # Use dummy package
-    p = FengWu.load_model(fengwu_test_package).to(device)
+        # Get Data and convert to tensor, coords
+        lead_time = p.input_coords()["lead_time"]
+        variable = p.input_coords()["variable"]
+        x, coords = fetch_data(r, time, variable, lead_time, device=device)
 
-    dc = p.input_coords()
-    del dc["batch"]
-    del dc["lead_time"]
-    del dc["variable"]
-    # Initialize Data Source
-    r = Random(dc)
+        out, out_coords = p(x, coords)
 
-    # Get Data and convert to tensor, coords
-    lead_time = p.input_coords()["lead_time"]
-    variable = p.input_coords()["variable"]
-    x, coords = fetch_data(r, time, variable, lead_time, device=device)
+        if not isinstance(time, Iterable):
+            time = [time]
 
-    # Add ensemble to front
-    x = x.unsqueeze(0).repeat(ensemble, 1, 1, 1, 1, 1)
-    coords.update({"ensemble": np.arange(ensemble)})
-    coords.move_to_end("ensemble", last=False)
-
-    p_iter = p.create_iterator(x, coords)
-
-    if not isinstance(time, Iterable):
-        time = [time]
-
-    # Get generator
-    out, out_coords = next(p_iter)  # Skip first which should return the input
-    assert torch.allclose(out, x[:, 1:])
-    for i, (out, out_coords) in enumerate(p_iter):
-        assert len(out.shape) == 6
-        assert out.shape[0] == ensemble
-        assert (
-            out_coords["variable"] == p.output_coords(p.input_coords())["variable"]
-        ).all()
-        assert out_coords["lead_time"][0] == np.timedelta64(6 * (i + 1), "h")
+        assert out.shape == torch.Size(
+            [len(time), 1, len(p.output_coords(coords)["variable"]), 721, 1440]
+        )
+        assert (out_coords["variable"] == p.output_coords(coords)["variable"]).all()
+        assert (out_coords["time"] == time).all()
         assert torch.allclose(
-            out, (x[:, 1:] + (i + 1) * 6)
+            out, (x[:, 1:] + 6)
         )  # Phoo model should add by delta t each call
-        handshake_dim(out_coords, "lon", 5)
-        handshake_dim(out_coords, "lat", 4)
-        handshake_dim(out_coords, "variable", 3)
-        handshake_dim(out_coords, "lead_time", 2)
-        handshake_dim(out_coords, "time", 1)
-        handshake_dim(out_coords, "ensemble", 0)
+        handshake_dim(out_coords, "lon", 4)
+        handshake_dim(out_coords, "lat", 3)
+        handshake_dim(out_coords, "variable", 2)
+        handshake_dim(out_coords, "lead_time", 1)
+        handshake_dim(out_coords, "time", 0)
 
-        if i > 3:
-            break
+        torch.cuda.empty_cache()
 
-    torch.cuda.empty_cache()
+    @pytest.mark.parametrize(
+        "ensemble",
+        [1, 2],
+    )
+    @pytest.mark.parametrize("device", ["cpu", "cuda"])
+    def test_fengwu_iter(ensemble, fengwu_test_package, device):
+        time = np.array([np.datetime64("1993-04-05T00:00")])
+        # Use dummy package
+        p = FengWu.load_model(fengwu_test_package).to(device)
 
+        dc = p.input_coords()
+        del dc["batch"]
+        del dc["lead_time"]
+        del dc["variable"]
+        # Initialize Data Source
+        r = Random(dc)
 
-@pytest.mark.parametrize(
-    "dc",
-    [
-        OrderedDict({"lat": np.random.randn(720)}),
-        OrderedDict({"lat": np.random.randn(720), "phoo": np.random.randn(1440)}),
-        OrderedDict({"lat": np.random.randn(720), "lon": np.random.randn(1)}),
-    ],
-)
-@pytest.mark.parametrize("device", ["cuda:0"])
-def test_fengwu_exceptions(dc, fengwu_test_package, device):
-    # Test invalid coordinates error
-    time = np.array([np.datetime64("1993-04-05T00:00")])
-    # Use dummy package
-    p = FengWu.load_model(fengwu_test_package).to(device)
+        # Get Data and convert to tensor, coords
+        lead_time = p.input_coords()["lead_time"]
+        variable = p.input_coords()["variable"]
+        x, coords = fetch_data(r, time, variable, lead_time, device=device)
 
-    # Initialize Data Source
-    r = Random(dc)
+        # Add ensemble to front
+        x = x.unsqueeze(0).repeat(ensemble, 1, 1, 1, 1, 1)
+        coords.update({"ensemble": np.arange(ensemble)})
+        coords.move_to_end("ensemble", last=False)
 
-    # Get Data and convert to tensor, coords
-    lead_time = p.input_coords()["lead_time"]
-    variable = p.input_coords()["variable"]
-    x, coords = fetch_data(r, time, variable, lead_time, device=device)
+        p_iter = p.create_iterator(x, coords)
 
-    with pytest.raises((KeyError, ValueError, RuntimeError)):
-        p(x, coords)
+        if not isinstance(time, Iterable):
+            time = [time]
+
+        # Get generator
+        out, out_coords = next(p_iter)  # Skip first which should return the input
+        assert torch.allclose(out, x[:, 1:])
+        for i, (out, out_coords) in enumerate(p_iter):
+            assert len(out.shape) == 6
+            assert out.shape[0] == ensemble
+            assert (
+                out_coords["variable"] == p.output_coords(p.input_coords())["variable"]
+            ).all()
+            assert out_coords["lead_time"][0] == np.timedelta64(6 * (i + 1), "h")
+            assert torch.allclose(
+                out, (x[:, 1:] + (i + 1) * 6)
+            )  # Phoo model should add by delta t each call
+            handshake_dim(out_coords, "lon", 5)
+            handshake_dim(out_coords, "lat", 4)
+            handshake_dim(out_coords, "variable", 3)
+            handshake_dim(out_coords, "lead_time", 2)
+            handshake_dim(out_coords, "time", 1)
+            handshake_dim(out_coords, "ensemble", 0)
+
+            if i > 3:
+                break
+
+        torch.cuda.empty_cache()
+
+    @pytest.mark.parametrize(
+        "dc",
+        [
+            OrderedDict({"lat": np.random.randn(720)}),
+            OrderedDict({"lat": np.random.randn(720), "phoo": np.random.randn(1440)}),
+            OrderedDict({"lat": np.random.randn(720), "lon": np.random.randn(1)}),
+        ],
+    )
+    @pytest.mark.parametrize("device", ["cuda:0"])
+    def test_fengwu_exceptions(dc, fengwu_test_package, device):
+        # Test invalid coordinates error
+        time = np.array([np.datetime64("1993-04-05T00:00")])
+        # Use dummy package
+        p = FengWu.load_model(fengwu_test_package).to(device)
+
+        # Initialize Data Source
+        r = Random(dc)
+
+        # Get Data and convert to tensor, coords
+        lead_time = p.input_coords()["lead_time"]
+        variable = p.input_coords()["variable"]
+        x, coords = fetch_data(r, time, variable, lead_time, device=device)
+
+        with pytest.raises((KeyError, ValueError, RuntimeError)):
+            p(x, coords)
 
 
 @pytest.mark.ci_cache

@@ -53,7 +53,7 @@ class PhooFuXiModel(torch.nn.Module):
         return output
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="class")
 def fuxi_test_package(tmp_path_factory):
     """Creates a bunch of spoof ONNX models to unit test with"""
     tmp_path = tmp_path_factory.mktemp("data")
@@ -75,173 +75,178 @@ def fuxi_test_package(tmp_path_factory):
     return Package(str(tmp_path))
 
 
-@pytest.mark.parametrize(
-    "time",
-    [
-        np.array([np.datetime64("1993-04-05T00:00")]),
-        np.array(
-            [
-                np.datetime64("1999-10-11T12:00"),
-                np.datetime64("2001-06-04T00:00"),
-            ]
-        ),
-    ],
-)
-@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
-def test_fuxi_call(time, fuxi_test_package, device):
-
-    # Use dummy package
-    p = FuXi.load_model(fuxi_test_package).to(device)
-
-    dc = p.input_coords()
-    del dc["batch"]
-    del dc["time"]
-    del dc["lead_time"]
-    del dc["variable"]
-    # Initialize Data Source
-    r = Random(dc)
-
-    # Get Data and convert to tensor, coords
-    lead_time = p.input_coords()["lead_time"]
-    variable = p.input_coords()["variable"]
-    x, coords = fetch_data(r, time, variable, lead_time, device=device)
-
-    out, out_coords = p(x, coords)
-
-    if not isinstance(time, Iterable):
-        time = [time]
-
-    assert out.shape == torch.Size(
-        [len(time), 1, len(p.output_coords(p.input_coords())["variable"]), 721, 1440]
+class TestFuXiMock:
+    @pytest.mark.parametrize(
+        "time",
+        [
+            np.array([np.datetime64("1993-04-05T00:00")]),
+            np.array(
+                [
+                    np.datetime64("1999-10-11T12:00"),
+                    np.datetime64("2001-06-04T00:00"),
+                ]
+            ),
+        ],
     )
-    assert (out_coords["variable"] == p.output_coords(coords)["variable"]).all()
-    assert (out_coords["time"] == time).all()
-    assert torch.allclose(
-        out[:, :, :-1],
-        (x[:, 1:, :-1] + 1),  # Ignore last field with is tp b/c mm conversion
-    )  # Phoo model should add by delta t each call
-    handshake_dim(out_coords, "lon", 4)
-    handshake_dim(out_coords, "lat", 3)
-    handshake_dim(out_coords, "variable", 2)
-    handshake_dim(out_coords, "lead_time", 1)
-    handshake_dim(out_coords, "time", 0)
+    @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+    def test_fuxi_call(time, fuxi_test_package, device):
 
+        # Use dummy package
+        p = FuXi.load_model(fuxi_test_package).to(device)
 
-@pytest.mark.parametrize(
-    "ensemble",
-    [2],
-)
-@pytest.mark.parametrize("device", ["cpu", "cuda"])
-def test_fuxi_iter(ensemble, fuxi_test_package, device):
-    time = np.array([np.datetime64("1993-04-05T00:00")])
-    # Use dummy package
-    p = FuXi.load_model(fuxi_test_package).to(device)
+        dc = p.input_coords()
+        del dc["batch"]
+        del dc["time"]
+        del dc["lead_time"]
+        del dc["variable"]
+        # Initialize Data Source
+        r = Random(dc)
 
-    dc = p.input_coords()
-    del dc["batch"]
-    del dc["time"]
-    del dc["lead_time"]
-    del dc["variable"]
-    # Initialize Data Source
-    r = Random(dc)
+        # Get Data and convert to tensor, coords
+        lead_time = p.input_coords()["lead_time"]
+        variable = p.input_coords()["variable"]
+        x, coords = fetch_data(r, time, variable, lead_time, device=device)
 
-    # Get Data and convert to tensor, coords
-    lead_time = p.input_coords()["lead_time"]
-    variable = p.input_coords()["variable"]
-    x, coords = fetch_data(r, time, variable, lead_time, device=device)
+        out, out_coords = p(x, coords)
 
-    # Add ensemble to front
-    x = x.unsqueeze(0).repeat(ensemble, 1, 1, 1, 1, 1)
-    coords.update({"ensemble": np.arange(ensemble)})
-    coords.move_to_end("ensemble", last=False)
+        if not isinstance(time, Iterable):
+            time = [time]
 
-    p_iter = p.create_iterator(x, coords)
+        assert out.shape == torch.Size(
+            [
+                len(time),
+                1,
+                len(p.output_coords(p.input_coords())["variable"]),
+                721,
+                1440,
+            ]
+        )
+        assert (out_coords["variable"] == p.output_coords(coords)["variable"]).all()
+        assert (out_coords["time"] == time).all()
+        assert torch.allclose(
+            out[:, :, :-1],
+            (x[:, 1:, :-1] + 1),  # Ignore last field with is tp b/c mm conversion
+        )  # Phoo model should add by delta t each call
+        handshake_dim(out_coords, "lon", 4)
+        handshake_dim(out_coords, "lat", 3)
+        handshake_dim(out_coords, "variable", 2)
+        handshake_dim(out_coords, "lead_time", 1)
+        handshake_dim(out_coords, "time", 0)
 
-    if not isinstance(time, Iterable):
-        time = [time]
+    @pytest.mark.parametrize(
+        "ensemble",
+        [2],
+    )
+    @pytest.mark.parametrize("device", ["cpu", "cuda"])
+    def test_fuxi_iter(ensemble, fuxi_test_package, device):
+        time = np.array([np.datetime64("1993-04-05T00:00")])
+        # Use dummy package
+        p = FuXi.load_model(fuxi_test_package).to(device)
 
-    # Get generator
-    out, out_coords = next(p_iter)  # Skip first which should return the input
-    assert torch.allclose(
-        out[:, :, :-1], x[:, 1:, :-1]
-    )  # Ignore last field with is tp b/c mm conversion
+        dc = p.input_coords()
+        del dc["batch"]
+        del dc["time"]
+        del dc["lead_time"]
+        del dc["variable"]
+        # Initialize Data Source
+        r = Random(dc)
 
-    step_index = 0
-    for i, (out, out_coords) in enumerate(p_iter):
-        # Test the model cascade
-        if i < 20:
-            step_index += 1
-        elif i < 40:
-            step_index += 2
-        else:
-            step_index += 3
+        # Get Data and convert to tensor, coords
+        lead_time = p.input_coords()["lead_time"]
+        variable = p.input_coords()["variable"]
+        x, coords = fetch_data(r, time, variable, lead_time, device=device)
 
-        assert len(out.shape) == 6
-        assert out.shape[0] == ensemble
+        # Add ensemble to front
+        x = x.unsqueeze(0).repeat(ensemble, 1, 1, 1, 1, 1)
+        coords.update({"ensemble": np.arange(ensemble)})
+        coords.move_to_end("ensemble", last=False)
+
+        p_iter = p.create_iterator(x, coords)
+
+        if not isinstance(time, Iterable):
+            time = [time]
+
+        # Get generator
+        out, out_coords = next(p_iter)  # Skip first which should return the input
+        assert torch.allclose(
+            out[:, :, :-1], x[:, 1:, :-1]
+        )  # Ignore last field with is tp b/c mm conversion
+
+        step_index = 0
+        for i, (out, out_coords) in enumerate(p_iter):
+            # Test the model cascade
+            if i < 20:
+                step_index += 1
+            elif i < 40:
+                step_index += 2
+            else:
+                step_index += 3
+
+            assert len(out.shape) == 6
+            assert out.shape[0] == ensemble
+            assert (
+                out_coords["variable"] == p.output_coords(p.input_coords())["variable"]
+            ).all()
+            assert (out_coords["time"] == time).all()
+            assert out_coords["lead_time"][0] == np.timedelta64(6 * (i + 1), "h")
+            assert torch.allclose(
+                out[:, :, :-1], (x[:, 1:, :-1] + step_index)
+            )  # Phoo model should add by delta t each call
+            handshake_dim(out_coords, "lon", 5)
+            handshake_dim(out_coords, "lat", 4)
+            handshake_dim(out_coords, "variable", 3)
+            handshake_dim(out_coords, "lead_time", 2)
+            handshake_dim(out_coords, "time", 1)
+            handshake_dim(out_coords, "ensemble", 0)
+
+            if i > 41:  # Long test because of model cascade
+                break
+
+        # Test forward pass reloads short model
+        out, out_coords = p(x, coords)
+        assert out.shape == torch.Size(
+            [
+                ensemble,
+                len(time),
+                1,
+                len(p.output_coords(p.input_coords())["variable"]),
+                721,
+                1440,
+            ]
+        )
         assert (
             out_coords["variable"] == p.output_coords(p.input_coords())["variable"]
         ).all()
-        assert (out_coords["time"] == time).all()
-        assert out_coords["lead_time"][0] == np.timedelta64(6 * (i + 1), "h")
         assert torch.allclose(
-            out[:, :, :-1], (x[:, 1:, :-1] + step_index)
+            out[:, :, :-1],
+            (x[:, 1:, :-1] + 1),  # Ignore last field with is tp b/c mm conversion
         )  # Phoo model should add by delta t each call
-        handshake_dim(out_coords, "lon", 5)
-        handshake_dim(out_coords, "lat", 4)
-        handshake_dim(out_coords, "variable", 3)
-        handshake_dim(out_coords, "lead_time", 2)
-        handshake_dim(out_coords, "time", 1)
-        handshake_dim(out_coords, "ensemble", 0)
 
-        if i > 41:  # Long test because of model cascade
-            break
-
-    # Test forward pass reloads short model
-    out, out_coords = p(x, coords)
-    assert out.shape == torch.Size(
+    @pytest.mark.parametrize(
+        "dc",
         [
-            ensemble,
-            len(time),
-            1,
-            len(p.output_coords(p.input_coords())["variable"]),
-            721,
-            1440,
-        ]
+            OrderedDict({"lat": np.random.randn(721)}),
+            OrderedDict({"lat": np.random.randn(721), "phoo": np.random.randn(1440)}),
+            OrderedDict({"lat": np.random.randn(721), "lon": np.random.randn(1)}),
+        ],
     )
-    assert (
-        out_coords["variable"] == p.output_coords(p.input_coords())["variable"]
-    ).all()
-    assert torch.allclose(
-        out[:, :, :-1],
-        (x[:, 1:, :-1] + 1),  # Ignore last field with is tp b/c mm conversion
-    )  # Phoo model should add by delta t each call
+    @pytest.mark.parametrize("device", ["cuda:0"])
+    def test_fuxi_exceptions(dc, fuxi_test_package, device):
+        # Test invalid coordinates error
+        time = np.array([np.datetime64("1993-04-05T00:00")])
+        # Use dummy package
+        p = FuXi.load_model(fuxi_test_package).to(device)
 
+        # Initialize Data Source
+        r = Random(dc)
 
-@pytest.mark.parametrize(
-    "dc",
-    [
-        OrderedDict({"lat": np.random.randn(721)}),
-        OrderedDict({"lat": np.random.randn(721), "phoo": np.random.randn(1440)}),
-        OrderedDict({"lat": np.random.randn(721), "lon": np.random.randn(1)}),
-    ],
-)
-@pytest.mark.parametrize("device", ["cuda:0"])
-def test_fuxi_exceptions(dc, fuxi_test_package, device):
-    # Test invalid coordinates error
-    time = np.array([np.datetime64("1993-04-05T00:00")])
-    # Use dummy package
-    p = FuXi.load_model(fuxi_test_package).to(device)
+        # Get Data and convert to tensor, coords
+        lead_time = p.input_coords()["lead_time"]
+        variable = p.input_coords()["variable"]
+        x, coords = fetch_data(r, time, variable, lead_time, device=device)
 
-    # Initialize Data Source
-    r = Random(dc)
-
-    # Get Data and convert to tensor, coords
-    lead_time = p.input_coords()["lead_time"]
-    variable = p.input_coords()["variable"]
-    x, coords = fetch_data(r, time, variable, lead_time, device=device)
-
-    with pytest.raises((KeyError, ValueError)):
-        p(x, coords)
+        with pytest.raises((KeyError, ValueError)):
+            p(x, coords)
 
 
 @pytest.mark.ci_cache
