@@ -138,6 +138,8 @@ class SFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         Model scale normalization tensor
     variables : np.array, optional
         Variables associated with model, by default 73 variable model.
+    sza_fixed : bool, optional
+            If True, the SZA is fixed to the first four timesteps to enable rollouts without seasonal cycle, by default False
     """
 
     def __init__(
@@ -146,12 +148,14 @@ class SFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         center: torch.Tensor,
         scale: torch.Tensor,
         variables: np.array = np.array(VARIABLES),
+        sza_fixed: bool = False,
     ):
         super().__init__()
         self.model = core_model
         self.register_buffer("center", center)
         self.register_buffer("scale", scale)
         self.variables = variables
+        self.sza_fixed = sza_fixed
         if "2d" in self.variables:
             self.variables[self.variables == "2d"] = "d2m"
 
@@ -233,7 +237,10 @@ class SFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     @classmethod
     @check_extra_imports("sfno", [load_model_package])
     def load_model(
-        cls, package: Package, variables: list = VARIABLES
+        cls,
+        package: Package,
+        variables: list = VARIABLES,
+        sza_fixed: bool = False,
     ) -> PrognosticModel:
         """Load prognostic from package
 
@@ -243,7 +250,8 @@ class SFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             Package to load model from
         variables : list, optional
             Model variable override, by default VARIABLES for SFNO 73 channel
-
+        sza_fixed : bool, optional
+            If True, the SZA is fixed to the first four timesteps to enable rollouts without seasonal cycle, by default False
         Returns
         -------
         PrognosticModel
@@ -265,7 +273,11 @@ class SFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             :, : len(variables)
         ]
         return cls(
-            model, center=local_center, scale=local_std, variables=np.array(variables)
+            model,
+            center=local_center,
+            scale=local_std,
+            variables=np.array(variables),
+            sza_fixed=sza_fixed,
         )
 
     @torch.inference_mode()
@@ -281,9 +293,19 @@ class SFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             for i, t in enumerate(coords["time"]):
                 # https://github.com/NVIDIA/modulus-makani/blob/933b17d5a1ebfdb0e16e2ebbd7ee78cfccfda9e1/makani/third_party/climt/zenith_angle.py#L197
                 # Requires time zone data
+                if self.sza_fixed:
+                    # convert lead timedelta to float in order to calculate modulo with 24 hours
+                    # this is needed because the lead time is a timedelta64[ns] and the modulo operator is not defined for this type
+                    # the first four sza fields are reused for the following timesteps
+                    lt = [
+                        np.timedelta64(int(int(lt_part) % (24 * 3600 * 1e9)))
+                        for lt_part in coords["lead_time"]
+                    ]
+                else:
+                    lt = coords["lead_time"]
                 t = [
                     dt.replace(tzinfo=ZoneInfo("UTC"))
-                    for dt in timearray_to_datetime(t + coords["lead_time"])
+                    for dt in timearray_to_datetime(t + lt)
                 ]
                 x[j, i : i + 1] = self.model(x[j, i : i + 1], t)
         x = self.scale * x + self.center
