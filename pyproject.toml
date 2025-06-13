@@ -154,7 +154,7 @@ corrdiff = [
     "scipy>=1.15.2",
 ]
 cyclone = [
-    "cucim-cu12>=25.4.0 ; python_full_version < '3.13'",
+    "cucim-cu12>=25.4.0",
     "scikit-image>=0.25.2",
 ]
 derived = []
@@ -217,7 +217,6 @@ default-groups = ["dev", "build"]
 # Needed for some packages that build with PEP 518
 no-build-isolation-package = ["earth2grid", "flash-attn"]
 override-dependencies = []
-managed = true
 
 [tool.uv.sources]
 cbottle = { git = "https://github.com/NVlabs/cBottle.git", rev = "0b8c6787053dc80f14fbb68a54d6815749c9d0e9" }

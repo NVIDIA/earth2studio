@@ -30,9 +30,7 @@ class PhooCorrDiff(torch.nn.Module):
     sigma_min = 0
     sigma_max = float("inf")
 
-    def forward(
-        self, x, img_lr, sigma, class_labels=None, force_fp32=False, **model_kwargs
-    ):
+    def forward(self, x, img_lr, class_labels=None, force_fp32=False, **model_kwargs):
         return x[:, :4]
 
     def round_sigma(self, sigma):
@@ -169,7 +167,6 @@ def test_corrdiff_exceptions(x, device):
         dx(x, wrong_coords)
 
 
-@pytest.mark.xfail  # TODO: REMOVE
 @pytest.mark.ci_cache
 @pytest.mark.timeout(30)
 @pytest.mark.parametrize("device", ["cuda:0"])

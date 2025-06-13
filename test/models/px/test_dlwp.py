@@ -238,7 +238,7 @@ def test_dlwp_exceptions(dc, dlwp_phoo_cs_transform, device):
         p(x, coords)
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="function")
 def model(model_cache_context) -> DLWP:
     # Test only on cuda device
     with model_cache_context():

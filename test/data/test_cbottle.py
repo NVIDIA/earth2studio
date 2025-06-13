@@ -30,7 +30,7 @@ except ImportError:
 from earth2studio.data import CBottle3D
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="class")
 def mock_core_model() -> torch.nn.Module:
     # Real model checkpoint has
     # {"model_channels": 192, "label_dim": 1024, "out_channels": 45, "condition_channels": 1}
@@ -43,7 +43,7 @@ def mock_core_model() -> torch.nn.Module:
     return cbottle.models.get_model(model_config)
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="class")
 def mock_sst_ds() -> torch.nn.Module:
     times = [np.datetime64("1870-01-16T12:00:00"), np.datetime64("2022-12-16T12:00:00")]
     lats = np.arange(-89.5, 90, 1.0)
@@ -60,115 +60,118 @@ def mock_sst_ds() -> torch.nn.Module:
     )
 
 
-@pytest.mark.parametrize(
-    "time",
-    [
-        datetime.datetime(year=1959, month=1, day=31),
-        [
-            datetime.datetime(year=1971, month=6, day=1, hour=6),
-            datetime.datetime(year=2021, month=11, day=23, hour=12),
-        ],
-        np.array([np.datetime64("1993-04-05T00:00")]),
-    ],
-)
-@pytest.mark.parametrize("variable", ["tcwv", ["u500", "u200"]])
-def test_cbottle_fetch(time, variable, mock_core_model, mock_sst_ds):
-
-    device = "cuda" if torch.cuda.is_available() else "cpu"
-    ds = CBottle3D(mock_core_model, mock_sst_ds).to(device)
-    ds.sampler_steps = 4  # Speed up sampler
-    data = ds(time, variable)
-    shape = data.shape
-
-    if isinstance(variable, str):
-        variable = [variable]
-
-    if isinstance(time, datetime.datetime):
-        time = [time]
-
-    assert shape[0] == len(time)
-    assert shape[1] == len(variable)
-    assert shape[2] == 721
-    assert shape[3] == 1440
-    assert np.array_equal(data.coords["variable"].values, np.array(variable))
-    assert not np.isnan(data.values).any()
-
-
-@pytest.mark.parametrize(
-    "time",
-    [
-        [
-            datetime.datetime(year=1971, month=6, day=1, hour=6),
-            datetime.datetime(year=2021, month=11, day=23, hour=12),
-            datetime.datetime(year=1971, month=6, day=1, hour=6),
-            datetime.datetime(year=2021, month=11, day=23, hour=12),
-        ],
-    ],
-)
-@pytest.mark.parametrize("variable", [["sst", "sic", "t700"]])
-@pytest.mark.parametrize("batch_size", [4, 2, 1])
-def test_cbottle_batches(time, variable, batch_size, mock_core_model, mock_sst_ds):
-    device = "cuda" if torch.cuda.is_available() else "cpu"
-    ds = CBottle3D(mock_core_model, mock_sst_ds, batch_size=batch_size).to(device)
-    ds.sampler_steps = 4  # Speed up sampler
-    data = ds(time, variable)
-    shape = data.shape
-
-    if isinstance(variable, str):
-        variable = [variable]
-
-    if isinstance(time, datetime.datetime):
-        time = [time]
-
-    assert shape[0] == len(time)
-    assert shape[1] == len(variable)
-    assert shape[2] == 721
-    assert shape[3] == 1440
-    assert np.array_equal(data.coords["variable"].values, np.array(variable))
-    assert not np.isnan(data.values).any()
-
-
-@pytest.mark.parametrize(
-    "time",
-    [
+class TestCBottleMock:
+    @pytest.mark.parametrize(
+        "time",
         [
             datetime.datetime(year=1959, month=1, day=31),
-            datetime.datetime(year=1971, month=6, day=1, hour=6),
-        ]
-    ],
-)
-@pytest.mark.parametrize("variable", [["v10m"], ["rlut", "tpf"]])
-def test_cbottle_hpx(time, variable, mock_core_model, mock_sst_ds):
-    device = "cuda" if torch.cuda.is_available() else "cpu"
-    ds = CBottle3D(mock_core_model, mock_sst_ds, lat_lon=False, seed=1).to(device)
-    ds.sampler_steps = 4  # Speed up sampler
-    data_hpx = ds(time, variable)
-    shape = data_hpx.shape
-
-    assert shape[0] == len(time)
-    assert shape[1] == len(variable)
-
-    ds = CBottle3D(mock_core_model, mock_sst_ds, lat_lon=True, seed=1).to(device)
-    ds.sampler_steps = 4  # Speed up sampler
-    data_latlon = ds(time, variable)
-    shape = data_latlon.shape
-
-    assert shape[0] == len(time)
-    assert shape[1] == len(variable)
-    assert shape[2] == 721
-    assert shape[3] == 1440
-
-    # Manually regrid the hpx
-    nlat, nlon = 721, 1440
-    latlon_grid = earth2grid.latlon.equiangular_lat_lon_grid(
-        nlat, nlon, includes_south_pole=True
+            [
+                datetime.datetime(year=1971, month=6, day=1, hour=6),
+                datetime.datetime(year=2021, month=11, day=23, hour=12),
+            ],
+            np.array([np.datetime64("1993-04-05T00:00")]),
+        ],
     )
-    regridder = earth2grid.get_regridder(mock_core_model.domain._grid, latlon_grid).to(
-        device
+    @pytest.mark.parametrize("variable", ["tcwv", ["u500", "u200"]])
+    def test_cbottle_fetch(self, time, variable, mock_core_model, mock_sst_ds):
+
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        ds = CBottle3D(mock_core_model, mock_sst_ds).to(device)
+        ds.sampler_steps = 4  # Speed up sampler
+        data = ds(time, variable)
+        shape = data.shape
+
+        if isinstance(variable, str):
+            variable = [variable]
+
+        if isinstance(time, datetime.datetime):
+            time = [time]
+
+        assert shape[0] == len(time)
+        assert shape[1] == len(variable)
+        assert shape[2] == 721
+        assert shape[3] == 1440
+        assert np.array_equal(data.coords["variable"].values, np.array(variable))
+        assert not np.isnan(data.values).any()
+
+    @pytest.mark.parametrize(
+        "time",
+        [
+            [
+                datetime.datetime(year=1971, month=6, day=1, hour=6),
+                datetime.datetime(year=2021, month=11, day=23, hour=12),
+                datetime.datetime(year=1971, month=6, day=1, hour=6),
+                datetime.datetime(year=2021, month=11, day=23, hour=12),
+            ],
+        ],
     )
-    field_regridded = regridder(torch.tensor(data_hpx.values, device=device)).squeeze(2)
-    # Check both grids from the same seed are the same
-    assert np.allclose(data_latlon.values, field_regridded.cpu().numpy())
+    @pytest.mark.parametrize("variable", [["sst", "sic", "t700"]])
+    @pytest.mark.parametrize("batch_size", [4, 2, 1])
+    def test_cbottle_batches(
+        self, time, variable, batch_size, mock_core_model, mock_sst_ds
+    ):
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        ds = CBottle3D(mock_core_model, mock_sst_ds, batch_size=batch_size).to(device)
+        ds.sampler_steps = 4  # Speed up sampler
+        data = ds(time, variable)
+        shape = data.shape
+
+        if isinstance(variable, str):
+            variable = [variable]
+
+        if isinstance(time, datetime.datetime):
+            time = [time]
+
+        assert shape[0] == len(time)
+        assert shape[1] == len(variable)
+        assert shape[2] == 721
+        assert shape[3] == 1440
+        assert np.array_equal(data.coords["variable"].values, np.array(variable))
+        assert not np.isnan(data.values).any()
+
+    @pytest.mark.parametrize(
+        "time",
+        [
+            [
+                datetime.datetime(year=1959, month=1, day=31),
+                datetime.datetime(year=1971, month=6, day=1, hour=6),
+            ]
+        ],
+    )
+    @pytest.mark.parametrize("variable", [["v10m"], ["rlut", "tpf"]])
+    def test_cbottle_hpx(self, time, variable, mock_core_model, mock_sst_ds):
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        ds = CBottle3D(mock_core_model, mock_sst_ds, lat_lon=False, seed=1).to(device)
+        ds.sampler_steps = 4  # Speed up sampler
+        data_hpx = ds(time, variable)
+        shape = data_hpx.shape
+
+        assert shape[0] == len(time)
+        assert shape[1] == len(variable)
+
+        ds = CBottle3D(mock_core_model, mock_sst_ds, lat_lon=True, seed=1).to(device)
+        ds.sampler_steps = 4  # Speed up sampler
+        data_latlon = ds(time, variable)
+        shape = data_latlon.shape
+
+        assert shape[0] == len(time)
+        assert shape[1] == len(variable)
+        assert shape[2] == 721
+        assert shape[3] == 1440
+
+        # Manually regrid the hpx
+        nlat, nlon = 721, 1440
+        latlon_grid = earth2grid.latlon.equiangular_lat_lon_grid(
+            nlat, nlon, includes_south_pole=True
+        )
+        regridder = earth2grid.get_regridder(
+            mock_core_model.domain._grid, latlon_grid
+        ).to(device)
+        field_regridded = regridder(
+            torch.tensor(data_hpx.values, device=device)
+        ).squeeze(2)
+        # Check both grids from the same seed are the same
+        assert np.allclose(data_latlon.values, field_regridded.cpu().numpy())
 
 
 @pytest.mark.slow
@@ -177,7 +180,7 @@ def test_cbottle_hpx(time, variable, mock_core_model, mock_sst_ds):
 @pytest.mark.parametrize("time", [datetime.datetime(year=2000, month=12, day=31)])
 @pytest.mark.parametrize("variable", [["sic", "u10m", "t2m"]])
 @pytest.mark.parametrize("device", ["cuda:0"])
-def test_cbottle_package_fetch(time, variable, device, model_cache_context):
+def test_cbottle_package(time, variable, device, model_cache_context):
     # Test the cached model package
     with model_cache_context():
         package = CBottle3D.load_default_package()

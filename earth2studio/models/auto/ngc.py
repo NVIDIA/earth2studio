@@ -18,8 +18,13 @@ import http.client
 import os
 import re
 import urllib.parse
+import warnings
 from typing import Any
 
+# Silence warning from ngcbase pkg_resources use
+warnings.simplefilter("ignore", UserWarning)
+
+# ruff: noqa: E402
 import aiohttp
 from fsspec.asyn import sync_wrapper
 from fsspec.callbacks import DEFAULT_CALLBACK

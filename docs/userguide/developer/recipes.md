@@ -56,7 +56,7 @@ recipes/
     |- test.py # Test files
     main.py # Main interaction script
     README.md # Recipe documentation
-    requirements.txt # Exported requirements
+    recipe-requirements.txt # Exported requirements
     pyproject.toml # Project configuration
 ```
 
@@ -128,8 +128,8 @@ For example:
 uv sync
 uv add cartopy
 
-# Update the requirements.txt
-uv export --format requirements-txt --no-hashes >> requirements.txt
+# Update the recipe-requirements.txt
+uv export --format requirements-txt --no-hashes >> recipe-requirements.txt
 ```
 
 Because recipes are more extensive, expect a longer review timeline.

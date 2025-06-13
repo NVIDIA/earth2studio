@@ -17,7 +17,9 @@
 # %%
 """
 Statistical Inference
-==========================
+=====================
+
+Simple seasonal statistic inference workflow.
 
 This example will demonstrate how to run a simple inference workflow to generate a
 forecast and then to save a statistic of that data. There are a handful of built-in

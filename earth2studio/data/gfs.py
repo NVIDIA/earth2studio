@@ -20,7 +20,6 @@ import hashlib
 import os
 import pathlib
 import shutil
-import warnings
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
@@ -108,9 +107,6 @@ class GFS:
     ):
         self._cache = cache
         self._verbose = verbose
-
-        # Silence cfgrib warning, TODO Remove this
-        warnings.simplefilter(action="ignore", category=FutureWarning)
 
         if source == "aws":
             self.uri_prefix = "noaa-gfs-bdp-pds"
@@ -671,7 +667,7 @@ class GFS_FX(GFS):
         )
 
         async_tasks = []
-        async_tasks = await self._create_tasks(time, [timedelta(hours=0)], variable)
+        async_tasks = await self._create_tasks(time, lead_time, variable)
         func_map = map(
             functools.partial(self.fetch_wrapper, xr_array=xr_array), async_tasks
         )

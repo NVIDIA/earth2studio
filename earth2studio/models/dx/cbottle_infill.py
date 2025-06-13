@@ -241,7 +241,7 @@ class CBottleInfill(torch.nn.Module, AutoModelMixin):
 
     @classmethod
     def load_default_package(cls) -> Package:
-        """Default pre-trained CBottle3D model package from Nvidia model registry"""
+        """Default pre-trained cBottle model package from Nvidia model registry"""
         return Package(
             "ngc://models/nvidia/earth-2/cbottle@1.1",
             cache_options={

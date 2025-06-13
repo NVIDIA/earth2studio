@@ -85,7 +85,6 @@ pytest:
   - docker
   extends:
     - .earth2studio:test:base
-    - .test:cache
   variables:
     XLA_PYTHON_CLIENT_ALLOCATOR: platform
     XLA_PYTHON_CLIENT_PREALLOCATE: false
