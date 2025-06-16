@@ -90,14 +90,6 @@ class AsyncZarrBackend:
         except FileExistsError:
             pass
 
-        # Verify all index coordinate arrays have unique values
-        for key, value in self.index_coords.items():
-            if len(np.unique(value)) != len(value):
-                raise ValueError(
-                    f"Index coordinate array '{key}' contains duplicate values. "
-                    + "All index coordinates must have unique values."
-                )
-
         if "local" in fs.protocol:
             self.zstore = zarr.storage.LocalStore(root=root)
         elif "memory" in fs.protocol:
@@ -118,6 +110,20 @@ class AsyncZarrBackend:
         self.zs = zarr.api.synchronous.open(
             store=self.zstore, mode="a", **backend_kwargs
         )
+
+        # Verify all index coordinate arrays have unique values
+        for key, value in self.index_coords.items():
+            if len(np.unique(value)) != len(value):
+                raise ValueError(
+                    f"Index coordinate array '{key}' contains duplicate values. "
+                    + "All index coordinates must have unique values."
+                )
+            if key in self.zs.array_keys():
+                # Check that all elements in value are in index_coords array
+                if not np.array_equal(self.zs[key], value):
+                    raise ValueError(
+                        f"Index coordinate array '{key}' already present in Zarr store and has different values than provided array"
+                    )
 
     def _initialize_arrays(
         self,
