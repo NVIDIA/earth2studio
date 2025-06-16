@@ -40,7 +40,7 @@ class PeriodicPad2d(torch.nn.Module):
         return out
 
 
-class PrecipNet(physicsnemo.Module):
+class PrecipNet_v2(physicsnemo.Module):
     def __init__(
         self,
         inp_shape: tuple,

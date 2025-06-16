@@ -49,6 +49,7 @@ from earth2studio.models.px import (
     FCN,
     SFNO,
     Aurora,
+    DLESyM,
     FengWu,
     FuXi,
     GraphCastOperational,
@@ -57,6 +58,7 @@ from earth2studio.models.px import (
     Pangu3,
     Pangu6,
     Pangu24,
+    StormCast,
 )
 
 
@@ -65,12 +67,16 @@ from earth2studio.models.px import (
 @pytest.mark.parametrize(
     "model",
     [
+        AIFS,
         Aurora,
         CBottle3D,
+        DLESyM,
         DLWP,
         FCN,
         FengWu,
         FuXi,
+        GraphCastOperational,
+        GraphCastSmall,
         Pangu24,
         Pangu6,
         Pangu3,
@@ -85,9 +91,7 @@ from earth2studio.models.px import (
         PrecipitationAFNOv2,
         SolarRadiationAFNO1H,
         SolarRadiationAFNO6H,
-        AIFS,
-        GraphCastOperational,
-        GraphCastSmall,
+        StormCast,
     ],
 )
 def test_auto_model_download(model, model_cache_context):
@@ -351,6 +355,7 @@ def test_whole_file_cache(tmp_path, same_names):
     assert (cache_path / file2).is_file() is same_names
 
 
+@pytest.mark.asyncio
 async def test_ngc_unsupported_operations():
     fs = NGCModelFileSystem()
     with pytest.raises(

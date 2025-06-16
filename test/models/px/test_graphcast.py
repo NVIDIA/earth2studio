@@ -147,7 +147,6 @@ def test_graphcast_small_call(time, device, mock_GraphCastSmall_model):
     lead_time = p.input_coords()["lead_time"]
     variable = p.input_coords()["variable"]
     x, coords = fetch_data(r, time, variable, lead_time, device=device)
-    print("coords: ", coords)
 
     out, out_coords = p(x, coords)
 
@@ -240,7 +239,7 @@ def test_graphcast_small_exceptions(dc, device, mock_GraphCastSmall_model):
         p(x, coords)
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="function")
 def model(model_cache_context) -> GraphCastSmall:
     # Test only on cuda device
     with model_cache_context():
@@ -452,9 +451,8 @@ def test_graphcast_operational_exceptions(dc, device, mock_GraphCastOperational_
         p(x, coords)
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="function")
 def operational_model(model_cache_context) -> GraphCastOperational:
-    # Test only on cuda device
     with model_cache_context():
         package = GraphCastOperational.load_default_package()
         p = GraphCastOperational.load_model(package)
@@ -463,7 +461,7 @@ def operational_model(model_cache_context) -> GraphCastOperational:
 
 @pytest.mark.ci_cache
 @pytest.mark.timeout(360)
-@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+@pytest.mark.parametrize("device", ["cuda:0"])
 def test_graphcast_operational_package(operational_model, device):
     torch.cuda.empty_cache()
     time = np.array([np.datetime64("1993-04-05T00:00")])

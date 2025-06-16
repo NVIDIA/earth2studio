@@ -119,7 +119,7 @@ def build_package_list(cfg: DictConfig) -> list[str]:
                 ):
                     packages.append(pth)
             if len(packages) == 0:
-                ValueError(
+                raise ValueError(
                     f"Found no valid model packages under {cfg.forecast_model.registry}."
                 )
             return (sorted(packages))[:max_num_ckpts]

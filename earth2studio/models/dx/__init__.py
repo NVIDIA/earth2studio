@@ -14,8 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import warnings
-
 from earth2studio.models.dx.base import DiagnosticModel
 from earth2studio.models.dx.cbottle_infill import CBottleInfill  # noqa
 from earth2studio.models.dx.cbottle_sr import CBottleSR  # noqa
@@ -39,13 +37,6 @@ from earth2studio.models.dx.tc_tracking import (
     TCTrackerWuDuan,
 )
 from earth2studio.models.dx.wind_gust import WindgustAFNO  # noqa
-
-# TODO: Remove upon physics-nemo update...
-# package turned on logging of warnings in 1.1.0, this is silencing them
-warnings.filterwarnings("ignore")
-warnings.filterwarnings("ignore", category=SyntaxWarning)
-warnings.filterwarnings("ignore", category=DeprecationWarning)
-warnings.filterwarnings("ignore", category=FutureWarning)
 
 __all__ = [
     "ClimateNet",
