@@ -568,8 +568,8 @@ pipeline from data generation to super-resolution enhancement.</p>
 </pre></div>
 </div>
 <div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>Generating cBottle Data:   0%|          | 0/1 [00:00&lt;?, ?it/s]
-Generating cBottle Data: 100%|██████████| 1/1 [00:02&lt;00:00,  2.77s/it]
-Generating cBottle Data: 100%|██████████| 1/1 [00:02&lt;00:00,  2.77s/it]
+Generating cBottle Data: 100%|██████████| 1/1 [00:02&lt;00:00,  2.78s/it]
+Generating cBottle Data: 100%|██████████| 1/1 [00:02&lt;00:00,  2.78s/it]
 </pre></div>
 </div>
 </section>
@@ -596,14 +596,14 @@ model to predict the missing variables, then perform super resolution.</p>
 </div>
 <div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>Fetching WB2 data:   0%|          | 0/2 [00:00&lt;?, ?it/s]
 
-2025-06-16 14:37:11.413 | DEBUG    | earth2studio.data.wb2:fetch_array:251 - Fetching WB2 zarr array for variable: v10m at 2020-01-01T00:00:00
+2025-06-16 19:26:48.164 | DEBUG    | earth2studio.data.wb2:fetch_array:251 - Fetching WB2 zarr array for variable: v10m at 2020-01-01T00:00:00
 
 Fetching WB2 data:   0%|          | 0/2 [00:00&lt;?, ?it/s]
 
-2025-06-16 14:37:11.414 | DEBUG    | earth2studio.data.wb2:fetch_array:251 - Fetching WB2 zarr array for variable: u10m at 2020-01-01T00:00:00
+2025-06-16 19:26:48.164 | DEBUG    | earth2studio.data.wb2:fetch_array:251 - Fetching WB2 zarr array for variable: u10m at 2020-01-01T00:00:00
 
 Fetching WB2 data:   0%|          | 0/2 [00:00&lt;?, ?it/s]
-Fetching WB2 data: 100%|██████████| 2/2 [00:00&lt;00:00, 203.94it/s]
+Fetching WB2 data: 100%|██████████| 2/2 [00:00&lt;00:00, 221.24it/s]
 </pre></div>
 </div>
 </section>
@@ -699,7 +699,7 @@ water (tclw) variable as an example.</p>
 <span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="s2">&quot;outputs/16_cbottle_super_resolution.jpg&quot;</span><span class="p">,</span> <span class="n">dpi</span><span class="o">=</span><span class="mi">150</span><span class="p">,</span> <span class="n">bbox_inches</span><span class="o">=</span><span class="s2">&quot;tight&quot;</span><span class="p">)</span>
 </pre></div>
 </div>
-<img src="../_images/sphx_glr_16_cbottle_super_resolution_001.png" srcset="../_images/sphx_glr_16_cbottle_super_resolution_001.png" alt="Synthetic Data (cBottle3D, low resolution), Synthetic Data Super Resolution (cBottle3D → CBottleSR), ERA5 Data (low resolution), ERA5 Infilled Super Resolution (ERA5 → CBottleInfill → CBottleSR)" class = "sphx-glr-single-img"/><p class="sphx-glr-timing"><strong>Total running time of the script:</strong> (3 minutes 16.740 seconds)</p>
+<img src="../_images/sphx_glr_16_cbottle_super_resolution_001.png" srcset="../_images/sphx_glr_16_cbottle_super_resolution_001.png" alt="Synthetic Data (cBottle3D, low resolution), Synthetic Data Super Resolution (cBottle3D → CBottleSR), ERA5 Data (low resolution), ERA5 Infilled Super Resolution (ERA5 → CBottleInfill → CBottleSR)" class = "sphx-glr-single-img"/><p class="sphx-glr-timing"><strong>Total running time of the script:</strong> (3 minutes 16.297 seconds)</p>
 <div class="sphx-glr-footer sphx-glr-footer-example docutils container" id="sphx-glr-download-examples-16-cbottle-super-resolution-py">
 <div class="sphx-glr-download sphx-glr-download-jupyter docutils container">
 <p><a class="reference download internal" download="" href="../_downloads/befbc3089893dae3e9ecc97bc9f11be8/16_cbottle_super_resolution.ipynb"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">Jupyter</span> <span class="pre">notebook:</span> <span class="pre">16_cbottle_super_resolution.ipynb</span></code></a></p>
