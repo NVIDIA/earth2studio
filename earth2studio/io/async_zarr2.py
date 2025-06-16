@@ -71,8 +71,10 @@ class AsyncZarrBackend:
             raise ImportError("This IO store only support Zarr 3.0 and above")
 
         self.fs = fs
-        self.overwrite = False
-        self.index_coords = self._scrub_coordinates(index_coords)
+        self.overwrite = False  # Not formally supported
+        self.index_coords = self._scrub_coordinates(
+            index_coords
+        )  # TODO: Need to validate these somewhere, should just make a 1:1 match requirement
 
         # Async / multi-thread items
         self.blocking = blocking
@@ -182,11 +184,20 @@ class AsyncZarrBackend:
                 dimension_names=list(coords.keys()),
                 overwrite=True,
             )
-        # TODO: Remove, this is really bad
-        self.overwrite = False
 
     def _scrub_coordinates(self, coords: CoordSystem) -> CoordSystem:
-        coords = coords.copy()
+        """And cleaning / adjustment operations on coordinates, modifies in place
+
+        Parameters
+        ----------
+        coords : CoordSystem
+            Input coordinate system
+
+        Returns
+        -------
+        CoordSystem
+            Scrubbed coordinate system
+        """
         for key, value in coords.items():
             # Dates types not supported in zarr 3.0 at the moment
             # https://github.com/zarr-developers/zarr-python/issues/2616
@@ -203,6 +214,76 @@ class AsyncZarrBackend:
                 )
                 coords[key] = value.astype("timedelta64[ns]").astype("int64")
         return coords
+
+    def prepare_inputs(
+        self,
+        x: torch.Tensor | list[torch.Tensor],
+        coords: CoordSystem,
+        array_name: str | list[str],
+    ) -> tuple[dict[str, torch.Tensor], CoordSystem]:
+        """Prepares input coordinates and tensors for writting
+
+        This function is a blocking function that will run any needed input checks as
+        well as handle the initialization of any arrays that are not present already
+        inside the Zarr store. This function will ensure that writes of the input
+        data / arrays at each index of an `index_coord` can be written in parallel.
+
+        Parameters
+        ----------
+        x : torch.Tensor | list[torch.Tensor]
+            Input tensors to write
+        coords : CoordSystem
+            Tensor coordinate system
+        array_name : str | list[str]
+            Array name(s) to write
+
+        Returns
+        -------
+        tuple[dict[str, torch.Tensor], CoordSystem]
+            Prepared tensor list, coordinate system and array names for writting
+        """
+        coords = coords.copy()
+
+        if isinstance(x, torch.Tensor):
+            x = [x]
+        if isinstance(array_name, str):
+            array_name = [array_name]
+        # Run input checks
+        if not (len(x) == len(array_name)):
+            raise ValueError(
+                f"Input tensors and array names must same length but got {len(x)} and {len(array_name)}."
+            )
+
+        x = {array_name[i]: x[i] for i in range(len(x))}
+        dtypes = [torch_to_numpy_dtype_dict[x0.dtype] for x0 in x.values()]
+
+        coords = self._scrub_coordinates(coords)
+        # Initialize arrays (coords and data) if needed
+        # Note that this is blocking, which is intentional so we avoid race conditions
+        # upon array creation
+        self._initialize_arrays(coords, list(x.keys()), dtypes)
+
+        # TODO: Not run this every write iteration if possible... or keep some stuff
+        # in memory
+        for key, value in coords.items():
+            if key in self.index_coords:
+                z0 = np.where(self.zs[key] == value)[0]  # Index of slice in zarr array
+                if len(z0) == 0:
+                    raise ValueError(
+                        f"Could not find coordinate value {value} in zarr index coordinate array {key}. "
+                        + "All index coordinates must be fully defined on construction of the IO object via `index_coords`."
+                    )
+            # Otherwise check that the coordinate system is the complete coordinate system
+            # We do not support sliced writes of non-index coords... this is done for
+            # thread safety reasons
+            else:
+                if not np.array_equal(value, self.zs[key]):
+                    raise ValueError(
+                        f"Non-index coordinate {key} must match the complete coordinate system defined in zarr array. "
+                        + "Sliced writes of non-index coordinates are not supported for thread safety reasons."
+                    )
+
+        return x, coords
 
     def _limit_pool_size(self, max_pool_size: int) -> None:
         """Helper function to limit the number of parallel io processes
@@ -238,17 +319,8 @@ class AsyncZarrBackend:
         array_name : str | list[str]
             Name(s) of the array(s) that will be written to.
         """
-        # Check inputs
-        if isinstance(x, torch.Tensor):
-            x = [x]
-        if isinstance(array_name, str):
-            array_name = [array_name]
-        if not (len(x) == len(array_name)):
-            raise ValueError(
-                f"Input tensors and array names must same length but got {len(x)} and {len(array_name)}."
-            )
 
-        coords = self._scrub_coordinates(coords)
+        x, coords = self.prepare_inputs(x, coords, array_name)
 
         nest_asyncio.apply()  # Patch asyncio to work in notebooks
         try:
@@ -258,17 +330,14 @@ class AsyncZarrBackend:
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
 
-        # Note that this is blocking, which is intentional so we avoid race conditions
-        # upon array creation
-        self._initialize_arrays(
-            coords, array_name, dtypes=[torch_to_numpy_dtype_dict[x0.dtype] for x0 in x]
-        )
+        async def to_async(x: dict[str, torch.Tensor], coords: CoordSystem) -> None:
+            """Little helper function"""
+            zs = await self._init_async_zs()
+            await self._write(x, coords, zs)
 
         if self.blocking:
             loop.run_until_complete(
-                asyncio.wait_for(
-                    self.async_write(x, coords, array_name), timeout=self.async_timeout
-                )
+                asyncio.wait_for(to_async(x, coords), timeout=self.async_timeout)
             )
         else:
             # First block if we have space in the pool
@@ -277,7 +346,7 @@ class AsyncZarrBackend:
             io_future = self.thread_pool.submit(
                 asyncio.run,
                 asyncio.wait_for(
-                    self.async_write(x, coords, array_name),
+                    to_async(x, coords),
                     timeout=self.async_timeout,
                 ),
             )
@@ -301,117 +370,83 @@ class AsyncZarrBackend:
         array_name : str | list[str]
             Name(s) of the array(s) that will be written to.
         """
-        if isinstance(x, torch.Tensor):
-            x = [x]
-        if isinstance(array_name, str):
-            array_name = [array_name]
+        x, coords = self.prepare_inputs(x, coords, array_name)
 
-        coords = self._scrub_coordinates(coords)
-        # TODO: Duplicate as write function, I know, but need to execute this here if
-        # someone calls the async API
-        self._initialize_arrays(
-            coords, array_name, dtypes=[torch_to_numpy_dtype_dict[x0.dtype] for x0 in x]
-        )
         # Initialize async zarr store
-        # TODO: doing this every write call could be avoided but needs to be done with
-        # non-block threads
+        # TODO: doing this every write call could be avoided if in async loop
         zs = await self._init_async_zs()
-        await self._write(x, coords, array_name, zs)
+        await self._write(x, coords, zs)
 
     async def _write(
         self,
-        x: list[torch.Tensor],
+        x: dict[str, torch.Tensor],
         coords: CoordSystem,
-        array_name: list[str],
         zs: zarr.core.group.AsyncGroup,
     ) -> None:
         """Async write data
 
         Parameters
         ----------
-        x : torch.Tensor | list[torch.Tensor]
-            Tensor(s) to be written to zarr store.
-        coords : OrderedDict
+        x : dict[str, torch.Tensor]
+            Dictionary of tensor(s) to be written to zarr arrays.
+        coords : CoordSystem
             Coordinates of the passed data.
-        array_name : str | list[str]
-            Name(s) of the array(s) that will be written to.
+        zs : zarr.core.group.AsyncGroup
+            _description_
         """
 
         # Move data to CPU
         # TODO: could this be asynced?
-        x = [x0.detach().cpu().numpy() for x0 in x]
+        x = {key: value.detach().cpu().numpy() for key, value in x.items()}
 
-        # Set up write tasks
-        indexed_dims = {}
-        input_tensor_indices = {}
-        output_zarr_indices = {}
+        # Start with building a list of slices for every array and index that needs to
+        # be written
+        input_slices = []
+        output_slices = []
         for i, key in enumerate(coords.keys()):
-            # TODO: this should also check the coord is of right size if not index coord
+            in_slices = []
+            out_slices = []
             if key in self.index_coords:
-                indexed_dims[key] = i
-                input_tensor_indices[key] = np.arange(coords[key].shape[0])
-                # Convert input indices into zarr array indices
-                # Probably cooler way to do this, but this is readable
-                z_idx = []
-                zarr_coord = await (await zs.get(key)).getitem(...)  # Fetch coord array
-                for i in range(coords[key].shape[0]):
-                    z0 = np.where(zarr_coord == coords[key][i : i + 1])[
-                        0
-                    ]  # Index of slice in zarr array
-                    if len(z0) == 0:
-                        raise ValueError(
-                            f"Could not find coordinate value {coords[key][i:i+1]} in zarr coordinate array {key}. "
-                            + "All index coordinates must be fully defined on construction of the IO object via `index_coords`."
-                        )
-                    z_idx.append(z0[0])
-                output_zarr_indices[key] = np.array(z_idx)
+                for in_idx, out_idx in enumerate(
+                    np.where(np.isin(self.index_coords[key], coords[key]))[0]
+                ):
+                    in_slices.append(slice(in_idx, in_idx + 1))
+                    out_slices.append(slice(out_idx, out_idx + 1))
+            else:
+                in_slices.append(slice(None))
+                out_slices.append(slice(None))
+            output_slices.append(out_slices)
+            input_slices.append(in_slices)
 
-        # If no indexed coords just write and return entire array
-        if len(input_tensor_indices) == 0:
-            logger.debug("No indexed coordinates present, writing entire Zarr array")
-            for i, array in enumerate(array_name):
-                await (await zs.get(array)).setitem(Ellipsis, x[i])
+        # Mesh grid slices
+        slice_mesh = np.meshgrid(*output_slices, indexing="ij")
+        output_slice_arr = np.stack([mesh.flatten() for mesh in slice_mesh], axis=-1)
 
-        # Mesh together all indices (i.e. all chunk indexes that need writing)
-        # Basically we are getting a full array of index combinations
-        index_mesh = np.meshgrid(*list(input_tensor_indices.values()), indexing="ij")
-        input_tensor_indices = {
-            key: index_mesh[i].flatten()
-            for i, key in enumerate(input_tensor_indices.keys())
-        }
+        slice_mesh = np.meshgrid(*input_slices, indexing="ij")
+        input_slice_arr = np.stack([mesh.flatten() for mesh in slice_mesh], axis=-1)
+        n_slices = output_slice_arr.shape[0]
 
-        index_mesh = np.meshgrid(*list(output_zarr_indices.values()), indexing="ij")
-        output_zarr_indices = {
-            key: index_mesh[i].flatten()
-            for i, key in enumerate(output_zarr_indices.keys())
-        }
-
-        n_writes = index_mesh[0].size
-        logger.debug(f"Writing {n_writes} chunks to {len(array_name)} Zarr arrays")
+        logger.debug(f"Writing {n_slices} chunks to {len(x)} Zarr arrays")
         writes = []
-        for i, array in enumerate(array_name):
-            input_slice = [slice(None) for _ in x[i].shape]
-            array_slice = [slice(None) for _ in x[i].shape]
+        for array in x.keys():
             # Loop through each element of the index mesh (chunk to write)
-            for j in range(n_writes):
-                # Set the respective dim index in the slice
-                for key, value in indexed_dims.items():
-                    input_slice[value] = input_tensor_indices[key][j]
-                    array_slice[value] = output_zarr_indices[key][j]
-
+            for i in range(n_slices):
                 # Finally set the selection in the array
                 async def write(
                     name: str,
-                    index: int,
-                    array_slice: list[Any],
-                    input_slice: list[Any],
+                    input_slice: list[slice],
+                    array_slice: list[slice],
                 ) -> None:
                     """Small helper function"""
                     zarray = await zs.get(name)
-                    await zarray.setitem(tuple(array_slice), x[index][*input_slice])
+                    await zarray.setitem(tuple(array_slice), x[name][*input_slice])
 
                 writes.append(
-                    asyncio.create_task(write(array, i, array_slice, input_slice))
+                    asyncio.create_task(
+                        write(
+                            array, list(input_slice_arr[i]), list(output_slice_arr[i])
+                        )
+                    )
                 )
         # Every single chunk is written async...
         await asyncio.gather(*writes)
