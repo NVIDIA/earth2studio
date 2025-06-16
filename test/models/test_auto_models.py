@@ -181,6 +181,8 @@ def test_ngc_package(url, file, api_key, cache_folder, model_cache_context):
         EARTH2STUDIO_PACKAGE_TIMEOUT="30",
     ):
         if api_key:
+            if not os.environ.get("NGC_CLI_API_KEY"):
+                pytest.skip("NGC_CLI_API_KEY not set")
             ngcbase.environ.NGC_CLI_API_KEY = os.environ.get("NGC_CLI_API_KEY")
         else:
             ngcbase.environ.NGC_CLI_API_KEY = None
