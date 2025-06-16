@@ -16,7 +16,7 @@
 
 # %%
 """
-cBottle Data Generation and Infilling
+CBottle Data Generation and Infilling
 =====================================
 
 Climate in a Bottle (cBottle) inference workflows for global weather data synthesis.

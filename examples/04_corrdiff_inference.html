@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
     <link href="../_static/favicon.ico" rel="icon" type="image/x-icon">
-    <title>Generative Downscaling &#8212; Earth2Studio 0.8.0a0 documentation</title>
+    <title>Generative Downscaling &#8212; Earth2Studio 0.9.0a0 documentation</title>
   
   
   
@@ -45,7 +45,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
 
-    <script src="../_static/documentation_options.js?v=96f8bfd3"></script>
+    <script src="../_static/documentation_options.js?v=6b888095"></script>
     <script src="../_static/doctools.js?v=9bcbadda"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script>let toggleHintShow = 'Click to show';</script>
@@ -68,7 +68,7 @@
     <link rel="prev" title="Running Ensemble Inference" href="03_ensemble_workflow.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
-  <meta name="docsearch:version" content="0.8" />
+  <meta name="docsearch:version" content="0.9" />
   </head>
   
   
@@ -387,7 +387,8 @@
 <li class="toctree-l1"><a class="reference internal" href="12_temporal_interpolation.html">Temporal Interpolation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="13_cyclone_tracking.html">Tropical Cyclone Tracking</a></li>
 <li class="toctree-l1"><a class="reference internal" href="14_dlesym_example.html">Running DLESyM Inference</a></li>
-<li class="toctree-l1"><a class="reference internal" href="15_cbottle_generation.html">cBottle Data Generation and Infilling</a></li>
+<li class="toctree-l1"><a class="reference internal" href="15_cbottle_generation.html">CBottle Data Generation and Infilling</a></li>
+<li class="toctree-l1"><a class="reference internal" href="16_cbottle_super_resolution.html">CBottle Super Resolution</a></li>
 </ul>
 <ul class="nav bd-sidenav">
 <li class="toctree-l1 has-children"><a class="reference internal" href="extend/index.html">Extending Earth2Studio</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
@@ -602,52 +603,6 @@ Earth-2 studio</p>
 <span class="n">io</span> <span class="o">=</span> <span class="n">ZarrBackend</span><span class="p">()</span>
 </pre></div>
 </div>
-<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>Downloading corrdiff_inference_package.zip: 0%|          | 0.00/684M [00:00&lt;?, ?B/s]
-Downloading corrdiff_inference_package.zip: 1%|          | 6.98M/684M [00:00&lt;00:09, 72.3MB/s]
-Downloading corrdiff_inference_package.zip: 2%|▏         | 16.7M/684M [00:00&lt;00:07, 89.2MB/s]
-Downloading corrdiff_inference_package.zip: 4%|▍         | 27.6M/684M [00:00&lt;00:07, 97.4MB/s]
-Downloading corrdiff_inference_package.zip: 5%|▌         | 37.1M/684M [00:00&lt;00:09, 75.0MB/s]
-Downloading corrdiff_inference_package.zip: 8%|▊         | 53.7M/684M [00:00&lt;00:06, 104MB/s]
-Downloading corrdiff_inference_package.zip: 9%|▉         | 64.5M/684M [00:00&lt;00:06, 104MB/s]
-Downloading corrdiff_inference_package.zip: 11%|█         | 76.1M/684M [00:00&lt;00:05, 107MB/s]
-Downloading corrdiff_inference_package.zip: 13%|█▎        | 86.7M/684M [00:01&lt;00:07, 81.8MB/s]
-Downloading corrdiff_inference_package.zip: 16%|█▌        | 107M/684M [00:01&lt;00:05, 113MB/s]
-Downloading corrdiff_inference_package.zip: 19%|█▉        | 129M/684M [00:01&lt;00:04, 143MB/s]
-Downloading corrdiff_inference_package.zip: 22%|██▏       | 148M/684M [00:01&lt;00:03, 157MB/s]
-Downloading corrdiff_inference_package.zip: 24%|██▍       | 164M/684M [00:01&lt;00:03, 160MB/s]
-Downloading corrdiff_inference_package.zip: 26%|██▋       | 180M/684M [00:01&lt;00:04, 113MB/s]
-Downloading corrdiff_inference_package.zip: 28%|██▊       | 194M/684M [00:01&lt;00:04, 118MB/s]
-Downloading corrdiff_inference_package.zip: 31%|███       | 211M/684M [00:01&lt;00:03, 133MB/s]
-Downloading corrdiff_inference_package.zip: 33%|███▎      | 226M/684M [00:01&lt;00:03, 136MB/s]
-Downloading corrdiff_inference_package.zip: 35%|███▌      | 240M/684M [00:02&lt;00:03, 133MB/s]
-Downloading corrdiff_inference_package.zip: 38%|███▊      | 257M/684M [00:02&lt;00:03, 145MB/s]
-Downloading corrdiff_inference_package.zip: 40%|████      | 274M/684M [00:02&lt;00:02, 153MB/s]
-Downloading corrdiff_inference_package.zip: 42%|████▏     | 289M/684M [00:02&lt;00:02, 155MB/s]
-Downloading corrdiff_inference_package.zip: 45%|████▍     | 305M/684M [00:02&lt;00:02, 151MB/s]
-Downloading corrdiff_inference_package.zip: 47%|████▋     | 320M/684M [00:02&lt;00:02, 147MB/s]
-Downloading corrdiff_inference_package.zip: 49%|████▉     | 338M/684M [00:02&lt;00:02, 160MB/s]
-Downloading corrdiff_inference_package.zip: 52%|█████▏    | 354M/684M [00:02&lt;00:02, 154MB/s]
-Downloading corrdiff_inference_package.zip: 55%|█████▍    | 375M/684M [00:02&lt;00:01, 172MB/s]
-Downloading corrdiff_inference_package.zip: 57%|█████▋    | 392M/684M [00:03&lt;00:01, 167MB/s]
-Downloading corrdiff_inference_package.zip: 60%|█████▉    | 408M/684M [00:03&lt;00:01, 165MB/s]
-Downloading corrdiff_inference_package.zip: 62%|██████▏   | 427M/684M [00:03&lt;00:01, 175MB/s]
-Downloading corrdiff_inference_package.zip: 65%|██████▍   | 443M/684M [00:03&lt;00:01, 155MB/s]
-Downloading corrdiff_inference_package.zip: 67%|██████▋   | 459M/684M [00:03&lt;00:01, 147MB/s]
-Downloading corrdiff_inference_package.zip: 70%|██████▉   | 477M/684M [00:03&lt;00:01, 158MB/s]
-Downloading corrdiff_inference_package.zip: 72%|███████▏  | 493M/684M [00:03&lt;00:01, 137MB/s]
-Downloading corrdiff_inference_package.zip: 74%|███████▍  | 507M/684M [00:03&lt;00:01, 128MB/s]
-Downloading corrdiff_inference_package.zip: 77%|███████▋  | 526M/684M [00:04&lt;00:01, 148MB/s]
-Downloading corrdiff_inference_package.zip: 79%|███████▉  | 543M/684M [00:04&lt;00:00, 154MB/s]
-Downloading corrdiff_inference_package.zip: 82%|████████▏ | 558M/684M [00:04&lt;00:00, 154MB/s]
-Downloading corrdiff_inference_package.zip: 84%|████████▍ | 575M/684M [00:04&lt;00:00, 161MB/s]
-Downloading corrdiff_inference_package.zip: 87%|████████▋ | 592M/684M [00:04&lt;00:00, 167MB/s]
-Downloading corrdiff_inference_package.zip: 89%|████████▉ | 611M/684M [00:04&lt;00:00, 176MB/s]
-Downloading corrdiff_inference_package.zip: 93%|█████████▎| 633M/684M [00:04&lt;00:00, 191MB/s]
-Downloading corrdiff_inference_package.zip: 95%|█████████▌| 651M/684M [00:04&lt;00:00, 163MB/s]
-Downloading corrdiff_inference_package.zip: 98%|█████████▊| 668M/684M [00:04&lt;00:00, 164MB/s]
-Downloading corrdiff_inference_package.zip: 100%|██████████| 684M/684M [00:04&lt;00:00, 144MB/s]
-</pre></div>
-</div>
 </section>
 <section id="execute-the-workflow">
 <h2>Execute the Workflow<a class="headerlink" href="#execute-the-workflow" title="Link to this heading">#</a></h2>
@@ -660,66 +615,64 @@ Typhoon Koinu.</p>
 <div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="n">io</span> <span class="o">=</span> <span class="n">run</span><span class="p">([</span><span class="s2">&quot;2023-10-04T18:00:00&quot;</span><span class="p">],</span> <span class="n">corrdiff</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">io</span><span class="p">,</span> <span class="n">number_of_samples</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
 </pre></div>
 </div>
-<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>2025-06-09 03:11:13.167 | INFO     | __main__:run:108 - Running corrdiff inference!
-2025-06-09 03:11:13.167 | INFO     | __main__:run:110 - Inference device: cuda
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>2025-06-16 14:18:35.537 | INFO     | __main__:run:108 - Running corrdiff inference!
+2025-06-16 14:18:35.537 | INFO     | __main__:run:110 - Inference device: cuda
 
 Fetching GFS data:   0%|          | 0/12 [00:00&lt;?, ?it/s]
 
-2025-06-09 03:11:13.612 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20231004/18/atmos/gfs.t18z.pgrb2.0p25.f000 331406077-849817
+2025-06-16 14:18:35.636 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20231004/18/atmos/gfs.t18z.pgrb2.0p25.f000 331406077-849817
 
 Fetching GFS data:   0%|          | 0/12 [00:00&lt;?, ?it/s]
 
-2025-06-09 03:11:13.613 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20231004/18/atmos/gfs.t18z.pgrb2.0p25.f000 330494443-911634
+2025-06-16 14:18:35.657 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20231004/18/atmos/gfs.t18z.pgrb2.0p25.f000 264790161-556189
 
 Fetching GFS data:   0%|          | 0/12 [00:00&lt;?, ?it/s]
 
-2025-06-09 03:11:13.613 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20231004/18/atmos/gfs.t18z.pgrb2.0p25.f000 337303053-570645
+2025-06-16 14:18:35.676 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20231004/18/atmos/gfs.t18z.pgrb2.0p25.f000 337303053-570645
 
 Fetching GFS data:   0%|          | 0/12 [00:00&lt;?, ?it/s]
 
-2025-06-09 03:11:13.614 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20231004/18/atmos/gfs.t18z.pgrb2.0p25.f000 412051984-953804
+2025-06-16 14:18:35.695 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20231004/18/atmos/gfs.t18z.pgrb2.0p25.f000 411076281-975703
 
 Fetching GFS data:   0%|          | 0/12 [00:00&lt;?, ?it/s]
 
-2025-06-09 03:11:13.615 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20231004/18/atmos/gfs.t18z.pgrb2.0p25.f000 337873698-579539
+2025-06-16 14:18:35.714 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20231004/18/atmos/gfs.t18z.pgrb2.0p25.f000 258060355-819591
 
 Fetching GFS data:   0%|          | 0/12 [00:00&lt;?, ?it/s]
 
-2025-06-09 03:11:13.615 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20231004/18/atmos/gfs.t18z.pgrb2.0p25.f000 258879946-735487
+2025-06-16 14:18:35.733 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20231004/18/atmos/gfs.t18z.pgrb2.0p25.f000 337873698-579539
 
 Fetching GFS data:   0%|          | 0/12 [00:00&lt;?, ?it/s]
 
-2025-06-09 03:11:13.616 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20231004/18/atmos/gfs.t18z.pgrb2.0p25.f000 411076281-975703
+2025-06-16 14:18:35.752 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20231004/18/atmos/gfs.t18z.pgrb2.0p25.f000 258879946-735487
 
 Fetching GFS data:   0%|          | 0/12 [00:00&lt;?, ?it/s]
 
-2025-06-09 03:11:13.616 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20231004/18/atmos/gfs.t18z.pgrb2.0p25.f000 258060355-819591
+2025-06-16 14:18:35.771 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20231004/18/atmos/gfs.t18z.pgrb2.0p25.f000 264233423-556738
 
 Fetching GFS data:   0%|          | 0/12 [00:00&lt;?, ?it/s]
 
-2025-06-09 03:11:13.617 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20231004/18/atmos/gfs.t18z.pgrb2.0p25.f000 418951103-1205697
+2025-06-16 14:18:35.790 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20231004/18/atmos/gfs.t18z.pgrb2.0p25.f000 407465443-514270
 
 Fetching GFS data:   0%|          | 0/12 [00:00&lt;?, ?it/s]
 
-2025-06-09 03:11:13.618 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20231004/18/atmos/gfs.t18z.pgrb2.0p25.f000 264790161-556189
+2025-06-16 14:18:35.808 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20231004/18/atmos/gfs.t18z.pgrb2.0p25.f000 330494443-911634
 
 Fetching GFS data:   0%|          | 0/12 [00:00&lt;?, ?it/s]
 
-2025-06-09 03:11:13.618 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20231004/18/atmos/gfs.t18z.pgrb2.0p25.f000 264233423-556738
+2025-06-16 14:18:35.828 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20231004/18/atmos/gfs.t18z.pgrb2.0p25.f000 412051984-953804
 
 Fetching GFS data:   0%|          | 0/12 [00:00&lt;?, ?it/s]
 
-2025-06-09 03:11:13.619 | DEBUG    | earth2studio.data.gfs:fetch_array:355 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20231004/18/atmos/gfs.t18z.pgrb2.0p25.f000 407465443-514270
+2025-06-16 14:18:35.847 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20231004/18/atmos/gfs.t18z.pgrb2.0p25.f000 418951103-1205697
 
 Fetching GFS data:   0%|          | 0/12 [00:00&lt;?, ?it/s]
-Fetching GFS data:   8%|▊         | 1/12 [00:00&lt;00:05,  2.15it/s]
-Fetching GFS data:  25%|██▌       | 3/12 [00:00&lt;00:01,  5.63it/s]
-Fetching GFS data:  92%|█████████▏| 11/12 [00:00&lt;00:00, 13.81it/s]
-Fetching GFS data: 100%|██████████| 12/12 [00:01&lt;00:00, 11.51it/s]
-2025-06-09 03:11:14.664 | SUCCESS  | __main__:run:123 - Fetched data from GFS
-2025-06-09 03:11:14.664 | WARNING  | earth2studio.io.zarr:add_array:192 - Datetime64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch
-2025-06-09 03:11:14.689 | INFO     | __main__:run:137 - Inference starting!
-2025-06-09 03:11:16.327 | SUCCESS  | __main__:run:141 - Inference complete
+Fetching GFS data:   8%|▊         | 1/12 [00:00&lt;00:02,  4.34it/s]
+Fetching GFS data: 100%|██████████| 12/12 [00:00&lt;00:00, 52.06it/s]
+2025-06-16 14:18:35.875 | SUCCESS  | __main__:run:123 - Fetched data from GFS
+2025-06-16 14:18:35.876 | WARNING  | earth2studio.io.zarr:add_array:192 - Datetime64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch
+2025-06-16 14:18:35.903 | INFO     | __main__:run:137 - Inference starting!
+2025-06-16 14:18:37.534 | SUCCESS  | __main__:run:141 - Inference complete
 </pre></div>
 </div>
 </section>
@@ -779,7 +732,7 @@ fields on projections of a sphere.</p>
 <span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="s2">&quot;outputs/04_corr_diff_prediction.jpg&quot;</span><span class="p">)</span>
 </pre></div>
 </div>
-<img src="../_images/sphx_glr_04_corrdiff_inference_001.png" srcset="../_images/sphx_glr_04_corrdiff_inference_001.png" alt="Radar Reflectivity, 2-meter Temperature, 10-meter Wind Speed" class = "sphx-glr-single-img"/><p class="sphx-glr-timing"><strong>Total running time of the script:</strong> (0 minutes 17.545 seconds)</p>
+<img src="../_images/sphx_glr_04_corrdiff_inference_001.png" srcset="../_images/sphx_glr_04_corrdiff_inference_001.png" alt="Radar Reflectivity, 2-meter Temperature, 10-meter Wind Speed" class = "sphx-glr-single-img"/><p class="sphx-glr-timing"><strong>Total running time of the script:</strong> (0 minutes 11.459 seconds)</p>
 <div class="sphx-glr-footer sphx-glr-footer-example docutils container" id="sphx-glr-download-examples-04-corrdiff-inference-py">
 <div class="sphx-glr-download sphx-glr-download-jupyter docutils container">
 <p><a class="reference download internal" download="" href="../_downloads/b51eda1a0f4fa88ff0d60a618e4fc3db/04_corrdiff_inference.ipynb"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">Jupyter</span> <span class="pre">notebook:</span> <span class="pre">04_corrdiff_inference.ipynb</span></code></a></p>

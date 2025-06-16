@@ -148,6 +148,12 @@ For this workflow, we specify
 
 
 
+
+
+
+
+
+
 .. GENERATED FROM PYTHON SOURCE LINES 146-157
 
 Set Up
@@ -180,6 +186,12 @@ It's clear we need the following:
     io = ZarrBackend()
 
 
+
+
+
+
+
+
 .. GENERATED FROM PYTHON SOURCE LINES 173-182
 
 Execute the Workflow
@@ -197,6 +209,36 @@ Typhoon Koinu.
 .. code-block:: Python
 
     io = run(["2023-10-04T18:00:00"], corrdiff, data, io, number_of_samples=1)
+
+
+
+
+
+.. rst-class:: sphx-glr-script-out
+
+ .. code-block:: none
+
+    2025-06-16 14:18:35.537 | INFO     | __main__:run:108 - Running corrdiff inference!
+    2025-06-16 14:18:35.537 | INFO     | __main__:run:110 - Inference device: cuda
+    Fetching GFS data:   0%|          | 0/12 [00:00<?, ?it/s]                                                             2025-06-16 14:18:35.636 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20231004/18/atmos/gfs.t18z.pgrb2.0p25.f000 331406077-849817
+    Fetching GFS data:   0%|          | 0/12 [00:00<?, ?it/s]                                                             2025-06-16 14:18:35.657 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20231004/18/atmos/gfs.t18z.pgrb2.0p25.f000 264790161-556189
+    Fetching GFS data:   0%|          | 0/12 [00:00<?, ?it/s]                                                             2025-06-16 14:18:35.676 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20231004/18/atmos/gfs.t18z.pgrb2.0p25.f000 337303053-570645
+    Fetching GFS data:   0%|          | 0/12 [00:00<?, ?it/s]                                                             2025-06-16 14:18:35.695 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20231004/18/atmos/gfs.t18z.pgrb2.0p25.f000 411076281-975703
+    Fetching GFS data:   0%|          | 0/12 [00:00<?, ?it/s]                                                             2025-06-16 14:18:35.714 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20231004/18/atmos/gfs.t18z.pgrb2.0p25.f000 258060355-819591
+    Fetching GFS data:   0%|          | 0/12 [00:00<?, ?it/s]                                                             2025-06-16 14:18:35.733 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20231004/18/atmos/gfs.t18z.pgrb2.0p25.f000 337873698-579539
+    Fetching GFS data:   0%|          | 0/12 [00:00<?, ?it/s]                                                             2025-06-16 14:18:35.752 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20231004/18/atmos/gfs.t18z.pgrb2.0p25.f000 258879946-735487
+    Fetching GFS data:   0%|          | 0/12 [00:00<?, ?it/s]                                                             2025-06-16 14:18:35.771 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20231004/18/atmos/gfs.t18z.pgrb2.0p25.f000 264233423-556738
+    Fetching GFS data:   0%|          | 0/12 [00:00<?, ?it/s]                                                             2025-06-16 14:18:35.790 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20231004/18/atmos/gfs.t18z.pgrb2.0p25.f000 407465443-514270
+    Fetching GFS data:   0%|          | 0/12 [00:00<?, ?it/s]                                                             2025-06-16 14:18:35.808 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20231004/18/atmos/gfs.t18z.pgrb2.0p25.f000 330494443-911634
+    Fetching GFS data:   0%|          | 0/12 [00:00<?, ?it/s]                                                             2025-06-16 14:18:35.828 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20231004/18/atmos/gfs.t18z.pgrb2.0p25.f000 412051984-953804
+    Fetching GFS data:   0%|          | 0/12 [00:00<?, ?it/s]                                                             2025-06-16 14:18:35.847 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20231004/18/atmos/gfs.t18z.pgrb2.0p25.f000 418951103-1205697
+    Fetching GFS data:   0%|          | 0/12 [00:00<?, ?it/s]    Fetching GFS data:   8%|▊         | 1/12 [00:00<00:02,  4.34it/s]    Fetching GFS data: 100%|██████████| 12/12 [00:00<00:00, 52.06it/s]
+    2025-06-16 14:18:35.875 | SUCCESS  | __main__:run:123 - Fetched data from GFS
+    2025-06-16 14:18:35.876 | WARNING  | earth2studio.io.zarr:add_array:192 - Datetime64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch
+    2025-06-16 14:18:35.903 | INFO     | __main__:run:137 - Inference starting!
+    2025-06-16 14:18:37.534 | SUCCESS  | __main__:run:141 - Inference complete
+
+
 
 
 .. GENERATED FROM PYTHON SOURCE LINES 187-193
@@ -261,6 +303,22 @@ Notice that the Zarr IO function has additional APIs to interact with the stored
     ax2.set_title("10-meter Wind Speed")
 
     plt.savefig("outputs/04_corr_diff_prediction.jpg")
+
+
+
+.. image-sg:: /examples/images/sphx_glr_04_corrdiff_inference_001.png
+   :alt: Radar Reflectivity, 2-meter Temperature, 10-meter Wind Speed
+   :srcset: /examples/images/sphx_glr_04_corrdiff_inference_001.png
+   :class: sphx-glr-single-img
+
+
+
+
+
+
+.. rst-class:: sphx-glr-timing
+
+   **Total running time of the script:** (0 minutes 11.459 seconds)
 
 
 .. _sphx_glr_download_examples_04_corrdiff_inference.py:
