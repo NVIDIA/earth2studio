@@ -29,7 +29,7 @@ and it's recommended that users use an uv project for the best install experienc
 ```bash
 mkdir earth2studio-project && cd earth2studio-project
 uv init --python=3.12
-uv add "earth2studio @ git+https://github.com/NVIDIA/earth2studio.git@0.7.0"
+uv add "earth2studio @ git+https://github.com/NVIDIA/earth2studio.git@0.8.0"
 ```
 
 :::{admonition} uv install
@@ -637,14 +637,14 @@ the following commands:
 ```bash
 mkdir earth2studio-project && cd earth2studio-project
 uv init --python=3.12
-uv add "earth2studio @ git+https://github.com/NVIDIA/earth2studio.git@0.7.0"
+uv add "earth2studio @ git+https://github.com/NVIDIA/earth2studio.git@0.8.0"
 ```
 
 or if you are already inside an existing uv project:
 
 ```bash
 uv venv --python=3.12
-uv add "earth2studio @ git+https://github.com/NVIDIA/earth2studio.git@0.7.0"
+uv add "earth2studio @ git+https://github.com/NVIDIA/earth2studio.git@0.8.0"
 ```
 
 (pytorch_container_environment)=
@@ -658,12 +658,12 @@ It is recommend using the following commands to install using the container's Py
 interpreter:
 
 ```bash
-docker run -it -t nvcr.io/nvidia/pytorch:25.04-py3
+docker run -it -t nvcr.io/nvidia/pytorch:25.05-py3
 
 >>> apt-get update && apt-get install -y git make curl && rm -rf /var/lib/apt/lists/*
 >>> unset PIP_CONSTRAINT
 >>> curl -LsSf https://astral.sh/uv/install.sh | sh && source $HOME/.local/bin/env
->>> uv pip install --system --break-system-packages "earth2studio@git+https://github.com/NVIDIA/earth2studio.git@0.7.0"
+>>> uv pip install --system --break-system-packages "earth2studio@git+https://github.com/NVIDIA/earth2studio.git@0.8.0"
 ```
 
 <!-- markdownlint-disable MD013 -->
@@ -676,7 +676,7 @@ do with pip e.g.
 ```bash
 uv pip install --system \
     --break-system-packages \
-    "earth2studio[all]@git+https://github.com/NVIDIA/earth2studio.git@0.7.0"
+    "earth2studio[all]@git+https://github.com/NVIDIA/earth2studio.git@0.8.0"
 ```
 
 :::
@@ -689,7 +689,7 @@ There is some complexity to undo the pip constraints from the PyTorch container,
 otherwise the install process is the same.
 
 ```dockerfile
-FROM nvcr.io/nvidia/pytorch:25.03-py3
+FROM nvcr.io/nvidia/pytorch:25.05-py3
 COPY --from=ghcr.io/astral-sh/uv:0.6.13 /uv /uvx /bin/
 
 # Install system dependencies
@@ -703,7 +703,7 @@ WORKDIR /app
 # Disable contraint files in the container
 ENV PIP_CONSTRAINT=
 # Install Earth2Studio and dependencies
-RUN uv pip install --system --break-system-packages "earth2studio@git+https://github.com/NVIDIA/earth2studio.git@0.7.0"
+RUN uv pip install --system --break-system-packages "earth2studio@git+https://github.com/NVIDIA/earth2studio.git@0.8.0"
 ```
 
 ## Conda Environment
@@ -719,7 +719,7 @@ package tooling.
 conda create -n earth2studio python=3.12
 conda activate earth2studio
 
-uv pip install --system --break-system-packages "earth2studio@git+https://github.com/NVIDIA/earth2studio.git@0.7.0"
+uv pip install --system --break-system-packages "earth2studio@git+https://github.com/NVIDIA/earth2studio.git@0.8.0"
 ```
 
 (configuration_userguide)=

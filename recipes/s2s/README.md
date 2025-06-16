@@ -1,27 +1,5 @@
 # Subseasonal-to-Seasonal (S2S) Forecasting Recipe
 
-## Table of Contents
-
-- [Overview](#overview)
-- [Prerequisites](#prerequisites)
-  - [Software](#software)
-  - [Hardware](#hardware)
-- [Quick Start](#quick-start)
-- [Documentation](#documentation)
-  - [Reference Workflows](#reference-workflows)
-    - [2021 Pacific Northwest Heat Wave](#2021-pacific-northwest-heat-wave)
-    - [Global S2S scoring over extended periods](#global-s2s-scoring-over-extended-periods)
-    - [Using diagnostic models with S2S forecast models](#using-diagnostic-models-with-s2s-forecast-models)
-  - [Configuration](#configuration)
-    - [Project Basics](#project-basics)
-    - [Output Subselection](#output-subselection)
-    - [Scoring Forecast Outputs](#scoring-forecast-outputs)
-    - [AI Weather Quest Scoring](#ai-weather-quest-scoring)
-- [Parallelism](#parallelism)
-- [References](#references)
-
-## Overview
-
 Subseasonal-to-seasonal (S2S) forecasting bridges the gap between weather forecasts (up to 2
 weeks) and seasonal forecasts (3-6 months). This recipe demonstrates how to run ensemble
 forecasts for S2S timescales using Earth2Studio.
@@ -101,7 +79,7 @@ Start by installing the required packages with pip:
 # If using uv package manager
 uv sync
 # Pip
-pip install -r requirements.txt
+pip install -r recipe-requirements.txt
 ```
 
 To run an example ensemble forecast with DLESyM, run
