@@ -18,7 +18,7 @@
 .. _sphx_glr_examples_15_cbottle_generation.py:
 
 
-cBottle Data Generation and Infilling
+CBottle Data Generation and Infilling
 =====================================
 
 Climate in a Bottle (cBottle) inference workflows for global weather data synthesis.

@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>earth2studio.models.dx.precipitation_afno_v2 &#8212; Earth2Studio 0.8.0a0 documentation</title>
+    <title>earth2studio.models.dx.precipitation_afno_v2 &#8212; Earth2Studio 0.9.0a0 documentation</title>
   
   
   
@@ -44,7 +44,7 @@
   <link rel="preload" as="script" href="../../../../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
 <link rel="preload" as="script" href="../../../../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
 
-    <script src="../../../../_static/documentation_options.js?v=96f8bfd3"></script>
+    <script src="../../../../_static/documentation_options.js?v=6b888095"></script>
     <script src="../../../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script>let toggleHintShow = 'Click to show';</script>
@@ -65,7 +65,7 @@
     <link rel="search" title="Search" href="../../../../search.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
-  <meta name="docsearch:version" content="0.8" />
+  <meta name="docsearch:version" content="0.9" />
   </head>
   
   
@@ -444,9 +444,9 @@
 <span class="k">try</span><span class="p">:</span>
     <span class="kn">from</span><span class="w"> </span><span class="nn">physicsnemo.utils.zenith_angle</span><span class="w"> </span><span class="kn">import</span> <span class="n">cos_zenith_angle</span>
 
-    <span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.models.nn.afno_precip_v2</span><span class="w"> </span><span class="kn">import</span> <span class="n">PrecipNet</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.models.nn.afno_precip_v2</span><span class="w"> </span><span class="kn">import</span> <span class="n">PrecipNet_v2</span>
 <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
-    <span class="n">PrecipNet</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">PrecipNet_v2</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">cos_zenith_angle</span> <span class="o">=</span> <span class="kc">None</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.models.auto</span><span class="w"> </span><span class="kn">import</span> <span class="n">AutoModelMixin</span><span class="p">,</span> <span class="n">Package</span>
@@ -485,7 +485,7 @@
 
 <div class="viewcode-block" id="PrecipitationAFNOv2">
 <a class="viewcode-back" href="../../../../modules/generated/models/dx/earth2studio.models.dx.PrecipitationAFNOv2.html#earth2studio.models.dx.PrecipitationAFNOv2">[docs]</a>
-<span class="nd">@check_extra_imports</span><span class="p">(</span><span class="s2">&quot;precip-afno-v2&quot;</span><span class="p">,</span> <span class="p">[</span><span class="n">PrecipNet</span><span class="p">,</span> <span class="n">cos_zenith_angle</span><span class="p">])</span>
+<span class="nd">@check_extra_imports</span><span class="p">(</span><span class="s2">&quot;precip-afno-v2&quot;</span><span class="p">,</span> <span class="p">[</span><span class="s2">&quot;physicsnemo&quot;</span><span class="p">])</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">PrecipitationAFNOv2</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">,</span> <span class="n">AutoModelMixin</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Improved Precipitation AFNO diagnostic model. Predicts the total precipitation</span>
 <span class="sd">    for the past 6 hours [t-6h, t] with the units m. This model uses an 20 atmospheric</span>
@@ -597,10 +597,22 @@
 <div class="viewcode-block" id="PrecipitationAFNOv2.load_model">
 <a class="viewcode-back" href="../../../../modules/generated/models/dx/earth2studio.models.dx.PrecipitationAFNOv2.html#earth2studio.models.dx.PrecipitationAFNOv2.load_model">[docs]</a>
     <span class="nd">@classmethod</span>
-    <span class="nd">@check_extra_imports</span><span class="p">(</span><span class="s2">&quot;precip-afno-v2&quot;</span><span class="p">,</span> <span class="p">[</span><span class="n">PrecipNet</span><span class="p">,</span> <span class="n">cos_zenith_angle</span><span class="p">])</span>
+    <span class="nd">@check_extra_imports</span><span class="p">(</span><span class="s2">&quot;precip-afno-v2&quot;</span><span class="p">,</span> <span class="p">[</span><span class="s2">&quot;physicsnemo&quot;</span><span class="p">])</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">load_model</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">package</span><span class="p">:</span> <span class="n">Package</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">DiagnosticModel</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Load diagnostic from package&quot;&quot;&quot;</span>
-        <span class="n">model</span> <span class="o">=</span> <span class="n">PrecipNet</span><span class="o">.</span><span class="n">from_checkpoint</span><span class="p">(</span><span class="n">package</span><span class="o">.</span><span class="n">resolve</span><span class="p">(</span><span class="s2">&quot;afno_precip.mdlus&quot;</span><span class="p">))</span>
+
+        <span class="c1"># Hack because old checkpoint</span>
+        <span class="n">model</span> <span class="o">=</span> <span class="n">PrecipNet_v2</span><span class="p">(</span>
+            <span class="n">inp_shape</span><span class="o">=</span><span class="p">[</span><span class="mi">720</span><span class="p">,</span> <span class="mi">1440</span><span class="p">],</span>
+            <span class="n">patch_size</span><span class="o">=</span><span class="p">[</span><span class="mi">8</span><span class="p">,</span> <span class="mi">8</span><span class="p">],</span>
+            <span class="n">in_channels</span><span class="o">=</span><span class="mi">23</span><span class="p">,</span>
+            <span class="n">out_channels</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+            <span class="n">embed_dim</span><span class="o">=</span><span class="mi">768</span><span class="p">,</span>
+            <span class="n">depth</span><span class="o">=</span><span class="mi">12</span><span class="p">,</span>
+            <span class="n">num_blocks</span><span class="o">=</span><span class="mi">8</span><span class="p">,</span>
+            <span class="n">mlp_ratio</span><span class="o">=</span><span class="mi">8</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">model</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">package</span><span class="o">.</span><span class="n">resolve</span><span class="p">(</span><span class="s2">&quot;afno_precip.mdlus&quot;</span><span class="p">))</span>
         <span class="n">model</span><span class="o">.</span><span class="n">eval</span><span class="p">()</span>
 
         <span class="n">input_center</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">package</span><span class="o">.</span><span class="n">resolve</span><span class="p">(</span><span class="s2">&quot;global_means.npy&quot;</span><span class="p">)))</span>

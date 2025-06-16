@@ -6,7 +6,7 @@
 
 Computation times
 =================
-**00:00.000** total execution time for 15 files **from examples**:
+**00:00.000** total execution time for 16 files **from examples**:
 
 .. container::
 
@@ -75,5 +75,8 @@ Computation times
      - 00:00.000
      - 0.0
    * - :ref:`sphx_glr_examples_15_cbottle_generation.py` (``15_cbottle_generation.py``)
+     - 00:00.000
+     - 0.0
+   * - :ref:`sphx_glr_examples_16_cbottle_super_resolution.py` (``16_cbottle_super_resolution.py``)
      - 00:00.000
      - 0.0

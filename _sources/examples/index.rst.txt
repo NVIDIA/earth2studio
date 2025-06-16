@@ -118,7 +118,7 @@ and commonly used workflows.
 
 .. raw:: html
 
-    <div class="sphx-glr-thumbcontainer" tooltip="This example will demonstrate how to run a simple inference workflow to generate a forecast and then to save a statistic of that data. There are a handful of built-in statistics available in earth2studio.statistics, but here we will demonstrate how to define a custom statistic and run inference.">
+    <div class="sphx-glr-thumbcontainer" tooltip="Simple seasonal statistic inference workflow.">
 
 .. only:: html
 
@@ -265,7 +265,24 @@ and commonly used workflows.
 
 .. raw:: html
 
-      <div class="sphx-glr-thumbnail-title">cBottle Data Generation and Infilling</div>
+      <div class="sphx-glr-thumbnail-title">CBottle Data Generation and Infilling</div>
+    </div>
+
+
+.. raw:: html
+
+    <div class="sphx-glr-thumbcontainer" tooltip="Climate in a Bottle (cBottle) super resolution workflows for global weather.">
+
+.. only:: html
+
+  .. image:: /examples/images/thumb/sphx_glr_16_cbottle_super_resolution_thumb.png
+    :alt:
+
+  :ref:`sphx_glr_examples_16_cbottle_super_resolution.py`
+
+.. raw:: html
+
+      <div class="sphx-glr-thumbnail-title">CBottle Super Resolution</div>
     </div>
 
 
@@ -294,6 +311,7 @@ and commonly used workflows.
    /examples/13_cyclone_tracking
    /examples/14_dlesym_example
    /examples/15_cbottle_generation
+   /examples/16_cbottle_super_resolution
 
 
 Extending Earth2Studio

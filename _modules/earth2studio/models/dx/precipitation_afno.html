@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>earth2studio.models.dx.precipitation_afno &#8212; Earth2Studio 0.8.0a0 documentation</title>
+    <title>earth2studio.models.dx.precipitation_afno &#8212; Earth2Studio 0.9.0a0 documentation</title>
   
   
   
@@ -44,7 +44,7 @@
   <link rel="preload" as="script" href="../../../../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
 <link rel="preload" as="script" href="../../../../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
 
-    <script src="../../../../_static/documentation_options.js?v=96f8bfd3"></script>
+    <script src="../../../../_static/documentation_options.js?v=6b888095"></script>
     <script src="../../../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script>let toggleHintShow = 'Click to show';</script>
@@ -65,7 +65,7 @@
     <link rel="search" title="Search" href="../../../../search.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
-  <meta name="docsearch:version" content="0.8" />
+  <meta name="docsearch:version" content="0.9" />
   </head>
   
   
@@ -592,7 +592,15 @@
         <span class="k">with</span> <span class="n">zipfile</span><span class="o">.</span><span class="n">ZipFile</span><span class="p">(</span><span class="n">checkpoint_zip</span><span class="p">,</span> <span class="s2">&quot;r&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">zip_ref</span><span class="p">:</span>
             <span class="n">zip_ref</span><span class="o">.</span><span class="n">extractall</span><span class="p">(</span><span class="n">checkpoint_zip</span><span class="o">.</span><span class="n">parent</span><span class="p">)</span>
 
-        <span class="n">model</span> <span class="o">=</span> <span class="n">PrecipNet</span><span class="o">.</span><span class="n">from_checkpoint</span><span class="p">(</span>
+        <span class="c1"># Hack because old checkpoint</span>
+        <span class="n">model</span> <span class="o">=</span> <span class="n">PrecipNet</span><span class="p">(</span>
+            <span class="n">inp_shape</span><span class="o">=</span><span class="p">[</span><span class="mi">720</span><span class="p">,</span> <span class="mi">1440</span><span class="p">],</span>
+            <span class="n">in_channels</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span>
+            <span class="n">out_channels</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+            <span class="n">patch_size</span><span class="o">=</span><span class="p">[</span><span class="mi">8</span><span class="p">,</span> <span class="mi">8</span><span class="p">],</span>
+            <span class="n">embed_dim</span><span class="o">=</span><span class="mi">768</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">model</span><span class="o">.</span><span class="n">load</span><span class="p">(</span>
             <span class="nb">str</span><span class="p">(</span>
                 <span class="n">checkpoint_zip</span><span class="o">.</span><span class="n">parent</span>
                 <span class="o">/</span> <span class="n">Path</span><span class="p">(</span><span class="s2">&quot;precipitation_afno/precipitation_afno.mdlus&quot;</span><span class="p">)</span>
