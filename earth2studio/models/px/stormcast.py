@@ -47,7 +47,7 @@ from earth2studio.utils.type import CoordSystem
 
 # Variables used in StormCastV1 paper
 VARIABLES = (
-    ["u10m", "v10m", "t2m", "mslp"]
+    ["u10m", "v10m", "t2m", "msl"]
     + [
         var + str(level)
         for var, level in product(
@@ -64,7 +64,7 @@ VARIABLES = (
     ]
 )
 
-CONDITIONING_VARIABLES = ["u10m", "v10m", "t2m", "tcwv", "mslp", "sp"] + [
+CONDITIONING_VARIABLES = ["u10m", "v10m", "t2m", "tcwv", "sp", "msl"] + [
     var + str(level)
     for var, level in product(["u", "v", "z", "t", "q"], [1000, 850, 500, 250])
 ]
