@@ -239,7 +239,7 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def load_default_package(cls) -> Package:
         """Load prognostic package"""
         package = Package(
-            "ngc://models/nvidia/modulus/stormcast-v1-era5-hrrr@1.0.1",
+            "ngc://models/nvidia/earth-2/stormcast-v1-era5-hrrr@1.0.2",
             cache_options={
                 "cache_storage": Package.default_cache("stormcast"),
                 "same_names": True,
