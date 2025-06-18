@@ -47,7 +47,7 @@ from earth2studio.utils.type import CoordSystem
 
 # Variables used in StormCastV1 paper
 VARIABLES = (
-    ["u10m", "v10m", "t2m", "mslp"]
+    ["u10m", "v10m", "t2m", "msl"]
     + [
         var + str(level)
         for var, level in product(
@@ -64,7 +64,7 @@ VARIABLES = (
     ]
 )
 
-CONDITIONING_VARIABLES = ["u10m", "v10m", "t2m", "tcwv", "mslp", "sp"] + [
+CONDITIONING_VARIABLES = ["u10m", "v10m", "t2m", "tcwv", "sp", "msl"] + [
     var + str(level)
     for var, level in product(["u", "v", "z", "t", "q"], [1000, 850, 500, 250])
 ]
@@ -239,7 +239,7 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def load_default_package(cls) -> Package:
         """Load prognostic package"""
         package = Package(
-            "ngc://models/nvidia/modulus/stormcast-v1-era5-hrrr@1.0.1",
+            "ngc://models/nvidia/earth-2/stormcast-v1-era5-hrrr@1.0.2",
             cache_options={
                 "cache_storage": Package.default_cache("stormcast"),
                 "same_names": True,
