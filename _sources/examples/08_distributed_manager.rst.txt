@@ -86,18 +86,6 @@ For example, this script could be ran using:
         f"Inference runner {dist.rank} of {dist.world_size} with device {dist.device}"
     )
 
-
-
-
-.. rst-class:: sphx-glr-script-out
-
- .. code-block:: none
-
-    2025-06-16 19:11:15.843 | INFO     | __main__:<module>:80 - Inference runner 0 of 1 with device cuda:0
-
-
-
-
 .. GENERATED FROM PYTHON SOURCE LINES 84-88
 
 Next the needed components get initialized.
@@ -123,12 +111,6 @@ taken to ensure safe parallel inference.
         model = DLWP.load_model(package)
 
 
-
-
-
-
-
-
 .. GENERATED FROM PYTHON SOURCE LINES 104-111
 
 When loading models that are built into Earth2Studio, the model's checkpoint files
@@ -148,12 +130,6 @@ process 0 and then loaded by other processes.
     data = WB2ERA5()
 
 
-
-
-
-
-
-
 .. GENERATED FROM PYTHON SOURCE LINES 118-121
 
 The remote date store will place cached data into separate caches for each process.
@@ -170,12 +146,6 @@ means that multiple jobs will download the same date-time if needed.
         chunks=chunks,
         backend_kwargs={"overwrite": True},
     )
-
-
-
-
-
-
 
 
 .. GENERATED FROM PYTHON SOURCE LINES 131-141
@@ -211,140 +181,6 @@ process.
 
     print(io.root.tree())
     torch.distributed.barrier()
-
-
-
-
-
-.. rst-class:: sphx-glr-script-out
-
- .. code-block:: none
-
-    2025-06-16 19:11:16.947 | INFO     | earth2studio.run:deterministic:75 - Running simple workflow!
-    2025-06-16 19:11:16.947 | INFO     | earth2studio.run:deterministic:82 - Inference device: cuda:0
-    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-06-16 19:11:17.365 | DEBUG    | earth2studio.data.wb2:fetch_array:251 - Fetching WB2 zarr array for variable: z700 at 2005-05-31T18:00:00
-    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-06-16 19:11:17.366 | DEBUG    | earth2studio.data.wb2:fetch_array:251 - Fetching WB2 zarr array for variable: z1000 at 2001-05-31T18:00:00
-    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-06-16 19:11:17.367 | DEBUG    | earth2studio.data.wb2:fetch_array:251 - Fetching WB2 zarr array for variable: tcwv at 2004-05-31T18:00:00
-    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-06-16 19:11:17.368 | DEBUG    | earth2studio.data.wb2:fetch_array:251 - Fetching WB2 zarr array for variable: t2m at 2003-05-31T18:00:00
-    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-06-16 19:11:17.369 | DEBUG    | earth2studio.data.wb2:fetch_array:251 - Fetching WB2 zarr array for variable: z500 at 2001-05-31T18:00:00
-    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-06-16 19:11:17.370 | DEBUG    | earth2studio.data.wb2:fetch_array:251 - Fetching WB2 zarr array for variable: z700 at 2002-05-31T18:00:00
-    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-06-16 19:11:17.372 | DEBUG    | earth2studio.data.wb2:fetch_array:251 - Fetching WB2 zarr array for variable: z500 at 2002-05-31T18:00:00
-    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-06-16 19:11:17.373 | DEBUG    | earth2studio.data.wb2:fetch_array:251 - Fetching WB2 zarr array for variable: t850 at 2005-05-31T18:00:00
-    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-06-16 19:11:17.374 | DEBUG    | earth2studio.data.wb2:fetch_array:251 - Fetching WB2 zarr array for variable: z1000 at 2000-05-31T18:00:00
-    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-06-16 19:11:17.375 | DEBUG    | earth2studio.data.wb2:fetch_array:251 - Fetching WB2 zarr array for variable: t2m at 2002-05-31T18:00:00
-    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-06-16 19:11:17.376 | DEBUG    | earth2studio.data.wb2:fetch_array:251 - Fetching WB2 zarr array for variable: t850 at 2002-05-31T18:00:00
-    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-06-16 19:11:17.377 | DEBUG    | earth2studio.data.wb2:fetch_array:251 - Fetching WB2 zarr array for variable: z1000 at 2005-05-31T18:00:00
-    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-06-16 19:11:17.378 | DEBUG    | earth2studio.data.wb2:fetch_array:251 - Fetching WB2 zarr array for variable: z300 at 2005-05-31T18:00:00
-    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-06-16 19:11:17.379 | DEBUG    | earth2studio.data.wb2:fetch_array:251 - Fetching WB2 zarr array for variable: z700 at 2000-05-31T18:00:00
-    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-06-16 19:11:17.381 | DEBUG    | earth2studio.data.wb2:fetch_array:251 - Fetching WB2 zarr array for variable: z700 at 2003-05-31T18:00:00
-    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-06-16 19:11:17.382 | DEBUG    | earth2studio.data.wb2:fetch_array:251 - Fetching WB2 zarr array for variable: z500 at 2005-05-31T18:00:00
-    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-06-16 19:11:17.384 | DEBUG    | earth2studio.data.wb2:fetch_array:251 - Fetching WB2 zarr array for variable: t2m at 2004-05-31T18:00:00
-    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-06-16 19:11:17.385 | DEBUG    | earth2studio.data.wb2:fetch_array:251 - Fetching WB2 zarr array for variable: z500 at 2000-05-31T18:00:00
-    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-06-16 19:11:17.387 | DEBUG    | earth2studio.data.wb2:fetch_array:251 - Fetching WB2 zarr array for variable: z1000 at 2004-05-31T18:00:00
-    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-06-16 19:11:17.388 | DEBUG    | earth2studio.data.wb2:fetch_array:251 - Fetching WB2 zarr array for variable: z700 at 2004-05-31T18:00:00
-    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-06-16 19:11:17.389 | DEBUG    | earth2studio.data.wb2:fetch_array:251 - Fetching WB2 zarr array for variable: t2m at 2005-05-31T18:00:00
-    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-06-16 19:11:17.390 | DEBUG    | earth2studio.data.wb2:fetch_array:251 - Fetching WB2 zarr array for variable: tcwv at 2005-05-31T18:00:00
-    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-06-16 19:11:17.391 | DEBUG    | earth2studio.data.wb2:fetch_array:251 - Fetching WB2 zarr array for variable: z500 at 2003-05-31T18:00:00
-    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-06-16 19:11:17.392 | DEBUG    | earth2studio.data.wb2:fetch_array:251 - Fetching WB2 zarr array for variable: z1000 at 2002-05-31T18:00:00
-    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-06-16 19:11:17.393 | DEBUG    | earth2studio.data.wb2:fetch_array:251 - Fetching WB2 zarr array for variable: z300 at 2000-05-31T18:00:00
-    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-06-16 19:11:17.395 | DEBUG    | earth2studio.data.wb2:fetch_array:251 - Fetching WB2 zarr array for variable: z700 at 2001-05-31T18:00:00
-    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-06-16 19:11:17.396 | DEBUG    | earth2studio.data.wb2:fetch_array:251 - Fetching WB2 zarr array for variable: z300 at 2004-05-31T18:00:00
-    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-06-16 19:11:17.397 | DEBUG    | earth2studio.data.wb2:fetch_array:251 - Fetching WB2 zarr array for variable: z300 at 2001-05-31T18:00:00
-    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-06-16 19:11:17.398 | DEBUG    | earth2studio.data.wb2:fetch_array:251 - Fetching WB2 zarr array for variable: tcwv at 2002-05-31T18:00:00
-    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-06-16 19:11:17.399 | DEBUG    | earth2studio.data.wb2:fetch_array:251 - Fetching WB2 zarr array for variable: z300 at 2002-05-31T18:00:00
-    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-06-16 19:11:17.400 | DEBUG    | earth2studio.data.wb2:fetch_array:251 - Fetching WB2 zarr array for variable: t2m at 2000-05-31T18:00:00
-    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-06-16 19:11:17.401 | DEBUG    | earth2studio.data.wb2:fetch_array:251 - Fetching WB2 zarr array for variable: tcwv at 2000-05-31T18:00:00
-    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-06-16 19:11:17.402 | DEBUG    | earth2studio.data.wb2:fetch_array:251 - Fetching WB2 zarr array for variable: t850 at 2004-05-31T18:00:00
-    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-06-16 19:11:17.403 | DEBUG    | earth2studio.data.wb2:fetch_array:251 - Fetching WB2 zarr array for variable: t850 at 2000-05-31T18:00:00
-    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-06-16 19:11:17.403 | DEBUG    | earth2studio.data.wb2:fetch_array:251 - Fetching WB2 zarr array for variable: t850 at 2003-05-31T18:00:00
-    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-06-16 19:11:17.404 | DEBUG    | earth2studio.data.wb2:fetch_array:251 - Fetching WB2 zarr array for variable: z500 at 2004-05-31T18:00:00
-    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-06-16 19:11:17.405 | DEBUG    | earth2studio.data.wb2:fetch_array:251 - Fetching WB2 zarr array for variable: z300 at 2003-05-31T18:00:00
-    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-06-16 19:11:17.406 | DEBUG    | earth2studio.data.wb2:fetch_array:251 - Fetching WB2 zarr array for variable: z1000 at 2003-05-31T18:00:00
-    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-06-16 19:11:17.409 | DEBUG    | earth2studio.data.wb2:fetch_array:251 - Fetching WB2 zarr array for variable: t2m at 2001-05-31T18:00:00
-    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-06-16 19:11:17.412 | DEBUG    | earth2studio.data.wb2:fetch_array:251 - Fetching WB2 zarr array for variable: t850 at 2001-05-31T18:00:00
-    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-06-16 19:11:17.416 | DEBUG    | earth2studio.data.wb2:fetch_array:251 - Fetching WB2 zarr array for variable: tcwv at 2001-05-31T18:00:00
-    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-06-16 19:11:17.419 | DEBUG    | earth2studio.data.wb2:fetch_array:251 - Fetching WB2 zarr array for variable: tcwv at 2003-05-31T18:00:00
-    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]    Fetching WB2 data:   2%|▏         | 1/42 [00:00<00:25,  1.63it/s]    Fetching WB2 data:  29%|██▊       | 12/42 [00:00<00:01, 19.23it/s]    Fetching WB2 data:  62%|██████▏   | 26/42 [00:00<00:00, 42.13it/s]    Fetching WB2 data: 100%|██████████| 42/42 [00:00<00:00, 46.65it/s]
-    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-06-16 19:11:18.268 | DEBUG    | earth2studio.data.wb2:fetch_array:251 - Fetching WB2 zarr array for variable: z700 at 2005-06-01T00:00:00
-    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-06-16 19:11:18.269 | DEBUG    | earth2studio.data.wb2:fetch_array:251 - Fetching WB2 zarr array for variable: t850 at 2002-06-01T00:00:00
-    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-06-16 19:11:18.269 | DEBUG    | earth2studio.data.wb2:fetch_array:251 - Fetching WB2 zarr array for variable: t2m at 2002-06-01T00:00:00
-    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-06-16 19:11:18.270 | DEBUG    | earth2studio.data.wb2:fetch_array:251 - Fetching WB2 zarr array for variable: z500 at 2001-06-01T00:00:00
-    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-06-16 19:11:18.270 | DEBUG    | earth2studio.data.wb2:fetch_array:251 - Fetching WB2 zarr array for variable: z700 at 2002-06-01T00:00:00
-    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-06-16 19:11:18.271 | DEBUG    | earth2studio.data.wb2:fetch_array:251 - Fetching WB2 zarr array for variable: z500 at 2002-06-01T00:00:00
-    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-06-16 19:11:18.271 | DEBUG    | earth2studio.data.wb2:fetch_array:251 - Fetching WB2 zarr array for variable: z1000 at 2002-06-01T00:00:00
-    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-06-16 19:11:18.272 | DEBUG    | earth2studio.data.wb2:fetch_array:251 - Fetching WB2 zarr array for variable: t850 at 2005-06-01T00:00:00
-    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-06-16 19:11:18.272 | DEBUG    | earth2studio.data.wb2:fetch_array:251 - Fetching WB2 zarr array for variable: z300 at 2004-06-01T00:00:00
-    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-06-16 19:11:18.273 | DEBUG    | earth2studio.data.wb2:fetch_array:251 - Fetching WB2 zarr array for variable: t850 at 2001-06-01T00:00:00
-    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-06-16 19:11:18.273 | DEBUG    | earth2studio.data.wb2:fetch_array:251 - Fetching WB2 zarr array for variable: z1000 at 2005-06-01T00:00:00
-    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-06-16 19:11:18.274 | DEBUG    | earth2studio.data.wb2:fetch_array:251 - Fetching WB2 zarr array for variable: z300 at 2005-06-01T00:00:00
-    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-06-16 19:11:18.274 | DEBUG    | earth2studio.data.wb2:fetch_array:251 - Fetching WB2 zarr array for variable: tcwv at 2003-06-01T00:00:00
-    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-06-16 19:11:18.275 | DEBUG    | earth2studio.data.wb2:fetch_array:251 - Fetching WB2 zarr array for variable: z700 at 2000-06-01T00:00:00
-    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-06-16 19:11:18.275 | DEBUG    | earth2studio.data.wb2:fetch_array:251 - Fetching WB2 zarr array for variable: z700 at 2003-06-01T00:00:00
-    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-06-16 19:11:18.276 | DEBUG    | earth2studio.data.wb2:fetch_array:251 - Fetching WB2 zarr array for variable: z500 at 2005-06-01T00:00:00
-    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-06-16 19:11:18.276 | DEBUG    | earth2studio.data.wb2:fetch_array:251 - Fetching WB2 zarr array for variable: z500 at 2000-06-01T00:00:00
-    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-06-16 19:11:18.277 | DEBUG    | earth2studio.data.wb2:fetch_array:251 - Fetching WB2 zarr array for variable: z1000 at 2004-06-01T00:00:00
-    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-06-16 19:11:18.277 | DEBUG    | earth2studio.data.wb2:fetch_array:251 - Fetching WB2 zarr array for variable: z700 at 2004-06-01T00:00:00
-    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-06-16 19:11:18.278 | DEBUG    | earth2studio.data.wb2:fetch_array:251 - Fetching WB2 zarr array for variable: t2m at 2003-06-01T00:00:00
-    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-06-16 19:11:18.278 | DEBUG    | earth2studio.data.wb2:fetch_array:251 - Fetching WB2 zarr array for variable: z500 at 2003-06-01T00:00:00
-    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-06-16 19:11:18.279 | DEBUG    | earth2studio.data.wb2:fetch_array:251 - Fetching WB2 zarr array for variable: z1000 at 2000-06-01T00:00:00
-    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-06-16 19:11:18.279 | DEBUG    | earth2studio.data.wb2:fetch_array:251 - Fetching WB2 zarr array for variable: z300 at 2000-06-01T00:00:00
-    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-06-16 19:11:18.280 | DEBUG    | earth2studio.data.wb2:fetch_array:251 - Fetching WB2 zarr array for variable: tcwv at 2000-06-01T00:00:00
-    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-06-16 19:11:18.280 | DEBUG    | earth2studio.data.wb2:fetch_array:251 - Fetching WB2 zarr array for variable: z700 at 2001-06-01T00:00:00
-    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-06-16 19:11:18.281 | DEBUG    | earth2studio.data.wb2:fetch_array:251 - Fetching WB2 zarr array for variable: z300 at 2003-06-01T00:00:00
-    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-06-16 19:11:18.281 | DEBUG    | earth2studio.data.wb2:fetch_array:251 - Fetching WB2 zarr array for variable: tcwv at 2002-06-01T00:00:00
-    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-06-16 19:11:18.282 | DEBUG    | earth2studio.data.wb2:fetch_array:251 - Fetching WB2 zarr array for variable: z300 at 2001-06-01T00:00:00
-    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-06-16 19:11:18.282 | DEBUG    | earth2studio.data.wb2:fetch_array:251 - Fetching WB2 zarr array for variable: t2m at 2000-06-01T00:00:00
-    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-06-16 19:11:18.283 | DEBUG    | earth2studio.data.wb2:fetch_array:251 - Fetching WB2 zarr array for variable: z300 at 2002-06-01T00:00:00
-    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-06-16 19:11:18.283 | DEBUG    | earth2studio.data.wb2:fetch_array:251 - Fetching WB2 zarr array for variable: t2m at 2004-06-01T00:00:00
-    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-06-16 19:11:18.284 | DEBUG    | earth2studio.data.wb2:fetch_array:251 - Fetching WB2 zarr array for variable: tcwv at 2004-06-01T00:00:00
-    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-06-16 19:11:18.284 | DEBUG    | earth2studio.data.wb2:fetch_array:251 - Fetching WB2 zarr array for variable: z1000 at 2001-06-01T00:00:00
-    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-06-16 19:11:18.285 | DEBUG    | earth2studio.data.wb2:fetch_array:251 - Fetching WB2 zarr array for variable: t850 at 2000-06-01T00:00:00
-    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-06-16 19:11:18.285 | DEBUG    | earth2studio.data.wb2:fetch_array:251 - Fetching WB2 zarr array for variable: t850 at 2003-06-01T00:00:00
-    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-06-16 19:11:18.286 | DEBUG    | earth2studio.data.wb2:fetch_array:251 - Fetching WB2 zarr array for variable: z500 at 2004-06-01T00:00:00
-    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-06-16 19:11:18.286 | DEBUG    | earth2studio.data.wb2:fetch_array:251 - Fetching WB2 zarr array for variable: tcwv at 2001-06-01T00:00:00
-    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-06-16 19:11:18.287 | DEBUG    | earth2studio.data.wb2:fetch_array:251 - Fetching WB2 zarr array for variable: z1000 at 2003-06-01T00:00:00
-    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-06-16 19:11:18.287 | DEBUG    | earth2studio.data.wb2:fetch_array:251 - Fetching WB2 zarr array for variable: t2m at 2005-06-01T00:00:00
-    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-06-16 19:11:18.288 | DEBUG    | earth2studio.data.wb2:fetch_array:251 - Fetching WB2 zarr array for variable: t850 at 2004-06-01T00:00:00
-    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-06-16 19:11:18.288 | DEBUG    | earth2studio.data.wb2:fetch_array:251 - Fetching WB2 zarr array for variable: tcwv at 2005-06-01T00:00:00
-    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]                                                             2025-06-16 19:11:18.290 | DEBUG    | earth2studio.data.wb2:fetch_array:251 - Fetching WB2 zarr array for variable: t2m at 2001-06-01T00:00:00
-    Fetching WB2 data:   0%|          | 0/42 [00:00<?, ?it/s]    Fetching WB2 data:   2%|▏         | 1/42 [00:00<00:21,  1.86it/s]    Fetching WB2 data:  26%|██▌       | 11/42 [00:00<00:01, 19.32it/s]    Fetching WB2 data:  93%|█████████▎| 39/42 [00:00<00:00, 65.58it/s]    Fetching WB2 data: 100%|██████████| 42/42 [00:00<00:00, 48.36it/s]
-    2025-06-16 19:11:19.409 | SUCCESS  | earth2studio.run:deterministic:106 - Fetched data from WB2ERA5
-    2025-06-16 19:11:19.413 | WARNING  | earth2studio.io.zarr:add_array:192 - Datetime64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch
-    2025-06-16 19:11:19.417 | WARNING  | earth2studio.io.zarr:add_array:198 - Timedelta64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch
-    2025-06-16 19:11:19.429 | INFO     | earth2studio.run:deterministic:136 - Inference starting!
-
-    Running inference:   0%|          | 0/21 [00:00<?, ?it/s]
-    Running inference:   5%|▍         | 1/21 [00:00<00:05,  3.42it/s]
-    Running inference:  10%|▉         | 2/21 [00:00<00:05,  3.29it/s]
-    Running inference:  14%|█▍        | 3/21 [00:00<00:05,  3.53it/s]
-    Running inference:  19%|█▉        | 4/21 [00:01<00:05,  3.34it/s]
-    Running inference:  24%|██▍       | 5/21 [00:01<00:04,  3.38it/s]
-    Running inference:  29%|██▊       | 6/21 [00:01<00:04,  3.32it/s]
-    Running inference:  33%|███▎      | 7/21 [00:02<00:04,  3.45it/s]
-    Running inference:  38%|███▊      | 8/21 [00:02<00:03,  3.40it/s]
-    Running inference:  43%|████▎     | 9/21 [00:02<00:03,  3.47it/s]
-    Running inference:  48%|████▊     | 10/21 [00:02<00:03,  3.39it/s]
-    Running inference:  52%|█████▏    | 11/21 [00:03<00:02,  3.44it/s]
-    Running inference:  57%|█████▋    | 12/21 [00:03<00:02,  3.37it/s]
-    Running inference:  62%|██████▏   | 13/21 [00:03<00:02,  3.43it/s]
-    Running inference:  67%|██████▋   | 14/21 [00:04<00:02,  3.43it/s]
-    Running inference:  71%|███████▏  | 15/21 [00:04<00:01,  3.55it/s]
-    Running inference:  76%|███████▌  | 16/21 [00:04<00:01,  3.41it/s]
-    Running inference:  81%|████████  | 17/21 [00:04<00:01,  3.41it/s]
-    Running inference:  86%|████████▌ | 18/21 [00:05<00:00,  3.33it/s]
-    Running inference:  90%|█████████ | 19/21 [00:05<00:00,  3.46it/s]
-    Running inference:  95%|█████████▌| 20/21 [00:05<00:00,  3.42it/s]
-    Running inference: 100%|██████████| 21/21 [00:06<00:00,  3.42it/s]    Running inference: 100%|██████████| 21/21 [00:06<00:00,  3.42it/s]
-    2025-06-16 19:11:25.579 | SUCCESS  | earth2studio.run:deterministic:146 - Inference complete
-    /
-    ├── lat (721,) float64
-    ├── lead_time (21,) int64
-    ├── lon (1440,) float64
-    ├── tcwv (6, 21, 721, 1440) float32
-    └── time (6,) int64
-
-
-
 
 
 .. GENERATED FROM PYTHON SOURCE LINES 161-172
@@ -392,36 +228,6 @@ allows outputs from all processes to get treated as a single data array.
             f'TCWV Forecast Lead Time - {ds.coords["lead_time"].values[-1].astype("timedelta64[ns]").astype("timedelta64[D]").astype(int)} days'
         )
         plt.savefig("outputs/08_tcwv_distributed_manager.jpg")
-
-
-
-.. image-sg:: /examples/images/sphx_glr_08_distributed_manager_001.png
-   :alt: TCWV Forecast Lead Time - 5 days, 06/01/2000, 06/01/2001, 06/01/2002, 06/01/2003, 06/01/2004, 06/01/2005
-   :srcset: /examples/images/sphx_glr_08_distributed_manager_001.png
-   :class: sphx-glr-single-img
-
-
-.. rst-class:: sphx-glr-script-out
-
- .. code-block:: none
-
-    <xarray.Dataset> Size: 523MB
-    Dimensions:    (time: 6, lead_time: 21, lat: 721, lon: 1440)
-    Coordinates:
-      * lead_time  (lead_time) int64 168B 0 21600000000000 ... 432000000000000
-      * time       (time) int64 48B 959817600000000000 ... 1117584000000000000
-      * lat        (lat) float64 6kB 90.0 89.75 89.5 89.25 ... -89.5 -89.75 -90.0
-      * lon        (lon) float64 12kB 0.0 0.25 0.5 0.75 ... 359.0 359.2 359.5 359.8
-    Data variables:
-        tcwv       (time, lead_time, lat, lon) float32 523MB dask.array<chunksize=(1, 1, 721, 1440), meta=np.ndarray>
-
-
-
-
-
-.. rst-class:: sphx-glr-timing
-
-   **Total running time of the script:** (0 minutes 11.232 seconds)
 
 
 .. _sphx_glr_download_examples_08_distributed_manager.py:

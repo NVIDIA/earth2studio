@@ -467,7 +467,7 @@
 
 <span class="c1"># Variables used in StormCastV1 paper</span>
 <span class="n">VARIABLES</span> <span class="o">=</span> <span class="p">(</span>
-    <span class="p">[</span><span class="s2">&quot;u10m&quot;</span><span class="p">,</span> <span class="s2">&quot;v10m&quot;</span><span class="p">,</span> <span class="s2">&quot;t2m&quot;</span><span class="p">,</span> <span class="s2">&quot;mslp&quot;</span><span class="p">]</span>
+    <span class="p">[</span><span class="s2">&quot;u10m&quot;</span><span class="p">,</span> <span class="s2">&quot;v10m&quot;</span><span class="p">,</span> <span class="s2">&quot;t2m&quot;</span><span class="p">,</span> <span class="s2">&quot;msl&quot;</span><span class="p">]</span>
     <span class="o">+</span> <span class="p">[</span>
         <span class="n">var</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">level</span><span class="p">)</span>
         <span class="k">for</span> <span class="n">var</span><span class="p">,</span> <span class="n">level</span> <span class="ow">in</span> <span class="n">product</span><span class="p">(</span>
@@ -484,7 +484,7 @@
     <span class="p">]</span>
 <span class="p">)</span>
 
-<span class="n">CONDITIONING_VARIABLES</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;u10m&quot;</span><span class="p">,</span> <span class="s2">&quot;v10m&quot;</span><span class="p">,</span> <span class="s2">&quot;t2m&quot;</span><span class="p">,</span> <span class="s2">&quot;tcwv&quot;</span><span class="p">,</span> <span class="s2">&quot;mslp&quot;</span><span class="p">,</span> <span class="s2">&quot;sp&quot;</span><span class="p">]</span> <span class="o">+</span> <span class="p">[</span>
+<span class="n">CONDITIONING_VARIABLES</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;u10m&quot;</span><span class="p">,</span> <span class="s2">&quot;v10m&quot;</span><span class="p">,</span> <span class="s2">&quot;t2m&quot;</span><span class="p">,</span> <span class="s2">&quot;tcwv&quot;</span><span class="p">,</span> <span class="s2">&quot;sp&quot;</span><span class="p">,</span> <span class="s2">&quot;msl&quot;</span><span class="p">]</span> <span class="o">+</span> <span class="p">[</span>
     <span class="n">var</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">level</span><span class="p">)</span>
     <span class="k">for</span> <span class="n">var</span><span class="p">,</span> <span class="n">level</span> <span class="ow">in</span> <span class="n">product</span><span class="p">([</span><span class="s2">&quot;u&quot;</span><span class="p">,</span> <span class="s2">&quot;v&quot;</span><span class="p">,</span> <span class="s2">&quot;z&quot;</span><span class="p">,</span> <span class="s2">&quot;t&quot;</span><span class="p">,</span> <span class="s2">&quot;q&quot;</span><span class="p">],</span> <span class="p">[</span><span class="mi">1000</span><span class="p">,</span> <span class="mi">850</span><span class="p">,</span> <span class="mi">500</span><span class="p">,</span> <span class="mi">250</span><span class="p">])</span>
 <span class="p">]</span>
@@ -663,7 +663,7 @@
     <span class="k">def</span><span class="w"> </span><span class="nf">load_default_package</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Package</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Load prognostic package&quot;&quot;&quot;</span>
         <span class="n">package</span> <span class="o">=</span> <span class="n">Package</span><span class="p">(</span>
-            <span class="s2">&quot;ngc://models/nvidia/modulus/stormcast-v1-era5-hrrr@1.0.1&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;ngc://models/nvidia/earth-2/stormcast-v1-era5-hrrr@1.0.2&quot;</span><span class="p">,</span>
             <span class="n">cache_options</span><span class="o">=</span><span class="p">{</span>
                 <span class="s2">&quot;cache_storage&quot;</span><span class="p">:</span> <span class="n">Package</span><span class="o">.</span><span class="n">default_cache</span><span class="p">(</span><span class="s2">&quot;stormcast&quot;</span><span class="p">),</span>
                 <span class="s2">&quot;same_names&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
