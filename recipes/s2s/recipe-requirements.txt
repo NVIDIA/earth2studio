@@ -204,7 +204,7 @@ triton==3.3.1 ; sys_platform == 'linux'
 typing-extensions==4.14.0
 typing-inspection==0.4.1
 tzdata==2025.2
-urllib3==2.4.0
+urllib3==2.5.0
 validators==0.35.0
 wandb==0.20.0
 wcwidth==0.2.13
