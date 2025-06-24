@@ -554,8 +554,8 @@
 <em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">earth2studio.models.dx.</span></span><span class="sig-name descname"><span class="pre">PrecipitationAFNO</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">core_model</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">center</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scale</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/earth2studio/models/dx/precipitation_afno.html#PrecipitationAFNO"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.dx.PrecipitationAFNO" title="Link to this definition">#</a></dt>
 <dd><p>Precipitation AFNO diagnsotic model. Predicts the total precipation parameter
 which is the accumulated amount of liquid and frozen water (rain or snow) with
-units m. This model was trained on ERA5 data thus the accumulation period is over
-the 1 hour ending at the validity date and time.This model uses an 20 atmospheric
+units m. This model was trained on ERA5 data and predicts the 6-hourly accumulated
+total precipitation at the validity date and time. This model uses an 20 atmospheric
 inputs and outputs one on a 0.25 degree lat-lon grid (south-pole excluding)
 [720 x 1440].</p>
 <div class="admonition note">

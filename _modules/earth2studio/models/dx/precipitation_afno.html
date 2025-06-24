@@ -487,8 +487,8 @@
 <span class="k">class</span><span class="w"> </span><span class="nc">PrecipitationAFNO</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">,</span> <span class="n">AutoModelMixin</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Precipitation AFNO diagnsotic model. Predicts the total precipation parameter</span>
 <span class="sd">    which is the accumulated amount of liquid and frozen water (rain or snow) with</span>
-<span class="sd">    units m. This model was trained on ERA5 data thus the accumulation period is over</span>
-<span class="sd">    the 1 hour ending at the validity date and time.This model uses an 20 atmospheric</span>
+<span class="sd">    units m. This model was trained on ERA5 data and predicts the 6-hourly accumulated</span>
+<span class="sd">    total precipitation at the validity date and time. This model uses an 20 atmospheric</span>
 <span class="sd">    inputs and outputs one on a 0.25 degree lat-lon grid (south-pole excluding)</span>
 <span class="sd">    [720 x 1440].</span>
 
