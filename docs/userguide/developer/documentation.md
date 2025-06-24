@@ -110,11 +110,15 @@ which will be addressed on a case-by-case basis.
 
 ### Creating a New Example
 
-[JupyText](https://jupytext.readthedocs.io/en/latest/), with the `py:percent` format, is
-used instead of vanilla Jupyter lab notebooks to prevent notebook bloat in the commit
+In Earth2Studio, vanilla Jupyter lab notebooks are not used to avoid bloat in the commit
 history.
-Sphinx Gallery will convert these files into notebooks and python files on build.
-To create an example, the best method is to copy an existing example and follow the structure:
+Instead, [Sphinx Gallery](https://sphinx-gallery.github.io/stable/index.html) is used to
+represent notebooks as code.
+Sphinx Gallery supports use of [embedded reST](https://sphinx-gallery.github.io/stable/syntax.html#embed-rest-in-your-example-python-files)
+in the form of comments that will be rendered to formated text in the docs web page and
+markdown cells in the converted notebooks.
+To create an example, the best method is to copy an existing example and follow the
+structure:
 
 ```python
 # %%
