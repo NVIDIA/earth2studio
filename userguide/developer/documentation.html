@@ -570,11 +570,16 @@ which will be addressed on a case-by-case basis.</p>
 </section>
 <section id="creating-a-new-example">
 <h3>Creating a New Example<a class="headerlink" href="#creating-a-new-example" title="Link to this heading">#</a></h3>
-<p><a class="reference external" href="https://jupytext.readthedocs.io/en/latest/">JupyText</a>, with the <code class="docutils literal notranslate"><span class="pre">py:percent</span></code> format, is
-used instead of vanilla Jupyter lab notebooks to prevent notebook bloat in the commit
+<p>In Earth2Studio, vanilla Jupyter lab notebooks are not used to avoid bloat in the commit
 history.
-Sphinx Gallery will convert these files into notebooks and python files on build.
-To create an example, the best method is to copy an existing example and follow the structure:</p>
+Instead, <a class="reference external" href="https://sphinx-gallery.github.io/stable/index.html">Sphinx Gallery</a> is used to
+represent notebooks as code.
+Sphinx Gallery supports embedded reST (reStructuredText) syntax in the form of comments.
+These comments are automatically rendered as formatted text on the documentation web
+pages and as markdown cells in the converted Jupyter notebooks.
+For more details on the syntax, see the <a class="reference external" href="https://sphinx-gallery.github.io/stable/syntax.html#embed-rest-in-your-example-python-files">embedded reST documentation</a>.
+To create an example, the best method is to copy an existing example and follow the
+structure:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># %%</span>
 <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">Example Title</span>
