@@ -114,9 +114,10 @@ In Earth2Studio, vanilla Jupyter lab notebooks are not used to avoid bloat in th
 history.
 Instead, [Sphinx Gallery](https://sphinx-gallery.github.io/stable/index.html) is used to
 represent notebooks as code.
-Sphinx Gallery supports use of [embedded reST](https://sphinx-gallery.github.io/stable/syntax.html#embed-rest-in-your-example-python-files)
-in the form of comments that will be rendered to formated text in the docs web page and
-markdown cells in the converted notebooks.
+Sphinx Gallery supports embedded reST (reStructuredText) syntax in the form of comments.
+These comments are automatically rendered as formatted text on the documentation web
+pages and as markdown cells in the converted Jupyter notebooks.
+For more details on the syntax, see the [embedded reST documentation](https://sphinx-gallery.github.io/stable/syntax.html#embed-rest-in-your-example-python-files).
 To create an example, the best method is to copy an existing example and follow the
 structure:
 
