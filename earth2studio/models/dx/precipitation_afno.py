@@ -65,8 +65,8 @@ VARIABLES = [
 class PrecipitationAFNO(torch.nn.Module, AutoModelMixin):
     """Precipitation AFNO diagnsotic model. Predicts the total precipation parameter
     which is the accumulated amount of liquid and frozen water (rain or snow) with
-    units m. This model was trained on ERA5 data predicts the 6-hourly accumulated total
-    precipitation at the validity date and time. This model uses an 20 atmospheric
+    units m. This model was trained on ERA5 data and predicts the 6-hourly accumulated
+    total precipitation at the validity date and time. This model uses an 20 atmospheric
     inputs and outputs one on a 0.25 degree lat-lon grid (south-pole excluding)
     [720 x 1440].
 
