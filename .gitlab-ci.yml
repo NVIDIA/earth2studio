@@ -220,5 +220,5 @@ include:
     file: '.gitlab-ci/earth2studio/common.gitlab-ci.yml'
 
   - project: 'modulus/modulus-ci'
-    ref: main
+    ref: ngeneva/sonar
     file: '.gitlab-ci/pull.gitlab-ci.yml'
