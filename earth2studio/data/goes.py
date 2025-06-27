@@ -20,33 +20,26 @@ import hashlib
 import os
 import pathlib
 import shutil
-from collections.abc import Callable
-from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 
 import nest_asyncio
 import numpy as np
 import s3fs
 import xarray as xr
-from fsspec.implementations.ftp import FTPFileSystem
 from loguru import logger
 from tqdm.asyncio import tqdm
 
 from earth2studio.data.utils import (
     datasource_cache_root,
     prep_data_inputs,
-    prep_forecast_inputs,
 )
 from earth2studio.lexicon import GOESLexicon
-from earth2studio.utils.type import LeadTimeArray, TimeArray, VariableArray
-from earth2studio.data.base import DataSource
-from earth2studio.data.utils import AsyncCachingFileSystem
-from earth2studio.utils.time import to_time_array
+from earth2studio.utils.type import TimeArray, VariableArray
 
 
 class GOES:
     """GOES (Geostationary Operational Environmental Satellite) data source.
-    
+
     This data source provides access to GOES-16 and GOES-18 satellite data from AWS S3.
     The data is exclusively ABI (Advanced Baseline Imager) data for now.
 
@@ -81,10 +74,10 @@ class GOES:
     SCAN_TIME_FREQUENCY = {
         "F": 600,
         "C": 300,
-    } # Scan time frequency in seconds
+    }  # Scan time frequency in seconds
     SCAN_DIMENSIONS = {
-        "F":  (5424, 5424),
-        "C":  (1500, 2500),
+        "F": (5424, 5424),
+        "C": (1500, 2500),
     }
     VALID_SCAN_MODES = {
         "goes16": ["F", "C"],
@@ -93,10 +86,16 @@ class GOES:
         "goes19": ["F", "C"],
     }
     GOES_HISTORY_RANGE = {
-        "goes16": (datetime(2017, 12, 18), datetime(2025, 4, 7)), # GOES-16 operational from Dec 18, 2017
-        "goes17": (datetime(2019, 2, 12), datetime(2023, 1, 4)), # GOES-17 operational from Feb 12, 2019
-        "goes18": (datetime(2023, 1, 4), None),   # GOES-18 operational from Jan 4, 2023
-        "goes19": (datetime(2025, 4, 7), None),   # GOES-19 operational from Apr 7, 2025
+        "goes16": (
+            datetime(2017, 12, 18),
+            datetime(2025, 4, 7),
+        ),  # GOES-16 operational from Dec 18, 2017
+        "goes17": (
+            datetime(2019, 2, 12),
+            datetime(2023, 1, 4),
+        ),  # GOES-17 operational from Feb 12, 2019
+        "goes18": (datetime(2023, 1, 4), None),  # GOES-18 operational from Jan 4, 2023
+        "goes19": (datetime(2025, 4, 7), None),  # GOES-19 operational from Apr 7, 2025
     }
     BASE_URL = "s3://noaa-{satellite}/ABI-L2-MCMIP{scan_mode}/{year:04d}/{day_of_year:03d}/{hour:02d}/"
 
@@ -121,9 +120,13 @@ class GOES:
             raise ValueError(f"Invalid satellite {self._satellite}")
         if self._scan_mode not in self.VALID_SCAN_MODES[self._satellite]:
             if self._scan_mode == "M1" or self._scan_mode == "M2":
-                raise ValueError(f"Mesoscale data ({self._scan_mode}) is currently not supported by this data source due to the changing scan position.")
+                raise ValueError(
+                    f"Mesoscale data ({self._scan_mode}) is currently not supported by this data source due to the changing scan position."
+                )
             else:
-                raise ValueError(f"Invalid scan mode {self._scan_mode} for {self._satellite}")
+                raise ValueError(
+                    f"Invalid scan mode {self._scan_mode} for {self._satellite}"
+                )
 
         # Set up S3 filesystem
         try:
@@ -231,9 +234,7 @@ class GOES:
         )
 
         # Create download tasks
-        async_tasks = [
-            (i, t, variable) for i, t in enumerate(time)
-        ]
+        async_tasks = [(i, t, variable) for i, t in enumerate(time)]
         func_map = map(
             functools.partial(self.fetch_wrapper, xr_array=xr_array), async_tasks
         )
@@ -301,16 +302,24 @@ class GOES:
         da = xr.open_dataset(goes_file)
         x = np.zeros((len(variable), *self.SCAN_DIMENSIONS[self._scan_mode]))
 
-        for i, v in enumerate(variable):
-            try:
+        # Pre-process lexicon lookups to avoid try-except in loop
+        variable_mappings = []
+        for v in variable:
+            if v in GOESLexicon.GOES_VOCAB:
                 goes_name, modifier = GOESLexicon[v]
-                x[i] = modifier(da[goes_name].values)
-            except KeyError:
+                variable_mappings.append((v, goes_name, modifier))
+            else:
                 logger.warning(f"Variable {v} not found in GOES lexicon, using as is")
-                x[i] = da[v].values
+                variable_mappings.append((v, v, lambda x: x))
+
+        for i, (v, goes_name, modifier) in enumerate(variable_mappings):
+            if modifier is not None:
+                x[i] = modifier(da[goes_name].values)
+            else:
+                x[i] = da[goes_name].values
 
         return x
-    
+
     async def _get_s3_path(self, time: datetime) -> str:
         """Get the S3 path for the GOES data file"""
         if self.fs is None:
@@ -340,6 +349,7 @@ class GOES:
         def get_time(file_name):
             start_str = file_name.split("/")[-1].split("_")[-3][1:-1]
             return datetime.strptime(start_str, "%Y%j%H%M%S")
+
         time_stamps = [get_time(f) for f in matching_files]
 
         # Get the index of the file that is the closest to the requested time
@@ -364,15 +374,19 @@ class GOES:
         """
         for time in times:
             # Check scan frequency interval
-            if not (time - datetime(1900, 1, 1)).total_seconds() % self.SCAN_TIME_FREQUENCY[self._scan_mode] == 0:
+            if (
+                not (time - datetime(1900, 1, 1)).total_seconds()
+                % self.SCAN_TIME_FREQUENCY[self._scan_mode]
+                == 0
+            ):
                 raise ValueError(
                     f"Requested date time {time} needs to be {self.SCAN_TIME_FREQUENCY[self._scan_mode]} second interval for GOES with scan mode {self._scan_mode}"
                 )
-            
+
             # Check if satellite was operational at this time
             if self._satellite not in self.GOES_HISTORY_RANGE:
                 raise ValueError(f"Unknown satellite {self._satellite}")
-            
+
             start_date, end_date = self.GOES_HISTORY_RANGE[self._satellite]
             if time < start_date:
                 raise ValueError(
@@ -440,7 +454,7 @@ class GOES:
 
         # Check if data exists in S3
         fs = s3fs.S3FileSystem(anon=True)
-        
+
         # Get needed date components
         year = time.year
         day_of_year = time.timetuple().tm_yday
@@ -458,18 +472,22 @@ class GOES:
         try:
             # List files in the directory
             files = fs.ls(base_url)
-            
+
             # Filter for files matching the product and scan mode
             pattern = f"OR_ABI-L2-MCMIP{scan_mode}"
             matching_files = [f for f in files if pattern in f]
-            
+
             if not matching_files:
                 return False
 
             # Sort files by time (same logic as _get_s3_path)
-            def get_time(file_name):
+            def get_time(file_name: str) -> datetime:
                 start_str = file_name.split("/")[-1].split("_")[-3][1:-1]
-                return datetime.strptime(start_str, "%Y%j%H%M%S")
+                t = datetime.strptime(start_str, "%Y%j%H%M%S")
+                if time.tzinfo is not None:
+                    t = t.replace(tzinfo=timezone.utc)
+                return t
+
             time_stamps = [get_time(f) for f in matching_files]
 
             # Get the index of the file that is the closest to the requested time
@@ -477,10 +495,10 @@ class GOES:
 
             # Check if the specific file exists
             try:
-                file_name = matching_files[file_index]
+                matching_files[file_index]
                 return True
             except IndexError:
                 return False
-                
+
         except Exception:
             return False

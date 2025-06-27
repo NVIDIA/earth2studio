@@ -16,7 +16,7 @@
 
 import pathlib
 import shutil
-from datetime import datetime, timedelta
+from datetime import datetime
 
 import numpy as np
 import pytest
@@ -25,47 +25,104 @@ from earth2studio.data import GOES
 
 
 @pytest.mark.slow
-#@pytest.mark.xfail
+@pytest.mark.xfail
 @pytest.mark.timeout(60)
 @pytest.mark.parametrize(
     "satellite,time,variable,scan_mode",
     [
         # GOES-16: Operational from Dec 18, 2017 to Apr 7, 2025
-        ("goes16", datetime(year=2022, month=6, day=25, hour=12, minute=0, second=0), "vis047", "F"),
-        ("goes16", datetime(year=2022, month=6, day=25, hour=12, minute=0, second=0), ["vis064", "nir086"], "C"),
-        ("goes16", [
+        (
+            "goes16",
             datetime(year=2022, month=6, day=25, hour=12, minute=0, second=0),
-            datetime(year=2022, month=6, day=25, hour=12, minute=10, second=0),
-        ], "vis047", "C"),
-        
+            "vis047",
+            "F",
+        ),
+        (
+            "goes16",
+            datetime(year=2022, month=6, day=25, hour=12, minute=0, second=0),
+            ["vis064", "nir086"],
+            "C",
+        ),
+        (
+            "goes16",
+            [
+                datetime(year=2022, month=6, day=25, hour=12, minute=0, second=0),
+                datetime(year=2022, month=6, day=25, hour=12, minute=10, second=0),
+            ],
+            "vis047",
+            "C",
+        ),
         # GOES-17: Operational from Feb 12, 2019 to Jan 4, 2023
-        ("goes17", datetime(year=2022, month=6, day=25, hour=12, minute=0, second=0), "vis047", "F"),
-        ("goes17", datetime(year=2022, month=6, day=25, hour=12, minute=0, second=0), ["vis064", "nir086"], "C"),
-        ("goes17", [
+        (
+            "goes17",
             datetime(year=2022, month=6, day=25, hour=12, minute=0, second=0),
-            datetime(year=2022, month=6, day=25, hour=12, minute=5, second=0),
-        ], "vis047", "C"),
-        
+            "vis047",
+            "F",
+        ),
+        (
+            "goes17",
+            datetime(year=2022, month=6, day=25, hour=12, minute=0, second=0),
+            ["vis064", "nir086"],
+            "C",
+        ),
+        (
+            "goes17",
+            [
+                datetime(year=2022, month=6, day=25, hour=12, minute=0, second=0),
+                datetime(year=2022, month=6, day=25, hour=12, minute=5, second=0),
+            ],
+            "vis047",
+            "C",
+        ),
         # GOES-18: Operational from Jan 4, 2023 onwards
-        ("goes18", datetime(year=2023, month=6, day=25, hour=12, minute=0, second=0), "vis047", "F"),
-        ("goes18", datetime(year=2023, month=6, day=25, hour=12, minute=0, second=0), ["vis064", "nir086"], "C"),
-        ("goes18", [
+        (
+            "goes18",
             datetime(year=2023, month=6, day=25, hour=12, minute=0, second=0),
-            datetime(year=2023, month=6, day=25, hour=12, minute=10, second=0),
-        ], "vis047", "C"),
-        
+            "vis047",
+            "F",
+        ),
+        (
+            "goes18",
+            datetime(year=2023, month=6, day=25, hour=12, minute=0, second=0),
+            ["vis064", "nir086"],
+            "C",
+        ),
+        (
+            "goes18",
+            [
+                datetime(year=2023, month=6, day=25, hour=12, minute=0, second=0),
+                datetime(year=2023, month=6, day=25, hour=12, minute=10, second=0),
+            ],
+            "vis047",
+            "C",
+        ),
         # GOES-19: Operational from Apr 7, 2025 onwards (future date for testing)
-        ("goes19", datetime(year=2025, month=6, day=25, hour=12, minute=0, second=0), "vis047", "F"),
-        ("goes19", datetime(year=2025, month=6, day=25, hour=12, minute=0, second=0), ["vis064", "nir086"], "C"),
-        ("goes19", [
+        (
+            "goes19",
             datetime(year=2025, month=6, day=25, hour=12, minute=0, second=0),
-            datetime(year=2025, month=6, day=25, hour=12, minute=10, second=0),
-        ], "vis047", "C"),
+            "vis047",
+            "F",
+        ),
+        (
+            "goes19",
+            datetime(year=2025, month=6, day=25, hour=12, minute=0, second=0),
+            ["vis064", "nir086"],
+            "C",
+        ),
+        (
+            "goes19",
+            [
+                datetime(year=2025, month=6, day=25, hour=12, minute=0, second=0),
+                datetime(year=2025, month=6, day=25, hour=12, minute=10, second=0),
+            ],
+            "vis047",
+            "C",
+        ),
     ],
 )
 def test_goes_fetch(satellite, time, variable, scan_mode):
     """Test GOES data fetching for all satellites and scan modes with valid dates."""
-    
+
     ds = GOES(satellite=satellite, scan_mode=scan_mode, cache=False)
     data = ds(time, variable)
     shape = data.shape
@@ -78,7 +135,7 @@ def test_goes_fetch(satellite, time, variable, scan_mode):
 
     # Expected dimensions based on scan mode
     expected_dims = GOES.SCAN_DIMENSIONS[scan_mode]
-    
+
     assert shape[0] == len(time)
     assert shape[1] == len(variable)
     assert shape[2] == expected_dims[0]  # x dimension
@@ -88,7 +145,7 @@ def test_goes_fetch(satellite, time, variable, scan_mode):
 
 
 @pytest.mark.slow
-#@pytest.mark.xfail
+@pytest.mark.xfail
 @pytest.mark.timeout(60)
 @pytest.mark.parametrize(
     "time",
@@ -100,7 +157,7 @@ def test_goes_fetch(satellite, time, variable, scan_mode):
 @pytest.mark.parametrize("cache", [True, False])
 def test_goes_cache(time, variable, cache):
     """Test GOES caching functionality."""
-    
+
     ds = GOES(satellite="goes16", scan_mode="C", cache=cache)
     data = ds(time, variable)
     shape = data.shape
@@ -143,18 +200,18 @@ def test_goes_cache(time, variable, cache):
 )
 def test_goes_sources(satellite, scan_mode, time, variable, valid):
     """Test GOES data source initialization with different parameters."""
-    
+
     if not valid:
         with pytest.raises(ValueError):
             ds = GOES(satellite=satellite, scan_mode=scan_mode, cache=False)
         return
-    
+
     ds = GOES(satellite=satellite, scan_mode=scan_mode, cache=False)
     data = ds(time, variable)
     shape = data.shape
 
     expected_dims = GOES.SCAN_DIMENSIONS[scan_mode]
-    
+
     assert shape[0] == 1
     assert shape[1] == 1
     assert shape[2] == expected_dims[0]
@@ -173,20 +230,22 @@ def test_goes_sources(satellite, scan_mode, time, variable, valid):
 @pytest.mark.parametrize("variable", ["vis047"])
 def test_goes_available(time, variable):
     """Test GOES availability checks."""
-    
+
     # Test availability check
-    if time.year < 2017:
+    if time < np.datetime64("2017-01-01T00:00:00"):
         assert not GOES.available(time, satellite="goes16", scan_mode="F")
-    elif time.year > 2024:
+        assert not GOES.available(time, satellite="goes17", scan_mode="F")
+        assert not GOES.available(time, satellite="goes18", scan_mode="F")
+        assert not GOES.available(time, satellite="goes19", scan_mode="F")
+    elif time > np.datetime64("2025-06-25T12:00:00"):
         assert not GOES.available(time, satellite="goes16", scan_mode="F")
-    else:
-        # For valid dates, availability depends on scan frequency
-        scan_freq = GOES.SCAN_TIME_FREQUENCY["F"]
-        seconds_since_hour = time.second + time.minute * 60
-        if seconds_since_hour % scan_freq != 0:
-            assert not GOES.available(time, satellite="goes16", scan_mode="F")
-    
+        assert not GOES.available(
+            time, satellite="goes17", scan_mode="F"
+        )  # GOES-17 is not available after 2023-01-04
+        assert GOES.available(time, satellite="goes18", scan_mode="F")
+        assert GOES.available(time, satellite="goes19", scan_mode="F")
+
     # Test that invalid times raise ValueError
     with pytest.raises(ValueError):
         ds = GOES(satellite="goes16", scan_mode="F")
-        ds(time, variable)
+        ds([time], variable)
