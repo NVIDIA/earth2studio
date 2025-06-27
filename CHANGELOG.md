@@ -10,6 +10,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added GOES (Geostationary Operational Environmental Satellite) data source
+
 ### Changed
 
 - Updated default StormCast package version to 1.0.2
