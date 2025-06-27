@@ -51,19 +51,51 @@ torch_to_numpy_dtype_dict = {
 
 
 class AsyncZarrBackend:
-    """Async Zarr v3"""
+    """Async Zarr v3 IO Backend
+
+    Warning
+    -------
+    This IO backend has a non-blocking mode which will execut IO writes in seperate
+    threads. There is an assumption that the data being written will not be re-allocated
+    during the writes.
+
+    Parameters
+    ----------
+    root : str
+        Root location to place zarr store
+    index_coords : CoordSystem, optional
+        Index coordinates. These are coordinates that will be used to define chunks in
+        each zarr array. Each element in these coordinates will be written in parallel.
+        Typically index coordinates reflect the dimensions that are being iteratively
+        generated during inference, such as time or lead_time. The remaining coordinates
+        of a given array will be populated upon the first write to the array, by default {}
+    fs_factory : Callable[..., fsspec.spec.AbstractFileSystem], optional
+        FSSpec file system factory method. This is a callable object that should return
+        an instance of the desired filesystem to use, by default LocalFileSystem
+    blocking : bool, optional
+        Blocking write calls in the synchronous API. When set to fall, the IO backend
+        will execute write calls in seperate threads. Users should call the `close()`
+        API to ensure all threads have finished / cleaned up, by default True
+    pool_size : int, optional
+        The thread / async loop pool used with the synchronous write API in non-blocking
+        mode, by default 4
+    async_timeout : int, optional
+        Async operation timeout for a given write operation, by default 600
+    zarr_kwargs : _type_, optional
+        Additional key work arguments to provide to the ` zarr.api.asynchronous.open`
+        function, by default {"mode": "a"}
+    """
 
     def __init__(
         self,
         root: str,
-        index_coords: dict[str, np.array] = {},
+        index_coords: CoordSystem = {},
         fs_factory: Callable[..., fsspec.spec.AbstractFileSystem] = LocalFileSystem,
         blocking: bool = True,
         pool_size: int = 4,
         async_timeout: int = 600,
         zarr_kwargs: dict[str, Any] = {"mode": "a"},
     ) -> None:
-
         # May need to trigger warning about this, needed to handle multi-threading!
         # But silent for now since 99% people wont know what this does / get confused
         AsyncFileSystem.cachable = False
@@ -140,6 +172,18 @@ class AsyncZarrBackend:
     def _initialize_loop_pool(
         self, max_pool_size: int
     ) -> list[asyncio.AbstractEventLoop]:
+        """Initializes asyncio loop (thread) pool
+
+        Parameters
+        ----------
+        max_pool_size : int
+            Pool size
+
+        Returns
+        -------
+        list[asyncio.AbstractEventLoop]
+            List of asyncio event loops in seperate threads
+        """
         loops = []
         for _ in range(max_pool_size):
             loops.append(asyncio.new_event_loop())
@@ -152,6 +196,23 @@ class AsyncZarrBackend:
         fs_factory: Callable[..., fsspec.spec.AbstractFileSystem],
         zarr_kwargs: dict[str, Any] = {},
     ) -> tuple[zarr.AsyncGroup, fsspec.AbstractFileSystem]:
+        """Initializes both the fsspec filesystem and zarr group, its critical this
+        function is called inside the correct loop
+
+        Parameters
+        ----------
+        root : str
+            Root location of the zarr store
+        fs_factory : Callable[..., fsspec.spec.AbstractFileSystem]
+            fsspec factory method
+        zarr_kwargs : dict[str, Any], optional
+            Zarr open key word arguments, by default {}
+
+        Returns
+        -------
+        tuple[zarr.AsyncGroup, fsspec.AbstractFileSystem]
+            Initialzied zarr group and file system
+        """
         fs = fs_factory()
         if "local" in fs.protocol:
             zstore = zarr.storage.LocalStore(root=root)
@@ -458,24 +519,13 @@ class AsyncZarrBackend:
         Parameters
         ----------
         x : dict[str, torch.Tensor]
-            _description_
-        coords : CoordSystem
-            _description_
-        zs : zarr.core.group.AsyncGroup
-            _description_
-        fs : fsspec.AbstractFileSystem
-            _description_
-        """
-        """Async write data
-
-        Parameters
-        ----------
-        x : dict[str, torch.Tensor]
             Dictionary of tensor(s) to be written to zarr arrays.
         coords : CoordSystem
             Coordinates of the passed data.
         zs : zarr.core.group.AsyncGroup
-            _description_
+            Zarr store to use
+        fs : fsspec.AbstractFileSystem
+            File system to use (relevant for session creation)
         """
 
         # Move data to CPU
@@ -551,7 +601,6 @@ class AsyncZarrBackend:
         been written.
         """
         # Clean up process pool
-
         self._limit_pool_size(0)
 
     def __del__(self) -> None:
