@@ -20,6 +20,7 @@ import time
 from collections import OrderedDict
 from collections.abc import Callable
 from importlib.metadata import version
+from unittest.mock import patch
 
 import fsspec
 import numpy as np
@@ -66,7 +67,7 @@ from earth2studio.utils.coords import split_coords
 async def test_async_zarr_write(
     time: list[np.datetime64],
     variable: list[str],
-    fs_factory: Callable[None, fsspec.spec.AbstractFileSystem],
+    fs_factory: Callable[..., fsspec.spec.AbstractFileSystem],
     device: str,
     tmp_path: str,
 ) -> None:
@@ -128,7 +129,7 @@ async def test_async_zarr_write(
 )
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
 async def test_async_zarr_async_write(
-    fs_factory: Callable[None, fsspec.spec.AbstractFileSystem],
+    fs_factory: Callable[..., fsspec.spec.AbstractFileSystem],
     device: str,
     tmp_path: str,
 ) -> None:
@@ -428,3 +429,88 @@ def test_async_zarr_remote(
         fs.rm(root, recursive=True)
     except FileNotFoundError:
         pass
+
+
+@pytest.mark.asyncio
+async def test_async_zarr_errors(tmp_path: str) -> None:
+    # NMot Zarr 3.0
+    with patch("earth2studio.io.async_zarr.version") as mock_version:
+        mock_version.return_value = "2.15.0"
+        with pytest.raises(ImportError):
+            AsyncZarrBackend(f"{tmp_path}/test.zarr")
+
+    # Non-callable fsspec factory
+    with pytest.raises(TypeError):
+        AsyncZarrBackend(f"{tmp_path}/test.zarr", fs_factory="not_callable")
+
+    # Invalid index coords
+    index_coords = {
+        "time": np.array([np.datetime64("2021-01-01"), np.datetime64("2021-01-01")])
+    }
+    with pytest.raises(ValueError):
+        AsyncZarrBackend(f"{tmp_path}/test.zarr", index_coords=index_coords)
+
+    # Create a mock filesystem that's not asynchronous
+    class NonAsyncFileSystem(fsspec.AbstractFileSystem):
+        def __init__(self):
+            super().__init__()
+            self.asynchronous = False
+            self.protocol = "s3"
+
+    def fs_factory():
+        return NonAsyncFileSystem()
+
+    with pytest.raises(TypeError):
+        AsyncZarrBackend(f"{tmp_path}/test.zarr", fs_factory=fs_factory)
+
+    # Miss match between input data and array names
+    z = AsyncZarrBackend(f"{tmp_path}/test.zarr")
+    coords = OrderedDict(
+        {
+            "time": np.array([np.datetime64("2021-01-01")]),
+            "lat": np.linspace(-90, 90, 10),
+            "lon": np.linspace(0, 360, 10, endpoint=False),
+        }
+    )
+    x = torch.randn(1, 10, 10)
+    array_names = ["array1", "array2"]
+
+    with pytest.raises(ValueError):
+        await z.prepare_inputs(x, coords, array_names)
+
+    # If input coordinate value belonging to an index coord is not present
+    index_coords = {
+        "time": np.array([np.datetime64("2021-01-01"), np.datetime64("2021-01-02")])
+    }
+    z = AsyncZarrBackend(f"{tmp_path}/test.zarr", index_coords=index_coords)
+    coords = OrderedDict(
+        {
+            "time": np.array([np.datetime64("2021-01-03")]),  # Not in index_coords
+            "lat": np.linspace(-90, 90, 10),
+            "lon": np.linspace(0, 360, 10, endpoint=False),
+        }
+    )
+    x = torch.randn(1, 10, 10)
+
+    with pytest.raises(ValueError):
+        await z.prepare_inputs(x, coords, "test_array")
+
+
+@pytest.mark.asyncio
+async def test_async_zarr_close(tmp_path: str) -> None:
+    z = AsyncZarrBackend(f"{tmp_path}/test.zarr", blocking=False, pool_size=2)
+    coords = OrderedDict(
+        {
+            "time": np.array([np.datetime64("2021-01-01")]),
+            "lat": np.linspace(-90, 90, 10),
+            "lon": np.linspace(0, 360, 10, endpoint=False),
+        }
+    )
+
+    x = torch.randn(1, 10, 10)
+
+    z.write(x, coords, "test_array")
+    z.write(x, coords, "test_array2")
+    assert len(z.io_futures) > 0
+    z.close()
+    assert len(z.io_futures) == 0

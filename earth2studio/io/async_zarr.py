@@ -402,8 +402,6 @@ class AsyncZarrBackend:
         # upon array creation
         await self._initialize_arrays(coords, list(x.keys()), dtypes)
 
-        # TODO: Not run this every write iteration if possible... or keep some stuff
-        # in memory
         for key, value in coords.items():
             zarray = await self.zs.get(key)
             if key in self.index_coords:
