@@ -405,10 +405,8 @@ class AsyncZarrBackend:
         for key, value in coords.items():
             zarray = await self.zs.get(key)
             if key in self.index_coords:
-                z0 = np.where(await zarray.getitem(slice(None)) == value)[
-                    0
-                ]  # Index of slice in zarr array
-                if len(z0) == 0:
+                z0 = np.where(np.isin(await zarray.getitem(slice(None)), value))[0]
+                if len(z0) != value.shape[0]:
                     raise ValueError(
                         f"Could not find coordinate value {value} in zarr index coordinate array {key}. "
                         + "All index coordinates must be fully defined on construction of the IO object via `index_coords`."
