@@ -37,7 +37,6 @@ from earth2studio.utils.type import CoordSystem
 
 # https://github.com/pytorch/pytorch/blob/e180ca652f8a38c479a3eff1080efe69cbc11621/torch/testing/_internal/common_utils.py#L349
 torch_to_numpy_dtype_dict = {
-    torch.bool: np.bool,
     torch.uint8: np.uint8,
     torch.int8: np.int8,
     torch.int16: np.int16,
