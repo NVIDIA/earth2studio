@@ -32,6 +32,7 @@ import zarr
 from fsspec.asyn import AsyncFileSystem
 from fsspec.implementations.local import LocalFileSystem
 from loguru import logger
+from zarr.core.array import CompressorsLike
 
 from earth2studio.utils.type import CoordSystem
 
@@ -81,9 +82,13 @@ class AsyncZarrBackend:
         mode, by default 4
     async_timeout : int, optional
         Async operation timeout for a given write operation, by default 600
-    zarr_kwargs : _type_, optional
+    zarr_kwargs : dict[str, Any], optional
         Additional key work arguments to provide to the ` zarr.api.asynchronous.open`
         function, by default {"mode": "a"}
+    zarr_codecs: CompressorsLike, optional
+        Compression codec to use when creating any new arrays. Sharding is not supported
+        for thread safety at the moment. If None, will use the default compressor, by
+        default None
     """
 
     def __init__(
@@ -95,9 +100,10 @@ class AsyncZarrBackend:
         pool_size: int = 4,
         async_timeout: int = 600,
         zarr_kwargs: dict[str, Any] = {"mode": "a"},
+        zarr_codecs: CompressorsLike = None,
     ) -> None:
         # May need to trigger warning about this, needed to handle multi-threading!
-        # But silent for now since 99% people wont know what this does / get confused
+        # But silent for now since people wont know what this means / get confused by an error message I think
         AsyncFileSystem.cachable = False
 
         try:
@@ -118,6 +124,7 @@ class AsyncZarrBackend:
         self.index_coords = self._scrub_coordinates(
             index_coords
         )  # TODO: Need to validate these somewhere, should just make a 1:1 match requirement
+        self.zarr_codecs = zarr_codecs
 
         # Async / multi-thread items
         self.blocking = blocking
@@ -281,6 +288,7 @@ class AsyncZarrBackend:
                 dtype=value.dtype,
                 dimension_names=[key],
                 overwrite=False,
+                compressors=self.zarr_codecs,
             )
             await array.setitem(Ellipsis, value)
 
@@ -313,6 +321,7 @@ class AsyncZarrBackend:
                 dtype=dtype,
                 dimension_names=list(coords.keys()),
                 overwrite=False,
+                compressors=self.zarr_codecs,
             )
 
     def _scrub_coordinates(self, coords: CoordSystem) -> CoordSystem:

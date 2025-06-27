@@ -28,6 +28,7 @@ import pytest
 import s3fs
 import torch
 import xarray as xr
+import zarr
 from fsspec.implementations.local import LocalFileSystem
 from fsspec.implementations.memory import MemoryFileSystem
 
@@ -514,3 +515,62 @@ async def test_async_zarr_close(tmp_path: str) -> None:
     assert len(z.io_futures) > 0
     z.close()
     assert len(z.io_futures) == 0
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "zarr_codecs",
+    [
+        zarr.codecs.BloscCodec(
+            cname="zstd", clevel=3, shuffle=zarr.codecs.BloscShuffle.shuffle
+        ),
+        zarr.codecs.GzipCodec(level=3),
+        zarr.codecs.ZstdCodec(level=1),
+    ],
+)
+@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+async def test_async_zarr_codecs(
+    zarr_codecs: dict | None,
+    device: str,
+    tmp_path: str,
+) -> None:
+    time = [np.datetime64("2021-11-23T18:00:00")]
+    index_coords = {"time": np.asarray(time)}
+
+    total_coords = OrderedDict(
+        {
+            "time": np.asarray(time),
+            "variable": np.asarray(["t2m", "tcwv"]),
+            "lat": np.linspace(-90, 90, 180),
+            "lon": np.linspace(0, 360, 360, endpoint=False),
+        }
+    )
+
+    shape = [v.shape[0] for v in total_coords.values()]
+    x = torch.randn(shape, device=device, dtype=torch.float32)
+
+    # Create AsyncZarrBackend with specified codecs
+    z = AsyncZarrBackend(
+        f"{tmp_path}/output_codecs.zarr",
+        index_coords=index_coords,
+        zarr_codecs=zarr_codecs,
+    )
+    for i, time0 in enumerate(time):
+        total_coords["time"] = np.array([time0])
+        z.write(x[i : i + 1], total_coords, "fields_codecs")
+    z.close()
+
+    assert "fields_codecs" in [key async for key in z.zs.array_keys()]
+
+    array = await z.zs.get("fields_codecs")
+    data = await array.getitem(slice(None))
+    assert data.shape == x.shape
+    assert np.allclose(data, x.to("cpu").numpy())
+
+    # Verify compression was applied if codecs were specified
+    if zarr_codecs is not None:
+        assert hasattr(array, "metadata")
+        assert hasattr(array.metadata, "codecs")
+        codec = await array.info_complete()
+        # Not the cleanest but good enough hopefully
+        assert codec._compressors[0].__class__ == zarr_codecs.__class__
