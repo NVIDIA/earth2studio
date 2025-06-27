@@ -17,6 +17,7 @@
 import asyncio
 import concurrent
 import threading
+from collections import OrderedDict
 from collections.abc import Callable
 
 # import threading
@@ -89,7 +90,7 @@ class AsyncZarrBackend:
     def __init__(
         self,
         root: str,
-        index_coords: CoordSystem = {},
+        index_coords: CoordSystem = OrderedDict({}),
         fs_factory: Callable[..., fsspec.spec.AbstractFileSystem] = LocalFileSystem,
         blocking: bool = True,
         pool_size: int = 4,
