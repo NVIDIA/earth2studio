@@ -442,6 +442,13 @@ class AsyncZarrBackend:
                 logger.debug("In IO thread pool throttle, limiting ")
                 io_future.result()
 
+    def add_array(
+        self, coords: CoordSystem, array_name: str | list[str], **kwargs: dict[str, Any]
+    ) -> None:
+        """Pass through"""
+        # TODO: Warning?
+        pass
+
     def write(
         self,
         x: torch.Tensor | list[torch.Tensor],
