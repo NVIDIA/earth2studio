@@ -16,6 +16,8 @@
 
 import asyncio
 import concurrent
+import threading
+from collections.abc import Callable
 
 # import threading
 from importlib.metadata import version
@@ -26,6 +28,7 @@ import nest_asyncio
 import numpy as np
 import torch
 import zarr
+from fsspec.asyn import AsyncFileSystem
 from fsspec.implementations.local import LocalFileSystem
 from loguru import logger
 
@@ -54,12 +57,16 @@ class AsyncZarrBackend:
         self,
         root: str,
         index_coords: dict[str, np.array] = {},
-        fs: fsspec.spec.AbstractFileSystem = LocalFileSystem(),
+        fs_factory: Callable[..., fsspec.spec.AbstractFileSystem] = LocalFileSystem,
         blocking: bool = True,
-        max_pool_size: int = 4,
+        pool_size: int = 4,
         async_timeout: int = 600,
-        backend_kwargs: dict[str, Any] = {},
+        zarr_kwargs: dict[str, Any] = {"mode": "a"},
     ) -> None:
+
+        # May need to trigger warning about this, needed to handle multi-threading!
+        # But silent for now since 99% people wont know what this does / get confused
+        AsyncFileSystem.cachable = False
 
         try:
             zarr_version = version("zarr")
@@ -70,7 +77,11 @@ class AsyncZarrBackend:
         if zarr_major_version < 3:
             raise ImportError("This IO store only support Zarr 3.0 and above")
 
-        self.fs = fs
+        if not callable(fs_factory):
+            raise TypeError(
+                "fs_factory must be a callable that returns a fsspec.spec.AbstractFileSystem"
+            )
+
         self.overwrite = False  # Not formally supported
         self.index_coords = self._scrub_coordinates(
             index_coords
@@ -78,38 +89,38 @@ class AsyncZarrBackend:
 
         # Async / multi-thread items
         self.blocking = blocking
-        self.max_pool_size = max_pool_size
+        if blocking:
+            pool_size = 1
         self.async_timeout = async_timeout
-        self.thread_pool = concurrent.futures.ThreadPoolExecutor(
-            max_workers=max_pool_size
-        )
         self.io_futures: list[concurrent.futures._base.Future] = []
-
-        try:
-            self.fs.mkdir(root)
-        except FileExistsError:
-            pass
-
-        if "local" in fs.protocol:
-            self.zstore = zarr.storage.LocalStore(root=root)
-        elif "memory" in fs.protocol:
-            self.zstore = zarr.storage.MemoryStore()
-        else:
-            # Needs to be an sync fs atm
-            self.zstore = zarr.storage.FsspecStore(fs, path=root)
-
-        # Set up root file system
-        # try:
-        #     loop = asyncio.get_running_loop()
-        #     # self.zs = loop.run_until_complete(zarr.api.asynchronous.open(store=self.zstore, mode="a"))
-        # except RuntimeError:
-        #     # If the get running loop fails we know we arent in an async initialization
-        #     # so the root zarr store will be sync.
-        #     pass
-
-        self.zs = zarr.api.synchronous.open(
-            store=self.zstore, mode="a", **backend_kwargs
+        self.pool_index = 0
+        self.loop_pool = self._initialize_loop_pool(pool_size)
+        self.fs_pool = []
+        self.zarr_pool = []
+        logger.warning(
+            f"Setting up Zarr object pool of size {pool_size}, may take a bit"
         )
+        for loop in self.loop_pool:
+            future = asyncio.run_coroutine_threadsafe(
+                self._initialize_zarr_group(root, fs_factory, zarr_kwargs), loop
+            )
+            zs0, fs0 = future.result()
+            self.zarr_pool.append(zs0)
+            self.fs_pool.append(fs0)
+
+        # Set up base zarr group file system on current thread loop
+        # (good for blocking calls and direct async)
+        nest_asyncio.apply()  # Patch asyncio to work in notebooks
+        try:
+            loop = asyncio.get_event_loop()
+        except RuntimeError:
+            # If no event loop exists, create one
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+        self.zs, self.fs = loop.run_until_complete(
+            self._initialize_zarr_group(root, fs_factory, zarr_kwargs)
+        )
+        self.loop = loop
 
         # Verify all index coordinate arrays have unique values
         for key, value in self.index_coords.items():
@@ -118,19 +129,72 @@ class AsyncZarrBackend:
                     f"Index coordinate array '{key}' contains duplicate values. "
                     + "All index coordinates must have unique values."
                 )
-            if key in self.zs.array_keys():
-                # Check that all elements in value are in index_coords array
-                if not np.array_equal(self.zs[key], value):
-                    raise ValueError(
-                        f"Index coordinate array '{key}' already present in Zarr store and has different values than provided array"
-                    )
+            # Not possible atm becaus async
+            # if key in self.zs.array_keys():
+            #     # Check that all elements in value are in index_coords array
+            #     if not np.array_equal(self.zs[key], value):
+            #         raise ValueError(
+            #             f"Index coordinate array '{key}' already present in Zarr store and has different values than provided array"
+            #         )
 
-    def _initialize_arrays(
+    def _initialize_loop_pool(
+        self, max_pool_size: int
+    ) -> list[asyncio.AbstractEventLoop]:
+        loops = []
+        for _ in range(max_pool_size):
+            loops.append(asyncio.new_event_loop())
+            threading.Thread(target=loops[-1].run_forever, daemon=True).start()
+        return loops
+
+    async def _initialize_zarr_group(
+        self,
+        root: str,
+        fs_factory: Callable[..., fsspec.spec.AbstractFileSystem],
+        zarr_kwargs: dict[str, Any] = {},
+    ) -> tuple[zarr.AsyncGroup, fsspec.AbstractFileSystem]:
+        fs = fs_factory()
+        if "local" in fs.protocol:
+            zstore = zarr.storage.LocalStore(root=root)
+        elif "memory" in fs.protocol:
+            # In in memory store we just reuse the same zarr object for the entire pool
+            # async loop is not a concern here
+            if len(self.zarr_pool) > 0:
+                return self.zarr_pool[0], fs
+            zstore = zarr.storage.MemoryStore()
+        else:
+            if not fs.asynchronous:
+                raise TypeError(
+                    f"Initialized file system {fs} needs to be asynchronous"
+                )
+            zstore = zarr.storage.FsspecStore(fs, path=root)
+
+        zs = await zarr.api.asynchronous.open(store=zstore, **zarr_kwargs)
+        return zs, fs
+
+    async def _initialize_arrays(
         self,
         coords: CoordSystem,
         array_names: list[str],
         dtypes: list[np.dtype],
     ) -> None:
+        """Initializes arrays (data and coordinates)
+
+        Parameters
+        ----------
+        coords : CoordSystem
+            Coordinate system of arrays
+        array_names : list[str]
+            Array names
+        dtypes : list[np.dtype]
+            Numpy data type of array
+
+        Raises
+        ------
+        ValueError
+            If some coords are index coords and container new values no in self.index_coords
+        """
+        # DOESNT WORK????
+        # current_arrays = [key async for key in self.zs.array_keys()]
         # ======
         # Coordinate arrays
         # ======
@@ -145,27 +209,26 @@ class AsyncZarrBackend:
                 value = self.index_coords[key]
 
             # Skip if coordinate array exists
-            if key in self.zs.array_keys() and not self.overwrite:
+            if await self.zs.contains(key) and not self.overwrite:
                 continue
 
             logger.debug(f"Writing coordinate array {key} to zarr store")
-            array = self.zs.create_array(
+            array = await self.zs.create_array(
                 name=key,
                 shape=value.shape,
                 chunks=value.shape,
                 dtype=value.dtype,
                 dimension_names=[key],
-                overwrite=True,
+                overwrite=False,
             )
-            # array.setitem(Ellipsis, value)
-            array[:] = value
+            await array.setitem(Ellipsis, value)
 
         # ======
         # Data arrays
         # ======
         for name, dtype in zip(array_names, dtypes):
             # if self.zs.contains(name) and not self.overwrite:
-            if name in self.zs.array_keys() and not self.overwrite:
+            if await self.zs.contains(name) and not self.overwrite:
                 continue
             array_coords = coords.copy()
             chunked: dict[str, int] = {
@@ -182,13 +245,13 @@ class AsyncZarrBackend:
             logger.debug(
                 f"Initializing array {name} with shape {shape} with chunks {chunks} dtype {dtype}"
             )
-            self.zs.create_array(
+            await self.zs.create_array(
                 name=name,
                 shape=shape,
                 chunks=chunks,
                 dtype=dtype,
                 dimension_names=list(coords.keys()),
-                overwrite=True,
+                overwrite=False,
             )
 
     def _scrub_coordinates(self, coords: CoordSystem) -> CoordSystem:
@@ -221,7 +284,7 @@ class AsyncZarrBackend:
                 coords[key] = value.astype("timedelta64[ns]").astype("int64")
         return coords
 
-    def prepare_inputs(
+    async def prepare_inputs(
         self,
         x: torch.Tensor | list[torch.Tensor],
         coords: CoordSystem,
@@ -260,6 +323,15 @@ class AsyncZarrBackend:
                 f"Input tensors and array names must same length but got {len(x)} and {len(array_name)}."
             )
 
+        # If fsspec store has a aiohttp session, collect it so we can then close it
+        # manually...
+        # https://s3fs.readthedocs.io/en/latest/#async
+        session = None
+        try:
+            session = await self.fs.set_session()
+        except AttributeError:
+            pass
+
         x = {array_name[i]: x[i] for i in range(len(x))}
         dtypes = [torch_to_numpy_dtype_dict[x0.dtype] for x0 in x.values()]
 
@@ -267,13 +339,16 @@ class AsyncZarrBackend:
         # Initialize arrays (coords and data) if needed
         # Note that this is blocking, which is intentional so we avoid race conditions
         # upon array creation
-        self._initialize_arrays(coords, list(x.keys()), dtypes)
+        await self._initialize_arrays(coords, list(x.keys()), dtypes)
 
         # TODO: Not run this every write iteration if possible... or keep some stuff
         # in memory
         for key, value in coords.items():
+            zarray = await self.zs.get(key)
             if key in self.index_coords:
-                z0 = np.where(self.zs[key] == value)[0]  # Index of slice in zarr array
+                z0 = np.where(await zarray.getitem(slice(None)) == value)[
+                    0
+                ]  # Index of slice in zarr array
                 if len(z0) == 0:
                     raise ValueError(
                         f"Could not find coordinate value {value} in zarr index coordinate array {key}. "
@@ -283,11 +358,14 @@ class AsyncZarrBackend:
             # We do not support sliced writes of non-index coords... this is done for
             # thread safety reasons
             else:
-                if not np.array_equal(value, self.zs[key]):
+                if not np.array_equal(value, await zarray.getitem(slice(None))):
                     raise ValueError(
                         f"Non-index coordinate {key} must match the complete coordinate system defined in zarr array. "
                         + "Sliced writes of non-index coordinates are not supported for thread safety reasons."
                     )
+
+        if session:
+            await session.close()
 
         return x, coords
 
@@ -304,9 +382,6 @@ class AsyncZarrBackend:
             if not io_future.done():
                 logger.debug("In IO thread pool throttle, limiting ")
                 io_future.result()
-
-    async def _init_async_zs(self) -> zarr.core.group.AsyncGroup:
-        return await zarr.api.asynchronous.open(store=self.zstore, mode="a")
 
     def write(
         self,
@@ -325,39 +400,31 @@ class AsyncZarrBackend:
         array_name : str | list[str]
             Name(s) of the array(s) that will be written to.
         """
+        # Block this until complete, prevents race conditions when initialization
+        x, coords = self.loop.run_until_complete(
+            self.prepare_inputs(x, coords, array_name)
+        )
 
-        x, coords = self.prepare_inputs(x, coords, array_name)
-
-        nest_asyncio.apply()  # Patch asyncio to work in notebooks
-        try:
-            loop = asyncio.get_event_loop()
-        except RuntimeError:
-            # If no event loop exists, create one
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-
-        async def to_async(x: dict[str, torch.Tensor], coords: CoordSystem) -> None:
-            """Little helper function"""
-            zs = await self._init_async_zs()
-            await self._write(x, coords, zs)
+        # Threads are cycled based on rotating index, pretty crude but works
+        self._limit_pool_size(len(self.loop_pool) - 1)
+        future = asyncio.run_coroutine_threadsafe(
+            asyncio.wait_for(
+                self._write(
+                    x,
+                    coords,
+                    self.zarr_pool[self.pool_index],
+                    self.fs_pool[self.pool_index],
+                ),
+                timeout=self.async_timeout,
+            ),
+            self.loop_pool[self.pool_index],
+        )
 
         if self.blocking:
-            loop.run_until_complete(
-                asyncio.wait_for(to_async(x, coords), timeout=self.async_timeout)
-            )
+            future.result()
         else:
-            # First block if we have space in the pool
-            self._limit_pool_size(self.max_pool_size - 1)
-            # Launch async write
-            io_future = self.thread_pool.submit(
-                asyncio.run,
-                asyncio.wait_for(
-                    to_async(x, coords),
-                    timeout=self.async_timeout,
-                ),
-            )
-
-            self.io_futures.append(io_future)
+            self.io_futures.append(future)
+            self.pool_index = (self.pool_index + 1) % len(self.loop_pool)
 
     async def async_write(
         self,
@@ -376,19 +443,29 @@ class AsyncZarrBackend:
         array_name : str | list[str]
             Name(s) of the array(s) that will be written to.
         """
-        x, coords = self.prepare_inputs(x, coords, array_name)
-
-        # Initialize async zarr store
-        # TODO: doing this every write call could be avoided if in async loop
-        zs = await self._init_async_zs()
-        await self._write(x, coords, zs)
+        x, coords = await self.prepare_inputs(x, coords, array_name)
+        await self._write(x, coords, self.zs, self.fs)
 
     async def _write(
         self,
         x: dict[str, torch.Tensor],
         coords: CoordSystem,
         zs: zarr.core.group.AsyncGroup,
+        fs: fsspec.AbstractFileSystem,
     ) -> None:
+        """_summary_
+
+        Parameters
+        ----------
+        x : dict[str, torch.Tensor]
+            _description_
+        coords : CoordSystem
+            _description_
+        zs : zarr.core.group.AsyncGroup
+            _description_
+        fs : fsspec.AbstractFileSystem
+            _description_
+        """
         """Async write data
 
         Parameters
@@ -404,6 +481,15 @@ class AsyncZarrBackend:
         # Move data to CPU
         # TODO: could this be asynced?
         x = {key: value.detach().cpu().numpy() for key, value in x.items()}
+
+        # If fsspec store has a aiohttp session, collect it so we can then close it
+        # manually...
+        # https://s3fs.readthedocs.io/en/latest/#async
+        session = None
+        try:
+            session = await fs.set_session()
+        except AttributeError:
+            pass
 
         # Start with building a list of slices for every array and index that needs to
         # be written
@@ -456,6 +542,8 @@ class AsyncZarrBackend:
                 )
         # Every single chunk is written async...
         await asyncio.gather(*writes)
+        if session:
+            await session.close()
 
     def close(self) -> None:
         """Cleans up an remaining io processes that are currently running. Should be
@@ -463,8 +551,8 @@ class AsyncZarrBackend:
         been written.
         """
         # Clean up process pool
+
         self._limit_pool_size(0)
-        self.thread_pool.shutdown(wait=False, cancel_futures=True)
 
     def __del__(self) -> None:
         if len(self.io_futures) > 0:
