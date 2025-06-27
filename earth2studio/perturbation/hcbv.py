@@ -128,13 +128,16 @@ class HemisphericCentredBredVector:
         xper, coords = self.seeding_perturbation_method(xunp, coords)
 
         for ii in range(self.integration_steps):
-            xunp, _ = self.model(xunp, coords)
+            xunp, _coords = self.model(xunp, coords)
             xper, _ = self.model(xper, coords)
 
             dx = xper - xunp
 
             # remove zero elements, when inputs are constant
-            dx[..., dx.sum(dim=(0, 1, 2, 4, 5)) == 0, :, :] = torch.nan
+            variable_sum = tuple(
+                index for index, key in enumerate(_coords.keys()) if key != "variable"
+            )
+            dx[..., dx.sum(dim=variable_sum) == 0, :, :] = torch.nan
 
             hem_norm = self.hemispheric_norm(dx, device)
 
