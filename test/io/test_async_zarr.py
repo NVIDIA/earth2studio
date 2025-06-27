@@ -496,6 +496,20 @@ async def test_async_zarr_errors(tmp_path: str) -> None:
     with pytest.raises(ValueError):
         await z.prepare_inputs(x, coords, "test_array")
 
+    # Test shapeless coordiante
+    z = AsyncZarrBackend(f"{tmp_path}/test.zarr", index_coords=index_coords)
+    coords = OrderedDict(
+        {
+            "time": np.array([np.datetime64("2021-01-01")]),  # Not in index_coords
+            "lat": np.array(0),
+            "lon": np.linspace(0, 360, 10, endpoint=False),
+        }
+    )
+    x = torch.randn(1, 10, 10)
+
+    with pytest.raises(ValueError):
+        await z.prepare_inputs(x, coords, "test_array")
+
 
 @pytest.mark.asyncio
 async def test_async_zarr_close(tmp_path: str) -> None:
