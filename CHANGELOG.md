@@ -6,7 +6,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.8.0a0] - 2025-06-XX
+## [0.9.0a0] - 2025-07-xx
+
+### Added
+
+### Changed
+
+- Updated default StormCast package version to 1.0.2
+
+### Deprecated
+
+### Removed
+
+### Fixed
+
+### Security
+
+### Dependencies
+
+## [0.8.0] - 2025-06-13
 
 ### Added
 
@@ -21,21 +39,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-### Deprecated
-
-### Removed
+- In recipes, renamed `requirements.txt` -> `recipe-requirements.txt`
 
 ### Fixed
 
 - Fixed NCAR data source lat / lon labels and cache reads
 - Fixed FuXi tp06 field input to be mm
 - Fixed fsspec async filesystem initialization in data sources
-
-### Security
+- Fixed bug in GFS_FX forecast source which had lead time fixed at 0
 
 ### Dependencies
 
 - Moved NGC SDK to optional dependencies due to it causing slow version resolutions
+- Removing upper Python restriction on Rapids install for TC trackers
 
 ## [0.7.0] - 2025-05-21
 

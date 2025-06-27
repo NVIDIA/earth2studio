@@ -50,7 +50,7 @@ class HemisphericCentredBredVector:
         Noise amplitude, by default 0.05. If a tensor, this must be broadcastable with
         the input data
     integration_steps : int, optional
-        Number of integration steps to use in forward call, by default 20
+        Number of integration steps to use in forward call, by default 3
 
     Note
     ----
