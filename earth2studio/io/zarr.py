@@ -65,7 +65,7 @@ class ZarrBackend:
 
     Note
     ----
-    For keyword argument options see: https://zarr.readthedocs.io/en/stable/api/hierarchy.html
+    For keyword argument options see: https://zarr.readthedocs.io/en/latest/api/zarr/index.html#zarr.group
     """
 
     # sphinx - io zarr start
