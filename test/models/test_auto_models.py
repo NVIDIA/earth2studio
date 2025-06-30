@@ -248,6 +248,9 @@ def test_ngc_filesystem():
         == "https://api.ngc.nvidia.com/v2/models/org/org/name/1.0/files?path=file.txt"
     )
 
+    if not os.environ.get("NGC_CLI_API_KEY"):
+        pytest.skip("NGC_CLI_API_KEY not set")
+
     url = fs._get_ngc_model_url("name", "1.0", authenticated_api=True)
     assert url == "https://api.ngc.nvidia.com/v2/models/name/1.0/files"
 
