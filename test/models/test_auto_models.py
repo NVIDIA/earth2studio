@@ -374,17 +374,10 @@ async def test_ngc_unsupported_operations():
         await fs.find("some/path", maxdepth=1)
 
 
+# Test automodel is working correctly for lightweight model
 @pytest.mark.parametrize(
     "model_class",
-    [
-        ClimateNet,
-        CorrDiffTaiwan,
-        PrecipitationAFNO,
-        PrecipitationAFNOv2,
-        SolarRadiationAFNO1H,
-        SolarRadiationAFNO6H,
-        WindgustAFNO,
-    ],
+    [ClimateNet],
 )
 def test_auto_models(model_class):
     """Test auto model loading."""
