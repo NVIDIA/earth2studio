@@ -97,6 +97,78 @@ class GOES:
         "goes18": (datetime(2023, 1, 4), None),  # GOES-18 operational from Jan 4, 2023
         "goes19": (datetime(2025, 4, 7), None),  # GOES-19 operational from Apr 7, 2025
     }
+    PERSPECTIVE_POINT_HEIGHT = 35786023.0
+    SEMI_MAJOR_AXIS = 6378137.0
+    SEMI_MINOR_AXIS = 6356752.31414
+    LATITUDE_OF_PROJECTION_ORIGIN = 0.0
+    LONGITUDE_OF_PROJECTION_ORIGIN = {
+        "goes16": -75.0,
+        "goes17": -137.0,
+        "goes18": -137.0,
+        "goes19": -75.0,
+    }
+    FULL_DISK_YX = (
+        np.linspace(
+            -0.15184399485588074,
+            0.15184399485588074,
+            5424,
+        )[::-1],
+        np.linspace(
+            -0.15184399485588074,
+            0.15184399485588074,
+            5424,
+        ),
+    )
+    CONTINENTAL_US_YX = {
+        "goes16": (
+            np.linspace(
+                0.04426800459623337,
+                0.12821200489997864,
+                1500,
+            )[::-1],
+            np.linspace(
+                -0.10133200138807297,
+                0.038612000644207,
+                2500,
+            ),
+        ),
+        "goes17": (
+            np.linspace(
+                0.04426800459623337,
+                0.12821200489997864,
+                1500,
+            )[::-1],
+            np.linspace(
+                -0.06997200101613998,
+                0.06997200101613998,
+                2500,
+            ),
+        ),
+        "goes18": (
+            np.linspace(
+                0.04426800459623337,
+                0.12821200489997864,
+                1500,
+            )[::-1],
+            np.linspace(
+                -0.06997200101613998,
+                0.06997200101613998,
+                2500,
+            ),
+        ),
+        "goes19": (
+            np.linspace(
+                0.04426800459623337,
+                0.12821200489997864,
+                1500,
+            )[::-1],
+            np.linspace(
+                -0.10133200138807297,
+                0.038612000644207,
+                2500,
+            ),
+        ),
+    }
     BASE_URL = "s3://noaa-{satellite}/ABI-L2-MCMIP{scan_mode}/{year:04d}/{day_of_year:03d}/{hour:02d}/"
 
     def __init__(
@@ -220,16 +292,20 @@ class GOES:
             session = None
 
         # Create DataArray with appropriate dimensions
+        if self._scan_mode == "F":
+            y_coords, x_coords = self.FULL_DISK_YX
+        else:
+            y_coords, x_coords = self.CONTINENTAL_US_YX[self._satellite]
         xr_array = xr.DataArray(
             data=np.zeros(
                 (len(time), len(variable), *self.SCAN_DIMENSIONS[self._scan_mode])
             ),
-            dims=["time", "variable", "x", "y"],
+            dims=["time", "variable", "y", "x"],
             coords={
                 "time": time,
                 "variable": variable,
-                "x": np.arange(self.SCAN_DIMENSIONS[self._scan_mode][0]),
-                "y": np.arange(self.SCAN_DIMENSIONS[self._scan_mode][1]),
+                "y": y_coords,
+                "x": x_coords,
             },
         )
 
@@ -502,3 +578,115 @@ class GOES:
 
         except Exception:
             return False
+
+    @classmethod
+    def grid(
+        cls, satellite: str = "goes16", scan_mode: str = "F"
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """
+        Return (lat, lon) in degrees for the native GOES grid using pyproj.
+
+        Parameters
+        ----------
+        satellite : str, optional
+            Which GOES satellite to use, by default "goes16"
+        scan_mode : str, optional
+            Scan mode ('F' for Full Disk, 'C' for Continental US), by default "F"
+
+        Notes
+        -----
+        This function is based on the GOES ABI fixed grid projection variables and constants.
+        The projection comes from the recommended NOAA documentation:
+        https://www.star.nesdis.noaa.gov/atmospheric-composition-training/python_abi_lat_lon.php
+
+        Returns
+        -------
+        tuple[np.ndarray, np.ndarray]
+            Tuple of (lat, lon) in degrees
+        """
+
+        # Read in GOES ABI fixed grid projection variables and constants
+        if scan_mode == "F":
+            x_coordinate_1d = GOES.FULL_DISK_YX[1]  # E/W scanning angle in radians
+            y_coordinate_1d = GOES.FULL_DISK_YX[0]  # N/S elevation angle in radians
+        else:
+            x_coordinate_1d = GOES.CONTINENTAL_US_YX[satellite][
+                1
+            ]  # E/W scanning angle in radians
+            y_coordinate_1d = GOES.CONTINENTAL_US_YX[satellite][
+                0
+            ]  # N/S elevation angle in radians
+        lon_origin = GOES.LONGITUDE_OF_PROJECTION_ORIGIN[satellite]
+        H = GOES.PERSPECTIVE_POINT_HEIGHT + GOES.SEMI_MAJOR_AXIS
+        r_eq = GOES.SEMI_MAJOR_AXIS
+        r_pol = GOES.SEMI_MINOR_AXIS
+
+        # Create 2D coordinate matrices from 1D coordinate vectors
+        x_coordinate_2d, y_coordinate_2d = np.meshgrid(x_coordinate_1d, y_coordinate_1d)
+
+        # Equations to calculate latitude and longitude
+        lambda_0 = (lon_origin * np.pi) / 180.0
+        a_var = np.power(np.sin(x_coordinate_2d), 2.0) + (
+            np.power(np.cos(x_coordinate_2d), 2.0)
+            * (
+                np.power(np.cos(y_coordinate_2d), 2.0)
+                + (
+                    ((r_eq * r_eq) / (r_pol * r_pol))
+                    * np.power(np.sin(y_coordinate_2d), 2.0)
+                )
+            )
+        )
+        b_var = -2.0 * H * np.cos(x_coordinate_2d) * np.cos(y_coordinate_2d)
+        c_var = (H**2.0) - (r_eq**2.0)
+        r_s = (-1.0 * b_var - np.sqrt((b_var**2) - (4.0 * a_var * c_var))) / (
+            2.0 * a_var
+        )
+        s_x = r_s * np.cos(x_coordinate_2d) * np.cos(y_coordinate_2d)
+        s_y = -r_s * np.sin(x_coordinate_2d)
+        s_z = r_s * np.cos(x_coordinate_2d) * np.sin(y_coordinate_2d)
+
+        # Ignore numpy errors for sqrt of negative number; occurs for GOES-16 ABI CONUS sector data
+        np.seterr(all="ignore")
+
+        abi_lat = (180.0 / np.pi) * (
+            np.arctan(
+                ((r_eq * r_eq) / (r_pol * r_pol))
+                * (s_z / np.sqrt(((H - s_x) * (H - s_x)) + (s_y * s_y)))
+            )
+        )
+        abi_lon = (lambda_0 - np.arctan(s_y / (H - s_x))) * (180.0 / np.pi)
+
+        return abi_lat, abi_lon
+
+        ## Build the CRS directly from the official CF attributes
+        # attrs = {
+        #    "grid_mapping_name": "geostationary",
+        #    "perspective_point_height": GOES.PERSPECTIVE_POINT_HEIGHT,
+        #    "semi_major_axis": GOES.SEMI_MAJOR_AXIS,
+        #    "semi_minor_axis": GOES.SEMI_MINOR_AXIS,
+        #    "sweep_angle_axis": "x",
+        #    "longitude_of_projection_origin": GOES.LONGITUDE_OF_PROJECTION_ORIGIN[satellite],
+        # }
+        # geos_crs = CRS.from_cf(attrs)          # CF → PROJ definition
+        # wgs84    = CRS.from_epsg(4326)         # Lat/Lon CRS
+        # tfm      = Transformer.from_crs(geos_crs, wgs84, always_xy=True)
+
+        ## Build the native ABI scan‐angle grid
+        # if scan_mode == "F":
+        #    x_rad, y_rad = np.meshgrid(GOES.FULL_DISK_YX[1], GOES.FULL_DISK_YX[0])
+        # else:
+        #    x_rad, y_rad = np.meshgrid(GOES.CONTINENTAL_US_YX[satellite][1], GOES.CONTINENTAL_US_YX[satellite][0])
+
+        ## CF geos projection expects *metres*
+        # H_sat = GOES.PERSPECTIVE_POINT_HEIGHT + GOES.SEMI_MAJOR_AXIS
+        # x_m   = H_sat * np.tan(x_rad)
+        # y_m   = H_sat * np.tan(y_rad)
+
+        ## Transform to geographic coordinates
+        # lon, lat = tfm.transform(x_m, y_m)
+
+        ## ABI Y dimension is north→south, so flip to keep (0,0) at SW corner
+        ##lat = lat[::-1]
+        ##lon = lon[::-1]
+
+        # return lat, lon
