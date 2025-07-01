@@ -23,6 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - NGC filesystem from API change in version >=3.158.1 of ngcsdk
+- DLWP output coords lead_time array to have proper shape
 
 ### Security
 
