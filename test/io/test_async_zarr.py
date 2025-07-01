@@ -93,12 +93,12 @@ async def test_async_zarr_write(
     for i, time0 in enumerate(time):
         total_coords["time"] = np.array([time0])
         z.write(x[i : i + 1], total_coords, "fields_1")
-        assert "fields_1" in [key async for key in z.zs.array_keys()]
-        data = await (await z.zs.get("fields_1")).getitem(slice(None))
+        assert "fields_1" in [key async for key in z.root.array_keys()]
+        data = await (await z.root.get("fields_1")).getitem(slice(None))
         assert data.shape == x.shape
         assert np.allclose(data[i], x[i].to("cpu").numpy())
     z.close()
-    data = await (await z.zs.get("fields_1")).getitem(slice(None))
+    data = await (await z.root.get("fields_1")).getitem(slice(None))
     assert np.allclose(data, x.to("cpu").numpy())
 
     total_coords = OrderedDict(
@@ -114,12 +114,12 @@ async def test_async_zarr_write(
     for i, time0 in enumerate(time):
         total_coords["time"] = np.array([time0])
         z.write(x[:, i : i + 1], total_coords, "fields_2")
-        assert "fields_2" in [key async for key in z.zs.array_keys()]
-        data = await (await z.zs.get("fields_2")).getitem(slice(None))
+        assert "fields_2" in [key async for key in z.root.array_keys()]
+        data = await (await z.root.get("fields_2")).getitem(slice(None))
         assert data.shape == x.shape
         assert np.allclose(data[:, i], x[:, i].to("cpu").numpy())
     z.close()
-    data = await (await z.zs.get("fields_2")).getitem(slice(None))
+    data = await (await z.root.get("fields_2")).getitem(slice(None))
     assert np.allclose(data, x.to("cpu").numpy())
 
 
@@ -159,12 +159,12 @@ async def test_async_zarr_async_write(
     for i, time0 in enumerate(time):
         total_coords["time"] = np.array([time0])
         await z.async_write(x[i : i + 1], total_coords, "fields_1")
-        assert "fields_1" in [key async for key in z.zs.array_keys()]
-        data = await (await z.zs.get("fields_1")).getitem(slice(None))
+        assert "fields_1" in [key async for key in z.root.array_keys()]
+        data = await (await z.root.get("fields_1")).getitem(slice(None))
         assert data.shape == x.shape
         assert np.allclose(data[i], x[i].to("cpu").numpy())
     z.close()
-    data = await (await z.zs.get("fields_1")).getitem(slice(None))
+    data = await (await z.root.get("fields_1")).getitem(slice(None))
     assert np.allclose(data, x.to("cpu").numpy())
 
 
@@ -226,8 +226,8 @@ async def test_async_zarr_non_blocking(device: str, tmp_path: str) -> None:
         blocking_time > nonblocking_time
     ), f"Blocking ({blocking_time:.3f}s) should be slower than non-blocking ({nonblocking_time:.3f}s)"
 
-    data1 = await (await z_blocking.zs.get("fields_1")).getitem(slice(None))
-    data2 = await (await z_nonblocking.zs.get("fields_1")).getitem(slice(None))
+    data1 = await (await z_blocking.root.get("fields_1")).getitem(slice(None))
+    data2 = await (await z_nonblocking.root.get("fields_1")).getitem(slice(None))
     assert np.allclose(data1, data2)
 
 
@@ -286,12 +286,12 @@ async def test_async_zarr_2d_index(
             total_coords["time"] = np.array([time0])
             total_coords["lead_time"] = np.array([lead0])
             z.write(x[i : i + 1, :, j : j + 1], total_coords, "fields_1")
-            assert "fields_1" in [key async for key in z.zs.array_keys()]
-            data = await (await z.zs.get("fields_1")).getitem(slice(None))
+            assert "fields_1" in [key async for key in z.root.array_keys()]
+            data = await (await z.root.get("fields_1")).getitem(slice(None))
             assert data.shape == x.shape
             assert np.allclose(data[i, :, j], x[i, :, j].to("cpu").numpy())
     z.close()
-    data = await (await z.zs.get("fields_1")).getitem(slice(None))
+    data = await (await z.root.get("fields_1")).getitem(slice(None))
     assert np.allclose(data, x.to("cpu").numpy())
 
 
@@ -344,7 +344,7 @@ async def test_async_zarr_split_variables(
     z.close()
 
     for i, v in enumerate(variable):
-        data = await (await z.zs.get(v)).getitem(slice(None))
+        data = await (await z.root.get(v)).getitem(slice(None))
         assert np.allclose(data, x[:, i].to("cpu").numpy())
 
 
@@ -574,9 +574,9 @@ async def test_async_zarr_codecs(
         z.write(x[i : i + 1], total_coords, "fields_codecs")
     z.close()
 
-    assert "fields_codecs" in [key async for key in z.zs.array_keys()]
+    assert "fields_codecs" in [key async for key in z.root.array_keys()]
 
-    array = await z.zs.get("fields_codecs")
+    array = await z.root.get("fields_codecs")
     data = await array.getitem(slice(None))
     assert data.shape == x.shape
     assert np.allclose(data, x.to("cpu").numpy())

@@ -63,8 +63,8 @@ class AsyncZarrBackend:
 
     Parameters
     ----------
-    root : str
-        Root location to place zarr store
+    path : str
+        Path location to place zarr store
     index_coords : CoordSystem, optional
         Index coordinates. These are coordinates that will be used to define chunks in
         each zarr array. Each element in these coordinates will be written in parallel.
@@ -94,7 +94,7 @@ class AsyncZarrBackend:
 
     def __init__(
         self,
-        root: str,
+        path: str,
         index_coords: CoordSystem = OrderedDict({}),
         fs_factory: Callable[..., fsspec.spec.AbstractFileSystem] = LocalFileSystem,
         blocking: bool = True,
@@ -142,7 +142,7 @@ class AsyncZarrBackend:
         )
         for loop in self.loop_pool:
             future = asyncio.run_coroutine_threadsafe(
-                self._initialize_zarr_group(root, fs_factory, zarr_kwargs), loop
+                self._initialize_zarr_group(path, fs_factory, zarr_kwargs), loop
             )
             zs0, fs0 = future.result()
             self.zarr_pool.append(zs0)
@@ -157,8 +157,8 @@ class AsyncZarrBackend:
             # If no event loop exists, create one
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
-        self.zs, self.fs = loop.run_until_complete(
-            self._initialize_zarr_group(root, fs_factory, zarr_kwargs)
+        self.root, self.fs = loop.run_until_complete(
+            self._initialize_zarr_group(path, fs_factory, zarr_kwargs)
         )
         self.loop = loop
 
@@ -170,9 +170,9 @@ class AsyncZarrBackend:
                     + "All index coordinates must have unique values."
                 )
             # Not possible atm becaus async
-            # if key in self.zs.array_keys():
+            # if key in self.root.array_keys():
             #     # Check that all elements in value are in index_coords array
-            #     if not np.array_equal(self.zs[key], value):
+            #     if not np.array_equal(self.root[key], value):
             #         raise ValueError(
             #             f"Index coordinate array '{key}' already present in Zarr store and has different values than provided array"
             #         )
@@ -263,7 +263,7 @@ class AsyncZarrBackend:
             If some coords are index coords and container new values no in self.index_coords
         """
         # DOESNT WORK????
-        # current_arrays = [key async for key in self.zs.array_keys()]
+        # current_arrays = [key async for key in self.root.array_keys()]
         # ======
         # Coordinate arrays
         # ======
@@ -278,11 +278,11 @@ class AsyncZarrBackend:
                 value = self.index_coords[key]
 
             # Skip if coordinate array exists
-            if await self.zs.contains(key) and not self.overwrite:
+            if await self.root.contains(key) and not self.overwrite:
                 continue
 
             logger.debug(f"Writing coordinate array {key} to zarr store")
-            array = await self.zs.create_array(
+            array = await self.root.create_array(
                 name=key,
                 shape=value.shape,
                 chunks=value.shape,
@@ -297,8 +297,8 @@ class AsyncZarrBackend:
         # Data arrays
         # ======
         for name, dtype in zip(array_names, dtypes):
-            # if self.zs.contains(name) and not self.overwrite:
-            if await self.zs.contains(name) and not self.overwrite:
+            # if self.root.contains(name) and not self.overwrite:
+            if await self.root.contains(name) and not self.overwrite:
                 continue
             array_coords = coords.copy()
             chunked: dict[str, int] = {
@@ -315,7 +315,7 @@ class AsyncZarrBackend:
             logger.debug(
                 f"Initializing array {name} with shape {shape} with chunks {chunks} dtype {dtype}"
             )
-            await self.zs.create_array(
+            await self.root.create_array(
                 name=name,
                 shape=shape,
                 chunks=chunks,
@@ -426,7 +426,7 @@ class AsyncZarrBackend:
         await self._initialize_arrays(coords, list(x.keys()), dtypes)
 
         for key, value in coords.items():
-            zarray = await self.zs.get(key)
+            zarray = await self.root.get(key)
             if key in self.index_coords:
                 z0 = np.where(np.isin(await zarray.getitem(slice(None)), value))[0]
                 if len(z0) != value.shape[0]:
@@ -466,7 +466,7 @@ class AsyncZarrBackend:
     def add_array(
         self, coords: CoordSystem, array_name: str | list[str], **kwargs: dict[str, Any]
     ) -> None:
-        """Pass through"""
+        """Pass through, arrays are initialized lazily in this io object"""
         # TODO: Warning?
         pass
 
@@ -531,7 +531,7 @@ class AsyncZarrBackend:
             Name(s) of the array(s) that will be written to.
         """
         x, coords = await self.prepare_inputs(x, coords, array_name)
-        await self._write(x, coords, self.zs, self.fs)
+        await self._write(x, coords, self.root, self.fs)
 
     async def _write(
         self,
@@ -630,6 +630,8 @@ class AsyncZarrBackend:
         self._limit_pool_size(0)
 
     def __del__(self) -> None:
+        if not hasattr(self, "io_futures"):
+            return
         if len(self.io_futures) > 0:
             logger.warning(
                 f"IO object found {len(self.io_futures)} in flight processes, cleaning up. Call `close()` manually to avoid this warning"
