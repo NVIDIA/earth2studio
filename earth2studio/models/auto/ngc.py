@@ -23,6 +23,7 @@ from typing import Any
 
 # Silence warning from ngcbase pkg_resources use
 warnings.simplefilter("ignore", UserWarning)
+warnings.simplefilter("ignore", SyntaxWarning)
 
 # ruff: noqa: E402
 import aiohttp
@@ -198,26 +199,37 @@ class NGCModelFileSystem(HTTPFileSystem):
         filepath: str = None,
         authenticated_api: bool = True,
     ) -> str:
-        # Authenticated API
+        # Based on .venv/lib/python3.12/site-packages/registry/api/models.py
+        # get_direct_download_URL
+        def format_org_team(
+            org: str | None = None, team: str | None = None, plural_form: bool = False
+        ) -> str:
+            """Given a combination of org and team values, which can be empty,
+            returns the string that would be used in a URL for working with the API.
+            Taken out of .venv/lib/python3.12/site-packages/ngcbase/util/utils.py
+            """
+            parts = []
+            if org and org is not None and org != "no-org":
+                parts.append(f"org{'s' if plural_form else ''}")
+                parts.append(f"{org}")
+                if team and team is not None and team != "no-team":
+                    parts.append(f"team{'s' if plural_form else ''}")
+                    parts.append(f"{team}")
+            return "/".join(parts)
+
+        # Internal override of the service URLs
+        url = os.environ.get(
+            "NGC_CLI_SEARCH_SERVICE_URL", "https://api.ngc.nvidia.com/"
+        )
+        # Dont know why NGC does this, but it does....
         if authenticated_api:
-            # APIs from registry/api/models.py but switched to use the async download function
-            url = self.model_api.get_direct_download_URL(
-                name, version, org=org, team=team
-            )
-            if filepath:
-                url = f"{url}?path={filepath}"
-        # Public API
+            ep = ["v2", format_org_team(org, team), "models", name, version, "files"]
         else:
-            url = "https://api.ngc.nvidia.com/v2/models/"
-            relative_urls = []
-            if org:
-                relative_urls += ["org", org]
-            if team:
-                relative_urls += ["team", team]
-            relative_urls += [name, version, "files"]
-            url = urllib.parse.urljoin(url, os.path.join(*relative_urls))
-            if filepath:
-                url = f"{url}?path={filepath}"
+            ep = ["v2", "models", format_org_team(org, team), name, version, "files"]
+        url = urllib.parse.urljoin(url, os.path.join(*ep))
+        if filepath:
+            url = f"{url}?path={filepath}"
+
         return url
 
     async def _get_ngc(
