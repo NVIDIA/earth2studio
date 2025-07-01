@@ -657,36 +657,3 @@ class GOES:
         abi_lon = (lambda_0 - np.arctan(s_y / (H - s_x))) * (180.0 / np.pi)
 
         return abi_lat, abi_lon
-
-        ## Build the CRS directly from the official CF attributes
-        # attrs = {
-        #    "grid_mapping_name": "geostationary",
-        #    "perspective_point_height": GOES.PERSPECTIVE_POINT_HEIGHT,
-        #    "semi_major_axis": GOES.SEMI_MAJOR_AXIS,
-        #    "semi_minor_axis": GOES.SEMI_MINOR_AXIS,
-        #    "sweep_angle_axis": "x",
-        #    "longitude_of_projection_origin": GOES.LONGITUDE_OF_PROJECTION_ORIGIN[satellite],
-        # }
-        # geos_crs = CRS.from_cf(attrs)          # CF → PROJ definition
-        # wgs84    = CRS.from_epsg(4326)         # Lat/Lon CRS
-        # tfm      = Transformer.from_crs(geos_crs, wgs84, always_xy=True)
-
-        ## Build the native ABI scan‐angle grid
-        # if scan_mode == "F":
-        #    x_rad, y_rad = np.meshgrid(GOES.FULL_DISK_YX[1], GOES.FULL_DISK_YX[0])
-        # else:
-        #    x_rad, y_rad = np.meshgrid(GOES.CONTINENTAL_US_YX[satellite][1], GOES.CONTINENTAL_US_YX[satellite][0])
-
-        ## CF geos projection expects *metres*
-        # H_sat = GOES.PERSPECTIVE_POINT_HEIGHT + GOES.SEMI_MAJOR_AXIS
-        # x_m   = H_sat * np.tan(x_rad)
-        # y_m   = H_sat * np.tan(y_rad)
-
-        ## Transform to geographic coordinates
-        # lon, lat = tfm.transform(x_m, y_m)
-
-        ## ABI Y dimension is north→south, so flip to keep (0,0) at SW corner
-        ##lat = lat[::-1]
-        ##lon = lon[::-1]
-
-        # return lat, lon
