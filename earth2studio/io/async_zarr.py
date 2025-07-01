@@ -57,7 +57,7 @@ class AsyncZarrBackend:
 
     Warning
     -------
-    This IO backend has a non-blocking mode which will execut IO writes in seperate
+    This IO backend has a non-blocking mode which will execute IO writes in seperate
     threads. There is an assumption that the data being written will not be re-allocated
     during the writes.
 
