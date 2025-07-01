@@ -63,7 +63,7 @@ class AsyncZarrBackend:
 
     Parameters
     ----------
-    path : str
+    file_name : str
         Path location to place zarr store
     index_coords : CoordSystem, optional
         Index coordinates. These are coordinates that will be used to define chunks in
@@ -94,7 +94,7 @@ class AsyncZarrBackend:
 
     def __init__(
         self,
-        path: str,
+        file_name: str,
         index_coords: CoordSystem = OrderedDict({}),
         fs_factory: Callable[..., fsspec.spec.AbstractFileSystem] = LocalFileSystem,
         blocking: bool = True,
@@ -142,7 +142,7 @@ class AsyncZarrBackend:
         )
         for loop in self.loop_pool:
             future = asyncio.run_coroutine_threadsafe(
-                self._initialize_zarr_group(path, fs_factory, zarr_kwargs), loop
+                self._initialize_zarr_group(file_name, fs_factory, zarr_kwargs), loop
             )
             zs0, fs0 = future.result()
             self.zarr_pool.append(zs0)
@@ -158,7 +158,7 @@ class AsyncZarrBackend:
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
         self.root, self.fs = loop.run_until_complete(
-            self._initialize_zarr_group(path, fs_factory, zarr_kwargs)
+            self._initialize_zarr_group(file_name, fs_factory, zarr_kwargs)
         )
         self.loop = loop
 
