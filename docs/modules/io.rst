@@ -15,6 +15,7 @@ IO Backends for saving your inference results for further post processing.
     :toctree: generated/io/
     :template: io.rst
 
+    io.AsyncZarrBackend
     io.KVBackend
     io.NetCDF4Backend
     io.XarrayBackend

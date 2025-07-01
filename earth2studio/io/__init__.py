@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from .async_zarr import AsyncZarrBackend
 from .base import IOBackend
 from .kv import KVBackend
 from .netcdf4 import NetCDF4Backend

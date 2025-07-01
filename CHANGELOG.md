@@ -10,6 +10,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Async Zarr IO backend with non-blocking write calls
+
 ### Changed
 
 - Updated default StormCast package version to 1.0.2
@@ -21,6 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - NGC filesystem from API change in version >=3.158.1 of ngcsdk
+- DLWP output coords lead_time array to have proper shape
 
 ### Security
 

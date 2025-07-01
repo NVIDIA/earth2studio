@@ -178,7 +178,7 @@ def test_dlwp_iter(ensemble, dlwp_phoo_cs_transform, device):
             out_coords["variable"] == p.output_coords(p.input_coords())["variable"]
         ).all()
         assert (out_coords["time"] == time).all()
-        assert out_coords["lead_time"] == np.timedelta64(6 * (i + 1), "h")
+        assert out_coords["lead_time"][0] == np.timedelta64(6 * (i + 1), "h")
         assert torch.allclose(
             out, p.to_equirectangular(p.to_cubedsphere(x[:, :, 1:] + 6 * (i + 1)))
         )  # Need to cs transform here to get right values
