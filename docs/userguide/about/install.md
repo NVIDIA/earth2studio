@@ -358,6 +358,7 @@ CBottleInfill diagnostic and CBottleSR diagnostic.
 :::{tab-item} pip
 
 ```bash
+pip install --no-build-isolation "earth2grid @ git+https://github.com/NVlabs/earth2grid@aefb10793aa372bae7d0951d627a89e2983fd0ca"
 pip install earth2studio[cbottle]
 ```
 
