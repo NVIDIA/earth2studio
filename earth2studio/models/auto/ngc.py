@@ -23,6 +23,7 @@ from typing import Any
 
 # Silence warning from ngcbase pkg_resources use
 warnings.simplefilter("ignore", UserWarning)
+warnings.simplefilter("ignore", SyntaxWarning)
 
 # ruff: noqa: E402
 import aiohttp
