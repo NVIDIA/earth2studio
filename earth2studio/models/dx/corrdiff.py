@@ -436,12 +436,24 @@ class CorrDiff(torch.nn.Module, AutoModelMixin):
         out_scale = torch.Tensor([stats["output"][v]["std"] for v in output_variables])
 
         # Load lat/lon grid
-        with xr.open_dataset(package.resolve("input_latlon_grid.nc")) as ds:
-            lat_input_grid = torch.Tensor(np.array(ds["lat"][:]))
-            lon_input_grid = torch.Tensor(np.array(ds["lon"][:]))
         with xr.open_dataset(package.resolve("output_latlon_grid.nc")) as ds:
             lat_output_grid = torch.Tensor(np.array(ds["lat"][:]))
             lon_output_grid = torch.Tensor(np.array(ds["lon"][:]))
+
+        try:
+            with xr.open_dataset(package.resolve("input_latlon_grid.nc")) as ds:
+                lat_input_grid = torch.Tensor(np.array(ds["lat"][:]))
+                lon_input_grid = torch.Tensor(np.array(ds["lon"][:]))
+        except FileNotFoundError:
+            if "latlon_res" in metadata:
+                latlon_res = metadata["latlon_res"]
+                lat_input_grid, lon_input_grid = cls._infer_input_latlon_grid(
+                    lat_output_grid, lon_output_grid, latlon_res
+                )
+            else:
+                raise FileNotFoundError(
+                    "input_latlon_grid.nc not found and latlon_res not in metadata"
+                )
 
         # Load invariants if available
         try:
@@ -487,6 +499,34 @@ class CorrDiff(torch.nn.Module, AutoModelMixin):
             hr_mean_conditioning=hr_mean_conditioning,
             seed=seed,
         )
+
+    @staticmethod
+    def _infer_input_latlon_grid(
+        lat_output_grid: torch.Tensor, lon_output_grid: torch.Tensor, latlon_res: float
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        """Infer the input lat/lon grid from the output lat/lon grid.
+
+        Parameters
+        ----------
+        lat_output_grid : torch.Tensor
+            Output latitude grid
+        lon_output_grid : torch.Tensor
+            Output longitude grid
+        latlon_res : float
+            Resolution of the input lat/lon grid
+
+        Returns
+        -------
+        tuple[torch.Tensor, torch.Tensor]
+            Input latitude and longitude grids
+        """
+        lat0 = (torch.floor(lat_output_grid.min() / latlon_res) - 1) * latlon_res
+        lon0 = (torch.floor(lon_output_grid.min() / latlon_res) - 1) * latlon_res
+        lat1 = (torch.ceil(lat_output_grid.max() / latlon_res) + 1) * latlon_res
+        lon1 = (torch.ceil(lon_output_grid.max() / latlon_res) + 1) * latlon_res
+        lat_input_grid = torch.arange(lat0, lat1 + latlon_res, latlon_res)
+        lon_input_grid = torch.arange(lon0, lon1 + latlon_res, latlon_res)
+        return lat_input_grid, lon_input_grid
 
     def _interpolate(self, x: torch.Tensor) -> torch.Tensor:
         """Interpolate from input lat/lon onto output lat/lon grid.
@@ -672,13 +712,8 @@ class CorrDiff(torch.nn.Module, AutoModelMixin):
             Device to move the model to
         """
         self = super().to(device)
-        print("moving model to device", device)
-        print("residual_model.device", self.residual_model.device)
-        print("regression_model.device", self.regression_model.device)
         self.residual_model.to(device)
         self.regression_model.to(device)
-        print("residual_model.device", self.residual_model.device)
-        print("regression_model.device", self.regression_model.device)
         return self
 
 
