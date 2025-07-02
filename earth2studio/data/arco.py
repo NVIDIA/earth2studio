@@ -16,7 +16,6 @@
 
 import asyncio
 import functools
-import inspect
 import os
 import pathlib
 import shutil
@@ -87,37 +86,32 @@ class ARCO:
         self._cache = cache
         self._verbose = verbose
 
-        fs = gcsfs.GCSFileSystem(
-            cache_timeout=-1,
-            token="anon",  # noqa: S106 # nosec B106
-            access="read_only",
-            block_size=8**20,
-            asynchronous=(self.zarr_major_version == 3),
-        )
-
-        if self._cache:
-            cache_options = {
-                "cache_storage": self.cache,
-                "expiry_time": 31622400,  # 1 year
-            }
-            if self.zarr_major_version == 3:
-                fs = AsyncCachingFileSystem(fs=fs, **cache_options, asynchronous=True)
-            else:
-                fs = WholeFileCacheFileSystem(fs=fs, **cache_options)
-
         if self.zarr_major_version >= 3:
-            # Zarr 3.0+ method
-            zstore = zarr.storage.FsspecStore(
-                fs,
-                path="/gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3",
-            )
-            self.zarr_group = zarr.api.asynchronous.open(store=zstore, mode="r")
-            self.level_coords = None
+            # Check to see if there is a running loop (initialized in async)
+            try:
+                loop = asyncio.get_running_loop()
+                loop.run_until_complete(self._async_init())
+            except RuntimeError:
+                # Else we assume that async calls will be used which in that case
+                # we will init the group in the call function when we have the loop
+                self.zarr_group = None
+                self.level_coords = None
         else:
-            # Legacy method for Zarr < 3.0
-            logger.warning(
-                "Using Zarr 2.0 method for ARCO, this can be extremely slow with caching!"
+            fs = gcsfs.GCSFileSystem(
+                cache_timeout=-1,
+                token="anon",  # noqa: S106 # nosec B106
+                access="read_only",
+                block_size=8**20,
+                asynchronous=(self.zarr_major_version == 3),
             )
+            if self._cache:
+                cache_options = {
+                    "cache_storage": self.cache,
+                    "expiry_time": 31622400,  # 1 year
+                }
+                fs = WholeFileCacheFileSystem(fs=fs, **cache_options)
+            # Legacy method for Zarr < 3.0
+            logger.warning("Using Zarr 2.0 method for ARCO")
             fs_map = fsspec.FSMap(
                 "gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3", fs
             )
@@ -125,6 +119,37 @@ class ARCO:
             self.level_coords = self.zarr_group["level"][:]
 
         self.async_timeout = async_timeout
+
+    async def _async_init(self) -> None:
+        """Async initialization of zarr group
+
+        Note
+        ----
+        Async fsspec expects initialization inside of the execution loop
+        """
+        fs = gcsfs.GCSFileSystem(
+            cache_timeout=-1,
+            token="anon",  # noqa: S106 # nosec B106
+            access="read_only",
+            block_size=8**20,
+            asynchronous=True,
+        )
+
+        if self._cache:
+            cache_options = {
+                "cache_storage": self.cache,
+                "expiry_time": 31622400,  # 1 year
+            }
+            fs = AsyncCachingFileSystem(fs=fs, **cache_options, asynchronous=True)
+
+        zstore = zarr.storage.FsspecStore(
+            fs,
+            path="/gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3",
+        )
+        self.zarr_group = await zarr.api.asynchronous.open(store=zstore, mode="r")
+        self.level_coords = await (await self.zarr_group.get("level")).getitem(
+            slice(None)
+        )
 
     def __call__(
         self,
@@ -154,6 +179,9 @@ class ARCO:
             # If no event loop exists, create one
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
+
+        if self.zarr_group is None:
+            loop.run_until_complete(self._async_init())
 
         xr_array = loop.run_until_complete(
             asyncio.wait_for(self.fetch(time, variable), timeout=self.async_timeout)
@@ -185,6 +213,13 @@ class ARCO:
         xr.DataArray
             ERA5 weather data array from ARCO
         """
+        if self.zarr_group is None:
+            raise ValueError(
+                "Zarr group is not initialized! If you are calling this \
+            function directly make sure the data source is initialized inside the async \
+            loop!"
+            )
+
         time, variable = prep_data_inputs(time, variable)
         # Create cache dir if doesnt exist
         pathlib.Path(self.cache).mkdir(parents=True, exist_ok=True)
@@ -210,13 +245,6 @@ class ARCO:
         ]
         func_map = map(functools.partial(self.fetch_wrapper, xr_array=xr_array), args)
 
-        # Before anything wait until the group gets opened
-        if self.zarr_major_version >= 3:
-            if inspect.isawaitable(self.zarr_group):
-                self.zarr_group = await self.zarr_group
-            self.level_coords = await (await self.zarr_group.get("level")).getitem(
-                slice(None)
-            )
         # Launch all fetch requests
         await tqdm.gather(
             *func_map, desc="Fetching ARCO data", disable=(not self._verbose)
@@ -247,6 +275,8 @@ class ARCO:
         np.ndarray
             Data
         """
+        if self.zarr_group is None:
+            raise ValueError("Zarr group is not initialized")
         # Get time index (vanilla zarr doesnt support date indices)
         time_index = self._get_time_index(time)
         logger.debug(

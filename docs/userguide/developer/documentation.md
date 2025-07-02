@@ -23,15 +23,18 @@ the following styles are used:
 - [NumPy style](https://sphinxcontrib-napoleon.readthedocs.io/en/latest/example_numpy.html)
 doc-strings are used in all Python files.
 
+- The doc string description starts on the same line as the first `"""`.
+
 - Class doc-strings are placed under the class definition not the `__init__` function.
 
 - Type hints are included in the doc strings for each input argument / returned object.
 
 - Optional/keyword arguments are denoted by `optional` following the type hint. The
-default value is provided by adding ", by default [default value]." to the end of the
+default value is provided by adding ", by default [default value]" to the end of the
 doc string.
 
-- Periods should be used at the end of all sentences.
+- Periods should be used at the end of complete sentences, but are not required at the
+end of "by default [default value]" or incomplete sentences
 
 For VSCode users, the
 [autoDocstring extension](https://marketplace.visualstudio.com/items?itemName=njpwerner.autodocstring)
@@ -39,52 +42,48 @@ is highly encouraged.
 See the following doc-string samples for guidance.
 
 ```python
-def handshake_dim(
-    input_coords: CoordSystem,
-    required_dim: str,
-    required_index: int | None = None,
-) -> None:
-    """Simple check to see if coordinate system has a dimension in a particular index.
+def timearray_to_datetime(time: TimeArray) -> list[datetime]:
+    """Simple converter from numpy datetime64 array into a list of datetimes.
 
     Parameters
     ----------
-    input_coords : CoordSystem
-        Input coordinate system to validate.
-    required_dim : str
-        Required dimension (name of coordinate).
-    required_index : int, optional
-        Required index of dimension if needed, by default None.
-
-    Raises
-    ------
-    KeyError
-        If required dimension is not found in the input coordinate system.
-    ValueError
-        If the required index is outside the dimensionality of the input coordinate system.
-    ValueError
-        If dimension is not in the required index.
+    time : TimeArray
+        Numpy datetime64 array
 
     Returns
     -------
-        None
+    list[datetime]
+        List of datetime object
     """
 ```
 
 ```python
-class Random:
-    """A randomly generated normally distributed data. Primarily useful for testing.
+class CorrelatedSphericalGaussian:
+    """Produces Gaussian random field on the sphere with Matern covariance peturbation
+    method output to a lat lon grid.
+
+    Warning
+    -------
+    Presently this method generates noise on equirectangular grid of size [N, 2*N] when
+    N is even or [N+1, 2*N] when N is odd.
 
     Parameters
     ----------
-    domain_coords: OrderedDict[str, np.ndarray]
-        Domain coordinates that the random data will assume (such as lat, lon).
-    """
+    noise_amplitude : float | torch.Tensor
+        Overall amplitude scaling factor for the noise field. Must be provided.
+    sigma : float, optional
+        Standard deviation of the noise field, by default 1.0
+    length_scale : float, optional
+        Spatial correlation length scale in meters, by default 5.0e5
+    time_scale : float, optional
+        Temporal correlation scale in hours for the AR(1) process, by default 48.0
 
-    def __init__(
-        self,
-        domain_coords: OrderedDict[str, np.ndarray],
-    ):
-        # ...
+    Raises
+    ------
+    ValueError
+        If noise_amplitude is not provided
+    """
+    ...
 ```
 
 (examples_userguide)=
@@ -111,11 +110,16 @@ which will be addressed on a case-by-case basis.
 
 ### Creating a New Example
 
-[JupyText](https://jupytext.readthedocs.io/en/latest/), with the `py:percent` format, is
-used instead of vanilla Jupyter lab notebooks to prevent notebook bloat in the commit
+In Earth2Studio, vanilla Jupyter lab notebooks are not used to avoid bloat in the commit
 history.
-Sphinx Gallery will convert these files into notebooks and python files on build.
-To create an example, the best method is to copy an existing example and follow the structure:
+Instead, [Sphinx Gallery](https://sphinx-gallery.github.io/stable/index.html) is used to
+represent notebooks as code.
+Sphinx Gallery supports embedded reST (reStructuredText) syntax in the form of comments.
+These comments are automatically rendered as formatted text on the documentation web
+pages and as markdown cells in the converted Jupyter notebooks.
+For more details on the syntax, see the [embedded reST documentation](https://sphinx-gallery.github.io/stable/syntax.html#embed-rest-in-your-example-python-files).
+To create an example, the best method is to copy an existing example and follow the
+structure:
 
 ```python
 # %%

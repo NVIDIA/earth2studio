@@ -65,8 +65,8 @@ VARIABLES = [
 class PrecipitationAFNO(torch.nn.Module, AutoModelMixin):
     """Precipitation AFNO diagnsotic model. Predicts the total precipation parameter
     which is the accumulated amount of liquid and frozen water (rain or snow) with
-    units m. This model was trained on ERA5 data thus the accumulation period is over
-    the 1 hour ending at the validity date and time.This model uses an 20 atmospheric
+    units m. This model was trained on ERA5 data and predicts the 6-hourly accumulated
+    total precipitation at the validity date and time. This model uses an 20 atmospheric
     inputs and outputs one on a 0.25 degree lat-lon grid (south-pole excluding)
     [720 x 1440].
 
@@ -165,7 +165,15 @@ class PrecipitationAFNO(torch.nn.Module, AutoModelMixin):
         with zipfile.ZipFile(checkpoint_zip, "r") as zip_ref:
             zip_ref.extractall(checkpoint_zip.parent)
 
-        model = PrecipNet.from_checkpoint(
+        # Hack because old checkpoint
+        model = PrecipNet(
+            inp_shape=[720, 1440],
+            in_channels=20,
+            out_channels=1,
+            patch_size=[8, 8],
+            embed_dim=768,
+        )
+        model.load(
             str(
                 checkpoint_zip.parent
                 / Path("precipitation_afno/precipitation_afno.mdlus")

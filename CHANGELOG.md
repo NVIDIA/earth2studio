@@ -6,16 +6,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.8.0a0] - 2025-06-XX
+## [0.9.0a0] - 2025-07-xx
 
 ### Added
 
-- Added GraphCast operational model (0.25 degree resolution)
-- Added Graphcast 1 degree model
-- Added SolarRadiationAFNO diagnostic model for predicting surface solar radiation
-- Added DataArrayPathList for reading local data using glob patterns or explicit file lists
-
 ### Changed
+
+- Updated default StormCast package version to 1.0.2
 
 ### Deprecated
 
@@ -23,11 +20,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- Fixed NCAR data source lat / lon labels and cache reads
+- NGC filesystem from API change in version >=3.158.1 of ngcsdk
 
 ### Security
 
 ### Dependencies
+
+## [0.8.0] - 2025-06-13
+
+### Added
+
+- Added GraphCast operational model (0.25 degree resolution)
+- Added Graphcast 1 degree model
+- Added SolarRadiationAFNO diagnostic model for predicting surface solar radiation
+- Added DataArrayPathList for reading local data using glob patterns or explicit file lists
+- Added Climate in a Bottle (cBottle) data source
+- Added Climate in a Bottle (cBottle) Infilling diagnostic model
+- Added Climate in a Bottle (cBottle) Super Resolution diagnostic model
+- Added S2S recipe
+
+### Changed
+
+- In recipes, renamed `requirements.txt` -> `recipe-requirements.txt`
+
+### Fixed
+
+- Fixed NCAR data source lat / lon labels and cache reads
+- Fixed FuXi tp06 field input to be mm
+- Fixed fsspec async filesystem initialization in data sources
+- Fixed bug in GFS_FX forecast source which had lead time fixed at 0
+
+### Dependencies
+
+- Moved NGC SDK to optional dependencies due to it causing slow version resolutions
+- Removing upper Python restriction on Rapids install for TC trackers
 
 ## [0.7.0] - 2025-05-21
 

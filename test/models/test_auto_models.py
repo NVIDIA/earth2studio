@@ -22,6 +22,7 @@ import fsspec
 import ngcbase
 import pytest
 
+from earth2studio.data import CBottle3D
 from earth2studio.models.auto import (
     AutoModelMixin,
     Package,
@@ -32,6 +33,8 @@ from earth2studio.models.auto.package import (
     TqdmFormat,
 )
 from earth2studio.models.dx import (
+    CBottleInfill,
+    CBottleSR,
     ClimateNet,
     CorrDiffTaiwan,
     PrecipitationAFNO,
@@ -46,6 +49,7 @@ from earth2studio.models.px import (
     FCN,
     SFNO,
     Aurora,
+    DLESyM,
     FengWu,
     FuXi,
     GraphCastOperational,
@@ -54,6 +58,7 @@ from earth2studio.models.px import (
     Pangu3,
     Pangu6,
     Pangu24,
+    StormCast,
 )
 
 
@@ -62,11 +67,16 @@ from earth2studio.models.px import (
 @pytest.mark.parametrize(
     "model",
     [
+        AIFS,
         Aurora,
+        CBottle3D,
+        DLESyM,
         DLWP,
         FCN,
         FengWu,
         FuXi,
+        GraphCastOperational,
+        GraphCastSmall,
         Pangu24,
         Pangu6,
         Pangu3,
@@ -74,14 +84,14 @@ from earth2studio.models.px import (
         PrecipitationAFNO,
         ClimateNet,
         CorrDiffTaiwan,
+        CBottleInfill,
+        CBottleSR,
         WindgustAFNO,
         InterpModAFNO,
         PrecipitationAFNOv2,
         SolarRadiationAFNO1H,
         SolarRadiationAFNO6H,
-        AIFS,
-        GraphCastOperational,
-        GraphCastSmall,
+        StormCast,
     ],
 )
 def test_auto_model_download(model, model_cache_context):
@@ -165,19 +175,27 @@ def test_ngc_package(url, file, api_key, cache_folder, model_cache_context):
     # https://github.com/fsspec/filesystem_spec/blob/master/fsspec/spec.py#L47
     NGCModelFileSystem.clear_instance_cache()
     # No API key is tested above in test_package
-    current_key = ngcbase.environ.NGC_CLI_API_KEY
+    current_key = os.environ.get("NGC_CLI_API_KEY", None)
     with model_cache_context(
         EARTH2STUDIO_CACHE=str(cache_folder.resolve()),
         EARTH2STUDIO_PACKAGE_TIMEOUT="30",
     ):
-        if api_key:
-            ngcbase.environ.NGC_CLI_API_KEY = os.environ.get("NGC_CLI_API_KEY")
-        else:
-            ngcbase.environ.NGC_CLI_API_KEY = None
+        # Reload ngcbase module to ensure clean environment for each test
+        if api_key and not current_key:
+            pytest.skip("NGC_CLI_API_KEY not set")
+        elif current_key:
+            del os.environ["NGC_CLI_API_KEY"]
+
+        import importlib
+
+        importlib.reload(ngcbase)
+
         package = Package(str(url))
         file_path = package.resolve(file)
         assert Path(file_path).is_file()
-    ngcbase.environ.NGC_CLI_API_KEY = current_key
+
+    if current_key:
+        os.environ["NGC_CLI_API_KEY"] = current_key
 
 
 def test_ngc_filesystem():
@@ -235,6 +253,9 @@ def test_ngc_filesystem():
         url
         == "https://api.ngc.nvidia.com/v2/models/org/org/name/1.0/files?path=file.txt"
     )
+
+    if not os.environ.get("NGC_CLI_API_KEY"):
+        pytest.skip("NGC_CLI_API_KEY not set")
 
     url = fs._get_ngc_model_url("name", "1.0", authenticated_api=True)
     assert url == "https://api.ngc.nvidia.com/v2/models/name/1.0/files"
@@ -343,6 +364,7 @@ def test_whole_file_cache(tmp_path, same_names):
     assert (cache_path / file2).is_file() is same_names
 
 
+@pytest.mark.asyncio
 async def test_ngc_unsupported_operations():
     fs = NGCModelFileSystem()
     with pytest.raises(
@@ -361,17 +383,10 @@ async def test_ngc_unsupported_operations():
         await fs.find("some/path", maxdepth=1)
 
 
+# Test automodel is working correctly for lightweight model
 @pytest.mark.parametrize(
     "model_class",
-    [
-        ClimateNet,
-        CorrDiffTaiwan,
-        PrecipitationAFNO,
-        PrecipitationAFNOv2,
-        SolarRadiationAFNO1H,
-        SolarRadiationAFNO6H,
-        WindgustAFNO,
-    ],
+    [ClimateNet],
 )
 def test_auto_models(model_class):
     """Test auto model loading."""

@@ -87,8 +87,7 @@ class BredVector:
         coords : CoordSystem
             Ordered dict representing coordinate system that describes the tensor
 
-        Returns
-        -------
+
         Returns
         -------
         tuple[torch.Tensor, CoordSystem]:

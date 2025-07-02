@@ -283,7 +283,7 @@ def test_stormcast_exceptions(dc, device):
         next(p_iter)
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="function")
 def model(model_cache_context) -> StormCast:
     # Test only on cuda device
     with model_cache_context():
