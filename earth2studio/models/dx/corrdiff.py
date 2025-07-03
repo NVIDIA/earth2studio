@@ -602,6 +602,7 @@ class CorrDiff(torch.nn.Module, AutoModelMixin):
 
         # Interpolate input to output grid
         x = self._interpolate(x)
+
         # Add batch dimension
         (C, H, W) = x.shape
         x = x.view(1, C, H, W)
