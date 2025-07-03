@@ -10,9 +10,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Unified CorrDiff Wrapper
+
 ### Changed
 
 - Updated default StormCast package version to 1.0.2
+- test/models/dx/test_corrdiff.py is now test/models/dx/test_corrdiff_taiwan.py
 
 ### Deprecated
 

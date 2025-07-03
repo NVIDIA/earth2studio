@@ -109,7 +109,9 @@ def handshake_coords(
             f"Coordinate systems for required dim {required_dim} are not the same"
         )
 
-    if not np.all(input_coords[required_dim] == target_coords[required_dim]):
+    if not np.all(
+        (input_coords[required_dim] == target_coords[required_dim]).flatten()
+    ):
         raise ValueError(
             f"Coordinate systems for required dim {required_dim} are not the same"
         )
