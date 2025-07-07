@@ -16,6 +16,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - NGC filesystem from API change in version >=3.158.1 of ngcsdk
 
+### Dependencies
+
+- Removed ngcsdk dependency requirement for public NGC packages
+
 ## [0.8.0] - 2025-06-13
 
 ### Added

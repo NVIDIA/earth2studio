@@ -143,6 +143,8 @@ class Package:
     fs : AbstractFileSystem | None, optional
         The target filesystem to run underneath. If none is provided a fsspec filesystem
         will get initialized based on the protocal of the root url, by default None
+    fs_options : dict, optional
+        Filesystem object keyword arguments to use, by default {}
     cache : bool, optional
         Toggle local caching, typically you want this to be true unless the package is
         a local file system, by default True
@@ -156,6 +158,7 @@ class Package:
         self,
         root: str,
         fs: AbstractFileSystem | None = None,
+        fs_options: dict = {},
         cache: bool = True,
         cache_options: dict = {},
     ):
@@ -187,24 +190,27 @@ class Package:
                 client_kwargs={
                     "timeout": aiohttp.ClientTimeout(total=Package.default_timeout())
                 },
+                **fs_options,
             )
         elif root.startswith("hf://"):
             # https://github.com/huggingface/huggingface_hub/blob/v0.23.4/src/huggingface_hub/hf_file_system.py#L816
             if "HF_HUB_DOWNLOAD_TIMEOUT" not in os.environ:
                 os.environ["HF_HUB_DOWNLOAD_TIMEOUT"] = str(Package.default_timeout())
             self.fs = HfFileSystem(
-                target_options={"default_block_size": Package.default_blocksize()}
+                target_options={"default_block_size": Package.default_blocksize()},
+                **fs_options,
             )
         elif root.startswith("s3://"):
             self.fs = s3fs.S3FileSystem(
                 anon=True,
                 client_kwargs={},
                 default_block_size=Package.default_blocksize(),
+                **fs_options,
             )
             self.fs.read_timeout = Package.default_timeout()
         else:
             protocol = split_protocol(root)[0]
-            self.fs = fsspec.filesystem(protocol)
+            self.fs = fsspec.filesystem(protocol, **fs_options)
 
         if cache:
             self.fs = CallbackWholeFileCacheFileSystem(fs=self.fs, **self.cache_options)
