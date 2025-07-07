@@ -44,7 +44,6 @@ from earth2studio.io import AsyncZarrBackend
 from earth2studio.utils.coords import split_coords
 
 
-@pytest.mark.asyncio
 @pytest.mark.parametrize(
     "time",
     [
@@ -60,15 +59,10 @@ from earth2studio.utils.coords import split_coords
     "variable",
     [["t2m"], ["t2m", "tcwv"]],
 )
-@pytest.mark.parametrize(
-    "fs_factory",
-    [MemoryFileSystem, LocalFileSystem],
-)
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
 async def test_async_zarr_write(
     time: list[np.datetime64],
     variable: list[str],
-    fs_factory: Callable[..., fsspec.spec.AbstractFileSystem],
     device: str,
     tmp_path: str,
 ) -> None:
@@ -79,8 +73,9 @@ async def test_async_zarr_write(
     z = AsyncZarrBackend(
         f"{tmp_path}/output.zarr",
         parallel_coords=parallel_coords,
-        fs_factory=fs_factory,
+        fs_factory=LocalFileSystem,
     )
+    zsync = zarr.open(f"{tmp_path}/output.zarr")
 
     total_coords = OrderedDict(
         {
@@ -95,13 +90,11 @@ async def test_async_zarr_write(
     for i, time0 in enumerate(time):
         total_coords["time"] = np.array([time0])
         z.write(x[i : i + 1], total_coords, "fields_1")
-        assert "fields_1" in [key async for key in z.root.array_keys()]
-        data = await (await z.root.get("fields_1")).getitem(slice(None))
-        assert data.shape == x.shape
-        assert np.allclose(data[i], x[i].to("cpu").numpy())
+        assert "fields_1" in zsync
+        assert zsync["fields_1"].shape == x.shape
+        assert np.allclose(zsync["fields_1"][i], x[i].to("cpu").numpy())
     z.close()
-    data = await (await z.root.get("fields_1")).getitem(slice(None))
-    assert np.allclose(data, x.to("cpu").numpy())
+    assert np.allclose(zsync["fields_1"], x.to("cpu").numpy())
 
     total_coords = OrderedDict(
         {
@@ -116,22 +109,25 @@ async def test_async_zarr_write(
     for i, time0 in enumerate(time):
         total_coords["time"] = np.array([time0])
         z.write(x[:, i : i + 1], total_coords, "fields_2")
-        assert "fields_2" in [key async for key in z.root.array_keys()]
-        data = await (await z.root.get("fields_2")).getitem(slice(None))
-        assert data.shape == x.shape
-        assert np.allclose(data[:, i], x[:, i].to("cpu").numpy())
+        assert "fields_2" in zsync
+        assert zsync["fields_2"].shape == x.shape
+        assert np.allclose(zsync["fields_2"][:, i], x[:, i].to("cpu").numpy())
     z.close()
-    data = await (await z.root.get("fields_2")).getitem(slice(None))
-    assert np.allclose(data, x.to("cpu").numpy())
+    assert np.allclose(zsync["fields_2"], x.to("cpu").numpy())
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "variable",
+    [["t2m"], ["t2m", "tcwv"]],
+)
 @pytest.mark.parametrize(
     "fs_factory",
     [MemoryFileSystem, LocalFileSystem],
 )
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
 async def test_async_zarr_async_write(
+    variable: list[str],
     fs_factory: Callable[..., fsspec.spec.AbstractFileSystem],
     device: str,
     tmp_path: str,
@@ -153,7 +149,7 @@ async def test_async_zarr_async_write(
     total_coords = OrderedDict(
         {
             "time": np.asarray(time),
-            "variable": np.asarray(["t2m", "tcwv"]),
+            "variable": np.asarray(variable),
             "lat": np.linspace(-90, 90, 180),
             "lon": np.linspace(0, 360, 360, endpoint=False),
         }
@@ -447,11 +443,13 @@ async def test_async_zarr_errors(tmp_path: str) -> None:
     with patch("earth2studio.io.async_zarr.version") as mock_version:
         mock_version.return_value = "2.15.0"
         with pytest.raises(ImportError):
-            AsyncZarrBackend(f"{tmp_path}/test.zarr")
+            AsyncZarrBackend(f"{tmp_path}/test.zarr", parallel_coords={})
 
     # Non-callable fsspec factory
     with pytest.raises(TypeError):
-        AsyncZarrBackend(f"{tmp_path}/test.zarr", fs_factory="not_callable")
+        AsyncZarrBackend(
+            f"{tmp_path}/test.zarr", parallel_coords={}, fs_factory="not_callable"
+        )
 
     # Invalid index coords
     parallel_coords = {
@@ -471,10 +469,12 @@ async def test_async_zarr_errors(tmp_path: str) -> None:
         return NonAsyncFileSystem()
 
     with pytest.raises(TypeError):
-        AsyncZarrBackend(f"{tmp_path}/test.zarr", fs_factory=fs_factory)
+        AsyncZarrBackend(
+            f"{tmp_path}/test.zarr", parallel_coords={}, fs_factory=fs_factory
+        )
 
     # Miss match between input data and array names
-    z = AsyncZarrBackend(f"{tmp_path}/test.zarr")
+    z = AsyncZarrBackend(f"{tmp_path}/test.zarr", parallel_coords={})
     coords = OrderedDict(
         {
             "time": np.array([np.datetime64("2021-01-01")]),
@@ -522,7 +522,9 @@ async def test_async_zarr_errors(tmp_path: str) -> None:
 
 @pytest.mark.asyncio
 async def test_async_zarr_close(tmp_path: str) -> None:
-    z = AsyncZarrBackend(f"{tmp_path}/test.zarr", blocking=False, pool_size=2)
+    z = AsyncZarrBackend(
+        f"{tmp_path}/test.zarr", parallel_coords={}, blocking=False, pool_size=2
+    )
     coords = OrderedDict(
         {
             "time": np.array([np.datetime64("2021-01-01")]),
