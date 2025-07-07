@@ -18,7 +18,6 @@ import asyncio
 import concurrent
 import datetime
 import threading
-from collections import OrderedDict
 from collections.abc import Callable
 
 # import threading
@@ -65,13 +64,14 @@ class AsyncZarrBackend:
     ----------
     file_name : str
         Path location to place zarr store
-    parallel_coords : CoordSystem, optional
-        Coordinates that define chunked dimensions for parallel writes. These
-        coordinates specify which dimensions will be written in parallel chunks during
-        inference,  typically representing dimensions that are iteratively generated
-        (such as time or lead_time). Each element in these coordinates will be written
-        in parallel,  while the remaining coordinates of a given array will be populated
-        upon the first write to the array, by default {}
+    parallel_coords : CoordSystem
+        Coordinates that enable parallel writes during inference. These coordinates
+        specify which dimensions will be written in parallel via async operations,
+        typically representing dimensions that are iteratively generated (such as time
+        or lead_time). The chunk size for each of these dimensions will be set to 1.
+        These coordinates should contain the complete set of values needed for the
+        entire  inference pipeline. The remaining coordinates of a given array will be
+        populated upon the first write to the respective array.
     fs_factory : Callable[..., fsspec.spec.AbstractFileSystem], optional
         FSSpec file system factory method. This is a callable object that should return
         an instance of the desired filesystem to use, by default LocalFileSystem
@@ -103,7 +103,7 @@ class AsyncZarrBackend:
     def __init__(
         self,
         file_name: str,
-        parallel_coords: CoordSystem = OrderedDict({}),
+        parallel_coords: CoordSystem,
         fs_factory: Callable[..., fsspec.spec.AbstractFileSystem] = LocalFileSystem,
         blocking: bool = True,
         pool_size: int = 4,
