@@ -43,15 +43,12 @@ except ImportError:
     Client = None
     ModelAPI = None
 
-from earth2studio.utils.imports import check_extra_imports
-
 
 async def get_client(**kwargs) -> aiohttp.ClientSession:  # type: ignore
     """Default aiohttp client"""
     return aiohttp.ClientSession(**kwargs)
 
 
-@check_extra_imports("dlwp", ["ngcbase", "ngcsdk", "registry"])
 class NGCModelFileSystem(HTTPFileSystem):
     """NGC model registry file system for pulling and opening files that are stored
     on both public and private model registries. Largely a wrapper ontop of fsspec
@@ -77,31 +74,35 @@ class NGCModelFileSystem(HTTPFileSystem):
 
     Parameters
     ----------
-    block_size: int
+    authenticated_api : bool, optional
+        Use NGC SDK package for authentication for access to private packages. Requires
+        an additional install of ngcsdk, by default False
+    block_size : int
         Blocks to read bytes; if 0, will default to raw requests file-like
         objects instead of HTTPFile instances
-    simple_links: bool
+    simple_links : bool
         If True, will consider both HTML <a> tags and anything that looks
         like a URL; if False, will consider only the former.
-    same_scheme: bool
+    same_scheme : bool
         When doing ls/glob, if this is True, only consider paths that have
         http/https matching the input URLs.
-    size_policy: this argument is deprecated
-    client_kwargs: dict
+    size_policy : this argument is deprecated
+    client_kwargs : dict
         Passed to aiohttp.ClientSession, see
         https://docs.aiohttp.org/en/stable/client_reference.html
         For example, ``{'auth': aiohttp.BasicAuth('user', 'pass')}``
-    get_client: Callable[..., aiohttp.ClientSession]
+    get_client : Callable[..., aiohttp.ClientSession]
         A callable which takes keyword arguments and constructs
         an aiohttp.ClientSession. It's state will be managed by
         the HTTPFileSystem class.
-    storage_options: key-value
+    storage_options : key-value
         Any other parameters passed on to requests
     cache_type, cache_options: defaults used in open
     """
 
     def __init__(  # type: ignore
         self,
+        authenticated_api: bool = False,
         block_size=None,
         simple_links=True,
         same_scheme=True,
@@ -115,25 +116,32 @@ class NGCModelFileSystem(HTTPFileSystem):
         encoded=True,
         **storage_options,
     ):
-        self.client = Client()
-        # If no org, then get the first org of this API key and use that
-        if not Configuration(self.client).is_guest_mode:
-            org_name = Configuration(self.client).org_name
-            if org_name is None:
-                org_names = Configuration(self.client).get_org_names()
-                org_default = org_names.get(list(org_names.keys())[-1])
-                org_name = org_default["org_name"]
-                logger.warning(
-                    f"API key found but no org found, using the org {org_name}"
-                )
 
-            self.client.configure(org_name=org_name)
-        else:
-            logger.warning(
-                "Using NGC guest mode, which may fail due to unauthorized access. "
-                + "Consider using a valid NGC API key and org"
-            )
-        self.model_api = ModelAPI(self.client)
+        if authenticated_api:
+            if Configuration is None or Client is None or ModelAPI is None:
+                raise ImportError(
+                    "For private NGC resources, install ngcsdk python package"
+                )
+            self.client = Client()
+            # If no org, then get the first org of this API key and use that
+            if not Configuration(self.client).is_guest_mode:
+                org_name = Configuration(self.client).org_name
+                if org_name is None:
+                    org_names = Configuration(self.client).get_org_names()
+                    org_default = org_names.get(list(org_names.keys())[-1])
+                    org_name = org_default["org_name"]
+                    logger.warning(
+                        f"API key found but no org found, using the org {org_name}"
+                    )
+
+                self.client.configure(org_name=org_name)
+            else:
+                logger.warning(
+                    "Using NGC guest mode, which may fail due to unauthorized access. "
+                    + "Consider using a valid NGC API key and org"
+                )
+            self.model_api = ModelAPI(self.client)
+        self.authenticated_api = authenticated_api
 
         super().__init__(
             simple_links,
@@ -197,7 +205,6 @@ class NGCModelFileSystem(HTTPFileSystem):
         org: str = None,
         team: str = None,
         filepath: str = None,
-        authenticated_api: bool = True,
     ) -> str:
         # Based on .venv/lib/python3.12/site-packages/registry/api/models.py
         # get_direct_download_URL
@@ -222,7 +229,7 @@ class NGCModelFileSystem(HTTPFileSystem):
             "NGC_CLI_SEARCH_SERVICE_URL", "https://api.ngc.nvidia.com/"
         )
         # Dont know why NGC does this, but it does....
-        if authenticated_api:
+        if self.authenticated_api:
             ep = ["v2", format_org_team(org, team), "models", name, version, "files"]
         else:
             ep = ["v2", "models", format_org_team(org, team), name, version, "files"]
@@ -267,18 +274,21 @@ class NGCModelFileSystem(HTTPFileSystem):
             return rpath
         # Parse remote url
         name, version, org, team, filepath = self._parse_ngc_uri(rpath)
-        # Create headers to determine if we have authn headers and point to private vs public APIs
-        # Auth header API from ngcbase/transfer/async_download.py and ngcsdk/ngcsdk/__init__.py
-        auth_header = self.model_api.client.authentication.auth_header(
-            auth_org=self.client.config.org_name,
-            auth_team=self.client.config.team_name,
-        )
-        headers = rest_utils.default_headers(auth_header)
+        if self.authenticated_api:
+            # Create headers to determine if we have authn headers and point to private vs public APIs
+            # Auth header API from ngcbase/transfer/async_download.py and ngcsdk/ngcsdk/__init__.py
+            auth_header = self.model_api.client.authentication.auth_header(
+                auth_org=self.client.config.org_name,
+                auth_team=self.client.config.team_name,
+            )
+            headers = rest_utils.default_headers(auth_header)
+        else:
+            headers = {}
 
         direct_url = None
         if "Authorization" in headers:
             api_type = "private"
-            url = self._get_ngc_model_url(name, version, org, team, filepath, True)
+            url = self._get_ngc_model_url(name, version, org, team, filepath)
             status, response = await self._get_ngc(url, headers)
             # Attempt authn with renew
             if status == http.client.UNAUTHORIZED:
@@ -292,7 +302,7 @@ class NGCModelFileSystem(HTTPFileSystem):
         else:
             api_type = "public"
             # Check to see if asset is there on NGC at all
-            url = self._get_ngc_model_url(name, version, org, team, filepath, False)
+            url = self._get_ngc_model_url(name, version, org, team, filepath)
             status, response = await self._get_ngc(url)
 
         # NGC will sent us a specific download URL for the file, extract this

@@ -1351,7 +1351,7 @@ name = "docker"
 version = "7.1.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "pywin32", marker = "sys_platform == 'win32'" },
+    { name = "pywin32", marker = "sys_platform == 'win32' or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-aurora-fork') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-corrdiff') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-dlwp') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-fcn') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-precip-afno') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-sfno') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-stormcast')" },
     { name = "requests" },
     { name = "urllib3" },
 ]
@@ -1471,14 +1471,9 @@ aurora-fork = [
 ]
 cbottle = [
     { name = "cbottle", marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-aurora-fork') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-corrdiff') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-dlwp') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-fcn') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-precip-afno') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-sfno') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-stormcast')" },
-    { name = "ngcsdk" },
-]
-climatenet = [
-    { name = "ngcsdk" },
 ]
 corrdiff = [
     { name = "einops" },
-    { name = "ngcsdk" },
     { name = "nvidia-physicsnemo" },
     { name = "nvtx" },
     { name = "scipy" },
@@ -1497,17 +1492,14 @@ data = [
 dlesym = [
     { name = "earth2grid" },
     { name = "hydra-core" },
-    { name = "ngcsdk" },
     { name = "nvidia-physicsnemo" },
     { name = "omegaconf" },
 ]
 dlwp = [
     { name = "importlib-metadata" },
-    { name = "ngcsdk" },
     { name = "nvidia-physicsnemo" },
 ]
 fcn = [
-    { name = "ngcsdk" },
     { name = "nvidia-physicsnemo" },
 ]
 fengwu = [
@@ -1524,7 +1516,6 @@ graphcast = [
     { name = "jax", version = "0.6.1", source = { registry = "https://pypi.org/simple" }, extra = ["cuda12"], marker = "sys_platform != 'linux' or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-aurora-fork') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-corrdiff') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-dlwp') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-fcn') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-precip-afno') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-sfno') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-stormcast')" },
 ]
 interp-modafno = [
-    { name = "ngcsdk" },
     { name = "nvidia-physicsnemo" },
 ]
 pangu = [
@@ -1534,17 +1525,14 @@ perturbation = [
     { name = "torch-harmonics" },
 ]
 precip-afno = [
-    { name = "ngcsdk" },
     { name = "nvidia-physicsnemo" },
 ]
 precip-afno-v2 = [
-    { name = "ngcsdk" },
     { name = "nvidia-physicsnemo" },
 ]
 sfno = [
     { name = "jsbeautifier" },
     { name = "makani", extra = ["all"], marker = "(extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-aurora-fork') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-corrdiff') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-dlwp') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-fcn') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-precip-afno') or (extra != 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-sfno') or (extra == 'extra-12-earth2studio-aurora' and extra != 'extra-12-earth2studio-sfno' and extra == 'extra-12-earth2studio-stormcast') or (extra != 'extra-12-earth2studio-aurora-fork' and extra != 'extra-12-earth2studio-corrdiff' and extra != 'extra-12-earth2studio-dlwp' and extra != 'extra-12-earth2studio-fcn' and extra != 'extra-12-earth2studio-precip-afno' and extra == 'extra-12-earth2studio-sfno')" },
-    { name = "ngcsdk" },
     { name = "numba" },
     { name = "pynvml" },
     { name = "ruamel-yaml" },
@@ -1553,7 +1541,6 @@ sfno = [
     { name = "torch-harmonics" },
 ]
 solarradiation-afno = [
-    { name = "ngcsdk" },
     { name = "nvidia-physicsnemo" },
 ]
 statistics = [
@@ -1561,7 +1548,6 @@ statistics = [
 ]
 stormcast = [
     { name = "einops" },
-    { name = "ngcsdk" },
     { name = "nvidia-physicsnemo" },
     { name = "nvtx" },
     { name = "omegaconf" },
@@ -1569,7 +1555,6 @@ stormcast = [
     { name = "scipy" },
 ]
 windgust-afno = [
-    { name = "ngcsdk" },
     { name = "nvidia-physicsnemo" },
 ]
 
@@ -1662,19 +1647,6 @@ requires-dist = [
     { name = "nest-asyncio" },
     { name = "netcdf4", specifier = ">=1.6.4" },
     { name = "ngcsdk", marker = "extra == 'all'", specifier = ">=3.62.0" },
-    { name = "ngcsdk", marker = "extra == 'cbottle'", specifier = ">=3.62.0" },
-    { name = "ngcsdk", marker = "extra == 'climatenet'", specifier = ">=3.62.0" },
-    { name = "ngcsdk", marker = "extra == 'corrdiff'", specifier = ">=3.62.0" },
-    { name = "ngcsdk", marker = "extra == 'dlesym'", specifier = ">=3.62.0" },
-    { name = "ngcsdk", marker = "extra == 'dlwp'", specifier = ">=3.62.0" },
-    { name = "ngcsdk", marker = "extra == 'fcn'", specifier = ">=3.62.0" },
-    { name = "ngcsdk", marker = "extra == 'interp-modafno'", specifier = ">=3.62.0" },
-    { name = "ngcsdk", marker = "extra == 'precip-afno'", specifier = ">=3.62.0" },
-    { name = "ngcsdk", marker = "extra == 'precip-afno-v2'", specifier = ">=3.62.0" },
-    { name = "ngcsdk", marker = "extra == 'sfno'", specifier = ">=3.62.0" },
-    { name = "ngcsdk", marker = "extra == 'solarradiation-afno'", specifier = ">=3.62.0" },
-    { name = "ngcsdk", marker = "extra == 'stormcast'", specifier = ">=3.62.0" },
-    { name = "ngcsdk", marker = "extra == 'windgust-afno'", specifier = ">=3.62.0" },
     { name = "numba", marker = "extra == 'all'", specifier = ">=0.61.0" },
     { name = "numba", marker = "extra == 'sfno'", specifier = ">=0.61.0" },
     { name = "numcodecs", specifier = "<0.15.0" },
@@ -4087,7 +4059,7 @@ wheels = [
 
 [[package]]
 name = "ngcsdk"
-version = "3.152.2"
+version = "3.158.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "aiofiles" },
@@ -4113,7 +4085,7 @@ dependencies = [
     { name = "validators" },
 ]
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/a8/f7/0146faaf630cda56cae3b71af3a87e608c4f04f7f6fd99760c21902671fc/ngcsdk-3.152.2-py3-none-any.whl", hash = "sha256:d2156e28514e53d95c0dbd1383474e6f323938109b0235ab4c986f8209d5d528", size = 2545224, upload-time = "2025-06-09T19:43:25.275Z" },
+    { url = "https://files.pythonhosted.org/packages/8f/d5/7ef1902388a5bb9dc3eba61569577136c3ac7fa6208d743c80184cfbe3c9/ngcsdk-3.158.1-py3-none-any.whl", hash = "sha256:50df19a69b8659f279f49fb2f42c257e5de149cde4c20022d3b44e69f7cacafd", size = 2545001, upload-time = "2025-06-26T18:23:25.43Z" },
 ]
 
 [[package]]
@@ -5929,7 +5901,7 @@ source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "markdown-it-py" },
     { name = "pygments" },
-    { name = "typing-extensions", marker = "python_full_version < '3.11'" },
+    { name = "typing-extensions", marker = "python_full_version < '3.11' or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-aurora-fork') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-corrdiff') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-dlwp') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-fcn') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-precip-afno') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-sfno') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-stormcast')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/a1/53/830aa4c3066a8ab0ae9a9955976fb770fe9c6102117c8ec4ab3ea62d89e8/rich-14.0.0.tar.gz", hash = "sha256:82f1bc23a6a21ebca4ae0c45af9bdbc492ed20231dcb63f297d6d1021a9d5725", size = 224078, upload-time = "2025-03-30T14:15:14.23Z" }
 wheels = [
