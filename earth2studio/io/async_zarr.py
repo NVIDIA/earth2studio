@@ -76,7 +76,7 @@ class AsyncZarrBackend:
         FSSpec file system factory method. This is a callable object that should return
         an instance of the desired filesystem to use, by default LocalFileSystem
     blocking : bool, optional
-        Blocking write calls in the synchronous API. When set to fall, the IO backend
+        Blocking write calls in the synchronous API. When set to false, the IO backend
         will execute write calls in seperate threads. Users should call the `close()`
         API to ensure all threads have finished / cleaned up, by default True
     pool_size : int, optional
