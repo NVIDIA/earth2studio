@@ -85,7 +85,7 @@ class AsyncZarrBackend:
     async_timeout : int, optional
         Async operation timeout for a given write operation, by default 600
     zarr_kwargs : dict[str, Any], optional
-        Additional key work arguments to provide to the ` zarr.api.asynchronous.open`
+        Additional keyword arguments to provide to the ` zarr.api.asynchronous.open`
         function, by default {"mode": "a"}
     zarr_codecs: CompressorsLike, optional
         Compression codec to use when creating any new arrays. Sharding is not supported
@@ -146,9 +146,7 @@ class AsyncZarrBackend:
         self.loop_pool = self._initialize_loop_pool(pool_size)
         self.fs_pool = []
         self.zarr_pool = []
-        logger.warning(
-            f"Setting up Zarr object pool of size {pool_size}, may take a bit"
-        )
+        logger.debug(f"Setting up Zarr object pool of size {pool_size}, may take a bit")
         for loop in self.loop_pool:
             future = asyncio.run_coroutine_threadsafe(
                 self._initialize_zarr_group(file_name, fs_factory, zarr_kwargs), loop
