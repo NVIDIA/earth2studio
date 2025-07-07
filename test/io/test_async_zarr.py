@@ -73,11 +73,13 @@ async def test_async_zarr_write(
     tmp_path: str,
 ) -> None:
 
-    index_coords = {
+    parallel_coords = {
         "time": np.asarray(time),
     }
     z = AsyncZarrBackend(
-        f"{tmp_path}/output.zarr", index_coords=index_coords, fs_factory=fs_factory
+        f"{tmp_path}/output.zarr",
+        parallel_coords=parallel_coords,
+        fs_factory=fs_factory,
     )
 
     total_coords = OrderedDict(
@@ -139,11 +141,13 @@ async def test_async_zarr_async_write(
         np.datetime64("2021-11-23T18:00:00"),
         np.datetime64("2021-11-24T00:00:00"),
     ]
-    index_coords = {
+    parallel_coords = {
         "time": np.asarray(time),
     }
     z = AsyncZarrBackend(
-        f"{tmp_path}/output.zarr", index_coords=index_coords, fs_factory=fs_factory
+        f"{tmp_path}/output.zarr",
+        parallel_coords=parallel_coords,
+        fs_factory=fs_factory,
     )
 
     total_coords = OrderedDict(
@@ -182,7 +186,7 @@ async def test_async_zarr_non_blocking(device: str, tmp_path: str) -> None:
         np.datetime64("2021-11-28T00:00:00"),
         np.datetime64("2021-11-29T00:00:00"),
     ]
-    index_coords = {
+    parallel_coords = {
         "time": np.asarray(times),
     }
 
@@ -199,7 +203,7 @@ async def test_async_zarr_non_blocking(device: str, tmp_path: str) -> None:
 
     z_blocking = AsyncZarrBackend(
         f"{tmp_path}/output_blocking.zarr",
-        index_coords=index_coords,
+        parallel_coords=parallel_coords,
         fs_factory=fs_factory,
         blocking=True,
     )
@@ -211,7 +215,7 @@ async def test_async_zarr_non_blocking(device: str, tmp_path: str) -> None:
 
     z_nonblocking = AsyncZarrBackend(
         f"{tmp_path}/output_nonblocking.zarr",
-        index_coords=index_coords,
+        parallel_coords=parallel_coords,
         fs_factory=fs_factory,
         blocking=False,
     )
@@ -259,16 +263,17 @@ async def test_async_zarr_2d_index(
 
     fs_factory = functools.partial(fsspec.filesystem, "file")
     variable = ["v10m", "tcwv"]
-    index_coords = {
+    parallel_coords = {
         "time": np.asarray(time),
         "lead_time": np.asarray(lead_time),
     }
     z = AsyncZarrBackend(
         f"{tmp_path}/output.zarr",
-        index_coords=index_coords,
+        parallel_coords=parallel_coords,
         fs_factory=fs_factory,
         blocking=True,
     )
+    z.chunked_coords = {"lat": 60}  # Also check custom chunking
 
     total_coords = OrderedDict(
         {
@@ -291,8 +296,12 @@ async def test_async_zarr_2d_index(
             assert data.shape == x.shape
             assert np.allclose(data[i, :, j], x[i, :, j].to("cpu").numpy())
     z.close()
-    data = await (await z.root.get("fields_1")).getitem(slice(None))
+    array = await z.root.get("fields_1")
+    data = await array.getitem(slice(None))
     assert np.allclose(data, x.to("cpu").numpy())
+    # Check chunk size is expected
+    codec = await array.info_complete()
+    assert codec._chunk_shape == (1, 2, 1, 60, 360)
 
 
 @pytest.mark.asyncio
@@ -313,7 +322,7 @@ async def test_async_zarr_split_variables(
         np.datetime64("2021-11-28T00:00:00"),
         np.datetime64("2021-11-29T00:00:00"),
     ]
-    index_coords = {
+    parallel_coords = {
         "time": np.asarray(times),
     }
     variable = np.asarray(["t2m", "tcwv"])
@@ -331,7 +340,7 @@ async def test_async_zarr_split_variables(
 
     z = AsyncZarrBackend(
         f"{tmp_path}/output_nonblocking.zarr",
-        index_coords=index_coords,
+        parallel_coords=parallel_coords,
         fs_factory=fs_factory,
         blocking=False,
     )
@@ -380,7 +389,7 @@ def test_async_zarr_remote(
         np.datetime64("2021-11-25T00:00:00"),
         np.datetime64("2021-11-26T00:00:00"),
     ]
-    index_coords = {
+    parallel_coords = {
         "time": np.asarray(times),
     }
     variable = np.asarray(["t2m", "tcwv"])
@@ -396,7 +405,7 @@ def test_async_zarr_remote(
     shape = [v.shape[0] for v in total_coords.values()]
     x = torch.randn(shape, device=device, dtype=torch.float32)
     z = AsyncZarrBackend(
-        root, index_coords=index_coords, fs_factory=fs_factory, blocking=blocking
+        root, parallel_coords=parallel_coords, fs_factory=fs_factory, blocking=blocking
     )
 
     for i, time0 in enumerate(times):
@@ -445,11 +454,11 @@ async def test_async_zarr_errors(tmp_path: str) -> None:
         AsyncZarrBackend(f"{tmp_path}/test.zarr", fs_factory="not_callable")
 
     # Invalid index coords
-    index_coords = {
+    parallel_coords = {
         "time": np.array([np.datetime64("2021-01-01"), np.datetime64("2021-01-01")])
     }
     with pytest.raises(ValueError):
-        AsyncZarrBackend(f"{tmp_path}/test.zarr", index_coords=index_coords)
+        AsyncZarrBackend(f"{tmp_path}/test.zarr", parallel_coords=parallel_coords)
 
     # Create a mock filesystem that's not asynchronous
     class NonAsyncFileSystem(fsspec.AbstractFileSystem):
@@ -480,13 +489,13 @@ async def test_async_zarr_errors(tmp_path: str) -> None:
         await z.prepare_inputs(x, coords, array_names)
 
     # If input coordinate value belonging to an index coord is not present
-    index_coords = {
+    parallel_coords = {
         "time": np.array([np.datetime64("2021-01-01"), np.datetime64("2021-01-02")])
     }
-    z = AsyncZarrBackend(f"{tmp_path}/test.zarr", index_coords=index_coords)
+    z = AsyncZarrBackend(f"{tmp_path}/test.zarr", parallel_coords=parallel_coords)
     coords = OrderedDict(
         {
-            "time": np.array([np.datetime64("2021-01-03")]),  # Not in index_coords
+            "time": np.array([np.datetime64("2021-01-03")]),  # Not in parallel_coords
             "lat": np.linspace(-90, 90, 10),
             "lon": np.linspace(0, 360, 10, endpoint=False),
         }
@@ -497,10 +506,10 @@ async def test_async_zarr_errors(tmp_path: str) -> None:
         await z.prepare_inputs(x, coords, "test_array")
 
     # Test shapeless coordiante
-    z = AsyncZarrBackend(f"{tmp_path}/test.zarr", index_coords=index_coords)
+    z = AsyncZarrBackend(f"{tmp_path}/test.zarr", parallel_coords=parallel_coords)
     coords = OrderedDict(
         {
-            "time": np.array([np.datetime64("2021-01-01")]),  # Not in index_coords
+            "time": np.array([np.datetime64("2021-01-01")]),  # Not in parallel_coords
             "lat": np.array(0),
             "lon": np.linspace(0, 360, 10, endpoint=False),
         }
@@ -549,7 +558,7 @@ async def test_async_zarr_codecs(
     tmp_path: str,
 ) -> None:
     time = [np.datetime64("2021-11-23T18:00:00")]
-    index_coords = {"time": np.asarray(time)}
+    parallel_coords = {"time": np.asarray(time)}
 
     total_coords = OrderedDict(
         {
@@ -566,7 +575,7 @@ async def test_async_zarr_codecs(
     # Create AsyncZarrBackend with specified codecs
     z = AsyncZarrBackend(
         f"{tmp_path}/output_codecs.zarr",
-        index_coords=index_coords,
+        parallel_coords=parallel_coords,
         zarr_codecs=zarr_codecs,
     )
     for i, time0 in enumerate(time):

@@ -65,12 +65,13 @@ class AsyncZarrBackend:
     ----------
     file_name : str
         Path location to place zarr store
-    index_coords : CoordSystem, optional
-        Index coordinates. These are coordinates that will be used to define chunks in
-        each zarr array. Each element in these coordinates will be written in parallel.
-        Typically index coordinates reflect the dimensions that are being iteratively
-        generated during inference, such as time or lead_time. The remaining coordinates
-        of a given array will be populated upon the first write to the array, by default {}
+    parallel_coords : CoordSystem, optional
+        Coordinates that define chunked dimensions for parallel writes. These
+        coordinates specify which dimensions will be written in parallel chunks during
+        inference,  typically representing dimensions that are iteratively generated
+        (such as time or lead_time). Each element in these coordinates will be written
+        in parallel,  while the remaining coordinates of a given array will be populated
+        upon the first write to the array, by default {}
     fs_factory : Callable[..., fsspec.spec.AbstractFileSystem], optional
         FSSpec file system factory method. This is a callable object that should return
         an instance of the desired filesystem to use, by default LocalFileSystem
@@ -90,12 +91,19 @@ class AsyncZarrBackend:
         Compression codec to use when creating any new arrays. Sharding is not supported
         for thread safety at the moment. If None, will use the default compressor, by
         default None
+
+    Raises
+    ------
+    ImportError
+        If Zarr 2.0 is installed. This io backend only supports Zarr 3.0
+    TypeError
+        If fs_factory is not a callable, this should be a callable method not an object
     """
 
     def __init__(
         self,
         file_name: str,
-        index_coords: CoordSystem = OrderedDict({}),
+        parallel_coords: CoordSystem = OrderedDict({}),
         fs_factory: Callable[..., fsspec.spec.AbstractFileSystem] = LocalFileSystem,
         blocking: bool = True,
         pool_size: int = 4,
@@ -122,9 +130,10 @@ class AsyncZarrBackend:
             )
 
         self.overwrite = False  # Not formally supported
-        self.index_coords = self._scrub_coordinates(
-            index_coords
-        )  # TODO: Need to validate these somewhere, should just make a 1:1 match requirement
+        self.parallel_coords = self._scrub_coordinates(parallel_coords)
+        self.chunked_coords: dict[str, int] = (
+            {}
+        )  # Parameter to also chunk some of the other dims if needed
         self.zarr_codecs = zarr_codecs
 
         # Async / multi-thread items
@@ -163,15 +172,15 @@ class AsyncZarrBackend:
         self.loop = loop
 
         # Verify all index coordinate arrays have unique values
-        for key, value in self.index_coords.items():
+        for key, value in self.parallel_coords.items():
             if len(np.unique(value)) != len(value):
                 raise ValueError(
-                    f"Index coordinate array '{key}' contains duplicate values. "
+                    f"Chunked coordinate array '{key}' contains duplicate values. "
                     + "All index coordinates must have unique values."
                 )
             # Not possible atm becaus async
             # if key in self.root.array_keys():
-            #     # Check that all elements in value are in index_coords array
+            #     # Check that all elements in value are in parallel_coords array
             #     if not np.array_equal(self.root[key], value):
             #         raise ValueError(
             #             f"Index coordinate array '{key}' already present in Zarr store and has different values than provided array"
@@ -260,22 +269,20 @@ class AsyncZarrBackend:
         Raises
         ------
         ValueError
-            If some coords are index coords and container new values no in self.index_coords
+            If some coords are index coords and container new values no in self.parallel_coords
         """
-        # DOESNT WORK????
-        # current_arrays = [key async for key in self.root.array_keys()]
         # ======
         # Coordinate arrays
         # ======
         for key, value in coords.items():
             # Check coordinate in index coords
-            if key in self.index_coords:
-                # Check that all elements in value are in index_coords array
-                if not np.all(np.isin(value, self.index_coords[key])):
+            if key in self.parallel_coords:
+                # Check that all elements in value are in parallel_coords array
+                if not np.all(np.isin(value, self.parallel_coords[key])):
                     raise ValueError(
-                        f"Coordinate array '{key}' contains values not present in index_coords"
+                        f"Coordinate array '{key}' contains values not present in parallel_coords"
                     )
-                value = self.index_coords[key]
+                value = self.parallel_coords[key]
 
             # Skip if coordinate array exists
             if await self.root.contains(key) and not self.overwrite:
@@ -304,10 +311,13 @@ class AsyncZarrBackend:
             chunked: dict[str, int] = {
                 key: value.shape[0] for key, value in array_coords.items()
             }
-            for key, value in self.index_coords.items():
+            for key, value in self.parallel_coords.items():
                 if key in array_coords:
                     array_coords[key] = value
                     chunked[key] = 1
+            for key, value in self.chunked_coords.items():
+                if key in array_coords:
+                    chunked[key] = value
 
             shape: tuple[int] = tuple(value.shape[0] for value in array_coords.values())
             chunks = tuple(value for value in chunked.values())
@@ -427,12 +437,12 @@ class AsyncZarrBackend:
 
         for key, value in coords.items():
             zarray = await self.root.get(key)
-            if key in self.index_coords:
+            if key in self.parallel_coords:
                 z0 = np.where(np.isin(await zarray.getitem(slice(None)), value))[0]
                 if len(z0) != value.shape[0]:
                     raise ValueError(
                         f"Could not find coordinate value {value} in zarr index coordinate array {key}. "
-                        + "All index coordinates must be fully defined on construction of the IO object via `index_coords`."
+                        + "All index coordinates must be fully defined on construction of the IO object via `parallel_coords`."
                     )
             # Otherwise check that the coordinate system is the complete coordinate system
             # We do not support sliced writes of non-index coords... this is done for
@@ -574,9 +584,9 @@ class AsyncZarrBackend:
         for i, key in enumerate(coords.keys()):
             in_slices = []
             out_slices = []
-            if key in self.index_coords:
+            if key in self.parallel_coords:
                 for in_idx, out_idx in enumerate(
-                    np.where(np.isin(self.index_coords[key], coords[key]))[0]
+                    np.where(np.isin(self.parallel_coords[key], coords[key]))[0]
                 ):
                     in_slices.append(slice(in_idx, in_idx + 1))
                     out_slices.append(slice(out_idx, out_idx + 1))
