@@ -162,7 +162,6 @@ windgust-afno = [
 ]
 # All, must not have conflicts
 all = [
-    "ngcsdk>=3.62.0",
     "earth2studio[data,perturbation,statistics]",
     "earth2studio[aurora-fork,dlesym,dlwp,fcn,fengwu,interp-modafno,pangu,sfno,stormcast,graphcast]",
     "earth2studio[cbottle,climatenet,corrdiff,precip-afno,cyclone,precip-afno-v2,solarradiation-afno,windgust-afno]",
