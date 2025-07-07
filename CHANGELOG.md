@@ -6,25 +6,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.9.0a0] - 2025-07-xx
-
-### Added
+## [0.8.1] - 2025-07-07
 
 ### Changed
 
 - Updated default StormCast package version to 1.0.2
 
-### Deprecated
-
-### Removed
-
 ### Fixed
 
 - NGC filesystem from API change in version >=3.158.1 of ngcsdk
-
-### Security
-
-### Dependencies
 
 ## [0.8.0] - 2025-06-13
 
