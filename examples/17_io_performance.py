@@ -355,7 +355,7 @@ ds_sync = xr.open_zarr("outputs/17_io_sync.zarr")
 ds_nc = xr.open_dataset("outputs/17_io_sync.nc")
 
 # Create a 2x2 subplot grid
-fig, axes = plt.subplots(2, 2, figsize=(12, 10))
+fig, axes = plt.subplots(2, 2, figsize=(12, 8))
 fig.suptitle("Comparison of mean t2m across IO Backends")
 
 # Plot t2m from each dataset
