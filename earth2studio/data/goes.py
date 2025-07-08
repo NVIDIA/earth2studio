@@ -59,8 +59,14 @@ class GOES:
     async_timeout : int, optional
         Timeout for async operations in seconds, by default 600
 
-    Notes
-    -----
+    Note
+    ----
+    Beginners Guide to GOES-R Series Data:
+    https://noaa-goes16.s3.amazonaws.com/Beginners_Guide_to_GOES-R_Series_Data.pdf
+
+    AWS S3 Bucket:
+    https://aws.amazon.com/marketplace/pp/prodview-ngejrbcumyjtu#usage
+
     ABI Data:
     - 16 spectral bands (C01-C16):
         - C01, C02 (Visible)
