@@ -135,7 +135,6 @@ class AsyncZarrBackend:
             )
 
         self.overwrite = False  # Not formally supported
-        # TODO: Check if provided paralle coords are
         self.parallel_coords = self._scrub_coordinates(parallel_coords)
         self.chunked_coords: dict[str, int] = (
             {}
@@ -173,23 +172,8 @@ class AsyncZarrBackend:
         self.root, self.fs = loop.run_until_complete(
             self._initialize_zarr_group(file_name, fs_factory, zarr_kwargs)
         )
+        loop.run_until_complete(self._validate_parallel_coords())
         self.loop = loop
-
-        # Verify all index coordinate arrays have unique values
-        for key, value in self.parallel_coords.items():
-            if len(np.unique(value)) != len(value):
-                raise ValueError(
-                    f"Chunked coordinate array '{key}' contains duplicate values. "
-                    + "All index coordinates must have unique values."
-                )
-            # # Not possible atm becaus async
-            # if await self.root.contains(name):
-            #     # Check that all elements in value are in parallel_coords array
-            #     data = await (await self.root.get(key)).getitem(slice(None))
-            #     if not np.array_equal(data, value):
-            #         raise ValueError(
-            #             f"Index coordinate array '{key}' already present in Zarr store and has different values than provided array"
-            #         )
 
     def _initialize_loop_pool(
         self, max_pool_size: int
@@ -211,6 +195,24 @@ class AsyncZarrBackend:
             loops.append(asyncio.new_event_loop())
             threading.Thread(target=loops[-1].run_forever, daemon=True).start()
         return loops
+
+    async def _validate_parallel_coords(self) -> None:
+        """Runs a few checks on the parallel coords to make sure they are valid"""
+        # Verify all index coordinate arrays have unique values
+        for key, value in self.parallel_coords.items():
+            if len(np.unique(value)) != len(value):
+                raise ValueError(
+                    f"Chunked coordinate array '{key}' contains duplicate values. "
+                    + "All index coordinates must have unique values."
+                )
+            if await self.root.contains(key):
+                # Check that all elements in value are in parallel_coords array
+                data = await (await self.root.get(key)).getitem(slice(None))
+                if not np.array_equal(data, value):
+                    raise ValueError(
+                        f"Parallel coordinate array '{key}' already present in Zarr store but has different values than provided array. "
+                        + "This isn't allowed, either make them the same, create a new Zarr store (suggested) or modify the existing arrays manually."
+                    )
 
     async def _initialize_zarr_group(
         self,

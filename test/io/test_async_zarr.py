@@ -358,8 +358,8 @@ async def test_async_zarr_split_variables(
 @pytest.mark.parametrize("blocking", [True, False])
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
 @pytest.mark.skipif(
-    "S3FS_CI_KEY" not in os.environ or "S3FS_CI_SECRET" not in os.environ,
-    reason="S3FS CI credentials not found in environment",
+    "S3FS_KEY" not in os.environ or "S3FS_SECRET" not in os.environ,
+    reason="S3FS credentials not found in environment",
 )
 def test_async_zarr_remote(
     blocking: bool,
@@ -372,9 +372,9 @@ def test_async_zarr_remote(
 
     fs_factory = functools.partial(
         s3fs.S3FileSystem,
-        key=os.environ["S3FS_CI_KEY"],
-        secret=os.environ["S3FS_CI_SECRET"],
-        client_kwargs={"endpoint_url": os.environ.get("S3FS_CI_ENDPOINT", None)},
+        key=os.environ["S3FS_KEY"],
+        secret=os.environ["S3FS_SECRET"],
+        client_kwargs={"endpoint_url": os.environ.get("S3FS_ENDPOINT", None)},
         asynchronous=True,
     )
 
@@ -416,9 +416,9 @@ def test_async_zarr_remote(
     ds = xr.open_zarr(
         f"s3://{root}",
         storage_options={
-            "key": os.environ["S3FS_CI_KEY"],
-            "secret": os.environ["S3FS_CI_SECRET"],
-            "client_kwargs": {"endpoint_url": os.environ.get("S3FS_CI_ENDPOINT", None)},
+            "key": os.environ["S3FS_KEY"],
+            "secret": os.environ["S3FS_SECRET"],
+            "client_kwargs": {"endpoint_url": os.environ.get("S3FS_ENDPOINT", None)},
         },
     )
     for i, v in enumerate(variable):
@@ -427,9 +427,9 @@ def test_async_zarr_remote(
 
     # Delete the zarr store
     fs = s3fs.S3FileSystem(
-        key=os.environ["S3FS_CI_KEY"],
-        secret=os.environ["S3FS_CI_SECRET"],
-        client_kwargs={"endpoint_url": os.environ.get("S3FS_CI_ENDPOINT", None)},
+        key=os.environ["S3FS_KEY"],
+        secret=os.environ["S3FS_SECRET"],
+        client_kwargs={"endpoint_url": os.environ.get("S3FS_ENDPOINT", None)},
     )
     try:
         fs.rm(root, recursive=True)
@@ -599,3 +599,88 @@ async def test_async_zarr_codecs(
         codec = await array.info_complete()
         # Not the cleanest but good enough hopefully
         assert codec._compressors[0].__class__ == zarr_codecs.__class__
+
+
+@pytest.mark.asyncio
+async def test_async_zarr_existing_store(tmp_path: str) -> None:
+    # Create an initial Zarr store with some data
+    initial_time = [np.datetime64("2021-01-01"), np.datetime64("2021-01-02")]
+    initial_parallel_coords = {"time": np.asarray(initial_time)}
+    z_initial = AsyncZarrBackend(
+        f"{tmp_path}/existing_store.zarr",
+        parallel_coords=initial_parallel_coords,
+        fs_factory=LocalFileSystem,
+    )
+
+    # Write some data to create the store
+    coords = OrderedDict(
+        {
+            "time": np.asarray(initial_time),
+            "variable": np.asarray(["t2m"]),
+            "lat": np.linspace(-90, 90, 10),
+            "lon": np.linspace(0, 360, 10, endpoint=False),
+        }
+    )
+    x = torch.randn(2, 1, 10, 10)
+
+    for i, time0 in enumerate(initial_time):
+        coords["time"] = np.array([time0])
+        z_initial.write(x[i : i + 1], coords, "test_array")
+
+    z_initial.close()
+
+    # Try to initialize with invalid parallel_coords that differ from existing store
+    invalid_time = [
+        np.datetime64("2021-01-01"),
+        np.datetime64("2021-01-03"),
+    ]  # Different second time
+    invalid_parallel_coords = {"time": np.asarray(invalid_time)}
+
+    with pytest.raises(ValueError):
+        AsyncZarrBackend(
+            f"{tmp_path}/existing_store.zarr",
+            parallel_coords=invalid_parallel_coords,
+            fs_factory=LocalFileSystem,
+        )
+
+    # Try to initialize with subset of parallel_coords that differ from existing store
+    invalid_time = [initial_time[0]]
+    invalid_parallel_coords = {"time": np.asarray(invalid_time)}
+
+    with pytest.raises(ValueError):
+        AsyncZarrBackend(
+            f"{tmp_path}/existing_store.zarr",
+            parallel_coords=invalid_parallel_coords,
+            fs_factory=LocalFileSystem,
+        )
+
+    # Initialize with valid parallel_coords that match existing store
+    valid_parallel_coords = {"time": np.asarray(initial_time)}
+
+    z_valid = AsyncZarrBackend(
+        f"{tmp_path}/existing_store.zarr",
+        parallel_coords=valid_parallel_coords,
+        fs_factory=LocalFileSystem,
+    )
+    new_coords = OrderedDict(
+        {
+            "time": np.asarray([initial_time[0]]),  # Use first time
+            "variable": np.asarray(["t2m"]),
+            "lat": np.linspace(-90, 90, 10),
+            "lon": np.linspace(0, 360, 10, endpoint=False),
+        }
+    )
+    new_x = torch.randn(1, 1, 10, 10)
+    z_valid.write(new_x, new_coords, "new_array")
+
+    # Verify the new array was created
+    assert "new_array" in [key async for key in z_valid.root.array_keys()]
+
+    # Verify we can read the data back
+    data = await (await z_valid.root.get("new_array")).getitem(slice(None))
+    assert data.shape == (2, 1, 10, 10)  # Should have shape of full array
+    assert np.allclose(
+        data[0], new_x.to("cpu").numpy()
+    )  # First time slice should match
+
+    z_valid.close()
