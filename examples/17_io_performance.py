@@ -247,8 +247,8 @@ print(f"\nIn memory zarr store inference time {zarr_memory_clock}")
 # This data source is ideal when large volumes of data are needed to be written and
 # the users want to mask the IO with the forward execution of the model.
 #
-# Because this IO backend relies on both async and multi-threading, it has somewhat
-# different initialization pattern than others.
+# Because this IO backend relies on both async and multi-threading, it has a different
+# initialization pattern than others.
 # The main difference being that this backend does not use the add_array API, rather
 # users specify `parallel_coords` in the constructor that denote coords that slices will
 # be written to during inference.
