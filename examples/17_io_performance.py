@@ -300,9 +300,9 @@ print(f"\nNon-blocking async zarr store inference time {zarr_nonblocking_async_c
 # instances of the file system.
 # Some examples that may be of interest are:
 #
-# - from fsspec.implementations.local import LocalFileSystem (Default, local store)
-# - from fsspec.implementations.memory import MemoryFileSystem (in-memory store)
-# - from s3fs import S3FileSystem (Remote S3 store)
+# - `from fsspec.implementations.local import LocalFileSystem` (Default, local store)
+# - `from fsspec.implementations.memory import MemoryFileSystem` (in-memory store)
+# - `from s3fs import S3FileSystem` (Remote S3 store)
 #
 # For sake of example, lets have a look at writing to a remote store would require:
 
