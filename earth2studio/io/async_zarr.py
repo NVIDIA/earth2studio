@@ -60,6 +60,11 @@ class AsyncZarrBackend:
     threads. There is an assumption that the data being written will not be re-allocated
     during the writes.
 
+    Warning
+    -------
+    This IO backend presently does not support overwritting existing Zarr stores. Only
+    creation of new arrays or writing to existing.
+
     Parameters
     ----------
     file_name : str
@@ -130,6 +135,7 @@ class AsyncZarrBackend:
             )
 
         self.overwrite = False  # Not formally supported
+        # TODO: Check if provided paralle coords are
         self.parallel_coords = self._scrub_coordinates(parallel_coords)
         self.chunked_coords: dict[str, int] = (
             {}
@@ -176,10 +182,11 @@ class AsyncZarrBackend:
                     f"Chunked coordinate array '{key}' contains duplicate values. "
                     + "All index coordinates must have unique values."
                 )
-            # Not possible atm becaus async
-            # if key in self.root.array_keys():
+            # # Not possible atm becaus async
+            # if await self.root.contains(name):
             #     # Check that all elements in value are in parallel_coords array
-            #     if not np.array_equal(self.root[key], value):
+            #     data = await (await self.root.get(key)).getitem(slice(None))
+            #     if not np.array_equal(data, value):
             #         raise ValueError(
             #             f"Index coordinate array '{key}' already present in Zarr store and has different values than provided array"
             #         )
@@ -293,7 +300,7 @@ class AsyncZarrBackend:
                 chunks=value.shape,
                 dtype=value.dtype,
                 dimension_names=[key],
-                overwrite=False,
+                overwrite=self.overwrite,
                 compressors=self.zarr_codecs,
             )
             await array.setitem(Ellipsis, value)
@@ -329,9 +336,11 @@ class AsyncZarrBackend:
                 chunks=chunks,
                 dtype=dtype,
                 dimension_names=list(coords.keys()),
-                overwrite=False,
+                overwrite=self.overwrite,
                 compressors=self.zarr_codecs,
             )
+
+        self.overwrite = False
 
     def _scrub_coordinates(self, coords: CoordSystem) -> CoordSystem:
         """And cleaning / adjustment operations on coordinates, modifies in place
@@ -439,7 +448,7 @@ class AsyncZarrBackend:
                 z0 = np.where(np.isin(await zarray.getitem(slice(None)), value))[0]
                 if len(z0) != value.shape[0]:
                     raise ValueError(
-                        f"Could not find coordinate value {value} in zarr index coordinate array {key}. "
+                        f"Could not find coordinate value {value} in zarr parallel coordinate array {key}. "
                         + "All index coordinates must be fully defined on construction of the IO object via `parallel_coords`."
                     )
             # Otherwise check that the coordinate system is the complete coordinate system
