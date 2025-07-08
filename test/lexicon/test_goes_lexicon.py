@@ -14,20 +14,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from .arco import ARCO
-from .base import DataSource, ForecastSource
-from .cbottle import CBottle3D
-from .cds import CDS
-from .const import Constant, Constant_FX
-from .gefs import GEFS_FX, GEFS_FX_721x1440
-from .gfs import GFS, GFS_FX
-from .goes import GOES
-from .hrrr import HRRR, HRRR_FX
-from .ifs import IFS
-from .imerg import IMERG
-from .ncar import NCAR_ERA5
-from .rand import Random, Random_FX
-from .rx import CosineSolarZenith, LandSeaMask, SurfaceGeoPotential
-from .utils import datasource_to_file, fetch_data, prep_data_array
-from .wb2 import WB2ERA5, WB2Climatology, WB2ERA5_32x64, WB2ERA5_121x240
-from .xr import DataArrayDirectory, DataArrayFile, DataArrayPathList, DataSetFile
+import pytest
+import torch
+
+from earth2studio.lexicon import GOESLexicon
+
+
+@pytest.mark.parametrize(
+    "variable", [["vis047"], ["vis064", "nir086"], ["ir1035", "ir1120", "ir1230"]]
+)
+@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+def test_goes_lexicon(variable, device):
+    input = torch.randn(len(variable), 100, 100).to(device)
+    for v in variable:
+        label, modifier = GOESLexicon[v]
+        output = modifier(input)
+        assert isinstance(label, str)
+        assert input.shape == output.shape
+        assert input.device == output.device
