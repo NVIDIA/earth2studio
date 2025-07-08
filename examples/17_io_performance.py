@@ -312,13 +312,13 @@ import functools
 
 import s3fs
 
-if "S3FS_CI_KEY" in os.environ and "S3FS_CI_SECRET" in os.environ:
+if "S3FS_KEY" in os.environ and "S3FS_SECRET" in os.environ:
     # Remember, needs to be a callable
     fs_factory = functools.partial(
         s3fs.S3FileSystem,
-        key=os.environ["S3FS_CI_KEY"],
-        secret=os.environ["S3FS_CI_SECRET"],
-        client_kwargs={"endpoint_url": os.environ.get("S3FS_CI_ENDPOINT", None)},
+        key=os.environ["S3FS_KEY"],
+        secret=os.environ["S3FS_SECRET"],
+        client_kwargs={"endpoint_url": os.environ.get("S3FS_ENDPOINT", None)},
         asynchronous=True,
     )
     io = AsyncZarrBackend(
