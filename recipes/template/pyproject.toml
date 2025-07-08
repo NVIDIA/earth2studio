@@ -19,7 +19,7 @@ Issues = "https://github.com/NVIDIA/earth2studio/issues"
 Changelog = "https://github.com/NVIDIA/earth2studio/blob/main/CHANGELOG.md"
 
 [tool.uv.sources]
-earth2studio = { git = "https://github.com/NVIDIA/earth2studio", rev = "0.8.0" }
+earth2studio = { git = "https://github.com/NVIDIA/earth2studio", rev = "0.8.1" }
 omegaconf = { git = "https://github.com/omry/omegaconf.git" }
 
 [tool.hatch.build.targets.sdist]

@@ -14,20 +14,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Updated default StormCast package version to 1.0.2
-
 ### Deprecated
 
 ### Removed
 
 ### Fixed
 
-- NGC filesystem from API change in version >=3.158.1 of ngcsdk
 - DLWP output coords lead_time array to have proper shape
 
 ### Security
 
 ### Dependencies
+
+## [0.8.1] - 2025-07-07
+
+### Changed
+
+- Updated default StormCast package version to 1.0.2
+
+### Fixed
+
+- NGC filesystem from API change in version >=3.158.1 of ngcsdk
+
+### Dependencies
+
+- Removed ngcsdk dependency requirement for public NGC packages
 
 ## [0.8.0] - 2025-06-13
 
