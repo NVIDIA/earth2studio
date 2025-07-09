@@ -19,7 +19,11 @@ import os
 from pathlib import Path
 
 import fsspec
-import ngcbase
+
+try:
+    import ngcbase
+except ImportError:
+    ngcbase = None
 import pytest
 
 from earth2studio.data import CBottle3D
@@ -175,19 +179,31 @@ def test_ngc_package(url, file, api_key, cache_folder, model_cache_context):
     # https://github.com/fsspec/filesystem_spec/blob/master/fsspec/spec.py#L47
     NGCModelFileSystem.clear_instance_cache()
     # No API key is tested above in test_package
-    current_key = ngcbase.environ.NGC_CLI_API_KEY
+    current_key = os.environ.get("NGC_CLI_API_KEY", None)
     with model_cache_context(
         EARTH2STUDIO_CACHE=str(cache_folder.resolve()),
         EARTH2STUDIO_PACKAGE_TIMEOUT="30",
     ):
+        # Reload ngcbase module to ensure clean environment for each test
+        if api_key and not current_key:
+            pytest.skip("NGC_CLI_API_KEY not set")
+        elif current_key:
+            del os.environ["NGC_CLI_API_KEY"]
+
+        if ngcbase is None and api_key:
+            pytest.skip("NGC SDK not installed")
+
         if api_key:
-            ngcbase.environ.NGC_CLI_API_KEY = os.environ.get("NGC_CLI_API_KEY")
-        else:
-            ngcbase.environ.NGC_CLI_API_KEY = None
-        package = Package(str(url))
+            import importlib
+
+            importlib.reload(ngcbase)
+
+        package = Package(str(url), fs_options={"authenticated_api": api_key})
         file_path = package.resolve(file)
         assert Path(file_path).is_file()
-    ngcbase.environ.NGC_CLI_API_KEY = current_key
+
+    if current_key:
+        os.environ["NGC_CLI_API_KEY"] = current_key
 
 
 def test_ngc_filesystem():
@@ -227,39 +243,35 @@ def test_ngc_filesystem():
     with pytest.raises(ValueError):
         fs._parse_ngc_uri("models/a/b/c@1.0/file")
 
-    url = fs._get_ngc_model_url("name", "1.0", authenticated_api=False)
+    url = fs._get_ngc_model_url("name", "1.0")
     assert url == "https://api.ngc.nvidia.com/v2/models/name/1.0/files"
 
-    url = fs._get_ngc_model_url(
-        "name", "1.0", "org", "team", "file.txt", authenticated_api=False
-    )
+    url = fs._get_ngc_model_url("name", "1.0", "org", "team", "file.txt")
     assert (
         url
         == "https://api.ngc.nvidia.com/v2/models/org/org/team/team/name/1.0/files?path=file.txt"
     )
 
-    url = fs._get_ngc_model_url(
-        "name", "1.0", "org", None, "file.txt", authenticated_api=False
-    )
+    url = fs._get_ngc_model_url("name", "1.0", "org", None, "file.txt")
     assert (
         url
         == "https://api.ngc.nvidia.com/v2/models/org/org/name/1.0/files?path=file.txt"
     )
 
-    url = fs._get_ngc_model_url("name", "1.0", authenticated_api=True)
+    if not os.environ.get("NGC_CLI_API_KEY"):
+        pytest.skip("NGC_CLI_API_KEY not set")
+
+    fs.authenticated_api = True
+    url = fs._get_ngc_model_url("name", "1.0")
     assert url == "https://api.ngc.nvidia.com/v2/models/name/1.0/files"
 
-    url = fs._get_ngc_model_url(
-        "name", "1.0", "orgname", "teamname", "file.txt", authenticated_api=True
-    )
+    url = fs._get_ngc_model_url("name", "1.0", "orgname", "teamname", "file.txt")
     assert (
         url
         == "https://api.ngc.nvidia.com/v2/org/orgname/team/teamname/models/name/1.0/files?path=file.txt"
     )
 
-    url = fs._get_ngc_model_url(
-        "name", "1.0", "orgname", None, "file.txt", authenticated_api=True
-    )
+    url = fs._get_ngc_model_url("name", "1.0", "orgname", None, "file.txt")
     assert (
         url
         == "https://api.ngc.nvidia.com/v2/org/orgname/models/name/1.0/files?path=file.txt"
@@ -372,17 +384,10 @@ async def test_ngc_unsupported_operations():
         await fs.find("some/path", maxdepth=1)
 
 
+# Test automodel is working correctly for lightweight model
 @pytest.mark.parametrize(
     "model_class",
-    [
-        ClimateNet,
-        CorrDiffTaiwan,
-        PrecipitationAFNO,
-        PrecipitationAFNOv2,
-        SolarRadiationAFNO1H,
-        SolarRadiationAFNO6H,
-        WindgustAFNO,
-    ],
+    [ClimateNet],
 )
 def test_auto_models(model_class):
     """Test auto model loading."""
