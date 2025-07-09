@@ -348,8 +348,8 @@ print(
 # backend is working to move the data off the GPU, but also to make sure to wait for
 # write threads to finish before the object is deleted.
 #
-# Note that this backend allows use to be comparable to uncompressed NetCDF even with
-# compression.
+# Note that this backend allows Zarr to be comparable to uncompressed NetCDF even with
+# compression!
 
 # %%
 
