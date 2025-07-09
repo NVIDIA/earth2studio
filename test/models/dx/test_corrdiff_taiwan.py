@@ -30,9 +30,7 @@ class PhooCorrDiff(torch.nn.Module):
     sigma_min = 0
     sigma_max = float("inf")
 
-    def forward(
-        self, x, img_lr, sigma=None, class_labels=None, force_fp32=False, **model_kwargs
-    ):
+    def forward(self, x, img_lr, class_labels=None, force_fp32=False, **model_kwargs):
         return x[:, :4]
 
     def round_sigma(self, sigma):
