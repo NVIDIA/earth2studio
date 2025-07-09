@@ -226,7 +226,7 @@ print(
 # In many instances this is fine, when data volumes are low.
 # However, in instances that we are writing a very large amount of data or the data
 # needs to get sent over the network to a remote store, compression is essential.
-# With the standard Zarr backend, this will cause a very noticable slow down, but note
+# With the standard Zarr backend, this will cause a very noticeable slow down, but note
 # that the output store will be 3x smaller!
 
 # %%
@@ -279,12 +279,7 @@ print(
 # %%
 # In Memory Zarr IO
 # -----------------
-# Zarr IO to disk was noticeably slower than the NetCDF when writing to local disk,
-# in part due to the compression pipeline in Zarr.
-# Take a look at the size of the netCDF file vs the Zarr store to prove this.
-# Bear in mind that this does not imply NetCDF4 will always be faster than Zarr.
 # One way we can speed up IO is to save outputs to in-memory stores.
-#
 # In-memory stores more limited in size depending on the hardware being used.
 # Also one needs to be careful with in memory stores, once the Python object is deleted
 # the data is gone.
@@ -345,7 +340,7 @@ print(
 # Compressed Local Non-Blocking Async Zarr IO
 # -------------------------------------------
 # That was faster than the normal Zarr method, even the uncompressed version making it
-# compariable to NetCDF, but we can still improve with this IO backend.
+# comparable to NetCDF, but we can still improve with this IO backend.
 # A unique feature of this particular backend is running in non-blocking mode, namely
 # IO writes will be placed onto other threads.
 # Users do need to be careful with this to both ensure data is not mutated while the IO
