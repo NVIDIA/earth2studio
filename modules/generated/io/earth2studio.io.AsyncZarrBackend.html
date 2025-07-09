@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
     <link href="../../../_static/favicon.ico" rel="icon" type="image/x-icon">
-    <title>earth2studio.statistics.spread_skill_ratio &#8212; Earth2Studio 0.9.0a0 documentation</title>
+    <title>earth2studio.io.AsyncZarrBackend &#8212; Earth2Studio 0.9.0a0 documentation</title>
   
   
   
@@ -54,7 +54,7 @@
     <script src="../../../_static/togglebutton.js?v=4a39c7ea"></script>
     <script src="../../../_static/design-tabs.js?v=f930bc37"></script>
     <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
-    <script>DOCUMENTATION_OPTIONS.pagename = 'modules/generated/statistics/earth2studio.statistics.spread_skill_ratio';</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'modules/generated/io/earth2studio.io.AsyncZarrBackend';</script>
     <script>
         DOCUMENTATION_OPTIONS.theme_version = '0.16.1';
         DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'https://raw.githubusercontent.com/NVIDIA/earth2studio/gh-pages/_static/switcher.json';
@@ -64,8 +64,8 @@
         </script>
     <link rel="index" title="Index" href="../../../genindex.html" />
     <link rel="search" title="Search" href="../../../search.html" />
-    <link rel="next" title="earth2studio.statistics.std" href="earth2studio.statistics.std.html" />
-    <link rel="prev" title="earth2studio.statistics.rmse" href="earth2studio.statistics.rmse.html" />
+    <link rel="next" title="earth2studio.io.KVBackend" href="earth2studio.io.KVBackend.html" />
+    <link rel="prev" title="earth2studio.io: IO Backends" href="../../io.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   <meta name="docsearch:version" content="0.9" />
@@ -437,12 +437,12 @@
 <li class="toctree-l2"><a class="reference internal" href="../data/earth2studio.data.prep_data_array.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.prep_data_array</a></li>
 </ul>
 </details></li>
-<li class="toctree-l1 has-children"><a class="reference internal" href="../../io.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.io</span></code>: IO Backends</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l2"><a class="reference internal" href="../io/earth2studio.io.AsyncZarrBackend.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.io</span></code>.AsyncZarrBackend</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../io/earth2studio.io.KVBackend.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.io</span></code>.KVBackend</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../io/earth2studio.io.NetCDF4Backend.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.io</span></code>.NetCDF4Backend</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../io/earth2studio.io.XarrayBackend.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.io</span></code>.XarrayBackend</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../io/earth2studio.io.ZarrBackend.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.io</span></code>.ZarrBackend</a></li>
+<li class="toctree-l1 current active has-children"><a class="reference internal" href="../../io.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.io</span></code>: IO Backends</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
+<li class="toctree-l2 current active"><a class="current reference internal" href="#"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.io</span></code>.AsyncZarrBackend</a></li>
+<li class="toctree-l2"><a class="reference internal" href="earth2studio.io.KVBackend.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.io</span></code>.KVBackend</a></li>
+<li class="toctree-l2"><a class="reference internal" href="earth2studio.io.NetCDF4Backend.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.io</span></code>.NetCDF4Backend</a></li>
+<li class="toctree-l2"><a class="reference internal" href="earth2studio.io.XarrayBackend.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.io</span></code>.XarrayBackend</a></li>
+<li class="toctree-l2"><a class="reference internal" href="earth2studio.io.ZarrBackend.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.io</span></code>.ZarrBackend</a></li>
 </ul>
 </details></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../../perturbation.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.perturbation</span></code>: Perturbations</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
@@ -456,16 +456,16 @@
 <li class="toctree-l2"><a class="reference internal" href="../perturbation/earth2studio.perturbation.Zero.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.perturbation</span></code>.Zero</a></li>
 </ul>
 </details></li>
-<li class="toctree-l1 current active has-children"><a class="reference internal" href="../../statistics.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>: Statistics</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
-<li class="toctree-l2"><a class="reference internal" href="earth2studio.statistics.acc.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>.acc</a></li>
-<li class="toctree-l2"><a class="reference internal" href="earth2studio.statistics.crps.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>.crps</a></li>
-<li class="toctree-l2"><a class="reference internal" href="earth2studio.statistics.mean.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>.mean</a></li>
-<li class="toctree-l2"><a class="reference internal" href="earth2studio.statistics.rank_histogram.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>.rank_histogram</a></li>
-<li class="toctree-l2"><a class="reference internal" href="earth2studio.statistics.rmse.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>.rmse</a></li>
-<li class="toctree-l2 current active"><a class="current reference internal" href="#"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>.spread_skill_ratio</a></li>
-<li class="toctree-l2"><a class="reference internal" href="earth2studio.statistics.std.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>.std</a></li>
-<li class="toctree-l2"><a class="reference internal" href="earth2studio.statistics.variance.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>.variance</a></li>
-<li class="toctree-l2"><a class="reference internal" href="earth2studio.statistics.weights.lat_weight.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics.weights</span></code>.lat_weight</a></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../statistics.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>: Statistics</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../statistics/earth2studio.statistics.acc.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>.acc</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../statistics/earth2studio.statistics.crps.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>.crps</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../statistics/earth2studio.statistics.mean.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>.mean</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../statistics/earth2studio.statistics.rank_histogram.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>.rank_histogram</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../statistics/earth2studio.statistics.rmse.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>.rmse</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../statistics/earth2studio.statistics.spread_skill_ratio.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>.spread_skill_ratio</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../statistics/earth2studio.statistics.std.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>.std</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../statistics/earth2studio.statistics.variance.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>.variance</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../statistics/earth2studio.statistics.weights.lat_weight.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics.weights</span></code>.lat_weight</a></li>
 </ul>
 </details></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../../utils.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.utils</span></code>: Utils</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
@@ -529,9 +529,9 @@
     <li class="breadcrumb-item"><a href="../../index.html" class="nav-link">API Reference</a></li>
     
     
-    <li class="breadcrumb-item"><a href="../../statistics.html" class="nav-link"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>: Statistics</a></li>
+    <li class="breadcrumb-item"><a href="../../io.html" class="nav-link"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.io</span></code>: IO Backends</a></li>
     
-    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>.spread_skill_ratio</span></li>
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.io</span></code>.AsyncZarrBackend</span></li>
   </ul>
 </nav>
 </div>
@@ -548,73 +548,101 @@
 <div id="searchbox"></div>
                 <article class="bd-article">
                   
-  <section id="earth2studio-statistics-spread-skill-ratio">
-<h1><a class="reference internal" href="../../statistics.html#module-earth2studio.statistics" title="earth2studio.statistics"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code></a>.spread_skill_ratio<a class="headerlink" href="#earth2studio-statistics-spread-skill-ratio" title="Link to this heading">#</a></h1>
+  <section id="earth2studio-io-asynczarrbackend">
+<h1><a class="reference internal" href="../../io.html#module-earth2studio.io" title="earth2studio.io"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.io</span></code></a>.AsyncZarrBackend<a class="headerlink" href="#earth2studio-io-asynczarrbackend" title="Link to this heading">#</a></h1>
 <dl class="py class">
-<dt class="sig sig-object py" id="earth2studio.statistics.spread_skill_ratio">
-<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">earth2studio.statistics.</span></span><span class="sig-name descname"><span class="pre">spread_skill_ratio</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ensemble_dimension</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reduction_dimensions</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ensemble_weights</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reduction_weights</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ensemble_batch_update</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reduction_batch_update</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/earth2studio/statistics/rmse.html#spread_skill_ratio"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.statistics.spread_skill_ratio" title="Link to this definition">#</a></dt>
-<dd><p>Metric for calculating the spread/skill ratio of an ensemble forecast.</p>
-<blockquote>
-<div><p>Specifically, the spread is defined as the standard deviation of the ensemble
-forecast. The skill is defined as the rmse of the ensemble mean prediction. The
-ratio of these two quantities is defined as the spread/skill ratio.</p>
-</div></blockquote>
+<dt class="sig sig-object py" id="earth2studio.io.AsyncZarrBackend">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">earth2studio.io.</span></span><span class="sig-name descname"><span class="pre">AsyncZarrBackend</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">file_name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">parallel_coords</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fs_factory=&lt;class</span> <span class="pre">'fsspec.implementations.local.LocalFileSystem'&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">blocking=True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pool_size=8</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">async_timeout=600</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">zarr_kwargs={'mode':</span> <span class="pre">'a'}</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">zarr_codecs=None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/earth2studio/io/async_zarr.html#AsyncZarrBackend"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.io.AsyncZarrBackend" title="Link to this definition">#</a></dt>
+<dd><p>Async Zarr v3 IO Backend</p>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>This IO backend has a non-blocking mode which will execute IO writes in seperate
+threads. There is an assumption that the data being written will not be re-allocated
+during the writes.</p>
+</div>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>This IO backend presently does not support overwritting existing Zarr stores. Only
+creation of new arrays or writing to existing.</p>
+</div>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>ensemble_dimension</strong> (<em>str</em>) – The dimension over which the spread and skill are calculated over.
-This should usually be “ensemble”.</p></li>
-<li><p><strong>reduction_dimensions</strong> (<em>list</em><em>[</em><em>str</em><em>]</em>) – Dimensions to reduce (mean) the spread/skill ratio over. This is commonly done
-over time but can also be the globe or some region.
-Example: [‘time’, ‘lat’, ‘lon’]</p></li>
-<li><p><strong>ensemble_weights</strong> (<em>torch.Tensor</em><em> | </em><em>None</em><em>, </em><em>optional</em>) – A one-dimensional tensor containing weights to assign to the ensemble_dimension,
-by default None.</p></li>
-<li><p><strong>reduction_weights</strong> (<em>torch.Tensor</em><em>, </em><em>optional</em>) – A tensor containing weights to assign to the reduction dimensions.
-Note that these weights must have the same number of dimensions
-as passed in reduction_dimensions.
-Example: if reduction_dimensions = [‘lat’, ‘lon’] then
-assert weights.ndim == 2. Ignored if None, by default None.</p></li>
-<li><p><strong>ensemble_batch_update</strong> (<em>bool</em><em>, </em><em>optional</em>) – Whether to applying batch updates to the ensemble mean and variance components
-of the spread and skill with each invocation of __call__. This is particularly
-useful when ensemble data is recieved in a stream of batches. Each invocation of
-__call__ will return the running spread/skill ratio., by default False.</p></li>
-<li><p><strong>reduction_batch_update</strong> (<em>bool</em><em>, </em><em>optional</em>) – Whether to applying batch updates to the reduction rmse and averaging components
-of the spread/skill with each invocation of __call__. This is particularly
-useful when time data is recieved in a stream of batches., by default False.</p></li>
+<li><p><strong>file_name</strong> (<em>str</em>) – Path location to place zarr store</p></li>
+<li><p><strong>parallel_coords</strong> (<em>CoordSystem</em>) – Coordinates that enable parallel writes during inference. These coordinates
+specify which dimensions will be written in parallel via async operations,
+typically representing dimensions that are iteratively generated (such as time
+or lead_time). The chunk size for each of these dimensions will be set to 1.
+These coordinates should contain the complete set of values needed for the
+entire  inference pipeline. The remaining coordinates of a given array will be
+populated upon the first write to the respective array.</p></li>
+<li><p><strong>fs_factory</strong> (<em>Callable</em><em>[</em><em>...</em><em>, </em><em>fsspec.spec.AbstractFileSystem</em><em>]</em><em>, </em><em>optional</em>) – FSSpec file system factory method. This is a callable object that should return
+an instance of the desired filesystem to use, by default LocalFileSystem</p></li>
+<li><p><strong>blocking</strong> (<em>bool</em><em>, </em><em>optional</em>) – Blocking write calls in the synchronous API. When set to false, the IO backend
+will execute write calls in seperate threads. Users should call the <cite>close()</cite>
+API to ensure all threads have finished / cleaned up, by default True</p></li>
+<li><p><strong>pool_size</strong> (<em>int</em><em>, </em><em>optional</em>) – The thread / async loop pool used with the synchronous write API in non-blocking
+mode, by default 8</p></li>
+<li><p><strong>async_timeout</strong> (<em>int</em><em>, </em><em>optional</em>) – Async operation timeout for a given write operation, by default 600</p></li>
+<li><p><strong>zarr_kwargs</strong> (<em>dict</em><em>[</em><em>str</em><em>, </em><em>Any</em><em>]</em><em>, </em><em>optional</em>) – Additional keyword arguments to provide to the ` zarr.api.asynchronous.open`
+function, by default {“mode”: “a”}</p></li>
+<li><p><strong>zarr_codecs</strong> (<em>CompressorsLike</em><em>, </em><em>optional</em>) – Compression codec to use when creating any new arrays. Sharding is not supported
+for thread safety at the moment. If None, will use no compressor, by default
+None</p></li>
+</ul>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><ul class="simple">
+<li><p><strong>ImportError</strong> – If Zarr 2.0 is installed. This io backend only supports Zarr 3.0</p></li>
+<li><p><strong>TypeError</strong> – If fs_factory is not a callable, this should be a callable method not an object</p></li>
 </ul>
 </dd>
 </dl>
 <dl class="py method">
-<dt class="sig sig-object py" id="earth2studio.statistics.spread_skill_ratio.__call__">
-<span class="sig-name descname"><span class="pre">__call__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x_coords</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y_coords</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/earth2studio/statistics/rmse.html#spread_skill_ratio.__call__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.statistics.spread_skill_ratio.__call__" title="Link to this definition">#</a></dt>
-<dd><p>Apply metric to data <cite>x</cite> and <cite>y</cite>, checking that their coordinates
-are broadcastable. While reducing over <cite>reduction_dims</cite>.</p>
-<p>If batch_update was passed True upon metric initialization then this method
-returns the running sample RMSE over all seen batches.</p>
+<dt class="sig sig-object py" id="earth2studio.io.AsyncZarrBackend.add_array">
+<span class="sig-name descname"><span class="pre">add_array</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">coords</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">array_name</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/earth2studio/io/async_zarr.html#AsyncZarrBackend.add_array"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.io.AsyncZarrBackend.add_array" title="Link to this definition">#</a></dt>
+<dd><p>Pass through, arrays are initialized lazily in this io object</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>x</strong> (<em>torch.Tensor</em>) – The ensemble forecast input tensor. This is the tensor over which the
-ensemble mean and spread are calculated with respect to.</p></li>
-<li><p><strong>x_coords</strong> (<em>CoordSystem</em>) – Ordered dict representing coordinate system that describes the <cite>x</cite> tensor.
-<cite>reduction_dimensions</cite> must be in coords.</p></li>
-<li><p><strong>y</strong> (<em>torch.Tensor</em>) – The observation input tensor.</p></li>
-<li><p><strong>y_coords</strong> (<em>CoordSystem</em>) – Ordered dict representing coordinate system that describes the <cite>y</cite> tensor.
-<cite>reduction_dimensions</cite> must be in coords.</p></li>
+<li><p><strong>coords</strong> (<em>OrderedDict</em><em>[</em><em>str</em><em>, </em><em>ndarray</em><em>]</em>)</p></li>
+<li><p><strong>array_name</strong> (<em>str</em><em> | </em><em>list</em><em>[</em><em>str</em><em>]</em>)</p></li>
+<li><p><strong>kwargs</strong> (<em>dict</em><em>[</em><em>str</em><em>, </em><em>Any</em><em>]</em>)</p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p>Returns root mean squared error tensor with appropriate reduced coordinates.</p>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>None</p>
 </dd>
-<dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>tuple[torch.Tensor, CoordSystem]</p>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="earth2studio.io.AsyncZarrBackend.write">
+<span class="sig-name descname"><span class="pre">write</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">coords</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">array_name</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/earth2studio/io/async_zarr.html#AsyncZarrBackend.write"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.io.AsyncZarrBackend.write" title="Link to this definition">#</a></dt>
+<dd><p>Write data</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>x</strong> (<em>torch.Tensor</em><em> | </em><em>list</em><em>[</em><em>torch.Tensor</em><em>]</em>) – Tensor(s) to be written to zarr store.</p></li>
+<li><p><strong>coords</strong> (<em>OrderedDict</em>) – Coordinates of the passed data.</p></li>
+<li><p><strong>array_name</strong> (<em>str</em><em> | </em><em>list</em><em>[</em><em>str</em><em>]</em>) – Name(s) of the array(s) that will be written to.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>None</p>
 </dd>
 </dl>
 </dd></dl>
 
 </dd></dl>
 
-<div class="clearer"></div></section>
+<section id="examples-using-earth2studio-io-asynczarrbackend">
+<span id="sphx-glr-backref-earth2studio-io-asynczarrbackend"></span><h2>Examples using <code class="docutils literal notranslate"><span class="pre">earth2studio.io.AsyncZarrBackend</span></code><a class="headerlink" href="#examples-using-earth2studio-io-asynczarrbackend" title="Link to this heading">#</a></h2>
+<div class="sphx-glr-thumbnails"><div class="sphx-glr-thumbcontainer" tooltip="Leverage different IO backends for storing inference results."><img alt="" src="../../../_images/sphx_glr_17_io_performance_thumb.png" />
+<p><a class="reference internal" href="../../../examples/17_io_performance.html#sphx-glr-examples-17-io-performance-py"><span class="std std-ref">IO Backend Performance</span></a></p>
+  <div class="sphx-glr-thumbnail-title">IO Backend Performance</div>
+</div></div><div class="clearer"></div></section>
+</section>
 
 
                 </article>
@@ -627,20 +655,20 @@ ensemble mean and spread are calculated with respect to.</p></li>
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="earth2studio.statistics.rmse.html"
+       href="../../io.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>.rmse</p>
+        <p class="prev-next-title"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.io</span></code>: IO Backends</p>
       </div>
     </a>
     <a class="right-next"
-       href="earth2studio.statistics.std.html"
+       href="earth2studio.io.KVBackend.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>.std</p>
+        <p class="prev-next-title"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.io</span></code>.KVBackend</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
@@ -663,10 +691,12 @@ ensemble mean and spread are calculated with respect to.</p></li>
   </div>
   <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="visible nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.statistics.spread_skill_ratio"><code class="docutils literal notranslate"><span class="pre">spread_skill_ratio</span></code></a><ul class="nav section-nav flex-column">
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.statistics.spread_skill_ratio.__call__"><code class="docutils literal notranslate"><span class="pre">spread_skill_ratio.__call__()</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.io.AsyncZarrBackend"><code class="docutils literal notranslate"><span class="pre">AsyncZarrBackend</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.io.AsyncZarrBackend.add_array"><code class="docutils literal notranslate"><span class="pre">AsyncZarrBackend.add_array()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.io.AsyncZarrBackend.write"><code class="docutils literal notranslate"><span class="pre">AsyncZarrBackend.write()</span></code></a></li>
 </ul>
 </li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#examples-using-earth2studio-io-asynczarrbackend">Examples using <code class="docutils literal notranslate"><span class="pre">earth2studio.io.AsyncZarrBackend</span></code></a></li>
 </ul>
   </nav></div>
 
@@ -674,7 +704,7 @@ ensemble mean and spread are calculated with respect to.</p></li>
   <div role="note" aria-label="source link">
     <h3>This Page</h3>
     <ul class="this-page-menu">
-      <li><a href="../../../_sources/modules/generated/statistics/earth2studio.statistics.spread_skill_ratio.rst.txt"
+      <li><a href="../../../_sources/modules/generated/io/earth2studio.io.AsyncZarrBackend.rst.txt"
             rel="nofollow">Show Source</a></li>
     </ul>
    </div></div>

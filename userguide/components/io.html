@@ -493,11 +493,6 @@ such as <code class="docutils literal notranslate"><span class="pre">&quot;varia
 <span class="k">class</span><span class="w"> </span><span class="nc">IOBackend</span><span class="p">(</span><span class="n">Protocol</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Interface for a generic IO backend.&quot;&quot;&quot;</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="k">pass</span>
-
     <span class="k">def</span><span class="w"> </span><span class="nf">add_array</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">coords</span><span class="p">:</span> <span class="n">CoordSystem</span><span class="p">,</span> <span class="n">array_name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
@@ -559,6 +554,7 @@ can be done asynchronously.</p>
         <span class="n">file_name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">chunks</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="p">{},</span>
         <span class="n">backend_kwargs</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;overwrite&quot;</span><span class="p">:</span> <span class="kc">False</span><span class="p">},</span>
+        <span class="n">zarr_codecs</span><span class="p">:</span> <span class="n">CompressorsLike</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 
         <span class="k">if</span> <span class="n">file_name</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
@@ -570,6 +566,7 @@ can be done asynchronously.</p>
                 <span class="bp">self</span><span class="o">.</span><span class="n">store</span> <span class="o">=</span> <span class="n">zarr</span><span class="o">.</span><span class="n">storage</span><span class="o">.</span><span class="n">DirectoryStore</span><span class="p">(</span><span class="n">file_name</span><span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">root</span> <span class="o">=</span> <span class="n">zarr</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">store</span><span class="p">,</span> <span class="o">**</span><span class="n">backend_kwargs</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">zarr_codecs</span> <span class="o">=</span> <span class="n">zarr_codecs</span>
 
         <span class="c1"># Read data from file, if available</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">coords</span><span class="p">:</span> <span class="n">CoordSystem</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">({})</span>

@@ -456,13 +456,16 @@
 
     <span class="kn">from</span><span class="w"> </span><span class="nn">zarr.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">Array</span>
     <span class="kn">from</span><span class="w"> </span><span class="nn">zarr.core.array</span><span class="w"> </span><span class="kn">import</span> <span class="n">Array</span> <span class="k">as</span> <span class="n">Array3</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">zarr.core.array</span><span class="w"> </span><span class="kn">import</span> <span class="n">CompressorsLike</span>
 
     <span class="n">ZarrArray</span><span class="p">:</span> <span class="n">TypeAlias</span> <span class="o">=</span> <span class="n">Union</span><span class="p">[</span><span class="n">Array</span><span class="p">,</span> <span class="n">Array3</span><span class="p">]</span>
 <span class="k">else</span><span class="p">:</span>
     <span class="k">if</span> <span class="n">zarr_major_version</span> <span class="o">&gt;=</span> <span class="mi">3</span><span class="p">:</span>
         <span class="n">ZarrArray</span> <span class="o">=</span> <span class="n">zarr</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">array</span><span class="o">.</span><span class="n">Array</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">zarr.core.array</span><span class="w"> </span><span class="kn">import</span> <span class="n">CompressorsLike</span>
     <span class="k">else</span><span class="p">:</span>
         <span class="n">ZarrArray</span> <span class="o">=</span> <span class="n">zarr</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">Array</span>
+        <span class="n">CompressorsLike</span> <span class="o">=</span> <span class="n">Any</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.utils.coords</span><span class="w"> </span><span class="kn">import</span> <span class="n">convert_multidim_to_singledim</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.utils.type</span><span class="w"> </span><span class="kn">import</span> <span class="n">CoordSystem</span>
@@ -484,10 +487,13 @@
 <span class="sd">        default {}</span>
 <span class="sd">    backend_kwargs : dict[str, Any], optional</span>
 <span class="sd">        Key word arguments for zarr.Group root object, by default {&quot;overwrite&quot;: False}</span>
+<span class="sd">    zarr_codecs: CompressorsLike, optional</span>
+<span class="sd">        Compression codec to use when creating any new arrays. Only effects Zarr 3.0.</span>
+<span class="sd">        If None, will use no compressor, by default None</span>
 
 <span class="sd">    Note</span>
 <span class="sd">    ----</span>
-<span class="sd">    For keyword argument options see: https://zarr.readthedocs.io/en/stable/api/hierarchy.html</span>
+<span class="sd">    For keyword argument options see: https://zarr.readthedocs.io/en/latest/api/zarr/index.html#zarr.group</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="c1"># sphinx - io zarr start</span>
@@ -496,6 +502,7 @@
         <span class="n">file_name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">chunks</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="p">{},</span>
         <span class="n">backend_kwargs</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;overwrite&quot;</span><span class="p">:</span> <span class="kc">False</span><span class="p">},</span>
+        <span class="n">zarr_codecs</span><span class="p">:</span> <span class="n">CompressorsLike</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 
         <span class="k">if</span> <span class="n">file_name</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
@@ -507,6 +514,7 @@
                 <span class="bp">self</span><span class="o">.</span><span class="n">store</span> <span class="o">=</span> <span class="n">zarr</span><span class="o">.</span><span class="n">storage</span><span class="o">.</span><span class="n">DirectoryStore</span><span class="p">(</span><span class="n">file_name</span><span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">root</span> <span class="o">=</span> <span class="n">zarr</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">store</span><span class="p">,</span> <span class="o">**</span><span class="n">backend_kwargs</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">zarr_codecs</span> <span class="o">=</span> <span class="n">zarr_codecs</span>
 
         <span class="c1"># Read data from file, if available</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">coords</span><span class="p">:</span> <span class="n">CoordSystem</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">({})</span>
@@ -623,6 +631,9 @@
                             <span class="s2">&quot;Timedelta64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch&quot;</span>
                         <span class="p">)</span>
                         <span class="n">values</span> <span class="o">=</span> <span class="n">values</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="s2">&quot;timedelta64[ns]&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="s2">&quot;int64&quot;</span><span class="p">)</span>
+
+                    <span class="k">if</span> <span class="s2">&quot;compressors&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">:</span>
+                        <span class="n">kwargs</span><span class="p">[</span><span class="s2">&quot;compressors&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">zarr_codecs</span>
 
                     <span class="bp">self</span><span class="o">.</span><span class="n">root</span><span class="o">.</span><span class="n">create_array</span><span class="p">(</span>
                         <span class="n">dim</span><span class="p">,</span>

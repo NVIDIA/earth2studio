@@ -834,7 +834,7 @@
 
             <span class="c1"># Rear hook for first predicted step</span>
             <span class="n">coords_out</span> <span class="o">=</span> <span class="n">coords</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
-            <span class="n">coords_out</span><span class="p">[</span><span class="s2">&quot;lead_time&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">coords</span><span class="p">[</span><span class="s2">&quot;lead_time&quot;</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">coords_out</span><span class="p">[</span><span class="s2">&quot;lead_time&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">coords</span><span class="p">[</span><span class="s2">&quot;lead_time&quot;</span><span class="p">][</span><span class="mi">0</span><span class="p">:</span><span class="mi">1</span><span class="p">]</span>
             <span class="n">x</span><span class="p">[:,</span> <span class="p">:,</span> <span class="p">:</span><span class="mi">1</span><span class="p">],</span> <span class="n">coords_out</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">rear_hook</span><span class="p">(</span><span class="n">x</span><span class="p">[:,</span> <span class="p">:,</span> <span class="p">:</span><span class="mi">1</span><span class="p">],</span> <span class="n">coords_out</span><span class="p">)</span>
 
             <span class="c1"># Output first predicted step</span>
@@ -842,7 +842,7 @@
             <span class="k">yield</span> <span class="n">out</span><span class="p">,</span> <span class="n">coords_out</span>
 
             <span class="c1"># Rear hook for second predicted step</span>
-            <span class="n">coords_out</span><span class="p">[</span><span class="s2">&quot;lead_time&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">coords</span><span class="p">[</span><span class="s2">&quot;lead_time&quot;</span><span class="p">][</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+            <span class="n">coords_out</span><span class="p">[</span><span class="s2">&quot;lead_time&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">coords</span><span class="p">[</span><span class="s2">&quot;lead_time&quot;</span><span class="p">][</span><span class="o">-</span><span class="mi">1</span><span class="p">:]</span>
             <span class="n">x</span><span class="p">[:,</span> <span class="p">:,</span> <span class="mi">1</span><span class="p">:],</span> <span class="n">coords_out</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">rear_hook</span><span class="p">(</span><span class="n">x</span><span class="p">[:,</span> <span class="p">:,</span> <span class="mi">1</span><span class="p">:],</span> <span class="n">coords_out</span><span class="p">)</span>
             <span class="n">out</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">to_equirectangular</span><span class="p">(</span><span class="n">x</span><span class="p">[:,</span> <span class="p">:,</span> <span class="mi">1</span><span class="p">:])</span>
             <span class="k">yield</span> <span class="n">out</span><span class="p">,</span> <span class="n">coords_out</span>
