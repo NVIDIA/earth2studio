@@ -19,7 +19,11 @@ import os
 from pathlib import Path
 
 import fsspec
-import ngcbase
+
+try:
+    import ngcbase
+except ImportError:
+    ngcbase = None
 import pytest
 
 from earth2studio.data import CBottle3D
@@ -186,11 +190,15 @@ def test_ngc_package(url, file, api_key, cache_folder, model_cache_context):
         elif current_key:
             del os.environ["NGC_CLI_API_KEY"]
 
-        import importlib
+        if ngcbase is None and api_key:
+            pytest.skip("NGC SDK not installed")
 
-        importlib.reload(ngcbase)
+        if api_key:
+            import importlib
 
-        package = Package(str(url))
+            importlib.reload(ngcbase)
+
+        package = Package(str(url), fs_options={"authenticated_api": api_key})
         file_path = package.resolve(file)
         assert Path(file_path).is_file()
 
@@ -235,20 +243,16 @@ def test_ngc_filesystem():
     with pytest.raises(ValueError):
         fs._parse_ngc_uri("models/a/b/c@1.0/file")
 
-    url = fs._get_ngc_model_url("name", "1.0", authenticated_api=False)
+    url = fs._get_ngc_model_url("name", "1.0")
     assert url == "https://api.ngc.nvidia.com/v2/models/name/1.0/files"
 
-    url = fs._get_ngc_model_url(
-        "name", "1.0", "org", "team", "file.txt", authenticated_api=False
-    )
+    url = fs._get_ngc_model_url("name", "1.0", "org", "team", "file.txt")
     assert (
         url
         == "https://api.ngc.nvidia.com/v2/models/org/org/team/team/name/1.0/files?path=file.txt"
     )
 
-    url = fs._get_ngc_model_url(
-        "name", "1.0", "org", None, "file.txt", authenticated_api=False
-    )
+    url = fs._get_ngc_model_url("name", "1.0", "org", None, "file.txt")
     assert (
         url
         == "https://api.ngc.nvidia.com/v2/models/org/org/name/1.0/files?path=file.txt"
@@ -257,20 +261,17 @@ def test_ngc_filesystem():
     if not os.environ.get("NGC_CLI_API_KEY"):
         pytest.skip("NGC_CLI_API_KEY not set")
 
-    url = fs._get_ngc_model_url("name", "1.0", authenticated_api=True)
+    fs.authenticated_api = True
+    url = fs._get_ngc_model_url("name", "1.0")
     assert url == "https://api.ngc.nvidia.com/v2/models/name/1.0/files"
 
-    url = fs._get_ngc_model_url(
-        "name", "1.0", "orgname", "teamname", "file.txt", authenticated_api=True
-    )
+    url = fs._get_ngc_model_url("name", "1.0", "orgname", "teamname", "file.txt")
     assert (
         url
         == "https://api.ngc.nvidia.com/v2/org/orgname/team/teamname/models/name/1.0/files?path=file.txt"
     )
 
-    url = fs._get_ngc_model_url(
-        "name", "1.0", "orgname", None, "file.txt", authenticated_api=True
-    )
+    url = fs._get_ngc_model_url("name", "1.0", "orgname", None, "file.txt")
     assert (
         url
         == "https://api.ngc.nvidia.com/v2/org/orgname/models/name/1.0/files?path=file.txt"
