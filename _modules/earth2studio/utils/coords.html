@@ -534,7 +534,9 @@
             <span class="sa">f</span><span class="s2">&quot;Coordinate systems for required dim </span><span class="si">{</span><span class="n">required_dim</span><span class="si">}</span><span class="s2"> are not the same&quot;</span>
         <span class="p">)</span>
 
-    <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="n">input_coords</span><span class="p">[</span><span class="n">required_dim</span><span class="p">]</span> <span class="o">==</span> <span class="n">target_coords</span><span class="p">[</span><span class="n">required_dim</span><span class="p">]):</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">all</span><span class="p">(</span>
+        <span class="p">(</span><span class="n">input_coords</span><span class="p">[</span><span class="n">required_dim</span><span class="p">]</span> <span class="o">==</span> <span class="n">target_coords</span><span class="p">[</span><span class="n">required_dim</span><span class="p">])</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span>
+    <span class="p">):</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
             <span class="sa">f</span><span class="s2">&quot;Coordinate systems for required dim </span><span class="si">{</span><span class="n">required_dim</span><span class="si">}</span><span class="s2"> are not the same&quot;</span>
         <span class="p">)</span></div>
