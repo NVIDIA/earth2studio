@@ -64,7 +64,7 @@
         </script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="Extending Earth2Studio" href="extend/index.html" />
+    <link rel="next" title="IO Backend Performance" href="17_io_performance.html" />
     <link rel="prev" title="CBottle Data Generation and Infilling" href="15_cbottle_generation.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
@@ -389,6 +389,7 @@
 <li class="toctree-l1"><a class="reference internal" href="14_dlesym_example.html">Running DLESyM Inference</a></li>
 <li class="toctree-l1"><a class="reference internal" href="15_cbottle_generation.html">CBottle Data Generation and Infilling</a></li>
 <li class="toctree-l1 current active"><a class="current reference internal" href="#">CBottle Super Resolution</a></li>
+<li class="toctree-l1"><a class="reference internal" href="17_io_performance.html">IO Backend Performance</a></li>
 </ul>
 <ul class="nav bd-sidenav">
 <li class="toctree-l1 has-children"><a class="reference internal" href="extend/index.html">Extending Earth2Studio</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
@@ -540,6 +541,117 @@ CBottleSR super resolution model. The workflow demonstrates two approaches:</p>
 <span class="n">era5_ds</span> <span class="o">=</span> <span class="n">WB2ERA5</span><span class="p">()</span>
 </pre></div>
 </div>
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>Downloading cBottle-SR.zip: 0%|          | 0.00/2.46G [00:00&lt;?, ?B/s]
+Downloading cBottle-SR.zip: 0%|          | 1.26M/2.46G [00:00&lt;03:19, 13.2MB/s]
+Downloading cBottle-SR.zip: 0%|          | 6.17M/2.46G [00:00&lt;01:15, 34.8MB/s]
+Downloading cBottle-SR.zip: 1%|          | 20.8M/2.46G [00:00&lt;00:29, 88.3MB/s]
+Downloading cBottle-SR.zip: 2%|▏         | 40.5M/2.46G [00:00&lt;00:19, 134MB/s]
+Downloading cBottle-SR.zip: 3%|▎         | 66.7M/2.46G [00:00&lt;00:13, 185MB/s]
+Downloading cBottle-SR.zip: 4%|▎         | 92.8M/2.46G [00:00&lt;00:11, 215MB/s]
+Downloading cBottle-SR.zip: 5%|▍         | 115M/2.46G [00:00&lt;00:11, 220MB/s]
+Downloading cBottle-SR.zip: 5%|▌         | 136M/2.46G [00:00&lt;00:11, 215MB/s]
+Downloading cBottle-SR.zip: 6%|▋         | 161M/2.46G [00:00&lt;00:10, 229MB/s]
+Downloading cBottle-SR.zip: 7%|▋         | 185M/2.46G [00:01&lt;00:10, 236MB/s]
+Downloading cBottle-SR.zip: 8%|▊         | 211M/2.46G [00:01&lt;00:09, 247MB/s]
+Downloading cBottle-SR.zip: 9%|▉         | 237M/2.46G [00:01&lt;00:09, 255MB/s]
+Downloading cBottle-SR.zip: 10%|█         | 263M/2.46G [00:01&lt;00:09, 261MB/s]
+Downloading cBottle-SR.zip: 11%|█▏        | 289M/2.46G [00:01&lt;00:08, 265MB/s]
+Downloading cBottle-SR.zip: 13%|█▎        | 315M/2.46G [00:01&lt;00:08, 267MB/s]
+Downloading cBottle-SR.zip: 14%|█▎        | 341M/2.46G [00:01&lt;00:08, 269MB/s]
+Downloading cBottle-SR.zip: 15%|█▍        | 368M/2.46G [00:01&lt;00:08, 271MB/s]
+Downloading cBottle-SR.zip: 16%|█▌        | 394M/2.46G [00:01&lt;00:08, 271MB/s]
+Downloading cBottle-SR.zip: 17%|█▋        | 420M/2.46G [00:01&lt;00:08, 272MB/s]
+Downloading cBottle-SR.zip: 18%|█▊        | 446M/2.46G [00:02&lt;00:08, 270MB/s]
+Downloading cBottle-SR.zip: 19%|█▊        | 472M/2.46G [00:02&lt;00:07, 270MB/s]
+Downloading cBottle-SR.zip: 20%|█▉        | 497M/2.46G [00:02&lt;00:13, 156MB/s]
+Downloading cBottle-SR.zip: 21%|██        | 519M/2.46G [00:02&lt;00:12, 170MB/s]
+Downloading cBottle-SR.zip: 22%|██▏       | 545M/2.46G [00:02&lt;00:10, 193MB/s]
+Downloading cBottle-SR.zip: 23%|██▎       | 571M/2.46G [00:02&lt;00:09, 212MB/s]
+Downloading cBottle-SR.zip: 24%|██▎       | 595M/2.46G [00:02&lt;00:09, 222MB/s]
+Downloading cBottle-SR.zip: 25%|██▍       | 619M/2.46G [00:02&lt;00:08, 227MB/s]
+Downloading cBottle-SR.zip: 25%|██▌       | 642M/2.46G [00:03&lt;00:08, 226MB/s]
+Downloading cBottle-SR.zip: 26%|██▋       | 666M/2.46G [00:03&lt;00:08, 232MB/s]
+Downloading cBottle-SR.zip: 27%|██▋       | 689M/2.46G [00:03&lt;00:09, 211MB/s]
+Downloading cBottle-SR.zip: 28%|██▊       | 712M/2.46G [00:03&lt;00:08, 219MB/s]
+Downloading cBottle-SR.zip: 29%|██▉       | 738M/2.46G [00:03&lt;00:08, 232MB/s]
+Downloading cBottle-SR.zip: 30%|███       | 764M/2.46G [00:03&lt;00:07, 244MB/s]
+Downloading cBottle-SR.zip: 31%|███       | 787M/2.46G [00:03&lt;00:07, 242MB/s]
+Downloading cBottle-SR.zip: 32%|███▏      | 811M/2.46G [00:03&lt;00:07, 233MB/s]
+Downloading cBottle-SR.zip: 33%|███▎      | 836M/2.46G [00:03&lt;00:07, 241MB/s]
+Downloading cBottle-SR.zip: 34%|███▍      | 860M/2.46G [00:04&lt;00:07, 246MB/s]
+Downloading cBottle-SR.zip: 35%|███▌      | 886M/2.46G [00:04&lt;00:06, 251MB/s]
+Downloading cBottle-SR.zip: 36%|███▌      | 911M/2.46G [00:04&lt;00:06, 255MB/s]
+Downloading cBottle-SR.zip: 37%|███▋      | 936M/2.46G [00:04&lt;00:06, 241MB/s]
+Downloading cBottle-SR.zip: 38%|███▊      | 961M/2.46G [00:04&lt;00:06, 250MB/s]
+Downloading cBottle-SR.zip: 39%|███▉      | 988M/2.46G [00:04&lt;00:06, 257MB/s]
+Downloading cBottle-SR.zip: 40%|████      | 0.99G/2.46G [00:04&lt;00:06, 261MB/s]
+Downloading cBottle-SR.zip: 41%|████      | 1.02G/2.46G [00:04&lt;00:05, 265MB/s]
+Downloading cBottle-SR.zip: 42%|████▏     | 1.04G/2.46G [00:04&lt;00:07, 197MB/s]
+Downloading cBottle-SR.zip: 43%|████▎     | 1.06G/2.46G [00:05&lt;00:08, 179MB/s]
+Downloading cBottle-SR.zip: 44%|████▍     | 1.09G/2.46G [00:05&lt;00:07, 200MB/s]
+Downloading cBottle-SR.zip: 45%|████▌     | 1.11G/2.46G [00:05&lt;00:06, 218MB/s]
+Downloading cBottle-SR.zip: 46%|████▌     | 1.14G/2.46G [00:05&lt;00:06, 232MB/s]
+Downloading cBottle-SR.zip: 47%|████▋     | 1.16G/2.46G [00:05&lt;00:05, 237MB/s]
+Downloading cBottle-SR.zip: 48%|████▊     | 1.19G/2.46G [00:05&lt;00:05, 246MB/s]
+Downloading cBottle-SR.zip: 49%|████▉     | 1.21G/2.46G [00:05&lt;00:05, 255MB/s]
+Downloading cBottle-SR.zip: 50%|█████     | 1.24G/2.46G [00:05&lt;00:05, 258MB/s]
+Downloading cBottle-SR.zip: 51%|█████▏    | 1.26G/2.46G [00:05&lt;00:04, 263MB/s]
+Downloading cBottle-SR.zip: 52%|█████▏    | 1.29G/2.46G [00:06&lt;00:04, 264MB/s]
+Downloading cBottle-SR.zip: 53%|█████▎    | 1.31G/2.46G [00:06&lt;00:04, 267MB/s]
+Downloading cBottle-SR.zip: 54%|█████▍    | 1.34G/2.46G [00:06&lt;00:04, 267MB/s]
+Downloading cBottle-SR.zip: 55%|█████▌    | 1.36G/2.46G [00:06&lt;00:04, 262MB/s]
+Downloading cBottle-SR.zip: 56%|█████▋    | 1.39G/2.46G [00:06&lt;00:04, 264MB/s]
+Downloading cBottle-SR.zip: 57%|█████▋    | 1.41G/2.46G [00:06&lt;00:04, 258MB/s]
+Downloading cBottle-SR.zip: 58%|█████▊    | 1.44G/2.46G [00:06&lt;00:04, 262MB/s]
+Downloading cBottle-SR.zip: 59%|█████▉    | 1.46G/2.46G [00:06&lt;00:04, 265MB/s]
+Downloading cBottle-SR.zip: 60%|██████    | 1.49G/2.46G [00:06&lt;00:03, 267MB/s]
+Downloading cBottle-SR.zip: 61%|██████▏   | 1.51G/2.46G [00:06&lt;00:03, 268MB/s]
+Downloading cBottle-SR.zip: 63%|██████▎   | 1.54G/2.46G [00:07&lt;00:03, 271MB/s]
+Downloading cBottle-SR.zip: 64%|██████▎   | 1.56G/2.46G [00:07&lt;00:03, 269MB/s]
+Downloading cBottle-SR.zip: 65%|██████▍   | 1.59G/2.46G [00:07&lt;00:04, 210MB/s]
+Downloading cBottle-SR.zip: 65%|██████▌   | 1.61G/2.46G [00:07&lt;00:04, 187MB/s]
+Downloading cBottle-SR.zip: 66%|██████▋   | 1.64G/2.46G [00:07&lt;00:04, 207MB/s]
+Downloading cBottle-SR.zip: 68%|██████▊   | 1.66G/2.46G [00:07&lt;00:03, 224MB/s]
+Downloading cBottle-SR.zip: 69%|██████▊   | 1.69G/2.46G [00:07&lt;00:03, 237MB/s]
+Downloading cBottle-SR.zip: 70%|██████▉   | 1.71G/2.46G [00:07&lt;00:03, 245MB/s]
+Downloading cBottle-SR.zip: 71%|███████   | 1.74G/2.46G [00:08&lt;00:03, 252MB/s]
+Downloading cBottle-SR.zip: 72%|███████▏  | 1.76G/2.46G [00:08&lt;00:02, 259MB/s]
+Downloading cBottle-SR.zip: 73%|███████▎  | 1.79G/2.46G [00:08&lt;00:02, 263MB/s]
+Downloading cBottle-SR.zip: 74%|███████▎  | 1.81G/2.46G [00:08&lt;00:02, 239MB/s]
+Downloading cBottle-SR.zip: 75%|███████▍  | 1.84G/2.46G [00:08&lt;00:02, 243MB/s]
+Downloading cBottle-SR.zip: 76%|███████▌  | 1.86G/2.46G [00:08&lt;00:02, 252MB/s]
+Downloading cBottle-SR.zip: 77%|███████▋  | 1.89G/2.46G [00:08&lt;00:02, 259MB/s]
+Downloading cBottle-SR.zip: 78%|███████▊  | 1.91G/2.46G [00:08&lt;00:02, 263MB/s]
+Downloading cBottle-SR.zip: 79%|███████▊  | 1.94G/2.46G [00:08&lt;00:02, 251MB/s]
+Downloading cBottle-SR.zip: 80%|███████▉  | 1.96G/2.46G [00:08&lt;00:02, 231MB/s]
+Downloading cBottle-SR.zip: 81%|████████  | 1.98G/2.46G [00:09&lt;00:02, 188MB/s]
+Downloading cBottle-SR.zip: 81%|████████▏ | 2.00G/2.46G [00:09&lt;00:02, 175MB/s]
+Downloading cBottle-SR.zip: 82%|████████▏ | 2.02G/2.46G [00:09&lt;00:02, 184MB/s]
+Downloading cBottle-SR.zip: 83%|████████▎ | 2.04G/2.46G [00:09&lt;00:02, 188MB/s]
+Downloading cBottle-SR.zip: 84%|████████▍ | 2.07G/2.46G [00:09&lt;00:02, 210MB/s]
+Downloading cBottle-SR.zip: 85%|████████▍ | 2.09G/2.46G [00:09&lt;00:01, 216MB/s]
+Downloading cBottle-SR.zip: 86%|████████▌ | 2.11G/2.46G [00:09&lt;00:01, 207MB/s]
+Downloading cBottle-SR.zip: 86%|████████▋ | 2.13G/2.46G [00:09&lt;00:02, 178MB/s]
+Downloading cBottle-SR.zip: 87%|████████▋ | 2.15G/2.46G [00:10&lt;00:03, 85.4MB/s]
+Downloading cBottle-SR.zip: 88%|████████▊ | 2.17G/2.46G [00:10&lt;00:02, 106MB/s]
+Downloading cBottle-SR.zip: 89%|████████▉ | 2.19G/2.46G [00:10&lt;00:02, 121MB/s]
+Downloading cBottle-SR.zip: 89%|████████▉ | 2.20G/2.46G [00:10&lt;00:02, 132MB/s]
+Downloading cBottle-SR.zip: 90%|█████████ | 2.22G/2.46G [00:11&lt;00:02, 110MB/s]
+Downloading cBottle-SR.zip: 91%|█████████ | 2.23G/2.46G [00:11&lt;00:02, 118MB/s]
+Downloading cBottle-SR.zip: 91%|█████████▏| 2.25G/2.46G [00:11&lt;00:01, 116MB/s]
+Downloading cBottle-SR.zip: 92%|█████████▏| 2.27G/2.46G [00:11&lt;00:01, 147MB/s]
+Downloading cBottle-SR.zip: 93%|█████████▎| 2.29G/2.46G [00:11&lt;00:01, 166MB/s]
+Downloading cBottle-SR.zip: 94%|█████████▍| 2.32G/2.46G [00:11&lt;00:00, 189MB/s]
+Downloading cBottle-SR.zip: 95%|█████████▍| 2.34G/2.46G [00:11&lt;00:00, 202MB/s]
+Downloading cBottle-SR.zip: 96%|█████████▌| 2.36G/2.46G [00:11&lt;00:00, 158MB/s]
+Downloading cBottle-SR.zip: 96%|█████████▋| 2.38G/2.46G [00:12&lt;00:00, 111MB/s]
+Downloading cBottle-SR.zip: 97%|█████████▋| 2.39G/2.46G [00:12&lt;00:00, 128MB/s]
+Downloading cBottle-SR.zip: 98%|█████████▊| 2.41G/2.46G [00:12&lt;00:00, 142MB/s]
+Downloading cBottle-SR.zip: 99%|█████████▊| 2.43G/2.46G [00:12&lt;00:00, 140MB/s]
+Downloading cBottle-SR.zip: 99%|█████████▉| 2.44G/2.46G [00:12&lt;00:00, 139MB/s]
+Downloading cBottle-SR.zip: 100%|██████████| 2.46G/2.46G [00:12&lt;00:00, 207MB/s]
+</pre></div>
+</div>
 </section>
 <section id="super-resolution-on-synthetic-data">
 <h2>Super Resolution on Synthetic Data<a class="headerlink" href="#super-resolution-on-synthetic-data" title="Link to this heading">#</a></h2>
@@ -568,8 +680,8 @@ pipeline from data generation to super-resolution enhancement.</p>
 </pre></div>
 </div>
 <div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>Generating cBottle Data:   0%|          | 0/1 [00:00&lt;?, ?it/s]
-Generating cBottle Data: 100%|██████████| 1/1 [00:02&lt;00:00,  2.78s/it]
-Generating cBottle Data: 100%|██████████| 1/1 [00:02&lt;00:00,  2.78s/it]
+Generating cBottle Data: 100%|██████████| 1/1 [00:02&lt;00:00,  2.79s/it]
+Generating cBottle Data: 100%|██████████| 1/1 [00:02&lt;00:00,  2.79s/it]
 </pre></div>
 </div>
 </section>
@@ -596,14 +708,23 @@ model to predict the missing variables, then perform super resolution.</p>
 </div>
 <div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>Fetching WB2 data:   0%|          | 0/2 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:26:48.164 | DEBUG    | earth2studio.data.wb2:fetch_array:251 - Fetching WB2 zarr array for variable: v10m at 2020-01-01T00:00:00
+2025-07-09 03:50:06.408 | DEBUG    | earth2studio.data.wb2:fetch_array:251 - Fetching WB2 zarr array for variable: v10m at 2020-01-01T00:00:00
 
 Fetching WB2 data:   0%|          | 0/2 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:26:48.164 | DEBUG    | earth2studio.data.wb2:fetch_array:251 - Fetching WB2 zarr array for variable: u10m at 2020-01-01T00:00:00
+2025-07-09 03:50:06.409 | DEBUG    | earth2studio.data.wb2:fetch_array:251 - Fetching WB2 zarr array for variable: u10m at 2020-01-01T00:00:00
 
 Fetching WB2 data:   0%|          | 0/2 [00:00&lt;?, ?it/s]
-Fetching WB2 data: 100%|██████████| 2/2 [00:00&lt;00:00, 221.24it/s]
+
+2025-07-09 03:50:06.458 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/10m_u_component_of_wind/89120.0.0 to local cache
+
+Fetching WB2 data:   0%|          | 0/2 [00:00&lt;?, ?it/s]
+
+2025-07-09 03:50:06.484 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/10m_v_component_of_wind/89120.0.0 to local cache
+
+Fetching WB2 data:   0%|          | 0/2 [00:00&lt;?, ?it/s]
+Fetching WB2 data:  50%|█████     | 1/2 [00:00&lt;00:00,  2.92it/s]
+Fetching WB2 data: 100%|██████████| 2/2 [00:00&lt;00:00,  5.83it/s]
 </pre></div>
 </div>
 </section>
@@ -699,7 +820,7 @@ water (tclw) variable as an example.</p>
 <span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="s2">&quot;outputs/16_cbottle_super_resolution.jpg&quot;</span><span class="p">,</span> <span class="n">dpi</span><span class="o">=</span><span class="mi">150</span><span class="p">,</span> <span class="n">bbox_inches</span><span class="o">=</span><span class="s2">&quot;tight&quot;</span><span class="p">)</span>
 </pre></div>
 </div>
-<img src="../_images/sphx_glr_16_cbottle_super_resolution_001.png" srcset="../_images/sphx_glr_16_cbottle_super_resolution_001.png" alt="Synthetic Data (cBottle3D, low resolution), Synthetic Data Super Resolution (cBottle3D → CBottleSR), ERA5 Data (low resolution), ERA5 Infilled Super Resolution (ERA5 → CBottleInfill → CBottleSR)" class = "sphx-glr-single-img"/><p class="sphx-glr-timing"><strong>Total running time of the script:</strong> (3 minutes 16.297 seconds)</p>
+<img src="../_images/sphx_glr_16_cbottle_super_resolution_001.png" srcset="../_images/sphx_glr_16_cbottle_super_resolution_001.png" alt="Synthetic Data (cBottle3D, low resolution), Synthetic Data Super Resolution (cBottle3D → CBottleSR), ERA5 Data (low resolution), ERA5 Infilled Super Resolution (ERA5 → CBottleInfill → CBottleSR)" class = "sphx-glr-single-img"/><p class="sphx-glr-timing"><strong>Total running time of the script:</strong> (3 minutes 31.817 seconds)</p>
 <div class="sphx-glr-footer sphx-glr-footer-example docutils container" id="sphx-glr-download-examples-16-cbottle-super-resolution-py">
 <div class="sphx-glr-download sphx-glr-download-jupyter docutils container">
 <p><a class="reference download internal" download="" href="../_downloads/befbc3089893dae3e9ecc97bc9f11be8/16_cbottle_super_resolution.ipynb"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">Jupyter</span> <span class="pre">notebook:</span> <span class="pre">16_cbottle_super_resolution.ipynb</span></code></a></p>
@@ -735,11 +856,11 @@ water (tclw) variable as an example.</p>
       </div>
     </a>
     <a class="right-next"
-       href="extend/index.html"
+       href="17_io_performance.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">Extending Earth2Studio</p>
+        <p class="prev-next-title">IO Backend Performance</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>

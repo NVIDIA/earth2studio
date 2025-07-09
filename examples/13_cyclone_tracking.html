@@ -389,6 +389,7 @@
 <li class="toctree-l1"><a class="reference internal" href="14_dlesym_example.html">Running DLESyM Inference</a></li>
 <li class="toctree-l1"><a class="reference internal" href="15_cbottle_generation.html">CBottle Data Generation and Infilling</a></li>
 <li class="toctree-l1"><a class="reference internal" href="16_cbottle_super_resolution.html">CBottle Super Resolution</a></li>
+<li class="toctree-l1"><a class="reference internal" href="17_io_performance.html">IO Backend Performance</a></li>
 </ul>
 <ul class="nav bd-sidenav">
 <li class="toctree-l1 has-children"><a class="reference internal" href="extend/index.html">Extending Earth2Studio</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
@@ -546,444 +547,814 @@ We can fetch a small time range from the data source and provide it to our model
 </div>
 <div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:23.203 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v10m at 2009-08-05T00:00:00
+2025-07-09 03:41:41.951 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v10m at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:23.203 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u850 at 2009-08-05T00:00:00
+2025-07-09 03:41:41.953 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u850 at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:23.204 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u10m at 2009-08-05T00:00:00
+2025-07-09 03:41:41.954 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u10m at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:23.204 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: msl at 2009-08-05T00:00:00
+2025-07-09 03:41:41.955 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: msl at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:23.205 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v850 at 2009-08-05T00:00:00
+2025-07-09 03:41:41.956 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v850 at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
-Fetching ARCO data:  20%|██        | 1/5 [00:00&lt;00:00,  6.22it/s]
-Fetching ARCO data:  80%|████████  | 4/5 [00:00&lt;00:00, 15.02it/s]
-Fetching ARCO data: 100%|██████████| 5/5 [00:00&lt;00:00, 16.91it/s]
+
+2025-07-09 03:41:42.013 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/10m_v_component_of_wind/960672.0.0 to local cache
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+2025-07-09 03:41:42.014 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/u_component_of_wind/960672.0.0.0 to local cache
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+2025-07-09 03:41:42.043 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/10m_u_component_of_wind/960672.0.0 to local cache
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+2025-07-09 03:41:42.050 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/v_component_of_wind/960672.0.0.0 to local cache
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+2025-07-09 03:41:42.064 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/mean_sea_level_pressure/960672.0.0 to local cache
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+Fetching ARCO data:  20%|██        | 1/5 [00:00&lt;00:01,  2.50it/s]
+Fetching ARCO data:  40%|████      | 2/5 [00:00&lt;00:00,  3.89it/s]
+Fetching ARCO data:  60%|██████    | 3/5 [00:00&lt;00:00,  4.67it/s]
+Fetching ARCO data:  80%|████████  | 4/5 [00:02&lt;00:00,  1.03it/s]
+Fetching ARCO data: 100%|██████████| 5/5 [00:02&lt;00:00,  1.51it/s]
+Fetching ARCO data: 100%|██████████| 5/5 [00:02&lt;00:00,  1.68it/s]
 Step 0: ARCO tracks output shape torch.Size([1, 7, 1, 4])
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:34.661 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u10m at 2009-08-05T06:00:00
+2025-07-09 03:41:56.276 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v10m at 2009-08-05T06:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:34.661 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: msl at 2009-08-05T06:00:00
+2025-07-09 03:41:56.277 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: msl at 2009-08-05T06:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:34.662 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v10m at 2009-08-05T06:00:00
+2025-07-09 03:41:56.278 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u10m at 2009-08-05T06:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:34.662 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u850 at 2009-08-05T06:00:00
+2025-07-09 03:41:56.278 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v850 at 2009-08-05T06:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:34.663 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v850 at 2009-08-05T06:00:00
+2025-07-09 03:41:56.279 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u850 at 2009-08-05T06:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
-Fetching ARCO data:  20%|██        | 1/5 [00:00&lt;00:00,  7.13it/s]
-Fetching ARCO data:  80%|████████  | 4/5 [00:00&lt;00:00, 16.19it/s]
-Fetching ARCO data: 100%|██████████| 5/5 [00:00&lt;00:00, 18.41it/s]
+
+2025-07-09 03:41:56.341 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/mean_sea_level_pressure/960678.0.0 to local cache
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+2025-07-09 03:41:56.345 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/10m_u_component_of_wind/960678.0.0 to local cache
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+2025-07-09 03:41:56.347 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/10m_v_component_of_wind/960678.0.0 to local cache
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+2025-07-09 03:41:56.363 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/u_component_of_wind/960678.0.0.0 to local cache
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+2025-07-09 03:41:56.369 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/v_component_of_wind/960678.0.0.0 to local cache
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+Fetching ARCO data:  20%|██        | 1/5 [00:00&lt;00:01,  2.12it/s]
+Fetching ARCO data:  80%|████████  | 4/5 [00:02&lt;00:00,  1.57it/s]
+Fetching ARCO data: 100%|██████████| 5/5 [00:03&lt;00:00,  1.57it/s]
+Fetching ARCO data: 100%|██████████| 5/5 [00:03&lt;00:00,  1.60it/s]
 Step 1: ARCO tracks output shape torch.Size([1, 7, 2, 4])
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:35.073 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v10m at 2009-08-05T12:00:00
+2025-07-09 03:41:59.547 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v850 at 2009-08-05T12:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:35.073 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: msl at 2009-08-05T12:00:00
+2025-07-09 03:41:59.548 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v10m at 2009-08-05T12:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:35.074 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u10m at 2009-08-05T12:00:00
+2025-07-09 03:41:59.548 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: msl at 2009-08-05T12:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:35.074 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u850 at 2009-08-05T12:00:00
+2025-07-09 03:41:59.549 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u10m at 2009-08-05T12:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:35.075 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v850 at 2009-08-05T12:00:00
+2025-07-09 03:41:59.549 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u850 at 2009-08-05T12:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
-Fetching ARCO data:  20%|██        | 1/5 [00:00&lt;00:00,  7.26it/s]
-Fetching ARCO data:  80%|████████  | 4/5 [00:00&lt;00:00, 15.79it/s]
-Fetching ARCO data: 100%|██████████| 5/5 [00:00&lt;00:00, 18.06it/s]
+
+2025-07-09 03:41:59.603 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/mean_sea_level_pressure/960684.0.0 to local cache
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+2025-07-09 03:41:59.605 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/u_component_of_wind/960684.0.0.0 to local cache
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+2025-07-09 03:41:59.610 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/10m_u_component_of_wind/960684.0.0 to local cache
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+2025-07-09 03:41:59.612 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/v_component_of_wind/960684.0.0.0 to local cache
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+2025-07-09 03:41:59.627 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/10m_v_component_of_wind/960684.0.0 to local cache
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+Fetching ARCO data:  20%|██        | 1/5 [00:00&lt;00:01,  2.45it/s]
+Fetching ARCO data:  60%|██████    | 3/5 [00:00&lt;00:00,  5.04it/s]
+Fetching ARCO data:  80%|████████  | 4/5 [00:02&lt;00:00,  1.36it/s]
+Fetching ARCO data: 100%|██████████| 5/5 [00:02&lt;00:00,  1.54it/s]
+Fetching ARCO data: 100%|██████████| 5/5 [00:02&lt;00:00,  1.74it/s]
 Step 2: ARCO tracks output shape torch.Size([1, 7, 3, 4])
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:35.494 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u10m at 2009-08-05T18:00:00
+2025-07-09 03:42:02.571 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: msl at 2009-08-05T18:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:35.495 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: msl at 2009-08-05T18:00:00
+2025-07-09 03:42:02.572 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v850 at 2009-08-05T18:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:35.496 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v10m at 2009-08-05T18:00:00
+2025-07-09 03:42:02.573 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u10m at 2009-08-05T18:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:35.496 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u850 at 2009-08-05T18:00:00
+2025-07-09 03:42:02.573 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u850 at 2009-08-05T18:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:35.497 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v850 at 2009-08-05T18:00:00
+2025-07-09 03:42:02.574 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v10m at 2009-08-05T18:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
-Fetching ARCO data:  20%|██        | 1/5 [00:00&lt;00:00,  7.03it/s]
-Fetching ARCO data:  80%|████████  | 4/5 [00:00&lt;00:00, 14.71it/s]
-Fetching ARCO data: 100%|██████████| 5/5 [00:00&lt;00:00, 16.94it/s]
+
+2025-07-09 03:42:02.628 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/u_component_of_wind/960690.0.0.0 to local cache
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+2025-07-09 03:42:02.629 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/mean_sea_level_pressure/960690.0.0 to local cache
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+2025-07-09 03:42:02.629 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/10m_u_component_of_wind/960690.0.0 to local cache
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+2025-07-09 03:42:02.649 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/v_component_of_wind/960690.0.0.0 to local cache
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+2025-07-09 03:42:02.683 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/10m_v_component_of_wind/960690.0.0 to local cache
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+Fetching ARCO data:  20%|██        | 1/5 [00:00&lt;00:01,  2.71it/s]
+Fetching ARCO data:  40%|████      | 2/5 [00:00&lt;00:00,  4.17it/s]
+Fetching ARCO data:  60%|██████    | 3/5 [00:00&lt;00:00,  4.32it/s]
+Fetching ARCO data:  80%|████████  | 4/5 [00:02&lt;00:00,  1.31it/s]
+Fetching ARCO data: 100%|██████████| 5/5 [00:02&lt;00:00,  1.41it/s]
+Fetching ARCO data: 100%|██████████| 5/5 [00:02&lt;00:00,  1.70it/s]
 Step 3: ARCO tracks output shape torch.Size([1, 8, 4, 4])
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:35.928 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v10m at 2009-08-06T00:00:00
+2025-07-09 03:42:05.647 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v10m at 2009-08-06T00:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:35.928 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: msl at 2009-08-06T00:00:00
+2025-07-09 03:42:05.648 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u850 at 2009-08-06T00:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:35.929 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u10m at 2009-08-06T00:00:00
+2025-07-09 03:42:05.649 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u10m at 2009-08-06T00:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:35.930 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u850 at 2009-08-06T00:00:00
+2025-07-09 03:42:05.649 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v850 at 2009-08-06T00:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:35.930 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v850 at 2009-08-06T00:00:00
+2025-07-09 03:42:05.650 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: msl at 2009-08-06T00:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
-Fetching ARCO data:  20%|██        | 1/5 [00:00&lt;00:00,  6.97it/s]
-Fetching ARCO data:  80%|████████  | 4/5 [00:00&lt;00:00, 17.38it/s]
-Fetching ARCO data: 100%|██████████| 5/5 [00:00&lt;00:00, 17.78it/s]
+
+2025-07-09 03:42:05.705 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/v_component_of_wind/960696.0.0.0 to local cache
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+2025-07-09 03:42:05.710 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/10m_v_component_of_wind/960696.0.0 to local cache
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+2025-07-09 03:42:05.711 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/u_component_of_wind/960696.0.0.0 to local cache
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+2025-07-09 03:42:05.711 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/mean_sea_level_pressure/960696.0.0 to local cache
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+2025-07-09 03:42:05.714 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/10m_u_component_of_wind/960696.0.0 to local cache
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+Fetching ARCO data:  20%|██        | 1/5 [00:00&lt;00:01,  2.47it/s]
+Fetching ARCO data:  40%|████      | 2/5 [00:00&lt;00:00,  3.65it/s]
+Fetching ARCO data:  80%|████████  | 4/5 [00:02&lt;00:00,  1.20it/s]
+Fetching ARCO data: 100%|██████████| 5/5 [00:03&lt;00:00,  1.66it/s]
 Step 4: ARCO tracks output shape torch.Size([1, 9, 5, 4])
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:36.366 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u10m at 2009-08-06T06:00:00
+2025-07-09 03:42:08.821 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v850 at 2009-08-06T06:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:36.367 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: msl at 2009-08-06T06:00:00
+2025-07-09 03:42:08.822 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v10m at 2009-08-06T06:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:36.367 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v10m at 2009-08-06T06:00:00
+2025-07-09 03:42:08.823 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: msl at 2009-08-06T06:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:36.368 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u850 at 2009-08-06T06:00:00
+2025-07-09 03:42:08.823 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u10m at 2009-08-06T06:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:36.369 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v850 at 2009-08-06T06:00:00
+2025-07-09 03:42:08.824 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u850 at 2009-08-06T06:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
-Fetching ARCO data:  20%|██        | 1/5 [00:00&lt;00:00,  7.24it/s]
-Fetching ARCO data:  80%|████████  | 4/5 [00:00&lt;00:00, 17.77it/s]
-Fetching ARCO data: 100%|██████████| 5/5 [00:00&lt;00:00, 17.94it/s]
+
+2025-07-09 03:42:08.881 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/10m_u_component_of_wind/960702.0.0 to local cache
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+2025-07-09 03:42:08.882 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/10m_v_component_of_wind/960702.0.0 to local cache
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+2025-07-09 03:42:08.883 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/v_component_of_wind/960702.0.0.0 to local cache
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+2025-07-09 03:42:08.884 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/u_component_of_wind/960702.0.0.0 to local cache
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+2025-07-09 03:42:08.929 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/mean_sea_level_pressure/960702.0.0 to local cache
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+Fetching ARCO data:  20%|██        | 1/5 [00:00&lt;00:02,  1.99it/s]
+Fetching ARCO data:  40%|████      | 2/5 [00:00&lt;00:00,  3.59it/s]
+Fetching ARCO data:  60%|██████    | 3/5 [00:00&lt;00:00,  4.55it/s]
+Fetching ARCO data:  80%|████████  | 4/5 [00:02&lt;00:00,  1.12it/s]
+Fetching ARCO data: 100%|██████████| 5/5 [00:03&lt;00:00,  1.27it/s]
+Fetching ARCO data: 100%|██████████| 5/5 [00:03&lt;00:00,  1.51it/s]
 Step 5: ARCO tracks output shape torch.Size([1, 10, 6, 4])
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:37.833 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v10m at 2009-08-06T12:00:00
+2025-07-09 03:42:13.327 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v850 at 2009-08-06T12:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:37.834 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: msl at 2009-08-06T12:00:00
+2025-07-09 03:42:13.328 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: msl at 2009-08-06T12:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:37.835 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u10m at 2009-08-06T12:00:00
+2025-07-09 03:42:13.329 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u10m at 2009-08-06T12:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:37.835 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u850 at 2009-08-06T12:00:00
+2025-07-09 03:42:13.329 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v10m at 2009-08-06T12:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:37.836 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v850 at 2009-08-06T12:00:00
+2025-07-09 03:42:13.330 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u850 at 2009-08-06T12:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
-Fetching ARCO data:  20%|██        | 1/5 [00:00&lt;00:00,  7.32it/s]
-Fetching ARCO data:  80%|████████  | 4/5 [00:00&lt;00:00, 16.01it/s]
-Fetching ARCO data: 100%|██████████| 5/5 [00:00&lt;00:00, 18.29it/s]
+
+2025-07-09 03:42:13.385 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/u_component_of_wind/960708.0.0.0 to local cache
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+2025-07-09 03:42:13.387 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/v_component_of_wind/960708.0.0.0 to local cache
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+2025-07-09 03:42:13.389 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/mean_sea_level_pressure/960708.0.0 to local cache
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+2025-07-09 03:42:13.390 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/10m_u_component_of_wind/960708.0.0 to local cache
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+2025-07-09 03:42:13.421 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/10m_v_component_of_wind/960708.0.0 to local cache
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+Fetching ARCO data:  20%|██        | 1/5 [00:00&lt;00:01,  2.52it/s]
+Fetching ARCO data:  40%|████      | 2/5 [00:00&lt;00:00,  3.49it/s]
+Fetching ARCO data:  80%|████████  | 4/5 [00:02&lt;00:00,  1.34it/s]
+Fetching ARCO data: 100%|██████████| 5/5 [00:02&lt;00:00,  1.83it/s]
 Step 6: ARCO tracks output shape torch.Size([1, 11, 7, 4])
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:38.234 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u10m at 2009-08-06T18:00:00
+2025-07-09 03:42:16.187 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: msl at 2009-08-06T18:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:38.235 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: msl at 2009-08-06T18:00:00
+2025-07-09 03:42:16.187 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v10m at 2009-08-06T18:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:38.235 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v10m at 2009-08-06T18:00:00
+2025-07-09 03:42:16.188 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u10m at 2009-08-06T18:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:38.236 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u850 at 2009-08-06T18:00:00
+2025-07-09 03:42:16.189 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u850 at 2009-08-06T18:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:38.236 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v850 at 2009-08-06T18:00:00
+2025-07-09 03:42:16.189 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v850 at 2009-08-06T18:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
-Fetching ARCO data:  20%|██        | 1/5 [00:00&lt;00:00,  7.35it/s]
-Fetching ARCO data:  80%|████████  | 4/5 [00:00&lt;00:00, 17.87it/s]
-Fetching ARCO data: 100%|██████████| 5/5 [00:00&lt;00:00, 18.12it/s]
+
+2025-07-09 03:42:16.241 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/10m_v_component_of_wind/960714.0.0 to local cache
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+2025-07-09 03:42:16.245 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/u_component_of_wind/960714.0.0.0 to local cache
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+2025-07-09 03:42:16.247 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/mean_sea_level_pressure/960714.0.0 to local cache
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+2025-07-09 03:42:16.249 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/v_component_of_wind/960714.0.0.0 to local cache
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+2025-07-09 03:42:16.255 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/10m_u_component_of_wind/960714.0.0 to local cache
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+Fetching ARCO data:  20%|██        | 1/5 [00:00&lt;00:01,  2.34it/s]
+Fetching ARCO data:  40%|████      | 2/5 [00:00&lt;00:00,  3.17it/s]
+Fetching ARCO data:  80%|████████  | 4/5 [00:02&lt;00:00,  1.53it/s]
+Fetching ARCO data: 100%|██████████| 5/5 [00:02&lt;00:00,  2.05it/s]
+Fetching ARCO data: 100%|██████████| 5/5 [00:02&lt;00:00,  2.00it/s]
 Step 7: ARCO tracks output shape torch.Size([1, 12, 8, 4])
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:38.642 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v10m at 2009-08-07T00:00:00
+2025-07-09 03:42:18.814 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: msl at 2009-08-07T00:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:38.643 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: msl at 2009-08-07T00:00:00
+2025-07-09 03:42:18.815 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v850 at 2009-08-07T00:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:38.643 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u10m at 2009-08-07T00:00:00
+2025-07-09 03:42:18.816 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v10m at 2009-08-07T00:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:38.644 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u850 at 2009-08-07T00:00:00
+2025-07-09 03:42:18.816 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u850 at 2009-08-07T00:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:38.644 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v850 at 2009-08-07T00:00:00
+2025-07-09 03:42:18.817 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u10m at 2009-08-07T00:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
-Fetching ARCO data:  20%|██        | 1/5 [00:00&lt;00:00,  7.32it/s]
-Fetching ARCO data:  80%|████████  | 4/5 [00:00&lt;00:00, 17.69it/s]
-Fetching ARCO data: 100%|██████████| 5/5 [00:00&lt;00:00, 17.90it/s]
+
+2025-07-09 03:42:18.872 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/mean_sea_level_pressure/960720.0.0 to local cache
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+2025-07-09 03:42:18.877 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/v_component_of_wind/960720.0.0.0 to local cache
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+2025-07-09 03:42:18.879 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/10m_u_component_of_wind/960720.0.0 to local cache
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+2025-07-09 03:42:18.883 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/10m_v_component_of_wind/960720.0.0 to local cache
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+2025-07-09 03:42:18.915 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/u_component_of_wind/960720.0.0.0 to local cache
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+Fetching ARCO data:  20%|██        | 1/5 [00:00&lt;00:02,  1.80it/s]
+Fetching ARCO data:  80%|████████  | 4/5 [00:02&lt;00:00,  1.61it/s]
+Fetching ARCO data: 100%|██████████| 5/5 [00:02&lt;00:00,  1.79it/s]
+Fetching ARCO data: 100%|██████████| 5/5 [00:02&lt;00:00,  1.75it/s]
 Step 8: ARCO tracks output shape torch.Size([1, 13, 9, 4])
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:39.073 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u10m at 2009-08-07T06:00:00
+2025-07-09 03:42:21.834 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: msl at 2009-08-07T06:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:39.074 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: msl at 2009-08-07T06:00:00
+2025-07-09 03:42:21.835 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v850 at 2009-08-07T06:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:39.075 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v10m at 2009-08-07T06:00:00
+2025-07-09 03:42:21.835 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u850 at 2009-08-07T06:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:39.075 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u850 at 2009-08-07T06:00:00
+2025-07-09 03:42:21.836 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v10m at 2009-08-07T06:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:39.076 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v850 at 2009-08-07T06:00:00
+2025-07-09 03:42:21.836 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u10m at 2009-08-07T06:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
-Fetching ARCO data:  20%|██        | 1/5 [00:00&lt;00:00,  7.33it/s]
-Fetching ARCO data:  80%|████████  | 4/5 [00:00&lt;00:00, 17.73it/s]
-Fetching ARCO data: 100%|██████████| 5/5 [00:00&lt;00:00, 18.20it/s]
+
+2025-07-09 03:42:21.891 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/v_component_of_wind/960726.0.0.0 to local cache
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+2025-07-09 03:42:21.893 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/u_component_of_wind/960726.0.0.0 to local cache
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+2025-07-09 03:42:21.896 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/10m_v_component_of_wind/960726.0.0 to local cache
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+2025-07-09 03:42:21.901 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/mean_sea_level_pressure/960726.0.0 to local cache
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+2025-07-09 03:42:21.902 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/10m_u_component_of_wind/960726.0.0 to local cache
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+Fetching ARCO data:  20%|██        | 1/5 [00:00&lt;00:02,  1.77it/s]
+Fetching ARCO data:  80%|████████  | 4/5 [00:02&lt;00:00,  1.67it/s]
+Fetching ARCO data: 100%|██████████| 5/5 [00:03&lt;00:00,  1.45it/s]
+Fetching ARCO data: 100%|██████████| 5/5 [00:03&lt;00:00,  1.51it/s]
 Step 9: ARCO tracks output shape torch.Size([1, 14, 10, 4])
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:39.491 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v10m at 2009-08-07T12:00:00
+2025-07-09 03:42:25.290 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u850 at 2009-08-07T12:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:39.492 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: msl at 2009-08-07T12:00:00
+2025-07-09 03:42:25.290 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: msl at 2009-08-07T12:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:39.493 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u10m at 2009-08-07T12:00:00
+2025-07-09 03:42:25.291 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v850 at 2009-08-07T12:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:39.493 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u850 at 2009-08-07T12:00:00
+2025-07-09 03:42:25.291 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v10m at 2009-08-07T12:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:39.494 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v850 at 2009-08-07T12:00:00
+2025-07-09 03:42:25.292 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u10m at 2009-08-07T12:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
-Fetching ARCO data:  20%|██        | 1/5 [00:00&lt;00:00,  7.38it/s]
-Fetching ARCO data:  80%|████████  | 4/5 [00:00&lt;00:00, 16.27it/s]
-Fetching ARCO data: 100%|██████████| 5/5 [00:00&lt;00:00, 18.53it/s]
+
+2025-07-09 03:42:25.345 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/u_component_of_wind/960732.0.0.0 to local cache
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+2025-07-09 03:42:25.345 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/10m_v_component_of_wind/960732.0.0 to local cache
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+2025-07-09 03:42:25.348 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/v_component_of_wind/960732.0.0.0 to local cache
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+2025-07-09 03:42:25.348 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/mean_sea_level_pressure/960732.0.0 to local cache
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+2025-07-09 03:42:25.355 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/10m_u_component_of_wind/960732.0.0 to local cache
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+Fetching ARCO data:  20%|██        | 1/5 [00:00&lt;00:01,  2.12it/s]
+Fetching ARCO data:  60%|██████    | 3/5 [00:00&lt;00:00,  6.06it/s]
+Fetching ARCO data: 100%|██████████| 5/5 [00:02&lt;00:00,  1.58it/s]
+Fetching ARCO data: 100%|██████████| 5/5 [00:02&lt;00:00,  1.82it/s]
 Step 10: ARCO tracks output shape torch.Size([1, 15, 11, 4])
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:39.893 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u10m at 2009-08-07T18:00:00
+2025-07-09 03:42:28.167 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v850 at 2009-08-07T18:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:39.894 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: msl at 2009-08-07T18:00:00
+2025-07-09 03:42:28.168 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u850 at 2009-08-07T18:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:39.894 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v10m at 2009-08-07T18:00:00
+2025-07-09 03:42:28.168 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: msl at 2009-08-07T18:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:39.895 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u850 at 2009-08-07T18:00:00
+2025-07-09 03:42:28.169 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u10m at 2009-08-07T18:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:39.896 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v850 at 2009-08-07T18:00:00
+2025-07-09 03:42:28.170 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v10m at 2009-08-07T18:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
-Fetching ARCO data:  20%|██        | 1/5 [00:00&lt;00:00,  7.31it/s]
-Fetching ARCO data:  80%|████████  | 4/5 [00:00&lt;00:00, 17.74it/s]
-Fetching ARCO data: 100%|██████████| 5/5 [00:00&lt;00:00, 17.84it/s]
+
+2025-07-09 03:42:28.222 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/u_component_of_wind/960738.0.0.0 to local cache
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+2025-07-09 03:42:28.223 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/mean_sea_level_pressure/960738.0.0 to local cache
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+2025-07-09 03:42:28.225 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/10m_v_component_of_wind/960738.0.0 to local cache
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+2025-07-09 03:42:28.229 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/10m_u_component_of_wind/960738.0.0 to local cache
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+2025-07-09 03:42:28.231 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/v_component_of_wind/960738.0.0.0 to local cache
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+Fetching ARCO data:  20%|██        | 1/5 [00:00&lt;00:02,  1.84it/s]
+Fetching ARCO data:  80%|████████  | 4/5 [00:02&lt;00:00,  1.76it/s]
+Fetching ARCO data: 100%|██████████| 5/5 [00:02&lt;00:00,  1.85it/s]
+Fetching ARCO data: 100%|██████████| 5/5 [00:02&lt;00:00,  1.83it/s]
 Step 11: ARCO tracks output shape torch.Size([1, 16, 12, 4])
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:40.305 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v10m at 2009-08-08T00:00:00
+2025-07-09 03:42:31.038 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v850 at 2009-08-08T00:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:40.306 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: msl at 2009-08-08T00:00:00
+2025-07-09 03:42:31.038 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v10m at 2009-08-08T00:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:40.307 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u10m at 2009-08-08T00:00:00
+2025-07-09 03:42:31.039 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u850 at 2009-08-08T00:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:40.307 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u850 at 2009-08-08T00:00:00
+2025-07-09 03:42:31.040 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: msl at 2009-08-08T00:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:40.307 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v850 at 2009-08-08T00:00:00
+2025-07-09 03:42:31.040 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u10m at 2009-08-08T00:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
-Fetching ARCO data:  20%|██        | 1/5 [00:00&lt;00:00,  7.36it/s]
-Fetching ARCO data:  80%|████████  | 4/5 [00:00&lt;00:00, 16.15it/s]
-Fetching ARCO data: 100%|██████████| 5/5 [00:00&lt;00:00, 18.44it/s]
+
+2025-07-09 03:42:31.096 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/10m_v_component_of_wind/960744.0.0 to local cache
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+2025-07-09 03:42:31.098 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/v_component_of_wind/960744.0.0.0 to local cache
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+2025-07-09 03:42:31.099 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/mean_sea_level_pressure/960744.0.0 to local cache
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+2025-07-09 03:42:31.103 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/u_component_of_wind/960744.0.0.0 to local cache
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+2025-07-09 03:42:31.104 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/10m_u_component_of_wind/960744.0.0 to local cache
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+Fetching ARCO data:  20%|██        | 1/5 [00:00&lt;00:02,  1.99it/s]
+Fetching ARCO data:  60%|██████    | 3/5 [00:00&lt;00:00,  4.83it/s]
+Fetching ARCO data:  80%|████████  | 4/5 [00:02&lt;00:00,  1.29it/s]
+Fetching ARCO data: 100%|██████████| 5/5 [00:03&lt;00:00,  1.48it/s]
+Fetching ARCO data: 100%|██████████| 5/5 [00:03&lt;00:00,  1.65it/s]
 Step 12: ARCO tracks output shape torch.Size([1, 17, 13, 4])
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:41.205 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u10m at 2009-08-08T06:00:00
+2025-07-09 03:42:34.707 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: msl at 2009-08-08T06:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:41.205 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: msl at 2009-08-08T06:00:00
+2025-07-09 03:42:34.708 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u10m at 2009-08-08T06:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:41.206 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v10m at 2009-08-08T06:00:00
+2025-07-09 03:42:34.709 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v850 at 2009-08-08T06:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:41.207 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u850 at 2009-08-08T06:00:00
+2025-07-09 03:42:34.709 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u850 at 2009-08-08T06:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:41.207 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v850 at 2009-08-08T06:00:00
+2025-07-09 03:42:34.710 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v10m at 2009-08-08T06:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
-Fetching ARCO data:  20%|██        | 1/5 [00:00&lt;00:00,  7.39it/s]
-Fetching ARCO data:  80%|████████  | 4/5 [00:00&lt;00:00, 17.83it/s]
-Fetching ARCO data: 100%|██████████| 5/5 [00:00&lt;00:00, 18.30it/s]
+
+2025-07-09 03:42:34.763 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/u_component_of_wind/960750.0.0.0 to local cache
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+2025-07-09 03:42:34.767 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/10m_v_component_of_wind/960750.0.0 to local cache
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+2025-07-09 03:42:34.769 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/mean_sea_level_pressure/960750.0.0 to local cache
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+2025-07-09 03:42:34.770 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/v_component_of_wind/960750.0.0.0 to local cache
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+2025-07-09 03:42:34.771 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/10m_u_component_of_wind/960750.0.0 to local cache
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+Fetching ARCO data:  20%|██        | 1/5 [00:00&lt;00:01,  2.41it/s]
+Fetching ARCO data:  40%|████      | 2/5 [00:00&lt;00:00,  3.59it/s]
+Fetching ARCO data:  80%|████████  | 4/5 [00:02&lt;00:00,  1.26it/s]
+Fetching ARCO data: 100%|██████████| 5/5 [00:02&lt;00:00,  1.71it/s]
+Fetching ARCO data: 100%|██████████| 5/5 [00:02&lt;00:00,  1.71it/s]
 Step 13: ARCO tracks output shape torch.Size([1, 18, 14, 4])
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:41.609 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v10m at 2009-08-08T12:00:00
+2025-07-09 03:42:37.762 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u850 at 2009-08-08T12:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:41.610 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: msl at 2009-08-08T12:00:00
+2025-07-09 03:42:37.763 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: msl at 2009-08-08T12:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:41.611 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u10m at 2009-08-08T12:00:00
+2025-07-09 03:42:37.764 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u10m at 2009-08-08T12:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:41.611 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u850 at 2009-08-08T12:00:00
+2025-07-09 03:42:37.764 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v10m at 2009-08-08T12:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:41.612 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v850 at 2009-08-08T12:00:00
+2025-07-09 03:42:37.765 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v850 at 2009-08-08T12:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
-Fetching ARCO data:  20%|██        | 1/5 [00:00&lt;00:00,  7.40it/s]
-Fetching ARCO data:  80%|████████  | 4/5 [00:00&lt;00:00, 17.83it/s]
-Fetching ARCO data: 100%|██████████| 5/5 [00:00&lt;00:00, 17.97it/s]
+
+2025-07-09 03:42:37.818 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/mean_sea_level_pressure/960756.0.0 to local cache
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+2025-07-09 03:42:37.822 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/v_component_of_wind/960756.0.0.0 to local cache
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+2025-07-09 03:42:37.825 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/10m_v_component_of_wind/960756.0.0 to local cache
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+2025-07-09 03:42:37.826 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/10m_u_component_of_wind/960756.0.0 to local cache
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+2025-07-09 03:42:37.831 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/u_component_of_wind/960756.0.0.0 to local cache
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+Fetching ARCO data:  20%|██        | 1/5 [00:00&lt;00:01,  2.50it/s]
+Fetching ARCO data:  40%|████      | 2/5 [00:00&lt;00:00,  3.29it/s]
+Fetching ARCO data:  80%|████████  | 4/5 [00:02&lt;00:00,  1.42it/s]
+Fetching ARCO data: 100%|██████████| 5/5 [00:02&lt;00:00,  1.59it/s]
+Fetching ARCO data: 100%|██████████| 5/5 [00:02&lt;00:00,  1.68it/s]
 Step 14: ARCO tracks output shape torch.Size([1, 19, 15, 4])
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:42.012 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u10m at 2009-08-08T18:00:00
+2025-07-09 03:42:40.864 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v850 at 2009-08-08T18:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:42.013 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: msl at 2009-08-08T18:00:00
+2025-07-09 03:42:40.865 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: msl at 2009-08-08T18:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:42.013 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v10m at 2009-08-08T18:00:00
+2025-07-09 03:42:40.865 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u850 at 2009-08-08T18:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:42.014 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u850 at 2009-08-08T18:00:00
+2025-07-09 03:42:40.866 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v10m at 2009-08-08T18:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:42.014 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v850 at 2009-08-08T18:00:00
+2025-07-09 03:42:40.866 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u10m at 2009-08-08T18:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
-Fetching ARCO data:  20%|██        | 1/5 [00:00&lt;00:00,  7.14it/s]
-Fetching ARCO data:  80%|████████  | 4/5 [00:00&lt;00:00, 15.69it/s]
-Fetching ARCO data: 100%|██████████| 5/5 [00:00&lt;00:00, 17.91it/s]
+
+2025-07-09 03:42:40.922 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/10m_v_component_of_wind/960762.0.0 to local cache
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+2025-07-09 03:42:40.923 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/v_component_of_wind/960762.0.0.0 to local cache
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+2025-07-09 03:42:40.925 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/u_component_of_wind/960762.0.0.0 to local cache
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+2025-07-09 03:42:40.927 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/mean_sea_level_pressure/960762.0.0 to local cache
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+2025-07-09 03:42:40.930 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/10m_u_component_of_wind/960762.0.0 to local cache
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+Fetching ARCO data:  20%|██        | 1/5 [00:00&lt;00:02,  1.91it/s]
+Fetching ARCO data:  60%|██████    | 3/5 [00:00&lt;00:00,  5.34it/s]
+Fetching ARCO data:  80%|████████  | 4/5 [00:02&lt;00:00,  1.42it/s]
+Fetching ARCO data: 100%|██████████| 5/5 [00:02&lt;00:00,  1.71it/s]
+Fetching ARCO data: 100%|██████████| 5/5 [00:02&lt;00:00,  1.86it/s]
 Step 15: ARCO tracks output shape torch.Size([1, 20, 16, 4])
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:42.426 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v10m at 2009-08-09T00:00:00
+2025-07-09 03:42:43.685 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u10m at 2009-08-09T00:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:42.427 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: msl at 2009-08-09T00:00:00
+2025-07-09 03:42:43.686 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v850 at 2009-08-09T00:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:42.428 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u10m at 2009-08-09T00:00:00
+2025-07-09 03:42:43.686 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v10m at 2009-08-09T00:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:42.428 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u850 at 2009-08-09T00:00:00
+2025-07-09 03:42:43.687 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: msl at 2009-08-09T00:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:42.429 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v850 at 2009-08-09T00:00:00
+2025-07-09 03:42:43.687 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u850 at 2009-08-09T00:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
-Fetching ARCO data:  20%|██        | 1/5 [00:00&lt;00:00,  7.21it/s]
-Fetching ARCO data:  80%|████████  | 4/5 [00:00&lt;00:00, 17.71it/s]
-Fetching ARCO data: 100%|██████████| 5/5 [00:00&lt;00:00, 17.81it/s]
+
+2025-07-09 03:42:43.744 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/10m_v_component_of_wind/960768.0.0 to local cache
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+2025-07-09 03:42:43.744 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/mean_sea_level_pressure/960768.0.0 to local cache
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+2025-07-09 03:42:43.746 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/u_component_of_wind/960768.0.0.0 to local cache
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+2025-07-09 03:42:43.747 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/v_component_of_wind/960768.0.0.0 to local cache
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+2025-07-09 03:42:43.750 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/10m_u_component_of_wind/960768.0.0 to local cache
+
+Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+Fetching ARCO data:  20%|██        | 1/5 [00:00&lt;00:01,  2.24it/s]
+Fetching ARCO data:  40%|████      | 2/5 [00:00&lt;00:00,  3.54it/s]
+Fetching ARCO data:  80%|████████  | 4/5 [00:02&lt;00:00,  1.41it/s]
+Fetching ARCO data: 100%|██████████| 5/5 [00:03&lt;00:00,  1.35it/s]
+Fetching ARCO data: 100%|██████████| 5/5 [00:03&lt;00:00,  1.49it/s]
 Step 16: ARCO tracks output shape torch.Size([1, 21, 17, 4])
 </pre></div>
 </div>
@@ -1033,336 +1404,535 @@ inference loop.</p>
 </div>
 <div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:43.232 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: z1000 at 2009-08-05T00:00:00
+2025-07-09 03:42:47.572 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v400 at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:43.233 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: q1000 at 2009-08-05T00:00:00
+2025-07-09 03:42:47.573 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v10m at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:43.233 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: t400 at 2009-08-05T00:00:00
+2025-07-09 03:42:47.573 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u500 at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:43.234 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: t300 at 2009-08-05T00:00:00
+2025-07-09 03:42:47.574 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: q50 at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:43.234 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: z100 at 2009-08-05T00:00:00
+2025-07-09 03:42:47.575 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u100 at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:43.235 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: msl at 2009-08-05T00:00:00
+2025-07-09 03:42:47.575 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u250 at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:43.236 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: tcwv at 2009-08-05T00:00:00
+2025-07-09 03:42:47.576 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u700 at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:43.236 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: q150 at 2009-08-05T00:00:00
+2025-07-09 03:42:47.576 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: z600 at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:43.237 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u150 at 2009-08-05T00:00:00
+2025-07-09 03:42:47.577 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: q200 at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:43.237 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: q200 at 2009-08-05T00:00:00
+2025-07-09 03:42:47.577 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: q600 at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:43.238 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: z50 at 2009-08-05T00:00:00
+2025-07-09 03:42:47.578 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: t300 at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:43.238 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v700 at 2009-08-05T00:00:00
+2025-07-09 03:42:47.579 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: q100 at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:43.239 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u10m at 2009-08-05T00:00:00
+2025-07-09 03:42:47.579 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v500 at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:43.239 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v850 at 2009-08-05T00:00:00
+2025-07-09 03:42:47.580 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: msl at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:43.240 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: t700 at 2009-08-05T00:00:00
+2025-07-09 03:42:47.580 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v850 at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:43.240 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: z400 at 2009-08-05T00:00:00
+2025-07-09 03:42:47.581 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: t600 at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:43.241 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: t500 at 2009-08-05T00:00:00
+2025-07-09 03:42:47.581 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v300 at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:43.241 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: z500 at 2009-08-05T00:00:00
+2025-07-09 03:42:47.582 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u200 at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:43.242 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: q100 at 2009-08-05T00:00:00
+2025-07-09 03:42:47.582 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: z200 at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:43.243 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: z250 at 2009-08-05T00:00:00
+2025-07-09 03:42:47.583 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v250 at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:43.243 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: t2m at 2009-08-05T00:00:00
+2025-07-09 03:42:47.583 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v100 at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:43.244 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u700 at 2009-08-05T00:00:00
+2025-07-09 03:42:47.584 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: q250 at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:43.244 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v250 at 2009-08-05T00:00:00
+2025-07-09 03:42:47.584 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: q150 at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:43.245 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: q500 at 2009-08-05T00:00:00
+2025-07-09 03:42:47.585 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: q500 at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:43.245 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v400 at 2009-08-05T00:00:00
+2025-07-09 03:42:47.585 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: t250 at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:43.246 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: q925 at 2009-08-05T00:00:00
+2025-07-09 03:42:47.586 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u600 at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:43.246 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v300 at 2009-08-05T00:00:00
+2025-07-09 03:42:47.586 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: q850 at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:43.247 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v925 at 2009-08-05T00:00:00
+2025-07-09 03:42:47.587 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u400 at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:43.247 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u200 at 2009-08-05T00:00:00
+2025-07-09 03:42:47.587 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u300 at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:43.248 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: q600 at 2009-08-05T00:00:00
+2025-07-09 03:42:47.588 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: q925 at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:43.248 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: sp at 2009-08-05T00:00:00
+2025-07-09 03:42:47.589 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: t100 at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:43.249 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u1000 at 2009-08-05T00:00:00
+2025-07-09 03:42:47.589 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: t500 at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:43.249 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: t600 at 2009-08-05T00:00:00
+2025-07-09 03:42:47.590 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v50 at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:43.250 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u100 at 2009-08-05T00:00:00
+2025-07-09 03:42:47.590 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: t200 at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:43.250 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v600 at 2009-08-05T00:00:00
+2025-07-09 03:42:47.591 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u10m at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:43.251 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: t925 at 2009-08-05T00:00:00
+2025-07-09 03:42:47.591 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: q400 at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:43.252 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u400 at 2009-08-05T00:00:00
+2025-07-09 03:42:47.591 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: z150 at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:43.252 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u100m at 2009-08-05T00:00:00
+2025-07-09 03:42:47.592 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v700 at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:43.253 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u925 at 2009-08-05T00:00:00
+2025-07-09 03:42:47.592 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: t700 at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:43.253 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: q250 at 2009-08-05T00:00:00
+2025-07-09 03:42:47.593 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u150 at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:43.254 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v100 at 2009-08-05T00:00:00
+2025-07-09 03:42:47.593 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v150 at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:43.254 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: q400 at 2009-08-05T00:00:00
+2025-07-09 03:42:47.594 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: z700 at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:43.255 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: z200 at 2009-08-05T00:00:00
+2025-07-09 03:42:47.595 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: z925 at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:43.256 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: z925 at 2009-08-05T00:00:00
+2025-07-09 03:42:47.596 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: z300 at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:43.256 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: t150 at 2009-08-05T00:00:00
+2025-07-09 03:42:47.596 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: t2m at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:43.257 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v150 at 2009-08-05T00:00:00
+2025-07-09 03:42:47.597 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: t50 at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:43.257 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: z850 at 2009-08-05T00:00:00
+2025-07-09 03:42:47.597 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: t150 at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:43.258 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u600 at 2009-08-05T00:00:00
+2025-07-09 03:42:47.598 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: q1000 at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:43.258 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: t1000 at 2009-08-05T00:00:00
+2025-07-09 03:42:47.598 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u1000 at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:43.259 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: t250 at 2009-08-05T00:00:00
+2025-07-09 03:42:47.599 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: t400 at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:43.259 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: z700 at 2009-08-05T00:00:00
+2025-07-09 03:42:47.599 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: z100 at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:43.260 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: q300 at 2009-08-05T00:00:00
+2025-07-09 03:42:47.600 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v600 at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:43.260 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u50 at 2009-08-05T00:00:00
+2025-07-09 03:42:47.600 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: t1000 at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:43.261 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u500 at 2009-08-05T00:00:00
+2025-07-09 03:42:47.601 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v925 at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:43.261 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: q50 at 2009-08-05T00:00:00
+2025-07-09 03:42:47.601 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: z400 at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:43.262 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v200 at 2009-08-05T00:00:00
+2025-07-09 03:42:47.602 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u925 at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:43.262 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v50 at 2009-08-05T00:00:00
+2025-07-09 03:42:47.602 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v100m at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:43.263 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: q700 at 2009-08-05T00:00:00
+2025-07-09 03:42:47.603 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: q700 at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:43.263 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: z600 at 2009-08-05T00:00:00
+2025-07-09 03:42:47.603 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v200 at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:43.264 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u300 at 2009-08-05T00:00:00
+2025-07-09 03:42:47.604 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: z1000 at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:43.264 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u250 at 2009-08-05T00:00:00
+2025-07-09 03:42:47.604 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: sp at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:43.265 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v500 at 2009-08-05T00:00:00
+2025-07-09 03:42:47.605 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: z850 at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:43.265 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v100m at 2009-08-05T00:00:00
+2025-07-09 03:42:47.605 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u850 at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:43.266 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: t50 at 2009-08-05T00:00:00
+2025-07-09 03:42:47.606 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u100m at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:43.266 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: t200 at 2009-08-05T00:00:00
+2025-07-09 03:42:47.606 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: t850 at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:43.267 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u850 at 2009-08-05T00:00:00
+2025-07-09 03:42:47.607 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u50 at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:43.268 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v10m at 2009-08-05T00:00:00
+2025-07-09 03:42:47.607 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: q300 at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:43.268 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: t850 at 2009-08-05T00:00:00
+2025-07-09 03:42:47.608 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v1000 at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:43.269 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: t100 at 2009-08-05T00:00:00
+2025-07-09 03:42:47.608 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: t925 at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:43.269 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: q850 at 2009-08-05T00:00:00
+2025-07-09 03:42:47.609 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: z250 at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:43.270 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v1000 at 2009-08-05T00:00:00
+2025-07-09 03:42:47.609 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: z50 at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:43.270 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: z150 at 2009-08-05T00:00:00
+2025-07-09 03:42:47.610 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: z500 at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-06-16 19:20:43.271 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: z300 at 2009-08-05T00:00:00
+2025-07-09 03:42:47.610 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: tcwv at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
-Fetching ARCO data:   1%|▏         | 1/73 [00:03&lt;04:11,  3.49s/it]
-Fetching ARCO data:   7%|▋         | 5/73 [00:03&lt;00:40,  1.66it/s]
-Fetching ARCO data:   8%|▊         | 6/73 [00:04&lt;00:38,  1.76it/s]
-Fetching ARCO data:  30%|███       | 22/73 [00:05&lt;00:06,  7.40it/s]
-Fetching ARCO data: 100%|██████████| 73/73 [00:05&lt;00:00, 13.93it/s]
+
+2025-07-09 03:42:49.315 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/specific_humidity/960672.0.0.0 to local cache
+
+Fetching ARCO data:   0%|          | 0/73 [00:01&lt;?, ?it/s]
+
+2025-07-09 03:42:49.316 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/temperature/960672.0.0.0 to local cache
+
+Fetching ARCO data:   0%|          | 0/73 [00:01&lt;?, ?it/s]
+
+2025-07-09 03:42:49.316 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/specific_humidity/960672.0.0.0 to local cache
+
+Fetching ARCO data:   0%|          | 0/73 [00:01&lt;?, ?it/s]
+
+2025-07-09 03:42:49.316 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/specific_humidity/960672.0.0.0 to local cache
+
+Fetching ARCO data:   0%|          | 0/73 [00:01&lt;?, ?it/s]
+
+2025-07-09 03:42:49.317 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/geopotential/960672.0.0.0 to local cache
+
+Fetching ARCO data:   0%|          | 0/73 [00:01&lt;?, ?it/s]
+Fetching ARCO data:   1%|▏         | 1/73 [00:01&lt;02:07,  1.77s/it]
+
+2025-07-09 03:42:49.521 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/specific_humidity/960672.0.0.0 to local cache
+
+Fetching ARCO data:   1%|▏         | 1/73 [00:01&lt;02:07,  1.77s/it]
+
+2025-07-09 03:42:49.522 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/geopotential/960672.0.0.0 to local cache
+
+Fetching ARCO data:   1%|▏         | 1/73 [00:01&lt;02:07,  1.77s/it]
+
+2025-07-09 03:42:49.522 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/geopotential/960672.0.0.0 to local cache
+
+Fetching ARCO data:   1%|▏         | 1/73 [00:01&lt;02:07,  1.77s/it]
+
+2025-07-09 03:42:49.523 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/2m_temperature/960672.0.0 to local cache
+
+Fetching ARCO data:   1%|▏         | 1/73 [00:01&lt;02:07,  1.77s/it]
+
+2025-07-09 03:42:49.523 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/temperature/960672.0.0.0 to local cache
+
+Fetching ARCO data:   1%|▏         | 1/73 [00:01&lt;02:07,  1.77s/it]
+
+2025-07-09 03:42:49.524 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/temperature/960672.0.0.0 to local cache
+
+Fetching ARCO data:   1%|▏         | 1/73 [00:01&lt;02:07,  1.77s/it]
+
+2025-07-09 03:42:49.524 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/specific_humidity/960672.0.0.0 to local cache
+
+Fetching ARCO data:   1%|▏         | 1/73 [00:01&lt;02:07,  1.77s/it]
+
+2025-07-09 03:42:49.524 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/geopotential/960672.0.0.0 to local cache
+
+Fetching ARCO data:   1%|▏         | 1/73 [00:01&lt;02:07,  1.77s/it]
+
+2025-07-09 03:42:49.525 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/total_column_water_vapour/960672.0.0 to local cache
+
+Fetching ARCO data:   1%|▏         | 1/73 [00:01&lt;02:07,  1.77s/it]
+
+2025-07-09 03:42:49.525 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/geopotential/960672.0.0.0 to local cache
+
+Fetching ARCO data:   1%|▏         | 1/73 [00:01&lt;02:07,  1.77s/it]
+
+2025-07-09 03:42:49.526 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/specific_humidity/960672.0.0.0 to local cache
+
+Fetching ARCO data:   1%|▏         | 1/73 [00:01&lt;02:07,  1.77s/it]
+
+2025-07-09 03:42:49.526 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/specific_humidity/960672.0.0.0 to local cache
+
+Fetching ARCO data:   1%|▏         | 1/73 [00:01&lt;02:07,  1.77s/it]
+
+2025-07-09 03:42:49.526 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/specific_humidity/960672.0.0.0 to local cache
+
+Fetching ARCO data:   1%|▏         | 1/73 [00:01&lt;02:07,  1.77s/it]
+
+2025-07-09 03:42:49.527 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/geopotential/960672.0.0.0 to local cache
+
+Fetching ARCO data:   1%|▏         | 1/73 [00:01&lt;02:07,  1.77s/it]
+
+2025-07-09 03:42:49.527 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/geopotential/960672.0.0.0 to local cache
+
+Fetching ARCO data:   1%|▏         | 1/73 [00:01&lt;02:07,  1.77s/it]
+
+2025-07-09 03:42:49.527 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/geopotential/960672.0.0.0 to local cache
+
+Fetching ARCO data:   1%|▏         | 1/73 [00:01&lt;02:07,  1.77s/it]
+
+2025-07-09 03:42:49.528 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/geopotential/960672.0.0.0 to local cache
+
+Fetching ARCO data:   1%|▏         | 1/73 [00:01&lt;02:07,  1.77s/it]
+Fetching ARCO data:   5%|▌         | 4/73 [00:02&lt;00:30,  2.23it/s]
+
+2025-07-09 03:42:50.023 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/specific_humidity/960672.0.0.0 to local cache
+
+Fetching ARCO data:   5%|▌         | 4/73 [00:02&lt;00:30,  2.23it/s]
+
+2025-07-09 03:42:50.024 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/specific_humidity/960672.0.0.0 to local cache
+
+Fetching ARCO data:   5%|▌         | 4/73 [00:02&lt;00:30,  2.23it/s]
+
+2025-07-09 03:42:50.024 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/geopotential/960672.0.0.0 to local cache
+
+Fetching ARCO data:   5%|▌         | 4/73 [00:02&lt;00:30,  2.23it/s]
+
+2025-07-09 03:42:50.060 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/geopotential/960672.0.0.0 to local cache
+
+Fetching ARCO data:   5%|▌         | 4/73 [00:02&lt;00:30,  2.23it/s]
+
+2025-07-09 03:42:50.061 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/geopotential/960672.0.0.0 to local cache
+
+Fetching ARCO data:   5%|▌         | 4/73 [00:02&lt;00:30,  2.23it/s]
+
+2025-07-09 03:42:50.061 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/temperature/960672.0.0.0 to local cache
+
+Fetching ARCO data:   5%|▌         | 4/73 [00:02&lt;00:30,  2.23it/s]
+
+2025-07-09 03:42:50.062 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/temperature/960672.0.0.0 to local cache
+
+Fetching ARCO data:   5%|▌         | 4/73 [00:02&lt;00:30,  2.23it/s]
+
+2025-07-09 03:42:50.062 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/temperature/960672.0.0.0 to local cache
+
+Fetching ARCO data:   5%|▌         | 4/73 [00:02&lt;00:30,  2.23it/s]
+
+2025-07-09 03:42:50.063 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/geopotential/960672.0.0.0 to local cache
+
+Fetching ARCO data:   5%|▌         | 4/73 [00:02&lt;00:30,  2.23it/s]
+
+2025-07-09 03:42:50.063 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/surface_pressure/960672.0.0 to local cache
+
+Fetching ARCO data:   5%|▌         | 4/73 [00:02&lt;00:30,  2.23it/s]
+
+2025-07-09 03:42:50.063 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/temperature/960672.0.0.0 to local cache
+
+Fetching ARCO data:   5%|▌         | 4/73 [00:02&lt;00:30,  2.23it/s]
+
+2025-07-09 03:42:50.064 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/100m_v_component_of_wind/960672.0.0 to local cache
+
+Fetching ARCO data:   5%|▌         | 4/73 [00:02&lt;00:30,  2.23it/s]
+
+2025-07-09 03:42:50.064 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/temperature/960672.0.0.0 to local cache
+
+Fetching ARCO data:   5%|▌         | 4/73 [00:02&lt;00:30,  2.23it/s]
+
+2025-07-09 03:42:50.065 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/specific_humidity/960672.0.0.0 to local cache
+
+Fetching ARCO data:   5%|▌         | 4/73 [00:02&lt;00:30,  2.23it/s]
+
+2025-07-09 03:42:50.065 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/specific_humidity/960672.0.0.0 to local cache
+
+Fetching ARCO data:   5%|▌         | 4/73 [00:02&lt;00:30,  2.23it/s]
+
+2025-07-09 03:42:50.065 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/temperature/960672.0.0.0 to local cache
+
+Fetching ARCO data:   5%|▌         | 4/73 [00:02&lt;00:30,  2.23it/s]
+
+2025-07-09 03:42:50.066 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/specific_humidity/960672.0.0.0 to local cache
+
+Fetching ARCO data:   5%|▌         | 4/73 [00:02&lt;00:30,  2.23it/s]
+
+2025-07-09 03:42:50.066 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/temperature/960672.0.0.0 to local cache
+
+Fetching ARCO data:   5%|▌         | 4/73 [00:02&lt;00:30,  2.23it/s]
+
+2025-07-09 03:42:50.067 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/temperature/960672.0.0.0 to local cache
+
+Fetching ARCO data:   5%|▌         | 4/73 [00:02&lt;00:30,  2.23it/s]
+
+2025-07-09 03:42:50.067 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/temperature/960672.0.0.0 to local cache
+
+Fetching ARCO data:   5%|▌         | 4/73 [00:02&lt;00:30,  2.23it/s]
+
+2025-07-09 03:42:50.067 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/temperature/960672.0.0.0 to local cache
+
+Fetching ARCO data:   5%|▌         | 4/73 [00:02&lt;00:30,  2.23it/s]
+
+2025-07-09 03:42:50.068 | DEBUG    | earth2studio.data.utils:_make_local_details:629 - Copying /gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/100m_u_component_of_wind/960672.0.0 to local cache
+
+Fetching ARCO data:   5%|▌         | 4/73 [00:02&lt;00:30,  2.23it/s]
+Fetching ARCO data:   7%|▋         | 5/73 [00:02&lt;00:27,  2.43it/s]
+Fetching ARCO data:  41%|████      | 30/73 [00:02&lt;00:01, 22.70it/s]
+Fetching ARCO data:  49%|████▉     | 36/73 [00:05&lt;00:05,  7.32it/s]
+Fetching ARCO data:  55%|█████▍    | 40/73 [00:06&lt;00:06,  5.26it/s]
+Fetching ARCO data:  59%|█████▉    | 43/73 [00:08&lt;00:06,  4.59it/s]
+Fetching ARCO data:  62%|██████▏   | 45/73 [00:08&lt;00:06,  4.38it/s]
+Fetching ARCO data:  64%|██████▍   | 47/73 [00:08&lt;00:05,  4.86it/s]
+Fetching ARCO data:  67%|██████▋   | 49/73 [00:09&lt;00:06,  3.77it/s]
+Fetching ARCO data:  70%|██████▉   | 51/73 [00:10&lt;00:05,  3.72it/s]
+Fetching ARCO data:  71%|███████   | 52/73 [00:10&lt;00:06,  3.35it/s]
+Fetching ARCO data:  73%|███████▎  | 53/73 [00:11&lt;00:05,  3.55it/s]
+Fetching ARCO data:  74%|███████▍  | 54/73 [00:11&lt;00:05,  3.39it/s]
+Fetching ARCO data:  77%|███████▋  | 56/73 [00:11&lt;00:04,  4.09it/s]
+Fetching ARCO data:  78%|███████▊  | 57/73 [00:11&lt;00:03,  4.61it/s]
+Fetching ARCO data:  79%|███████▉  | 58/73 [00:12&lt;00:03,  3.82it/s]
+Fetching ARCO data:  81%|████████  | 59/73 [00:13&lt;00:06,  2.10it/s]
+Fetching ARCO data:  82%|████████▏ | 60/73 [00:14&lt;00:06,  1.88it/s]
+Fetching ARCO data:  85%|████████▍ | 62/73 [00:14&lt;00:03,  2.79it/s]
+Fetching ARCO data:  86%|████████▋ | 63/73 [00:14&lt;00:03,  3.05it/s]
+Fetching ARCO data:  88%|████████▊ | 64/73 [00:14&lt;00:02,  3.25it/s]
+Fetching ARCO data:  90%|█████████ | 66/73 [00:15&lt;00:01,  4.07it/s]
+Fetching ARCO data:  93%|█████████▎| 68/73 [00:15&lt;00:01,  4.03it/s]
+Fetching ARCO data:  96%|█████████▌| 70/73 [00:16&lt;00:00,  3.99it/s]
+Fetching ARCO data:  99%|█████████▊| 72/73 [00:16&lt;00:00,  5.34it/s]
+Fetching ARCO data: 100%|██████████| 73/73 [00:16&lt;00:00,  4.28it/s]
+Fetching ARCO data: 100%|██████████| 73/73 [00:16&lt;00:00,  4.36it/s]
 
 Running inference:   0%|          | 0/17 [00:00&lt;?, ?it/s]Step 0: SFNO tracks output shape torch.Size([1, 7, 1, 4])
 
-Running inference:   6%|▌         | 1/17 [00:00&lt;00:02,  6.62it/s]Step 1: SFNO tracks output shape torch.Size([1, 8, 2, 4])
+Running inference:   6%|▌         | 1/17 [00:00&lt;00:02,  6.46it/s]Step 1: SFNO tracks output shape torch.Size([1, 8, 2, 4])
 
-Running inference:  12%|█▏        | 2/17 [00:00&lt;00:06,  2.16it/s]Step 2: SFNO tracks output shape torch.Size([1, 8, 3, 4])
+Running inference:  12%|█▏        | 2/17 [00:00&lt;00:06,  2.15it/s]Step 2: SFNO tracks output shape torch.Size([1, 8, 3, 4])
 
 Running inference:  18%|█▊        | 3/17 [00:01&lt;00:07,  1.78it/s]Step 3: SFNO tracks output shape torch.Size([1, 9, 4, 4])
 
 Running inference:  24%|██▎       | 4/17 [00:02&lt;00:07,  1.66it/s]Step 4: SFNO tracks output shape torch.Size([1, 10, 5, 4])
 
-Running inference:  29%|██▉       | 5/17 [00:02&lt;00:07,  1.60it/s]Step 5: SFNO tracks output shape torch.Size([1, 10, 6, 4])
+Running inference:  29%|██▉       | 5/17 [00:02&lt;00:07,  1.59it/s]Step 5: SFNO tracks output shape torch.Size([1, 10, 6, 4])
 
-Running inference:  35%|███▌      | 6/17 [00:03&lt;00:07,  1.56it/s]Step 6: SFNO tracks output shape torch.Size([1, 10, 7, 4])
+Running inference:  35%|███▌      | 6/17 [00:03&lt;00:07,  1.55it/s]Step 6: SFNO tracks output shape torch.Size([1, 10, 7, 4])
 
-Running inference:  41%|████      | 7/17 [00:04&lt;00:06,  1.55it/s]Step 7: SFNO tracks output shape torch.Size([1, 11, 8, 4])
+Running inference:  41%|████      | 7/17 [00:04&lt;00:06,  1.54it/s]Step 7: SFNO tracks output shape torch.Size([1, 11, 8, 4])
 
 Running inference:  47%|████▋     | 8/17 [00:04&lt;00:05,  1.52it/s]Step 8: SFNO tracks output shape torch.Size([1, 12, 9, 4])
 
-Running inference:  53%|█████▎    | 9/17 [00:05&lt;00:05,  1.51it/s]Step 9: SFNO tracks output shape torch.Size([1, 13, 10, 4])
+Running inference:  53%|█████▎    | 9/17 [00:05&lt;00:05,  1.50it/s]Step 9: SFNO tracks output shape torch.Size([1, 13, 10, 4])
 
-Running inference:  59%|█████▉    | 10/17 [00:06&lt;00:04,  1.52it/s]Step 10: SFNO tracks output shape torch.Size([1, 14, 11, 4])
+Running inference:  59%|█████▉    | 10/17 [00:06&lt;00:04,  1.51it/s]Step 10: SFNO tracks output shape torch.Size([1, 14, 11, 4])
 
-Running inference:  65%|██████▍   | 11/17 [00:06&lt;00:03,  1.53it/s]Step 11: SFNO tracks output shape torch.Size([1, 15, 12, 4])
+Running inference:  65%|██████▍   | 11/17 [00:06&lt;00:03,  1.52it/s]Step 11: SFNO tracks output shape torch.Size([1, 15, 12, 4])
 
 Running inference:  71%|███████   | 12/17 [00:07&lt;00:03,  1.53it/s]Step 12: SFNO tracks output shape torch.Size([1, 16, 13, 4])
 
 Running inference:  76%|███████▋  | 13/17 [00:08&lt;00:02,  1.51it/s]Step 13: SFNO tracks output shape torch.Size([1, 17, 14, 4])
 
-Running inference:  82%|████████▏ | 14/17 [00:08&lt;00:01,  1.50it/s]Step 14: SFNO tracks output shape torch.Size([1, 18, 15, 4])
+Running inference:  82%|████████▏ | 14/17 [00:08&lt;00:01,  1.51it/s]Step 14: SFNO tracks output shape torch.Size([1, 18, 15, 4])
 
 Running inference:  88%|████████▊ | 15/17 [00:09&lt;00:01,  1.52it/s]Step 15: SFNO tracks output shape torch.Size([1, 19, 16, 4])
 
-Running inference:  94%|█████████▍| 16/17 [00:10&lt;00:00,  1.52it/s]Step 16: SFNO tracks output shape torch.Size([1, 20, 17, 4])
+Running inference:  94%|█████████▍| 16/17 [00:10&lt;00:00,  1.51it/s]Step 16: SFNO tracks output shape torch.Size([1, 20, 17, 4])
 
 Running inference: 100%|██████████| 17/17 [00:10&lt;00:00,  1.50it/s]
 Running inference: 100%|██████████| 17/17 [00:10&lt;00:00,  1.57it/s]
@@ -1462,7 +2032,7 @@ processing steps on the paths which may be enforcing path lengths are above a ce
 threshold or other geography based filters.</p>
 <p>No cyclone tracker is perfect, we encourage users to experiment and tune the tracker
 as needed.</p>
-<p class="sphx-glr-timing"><strong>Total running time of the script:</strong> (0 minutes 47.847 seconds)</p>
+<p class="sphx-glr-timing"><strong>Total running time of the script:</strong> (1 minutes 44.605 seconds)</p>
 <div class="sphx-glr-footer sphx-glr-footer-example docutils container" id="sphx-glr-download-examples-13-cyclone-tracking-py">
 <div class="sphx-glr-download sphx-glr-download-jupyter docutils container">
 <p><a class="reference download internal" download="" href="../_downloads/6d897d8f50be68ecc57b02ba668d45cb/13_cyclone_tracking.ipynb"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">Jupyter</span> <span class="pre">notebook:</span> <span class="pre">13_cyclone_tracking.ipynb</span></code></a></p>
