@@ -48,7 +48,7 @@ In this example you will learn:
 # - Datasource: Pull data from the GFS data api :py:class:`earth2studio.data.GFS`.
 # - Prognostic Model: Use the built in DLWP model :py:class:`earth2studio.models.px.DLWP`.
 # - Perturbation Method: Use the standard Gaussian method :py:class:`earth2studio.perturbation.Gaussian`.
-# - IO Backends: Use a few IO Backends including :py:class:`earth2studio.models.io.AsyncZarrBackend`, :py:class:`earth2studio.models.io.NetCDF4Backend` and :py:class:`earth2studio.models.io.ZarrBackend`.
+# - IO Backends: Use a few IO Backends including :py:class:`earth2studio.io.AsyncZarrBackend`, :py:class:`earth2studio.io.NetCDF4Backend` and :py:class:`earth2studio.io.ZarrBackend`.
 
 # %%
 
@@ -84,7 +84,7 @@ pt = Gaussian()
 # Creating a Simple Ensemble Workflow
 # -----------------------------------
 # Start with creating a simple ensemble inference workflow. This is essentially a
-# simpler version of the built in ensemble workflow :py:method:`earth2studio.run.ensemble`.
+# simpler version of the built in ensemble workflow :py:meth:`earth2studio.run.ensemble`.
 # In this case, this is for an ensemble inference workflow that will predict a 5 day
 # forecast for Christmas 2022. Following standard Earth2Studio practices, the function
 # accepts initialized prognostic, data source, io backend and perturbation method.
@@ -348,7 +348,7 @@ print(
 # backend is working to move the data off the GPU, but also to make sure to wait for
 # write threads to finish before the object is deleted.
 #
-# Note that this backend allows Zarr to be comparable to uncompressed NetCDF even with
+# Note that this backend allows Zarr to be comparable to uncompressed NetCDF even 3x
 # compression!
 
 # %%
@@ -385,16 +385,16 @@ print(
 # instances of the file system.
 # Some examples that may be of interest are:
 #
-# - `from fsspec.implementations.local import LocalFileSystem` (Default, local store)
-# - `from fsspec.implementations.memory import MemoryFileSystem` (in-memory store)
-# - `from s3fs import S3FileSystem` (Remote S3 store)
+# - :code:`from fsspec.implementations.local import LocalFileSystem` (Default, local store)
+# - :code:`from fsspec.implementations.memory import MemoryFileSystem` (in-memory store)
+# - :code:`from s3fs import S3FileSystem` (Remote S3 store)
 #
 # For sake of example, lets have a look at writing to a remote store would require.
 # Compression is a must in this instances, since we need to minimize the data transfer
 # over the network.
 # The file system factory is set to S3 with the appropiate credentials in a partial
 # callable object.
-# Lastly we can increase the max number of thread works with the `pool_size` parameter
+# Lastly we can increase the max number of thread workers with the `pool_size` parameter
 # to further boost performance.
 
 # %%
