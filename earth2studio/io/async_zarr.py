@@ -94,8 +94,8 @@ class AsyncZarrBackend:
         function, by default {"mode": "a"}
     zarr_codecs: CompressorsLike, optional
         Compression codec to use when creating any new arrays. Sharding is not supported
-        for thread safety at the moment. If None, will use the default compressor, by
-        default None
+        for thread safety at the moment. If None, will use no compressor, by default
+        None
 
     Raises
     ------

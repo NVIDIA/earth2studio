@@ -45,7 +45,7 @@ In this example you will learn:
 # %%
 # We need the following components:
 #
-# - Datasource: Pull data from the ARCO data api :py:class:`earth2studio.data.ARCO`.
+# - Datasource: Pull data from the GFS data api :py:class:`earth2studio.data.GFS`.
 # - Prognostic Model: Use the built in DLWP model :py:class:`earth2studio.models.px.DLWP`.
 # - Perturbation Method: Use the standard Gaussian method :py:class:`earth2studio.perturbation.Gaussian`.
 # - IO Backends: Use a few IO Backends including :py:class:`earth2studio.models.io.AsyncZarrBackend`, :py:class:`earth2studio.models.io.NetCDF4Backend` and :py:class:`earth2studio.models.io.ZarrBackend`.
@@ -61,7 +61,7 @@ load_dotenv()  # TODO: make common example prep function
 
 import torch
 
-from earth2studio.data import ARCO, DataSource, fetch_data
+from earth2studio.data import GFS, DataSource, fetch_data
 from earth2studio.io import AsyncZarrBackend, IOBackend, NetCDF4Backend, ZarrBackend
 from earth2studio.models.px import DLWP, PrognosticModel
 from earth2studio.perturbation import Gaussian, Perturbation
@@ -75,7 +75,7 @@ model = DLWP.load_model(package)
 model = model.to(device)
 
 # Create the ERA5 data source
-ds = ARCO()
+ds = GFS()
 
 # Create perturbation method
 pt = Gaussian()
@@ -84,13 +84,14 @@ pt = Gaussian()
 # Creating a Simple Ensemble Workflow
 # -----------------------------------
 # Start with creating a simple ensemble inference workflow. This is essentially a
-# simplier version of the built in ensemble workflow :py:method:`earth2studio.run.ensemble`.
+# simpler version of the built in ensemble workflow :py:method:`earth2studio.run.ensemble`.
 # In this case, this is for an ensemble inference workflow that will predict a 5 day
-# forecast for Christmas 2023. Following standard Earth2Studio practices, the function
+# forecast for Christmas 2022. Following standard Earth2Studio practices, the function
 # accepts initialized prognostic, data source, io backend and perturbation method.
 
 # %%
 
+import os
 import time
 from datetime import datetime, timedelta
 
@@ -101,7 +102,7 @@ from earth2studio.utils.coords import map_coords, split_coords
 from earth2studio.utils.time import to_time_array
 
 times = [datetime(2022, 12, 20)]
-nsteps = 12  # Assuming 6-hour time steps
+nsteps = 20  # Assuming 6-hour time steps
 
 
 def christmas_five_day_ensemble(
@@ -111,7 +112,7 @@ def christmas_five_day_ensemble(
     data: DataSource,
     io: IOBackend,
     perturbation: Perturbation,
-    nensemble: int = 4,
+    nensemble: int = 8,
     device: str = "cuda",
 ) -> None:
     """Ensemble inference example"""
@@ -168,7 +169,7 @@ def christmas_five_day_ensemble(
         leave=False,
     ) as pbar:
         for step, (x, coords) in enumerate(model):
-            # Dump result to IO, split_coords seperates variables to different arrays
+            # Dump result to IO, split_coords separates variables to different arrays
             io.write(*split_coords(x, coords))
             pbar.update(1)
             if step == nsteps:
@@ -176,13 +177,26 @@ def christmas_five_day_ensemble(
     # ==========================================
 
 
+def get_folder_size(folder_path: str) -> int:
+    """Get folder size in megabytes"""
+    if os.path.isfile(folder_path):
+        return os.path.getsize(folder_path) / (1024 * 1024)
+
+    total_size = 0
+    for dirpath, dirnames, filenames in os.walk(folder_path):
+        for filename in filenames:
+            file_path = os.path.join(dirpath, filename)
+            total_size += os.path.getsize(file_path)
+    return total_size / (1024 * 1024)
+
+
 # %%
 # Local Storage Zarr IO
-# --------------------
+# ---------------------
 # As a base line, lets run the Zarr IO backend saving it to local disk.
 # Local IO storage is typically preferred since we can then access the data after the
 # inference pipeline is finished using standard libraries.
-# Chunking play an important roll on performance, both with respect to compression and
+# Chunking play an important role on performance, both with respect to compression and
 # also when accessing data.
 # Here we will chunk the output data based on time and lead_time
 
@@ -197,7 +211,48 @@ io = ZarrBackend(
 start_time = time.time()
 christmas_five_day_ensemble(times, nsteps, model, ds, io, pt, device=device)
 zarr_local_clock = time.time() - start_time
-print(f"\nLocal zarr store inference time {zarr_local_clock}")
+
+# %%
+
+print(f"\nLocal zarr store inference time: {zarr_local_clock}s")
+print(
+    f"Uncompressed zarr store size: {get_folder_size('outputs/17_io_sync.zarr'):.2f} MB"
+)
+
+# %%
+# Compressed Local Storage Zarr IO
+# --------------------------------
+# By default the Zarr IO backends will be uncompressed.
+# In many instances this is fine, when data volumes are low.
+# However, in instances that we are writing a very large amount of data or the data
+# needs to get sent over the network to a remote store, compression is essential.
+# With the standard Zarr backend, this will cause a very noticable slow down, but note
+# that the output store will be 3x smaller!
+
+# %%
+
+import zarr
+
+io = ZarrBackend(
+    "outputs/17_io_sync_compressed.zarr",
+    chunks={"time": 1, "lead_time": 1},
+    backend_kwargs={"overwrite": True},
+    zarr_codecs=zarr.codecs.BloscCodec(
+        cname="zstd", clevel=3, shuffle=zarr.codecs.BloscShuffle.shuffle
+    ),  # Zarrs default
+)
+
+start_time = time.time()
+christmas_five_day_ensemble(times, nsteps, model, ds, io, pt, device=device)
+zarr_local_clock = time.time() - start_time
+
+# %%
+
+print(f"\nLocal compressed zarr store inference time: {zarr_local_clock}s")
+print(
+    f"Compressed zarr store size: {get_folder_size('outputs/17_io_sync_compressed.zarr'):.2f} MB"
+)
+
 
 # %%
 # Local Storage NetCDF IO
@@ -213,20 +268,25 @@ io = NetCDF4Backend("outputs/17_io_sync.nc", backend_kwargs={"mode": "w"})
 start_time = time.time()
 christmas_five_day_ensemble(times, nsteps, model, ds, io, pt, device=device)
 nc_local_clock = time.time() - start_time
-print(f"\nLocal netcdf store inference time {nc_local_clock}")
+
+# %%
+
+print(f"\nLocal netcdf store inference time: {nc_local_clock}s")
+print(
+    f"Uncompressed zarr store size: {get_folder_size('outputs/17_io_sync.nc'):.2f} MB"
+)
 
 # %%
 # In Memory Zarr IO
 # -----------------
-# Zarr IO to disk was noticably slower than the NetCDF when writing to local disk,
-# in part due to the compression pipeline in Zarr
-# Take a look at the size of the netCDF file vs the Zarr store
-# Bear in mind that this
-# does not imply NetCDF4 will always be faster than Zarr. One way we can speed up IO is
-# to save outputs to in-memory stores.
+# Zarr IO to disk was noticeably slower than the NetCDF when writing to local disk,
+# in part due to the compression pipeline in Zarr.
+# Take a look at the size of the netCDF file vs the Zarr store to prove this.
+# Bear in mind that this does not imply NetCDF4 will always be faster than Zarr.
+# One way we can speed up IO is to save outputs to in-memory stores.
 #
 # In-memory stores more limited in size depending on the hardware being used.
-# Also one needs to be careful with in memory stores, once the python object is deleted
+# Also one needs to be careful with in memory stores, once the Python object is deleted
 # the data is gone.
 
 # %%
@@ -237,11 +297,14 @@ io = ZarrBackend(
 start_time = time.time()
 christmas_five_day_ensemble(times, nsteps, model, ds, io, pt, device=device)
 zarr_memory_clock = time.time() - start_time
-print(f"\nIn memory zarr store inference time {zarr_memory_clock}")
 
 # %%
-# Local Async Zarr IO
-# --------------------
+
+print(f"\nIn memory zarr store inference time: {zarr_memory_clock}s")
+
+# %%
+# Compressed Local Async Zarr IO
+# ------------------------------
 # The async Zarr IO backend is an advanced IO backend designed to offer async
 # Zarr 3.0 writes to in-memory, local and remote data stores.
 # This data source is ideal when large volumes of data are needed to be written and
@@ -260,22 +323,37 @@ parallel_coords = {
     "time": np.asarray(times),
     "lead_time": np.asarray([timedelta(hours=6 * i) for i in range(nsteps + 1)]),
 }
-io = AsyncZarrBackend("outputs/17_io_async.zarr", parallel_coords=parallel_coords)
+io = AsyncZarrBackend(
+    "outputs/17_io_async.zarr",
+    parallel_coords=parallel_coords,
+    zarr_codecs=zarr.codecs.BloscCodec(
+        cname="zstd", clevel=3, shuffle=zarr.codecs.BloscShuffle.shuffle
+    ),
+)
 start_time = time.time()
 christmas_five_day_ensemble(times, nsteps, model, ds, io, pt, device=device)
 zarr_async_clock = time.time() - start_time
-print(f"\nAsync zarr store inference time {zarr_async_clock}")
 
 # %%
-# Local Non-Blocking Async Zarr IO
-# --------------------------------
-# That was faster than the normal Zarr method making it compariable to NetCDF, but we
-# can still improve with this IO backend.
+
+print(f"\nAsync zarr store inference time: {zarr_async_clock}s")
+print(
+    f"Compressed async zarr store size: {get_folder_size('outputs/17_io_async.zarr'):.2f} MB"
+)
+
+# %%
+# Compressed Local Non-Blocking Async Zarr IO
+# -------------------------------------------
+# That was faster than the normal Zarr method, even the uncompressed version making it
+# compariable to NetCDF, but we can still improve with this IO backend.
 # A unique feature of this particular backend is running in non-blocking mode, namely
 # IO writes will be placed onto other threads.
 # Users do need to be careful with this to both ensure data is not mutated while the IO
 # backend is working to move the data off the GPU, but also to make sure to wait for
 # write threads to finish before the object is deleted.
+#
+# Note that this backend allows use to be comparable to uncompressed NetCDF even with
+# compression.
 
 # %%
 
@@ -283,13 +361,22 @@ io = AsyncZarrBackend(
     "outputs/17_io_nonblocking_async.zarr",
     parallel_coords=parallel_coords,
     blocking=False,
+    zarr_codecs=zarr.codecs.BloscCodec(
+        cname="zstd", clevel=3, shuffle=zarr.codecs.BloscShuffle.shuffle
+    ),
 )
 start_time = time.time()
 christmas_five_day_ensemble(times, nsteps, model, ds, io, pt, device=device)
 # IMPORTANT: Make sure to call close to ensure IO backend threads have finished!
 io.close()
 zarr_nonblocking_async_clock = time.time() - start_time
-print(f"\nNon-blocking async zarr store inference time {zarr_nonblocking_async_clock}")
+
+# %%
+
+print(f"\nNon-blocking async zarr store inference time: {zarr_async_clock}s")
+print(
+    f"Compressed non-blocking async zarr store size: {get_folder_size('outputs/17_io_nonblocking_async.zarr'):.2f} MB"
+)
 
 # %%
 # Remote Non-Blocking Async Zarr IO
@@ -304,7 +391,13 @@ print(f"\nNon-blocking async zarr store inference time {zarr_nonblocking_async_c
 # - `from fsspec.implementations.memory import MemoryFileSystem` (in-memory store)
 # - `from s3fs import S3FileSystem` (Remote S3 store)
 #
-# For sake of example, lets have a look at writing to a remote store would require:
+# For sake of example, lets have a look at writing to a remote store would require.
+# Compression is a must in this instances, since we need to minimize the data transfer
+# over the network.
+# The file system factory is set to S3 with the appropiate credentials in a partial
+# callable object.
+# Lastly we can increase the max number of thread works with the `pool_size` parameter
+# to further boost performance.
 
 # %%
 
@@ -322,19 +415,32 @@ if "S3FS_KEY" in os.environ and "S3FS_SECRET" in os.environ:
         asynchronous=True,
     )
     io = AsyncZarrBackend(
-        "earth2studio/ci/example/17_io_sync.zarr",
+        "earth2studio/ci/example/17_io_async.zarr",
         parallel_coords=parallel_coords,
         fs_factory=fs_factory,
         blocking=False,
+        pool_size=16,
+        zarr_codecs=zarr.codecs.BloscCodec(
+            cname="zstd", clevel=3, shuffle=zarr.codecs.BloscShuffle.shuffle
+        ),
     )
     start_time = time.time()
     christmas_five_day_ensemble(times, nsteps, model, ds, io, pt, device=device)
     # IMPORTANT: Make sure to call close to ensure IO backend threads have finished!
     io.close()
     zarr_nonblocking_async_clock = time.time() - start_time
+
+    # %%
     print(
-        f"\nNon-blocking async zarr remote store inference time {zarr_nonblocking_async_clock}"
+        f"\nNon-blocking async zarr remote store inference time: {zarr_nonblocking_async_clock}s"
     )
+    # To clean up the zarr store you can use
+    # fs = s3fs.S3FileSystem(
+    #     key=os.environ["S3FS_KEY"],
+    #     secret=os.environ["S3FS_SECRET"],
+    #     client_kwargs={"endpoint_url": os.environ.get("S3FS_ENDPOINT", None)},
+    # )
+    # fs.rm("earth2studio/ci/example/17_io_async.zarr", recursive=True)
 
 # %%
 # Post-Processing
