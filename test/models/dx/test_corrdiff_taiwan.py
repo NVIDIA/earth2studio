@@ -31,7 +31,7 @@ class PhooCorrDiff(torch.nn.Module):
     sigma_max = float("inf")
 
     def forward(
-        self, x, img_lr, sigma, class_labels=None, force_fp32=False, **model_kwargs
+        self, x, img_lr, sigma=None, class_labels=None, force_fp32=False, **model_kwargs
     ):
         return x[:, :4]
 
