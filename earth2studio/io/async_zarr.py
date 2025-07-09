@@ -86,7 +86,7 @@ class AsyncZarrBackend:
         API to ensure all threads have finished / cleaned up, by default True
     pool_size : int, optional
         The thread / async loop pool used with the synchronous write API in non-blocking
-        mode, by default 4
+        mode, by default 8
     async_timeout : int, optional
         Async operation timeout for a given write operation, by default 600
     zarr_kwargs : dict[str, Any], optional
@@ -111,7 +111,7 @@ class AsyncZarrBackend:
         parallel_coords: CoordSystem,
         fs_factory: Callable[..., fsspec.spec.AbstractFileSystem] = LocalFileSystem,
         blocking: bool = True,
-        pool_size: int = 4,
+        pool_size: int = 8,
         async_timeout: int = 600,
         zarr_kwargs: dict[str, Any] = {"mode": "a"},
         zarr_codecs: CompressorsLike = None,

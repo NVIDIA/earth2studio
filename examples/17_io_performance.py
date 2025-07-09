@@ -170,6 +170,7 @@ def christmas_five_day_ensemble(
     ) as pbar:
         for step, (x, coords) in enumerate(model):
             # Dump result to IO, split_coords separates variables to different arrays
+            x, coords = map_coords(x, coords, {"variable": np.array(["t2m", "tcwv"])})
             io.write(*split_coords(x, coords))
             pbar.update(1)
             if step == nsteps:
@@ -368,7 +369,9 @@ zarr_nonblocking_async_clock = time.time() - start_time
 
 # %%
 
-print(f"\nNon-blocking async zarr store inference time: {zarr_async_clock}s")
+print(
+    f"\nNon-blocking async zarr store inference time: {zarr_nonblocking_async_clock}s"
+)
 print(
     f"Compressed non-blocking async zarr store size: {get_folder_size('outputs/17_io_nonblocking_async.zarr'):.2f} MB"
 )
@@ -419,16 +422,10 @@ if "S3FS_KEY" in os.environ and "S3FS_SECRET" in os.environ:
             cname="zstd", clevel=3, shuffle=zarr.codecs.BloscShuffle.shuffle
         ),
     )
-    start_time = time.time()
-    christmas_five_day_ensemble(times, nsteps, model, ds, io, pt, device=device)
+    christmas_five_day_ensemble(times, 4, model, ds, io, pt, device=device)
     # IMPORTANT: Make sure to call close to ensure IO backend threads have finished!
     io.close()
-    zarr_nonblocking_async_clock = time.time() - start_time
 
-    # %%
-    print(
-        f"\nNon-blocking async zarr remote store inference time: {zarr_nonblocking_async_clock}s"
-    )
     # To clean up the zarr store you can use
     # fs = s3fs.S3FileSystem(
     #     key=os.environ["S3FS_KEY"],
