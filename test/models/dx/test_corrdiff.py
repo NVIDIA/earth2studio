@@ -456,7 +456,7 @@ class TestCorrDiffForward:
             )
 
         with pytest.raises(ValueError):
-            lat_input_grid = model.lat_input_grid
+            lat_input_grid = model.lat_input_grid.clone()
             lat_input_grid[0] = 100
             model._check_latlon_grid(
                 lat_input_grid,
