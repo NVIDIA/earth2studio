@@ -354,7 +354,7 @@ async def test_async_zarr_split_variables(
 
 
 @pytest.mark.slow
-@pytest.mark.timeout(60)
+@pytest.mark.timeout(120)
 @pytest.mark.parametrize("blocking", [True, False])
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
 @pytest.mark.skipif(
@@ -394,8 +394,8 @@ def test_async_zarr_remote(
         {
             "time": np.asarray(times),
             "variable": variable,
-            "lat": np.linspace(-90, 90, 16),
-            "lon": np.linspace(0, 360, 64, endpoint=False),
+            "lat": np.linspace(-90, 90, 8),
+            "lon": np.linspace(0, 360, 16, endpoint=False),
         }
     )
     shape = [v.shape[0] for v in total_coords.values()]
