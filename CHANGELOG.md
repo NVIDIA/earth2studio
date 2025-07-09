@@ -10,13 +10,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Async Zarr IO backend with non-blocking write calls
+- Different compression codec support in the ZarrBackend with `zarr_codecs` parameter
+- IO performance example
+
 ### Changed
+
+- Zarr IO Backend now uncompressed by default
 
 ### Deprecated
 
 ### Removed
 
 ### Fixed
+
+- DLWP output coords lead_time array to have proper shape
 
 ### Security
 

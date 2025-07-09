@@ -403,7 +403,7 @@ class DLWP(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
             # Rear hook for first predicted step
             coords_out = coords.copy()
-            coords_out["lead_time"] = coords["lead_time"][0]
+            coords_out["lead_time"] = coords["lead_time"][0:1]
             x[:, :, :1], coords_out = self.rear_hook(x[:, :, :1], coords_out)
 
             # Output first predicted step
@@ -411,7 +411,7 @@ class DLWP(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             yield out, coords_out
 
             # Rear hook for second predicted step
-            coords_out["lead_time"] = coords["lead_time"][-1]
+            coords_out["lead_time"] = coords["lead_time"][-1:]
             x[:, :, 1:], coords_out = self.rear_hook(x[:, :, 1:], coords_out)
             out = self.to_equirectangular(x[:, :, 1:])
             yield out, coords_out
