@@ -41,8 +41,7 @@ except Exception:
     zarr_major_version = 2
 
 if zarr_major_version >= 3:
-    import zarr.AsyncGroup as AsyncGroup
-    import zarr.core.group.AsyncGroup as AsyncCoreGroup
+    from zarr import AsyncGroup as AsyncGroup
     from zarr.core.array import CompressorsLike
 else:
     AsyncGroup = Any
@@ -571,7 +570,7 @@ class AsyncZarrBackend:
         self,
         x: dict[str, torch.Tensor],
         coords: CoordSystem,
-        zs: AsyncCoreGroup,
+        zs: AsyncGroup,
         fs: fsspec.AbstractFileSystem,
     ) -> None:
         """_summary_
