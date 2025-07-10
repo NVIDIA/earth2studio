@@ -25,6 +25,7 @@ from earth2studio.data import DataSource, fetch_data
 from earth2studio.models.px import PrognosticModel
 from earth2studio.perturbation.base import Perturbation
 from earth2studio.utils import handshake_dim, handshake_size
+from earth2studio.utils.coords import map_coords
 from earth2studio.utils.time import to_time_array
 from earth2studio.utils.type import CoordSystem, TimeArray
 
@@ -45,7 +46,8 @@ class HemisphericCentredBredVector:
     data : DataSource
         data source for obtaining warmup time steps
     seeding_perturbation_method : Perturbation, optional
-        Method to seed the Bred Vector perturbation
+        Method to seed the Bred Vector perturbation that will be applied to the initial
+        input of the model.
     noise_amplitude : float | Tensor, optional
         Noise amplitude, by default 0.05. If a tensor, this must be broadcastable with
         the input data
@@ -105,6 +107,9 @@ class HemisphericCentredBredVector:
             lead_time=input_coords["lead_time"],
             device="cpu",
         )
+        input_coords["time"] = to_time_array(warmup_times)
+        input_data, data_coords = map_coords(input_data, data_coords, input_coords)
+
         coords = OrderedDict(
             [("batch", np.arange(batch_size))] + list(data_coords.items())
         )
@@ -126,19 +131,14 @@ class HemisphericCentredBredVector:
         for ii in range(self.integration_steps):
             xunp, _ = self.model(xunp, coords)
             xper, _ = self.model(xper, coords)
-
             dx = xper - xunp
+
             hem_norm = self.hemispheric_norm(dx, device)
+            # Replace zero elements with 1 in hemispheric norm, we do this because when
+            # hem norm is zero we know dx is 0, so this just makes the next line computable
+            hem_norm[hem_norm == 0] = 1
 
-            # if zero elements are requierd, replace NaNs in scaled dx with 0
-            if (hem_norm == 0).any():
-                raise ValueError(
-                    "zero element in hemispheric norm, maybe noise amplification too small?"
-                )
-
-            # scale dx
             dx = self.noise_amplitude * (dx / hem_norm)
-
             xunp = (
                 input_data[ii + 1]
                 .unsqueeze(dim=0)

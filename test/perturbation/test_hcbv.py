@@ -96,8 +96,8 @@ def test_hem_centered_bred(
     # Domain coordinates
     dc = OrderedDict(
         [
-            ("lat", [f"{nn}" for nn in range(16)]),
-            ("lon", [f"{nn}" for nn in range(16)]),
+            ("lat", np.arange(16)),
+            ("lon", np.arange(16)),
         ]
     )
     fc = OrderedDict(
@@ -138,7 +138,9 @@ def test_hem_centered_bred(
     # Don't have a good statistical test for this at the moment
     assert dx.shape == x.shape
     assert dx.device == x.device
-    assert model.index == steps * 2
+    assert (
+        model.index == steps * 2
+    )  # x2 here because model forward twice each bred step
 
     # Validate that the clip variables are non-negative
     for var in range(len(variable)):
@@ -146,6 +148,26 @@ def test_hem_centered_bred(
             assert (xout[:, :, :, var, :, :] >= 0).all()
         else:
             assert not (xout[:, :, :, var, :, :] >= 0).all()
+
+    # Test data source which needs a map_coords
+    dc_diff = OrderedDict(
+        [
+            ("lat", np.arange(20)),
+            ("lon", np.arange(20)),
+        ]
+    )
+    data_source = Random(dc_diff)
+    prtb = HemisphericCentredBredVector(
+        model=model,
+        data=data_source,
+        seeding_perturbation_method=seeding_perturbation_method,
+        noise_amplitude=amplitude,
+        integration_steps=steps,
+    )
+    xout, coords = prtb(x, coords)
+    # Don't have a good statistical test for this at the moment
+    assert xout.shape == x.shape
+    assert xout.device == x.device
 
 
 @pytest.mark.parametrize(
