@@ -41,7 +41,7 @@ except Exception:
     zarr_major_version = 2
 
 if zarr_major_version >= 3:
-    from zarr import AsyncGroup as AsyncGroup
+    from zarr import AsyncGroup
     from zarr.core.array import CompressorsLike
 else:
     AsyncGroup = Any
