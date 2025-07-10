@@ -129,7 +129,7 @@ class HemisphericCentredBredVector:
         xper, coords = self.seeding_perturbation_method(xunp, coords)
 
         for ii in range(self.integration_steps):
-            xunp, _coords = self.model(xunp, coords)
+            xunp, _ = self.model(xunp, coords)
             xper, _ = self.model(xper, coords)
             dx = xper - xunp
 
