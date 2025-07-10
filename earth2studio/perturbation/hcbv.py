@@ -107,7 +107,7 @@ class HemisphericCentredBredVector:
             lead_time=input_coords["lead_time"],
             device="cpu",
         )
-        input_coords["time"] = warmup_times
+        input_coords["time"] = to_time_array(warmup_times)
         input_data, data_coords = map_coords(input_data, data_coords, input_coords)
 
         coords = OrderedDict(
