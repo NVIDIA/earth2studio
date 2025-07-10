@@ -14,11 +14,13 @@ etc.
 
 ### Software
 
-Pyproject TOML / reqirements.txt handles any Python dependencies.
+Pyproject TOML / recipe-requirements.txt handles any Python dependencies.
 
 ```bash
-uv export --format requirements-txt --no-hashes > requirements.txt
+uv export --format requirements-txt --no-hashes > recipe-requirements.txt
 ```
+
+Note that this is not called `requirements.txt` due to tooling conflicts.
 
 If there are system dependencies needed list them here, e.g.
 
@@ -58,11 +60,11 @@ Run the template
 uv run python main.py
 
 >> Hello
->> 0.7.0
+>> 0.8.1
 
 uv run python main.py print.hello False
 
->> 0.7.0
+>> 0.8.1
 ```
 
 ## Documentation

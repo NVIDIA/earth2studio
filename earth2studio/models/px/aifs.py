@@ -808,16 +808,18 @@ class AIFS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         coords: CoordSystem,
     ) -> tuple[torch.Tensor, CoordSystem]:
         """Runs prognostic model 1 step.
+
         Parameters
         ----------
         x : torch.Tensor
             Input tensor
         coords : CoordSystem
             Input coordinate system
+
         Returns
-        ------
-        x : torch.Tensor
-        coords : CoordSystem
+        -------
+        tuple[torch.Tensor, CoordSystem]
+            Output tensor and coordinate system 6 hours in the future
         """
         _ = self.output_coords(coords)  # NOTE: Quick fix for exception handling
         x = self._prepare_input(x, coords)

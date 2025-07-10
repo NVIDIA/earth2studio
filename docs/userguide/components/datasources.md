@@ -2,10 +2,12 @@
 
 # Data Sources
 
-Datasources are objects used to access data that is typically viewed as ground-truth
-data used typically as an initial state for inference of an AI model.
-But data sources can also be used for providing target data to evaluate the accuracy
-of a particular model.
+Datasources are objects that offer a simple API to access a "dataset" of weather/climate
+data at a certain index.
+Many implemented in the package provide access to data generated from numerical models,
+data assimulation results or even generative AI models.
+These are typically as an initial state for inference of an AI model or some other
+downstream task or target data to evaluate the accuracy of a particular model.
 Data sources may be remote cloud based data stores or files on your local machine.
 The list of datasources that are already built into Earth2studio can be found in
 the API documentation {ref}`earth2studio.data`.

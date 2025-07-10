@@ -157,7 +157,7 @@ def test_sfno_exceptions(dc, device):
         p(x, coords)
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="function")
 def model(model_cache_context) -> SFNO:
     # Test only on cuda device
     with model_cache_context():

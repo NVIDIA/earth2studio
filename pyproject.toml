@@ -21,7 +21,6 @@ dependencies = [
     "huggingface-hub>=0.27.0",
     "loguru",
     "netCDF4>=1.6.4",
-    "ngcsdk>=3.62.0",
     "nest_asyncio", # TODO Remove
     "python-dotenv",
     "s3fs>=2023.5.0",
@@ -68,7 +67,6 @@ perturbation = [
     "torch-harmonics>=0.7.4",
 ]
 statistics = [
-    "onnx-weekly ; python_full_version >= '3.13'",
     "nvidia-physicsnemo>=1.0.1",
 ]
 # PX Models
@@ -92,34 +90,28 @@ dlesym = [
     "hydra-core>=1.3.2",
 ]
 dlwp = [
-    "onnx-weekly ; python_full_version >= '3.13'",
     "nvidia-physicsnemo>=1.0.1",
     "importlib_metadata",
 ]
 fcn = [
-    "onnx-weekly ; python_full_version >= '3.13'",
     "nvidia-physicsnemo>=1.0.1",
 ]
 fengwu = [
-    "onnx-weekly ; python_full_version >= '3.13'",
     "onnxruntime-gpu>=1.21.0",
 ]
 fuxi = [
-    "onnx-weekly ; python_full_version >= '3.13'",
     "onnxruntime-gpu>=1.21.0",
 ]
 graphcast = [
     "graphcast",
-    "dm-haiku==0.0.14",
+    "dm-haiku>=0.0.14",
     "jax[cuda12]>=0.4.26",
     "flax>=0.10.6",
 ]
 interp-modafno = [
-    "onnx-weekly ; python_full_version >= '3.13'",
     "nvidia-physicsnemo>=1.0.1",
 ]
 pangu = [
-    "onnx-weekly ; python_full_version >= '3.13'",
     "onnxruntime-gpu>=1.21.0",
 ]
 sfno = [
@@ -127,7 +119,6 @@ sfno = [
     "makani[all]",
     "numba>=0.61.0",
     "pynvml>=12.0.0",
-    "onnx-weekly ; python_full_version >= '3.13'",
     "ruamel-yaml>=0.18.10",
     "tensorly>=0.9.0",
     "tensorly-torch>=0.5.0",
@@ -135,7 +126,6 @@ sfno = [
 ]
 stormcast = [
     "einops>=0.8.1",
-    "onnx-weekly ; python_full_version >= '3.13'",
     "nvidia-physicsnemo>=1.0.1",
     "nvtx>=0.2.11",
     "omegaconf>=2.3.0",
@@ -143,40 +133,38 @@ stormcast = [
     "pyproj>=3.7.1",
 ]
 # DX Models
+cbottle = [
+    "cbottle ; python_full_version >= '3.12'",
+]
 climatenet = []
 corrdiff = [
     "einops>=0.8.1",
-    "onnx-weekly ; python_full_version >= '3.13'",
     "nvidia-physicsnemo>=1.0.1",
     "nvtx>=0.2.11",
     "scipy>=1.15.2",
 ]
 cyclone = [
-    "cucim-cu12>=25.4.0 ; python_full_version < '3.13'",
+    "cucim-cu12>=25.4.0",
     "scikit-image>=0.25.2",
 ]
 derived = []
 precip-afno = [
-    "onnx-weekly ; python_full_version >= '3.13'",
     "nvidia-physicsnemo>=1.0.1",
 ]
 precip-afno-v2 = [
-    "onnx-weekly ; python_full_version >= '3.13'",
     "nvidia-physicsnemo>=1.0.1",
 ]
 solarradiation-afno = [
-    "onnx-weekly ; python_full_version >= '3.13'",
     "nvidia-physicsnemo>=1.0.1",
 ]
 windgust-afno = [
-    "onnx-weekly ; python_full_version >= '3.13'",
     "nvidia-physicsnemo>=1.0.1",
 ]
 # All, must not have conflicts
 all = [
     "earth2studio[data,perturbation,statistics]",
     "earth2studio[aurora-fork,dlesym,dlwp,fcn,fengwu,interp-modafno,pangu,sfno,stormcast,graphcast]",
-    "earth2studio[climatenet,corrdiff,precip-afno,cyclone,precip-afno-v2,solarradiation-afno,windgust-afno]",
+    "earth2studio[cbottle,climatenet,corrdiff,precip-afno,cyclone,precip-afno-v2,solarradiation-afno,windgust-afno]",
 ]
 
 # ==== UV configuration ====
@@ -214,10 +202,10 @@ conflicts = [
 default-groups = ["dev", "build"]
 # Needed for some packages that build with PEP 518
 no-build-isolation-package = ["earth2grid", "flash-attn"]
-# Force onnx to only try to install when below 3.13, otherwise we will use onnx weekly
-override-dependencies = ["onnx; python_full_version < '3.13'"]
+override-dependencies = []
 
 [tool.uv.sources]
+cbottle = { git = "https://github.com/NVlabs/cBottle.git", rev = "0b8c6787053dc80f14fbb68a54d6815749c9d0e9" }
 earth2grid = { git = "https://github.com/NVlabs/earth2grid.git", rev = "aefb10793aa372bae7d0951d627a89e2983fd0ca" }
 makani = { git = "https://github.com/NickGeneva/modulus-makani.git", rev = "3da09f9e52a6393839d73d44262779ac7279bc2f" }
 microsoft-aurora = { git = "https://github.com/NickGeneva/aurora.git", rev = "ab41cf1de67d5dcc723b96fc9a6219e4b548d181" }
@@ -272,7 +260,7 @@ docs = [
     "sphinx-togglebutton>=0.3.0",
     "myst-parser>=0.18.0",
     "sphinx-favicon>=1.0.1",
-    "pydata-sphinx-theme==0.15.2",
+    "pydata-sphinx-theme==0.16.1"
 ]
 
 [tool.hatch.version]
@@ -337,6 +325,8 @@ exclude_also = [
     "@(abc\\.)?abstractmethod",
     # Don't complain about protocols:
     "@runtime_checkable",
+    # Don't Complain about import catches for optional deps
+    "except ImportError:",
 ]
 omit = [
     # omit anything in a .local directory anywhere

@@ -47,10 +47,6 @@ def handshake_dim(
         If the required index is outside the dimensionality of the input coordinate system
     ValueError
         If dimension is not in the required index
-
-    Returns
-    -------
-        None
     """
 
     if required_dim not in input_coords:
@@ -97,10 +93,6 @@ def handshake_coords(
         If required dim is not present in coordinate systems
     ValueError
         If coordinates of required dimensions don't match
-
-    Returns
-    -------
-        None
     """
     if required_dim not in input_coords:
         raise KeyError(
@@ -117,7 +109,9 @@ def handshake_coords(
             f"Coordinate systems for required dim {required_dim} are not the same"
         )
 
-    if not np.all(input_coords[required_dim] == target_coords[required_dim]):
+    if not np.all(
+        (input_coords[required_dim] == target_coords[required_dim]).flatten()
+    ):
         raise ValueError(
             f"Coordinate systems for required dim {required_dim} are not the same"
         )
@@ -146,10 +140,6 @@ def handshake_size(
         If required dim is not present in input coordinate system
     ValueError
         If required dimension is not of required size
-
-    Returns
-    -------
-        None
 
     Note
     ----

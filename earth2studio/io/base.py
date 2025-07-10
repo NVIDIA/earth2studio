@@ -25,11 +25,6 @@ from earth2studio.utils.type import CoordSystem
 class IOBackend(Protocol):
     """Interface for a generic IO backend."""
 
-    def __init__(
-        self,
-    ) -> None:
-        pass
-
     def add_array(
         self, coords: CoordSystem, array_name: str | list[str], **kwargs: dict[str, Any]
     ) -> None:

@@ -29,7 +29,7 @@ and it's recommended that users use an uv project for the best install experienc
 ```bash
 mkdir earth2studio-project && cd earth2studio-project
 uv init --python=3.12
-uv add "earth2studio @ git+https://github.com/NVIDIA/earth2studio.git@0.7.0"
+uv add "earth2studio @ git+https://github.com/NVIDIA/earth2studio.git@0.8.1"
 ```
 
 :::{admonition} uv install
@@ -350,6 +350,30 @@ uv add earth2studio --extra interp-modafno
 #### Diagnostics
 
 ::::::{tab-set}
+:::::{tab-item} CBottle
+Notes: Additional dependencies needed for CBottle3D data source,
+CBottleInfill diagnostic and CBottleSR diagnostic.
+
+::::{tab-set}
+:::{tab-item} pip
+
+```bash
+pip install hatchling
+pip install --no-build-isolation "earth2grid @ git+https://github.com/NVlabs/earth2grid@aefb10793aa372bae7d0951d627a89e2983fd0ca"
+pip install --no-build-isolation "cbottle @ git+https://github.com/NVlabs/cBottle.git@0b8c6787053dc80f14fbb68a54d6815749c9d0e9"
+pip install earth2studio[cbottle]
+```
+
+:::
+:::{tab-item} uv
+
+```bash
+uv add earth2studio --extra cbottle
+```
+
+:::
+::::
+:::::
 :::::{tab-item} ClimateNet
 Notes: No additional dependencies are needed for ClimateNet but included for
 completeness.
@@ -616,14 +640,14 @@ the following commands:
 ```bash
 mkdir earth2studio-project && cd earth2studio-project
 uv init --python=3.12
-uv add "earth2studio @ git+https://github.com/NVIDIA/earth2studio.git@0.7.0"
+uv add "earth2studio @ git+https://github.com/NVIDIA/earth2studio.git@0.8.1"
 ```
 
 or if you are already inside an existing uv project:
 
 ```bash
 uv venv --python=3.12
-uv add "earth2studio @ git+https://github.com/NVIDIA/earth2studio.git@0.7.0"
+uv add "earth2studio @ git+https://github.com/NVIDIA/earth2studio.git@0.8.1"
 ```
 
 (pytorch_container_environment)=
@@ -637,12 +661,12 @@ It is recommend using the following commands to install using the container's Py
 interpreter:
 
 ```bash
-docker run -it -t nvcr.io/nvidia/pytorch:25.04-py3
+docker run -it -t nvcr.io/nvidia/pytorch:25.05-py3
 
 >>> apt-get update && apt-get install -y git make curl && rm -rf /var/lib/apt/lists/*
 >>> unset PIP_CONSTRAINT
 >>> curl -LsSf https://astral.sh/uv/install.sh | sh && source $HOME/.local/bin/env
->>> uv pip install --system --break-system-packages "earth2studio@git+https://github.com/NVIDIA/earth2studio.git@0.7.0"
+>>> uv pip install --system --break-system-packages "earth2studio@git+https://github.com/NVIDIA/earth2studio.git@0.8.1"
 ```
 
 <!-- markdownlint-disable MD013 -->
@@ -655,7 +679,7 @@ do with pip e.g.
 ```bash
 uv pip install --system \
     --break-system-packages \
-    "earth2studio[all]@git+https://github.com/NVIDIA/earth2studio.git@0.7.0"
+    "earth2studio[all]@git+https://github.com/NVIDIA/earth2studio.git@0.8.1"
 ```
 
 :::
@@ -668,7 +692,7 @@ There is some complexity to undo the pip constraints from the PyTorch container,
 otherwise the install process is the same.
 
 ```dockerfile
-FROM nvcr.io/nvidia/pytorch:25.03-py3
+FROM nvcr.io/nvidia/pytorch:25.05-py3
 COPY --from=ghcr.io/astral-sh/uv:0.6.13 /uv /uvx /bin/
 
 # Install system dependencies
@@ -682,7 +706,7 @@ WORKDIR /app
 # Disable contraint files in the container
 ENV PIP_CONSTRAINT=
 # Install Earth2Studio and dependencies
-RUN uv pip install --system --break-system-packages "earth2studio@git+https://github.com/NVIDIA/earth2studio.git@0.7.0"
+RUN uv pip install --system --break-system-packages "earth2studio@git+https://github.com/NVIDIA/earth2studio.git@0.8.1"
 ```
 
 ## Conda Environment
@@ -698,7 +722,7 @@ package tooling.
 conda create -n earth2studio python=3.12
 conda activate earth2studio
 
-uv pip install --system --break-system-packages "earth2studio@git+https://github.com/NVIDIA/earth2studio.git@0.7.0"
+uv pip install --system --break-system-packages "earth2studio@git+https://github.com/NVIDIA/earth2studio.git@0.8.1"
 ```
 
 (configuration_userguide)=
