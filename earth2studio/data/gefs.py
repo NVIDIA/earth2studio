@@ -129,6 +129,7 @@ class GEFS_FX:
 
         # Check to see if there is a running loop (initialized in async)
         try:
+            nest_asyncio.apply()  # Monkey patch asyncio to work in notebooks
             loop = asyncio.get_running_loop()
             loop.run_until_complete(self._async_init())
         except RuntimeError:
@@ -168,7 +169,6 @@ class GEFS_FX:
         xr.DataArray
             GEFS forecast data array
         """
-        nest_asyncio.apply()  # Patch asyncio to work in notebooks
         try:
             loop = asyncio.get_event_loop()
         except RuntimeError:
