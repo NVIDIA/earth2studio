@@ -171,7 +171,7 @@ class HRRR:
             raise ValueError(f"Invalid HRRR source { self._source}")
 
         try:
-            nest_asyncio.apply()  # Monkey patch asyncio to work in notebooks (TODO: remove)
+            nest_asyncio.apply()  # Monkey patch asyncio to work in notebooks
             loop = asyncio.get_running_loop()
             loop.run_until_complete(self._async_init())
         except RuntimeError:
