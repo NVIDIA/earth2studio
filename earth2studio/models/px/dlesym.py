@@ -605,7 +605,7 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         Returns
         -------
         torch.Tensor
-            Insolation tensor of shape (1, face, lead_time, variable, height, width)
+            Insolation tensor of shape ("batch" (anchor_times), face, lead_time, variable, height, width)
         """
 
         # Create insolation tensor, shape (len(anchor_times) * len(timedeltas), face, height, width)
