@@ -17,6 +17,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Zarr IO Backend now uncompressed by default
+- Allow HCBV perturbation to handle constant outputs (like land sea mask, or
+  geopotential at surface)
 
 ### Deprecated
 
@@ -60,7 +62,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - In recipes, renamed `requirements.txt` -> `recipe-requirements.txt`
-- Allows HCBV perturbation to handle constant outputs (like land sea mask, or geopotential at surface)
 
 ### Deprecated
 
