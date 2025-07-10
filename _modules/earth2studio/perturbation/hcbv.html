@@ -445,6 +445,7 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.models.px</span><span class="w"> </span><span class="kn">import</span> <span class="n">PrognosticModel</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.perturbation.base</span><span class="w"> </span><span class="kn">import</span> <span class="n">Perturbation</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">handshake_dim</span><span class="p">,</span> <span class="n">handshake_size</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.utils.coords</span><span class="w"> </span><span class="kn">import</span> <span class="n">map_coords</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.utils.time</span><span class="w"> </span><span class="kn">import</span> <span class="n">to_time_array</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.utils.type</span><span class="w"> </span><span class="kn">import</span> <span class="n">CoordSystem</span><span class="p">,</span> <span class="n">TimeArray</span>
 
@@ -467,7 +468,8 @@
 <span class="sd">    data : DataSource</span>
 <span class="sd">        data source for obtaining warmup time steps</span>
 <span class="sd">    seeding_perturbation_method : Perturbation, optional</span>
-<span class="sd">        Method to seed the Bred Vector perturbation</span>
+<span class="sd">        Method to seed the Bred Vector perturbation that will be applied to the initial</span>
+<span class="sd">        input of the model.</span>
 <span class="sd">    noise_amplitude : float | Tensor, optional</span>
 <span class="sd">        Noise amplitude, by default 0.05. If a tensor, this must be broadcastable with</span>
 <span class="sd">        the input data</span>
@@ -527,6 +529,9 @@
             <span class="n">lead_time</span><span class="o">=</span><span class="n">input_coords</span><span class="p">[</span><span class="s2">&quot;lead_time&quot;</span><span class="p">],</span>
             <span class="n">device</span><span class="o">=</span><span class="s2">&quot;cpu&quot;</span><span class="p">,</span>
         <span class="p">)</span>
+        <span class="n">input_coords</span><span class="p">[</span><span class="s2">&quot;time&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">to_time_array</span><span class="p">(</span><span class="n">warmup_times</span><span class="p">)</span>
+        <span class="n">input_data</span><span class="p">,</span> <span class="n">data_coords</span> <span class="o">=</span> <span class="n">map_coords</span><span class="p">(</span><span class="n">input_data</span><span class="p">,</span> <span class="n">data_coords</span><span class="p">,</span> <span class="n">input_coords</span><span class="p">)</span>
+
         <span class="n">coords</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">(</span>
             <span class="p">[(</span><span class="s2">&quot;batch&quot;</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">batch_size</span><span class="p">))]</span> <span class="o">+</span> <span class="nb">list</span><span class="p">(</span><span class="n">data_coords</span><span class="o">.</span><span class="n">items</span><span class="p">())</span>
         <span class="p">)</span>
@@ -548,19 +553,14 @@
         <span class="k">for</span> <span class="n">ii</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">integration_steps</span><span class="p">):</span>
             <span class="n">xunp</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">(</span><span class="n">xunp</span><span class="p">,</span> <span class="n">coords</span><span class="p">)</span>
             <span class="n">xper</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">(</span><span class="n">xper</span><span class="p">,</span> <span class="n">coords</span><span class="p">)</span>
-
             <span class="n">dx</span> <span class="o">=</span> <span class="n">xper</span> <span class="o">-</span> <span class="n">xunp</span>
+
             <span class="n">hem_norm</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">hemispheric_norm</span><span class="p">(</span><span class="n">dx</span><span class="p">,</span> <span class="n">device</span><span class="p">)</span>
+            <span class="c1"># Replace zero elements with 1 in hemispheric norm, we do this because when</span>
+            <span class="c1"># hem norm is zero we know dx is 0, so this just makes the next line computable</span>
+            <span class="n">hem_norm</span><span class="p">[</span><span class="n">hem_norm</span> <span class="o">==</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1</span>
 
-            <span class="c1"># if zero elements are requierd, replace NaNs in scaled dx with 0</span>
-            <span class="k">if</span> <span class="p">(</span><span class="n">hem_norm</span> <span class="o">==</span> <span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">any</span><span class="p">():</span>
-                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                    <span class="s2">&quot;zero element in hemispheric norm, maybe noise amplification too small?&quot;</span>
-                <span class="p">)</span>
-
-            <span class="c1"># scale dx</span>
             <span class="n">dx</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">noise_amplitude</span> <span class="o">*</span> <span class="p">(</span><span class="n">dx</span> <span class="o">/</span> <span class="n">hem_norm</span><span class="p">)</span>
-
             <span class="n">xunp</span> <span class="o">=</span> <span class="p">(</span>
                 <span class="n">input_data</span><span class="p">[</span><span class="n">ii</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span>
                 <span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>

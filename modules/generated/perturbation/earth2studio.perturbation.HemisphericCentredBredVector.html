@@ -564,7 +564,8 @@ perturbed stated by adding and subtracting the bred vector, respecitvely.</p>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>model</strong> (<em>PrognosticModel</em>) – Dynamical model, typically this is the prognostic AI model</p></li>
 <li><p><strong>data</strong> (<em>DataSource</em>) – data source for obtaining warmup time steps</p></li>
-<li><p><strong>seeding_perturbation_method</strong> (<em>Perturbation</em><em>, </em><em>optional</em>) – Method to seed the Bred Vector perturbation</p></li>
+<li><p><strong>seeding_perturbation_method</strong> (<em>Perturbation</em><em>, </em><em>optional</em>) – Method to seed the Bred Vector perturbation that will be applied to the initial
+input of the model.</p></li>
 <li><p><strong>noise_amplitude</strong> (<em>float</em><em> | </em><em>Tensor</em><em>, </em><em>optional</em>) – Noise amplitude, by default 0.05. If a tensor, this must be broadcastable with
 the input data</p></li>
 <li><p><strong>integration_steps</strong> (<em>int</em><em>, </em><em>optional</em>) – Number of integration steps to use in forward call, by default 3</p></li>
