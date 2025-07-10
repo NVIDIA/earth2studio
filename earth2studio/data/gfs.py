@@ -112,6 +112,7 @@ class GFS:
             self.uri_prefix = "noaa-gfs-bdp-pds"
             # Check to see if there is a running loop (initialized in async)
             try:
+                nest_asyncio.apply()  # Monkey patch asyncio to work in notebooks (TODO: remove)
                 loop = asyncio.get_running_loop()
                 loop.run_until_complete(self._async_init())
             except RuntimeError:
@@ -175,7 +176,6 @@ class GFS:
         xr.DataArray
             GFS weather data array
         """
-        nest_asyncio.apply()  # Patch asyncio to work in notebooks
         try:
             loop = asyncio.get_event_loop()
         except RuntimeError:
@@ -580,7 +580,6 @@ class GFS_FX(GFS):
         xr.DataArray
             GFS weather data array
         """
-        nest_asyncio.apply()  # Patch asyncio to work in notebooks
         try:
             loop = asyncio.get_event_loop()
         except RuntimeError:
