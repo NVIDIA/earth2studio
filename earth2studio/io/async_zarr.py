@@ -45,7 +45,6 @@ if zarr_major_version >= 3:
     from zarr.core.array import CompressorsLike
 else:
     AsyncGroup = Any
-    AsyncCoreGroup = Any
     CompressorsLike = Any
 
 from earth2studio.utils.type import CoordSystem
@@ -581,7 +580,7 @@ class AsyncZarrBackend:
             Dictionary of tensor(s) to be written to zarr arrays.
         coords : CoordSystem
             Coordinates of the passed data.
-        zs : AsyncCoreGroup
+        zs : zarr.AsyncGroup
             Zarr store to use
         fs : fsspec.AbstractFileSystem
             File system to use (relevant for session creation)
