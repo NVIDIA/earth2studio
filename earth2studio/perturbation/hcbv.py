@@ -46,7 +46,8 @@ class HemisphericCentredBredVector:
     data : DataSource
         data source for obtaining warmup time steps
     seeding_perturbation_method : Perturbation, optional
-        Method to seed the Bred Vector perturbation
+        Method to seed the Bred Vector perturbation that will be applied to the initial
+        input of the model.
     noise_amplitude : float | Tensor, optional
         Noise amplitude, by default 0.05. If a tensor, this must be broadcastable with
         the input data
@@ -130,28 +131,14 @@ class HemisphericCentredBredVector:
         for ii in range(self.integration_steps):
             xunp, _coords = self.model(xunp, coords)
             xper, _ = self.model(xper, coords)
-
             dx = xper - xunp
 
-            # remove zero elements, when inputs are constant
-            variable_sum = tuple(
-                index for index, key in enumerate(_coords.keys()) if key != "variable"
-            )
-            dx[..., dx.sum(dim=variable_sum) == 0, :, :] = torch.nan
-
             hem_norm = self.hemispheric_norm(dx, device)
+            # Replace zero elements with 1 in hemispheric norm, we do this because when
+            # hem norm is zero we know dx is 0, so this just makes the next line computable
+            hem_norm[hem_norm == 0] = 1
 
-            # if zero elements are requierd, replace NaNs in scaled dx with 0
-            if (hem_norm == 0).any():
-                raise ValueError(
-                    "zero element in hemispheric norm, maybe noise amplification too small?"
-                )
-
-            # scale dx
             dx = self.noise_amplitude * (dx / hem_norm)
-            # set dx back to zero in constant inputs
-            dx[..., torch.isnan(dx).all(dim=(0, 1, 2, 4, 5)), :, :] = 0
-
             xunp = (
                 input_data[ii + 1]
                 .unsqueeze(dim=0)
