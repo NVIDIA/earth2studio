@@ -18,6 +18,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Zarr IO Backend now uncompressed by default
+- Allow HCBV perturbation to handle constant outputs (like land sea mask, or
+  geopotential at surface)
 - test/models/dx/test_corrdiff.py is now test/models/dx/test_corrdiff_taiwan.py
 
 ### Deprecated
