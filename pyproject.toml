@@ -23,6 +23,7 @@ dependencies = [
     "netCDF4>=1.6.4",
     "nest_asyncio", # TODO Remove
     "python-dotenv",
+    "rich",
     "s3fs>=2023.5.0",
     "torch>=2.5.0",
     "tqdm>=4.65.0",
@@ -115,6 +116,7 @@ pangu = [
     "onnxruntime-gpu>=1.21.0",
 ]
 sfno = [
+    "importlib_metadata",
     "jsbeautifier>=1.15.4",
     "makani[all]",
     "numba>=0.61.0",
