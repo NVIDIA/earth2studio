@@ -33,29 +33,38 @@ class rmse:
     reduction_dimensions: List[str]
         A list of names corresponding to dimensions to perform the
         statistical reduction over. Example: ['lat', 'lon']
-    weights: torch.Tensor = None
+    weights: torch.Tensor | None = None
         A tensor containing weights to assign to the reduction dimensions.
         Note that these weights must have the same number of dimensions
         as passed in reduction_dimensions.
         Example: if reduction_dimensions = ['lat', 'lon'] then
         assert weights.ndim == 2.
     batch_update: bool = False
-        Whether to applying batch updates to the rmse with each invocation of __call__.
+        Whether to apply batch updates to the rmse with each invocation of __call__.
         This is particularly useful when data is recieved in a stream of batches. Each
         invocation of __call__ will return the running rmse. In particular, it will apply
         the square root operation after calculating the running mean squared error.
+    ensemble_dimension: str | None = None
+        Compute ensemble mean over this dimension before computing RMSE. If None (default),
+        no reduction is perfomed.
     """
 
     def __init__(
         self,
         reduction_dimensions: list[str],
-        weights: torch.Tensor = None,
+        weights: torch.Tensor | None = None,
         batch_update: bool = False,
+        ensemble_dimension: str | None = None,
     ):
 
         self.mean = mean(
             reduction_dimensions, weights=weights, batch_update=batch_update
         )
+        if ensemble_dimension is not None:
+            self.ensemble_dimension: str | None = ensemble_dimension
+            self.ensemble_mean = mean([ensemble_dimension])
+        else:
+            self.ensemble_dimension = None
         self.weights = weights
         self._reduction_dimensions = reduction_dimensions
 
@@ -85,6 +94,8 @@ class rmse:
         for dimension in self.reduction_dimensions:
             handshake_dim(input_coords, dimension)
             output_coords.pop(dimension)
+        if self.ensemble_dimension is not None:
+            output_coords.pop(self.ensemble_dimension)
 
         return output_coords
 
@@ -111,7 +122,7 @@ class rmse:
             Ordered dict representing coordinate system that describes the `x` tensor.
             `reduction_dimensions` must be in coords.
         y : torch.Tensor
-            Input tensor #2 intended to be used as validation data, but ACC is symmetric
+            Input tensor #2 intended to be used as validation data, but RMSE is symmetric
             with respect to `x` and `y`.
         y_coords : CoordSystem
             Ordered dict representing coordinate system that describes the `y` tensor.
@@ -122,8 +133,79 @@ class rmse:
         tuple[torch.Tensor, CoordSystem]
             Returns root mean squared error tensor with appropriate reduced coordinates.
         """
+        if self.ensemble_dimension is not None:
+            (x, x_coords) = self.ensemble_mean(x, x_coords)
         mse, output_coords = self.mean((x - y) ** 2, x_coords)
         return torch.sqrt(mse), output_coords
+
+
+class mae(rmse):
+    """
+    Statistic for calculating the mean absolute error of two tensors
+    over a set of given dimensions.
+
+    Parameters
+    ----------
+    reduction_dimensions: List[str]
+        A list of names corresponding to dimensions to perform the
+        statistical reduction over. Example: ['lat', 'lon']
+    weights: torch.Tensor = None
+        A tensor containing weights to assign to the reduction dimensions.
+        Note that these weights must have the same number of dimensions
+        as passed in reduction_dimensions.
+        Example: if reduction_dimensions = ['lat', 'lon'] then
+        assert weights.ndim == 2.
+    batch_update: bool = False
+        Whether to applying batch updates to the rmse with each invocation of __call__.
+        This is particularly useful when data is recieved in a stream of batches. Each
+        invocation of __call__ will return the running rmse. In particular, it will apply
+        the square root operation after calculating the running mean squared error.
+    ensemble_dimension: str | None = None
+        Compute ensemble mean over this dimension before computing MAE. If None (default),
+        no reduction is perfomed.
+    """
+
+    def __str__(self) -> str:
+        return "_".join(self._reduction_dimensions + ["mae"])
+
+    def __call__(
+        self,
+        x: torch.Tensor,
+        x_coords: CoordSystem,
+        y: torch.Tensor,
+        y_coords: CoordSystem,
+    ) -> tuple[torch.Tensor, CoordSystem]:
+        """
+        Apply metric to data `x` and `y`, checking that their coordinates
+        are broadcastable. While reducing over `reduction_dims`.
+
+        If batch_update was passed True upon metric initialization then this method
+        returns the running sample MAE over all seen batches.
+
+        Parameters
+        ----------
+        x : torch.Tensor
+            Input tensor, typically the forecast or prediction tensor, but MAE is
+            symmetric with respect to `x` and `y`.
+        x_coords : CoordSystem
+            Ordered dict representing coordinate system that describes the `x` tensor.
+            `reduction_dimensions` must be in coords.
+        y : torch.Tensor
+            Input tensor #2 intended to be used as validation data, but MAE is symmetric
+            with respect to `x` and `y`.
+        y_coords : CoordSystem
+            Ordered dict representing coordinate system that describes the `y` tensor.
+            `reduction_dimensions` must be in coords.
+
+        Returns
+        -------
+        tuple[torch.Tensor, CoordSystem]
+            Returns root mean squared error tensor with appropriate reduced coordinates.
+        """
+        if self.ensemble_dimension is not None:
+            (x, x_coords) = self.ensemble_mean(x, x_coords)
+        mae, output_coords = self.mean(abs(x - y), x_coords)
+        return mae, output_coords
 
 
 class spread_skill_ratio:
