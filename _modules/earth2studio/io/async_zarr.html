@@ -452,7 +452,20 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">fsspec.asyn</span><span class="w"> </span><span class="kn">import</span> <span class="n">AsyncFileSystem</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fsspec.implementations.local</span><span class="w"> </span><span class="kn">import</span> <span class="n">LocalFileSystem</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">loguru</span><span class="w"> </span><span class="kn">import</span> <span class="n">logger</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">zarr.core.array</span><span class="w"> </span><span class="kn">import</span> <span class="n">CompressorsLike</span>
+
+<span class="c1"># Dealing with zarr 3.0 API breaks and type checking</span>
+<span class="k">try</span><span class="p">:</span>
+    <span class="n">zarr_version</span> <span class="o">=</span> <span class="n">version</span><span class="p">(</span><span class="s2">&quot;zarr&quot;</span><span class="p">)</span>
+    <span class="n">zarr_major_version</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">zarr_version</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;.&quot;</span><span class="p">)[</span><span class="mi">0</span><span class="p">])</span>
+<span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+    <span class="n">zarr_major_version</span> <span class="o">=</span> <span class="mi">2</span>
+
+<span class="k">if</span> <span class="n">zarr_major_version</span> <span class="o">&gt;=</span> <span class="mi">3</span><span class="p">:</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">zarr</span><span class="w"> </span><span class="kn">import</span> <span class="n">AsyncGroup</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">zarr.core.array</span><span class="w"> </span><span class="kn">import</span> <span class="n">CompressorsLike</span>
+<span class="k">else</span><span class="p">:</span>
+    <span class="n">AsyncGroup</span> <span class="o">=</span> <span class="n">Any</span>
+    <span class="n">CompressorsLike</span> <span class="o">=</span> <span class="n">Any</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.utils.type</span><span class="w"> </span><span class="kn">import</span> <span class="n">CoordSystem</span>
 
@@ -641,7 +654,7 @@
         <span class="n">root</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
         <span class="n">fs_factory</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">fsspec</span><span class="o">.</span><span class="n">spec</span><span class="o">.</span><span class="n">AbstractFileSystem</span><span class="p">],</span>
         <span class="n">zarr_kwargs</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="p">{},</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">zarr</span><span class="o">.</span><span class="n">AsyncGroup</span><span class="p">,</span> <span class="n">fsspec</span><span class="o">.</span><span class="n">AbstractFileSystem</span><span class="p">]:</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">AsyncGroup</span><span class="p">,</span> <span class="n">fsspec</span><span class="o">.</span><span class="n">AbstractFileSystem</span><span class="p">]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Initializes both the fsspec filesystem and zarr group, its critical this</span>
 <span class="sd">        function is called inside the correct loop</span>
 
@@ -984,7 +997,7 @@
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">x</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">],</span>
         <span class="n">coords</span><span class="p">:</span> <span class="n">CoordSystem</span><span class="p">,</span>
-        <span class="n">zs</span><span class="p">:</span> <span class="n">zarr</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">group</span><span class="o">.</span><span class="n">AsyncGroup</span><span class="p">,</span>
+        <span class="n">zs</span><span class="p">:</span> <span class="n">AsyncGroup</span><span class="p">,</span>
         <span class="n">fs</span><span class="p">:</span> <span class="n">fsspec</span><span class="o">.</span><span class="n">AbstractFileSystem</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;_summary_</span>
@@ -995,7 +1008,7 @@
 <span class="sd">            Dictionary of tensor(s) to be written to zarr arrays.</span>
 <span class="sd">        coords : CoordSystem</span>
 <span class="sd">            Coordinates of the passed data.</span>
-<span class="sd">        zs : zarr.core.group.AsyncGroup</span>
+<span class="sd">        zs : zarr.AsyncGroup</span>
 <span class="sd">            Zarr store to use</span>
 <span class="sd">        fs : fsspec.AbstractFileSystem</span>
 <span class="sd">            File system to use (relevant for session creation)</span>
@@ -1054,7 +1067,9 @@
                 <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">                    </span><span class="sd">&quot;&quot;&quot;Small helper function&quot;&quot;&quot;</span>
                     <span class="n">zarray</span> <span class="o">=</span> <span class="k">await</span> <span class="n">zs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
-                    <span class="k">await</span> <span class="n">zarray</span><span class="o">.</span><span class="n">setitem</span><span class="p">(</span><span class="nb">tuple</span><span class="p">(</span><span class="n">array_slice</span><span class="p">),</span> <span class="n">x</span><span class="p">[</span><span class="n">name</span><span class="p">][</span><span class="o">*</span><span class="n">input_slice</span><span class="p">])</span>
+                    <span class="k">await</span> <span class="n">zarray</span><span class="o">.</span><span class="n">setitem</span><span class="p">(</span>
+                        <span class="nb">tuple</span><span class="p">(</span><span class="n">array_slice</span><span class="p">),</span> <span class="n">x</span><span class="p">[</span><span class="n">name</span><span class="p">][</span><span class="nb">tuple</span><span class="p">(</span><span class="n">input_slice</span><span class="p">)]</span>
+                    <span class="p">)</span>
 
                 <span class="n">writes</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
                     <span class="n">asyncio</span><span class="o">.</span><span class="n">create_task</span><span class="p">(</span>
