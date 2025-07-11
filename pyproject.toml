@@ -134,6 +134,7 @@ stormcast = [
 ]
 # DX Models
 cbottle = [
+    "earth2grid",
     "cbottle ; python_full_version >= '3.12'",
 ]
 climatenet = []
@@ -230,6 +231,7 @@ members = ["recipes/*"]
 
 [dependency-groups]
 build = [
+    "hatchling",
     "ninja>=1.11.1.4",
     "setuptools>=70.0.0",
 ]
