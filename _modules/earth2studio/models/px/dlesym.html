@@ -1033,7 +1033,7 @@
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
 <span class="sd">        torch.Tensor</span>
-<span class="sd">            Insolation tensor of shape (1, face, lead_time, variable, height, width)</span>
+<span class="sd">            Insolation tensor of shape (&quot;batch&quot; (anchor_times), face, lead_time, variable, height, width)</span>
 <span class="sd">        &quot;&quot;&quot;</span>
 
         <span class="c1"># Create insolation tensor, shape (len(anchor_times) * len(timedeltas), face, height, width)</span>
