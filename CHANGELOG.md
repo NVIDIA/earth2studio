@@ -34,6 +34,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Dependencies
 
+- Adding rich to core dependencies
+
 ## [0.8.1] - 2025-07-07
 
 ### Changed
