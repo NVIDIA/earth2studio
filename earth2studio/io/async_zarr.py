@@ -32,7 +32,20 @@ import zarr
 from fsspec.asyn import AsyncFileSystem
 from fsspec.implementations.local import LocalFileSystem
 from loguru import logger
-from zarr.core.array import CompressorsLike
+
+# Dealing with zarr 3.0 API breaks and type checking
+try:
+    zarr_version = version("zarr")
+    zarr_major_version = int(zarr_version.split(".")[0])
+except Exception:
+    zarr_major_version = 2
+
+if zarr_major_version >= 3:
+    from zarr import AsyncGroup
+    from zarr.core.array import CompressorsLike
+else:
+    AsyncGroup = Any
+    CompressorsLike = Any
 
 from earth2studio.utils.type import CoordSystem
 
@@ -219,7 +232,7 @@ class AsyncZarrBackend:
         root: str,
         fs_factory: Callable[..., fsspec.spec.AbstractFileSystem],
         zarr_kwargs: dict[str, Any] = {},
-    ) -> tuple[zarr.AsyncGroup, fsspec.AbstractFileSystem]:
+    ) -> tuple[AsyncGroup, fsspec.AbstractFileSystem]:
         """Initializes both the fsspec filesystem and zarr group, its critical this
         function is called inside the correct loop
 
@@ -556,7 +569,7 @@ class AsyncZarrBackend:
         self,
         x: dict[str, torch.Tensor],
         coords: CoordSystem,
-        zs: zarr.core.group.AsyncGroup,
+        zs: AsyncGroup,
         fs: fsspec.AbstractFileSystem,
     ) -> None:
         """_summary_
@@ -567,7 +580,7 @@ class AsyncZarrBackend:
             Dictionary of tensor(s) to be written to zarr arrays.
         coords : CoordSystem
             Coordinates of the passed data.
-        zs : zarr.core.group.AsyncGroup
+        zs : zarr.AsyncGroup
             Zarr store to use
         fs : fsspec.AbstractFileSystem
             File system to use (relevant for session creation)
@@ -626,7 +639,9 @@ class AsyncZarrBackend:
                 ) -> None:
                     """Small helper function"""
                     zarray = await zs.get(name)
-                    await zarray.setitem(tuple(array_slice), x[name][*input_slice])
+                    await zarray.setitem(
+                        tuple(array_slice), x[name][tuple(input_slice)]
+                    )
 
                 writes.append(
                     asyncio.create_task(
