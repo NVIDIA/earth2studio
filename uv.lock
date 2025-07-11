@@ -1433,6 +1433,7 @@ aurora-fork = [
 ]
 cbottle = [
     { name = "cbottle", marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-aurora-fork') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-corrdiff') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-dlwp') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-fcn') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-precip-afno') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-sfno') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-stormcast')" },
+    { name = "earth2grid" },
 ]
 corrdiff = [
     { name = "einops" },
@@ -1522,6 +1523,7 @@ windgust-afno = [
 
 [package.dev-dependencies]
 build = [
+    { name = "hatchling" },
     { name = "ninja" },
     { name = "setuptools" },
 ]
@@ -1572,6 +1574,7 @@ requires-dist = [
     { name = "dm-haiku", marker = "extra == 'all'", specifier = ">=0.0.14" },
     { name = "dm-haiku", marker = "extra == 'graphcast'", specifier = ">=0.0.14" },
     { name = "earth2grid", marker = "extra == 'all'", git = "https://github.com/NVlabs/earth2grid.git?rev=aefb10793aa372bae7d0951d627a89e2983fd0ca" },
+    { name = "earth2grid", marker = "extra == 'cbottle'", git = "https://github.com/NVlabs/earth2grid.git?rev=aefb10793aa372bae7d0951d627a89e2983fd0ca" },
     { name = "earth2grid", marker = "extra == 'dlesym'", git = "https://github.com/NVlabs/earth2grid.git?rev=aefb10793aa372bae7d0951d627a89e2983fd0ca" },
     { name = "earthkit-regrid", marker = "extra == 'aifs'", specifier = "==0.4.0" },
     { name = "eccodes", marker = "extra == 'all'", specifier = ">=2.38.0" },
@@ -1665,6 +1668,7 @@ provides-extras = ["aifs", "all", "aurora", "aurora-fork", "cbottle", "climatene
 
 [package.metadata.requires-dev]
 build = [
+    { name = "hatchling" },
     { name = "ninja", specifier = ">=1.11.1.4" },
     { name = "setuptools", specifier = ">=70.0.0" },
 ]
