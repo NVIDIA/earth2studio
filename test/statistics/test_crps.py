@@ -107,7 +107,7 @@ def test_crps_failures(device: str) -> None:
         }
     )
 
-    # Raise error for training to pass a list
+    # Raise error for trying to pass a list
     with pytest.raises(ValueError):
         crps(["ensemble", "time"])
 

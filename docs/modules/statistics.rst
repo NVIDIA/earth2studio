@@ -15,7 +15,11 @@ Various statistic and metric calculations for analysing inference data.
     :template: statistics.rst
 
     statistics.acc
+    statistics.brier
     statistics.crps
+    statistics.fss
+    statistics.lsd
+    statistics.mae
     statistics.mean
     statistics.rank_histogram
     statistics.rmse

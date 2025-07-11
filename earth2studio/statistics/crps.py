@@ -29,7 +29,7 @@ from earth2studio.utils.type import CoordSystem
 @check_extra_imports("statistics", [kcrps])
 class crps:
     """
-    Compute the Continuous Ranked Probably Score (CRPS).
+    Compute the Continuous Ranked Probability Score (CRPS).
 
     Uses this formula
         # int [F(x) - 1(x-y)]^2 dx
