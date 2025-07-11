@@ -18,7 +18,7 @@ Various statistic and metric calculations for analysing inference data.
     statistics.brier
     statistics.crps
     statistics.fss
-    statistic.lsd
+    statistics.lsd
     statistics.mae
     statistics.mean
     statistics.rank_histogram
