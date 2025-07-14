@@ -16,6 +16,20 @@
 
 from collections import OrderedDict
 
+import numpy as np
+import torch
+
+from earth2studio.models.batch import batch_coords, batch_func
+from earth2studio.utils import (
+    handshake_coords,
+    handshake_dim,
+)
+from earth2studio.utils.imports import (
+    OptionalDependencyFailure,
+    check_optional_dependencies,
+)
+from earth2studio.utils.type import CoordSystem
+
 try:
     import cupy as cp
     from cucim.skimage.feature import peak_local_max as cucim_peak_local_max
@@ -27,6 +41,7 @@ try:
 
     # from cupyx.scipy.spatial import KDTree as CuKDTree
 except ImportError:
+    OptionalDependencyFailure("cyclone")
     cp = None
     cucim_peak_local_max = None
     label = None
@@ -37,17 +52,6 @@ except ImportError:
     convex_hull_image = None
     KDTree = None
     # CuKDTree = None
-
-import numpy as np
-import torch
-
-from earth2studio.models.batch import batch_coords, batch_func
-from earth2studio.utils import (
-    handshake_coords,
-    handshake_dim,
-)
-from earth2studio.utils.imports import check_extra_imports
-from earth2studio.utils.type import CoordSystem
 
 VARIABLES_TCV = [
     "u10m",
@@ -327,7 +331,7 @@ class _TCTrackerBase:
         return torch.cat([path_buffer, next_frame], axis=2)
 
 
-@check_extra_imports("cyclone", [cp, KDTree, "cucim", "skimage"])
+@check_optional_dependencies()
 class TCTrackerWuDuan(torch.nn.Module, _TCTrackerBase):
     """Finds a list of tropical cyclone (TC) centers using an adaption of the method
     described in the conditions in Wu and Duan 2023. The algorithm converts vorticity
@@ -639,7 +643,7 @@ class TCTrackerWuDuan(torch.nn.Module, _TCTrackerBase):
         return out, output_coords
 
 
-@check_extra_imports("cyclone", [cp, KDTree, "cucim", "skimage"])
+@check_optional_dependencies()
 class TCTrackerVitart(torch.nn.Module, _TCTrackerBase):
     """Finds a list of tropical cyclone centers using the conditions in Vitart 1997
 

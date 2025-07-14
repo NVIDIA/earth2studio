@@ -23,6 +23,18 @@ import numpy as np
 import torch
 import xarray as xr
 
+from earth2studio.lexicon.wb2 import WB2Lexicon
+from earth2studio.models.auto import AutoModelMixin, Package
+from earth2studio.models.batch import batch_coords, batch_func
+from earth2studio.models.px.base import PrognosticModel
+from earth2studio.models.px.utils import PrognosticMixin
+from earth2studio.utils.coords import map_coords
+from earth2studio.utils.imports import (
+    OptionalDependencyFailure,
+    check_optional_dependencies,
+)
+from earth2studio.utils.type import CoordSystem
+
 try:
     import chex
     import haiku as hk
@@ -37,6 +49,7 @@ try:
         rollout,
     )
 except ImportError:
+    OptionalDependencyFailure("graphcast")
     hk = None
     jax = None
     chex = None
@@ -48,14 +61,6 @@ except ImportError:
     normalization = None
     rollout = None
 
-from earth2studio.lexicon.wb2 import WB2Lexicon
-from earth2studio.models.auto import AutoModelMixin, Package
-from earth2studio.models.batch import batch_coords, batch_func
-from earth2studio.models.px.base import PrognosticModel
-from earth2studio.models.px.utils import PrognosticMixin
-from earth2studio.utils import check_extra_imports
-from earth2studio.utils.coords import map_coords
-from earth2studio.utils.type import CoordSystem
 
 VARIABLES = [
     "t2m",
@@ -163,7 +168,7 @@ ATMOS_LEVELS = [50, 100, 150, 200, 250, 300, 400, 500, 600, 700, 850, 925, 1000]
 INV_VOCAB = {v: k for k, v in WB2Lexicon.VOCAB.items()}
 
 
-@check_extra_imports("graphcast", ["haiku", "jax", "graphcast"])
+@check_optional_dependencies()
 class GraphCastSmall(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     """GraphCast Small 1.0 degree model
 
@@ -759,7 +764,7 @@ class GraphCastSmall(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         )
 
     @classmethod
-    @check_extra_imports("graphcast", ["haiku", "jax", "graphcast"])
+    @check_optional_dependencies()
     def load_model(
         cls,
         package: Package,
