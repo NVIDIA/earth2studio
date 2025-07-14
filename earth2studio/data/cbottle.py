@@ -23,6 +23,17 @@ import torch
 import xarray as xr
 from tqdm import tqdm
 
+from earth2studio.data.base import DataSource
+from earth2studio.data.utils import datasource_cache_root, prep_data_inputs
+from earth2studio.lexicon import CBottleLexicon
+from earth2studio.models.auto import Package
+from earth2studio.models.auto.mixin import AutoModelMixin
+from earth2studio.utils.imports import (
+    OptionalDependencyFailure,
+    check_optional_dependencies,
+)
+from earth2studio.utils.type import TimeArray, VariableArray
+
 try:
     import earth2grid
     from cbottle.checkpointing import Checkpoint
@@ -38,19 +49,12 @@ except ImportError:
     get_batch_info = None
     TimeUnit = None
     get_denoiser = None
-
-from earth2studio.data.base import DataSource
-from earth2studio.data.utils import datasource_cache_root, prep_data_inputs
-from earth2studio.lexicon import CBottleLexicon
-from earth2studio.models.auto import Package
-from earth2studio.models.auto.mixin import AutoModelMixin
-from earth2studio.utils.imports import check_extra_imports
-from earth2studio.utils.type import TimeArray, VariableArray
+    OptionalDependencyFailure("cbottle")
 
 HPX_LEVEL = 6
 
 
-@check_extra_imports("cbottle", ["cbottle", "earth2grid"])
+@check_optional_dependencies()
 class CBottle3D(torch.nn.Module, AutoModelMixin):
     """Climate in a bottle data source
     Climate in a Bottle (cBottle) is an AI model for emulating global km-scale climate
@@ -399,7 +403,7 @@ class CBottle3D(torch.nn.Module, AutoModelMixin):
         )
 
     @classmethod
-    @check_extra_imports("cbottle", ["cbottle", "earth2grid"])
+    @check_optional_dependencies()
     def load_model(
         cls,
         package: Package,
