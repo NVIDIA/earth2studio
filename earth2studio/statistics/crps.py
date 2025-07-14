@@ -16,17 +16,22 @@
 
 import torch
 
+from earth2studio.statistics.moments import mean
+from earth2studio.utils import handshake_coords, handshake_dim
+from earth2studio.utils.imports import (
+    OptionalDependencyFailure,
+    check_optional_dependencies,
+)
+from earth2studio.utils.type import CoordSystem
+
 try:
     from physicsnemo.metrics.general.crps import kcrps
 except ImportError:
+    OptionalDependencyFailure("statistics")
     kcrps = None
 
-from earth2studio.statistics.moments import mean
-from earth2studio.utils import check_extra_imports, handshake_coords, handshake_dim
-from earth2studio.utils.type import CoordSystem
 
-
-@check_extra_imports("statistics", [kcrps])
+@check_optional_dependencies()
 class crps:
     """
     Compute the Continuous Ranked Probably Score (CRPS).

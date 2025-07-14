@@ -25,9 +25,12 @@ from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_coords, batch_func
 from earth2studio.models.dx.base import DiagnosticModel
 from earth2studio.utils import (
-    check_extra_imports,
     handshake_coords,
     handshake_dim,
+)
+from earth2studio.utils.imports import (
+    OptionalDependencyFailure,
+    check_optional_dependencies,
 )
 from earth2studio.utils.type import CoordSystem
 
@@ -36,6 +39,7 @@ try:
 
     from earth2studio.models.nn.afno_ssrd import SolarRadiationNet
 except ImportError:
+    OptionalDependencyFailure("solarradiation-afno")
     SolarRadiationNet = None
     cos_zenith_angle = None
 
@@ -67,7 +71,7 @@ VARIABLES = [
 ]
 
 
-@check_extra_imports("solarradiation-afno", [SolarRadiationNet, cos_zenith_angle])
+@check_optional_dependencies()
 class SolarRadiationAFNO(torch.nn.Module, AutoModelMixin):
     """Base class for Solar Radiation AFNO diagnostic models. Predicts the accumulated global surface solar
     radiation [Jm^-2]. The model uses 31 variables as input and outputs one on a 0.25 degree lat-lon grid
@@ -174,7 +178,7 @@ class SolarRadiationAFNO(torch.nn.Module, AutoModelMixin):
         raise NotImplementedError("Use specific frequency subclass")
 
     @classmethod
-    @check_extra_imports("solarradiation-afno", [SolarRadiationNet, cos_zenith_angle])
+    @check_optional_dependencies()
     def load_model(cls, package: Package) -> DiagnosticModel:
         """Load prognostic from package
 

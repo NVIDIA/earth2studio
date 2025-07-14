@@ -11,10 +11,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Added GOES (Geostationary Operational Environmental Satellite) data source
+- Async Zarr IO backend with non-blocking write calls
+- Different compression codec support in the ZarrBackend with `zarr_codecs` parameter
+- IO performance example
+- Unified CorrDiff Wrapper
 
 ### Changed
 
-- Updated default StormCast package version to 1.0.2
+- Zarr IO Backend now uncompressed by default
+- Allow HCBV perturbation to handle constant outputs (like land sea mask, or
+  geopotential at surface)
+- test/models/dx/test_corrdiff.py is now test/models/dx/test_corrdiff_taiwan.py
+- Updated APIs for optional dependency managment utils with improved error messages
 
 ### Deprecated
 
@@ -22,9 +30,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- DLWP output coords lead_time array to have proper shape
+
 ### Security
 
 ### Dependencies
+
+- Adding rich to core dependencies
+
+## [0.8.1] - 2025-07-07
+
+### Changed
+
+- Updated default StormCast package version to 1.0.2
+
+### Fixed
+
+- NGC filesystem from API change in version >=3.158.1 of ngcsdk
+
+### Dependencies
+
+- Removed ngcsdk dependency requirement for public NGC packages
 
 ## [0.8.0] - 2025-06-13
 

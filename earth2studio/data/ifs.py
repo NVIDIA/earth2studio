@@ -20,10 +20,6 @@ import pathlib
 import shutil
 from datetime import datetime
 
-try:
-    import ecmwf.opendata as opendata
-except ImportError:
-    opendata = None
 import numpy as np
 import xarray as xr
 from loguru import logger
@@ -32,14 +28,23 @@ from tqdm import tqdm
 
 from earth2studio.data.utils import datasource_cache_root, prep_data_inputs
 from earth2studio.lexicon import IFSLexicon
-from earth2studio.utils import check_extra_imports
+from earth2studio.utils.imports import (
+    OptionalDependencyFailure,
+    check_optional_dependencies,
+)
 from earth2studio.utils.type import TimeArray, VariableArray
+
+try:
+    import ecmwf.opendata as opendata
+except ImportError:
+    OptionalDependencyFailure("data")
+    opendata = None
 
 logger.remove()
 logger.add(lambda msg: tqdm.write(msg, end=""), colorize=True)
 
 
-@check_extra_imports("data", [opendata])
+@check_optional_dependencies()
 class IFS:
     """The integrated forecast system (IFS) initial state data source provided on an
     equirectangular grid. This data is part of ECMWF's open data project on AWS. This

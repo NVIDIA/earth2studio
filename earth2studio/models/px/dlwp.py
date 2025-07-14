@@ -24,25 +24,30 @@ import numpy as np
 import torch
 import xarray
 
-try:
-    import physicsnemo
-    from physicsnemo.utils.zenith_angle import cos_zenith_angle
-except ImportError:
-    physicsnemo = None
-    cos_zenith_angle = None
-
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_coords, batch_func
 from earth2studio.models.px.base import PrognosticModel
 from earth2studio.models.px.utils import PrognosticMixin
-from earth2studio.utils import check_extra_imports, handshake_coords, handshake_dim
+from earth2studio.utils import handshake_coords, handshake_dim
+from earth2studio.utils.imports import (
+    OptionalDependencyFailure,
+    check_optional_dependencies,
+)
 from earth2studio.utils.time import timearray_to_datetime
 from earth2studio.utils.type import CoordSystem
+
+try:
+    import physicsnemo
+    from physicsnemo.utils.zenith_angle import cos_zenith_angle
+except ImportError:
+    OptionalDependencyFailure("dlwp")
+    physicsnemo = None
+    cos_zenith_angle = None
 
 VARIABLES = ["t850", "z1000", "z700", "z500", "z300", "tcwv", "t2m"]
 
 
-@check_extra_imports("dlwp", [physicsnemo, cos_zenith_angle])
+@check_optional_dependencies()
 class DLWP(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     """Deep learning weather prediction (DLWP)  prognostic model. This is a parsimonious
     global forecast model with a time-step size of 6 hours. The core model is a
@@ -190,7 +195,7 @@ class DLWP(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         )
 
     @classmethod
-    @check_extra_imports("dlwp", [physicsnemo, cos_zenith_angle])
+    @check_optional_dependencies()
     def load_model(
         cls,
         package: Package,
@@ -403,7 +408,7 @@ class DLWP(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
             # Rear hook for first predicted step
             coords_out = coords.copy()
-            coords_out["lead_time"] = coords["lead_time"][0]
+            coords_out["lead_time"] = coords["lead_time"][0:1]
             x[:, :, :1], coords_out = self.rear_hook(x[:, :, :1], coords_out)
 
             # Output first predicted step
@@ -411,7 +416,7 @@ class DLWP(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             yield out, coords_out
 
             # Rear hook for second predicted step
-            coords_out["lead_time"] = coords["lead_time"][-1]
+            coords_out["lead_time"] = coords["lead_time"][-1:]
             x[:, :, 1:], coords_out = self.rear_hook(x[:, :, 1:], coords_out)
             out = self.to_equirectangular(x[:, :, 1:])
             yield out, coords_out

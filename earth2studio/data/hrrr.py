@@ -34,19 +34,23 @@ from fsspec.implementations.http import HTTPFileSystem
 from loguru import logger
 from tqdm.asyncio import tqdm
 
-try:
-    import pyproj
-except ImportError:
-    pyproj = None
-
 from earth2studio.data.utils import (
     datasource_cache_root,
     prep_data_inputs,
     prep_forecast_inputs,
 )
 from earth2studio.lexicon import HRRRFXLexicon, HRRRLexicon
-from earth2studio.utils import check_extra_imports
+from earth2studio.utils.imports import (
+    OptionalDependencyFailure,
+    check_optional_dependencies,
+)
 from earth2studio.utils.type import LeadTimeArray, TimeArray, VariableArray
+
+try:
+    import pyproj
+except ImportError:
+    OptionalDependencyFailure("data")
+    pyproj = None
 
 logger.remove()
 logger.add(lambda msg: tqdm.write(msg, end=""), colorize=True)
@@ -63,7 +67,7 @@ class HRRRAsyncTask:
     hrrr_modifier: Callable
 
 
-@check_extra_imports("data", [pyproj])
+@check_optional_dependencies()
 class HRRR:
     """High-Resolution Rapid Refresh (HRRR) data source provides hourly North-American
     weather analysis data developed by NOAA (used to initialize the HRRR forecast
@@ -171,6 +175,7 @@ class HRRR:
             raise ValueError(f"Invalid HRRR source { self._source}")
 
         try:
+            nest_asyncio.apply()  # Monkey patch asyncio to work in notebooks
             loop = asyncio.get_running_loop()
             loop.run_until_complete(self._async_init())
         except RuntimeError:
@@ -222,7 +227,6 @@ class HRRR:
         xr.DataArray
             HRRR weather data array
         """
-        nest_asyncio.apply()  # Patch asyncio to work in notebooks
         try:
             loop = asyncio.get_event_loop()
         except RuntimeError:
@@ -752,7 +756,6 @@ class HRRR_FX(HRRR):
         xr.DataArray
             HRRR forecast data array
         """
-        nest_asyncio.apply()  # Patch asyncio to work in notebooks
         try:
             loop = asyncio.get_event_loop()
         except RuntimeError:

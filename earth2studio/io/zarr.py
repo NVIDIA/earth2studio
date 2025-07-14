@@ -36,13 +36,16 @@ if TYPE_CHECKING:
 
     from zarr.core import Array
     from zarr.core.array import Array as Array3
+    from zarr.core.array import CompressorsLike
 
     ZarrArray: TypeAlias = Union[Array, Array3]
 else:
     if zarr_major_version >= 3:
         ZarrArray = zarr.core.array.Array
+        from zarr.core.array import CompressorsLike
     else:
         ZarrArray = zarr.core.Array
+        CompressorsLike = Any
 
 from earth2studio.utils.coords import convert_multidim_to_singledim
 from earth2studio.utils.type import CoordSystem
@@ -62,10 +65,13 @@ class ZarrBackend:
         default {}
     backend_kwargs : dict[str, Any], optional
         Key word arguments for zarr.Group root object, by default {"overwrite": False}
+    zarr_codecs: CompressorsLike, optional
+        Compression codec to use when creating any new arrays. Only effects Zarr 3.0.
+        If None, will use no compressor, by default None
 
     Note
     ----
-    For keyword argument options see: https://zarr.readthedocs.io/en/stable/api/hierarchy.html
+    For keyword argument options see: https://zarr.readthedocs.io/en/latest/api/zarr/index.html#zarr.group
     """
 
     # sphinx - io zarr start
@@ -74,6 +80,7 @@ class ZarrBackend:
         file_name: str = None,
         chunks: dict[str, int] = {},
         backend_kwargs: dict[str, Any] = {"overwrite": False},
+        zarr_codecs: CompressorsLike = None,
     ) -> None:
 
         if file_name is None:
@@ -85,6 +92,7 @@ class ZarrBackend:
                 self.store = zarr.storage.DirectoryStore(file_name)
 
         self.root = zarr.group(self.store, **backend_kwargs)
+        self.zarr_codecs = zarr_codecs
 
         # Read data from file, if available
         self.coords: CoordSystem = OrderedDict({})
@@ -199,6 +207,9 @@ class ZarrBackend:
                             "Timedelta64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch"
                         )
                         values = values.astype("timedelta64[ns]").astype("int64")
+
+                    if "compressors" not in kwargs:
+                        kwargs["compressors"] = self.zarr_codecs
 
                     self.root.create_array(
                         dim,
