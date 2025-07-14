@@ -20,15 +20,6 @@ import numpy as np
 import torch
 import xarray as xr
 
-from earth2studio.utils.imports import check_extra_imports
-
-try:
-    from physicsnemo import Module
-    from physicsnemo.utils.zenith_angle import cos_zenith_angle
-except ImportError:
-    Module = None
-    cos_zenith_angle = None
-
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_coords, batch_func
 from earth2studio.models.dx.base import DiagnosticModel
@@ -36,7 +27,19 @@ from earth2studio.utils import (
     handshake_coords,
     handshake_dim,
 )
+from earth2studio.utils.imports import (
+    OptionalDependencyFailure,
+    check_optional_dependencies,
+)
 from earth2studio.utils.type import CoordSystem
+
+try:
+    from physicsnemo import Module
+    from physicsnemo.utils.zenith_angle import cos_zenith_angle
+except ImportError:
+    OptionalDependencyFailure("windgust-afno")
+    Module = None
+    cos_zenith_angle = None
 
 VARIABLES = [
     "u100m",
@@ -59,7 +62,7 @@ VARIABLES = [
 ]
 
 
-@check_extra_imports("windgust-afno", [Module, cos_zenith_angle])
+@check_optional_dependencies()
 class WindgustAFNO(torch.nn.Module, AutoModelMixin):
     """Wind gust AFNO diagnsotic model. Predicts the maximum wind gust during the
     preceding hour with the units m/s. This model uses an 17 atmospheric inputs and
@@ -164,6 +167,7 @@ class WindgustAFNO(torch.nn.Module, AutoModelMixin):
         )
 
     @classmethod
+    @check_optional_dependencies()
     def load_model(cls, package: Package) -> DiagnosticModel:
         """Load diagnostic from package"""
         model = Module.from_checkpoint(package.resolve("afno_windgust_1h.mdlus"))

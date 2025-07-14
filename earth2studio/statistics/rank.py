@@ -19,17 +19,22 @@ from collections import OrderedDict
 import numpy as np
 import torch
 
+from earth2studio.utils import handshake_coords, handshake_dim
+from earth2studio.utils.imports import (
+    OptionalDependencyFailure,
+    check_optional_dependencies,
+)
+from earth2studio.utils.type import CoordSystem
+
 try:
     from physicsnemo.metrics.general.histogram import _count_bins, linspace
 except ImportError:
+    OptionalDependencyFailure("statistics")
     _count_bins = None
     linspace = None
 
-from earth2studio.utils import check_extra_imports, handshake_coords, handshake_dim
-from earth2studio.utils.type import CoordSystem
 
-
-@check_extra_imports("statistics", [_count_bins, linspace])
+@check_optional_dependencies()
 class rank_histogram:
     """
     Compute the Rank Histogram for a given set of ensemble forecasts.

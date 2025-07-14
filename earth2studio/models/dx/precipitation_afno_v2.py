@@ -21,23 +21,27 @@ import numpy as np
 import torch
 import xarray as xr
 
+from earth2studio.models.auto import AutoModelMixin, Package
+from earth2studio.models.batch import batch_coords, batch_func
+from earth2studio.models.dx.base import DiagnosticModel
+from earth2studio.utils import (
+    handshake_coords,
+    handshake_dim,
+)
+from earth2studio.utils.imports import (
+    OptionalDependencyFailure,
+    check_optional_dependencies,
+)
+from earth2studio.utils.type import CoordSystem
+
 try:
     from physicsnemo.utils.zenith_angle import cos_zenith_angle
 
     from earth2studio.models.nn.afno_precip_v2 import PrecipNet_v2
 except ImportError:
+    OptionalDependencyFailure("precip-afno-v2")
     PrecipNet_v2 = None
     cos_zenith_angle = None
-
-from earth2studio.models.auto import AutoModelMixin, Package
-from earth2studio.models.batch import batch_coords, batch_func
-from earth2studio.models.dx.base import DiagnosticModel
-from earth2studio.utils import (
-    check_extra_imports,
-    handshake_coords,
-    handshake_dim,
-)
-from earth2studio.utils.type import CoordSystem
 
 VARIABLES = [
     "u10m",
@@ -63,7 +67,7 @@ VARIABLES = [
 ]
 
 
-@check_extra_imports("precip-afno-v2", ["physicsnemo"])
+@check_optional_dependencies()
 class PrecipitationAFNOv2(torch.nn.Module, AutoModelMixin):
     """Improved Precipitation AFNO diagnostic model. Predicts the total precipitation
     for the past 6 hours [t-6h, t] with the units m. This model uses an 20 atmospheric
@@ -170,7 +174,7 @@ class PrecipitationAFNOv2(torch.nn.Module, AutoModelMixin):
         return package
 
     @classmethod
-    @check_extra_imports("precip-afno-v2", ["physicsnemo"])
+    @check_optional_dependencies()
     def load_model(cls, package: Package) -> DiagnosticModel:
         """Load diagnostic from package"""
 
