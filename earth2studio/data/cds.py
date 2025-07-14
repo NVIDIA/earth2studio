@@ -24,10 +24,6 @@ from datetime import datetime
 from time import sleep
 from typing import Any
 
-try:
-    import cdsapi
-except ImportError:
-    cdsapi = None
 import numpy as np
 import xarray as xr
 from loguru import logger
@@ -35,7 +31,17 @@ from tqdm import tqdm
 
 from earth2studio.data.utils import datasource_cache_root, prep_data_inputs
 from earth2studio.lexicon import CDSLexicon
+from earth2studio.utils.imports import (
+    OptionalDependencyFailure,
+    check_optional_dependencies,
+)
 from earth2studio.utils.type import TimeArray, VariableArray
+
+try:
+    import cdsapi
+except ImportError:
+    OptionalDependencyFailure("data")
+    cdsapi = None
 
 logger.remove()
 logger.add(lambda msg: tqdm.write(msg, end=""), colorize=True)
@@ -54,6 +60,7 @@ class CDSRequest:
     ids: list[str]
 
 
+@check_optional_dependencies()
 class CDS:
     """The climate data source (CDS) serving ERA5 re-analysis data. This data soure
     requires users to have a CDS API access key which can be obtained for free on the
@@ -85,12 +92,6 @@ class CDS:
     CDS_LON = np.linspace(0, 359.75, 1440)
 
     def __init__(self, cache: bool = True, verbose: bool = True):
-        # Optional import not installed error
-        if cdsapi is None:
-            raise ImportError(
-                "cdsapi is not installed, install manually or using `pip install earth2studio[data]`"
-            )
-
         self._cache = cache
         self._verbose = verbose
         self.cds_client = cdsapi.Client(

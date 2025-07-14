@@ -28,6 +28,20 @@ import torch
 import xarray as xr
 import zarr
 
+from earth2studio.models.auto import AutoModelMixin, Package
+from earth2studio.models.batch import batch_coords, batch_func
+from earth2studio.models.dx.base import DiagnosticModel
+from earth2studio.utils import (
+    handshake_coords,
+    handshake_dim,
+    interp,
+)
+from earth2studio.utils.imports import (
+    OptionalDependencyFailure,
+    check_optional_dependencies,
+)
+from earth2studio.utils.type import CoordSystem
+
 try:
     from physicsnemo.models import Module as PhysicsNemoModule
     from physicsnemo.utils.corrdiff import (
@@ -40,25 +54,13 @@ try:
         stochastic_sampler,
     )
 except ImportError:
+    OptionalDependencyFailure("corrdiff")
     PhysicsNemoModule = None
     StackedRandomGenerator = None
     deterministic_sampler = None
 
-from earth2studio.models.auto import AutoModelMixin, Package
-from earth2studio.models.batch import batch_coords, batch_func
-from earth2studio.models.dx.base import DiagnosticModel
-from earth2studio.utils import (
-    check_extra_imports,
-    handshake_coords,
-    handshake_dim,
-    interp,
-)
-from earth2studio.utils.type import CoordSystem
 
-
-@check_extra_imports(
-    "corrdiff", [PhysicsNemoModule, StackedRandomGenerator, deterministic_sampler]
-)
+@check_optional_dependencies()
 class CorrDiff(torch.nn.Module, AutoModelMixin):
     """CorrDiff is a Corrector Diffusion model that learns mappings between
     low- and high-resolution weather data with high fidelity. This model combines
@@ -372,9 +374,7 @@ class CorrDiff(torch.nn.Module, AutoModelMixin):
         raise NotImplementedError
 
     @classmethod
-    @check_extra_imports(
-        "corrdiff", [PhysicsNemoModule, StackedRandomGenerator, deterministic_sampler]
-    )
+    @check_optional_dependencies()
     def load_model(cls, package: Package) -> DiagnosticModel:
         """Load CorrDiff model from package.
 
@@ -736,9 +736,7 @@ VARIABLES = [
 OUT_VARIABLES = ["mrr", "t2m", "u10m", "v10m"]
 
 
-@check_extra_imports(
-    "corrdiff", [PhysicsNemoModule, StackedRandomGenerator, deterministic_sampler]
-)
+@check_optional_dependencies()
 class CorrDiffTaiwan(torch.nn.Module, AutoModelMixin):
     """
 
@@ -881,9 +879,7 @@ class CorrDiffTaiwan(torch.nn.Module, AutoModelMixin):
         )
 
     @classmethod
-    @check_extra_imports(
-        "corrdiff", [PhysicsNemoModule, StackedRandomGenerator, deterministic_sampler]
-    )
+    @check_optional_dependencies()
     def load_model(cls, package: Package) -> DiagnosticModel:
         """Load diagnostic from package"""
 

@@ -22,19 +22,24 @@ import numpy as np
 import torch
 import xarray as xr
 
-try:
-    from physicsnemo import Module as PhysicsNemoModule
-    from physicsnemo.utils.zenith_angle import cos_zenith_angle
-except ImportError:
-    PhysicsNemoModule = None
-    cos_zenith_angle = None
-
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_coords, batch_func
 from earth2studio.models.px.base import PrognosticModel
 from earth2studio.models.px.utils import PrognosticMixin
-from earth2studio.utils import check_extra_imports
 from earth2studio.utils.coords import CoordSystem, map_coords
+from earth2studio.utils.imports import (
+    OptionalDependencyFailure,
+    check_optional_dependencies,
+)
+
+try:
+    from physicsnemo import Module as PhysicsNemoModule
+    from physicsnemo.utils.zenith_angle import cos_zenith_angle
+except ImportError:
+    OptionalDependencyFailure("interp-modafno")
+    PhysicsNemoModule = None
+    cos_zenith_angle = None
+
 
 VARIABLES = [
     "u10m",
@@ -113,7 +118,7 @@ VARIABLES = [
 ]
 
 
-@check_extra_imports("interp-modafno", [PhysicsNemoModule, cos_zenith_angle])
+@check_optional_dependencies()
 class InterpModAFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     """ModAFNO interpolation for global prognostic models. Interpolates a forecast model
     to a shorter time-step size (by default from 6 to 1 hour). Operates on 0.25 degree
@@ -272,7 +277,7 @@ class InterpModAFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         return package
 
     @classmethod
-    @check_extra_imports("interp-modafno", [PhysicsNemoModule, cos_zenith_angle])
+    @check_optional_dependencies()
     def load_model(
         cls, package: Package, px_model: PrognosticModel | None = None
     ) -> PrognosticModel:

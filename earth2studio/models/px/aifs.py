@@ -26,8 +26,21 @@ from earth2studio.models.batch import batch_coords, batch_func
 from earth2studio.models.px.base import PrognosticModel
 from earth2studio.models.px.utils import PrognosticMixin
 from earth2studio.utils import handshake_coords, handshake_dim
-from earth2studio.utils.imports import check_extra_imports
+from earth2studio.utils.imports import (
+    OptionalDependencyFailure,
+    check_optional_dependencies,
+)
 from earth2studio.utils.type import CoordSystem
+
+try:
+    import anemoi.inference  # noqa: F401
+    import anemoi.models  # noqa: F401
+    import earthkit.regrid  # noqa: F401
+    import ecmwf.opendata  # noqa: F401
+    import flash_attn  # noqa: F401
+except ImportError:
+    OptionalDependencyFailure("aifs")
+
 
 VARIABLES = [
     "q50",
@@ -127,16 +140,7 @@ VARIABLES = [
 ]
 
 
-@check_extra_imports(
-    "aifs",
-    [
-        "anemoi.inference",
-        "anemoi.models",
-        "earthkit.regrid",
-        "ecmwf.opendata",
-        "flash_attn",
-    ],
-)
+@check_optional_dependencies()
 class AIFS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     """Artificial Intelligence Forecasting System (AIFS), a data driven forecast model
     developed by the European Centre for Medium-Range Weather Forecasts (ECMWF). AIFS is
@@ -450,16 +454,7 @@ class AIFS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         return package
 
     @classmethod
-    @check_extra_imports(
-        "aifs",
-        [
-            "anemoi.inference",
-            "anemoi.models",
-            "earthkit.regrid",
-            "ecmwf.opendata",
-            "flash_attn",
-        ],
-    )
+    @check_optional_dependencies()
     def load_model(cls, package: Package) -> PrognosticModel:
         """Load prognostic from package"""
 

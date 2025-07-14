@@ -14,29 +14,36 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import json as js
-
 import pytest
 
-from earth2studio.utils.imports import ExtraDependencyError, check_extra_imports
+from earth2studio.utils.imports import (
+    OptionalDependencyError,
+    OptionalDependencyFailure,
+    check_optional_dependencies,
+)
 
 
 @pytest.mark.parametrize(
     "package_obj,should_raise",
     [
         ("json", False),
-        (js, False),
+        ("os", False),
         ("nonexistent_package", True),
-        (None, True),
     ],
 )
 def test_extra_check_function(package_obj, should_raise):
-    @check_extra_imports("test-group", package_obj)
+    OptionalDependencyFailure.failures = {}
+    try:
+        __import__(package_obj)
+    except ImportError:
+        OptionalDependencyFailure("test-group")
+
+    @check_optional_dependencies()
     def func():
         return 1993
 
     if should_raise:
-        with pytest.raises(ExtraDependencyError) as exc_info:
+        with pytest.raises(OptionalDependencyError) as exc_info:
             func()
             assert "test-group" in str(exc_info.value)
             assert "func" in str(exc_info.value)
@@ -48,22 +55,29 @@ def test_extra_check_function(package_obj, should_raise):
     "package_obj,should_raise",
     [
         ("json", False),
-        (js, False),
+        ("os", False),
         ("nonexistent_package", True),
-        (None, True),
+        ("other_package", True),
     ],
 )
 def test_extra_check_class(package_obj, should_raise):
-    @check_extra_imports("test-group", package_obj)
+    OptionalDependencyFailure.failures = {}
+    try:
+        __import__(package_obj)
+    except ImportError:
+        OptionalDependencyFailure("test-group", doc_url="https://www.nvidia.com/en-us/")
+
+    @check_optional_dependencies()
     class TestClass:
         def __init__(self):
             self.value = 1993
 
     if should_raise:
-        with pytest.raises(ExtraDependencyError) as exc_info:
+        with pytest.raises(OptionalDependencyError) as exc_info:
             TestClass()
             assert "test-group" in str(exc_info.value)
             assert "TestClass" in str(exc_info.value)
+            assert "https://www.nvidia.com/en-us/" in str(exc_info.value)
     else:
         obj = TestClass()
         assert obj.value == 1993
@@ -74,17 +88,23 @@ def test_extra_check_class(package_obj, should_raise):
     [
         (["json", "os"], False),
         (["json", "nonexistent_package"], True),
-        ([js, None], True),
         (["nonexistent1", "nonexistent2"], True),
     ],
 )
 def test_extra_check_multiple(package_objs, should_raise):
-    @check_extra_imports("test-group", package_objs)
+    OptionalDependencyFailure.failures = {}
+    try:
+        for obj in package_objs:
+            __import__(obj)
+    except ImportError:
+        OptionalDependencyFailure("test-group")
+
+    @check_optional_dependencies()
     def func():
         return 1993
 
     if should_raise:
-        with pytest.raises(ExtraDependencyError) as exc_info:
+        with pytest.raises(OptionalDependencyError) as exc_info:
             func()
             assert "test-group" in str(exc_info.value)
             assert "func" in str(exc_info.value)
@@ -97,9 +117,15 @@ def test_extra_check_multiple(package_objs, should_raise):
     ["function", "class"],
 )
 def test_extra_check_preserves_metadata(obj_type):
+    OptionalDependencyFailure.failures = {}
+    try:
+        import json  # noqa: F401
+    except ImportError:
+        OptionalDependencyFailure("test-group")
+
     if obj_type == "function":
 
-        @check_extra_imports("test-group", "json")
+        @check_optional_dependencies()
         def my_func():
             """Test function docstring."""
             return 1993
@@ -109,7 +135,7 @@ def test_extra_check_preserves_metadata(obj_type):
         doc = "Test function docstring."
     else:
 
-        @check_extra_imports("test-group", "json")
+        @check_optional_dependencies()
         class MyClass:
             """Test class docstring."""
 
@@ -124,11 +150,17 @@ def test_extra_check_preserves_metadata(obj_type):
 
 
 def test_extra_check_class_inheritance():
+    OptionalDependencyFailure.failures = {}
+    try:
+        import json  # noqa: F401
+    except ImportError:
+        OptionalDependencyFailure("test-group", "key")
+
     class BaseClass:
         def base_method(self):
             return "base"
 
-    @check_extra_imports("test-group", "json")
+    @check_optional_dependencies("key")
     class DerivedClass(BaseClass):
         def derived_method(self, input: str):
             return input

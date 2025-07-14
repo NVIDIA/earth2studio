@@ -21,20 +21,25 @@ from datetime import datetime, timezone
 import numpy as np
 import torch
 
-try:
-    from aurora import Aurora as Aurora_model
-    from aurora import Batch, Metadata
-except ImportError:
-    Aurora_model = None
-    Batch = None
-    Metadata = None
-
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_coords, batch_func
 from earth2studio.models.px.base import PrognosticModel
 from earth2studio.models.px.utils import PrognosticMixin
-from earth2studio.utils import check_extra_imports, handshake_coords, handshake_dim
+from earth2studio.utils import handshake_coords, handshake_dim
+from earth2studio.utils.imports import (
+    OptionalDependencyFailure,
+    check_optional_dependencies,
+)
 from earth2studio.utils.type import CoordSystem
+
+try:
+    from aurora import Aurora as Aurora_model
+    from aurora import Batch, Metadata
+except ImportError:
+    OptionalDependencyFailure("aurora")
+    Aurora_model = None
+    Batch = None
+    Metadata = None
 
 VARIABLES = [
     "z1000",
@@ -112,7 +117,7 @@ ATMOS_LEVELS = [1000, 925, 850, 700, 600, 500, 400, 300, 250, 200, 150, 100, 50]
 
 
 # Adapted from https://microsoft.github.io/aurora/example_era5.html
-@check_extra_imports("aurora", [Aurora_model, Batch, Metadata])
+@check_optional_dependencies()
 class Aurora(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     """Aurora 0.25 degree global forecast model. This model consists of single
     auto-regressive model with a time-step size of 6 hours. This model operates on
@@ -245,7 +250,7 @@ class Aurora(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         )
 
     @classmethod
-    @check_extra_imports("aurora", [Aurora_model, Batch, Metadata])
+    @check_optional_dependencies()
     def load_model(
         cls,
         package: Package,

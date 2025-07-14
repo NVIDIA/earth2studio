@@ -21,6 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Allow HCBV perturbation to handle constant outputs (like land sea mask, or
   geopotential at surface)
 - test/models/dx/test_corrdiff.py is now test/models/dx/test_corrdiff_taiwan.py
+- Updated APIs for optional dependency managment utils with improved error messages
 
 ### Deprecated
 

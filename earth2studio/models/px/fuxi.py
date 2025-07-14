@@ -20,23 +20,28 @@ from typing import TypeVar
 
 import numpy as np
 import pandas as pd
-from loguru import logger
-
-try:
-    import onnxruntime as ort
-    from onnxruntime import InferenceSession
-except ImportError:
-    ort = None
-    InferenceSession = TypeVar("InferenceSession")  # type: ignore
 import torch
+from loguru import logger
 
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_coords, batch_func
 from earth2studio.models.px.base import PrognosticModel
 from earth2studio.models.px.utils import PrognosticMixin
 from earth2studio.models.utils import create_ort_session
-from earth2studio.utils import check_extra_imports, handshake_coords, handshake_dim
+from earth2studio.utils import handshake_coords, handshake_dim
+from earth2studio.utils.imports import (
+    OptionalDependencyFailure,
+    check_optional_dependencies,
+)
 from earth2studio.utils.type import CoordSystem, TimeArray
+
+try:
+    import onnxruntime as ort
+    from onnxruntime import InferenceSession
+except ImportError:
+    OptionalDependencyFailure("fuxi")
+    ort = None
+    InferenceSession = TypeVar("InferenceSession")  # type: ignore
 
 VARIABLES = [
     "z50",
@@ -112,7 +117,7 @@ VARIABLES = [
 ]
 
 
-@check_extra_imports("fuxi", [ort])
+@check_optional_dependencies()
 class FuXi(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     """FuXi weather model consists of three auto-regressive U-net transfomer models with
     a time-step size of 6 hours. The three models are trained to predict short (5days),
@@ -257,7 +262,7 @@ class FuXi(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         )
 
     @classmethod
-    @check_extra_imports("fuxi", [ort])
+    @check_optional_dependencies()
     def load_model(
         cls,
         package: Package,

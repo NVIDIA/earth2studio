@@ -19,13 +19,6 @@ from collections.abc import Generator, Iterator
 from typing import TypeVar
 
 import numpy as np
-
-try:
-    import onnxruntime as ort
-    from onnxruntime import InferenceSession
-except ImportError:
-    ort = None
-    InferenceSession = TypeVar("InferenceSession")  # type: ignore
 import torch
 
 from earth2studio.models.auto import AutoModelMixin, Package
@@ -33,8 +26,20 @@ from earth2studio.models.batch import batch_coords, batch_func
 from earth2studio.models.px.base import PrognosticModel
 from earth2studio.models.px.utils import PrognosticMixin
 from earth2studio.models.utils import create_ort_session
-from earth2studio.utils import check_extra_imports, handshake_coords, handshake_dim
+from earth2studio.utils import handshake_coords, handshake_dim
+from earth2studio.utils.imports import (
+    OptionalDependencyFailure,
+    check_optional_dependencies,
+)
 from earth2studio.utils.type import CoordSystem
+
+try:
+    import onnxruntime as ort
+    from onnxruntime import InferenceSession
+except ImportError:
+    OptionalDependencyFailure("fengwu")
+    ort = None
+    InferenceSession = TypeVar("InferenceSession")  # type: ignore
 
 VARIABLES = [
     "u10m",
@@ -109,7 +114,7 @@ VARIABLES = [
 ]
 
 
-@check_extra_imports("fengwu", [ort])
+@check_optional_dependencies()
 class FengWu(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     """FengWu (operational) weather model consists of single auto-regressive model with
     a time-step size of 6 hours. FengWu operates on 0.25 degree lat-lon grid (south-pole
@@ -248,7 +253,7 @@ class FengWu(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         )
 
     @classmethod
-    @check_extra_imports("fengwu", [ort])
+    @check_optional_dependencies()
     def load_model(
         cls,
         package: Package,

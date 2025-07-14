@@ -24,26 +24,31 @@ import torch
 import xarray as xr
 import zarr
 
-try:
-    from omegaconf import OmegaConf
-    from physicsnemo.models import Module as PhysicsNemoModule
-    from physicsnemo.utils.generative import deterministic_sampler
-except ImportError:
-    PhysicsNemoModule = None
-    OmegaConf = None
-    deterministic_sampler = None
-
 from earth2studio.data import GFS_FX, HRRR, DataSource, ForecastSource, fetch_data
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_coords, batch_func
 from earth2studio.models.dx.base import DiagnosticModel
 from earth2studio.models.px.utils import PrognosticMixin
 from earth2studio.utils import (
-    check_extra_imports,
     handshake_coords,
     handshake_dim,
 )
+from earth2studio.utils.imports import (
+    OptionalDependencyFailure,
+    check_optional_dependencies,
+)
 from earth2studio.utils.type import CoordSystem
+
+try:
+    from omegaconf import OmegaConf
+    from physicsnemo.models import Module as PhysicsNemoModule
+    from physicsnemo.utils.generative import deterministic_sampler
+except ImportError:
+    OptionalDependencyFailure("stormcast")
+    PhysicsNemoModule = None
+    OmegaConf = None
+    deterministic_sampler = None
+
 
 # Variables used in StormCastV1 paper
 VARIABLES = (
@@ -76,7 +81,7 @@ X_START, X_END = 579, 1219
 Y_START, Y_END = 273, 785
 
 
-@check_extra_imports("stormcast", [OmegaConf, PhysicsNemoModule, deterministic_sampler])
+@check_optional_dependencies()
 class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     """StormCast generative convection-allowing model for regional forecasts consists of
     two core models: a regression and diffusion model. Model time step size is 1 hour,
@@ -248,9 +253,7 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         return package
 
     @classmethod
-    @check_extra_imports(
-        "stormcast", [OmegaConf, PhysicsNemoModule, deterministic_sampler]
-    )
+    @check_optional_dependencies()
     def load_model(
         cls,
         package: Package,
