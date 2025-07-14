@@ -70,7 +70,8 @@ class OptionalDependencyError(ImportError):
 class OptionalDependencyFailure:
     """Optional dependency group failure.
     Instantiate this in the catch of an import failure for a group of optional
-    dependencies. This will add the failure the class singleton dictionary.
+    dependencies. This will add the failure the class singleton dictionary for
+    later look up.
 
     Parameters
     ----------
@@ -81,7 +82,7 @@ class OptionalDependencyFailure:
     key : str | None, optional
         Unique dependency group key to id the import. This is used with the
         `check_optional_dependencies` to check if needed optional dependencies are
-        installed. Setting this manually is typiclaly not needed. If None, the key
+        installed. Setting this manually is typically not needed. If None, the key
         will be the filename of the caller object, by default None
     doc_url : str | None, optional
         Install doc url override of the install doc link present in error

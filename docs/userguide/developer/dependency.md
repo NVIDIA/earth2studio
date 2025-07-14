@@ -71,7 +71,7 @@ installed.
 A good sanity check if things have properly been caught is by building the API docs
 with `make docs`.
 
-Its important to handle the absence of optional dependencies in a standardize way for
+It is important to handle the absence of optional dependencies in a standardize way for
 the user.
 Earth2Studio has some utilities to provide informative errors to users that should be
 used when some optional dependency group is needed to be installed:
