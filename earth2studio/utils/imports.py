@@ -137,7 +137,7 @@ def check_optional_dependencies(
     """
     if key is None:
         stack = inspect.stack()
-        caller_frame = stack[2]
+        caller_frame = stack[1]
         key = caller_frame.filename
 
     def _check_deps(obj_name: str) -> None:
