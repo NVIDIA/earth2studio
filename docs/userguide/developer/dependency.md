@@ -97,7 +97,7 @@ from earth2studio.utils.imports import (
 try:
     from physicsnemo.models.afno import AFNO
 except ImportError:
-    OptionalDependencyFailure("afno")
+    OptionalDependencyFailure("fcn")
     AFNO = None
 
 
