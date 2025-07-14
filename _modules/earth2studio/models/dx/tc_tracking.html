@@ -436,6 +436,20 @@
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">collections</span><span class="w"> </span><span class="kn">import</span> <span class="n">OrderedDict</span>
 
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.models.batch</span><span class="w"> </span><span class="kn">import</span> <span class="n">batch_coords</span><span class="p">,</span> <span class="n">batch_func</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.utils</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">handshake_coords</span><span class="p">,</span>
+    <span class="n">handshake_dim</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.utils.imports</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">OptionalDependencyFailure</span><span class="p">,</span>
+    <span class="n">check_optional_dependencies</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.utils.type</span><span class="w"> </span><span class="kn">import</span> <span class="n">CoordSystem</span>
+
 <span class="k">try</span><span class="p">:</span>
     <span class="kn">import</span><span class="w"> </span><span class="nn">cupy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">cp</span>
     <span class="kn">from</span><span class="w"> </span><span class="nn">cucim.skimage.feature</span><span class="w"> </span><span class="kn">import</span> <span class="n">peak_local_max</span> <span class="k">as</span> <span class="n">cucim_peak_local_max</span>
@@ -447,6 +461,7 @@
 
     <span class="c1"># from cupyx.scipy.spatial import KDTree as CuKDTree</span>
 <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+    <span class="n">OptionalDependencyFailure</span><span class="p">(</span><span class="s2">&quot;cyclone&quot;</span><span class="p">)</span>
     <span class="n">cp</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">cucim_peak_local_max</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">label</span> <span class="o">=</span> <span class="kc">None</span>
@@ -457,17 +472,6 @@
     <span class="n">convex_hull_image</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">KDTree</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="c1"># CuKDTree = None</span>
-
-<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
-<span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
-
-<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.models.batch</span><span class="w"> </span><span class="kn">import</span> <span class="n">batch_coords</span><span class="p">,</span> <span class="n">batch_func</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.utils</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
-    <span class="n">handshake_coords</span><span class="p">,</span>
-    <span class="n">handshake_dim</span><span class="p">,</span>
-<span class="p">)</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.utils.imports</span><span class="w"> </span><span class="kn">import</span> <span class="n">check_extra_imports</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.utils.type</span><span class="w"> </span><span class="kn">import</span> <span class="n">CoordSystem</span>
 
 <span class="n">VARIABLES_TCV</span> <span class="o">=</span> <span class="p">[</span>
     <span class="s2">&quot;u10m&quot;</span><span class="p">,</span>
@@ -749,7 +753,7 @@
 
 <div class="viewcode-block" id="TCTrackerWuDuan">
 <a class="viewcode-back" href="../../../../modules/generated/models/dx/earth2studio.models.dx.TCTrackerWuDuan.html#earth2studio.models.dx.TCTrackerWuDuan">[docs]</a>
-<span class="nd">@check_extra_imports</span><span class="p">(</span><span class="s2">&quot;cyclone&quot;</span><span class="p">,</span> <span class="p">[</span><span class="n">cp</span><span class="p">,</span> <span class="n">KDTree</span><span class="p">,</span> <span class="s2">&quot;cucim&quot;</span><span class="p">,</span> <span class="s2">&quot;skimage&quot;</span><span class="p">])</span>
+<span class="nd">@check_optional_dependencies</span><span class="p">()</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">TCTrackerWuDuan</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">,</span> <span class="n">_TCTrackerBase</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Finds a list of tropical cyclone (TC) centers using an adaption of the method</span>
 <span class="sd">    described in the conditions in Wu and Duan 2023. The algorithm converts vorticity</span>
@@ -1067,7 +1071,7 @@
 
 <div class="viewcode-block" id="TCTrackerVitart">
 <a class="viewcode-back" href="../../../../modules/generated/models/dx/earth2studio.models.dx.TCTrackerVitart.html#earth2studio.models.dx.TCTrackerVitart">[docs]</a>
-<span class="nd">@check_extra_imports</span><span class="p">(</span><span class="s2">&quot;cyclone&quot;</span><span class="p">,</span> <span class="p">[</span><span class="n">cp</span><span class="p">,</span> <span class="n">KDTree</span><span class="p">,</span> <span class="s2">&quot;cucim&quot;</span><span class="p">,</span> <span class="s2">&quot;skimage&quot;</span><span class="p">])</span>
+<span class="nd">@check_optional_dependencies</span><span class="p">()</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">TCTrackerVitart</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">,</span> <span class="n">_TCTrackerBase</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Finds a list of tropical cyclone centers using the conditions in Vitart 1997</span>
 

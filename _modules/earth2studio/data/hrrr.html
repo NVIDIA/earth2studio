@@ -454,19 +454,23 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">loguru</span><span class="w"> </span><span class="kn">import</span> <span class="n">logger</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">tqdm.asyncio</span><span class="w"> </span><span class="kn">import</span> <span class="n">tqdm</span>
 
-<span class="k">try</span><span class="p">:</span>
-    <span class="kn">import</span><span class="w"> </span><span class="nn">pyproj</span>
-<span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
-    <span class="n">pyproj</span> <span class="o">=</span> <span class="kc">None</span>
-
 <span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.data.utils</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
     <span class="n">datasource_cache_root</span><span class="p">,</span>
     <span class="n">prep_data_inputs</span><span class="p">,</span>
     <span class="n">prep_forecast_inputs</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.lexicon</span><span class="w"> </span><span class="kn">import</span> <span class="n">HRRRFXLexicon</span><span class="p">,</span> <span class="n">HRRRLexicon</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">check_extra_imports</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.utils.imports</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">OptionalDependencyFailure</span><span class="p">,</span>
+    <span class="n">check_optional_dependencies</span><span class="p">,</span>
+<span class="p">)</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.utils.type</span><span class="w"> </span><span class="kn">import</span> <span class="n">LeadTimeArray</span><span class="p">,</span> <span class="n">TimeArray</span><span class="p">,</span> <span class="n">VariableArray</span>
+
+<span class="k">try</span><span class="p">:</span>
+    <span class="kn">import</span><span class="w"> </span><span class="nn">pyproj</span>
+<span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+    <span class="n">OptionalDependencyFailure</span><span class="p">(</span><span class="s2">&quot;data&quot;</span><span class="p">)</span>
+    <span class="n">pyproj</span> <span class="o">=</span> <span class="kc">None</span>
 
 <span class="n">logger</span><span class="o">.</span><span class="n">remove</span><span class="p">()</span>
 <span class="n">logger</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="k">lambda</span> <span class="n">msg</span><span class="p">:</span> <span class="n">tqdm</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">msg</span><span class="p">,</span> <span class="n">end</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">),</span> <span class="n">colorize</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
@@ -485,7 +489,7 @@
 
 <div class="viewcode-block" id="HRRR">
 <a class="viewcode-back" href="../../../modules/generated/data/earth2studio.data.HRRR.html#earth2studio.data.HRRR">[docs]</a>
-<span class="nd">@check_extra_imports</span><span class="p">(</span><span class="s2">&quot;data&quot;</span><span class="p">,</span> <span class="p">[</span><span class="n">pyproj</span><span class="p">])</span>
+<span class="nd">@check_optional_dependencies</span><span class="p">()</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">HRRR</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;High-Resolution Rapid Refresh (HRRR) data source provides hourly North-American</span>
 <span class="sd">    weather analysis data developed by NOAA (used to initialize the HRRR forecast</span>

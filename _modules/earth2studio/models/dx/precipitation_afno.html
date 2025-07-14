@@ -444,18 +444,21 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.models.auto</span><span class="w"> </span><span class="kn">import</span> <span class="n">AutoModelMixin</span><span class="p">,</span> <span class="n">Package</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.models.batch</span><span class="w"> </span><span class="kn">import</span> <span class="n">batch_coords</span><span class="p">,</span> <span class="n">batch_func</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.models.dx.base</span><span class="w"> </span><span class="kn">import</span> <span class="n">DiagnosticModel</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.utils</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">handshake_coords</span><span class="p">,</span>
+    <span class="n">handshake_dim</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.utils.imports</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">OptionalDependencyFailure</span><span class="p">,</span>
+    <span class="n">check_optional_dependencies</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.utils.type</span><span class="w"> </span><span class="kn">import</span> <span class="n">CoordSystem</span>
 
 <span class="k">try</span><span class="p">:</span>
     <span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.models.nn.afno_precip</span><span class="w"> </span><span class="kn">import</span> <span class="n">PrecipNet</span>
 <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+    <span class="n">OptionalDependencyFailure</span><span class="p">(</span><span class="s2">&quot;precip-afno&quot;</span><span class="p">)</span>
     <span class="n">PrecipNet</span> <span class="o">=</span> <span class="kc">None</span>
-
-<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.utils</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
-    <span class="n">check_extra_imports</span><span class="p">,</span>
-    <span class="n">handshake_coords</span><span class="p">,</span>
-    <span class="n">handshake_dim</span><span class="p">,</span>
-<span class="p">)</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.utils.type</span><span class="w"> </span><span class="kn">import</span> <span class="n">CoordSystem</span>
 
 <span class="n">VARIABLES</span> <span class="o">=</span> <span class="p">[</span>
     <span class="s2">&quot;u10m&quot;</span><span class="p">,</span>
@@ -483,7 +486,7 @@
 
 <div class="viewcode-block" id="PrecipitationAFNO">
 <a class="viewcode-back" href="../../../../modules/generated/models/dx/earth2studio.models.dx.PrecipitationAFNO.html#earth2studio.models.dx.PrecipitationAFNO">[docs]</a>
-<span class="nd">@check_extra_imports</span><span class="p">(</span><span class="s2">&quot;precip-afno&quot;</span><span class="p">,</span> <span class="p">[</span><span class="n">PrecipNet</span><span class="p">])</span>
+<span class="nd">@check_optional_dependencies</span><span class="p">()</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">PrecipitationAFNO</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">,</span> <span class="n">AutoModelMixin</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Precipitation AFNO diagnsotic model. Predicts the total precipation parameter</span>
 <span class="sd">    which is the accumulated amount of liquid and frozen water (rain or snow) with</span>
@@ -584,7 +587,7 @@
 <div class="viewcode-block" id="PrecipitationAFNO.load_model">
 <a class="viewcode-back" href="../../../../modules/generated/models/dx/earth2studio.models.dx.PrecipitationAFNO.html#earth2studio.models.dx.PrecipitationAFNO.load_model">[docs]</a>
     <span class="nd">@classmethod</span>
-    <span class="nd">@check_extra_imports</span><span class="p">(</span><span class="s2">&quot;precip-afno&quot;</span><span class="p">,</span> <span class="p">[</span><span class="n">PrecipNet</span><span class="p">])</span>
+    <span class="nd">@check_optional_dependencies</span><span class="p">()</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">load_model</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">package</span><span class="p">:</span> <span class="n">Package</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">DiagnosticModel</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Load diagnostic from package&quot;&quot;&quot;</span>
         <span class="n">checkpoint_zip</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">package</span><span class="o">.</span><span class="n">resolve</span><span class="p">(</span><span class="s2">&quot;precipitation_afno.zip&quot;</span><span class="p">))</span>

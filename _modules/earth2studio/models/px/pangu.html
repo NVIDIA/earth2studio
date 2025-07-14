@@ -448,13 +448,6 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">TypeVar</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
-
-<span class="k">try</span><span class="p">:</span>
-    <span class="kn">import</span><span class="w"> </span><span class="nn">onnxruntime</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">ort</span>
-    <span class="kn">from</span><span class="w"> </span><span class="nn">onnxruntime</span><span class="w"> </span><span class="kn">import</span> <span class="n">InferenceSession</span>
-<span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
-    <span class="n">ort</span> <span class="o">=</span> <span class="kc">None</span>
-    <span class="n">InferenceSession</span> <span class="o">=</span> <span class="n">TypeVar</span><span class="p">(</span><span class="s2">&quot;InferenceSession&quot;</span><span class="p">)</span>  <span class="c1"># type: ignore</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.models.auto</span><span class="w"> </span><span class="kn">import</span> <span class="n">AutoModelMixin</span><span class="p">,</span> <span class="n">Package</span>
@@ -462,8 +455,20 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.models.px.base</span><span class="w"> </span><span class="kn">import</span> <span class="n">PrognosticModel</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.models.px.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">PrognosticMixin</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.models.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">create_ort_session</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">check_extra_imports</span><span class="p">,</span> <span class="n">handshake_coords</span><span class="p">,</span> <span class="n">handshake_dim</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">handshake_coords</span><span class="p">,</span> <span class="n">handshake_dim</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.utils.imports</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">OptionalDependencyFailure</span><span class="p">,</span>
+    <span class="n">check_optional_dependencies</span><span class="p">,</span>
+<span class="p">)</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.utils.type</span><span class="w"> </span><span class="kn">import</span> <span class="n">CoordSystem</span>
+
+<span class="k">try</span><span class="p">:</span>
+    <span class="kn">import</span><span class="w"> </span><span class="nn">onnxruntime</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">ort</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">onnxruntime</span><span class="w"> </span><span class="kn">import</span> <span class="n">InferenceSession</span>
+<span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+    <span class="n">OptionalDependencyFailure</span><span class="p">(</span><span class="s2">&quot;pangu&quot;</span><span class="p">)</span>
+    <span class="n">ort</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">InferenceSession</span> <span class="o">=</span> <span class="n">TypeVar</span><span class="p">(</span><span class="s2">&quot;InferenceSession&quot;</span><span class="p">)</span>  <span class="c1"># type: ignore</span>
 
 <span class="n">VARIABLES</span> <span class="o">=</span> <span class="p">[</span>
     <span class="s2">&quot;z1000&quot;</span><span class="p">,</span>
@@ -747,7 +752,7 @@
 
 <div class="viewcode-block" id="Pangu24">
 <a class="viewcode-back" href="../../../../modules/generated/models/px/earth2studio.models.px.Pangu24.html#earth2studio.models.px.Pangu24">[docs]</a>
-<span class="nd">@check_extra_imports</span><span class="p">(</span><span class="s2">&quot;pangu&quot;</span><span class="p">,</span> <span class="p">[</span><span class="n">ort</span><span class="p">])</span>
+<span class="nd">@check_optional_dependencies</span><span class="p">()</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">Pangu24</span><span class="p">(</span><span class="n">PanguBase</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Pangu Weather 24 hour model. This model consists of single auto-regressive</span>
 <span class="sd">    model with a time-step size of 24 hours. Pangu Weather operates on 0.25 degree</span>
@@ -790,7 +795,7 @@
 <div class="viewcode-block" id="Pangu24.load_model">
 <a class="viewcode-back" href="../../../../modules/generated/models/px/earth2studio.models.px.Pangu24.html#earth2studio.models.px.Pangu24.load_model">[docs]</a>
     <span class="nd">@classmethod</span>
-    <span class="nd">@check_extra_imports</span><span class="p">(</span><span class="s2">&quot;pangu&quot;</span><span class="p">,</span> <span class="p">[</span><span class="n">ort</span><span class="p">])</span>
+    <span class="nd">@check_optional_dependencies</span><span class="p">()</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">load_model</span><span class="p">(</span>
         <span class="bp">cls</span><span class="p">,</span>
         <span class="n">package</span><span class="p">:</span> <span class="n">Package</span><span class="p">,</span>
@@ -855,7 +860,7 @@
 
 <div class="viewcode-block" id="Pangu6">
 <a class="viewcode-back" href="../../../../modules/generated/models/px/earth2studio.models.px.Pangu6.html#earth2studio.models.px.Pangu6">[docs]</a>
-<span class="nd">@check_extra_imports</span><span class="p">(</span><span class="s2">&quot;pangu&quot;</span><span class="p">,</span> <span class="p">[</span><span class="n">ort</span><span class="p">])</span>
+<span class="nd">@check_optional_dependencies</span><span class="p">()</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">Pangu6</span><span class="p">(</span><span class="n">PanguBase</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Pangu Weather 6 hour model. This model consists of two underlying auto-regressive</span>
 <span class="sd">    models with a time-step size of 24 hours and 6 hours. These two models are</span>
@@ -902,7 +907,7 @@
 <div class="viewcode-block" id="Pangu6.load_model">
 <a class="viewcode-back" href="../../../../modules/generated/models/px/earth2studio.models.px.Pangu6.html#earth2studio.models.px.Pangu6.load_model">[docs]</a>
     <span class="nd">@classmethod</span>
-    <span class="nd">@check_extra_imports</span><span class="p">(</span><span class="s2">&quot;pangu&quot;</span><span class="p">,</span> <span class="p">[</span><span class="n">ort</span><span class="p">])</span>
+    <span class="nd">@check_optional_dependencies</span><span class="p">()</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">load_model</span><span class="p">(</span>
         <span class="bp">cls</span><span class="p">,</span>
         <span class="n">package</span><span class="p">:</span> <span class="n">Package</span><span class="p">,</span>
@@ -979,7 +984,7 @@
 
 <div class="viewcode-block" id="Pangu3">
 <a class="viewcode-back" href="../../../../modules/generated/models/px/earth2studio.models.px.Pangu3.html#earth2studio.models.px.Pangu3">[docs]</a>
-<span class="nd">@check_extra_imports</span><span class="p">(</span><span class="s2">&quot;pangu&quot;</span><span class="p">,</span> <span class="p">[</span><span class="n">ort</span><span class="p">])</span>
+<span class="nd">@check_optional_dependencies</span><span class="p">()</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">Pangu3</span><span class="p">(</span><span class="n">PanguBase</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Pangu Weather 3 hour model. This model consists of three underlying</span>
 <span class="sd">    auto-regressive models with a time-step size of 24, 6 and 3 hours. These three</span>
@@ -1031,7 +1036,7 @@
 <div class="viewcode-block" id="Pangu3.load_model">
 <a class="viewcode-back" href="../../../../modules/generated/models/px/earth2studio.models.px.Pangu3.html#earth2studio.models.px.Pangu3.load_model">[docs]</a>
     <span class="nd">@classmethod</span>
-    <span class="nd">@check_extra_imports</span><span class="p">(</span><span class="s2">&quot;pangu&quot;</span><span class="p">,</span> <span class="p">[</span><span class="n">ort</span><span class="p">])</span>
+    <span class="nd">@check_optional_dependencies</span><span class="p">()</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">load_model</span><span class="p">(</span>
         <span class="bp">cls</span><span class="p">,</span>
         <span class="n">package</span><span class="p">:</span> <span class="n">Package</span><span class="p">,</span>

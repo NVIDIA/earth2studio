@@ -442,22 +442,28 @@
 <span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">xarray</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">xr</span>
 
+<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.models.auto</span><span class="w"> </span><span class="kn">import</span> <span class="n">AutoModelMixin</span><span class="p">,</span> <span class="n">Package</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.models.batch</span><span class="w"> </span><span class="kn">import</span> <span class="n">batch_coords</span><span class="p">,</span> <span class="n">batch_func</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.models.px.base</span><span class="w"> </span><span class="kn">import</span> <span class="n">PrognosticModel</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.models.px.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">PrognosticMixin</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">handshake_coords</span><span class="p">,</span> <span class="n">handshake_dim</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.utils.imports</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">OptionalDependencyFailure</span><span class="p">,</span>
+    <span class="n">check_optional_dependencies</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.utils.type</span><span class="w"> </span><span class="kn">import</span> <span class="n">CoordSystem</span>
+
 <span class="k">try</span><span class="p">:</span>
     <span class="kn">import</span><span class="w"> </span><span class="nn">earth2grid</span>
     <span class="kn">from</span><span class="w"> </span><span class="nn">omegaconf</span><span class="w"> </span><span class="kn">import</span> <span class="n">OmegaConf</span>
     <span class="kn">from</span><span class="w"> </span><span class="nn">physicsnemo.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">Module</span>
     <span class="kn">from</span><span class="w"> </span><span class="nn">physicsnemo.utils.insolation</span><span class="w"> </span><span class="kn">import</span> <span class="n">insolation</span>
 <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+    <span class="n">OptionalDependencyFailure</span><span class="p">(</span><span class="s2">&quot;dlesym&quot;</span><span class="p">)</span>
     <span class="n">Module</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">insolation</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">OmegaConf</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">earth2grid</span> <span class="o">=</span> <span class="kc">None</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.models.auto</span><span class="w"> </span><span class="kn">import</span> <span class="n">AutoModelMixin</span><span class="p">,</span> <span class="n">Package</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.models.batch</span><span class="w"> </span><span class="kn">import</span> <span class="n">batch_coords</span><span class="p">,</span> <span class="n">batch_func</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.models.px.base</span><span class="w"> </span><span class="kn">import</span> <span class="n">PrognosticModel</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.models.px.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">PrognosticMixin</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">check_extra_imports</span><span class="p">,</span> <span class="n">handshake_coords</span><span class="p">,</span> <span class="n">handshake_dim</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.utils.type</span><span class="w"> </span><span class="kn">import</span> <span class="n">CoordSystem</span>
 
 <span class="n">_ATMOS_VARIABLES</span> <span class="o">=</span> <span class="p">[</span>
     <span class="s2">&quot;z500&quot;</span><span class="p">,</span>
@@ -485,7 +491,7 @@
 
 <div class="viewcode-block" id="DLESyM">
 <a class="viewcode-back" href="../../../../modules/generated/models/px/earth2studio.models.px.DLESyM.html#earth2studio.models.px.DLESyM">[docs]</a>
-<span class="nd">@check_extra_imports</span><span class="p">(</span><span class="s2">&quot;dlesym&quot;</span><span class="p">,</span> <span class="p">[</span><span class="n">OmegaConf</span><span class="p">,</span> <span class="n">Module</span><span class="p">,</span> <span class="n">insolation</span><span class="p">])</span>
+<span class="nd">@check_optional_dependencies</span><span class="p">()</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">DLESyM</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">,</span> <span class="n">AutoModelMixin</span><span class="p">,</span> <span class="n">PrognosticMixin</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;DLESyM-V1-ERA5 prognostic model. This is an ensemble forecast model for</span>
 <span class="sd">    global earth system modeling. This model includes an atmosphere and ocean</span>
@@ -786,7 +792,7 @@
 <div class="viewcode-block" id="DLESyM.load_model">
 <a class="viewcode-back" href="../../../../modules/generated/models/px/earth2studio.models.px.DLESyM.html#earth2studio.models.px.DLESyM.load_model">[docs]</a>
     <span class="nd">@classmethod</span>
-    <span class="nd">@check_extra_imports</span><span class="p">(</span><span class="s2">&quot;dlesym&quot;</span><span class="p">,</span> <span class="p">[</span><span class="n">Module</span><span class="p">,</span> <span class="n">OmegaConf</span><span class="p">])</span>
+    <span class="nd">@check_optional_dependencies</span><span class="p">()</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">load_model</span><span class="p">(</span>
         <span class="bp">cls</span><span class="p">,</span>
         <span class="n">package</span><span class="p">:</span> <span class="n">Package</span><span class="p">,</span>
@@ -1017,7 +1023,7 @@
 
         <span class="k">return</span> <span class="n">output_data</span>
 
-    <span class="nd">@check_extra_imports</span><span class="p">(</span><span class="s2">&quot;dlesym&quot;</span><span class="p">,</span> <span class="p">[</span><span class="n">insolation</span><span class="p">])</span>
+    <span class="nd">@check_optional_dependencies</span><span class="p">()</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">_make_insolation_tensor</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">anchor_times</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">timedeltas</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
@@ -1382,7 +1388,7 @@
 <span class="sd">        Keyword arguments for :class:`DLESyM`</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="nd">@check_extra_imports</span><span class="p">(</span><span class="s2">&quot;dlesym&quot;</span><span class="p">,</span> <span class="p">[</span><span class="n">OmegaConf</span><span class="p">,</span> <span class="n">Module</span><span class="p">,</span> <span class="n">insolation</span><span class="p">,</span> <span class="n">earth2grid</span><span class="p">])</span>
+    <span class="nd">@check_optional_dependencies</span><span class="p">()</span>
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">atmos_model</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">,</span>

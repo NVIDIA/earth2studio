@@ -441,20 +441,25 @@
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
 
-<span class="k">try</span><span class="p">:</span>
-    <span class="kn">from</span><span class="w"> </span><span class="nn">aurora</span><span class="w"> </span><span class="kn">import</span> <span class="n">Aurora</span> <span class="k">as</span> <span class="n">Aurora_model</span>
-    <span class="kn">from</span><span class="w"> </span><span class="nn">aurora</span><span class="w"> </span><span class="kn">import</span> <span class="n">Batch</span><span class="p">,</span> <span class="n">Metadata</span>
-<span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
-    <span class="n">Aurora_model</span> <span class="o">=</span> <span class="kc">None</span>
-    <span class="n">Batch</span> <span class="o">=</span> <span class="kc">None</span>
-    <span class="n">Metadata</span> <span class="o">=</span> <span class="kc">None</span>
-
 <span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.models.auto</span><span class="w"> </span><span class="kn">import</span> <span class="n">AutoModelMixin</span><span class="p">,</span> <span class="n">Package</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.models.batch</span><span class="w"> </span><span class="kn">import</span> <span class="n">batch_coords</span><span class="p">,</span> <span class="n">batch_func</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.models.px.base</span><span class="w"> </span><span class="kn">import</span> <span class="n">PrognosticModel</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.models.px.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">PrognosticMixin</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">check_extra_imports</span><span class="p">,</span> <span class="n">handshake_coords</span><span class="p">,</span> <span class="n">handshake_dim</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">handshake_coords</span><span class="p">,</span> <span class="n">handshake_dim</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.utils.imports</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">OptionalDependencyFailure</span><span class="p">,</span>
+    <span class="n">check_optional_dependencies</span><span class="p">,</span>
+<span class="p">)</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.utils.type</span><span class="w"> </span><span class="kn">import</span> <span class="n">CoordSystem</span>
+
+<span class="k">try</span><span class="p">:</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">aurora</span><span class="w"> </span><span class="kn">import</span> <span class="n">Aurora</span> <span class="k">as</span> <span class="n">Aurora_model</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">aurora</span><span class="w"> </span><span class="kn">import</span> <span class="n">Batch</span><span class="p">,</span> <span class="n">Metadata</span>
+<span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+    <span class="n">OptionalDependencyFailure</span><span class="p">(</span><span class="s2">&quot;aurora&quot;</span><span class="p">)</span>
+    <span class="n">Aurora_model</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">Batch</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">Metadata</span> <span class="o">=</span> <span class="kc">None</span>
 
 <span class="n">VARIABLES</span> <span class="o">=</span> <span class="p">[</span>
     <span class="s2">&quot;z1000&quot;</span><span class="p">,</span>
@@ -534,7 +539,7 @@
 <span class="c1"># Adapted from https://microsoft.github.io/aurora/example_era5.html</span>
 <div class="viewcode-block" id="Aurora">
 <a class="viewcode-back" href="../../../../modules/generated/models/px/earth2studio.models.px.Aurora.html#earth2studio.models.px.Aurora">[docs]</a>
-<span class="nd">@check_extra_imports</span><span class="p">(</span><span class="s2">&quot;aurora&quot;</span><span class="p">,</span> <span class="p">[</span><span class="n">Aurora_model</span><span class="p">,</span> <span class="n">Batch</span><span class="p">,</span> <span class="n">Metadata</span><span class="p">])</span>
+<span class="nd">@check_optional_dependencies</span><span class="p">()</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">Aurora</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">,</span> <span class="n">AutoModelMixin</span><span class="p">,</span> <span class="n">PrognosticMixin</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Aurora 0.25 degree global forecast model. This model consists of single</span>
 <span class="sd">    auto-regressive model with a time-step size of 6 hours. This model operates on</span>
@@ -672,7 +677,7 @@
 <div class="viewcode-block" id="Aurora.load_model">
 <a class="viewcode-back" href="../../../../modules/generated/models/px/earth2studio.models.px.Aurora.html#earth2studio.models.px.Aurora.load_model">[docs]</a>
     <span class="nd">@classmethod</span>
-    <span class="nd">@check_extra_imports</span><span class="p">(</span><span class="s2">&quot;aurora&quot;</span><span class="p">,</span> <span class="p">[</span><span class="n">Aurora_model</span><span class="p">,</span> <span class="n">Batch</span><span class="p">,</span> <span class="n">Metadata</span><span class="p">])</span>
+    <span class="nd">@check_optional_dependencies</span><span class="p">()</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">load_model</span><span class="p">(</span>
         <span class="bp">cls</span><span class="p">,</span>
         <span class="n">package</span><span class="p">:</span> <span class="n">Package</span><span class="p">,</span>

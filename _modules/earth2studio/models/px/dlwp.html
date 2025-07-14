@@ -444,27 +444,32 @@
 <span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">xarray</span>
 
-<span class="k">try</span><span class="p">:</span>
-    <span class="kn">import</span><span class="w"> </span><span class="nn">physicsnemo</span>
-    <span class="kn">from</span><span class="w"> </span><span class="nn">physicsnemo.utils.zenith_angle</span><span class="w"> </span><span class="kn">import</span> <span class="n">cos_zenith_angle</span>
-<span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
-    <span class="n">physicsnemo</span> <span class="o">=</span> <span class="kc">None</span>
-    <span class="n">cos_zenith_angle</span> <span class="o">=</span> <span class="kc">None</span>
-
 <span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.models.auto</span><span class="w"> </span><span class="kn">import</span> <span class="n">AutoModelMixin</span><span class="p">,</span> <span class="n">Package</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.models.batch</span><span class="w"> </span><span class="kn">import</span> <span class="n">batch_coords</span><span class="p">,</span> <span class="n">batch_func</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.models.px.base</span><span class="w"> </span><span class="kn">import</span> <span class="n">PrognosticModel</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.models.px.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">PrognosticMixin</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">check_extra_imports</span><span class="p">,</span> <span class="n">handshake_coords</span><span class="p">,</span> <span class="n">handshake_dim</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">handshake_coords</span><span class="p">,</span> <span class="n">handshake_dim</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.utils.imports</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">OptionalDependencyFailure</span><span class="p">,</span>
+    <span class="n">check_optional_dependencies</span><span class="p">,</span>
+<span class="p">)</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.utils.time</span><span class="w"> </span><span class="kn">import</span> <span class="n">timearray_to_datetime</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.utils.type</span><span class="w"> </span><span class="kn">import</span> <span class="n">CoordSystem</span>
+
+<span class="k">try</span><span class="p">:</span>
+    <span class="kn">import</span><span class="w"> </span><span class="nn">physicsnemo</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">physicsnemo.utils.zenith_angle</span><span class="w"> </span><span class="kn">import</span> <span class="n">cos_zenith_angle</span>
+<span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+    <span class="n">OptionalDependencyFailure</span><span class="p">(</span><span class="s2">&quot;dlwp&quot;</span><span class="p">)</span>
+    <span class="n">physicsnemo</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">cos_zenith_angle</span> <span class="o">=</span> <span class="kc">None</span>
 
 <span class="n">VARIABLES</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;t850&quot;</span><span class="p">,</span> <span class="s2">&quot;z1000&quot;</span><span class="p">,</span> <span class="s2">&quot;z700&quot;</span><span class="p">,</span> <span class="s2">&quot;z500&quot;</span><span class="p">,</span> <span class="s2">&quot;z300&quot;</span><span class="p">,</span> <span class="s2">&quot;tcwv&quot;</span><span class="p">,</span> <span class="s2">&quot;t2m&quot;</span><span class="p">]</span>
 
 
 <div class="viewcode-block" id="DLWP">
 <a class="viewcode-back" href="../../../../modules/generated/models/px/earth2studio.models.px.DLWP.html#earth2studio.models.px.DLWP">[docs]</a>
-<span class="nd">@check_extra_imports</span><span class="p">(</span><span class="s2">&quot;dlwp&quot;</span><span class="p">,</span> <span class="p">[</span><span class="n">physicsnemo</span><span class="p">,</span> <span class="n">cos_zenith_angle</span><span class="p">])</span>
+<span class="nd">@check_optional_dependencies</span><span class="p">()</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">DLWP</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">,</span> <span class="n">AutoModelMixin</span><span class="p">,</span> <span class="n">PrognosticMixin</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Deep learning weather prediction (DLWP)  prognostic model. This is a parsimonious</span>
 <span class="sd">    global forecast model with a time-step size of 6 hours. The core model is a</span>
@@ -617,7 +622,7 @@
 <div class="viewcode-block" id="DLWP.load_model">
 <a class="viewcode-back" href="../../../../modules/generated/models/px/earth2studio.models.px.DLWP.html#earth2studio.models.px.DLWP.load_model">[docs]</a>
     <span class="nd">@classmethod</span>
-    <span class="nd">@check_extra_imports</span><span class="p">(</span><span class="s2">&quot;dlwp&quot;</span><span class="p">,</span> <span class="p">[</span><span class="n">physicsnemo</span><span class="p">,</span> <span class="n">cos_zenith_angle</span><span class="p">])</span>
+    <span class="nd">@check_optional_dependencies</span><span class="p">()</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">load_model</span><span class="p">(</span>
         <span class="bp">cls</span><span class="p">,</span>
         <span class="n">package</span><span class="p">:</span> <span class="n">Package</span><span class="p">,</span>

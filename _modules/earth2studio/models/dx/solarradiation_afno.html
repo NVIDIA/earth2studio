@@ -445,9 +445,12 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.models.batch</span><span class="w"> </span><span class="kn">import</span> <span class="n">batch_coords</span><span class="p">,</span> <span class="n">batch_func</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.models.dx.base</span><span class="w"> </span><span class="kn">import</span> <span class="n">DiagnosticModel</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.utils</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
-    <span class="n">check_extra_imports</span><span class="p">,</span>
     <span class="n">handshake_coords</span><span class="p">,</span>
     <span class="n">handshake_dim</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.utils.imports</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">OptionalDependencyFailure</span><span class="p">,</span>
+    <span class="n">check_optional_dependencies</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.utils.type</span><span class="w"> </span><span class="kn">import</span> <span class="n">CoordSystem</span>
 
@@ -456,6 +459,7 @@
 
     <span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.models.nn.afno_ssrd</span><span class="w"> </span><span class="kn">import</span> <span class="n">SolarRadiationNet</span>
 <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+    <span class="n">OptionalDependencyFailure</span><span class="p">(</span><span class="s2">&quot;solarradiation-afno&quot;</span><span class="p">)</span>
     <span class="n">SolarRadiationNet</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">cos_zenith_angle</span> <span class="o">=</span> <span class="kc">None</span>
 
@@ -487,7 +491,7 @@
 <span class="p">]</span>
 
 
-<span class="nd">@check_extra_imports</span><span class="p">(</span><span class="s2">&quot;solarradiation-afno&quot;</span><span class="p">,</span> <span class="p">[</span><span class="n">SolarRadiationNet</span><span class="p">,</span> <span class="n">cos_zenith_angle</span><span class="p">])</span>
+<span class="nd">@check_optional_dependencies</span><span class="p">()</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">SolarRadiationAFNO</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">,</span> <span class="n">AutoModelMixin</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Base class for Solar Radiation AFNO diagnostic models. Predicts the accumulated global surface solar</span>
 <span class="sd">    radiation [Jm^-2]. The model uses 31 variables as input and outputs one on a 0.25 degree lat-lon grid</span>
@@ -594,7 +598,7 @@
         <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;Use specific frequency subclass&quot;</span><span class="p">)</span>
 
     <span class="nd">@classmethod</span>
-    <span class="nd">@check_extra_imports</span><span class="p">(</span><span class="s2">&quot;solarradiation-afno&quot;</span><span class="p">,</span> <span class="p">[</span><span class="n">SolarRadiationNet</span><span class="p">,</span> <span class="n">cos_zenith_angle</span><span class="p">])</span>
+    <span class="nd">@check_optional_dependencies</span><span class="p">()</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">load_model</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">package</span><span class="p">:</span> <span class="n">Package</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">DiagnosticModel</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Load prognostic from package</span>
 

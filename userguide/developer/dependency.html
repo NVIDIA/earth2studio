@@ -536,32 +536,42 @@ updated accordingly.</p>
 handling for the user to communicate that additional dependency group needs to be
 installed.
 A good sanity check if things have properly been caught is by building the API docs
-with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">docs</span></code>.
-The pattern to properly handle the use of optional dependencies is:</p>
+with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">docs</span></code>.</p>
+<p>It is important to handle the absence of optional dependencies in a standardize way for
+the user.
+Earth2Studio has some utilities to provide informative errors to users that should be
+used when some optional dependency group is needed to be installed:</p>
 <ol class="arabic simple">
-<li><p>Use a try / except in the import for ImportErrors. Set respective package objects to
-None if not installed.</p></li>
-<li><p>Place the <code class="docutils literal notranslate"><span class="pre">&#64;check_extra_imports</span></code> decorator on the class and/or function that requires
-the optional import.
+<li><p>Use a try / except in the optional import for ImportErrors. Set respective package
+objects to None if not installed. The file should <strong>not</strong> error on import, rather
+optional imports should be evaluated lazily when needed.</p></li>
+<li><p>In the catch of the import try catch, instantiate a <code class="docutils literal notranslate"><span class="pre">OptionalDependencyFailure</span></code>. The
+only parameter needed is the name of the dependency group that needs to be
+installed.</p></li>
+<li><p>Place the <code class="docutils literal notranslate"><span class="pre">&#64;check_optional_dependencies</span></code> decorator on the class and/or function that
+requires the optional import.
 This will check to make sure that the required imports are installed when the user
 attempts to use the respective feature.</p></li>
 </ol>
 <p>For example in the FourCastNet model:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">try</span><span class="p">:</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.utils.imports</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">OptionalDependencyFailure</span><span class="p">,</span>
+    <span class="n">check_optional_dependencies</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="k">try</span><span class="p">:</span>
     <span class="kn">from</span><span class="w"> </span><span class="nn">physicsnemo.models.afno</span><span class="w"> </span><span class="kn">import</span> <span class="n">AFNO</span>
 <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+    <span class="n">OptionalDependencyFailure</span><span class="p">(</span><span class="s2">&quot;fcn&quot;</span><span class="p">)</span>
     <span class="n">AFNO</span> <span class="o">=</span> <span class="kc">None</span>
-
-<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">check_extra_imports</span>
 
 
 <span class="c1"># Use the decorator on classes</span>
-<span class="nd">@check_extra_imports</span><span class="p">(</span><span class="s2">&quot;fcn&quot;</span><span class="p">,</span> <span class="p">[</span><span class="n">AFNO</span><span class="p">])</span>
+<span class="nd">@check_optional_dependencies</span><span class="p">()</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">FCN</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">,</span> <span class="n">AutoModelMixin</span><span class="p">,</span> <span class="n">PrognosticMixin</span><span class="p">):</span>
     <span class="o">...</span>
     <span class="c1"># Use the decorator on functions</span>
     <span class="nd">@classmethod</span>
-    <span class="nd">@check_extra_imports</span><span class="p">(</span><span class="s2">&quot;fcn&quot;</span><span class="p">,</span> <span class="p">[</span><span class="n">AFNO</span><span class="p">])</span>
+    <span class="nd">@check_optional_dependencies</span><span class="p">()</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">load_model</span><span class="p">(</span>
         <span class="bp">cls</span><span class="p">,</span>
         <span class="n">package</span><span class="p">:</span> <span class="n">Package</span><span class="p">,</span>
@@ -570,23 +580,51 @@ attempts to use the respective feature.</p></li>
     <span class="o">...</span>
 </pre></div>
 </div>
-<p>When the user attempts to use FCN without the required extra packages, the following
-error will occur:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>uv<span class="w"> </span>run<span class="w"> </span>python
-Python<span class="w"> </span><span class="m">3</span>.12.9<span class="w"> </span><span class="o">(</span>main,<span class="w"> </span>Mar<span class="w"> </span><span class="m">17</span><span class="w"> </span><span class="m">2025</span>,<span class="w"> </span><span class="m">21</span>:01:58<span class="o">)</span><span class="w"> </span><span class="o">[</span>Clang<span class="w"> </span><span class="m">20</span>.1.0<span class="w"> </span><span class="o">]</span><span class="w"> </span>on<span class="w"> </span>linux
-Type<span class="w"> </span><span class="s2">&quot;help&quot;</span>,<span class="w"> </span><span class="s2">&quot;copyright&quot;</span>,<span class="w"> </span><span class="s2">&quot;credits&quot;</span><span class="w"> </span>or<span class="w"> </span><span class="s2">&quot;license&quot;</span><span class="w"> </span><span class="k">for</span><span class="w"> </span>more<span class="w"> </span>information.
-&gt;&gt;&gt;<span class="w"> </span>from<span class="w"> </span>earth2studio.models.px<span class="w"> </span>import<span class="w"> </span>FCN
-&gt;&gt;&gt;<span class="w"> </span>FCN.load_model<span class="o">(</span>FCN.load_default_package<span class="o">())</span>
-Traceback<span class="w"> </span><span class="o">(</span>most<span class="w"> </span>recent<span class="w"> </span>call<span class="w"> </span>last<span class="o">)</span>:
-<span class="w">  </span>File<span class="w"> </span><span class="s2">&quot;&lt;stdin&gt;&quot;</span>,<span class="w"> </span>line<span class="w"> </span><span class="m">1</span>,<span class="w"> </span><span class="k">in</span><span class="w"> </span>&lt;module&gt;
-<span class="w">  </span>File<span class="w"> </span><span class="s2">&quot;.../earth2studio/utils/imports.py&quot;</span>,<span class="w"> </span>line<span class="w"> </span><span class="m">78</span>,<span class="w"> </span><span class="k">in</span><span class="w"> </span>_wrapper
-<span class="w">    </span>_check_dependencies<span class="o">(</span>f<span class="s2">&quot;{obj.__module__}.{obj.__name__}&quot;</span><span class="o">)</span>
-<span class="w">  </span>File<span class="w"> </span><span class="s2">&quot;.../earth2studio/utils/imports.py&quot;</span>,<span class="w"> </span>line<span class="w"> </span><span class="m">61</span>,<span class="w"> </span><span class="k">in</span><span class="w"> </span>_check_dependencies
-<span class="w">    </span>raise<span class="w"> </span>ExtraDependencyError<span class="o">(</span>extra_name,<span class="w"> </span>obj_name<span class="o">)</span>
-earth2studio.utils.imports.ExtraDependencyError:<span class="w"> </span>Extra<span class="w"> </span>dependency<span class="w"> </span>group<span class="w"> </span><span class="s1">&#39;fcn&#39;</span><span class="w"> </span>is
-<span class="w">    </span>required<span class="w"> </span><span class="k">for</span><span class="w"> </span>earth2studio.models.px.fcn.load_model.
-Install<span class="w"> </span>with:<span class="w"> </span>uv<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>earth2studio<span class="w"> </span>--extra<span class="w"> </span>fcn
-or<span class="w"> </span>refer<span class="w"> </span>to<span class="w"> </span>the<span class="w"> </span>install<span class="w"> </span>documentation.
+<p>In this example, the resulting behavior is the FCN model is able to be imported without
+any issues.
+Only when the user attempts to use FCN without the required extra packages, the
+following error will be printed:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>uv run python
+Python 3.12.3 (main, Jun 18 2025, 17:59:45) [GCC 13.3.0] on linux
+Type &quot;help&quot;, &quot;copyright&quot;, &quot;credits&quot; or &quot;license&quot; for more information.
+&gt;&gt;&gt; from earth2studio.models.px import FCN
+&gt;&gt;&gt; FCN.load_model(FCN.load_default_package())
+┌────────────────────────────────────────────────────────────────────┐
+│ Earth2Studio Extra Dependency Error                                │
+│ This error typically indicates an extra dependency group is        │
+│ needed.                                                            │
+│ Don&#39;t panic, this is usually an easy fix.                          │
+├────────────────────────────────────────────────────────────────────┤
+│ This feature (&#39;earth2studio.models.px.fcn.load_model&#39;) is marked   │
+│ needing optional dependency group &#39;fcn&#39;.                           │
+│                                                                    │
+│ uv install with: `uv add earth2studio --extra fcn`                 │
+│                                                                    │
+│ For more information (such as pip install instructions), visit the │
+│ install documentation:                                             │
+│ https://nvidia.github.io/earth2studio/userguide/about/install.html │
+├────────────────────────────────────────────────────────────────────┤
+│ ╭────────────── Traceback (most recent call last) ───────────────╮ │
+│ │ .../earth2studio/earth2studio/models/px/… │ │
+│ │ in &lt;module&gt;                                                    │ │
+│ │                                                                │ │
+│ │    34 from earth2studio.utils.type import CoordSystem          │ │
+│ │    35                                                          │ │
+│ │    36 try:                                                     │ │
+│ │ ❱  37 │   from physicsnemo.models.afno import AFNO             │ │
+│ │    38 except ImportError:                                      │ │
+│ │    39 │   OptionalDependencyFailure(&quot;fcn&quot;)                     │ │
+│ │    40 │   AFNO = None                                          │ │
+│ ╰────────────────────────────────────────────────────────────────╯ │
+│ ImportError: No module named &#39;physicsnemo&#39;                         │
+└────────────────────────────────────────────────────────────────────┘
+Traceback (most recent call last):
+  File &quot;&lt;stdin&gt;&quot;, line 1, in &lt;module&gt;
+  File &quot;.../earth2studio/earth2studio/utils/imports.py&quot;, line 172, in _wrapper
+    _check_deps(f&quot;{obj.__module__}.{obj.__name__}&quot;)
+  File &quot;.../earth2studio/earth2studio/utils/imports.py&quot;, line 149, in _check_deps
+    raise OptionalDependencyError(
+earth2studio.utils.imports.OptionalDependencyError: Optional dependency import error
 </pre></div>
 </div>
 </section>

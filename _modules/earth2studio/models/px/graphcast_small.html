@@ -443,6 +443,18 @@
 <span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">xarray</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">xr</span>
 
+<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.lexicon.wb2</span><span class="w"> </span><span class="kn">import</span> <span class="n">WB2Lexicon</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.models.auto</span><span class="w"> </span><span class="kn">import</span> <span class="n">AutoModelMixin</span><span class="p">,</span> <span class="n">Package</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.models.batch</span><span class="w"> </span><span class="kn">import</span> <span class="n">batch_coords</span><span class="p">,</span> <span class="n">batch_func</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.models.px.base</span><span class="w"> </span><span class="kn">import</span> <span class="n">PrognosticModel</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.models.px.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">PrognosticMixin</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.utils.coords</span><span class="w"> </span><span class="kn">import</span> <span class="n">map_coords</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.utils.imports</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">OptionalDependencyFailure</span><span class="p">,</span>
+    <span class="n">check_optional_dependencies</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.utils.type</span><span class="w"> </span><span class="kn">import</span> <span class="n">CoordSystem</span>
+
 <span class="k">try</span><span class="p">:</span>
     <span class="kn">import</span><span class="w"> </span><span class="nn">chex</span>
     <span class="kn">import</span><span class="w"> </span><span class="nn">haiku</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">hk</span>
@@ -457,6 +469,7 @@
         <span class="n">rollout</span><span class="p">,</span>
     <span class="p">)</span>
 <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+    <span class="n">OptionalDependencyFailure</span><span class="p">(</span><span class="s2">&quot;graphcast&quot;</span><span class="p">)</span>
     <span class="n">hk</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">jax</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">chex</span> <span class="o">=</span> <span class="kc">None</span>
@@ -468,14 +481,6 @@
     <span class="n">normalization</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">rollout</span> <span class="o">=</span> <span class="kc">None</span>
 
-<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.lexicon.wb2</span><span class="w"> </span><span class="kn">import</span> <span class="n">WB2Lexicon</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.models.auto</span><span class="w"> </span><span class="kn">import</span> <span class="n">AutoModelMixin</span><span class="p">,</span> <span class="n">Package</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.models.batch</span><span class="w"> </span><span class="kn">import</span> <span class="n">batch_coords</span><span class="p">,</span> <span class="n">batch_func</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.models.px.base</span><span class="w"> </span><span class="kn">import</span> <span class="n">PrognosticModel</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.models.px.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">PrognosticMixin</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">check_extra_imports</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.utils.coords</span><span class="w"> </span><span class="kn">import</span> <span class="n">map_coords</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.utils.type</span><span class="w"> </span><span class="kn">import</span> <span class="n">CoordSystem</span>
 
 <span class="n">VARIABLES</span> <span class="o">=</span> <span class="p">[</span>
     <span class="s2">&quot;t2m&quot;</span><span class="p">,</span>
@@ -585,7 +590,7 @@
 
 <div class="viewcode-block" id="GraphCastSmall">
 <a class="viewcode-back" href="../../../../modules/generated/models/px/earth2studio.models.px.GraphCastSmall.html#earth2studio.models.px.GraphCastSmall">[docs]</a>
-<span class="nd">@check_extra_imports</span><span class="p">(</span><span class="s2">&quot;graphcast&quot;</span><span class="p">,</span> <span class="p">[</span><span class="s2">&quot;haiku&quot;</span><span class="p">,</span> <span class="s2">&quot;jax&quot;</span><span class="p">,</span> <span class="s2">&quot;graphcast&quot;</span><span class="p">])</span>
+<span class="nd">@check_optional_dependencies</span><span class="p">()</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">GraphCastSmall</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">,</span> <span class="n">AutoModelMixin</span><span class="p">,</span> <span class="n">PrognosticMixin</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;GraphCast Small 1.0 degree model</span>
 
@@ -1192,7 +1197,7 @@
 <div class="viewcode-block" id="GraphCastSmall.load_model">
 <a class="viewcode-back" href="../../../../modules/generated/models/px/earth2studio.models.px.GraphCastSmall.html#earth2studio.models.px.GraphCastSmall.load_model">[docs]</a>
     <span class="nd">@classmethod</span>
-    <span class="nd">@check_extra_imports</span><span class="p">(</span><span class="s2">&quot;graphcast&quot;</span><span class="p">,</span> <span class="p">[</span><span class="s2">&quot;haiku&quot;</span><span class="p">,</span> <span class="s2">&quot;jax&quot;</span><span class="p">,</span> <span class="s2">&quot;graphcast&quot;</span><span class="p">])</span>
+    <span class="nd">@check_optional_dependencies</span><span class="p">()</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">load_model</span><span class="p">(</span>
         <span class="bp">cls</span><span class="p">,</span>
         <span class="n">package</span><span class="p">:</span> <span class="n">Package</span><span class="p">,</span>

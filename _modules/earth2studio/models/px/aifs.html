@@ -446,8 +446,21 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.models.px.base</span><span class="w"> </span><span class="kn">import</span> <span class="n">PrognosticModel</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.models.px.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">PrognosticMixin</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">handshake_coords</span><span class="p">,</span> <span class="n">handshake_dim</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.utils.imports</span><span class="w"> </span><span class="kn">import</span> <span class="n">check_extra_imports</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.utils.imports</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">OptionalDependencyFailure</span><span class="p">,</span>
+    <span class="n">check_optional_dependencies</span><span class="p">,</span>
+<span class="p">)</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.utils.type</span><span class="w"> </span><span class="kn">import</span> <span class="n">CoordSystem</span>
+
+<span class="k">try</span><span class="p">:</span>
+    <span class="kn">import</span><span class="w"> </span><span class="nn">anemoi.inference</span>  <span class="c1"># noqa: F401</span>
+    <span class="kn">import</span><span class="w"> </span><span class="nn">anemoi.models</span>  <span class="c1"># noqa: F401</span>
+    <span class="kn">import</span><span class="w"> </span><span class="nn">earthkit.regrid</span>  <span class="c1"># noqa: F401</span>
+    <span class="kn">import</span><span class="w"> </span><span class="nn">ecmwf.opendata</span>  <span class="c1"># noqa: F401</span>
+    <span class="kn">import</span><span class="w"> </span><span class="nn">flash_attn</span>  <span class="c1"># noqa: F401</span>
+<span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+    <span class="n">OptionalDependencyFailure</span><span class="p">(</span><span class="s2">&quot;aifs&quot;</span><span class="p">)</span>
+
 
 <span class="n">VARIABLES</span> <span class="o">=</span> <span class="p">[</span>
     <span class="s2">&quot;q50&quot;</span><span class="p">,</span>
@@ -549,16 +562,7 @@
 
 <div class="viewcode-block" id="AIFS">
 <a class="viewcode-back" href="../../../../modules/generated/models/px/earth2studio.models.px.AIFS.html#earth2studio.models.px.AIFS">[docs]</a>
-<span class="nd">@check_extra_imports</span><span class="p">(</span>
-    <span class="s2">&quot;aifs&quot;</span><span class="p">,</span>
-    <span class="p">[</span>
-        <span class="s2">&quot;anemoi.inference&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;anemoi.models&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;earthkit.regrid&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;ecmwf.opendata&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;flash_attn&quot;</span><span class="p">,</span>
-    <span class="p">],</span>
-<span class="p">)</span>
+<span class="nd">@check_optional_dependencies</span><span class="p">()</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">AIFS</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">,</span> <span class="n">AutoModelMixin</span><span class="p">,</span> <span class="n">PrognosticMixin</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Artificial Intelligence Forecasting System (AIFS), a data driven forecast model</span>
 <span class="sd">    developed by the European Centre for Medium-Range Weather Forecasts (ECMWF). AIFS is</span>
@@ -877,16 +881,7 @@
 <div class="viewcode-block" id="AIFS.load_model">
 <a class="viewcode-back" href="../../../../modules/generated/models/px/earth2studio.models.px.AIFS.html#earth2studio.models.px.AIFS.load_model">[docs]</a>
     <span class="nd">@classmethod</span>
-    <span class="nd">@check_extra_imports</span><span class="p">(</span>
-        <span class="s2">&quot;aifs&quot;</span><span class="p">,</span>
-        <span class="p">[</span>
-            <span class="s2">&quot;anemoi.inference&quot;</span><span class="p">,</span>
-            <span class="s2">&quot;anemoi.models&quot;</span><span class="p">,</span>
-            <span class="s2">&quot;earthkit.regrid&quot;</span><span class="p">,</span>
-            <span class="s2">&quot;ecmwf.opendata&quot;</span><span class="p">,</span>
-            <span class="s2">&quot;flash_attn&quot;</span><span class="p">,</span>
-        <span class="p">],</span>
-    <span class="p">)</span>
+    <span class="nd">@check_optional_dependencies</span><span class="p">()</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">load_model</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">package</span><span class="p">:</span> <span class="n">Package</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">PrognosticModel</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Load prognostic from package&quot;&quot;&quot;</span>
 

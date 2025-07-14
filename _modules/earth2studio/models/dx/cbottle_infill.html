@@ -442,9 +442,17 @@
 <span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">xarray</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">xr</span>
 
+<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.lexicon</span><span class="w"> </span><span class="kn">import</span> <span class="n">CBottleLexicon</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.models.auto</span><span class="w"> </span><span class="kn">import</span> <span class="n">Package</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.models.auto.mixin</span><span class="w"> </span><span class="kn">import</span> <span class="n">AutoModelMixin</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.models.batch</span><span class="w"> </span><span class="kn">import</span> <span class="n">batch_coords</span><span class="p">,</span> <span class="n">batch_func</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.models.dx.base</span><span class="w"> </span><span class="kn">import</span> <span class="n">DiagnosticModel</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.utils.coords</span><span class="w"> </span><span class="kn">import</span> <span class="n">handshake_coords</span><span class="p">,</span> <span class="n">handshake_dim</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.utils.imports</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">OptionalDependencyFailure</span><span class="p">,</span>
+    <span class="n">check_optional_dependencies</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.utils.type</span><span class="w"> </span><span class="kn">import</span> <span class="n">CoordSystem</span><span class="p">,</span> <span class="n">VariableArray</span>
 
 <span class="k">try</span><span class="p">:</span>
     <span class="kn">import</span><span class="w"> </span><span class="nn">earth2grid</span>
@@ -453,18 +461,13 @@
     <span class="kn">from</span><span class="w"> </span><span class="nn">cbottle.denoiser_factories</span><span class="w"> </span><span class="kn">import</span> <span class="n">DenoiserType</span><span class="p">,</span> <span class="n">get_denoiser</span>
     <span class="kn">from</span><span class="w"> </span><span class="nn">cbottle.diffusion_samplers</span><span class="w"> </span><span class="kn">import</span> <span class="n">edm_sampler_from_sigma</span>
 <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+    <span class="n">OptionalDependencyFailure</span><span class="p">(</span><span class="s2">&quot;cbottle&quot;</span><span class="p">)</span>
     <span class="n">earth2grid</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">Checkpoint</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">edm_sampler_from_sigma</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">get_denoiser</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">get_mean</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">get_std</span> <span class="o">=</span> <span class="kc">None</span>
-
-<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.lexicon</span><span class="w"> </span><span class="kn">import</span> <span class="n">CBottleLexicon</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.models.auto</span><span class="w"> </span><span class="kn">import</span> <span class="n">Package</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.models.auto.mixin</span><span class="w"> </span><span class="kn">import</span> <span class="n">AutoModelMixin</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.utils.imports</span><span class="w"> </span><span class="kn">import</span> <span class="n">check_extra_imports</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.utils.type</span><span class="w"> </span><span class="kn">import</span> <span class="n">CoordSystem</span><span class="p">,</span> <span class="n">VariableArray</span>
 
 <span class="n">HPX_LEVEL</span> <span class="o">=</span> <span class="mi">6</span>
 
@@ -473,7 +476,7 @@
 
 <div class="viewcode-block" id="CBottleInfill">
 <a class="viewcode-back" href="../../../../modules/generated/models/dx/earth2studio.models.dx.CBottleInfill.html#earth2studio.models.dx.CBottleInfill">[docs]</a>
-<span class="nd">@check_extra_imports</span><span class="p">(</span><span class="s2">&quot;cbottle&quot;</span><span class="p">,</span> <span class="p">[</span><span class="s2">&quot;cbottle&quot;</span><span class="p">,</span> <span class="s2">&quot;earth2grid&quot;</span><span class="p">])</span>
+<span class="nd">@check_optional_dependencies</span><span class="p">()</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">CBottleInfill</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">,</span> <span class="n">AutoModelMixin</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Climate in a bottle infill diagnostic</span>
 <span class="sd">    Climate in a Bottle (cBottle) is an AI model for emulating global km-scale climate</span>
@@ -678,7 +681,7 @@
 <div class="viewcode-block" id="CBottleInfill.load_model">
 <a class="viewcode-back" href="../../../../modules/generated/models/dx/earth2studio.models.dx.CBottleInfill.html#earth2studio.models.dx.CBottleInfill.load_model">[docs]</a>
     <span class="nd">@classmethod</span>
-    <span class="nd">@check_extra_imports</span><span class="p">(</span><span class="s2">&quot;cbottle&quot;</span><span class="p">,</span> <span class="p">[</span><span class="s2">&quot;cbottle&quot;</span><span class="p">,</span> <span class="s2">&quot;earth2grid&quot;</span><span class="p">])</span>
+    <span class="nd">@check_optional_dependencies</span><span class="p">()</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">load_model</span><span class="p">(</span>
         <span class="bp">cls</span><span class="p">,</span>
         <span class="n">package</span><span class="p">:</span> <span class="n">Package</span><span class="p">,</span>
