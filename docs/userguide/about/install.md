@@ -725,6 +725,40 @@ conda activate earth2studio
 uv pip install --system --break-system-packages "earth2studio@git+https://github.com/NVIDIA/earth2studio.git@0.8.1"
 ```
 
+# System Recommendations
+
+## Software
+
+Earth2Studio does not have any specific software version requirements.
+The following are recommended to closely match development and automation environments,
+minimizing the chance for unforseen incompatibilities:
+
+- OS: Ubuntu 24.04
+- Python Version: 3.12
+- CUDA Version: 12.8
+
+## Hardware
+
+Earth2Studio does not have any specific hardware requirements, if PyTorch can run then
+many features of Earth2Studio should run as well.
+However, most models do require a GPU with sufficient memory and compute score to run
+without complications.
+The recommended hardware for the majority of models supported in Earth2Studio is:
+
+| GPU | GPU Memory (GB) | Precision | # of GPUs | Disk Space (GB) |
+|-----|-----------------|-----------|-----------|-----------------|
+| [NVIDIA GPU](https://developer.nvidia.com/cuda-gpus) with compute capability ≥ 8.9 | ≥40 | FP32 | 1 | 128 |
+
+This includes cards such as:
+
+- L40S
+- RTX A6000
+- H100
+- B200
+
+We encourage users to experiment on different hardware for their specific needs and
+usecase.
+
 (configuration_userguide)=
 
 # Configuration
