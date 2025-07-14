@@ -731,9 +731,9 @@ uv pip install --system --break-system-packages "earth2studio@git+https://github
 
 Earth2Studio does not have any specific software version requirements.
 The following are recommended to closely match development and automation environments,
-minimizing the chance for unforseen incompatibilities:
+minimizing the chance for unforeseen incompatibilities:
 
-- OS: Ubuntu 24.04
+- OS: Ubuntu 24.04 LTS
 - Python Version: 3.12
 - CUDA Version: 12.8
 
