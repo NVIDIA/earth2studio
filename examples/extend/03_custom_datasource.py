@@ -29,6 +29,12 @@ In this example you will learn:
 - API requirements of data soruces
 - Implementing a custom data soruce
 """
+# /// script
+# dependencies = [
+#   "earth2studio @ git+https://github.com/NVIDIA/earth2studio.git",
+#   "cartopy",
+# ]
+# ///
 
 # %%
 # Custom Data Source
