@@ -20,3 +20,8 @@ sed -i "s/${PREV_VERSION}/${VERSION}/g" recipes/template/README.md
 sed -i "s/${PREV_VERSION}/${VERSION}/g" .github/ISSUE_TEMPLATE/bug_report.yml
 
 echo "Replaced all occurrences of ${PREV_VERSION} with ${VERSION}"
+
+# Update examples to use versioned git earth2studio
+find examples -type f -name "*.py" -exec sed -i "s|git+https://github.com/NVIDIA/earth2studio.git|git+https://github.com/NVIDIA/earth2studio.git@${VERSION}|g" {} \;
+
+echo "Updated example scripts to use earth2studio version ${VERSION}"
