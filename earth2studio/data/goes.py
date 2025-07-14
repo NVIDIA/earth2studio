@@ -194,17 +194,7 @@ class GOES:
         self._async_timeout = async_timeout
 
         # Validate satellite and scan mode
-        if self._satellite not in self.VALID_SCAN_MODES:
-            raise ValueError(f"Invalid satellite {self._satellite}")
-        if self._scan_mode not in self.VALID_SCAN_MODES[self._satellite]:
-            if self._scan_mode == "M1" or self._scan_mode == "M2":
-                raise ValueError(
-                    f"Mesoscale data ({self._scan_mode}) is currently not supported by this data source due to the changing scan position."
-                )
-            else:
-                raise ValueError(
-                    f"Invalid scan mode {self._scan_mode} for {self._satellite}"
-                )
+        self._validate_satellite_scan_mode(self._satellite, self._scan_mode)
 
         # Set up S3 filesystem
         try:
@@ -503,6 +493,32 @@ class GOES:
             cache_location = os.path.join(cache_location, "tmp_goes")
         return cache_location
 
+    @staticmethod
+    def _validate_satellite_scan_mode(satellite: str, scan_mode: str) -> None:
+        """Validate satellite and scan mode combination.
+
+        Parameters
+        ----------
+        satellite : str
+            Satellite name to validate
+        scan_mode : str
+            Scan mode to validate
+
+        Raises
+        ------
+        ValueError
+            If satellite or scan mode is invalid
+        """
+        if satellite not in GOES.VALID_SCAN_MODES:
+            raise ValueError(f"Invalid satellite {satellite}")
+        if scan_mode not in GOES.VALID_SCAN_MODES[satellite]:
+            if scan_mode == "M1" or scan_mode == "M2":
+                raise ValueError(
+                    f"Mesoscale data ({scan_mode}) is currently not supported by this data source due to the changing scan position."
+                )
+            else:
+                raise ValueError(f"Invalid scan mode {scan_mode} for {satellite}")
+
     @classmethod
     def available(
         cls,
@@ -531,6 +547,9 @@ class GOES:
             _ds = np.timedelta64(1, "s")
             time = datetime.fromtimestamp((time - _unix) / _ds, timezone.utc)
 
+        # Validate satellite and scan mode
+        cls._validate_satellite_scan_mode(satellite, scan_mode)
+
         # Check if data exists in S3
         fs = s3fs.S3FileSystem(anon=True)
 
@@ -548,38 +567,34 @@ class GOES:
             hour=hour,
         )
 
+        # List files in the directory
+        files = fs.ls(base_url)
+
+        # Filter for files matching the product and scan mode
+        pattern = f"OR_ABI-L2-MCMIP{scan_mode}"
+        matching_files = [f for f in files if pattern in f]
+
+        if not matching_files:
+            return False
+
+        # Sort files by time (same logic as _get_s3_path)
+        def get_time(file_name: str) -> datetime:
+            start_str = file_name.split("/")[-1].split("_")[-3][1:-1]
+            t = datetime.strptime(start_str, "%Y%j%H%M%S")
+            if time.tzinfo is not None:
+                t = t.replace(tzinfo=timezone.utc)
+            return t
+
+        time_stamps = [get_time(f) for f in matching_files]
+
+        # Get the index of the file that is the closest to the requested time
+        file_index = np.argmin(np.abs(np.array(time_stamps) - time))
+
+        # Check if the specific file exists
         try:
-            # List files in the directory
-            files = fs.ls(base_url)
-
-            # Filter for files matching the product and scan mode
-            pattern = f"OR_ABI-L2-MCMIP{scan_mode}"
-            matching_files = [f for f in files if pattern in f]
-
-            if not matching_files:
-                return False
-
-            # Sort files by time (same logic as _get_s3_path)
-            def get_time(file_name: str) -> datetime:
-                start_str = file_name.split("/")[-1].split("_")[-3][1:-1]
-                t = datetime.strptime(start_str, "%Y%j%H%M%S")
-                if time.tzinfo is not None:
-                    t = t.replace(tzinfo=timezone.utc)
-                return t
-
-            time_stamps = [get_time(f) for f in matching_files]
-
-            # Get the index of the file that is the closest to the requested time
-            file_index = np.argmin(np.abs(np.array(time_stamps) - time))
-
-            # Check if the specific file exists
-            try:
-                matching_files[file_index]
-                return True
-            except IndexError:
-                return False
-
-        except Exception:
+            matching_files[file_index]
+            return True
+        except IndexError:
             return False
 
     @classmethod
@@ -607,6 +622,9 @@ class GOES:
         tuple[np.ndarray, np.ndarray]
             Tuple of (lat, lon) in degrees
         """
+
+        # Validate satellite and scan mode
+        cls._validate_satellite_scan_mode(satellite, scan_mode)
 
         # Read in GOES ABI fixed grid projection variables and constants
         if scan_mode == "F":
