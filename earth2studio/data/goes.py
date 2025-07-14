@@ -568,7 +568,10 @@ class GOES:
         )
 
         # List files in the directory
-        files = fs.ls(base_url)
+        try:
+            files = fs.ls(base_url)
+        except FileNotFoundError:
+            return False
 
         # Filter for files matching the product and scan mode
         pattern = f"OR_ABI-L2-MCMIP{scan_mode}"
