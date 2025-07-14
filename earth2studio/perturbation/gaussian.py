@@ -18,16 +18,20 @@ from typing import Any
 
 import numpy as np
 import torch
+from typing_extensions import Self
+
+from earth2studio.utils import handshake_dim
+from earth2studio.utils.imports import (
+    OptionalDependencyFailure,
+    check_optional_dependencies,
+)
+from earth2studio.utils.type import CoordSystem
 
 try:
     from torch_harmonics import InverseRealSHT
 except ImportError:
+    OptionalDependencyFailure("perturbation")
     InverseRealSHT = None
-from typing_extensions import Self
-
-from earth2studio.utils import handshake_dim
-from earth2studio.utils.imports import check_extra_imports
-from earth2studio.utils.type import CoordSystem
 
 
 class Gaussian:
@@ -71,7 +75,7 @@ class Gaussian:
         return x + noise_amplitude * torch.randn_like(x), coords
 
 
-@check_extra_imports("perturbation", [InverseRealSHT])
+@check_optional_dependencies()
 class CorrelatedSphericalGaussian:
     """Produces Gaussian random field on the sphere with Matern covariance peturbation
     method output to a lat lon grid.

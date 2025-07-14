@@ -22,9 +22,17 @@ import pandas as pd
 import torch
 import xarray as xr
 
+from earth2studio.lexicon import CBottleLexicon
+from earth2studio.models.auto import Package
+from earth2studio.models.auto.mixin import AutoModelMixin
 from earth2studio.models.batch import batch_coords, batch_func
 from earth2studio.models.dx.base import DiagnosticModel
 from earth2studio.utils.coords import handshake_coords, handshake_dim
+from earth2studio.utils.imports import (
+    OptionalDependencyFailure,
+    check_optional_dependencies,
+)
+from earth2studio.utils.type import CoordSystem, VariableArray
 
 try:
     import earth2grid
@@ -33,6 +41,7 @@ try:
     from cbottle.denoiser_factories import DenoiserType, get_denoiser
     from cbottle.diffusion_samplers import edm_sampler_from_sigma
 except ImportError:
+    OptionalDependencyFailure("cbottle")
     earth2grid = None
     Checkpoint = None
     edm_sampler_from_sigma = None
@@ -40,18 +49,12 @@ except ImportError:
     get_mean = None
     get_std = None
 
-from earth2studio.lexicon import CBottleLexicon
-from earth2studio.models.auto import Package
-from earth2studio.models.auto.mixin import AutoModelMixin
-from earth2studio.utils.imports import check_extra_imports
-from earth2studio.utils.type import CoordSystem, VariableArray
-
 HPX_LEVEL = 6
 
 VARIABLES = np.array(list(CBottleLexicon.VOCAB.keys()))
 
 
-@check_extra_imports("cbottle", ["cbottle", "earth2grid"])
+@check_optional_dependencies()
 class CBottleInfill(torch.nn.Module, AutoModelMixin):
     """Climate in a bottle infill diagnostic
     Climate in a Bottle (cBottle) is an AI model for emulating global km-scale climate
@@ -251,7 +254,7 @@ class CBottleInfill(torch.nn.Module, AutoModelMixin):
         )
 
     @classmethod
-    @check_extra_imports("cbottle", ["cbottle", "earth2grid"])
+    @check_optional_dependencies()
     def load_model(
         cls,
         package: Package,

@@ -59,7 +59,7 @@ class OptionalDependencyError(ImportError):
             table.add_row(
                 Traceback(
                     Traceback.extract(
-                        ImportError, error_value, error_traceback, show_locals=True
+                        ImportError, error_value, error_traceback, show_locals=False
                     )
                 )
             )
@@ -80,7 +80,7 @@ class OptionalDependencyFailure:
         `pip install earth2studio[data]`
     key : str | None, optional
         Unique dependency group key to id the import. This is used with the
-        `check_extra_imports` to check if needed optional dependencies are
+        `check_optional_dependencies` to check if needed optional dependencies are
         installed. Setting this manually is typiclaly not needed. If None, the key
         will be the filename of the caller object, by default None
     doc_url : str | None, optional
@@ -134,12 +134,12 @@ def check_optional_dependencies(
         does not need to be set. If None will use the filename of the caller object, by
         default None
     """
+    if key is None:
+        stack = inspect.stack()
+        caller_frame = stack[2]
+        key = caller_frame.filename
 
-    def _check_deps(key: str | None, obj_name: str) -> None:
-        if key is None:
-            stack = inspect.stack()
-            caller_frame = stack[2]
-            key = caller_frame.filename
+    def _check_deps(obj_name: str) -> None:
         # No error in singleton = no import issues
         if key not in OptionalDependencyFailure.failures:
             return
@@ -160,7 +160,7 @@ def check_optional_dependencies(
 
             @wraps(original_init)
             def _wrapped_init(self: Any, *args: Any, **kwargs: Any) -> None:
-                _check_deps(key, obj.__name__)
+                _check_deps(obj.__name__)
                 original_init(self, *args, **kwargs)
 
             obj.__init__ = _wrapped_init  # type: ignore
@@ -169,14 +169,9 @@ def check_optional_dependencies(
             # Handle function decoration
             @wraps(obj)
             def _wrapper(*args: Any, **kwargs: Any) -> Any:
-                _check_deps(key, f"{obj.__module__}.{obj.__name__}")
+                _check_deps(f"{obj.__module__}.{obj.__name__}")
                 return obj(*args, **kwargs)
 
             return cast(F, _wrapper)
 
     return _decorator
-
-
-def check_extra_imports(*args: Any, **kwargs: Any) -> None:
-    """Nothing"""
-    pass

@@ -22,18 +22,23 @@ from zoneinfo import ZoneInfo
 import numpy as np
 import torch
 
-try:
-    from makani.models.model_package import load_model_package
-except ImportError:
-    load_model_package = None
-
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_coords, batch_func
 from earth2studio.models.px.base import PrognosticModel
 from earth2studio.models.px.utils import PrognosticMixin
-from earth2studio.utils import check_extra_imports, handshake_coords, handshake_dim
+from earth2studio.utils import handshake_coords, handshake_dim
+from earth2studio.utils.imports import (
+    OptionalDependencyFailure,
+    check_optional_dependencies,
+)
 from earth2studio.utils.time import timearray_to_datetime
 from earth2studio.utils.type import CoordSystem
+
+try:
+    from makani.models.model_package import load_model_package
+except ImportError:
+    OptionalDependencyFailure("sfno")
+    load_model_package = None
 
 VARIABLES = [
     "u10m",
@@ -112,7 +117,7 @@ VARIABLES = [
 ]
 
 
-@check_extra_imports("sfno", [load_model_package])
+@check_optional_dependencies()
 class SFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     """Spherical Fourier Operator Network global prognostic model.
     Consists of a single model with a time-step size of 6 hours.
@@ -231,7 +236,7 @@ class SFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         return package
 
     @classmethod
-    @check_extra_imports("sfno", [load_model_package])
+    @check_optional_dependencies()
     def load_model(
         cls, package: Package, variables: list = VARIABLES
     ) -> PrognosticModel:
