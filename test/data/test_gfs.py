@@ -105,7 +105,7 @@ def test_gfs_fx_fetch(time, lead_time):
 
 @pytest.mark.slow
 @pytest.mark.xfail
-@pytest.mark.timeout(30)
+@pytest.mark.timeout(60)
 @pytest.mark.parametrize(
     "time",
     [

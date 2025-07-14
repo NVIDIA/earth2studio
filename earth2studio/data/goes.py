@@ -112,7 +112,7 @@ class GOES:
         "goes17": -137.0,
         "goes18": -137.0,
         "goes19": -75.0,
-    }
+    }  # https://www.ospo.noaa.gov/operations/goes/east/fd-img16.html
     FULL_DISK_YX = (
         np.linspace(
             -0.15184399485588074,
@@ -292,10 +292,7 @@ class GOES:
         self._validate_time(time)
 
         # https://filesystem-spec.readthedocs.io/en/latest/async.html#using-from-async
-        if isinstance(self.fs, s3fs.S3FileSystem):
-            session = await self.fs.set_session()
-        else:
-            session = None
+        session = await self.fs.set_session()
 
         # Create DataArray with appropriate dimensions
         if self._scan_mode == "F":
@@ -387,7 +384,7 @@ class GOES:
         # Pre-process lexicon lookups to avoid try-except in loop
         variable_mappings = []
         for v in variable:
-            if v in GOESLexicon.GOES_VOCAB:
+            if v in GOESLexicon.VOCAB:
                 goes_name, modifier = GOESLexicon[v]
                 variable_mappings.append((v, goes_name, modifier))
             else:
@@ -590,7 +587,7 @@ class GOES:
         cls, satellite: str = "goes16", scan_mode: str = "F"
     ) -> tuple[np.ndarray, np.ndarray]:
         """
-        Return (lat, lon) in degrees for the native GOES grid using pyproj.
+        Return (lat, lon) in degrees for the native GOES grid.
 
         Parameters
         ----------
@@ -599,8 +596,8 @@ class GOES:
         scan_mode : str, optional
             Scan mode ('F' for Full Disk, 'C' for Continental US), by default "F"
 
-        Notes
-        -----
+        Note
+        ----
         This function is based on the GOES ABI fixed grid projection variables and constants.
         The projection comes from the recommended NOAA documentation:
         https://www.star.nesdis.noaa.gov/atmospheric-composition-training/python_abi_lat_lon.php
@@ -631,35 +628,34 @@ class GOES:
         x_coordinate_2d, y_coordinate_2d = np.meshgrid(x_coordinate_1d, y_coordinate_1d)
 
         # Equations to calculate latitude and longitude
-        lambda_0 = (lon_origin * np.pi) / 180.0
-        a_var = np.power(np.sin(x_coordinate_2d), 2.0) + (
-            np.power(np.cos(x_coordinate_2d), 2.0)
-            * (
-                np.power(np.cos(y_coordinate_2d), 2.0)
-                + (
-                    ((r_eq * r_eq) / (r_pol * r_pol))
-                    * np.power(np.sin(y_coordinate_2d), 2.0)
+        # Use errstate context manager to suppress invalid operations (e.g., sqrt of negative numbers)
+        with np.errstate(invalid="ignore"):
+            lambda_0 = (lon_origin * np.pi) / 180.0
+            a_var = np.power(np.sin(x_coordinate_2d), 2.0) + (
+                np.power(np.cos(x_coordinate_2d), 2.0)
+                * (
+                    np.power(np.cos(y_coordinate_2d), 2.0)
+                    + (
+                        ((r_eq * r_eq) / (r_pol * r_pol))
+                        * np.power(np.sin(y_coordinate_2d), 2.0)
+                    )
                 )
             )
-        )
-        b_var = -2.0 * H * np.cos(x_coordinate_2d) * np.cos(y_coordinate_2d)
-        c_var = (H**2.0) - (r_eq**2.0)
-        r_s = (-1.0 * b_var - np.sqrt((b_var**2) - (4.0 * a_var * c_var))) / (
-            2.0 * a_var
-        )
-        s_x = r_s * np.cos(x_coordinate_2d) * np.cos(y_coordinate_2d)
-        s_y = -r_s * np.sin(x_coordinate_2d)
-        s_z = r_s * np.cos(x_coordinate_2d) * np.sin(y_coordinate_2d)
-
-        # Ignore numpy errors for sqrt of negative number; occurs for GOES-16 ABI CONUS sector data
-        np.seterr(all="ignore")
-
-        abi_lat = (180.0 / np.pi) * (
-            np.arctan(
-                ((r_eq * r_eq) / (r_pol * r_pol))
-                * (s_z / np.sqrt(((H - s_x) * (H - s_x)) + (s_y * s_y)))
+            b_var = -2.0 * H * np.cos(x_coordinate_2d) * np.cos(y_coordinate_2d)
+            c_var = (H**2.0) - (r_eq**2.0)
+            r_s = (-1.0 * b_var - np.sqrt((b_var**2) - (4.0 * a_var * c_var))) / (
+                2.0 * a_var
             )
-        )
-        abi_lon = (lambda_0 - np.arctan(s_y / (H - s_x))) * (180.0 / np.pi)
+            s_x = r_s * np.cos(x_coordinate_2d) * np.cos(y_coordinate_2d)
+            s_y = -r_s * np.sin(x_coordinate_2d)
+            s_z = r_s * np.cos(x_coordinate_2d) * np.sin(y_coordinate_2d)
+
+            abi_lat = (180.0 / np.pi) * (
+                np.arctan(
+                    ((r_eq * r_eq) / (r_pol * r_pol))
+                    * (s_z / np.sqrt(((H - s_x) * (H - s_x)) + (s_y * s_y)))
+                )
+            )
+            abi_lon = (lambda_0 - np.arctan(s_y / (H - s_x))) * (180.0 / np.pi)
 
         return abi_lat, abi_lon

@@ -25,13 +25,22 @@ class GOESLexicon(metaclass=LexiconType):
 
     This lexicon maps our standardized spectral band names (e.g., 'vis047') to the actual
     variable names used in GOES ABI NetCDF files on AWS. It also includes any necessary
-    data transformations or modifiers for each band.
+    data transformations or modifiers for each band. For more information on the GOES ABI
+    data, see the GOES Beginners Guide or the GOES ABI data documentation:
+    https://noaa-goes16.s3.amazonaws.com/Beginners_Guide_to_GOES-R_Series_Data.pdf
+    https://www.goes-r.gov/spacesegment/ABI-tech-summary.html
+
+    Parameters
+    ----------
+    val : str
+        Standardized variable name (e.g., 'vis047')
+
     """
 
     # Mapping of standardized names to GOES ABI variable names and modifiers
     # Format: "standardized_name": ("goes_variable_name", modifier_function)
     # The modifier function can be used to transform the data if needed
-    GOES_VOCAB: dict[str, tuple[str, Callable[[Any], Any]]] = {
+    VOCAB: dict[str, tuple[str, Callable[[Any], Any]]] = {
         # Visible bands (0.5 km resolution)
         "vis047": ("CMI_C01", lambda x: x),  # Blue
         "vis064": ("CMI_C02", lambda x: x),  # Red
@@ -69,6 +78,6 @@ class GOESLexicon(metaclass=LexiconType):
             - GOES ABI variable name (e.g., 'CMI_C01')
             - Modifier function for data transformation
         """
-        if val not in cls.GOES_VOCAB:
+        if val not in cls.VOCAB:
             raise KeyError(f"Variable {val} not found in GOES lexicon")
-        return cls.GOES_VOCAB[val]
+        return cls.VOCAB[val]
