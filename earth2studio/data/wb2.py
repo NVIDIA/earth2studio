@@ -98,6 +98,7 @@ class _WB2Base:
             access="read_only",
             block_size=8**20,
             asynchronous=True,
+            skip_instance_cache=True,
         )
         fs._loop = asyncio.get_event_loop()
 

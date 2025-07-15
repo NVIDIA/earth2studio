@@ -134,6 +134,7 @@ class ARCO:
             access="read_only",
             block_size=8**20,
             asynchronous=True,
+            skip_instance_cache=True,
         )
         # Need to manually set this here, the reason being that when the file system
         # defines the weak ref of the client, it needs the loop used to create it.
@@ -410,6 +411,7 @@ class ARCO:
         except ValueError:
             return False
 
+        # TODO: FIX THIS, FOR ZARR 3.0 THIS IS DANGEROUS NON-ASYNC
         gcs = gcsfs.GCSFileSystem(cache_timeout=-1)
 
         try:
