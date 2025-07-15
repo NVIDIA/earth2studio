@@ -15,8 +15,9 @@ and commonly used workflows.
 
     ``uv run <example_script>.py``
 
-    If you are using a container or other environment, and need to pip install then
-    look for the `uv inline metadata <https://docs.astral.sh/uv/guides/scripts/#declaring-script-dependencies>`_
+    If you are using a container or other type of environment, then pip installing will
+    likely be needed.
+    Look for the `uv inline metadata <https://docs.astral.sh/uv/guides/scripts/#declaring-script-dependencies>`_
     blocks of the form:
 
     .. code-block:: python
