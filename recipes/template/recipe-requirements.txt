@@ -6,7 +6,7 @@ aiofiles==23.2.1
     # via ngcsdk
 aiohappyeyeballs==2.6.1
     # via aiohttp
-aiohttp==3.11.18
+aiohttp==3.12.14
     # via
     #   aiobotocore
     #   gcsfs
