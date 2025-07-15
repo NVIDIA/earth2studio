@@ -210,7 +210,7 @@ For a complete list, see the [data source API docs][e2studio_data_api].
 <summary>IO Backends</summary>
 
 [IO backends][e2studio_io_url] in
-    Earth2Studio provide a standardized interface for writing and storing
+    Earth2Studio provides a standardized interface for writing and storing
     pipeline outputs across different file formats and storage systems enabling users
     to store inference outputs for later processing.
 
