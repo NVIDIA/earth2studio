@@ -21,14 +21,19 @@ from earth2studio.lexicon import GOESLexicon
 
 
 @pytest.mark.parametrize(
-    "variable", [["vis047"], ["vis064", "nir086"], ["ir1035", "ir1120", "ir1230"]]
+    "variable",
+    [["vis047"], ["vis064", "nir086"], ["ir1035", "ir1120", "ir1230"], ["foo"]],
 )
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
 def test_goes_lexicon(variable, device):
     input = torch.randn(len(variable), 100, 100).to(device)
     for v in variable:
-        label, modifier = GOESLexicon[v]
-        output = modifier(input)
-        assert isinstance(label, str)
-        assert input.shape == output.shape
-        assert input.device == output.device
+        if v != "foo":
+            label, modifier = GOESLexicon[v]
+            output = modifier(input)
+            assert isinstance(label, str)
+            assert input.shape == output.shape
+            assert input.device == output.device
+        else:
+            with pytest.raises(KeyError):
+                label, modifier = GOESLexicon[v]

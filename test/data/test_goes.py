@@ -249,3 +249,26 @@ def test_goes_available(time, variable):
     with pytest.raises(ValueError):
         ds = GOES(satellite="goes16", scan_mode="F")
         ds([time], variable)
+
+
+@pytest.mark.parametrize(
+    "satellite,scan_mode,expected_shape",
+    [
+        ("goes16", "F", (5424, 5424)),
+        ("goes16", "C", (1500, 2500)),
+        ("goes17", "F", (5424, 5424)),
+        ("goes17", "C", (1500, 2500)),
+        ("goes18", "F", (5424, 5424)),
+        ("goes18", "C", (1500, 2500)),
+        ("goes19", "F", (5424, 5424)),
+        ("goes19", "C", (1500, 2500)),
+    ],
+)
+def test_goes_grid(satellite, scan_mode, expected_shape):
+    """Test GOES grid method returns correct lat/lon coordinates."""
+
+    lat, lon = GOES.grid(satellite=satellite, scan_mode=scan_mode)
+
+    # Check shapes match expected dimensions
+    assert lat.shape == expected_shape
+    assert lon.shape == expected_shape
