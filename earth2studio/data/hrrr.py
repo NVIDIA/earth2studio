@@ -193,12 +193,14 @@ class HRRR:
         if self._source == "aws":
             self.fs = s3fs.S3FileSystem(anon=True, client_kwargs={}, asynchronous=True)
         elif self._source == "google":
-            self.fs = gcsfs.GCSFileSystem(
+            fs = gcsfs.GCSFileSystem(
                 cache_timeout=-1,
                 token="anon",  # noqa: S106 # nosec B106
                 access="read_only",
                 block_size=8**20,
             )
+            fs._loop = asyncio.get_event_loop()
+            self.fs = fs
         elif self._source == "azure":
             raise NotImplementedError(
                 "Azure data source not implemented yet, open an issue if needed"

@@ -28,6 +28,12 @@ see
  - https://arxiv.org/abs/2408.10958
 
 """
+# /// script
+# dependencies = [
+#   "earth2studio[data,stormcast] @ git+https://github.com/NVIDIA/earth2studio.git",
+#   "cartopy",
+# ]
+# ///
 
 # %%
 # Set Up

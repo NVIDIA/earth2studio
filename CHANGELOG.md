@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Different compression codec support in the ZarrBackend with `zarr_codecs` parameter
 - IO performance example
 - Unified CorrDiff Wrapper
+- Added UV script dependencies to all examples
 
 ### Changed
 
@@ -31,6 +32,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - DLWP output coords lead_time array to have proper shape
+- Fixed data sources using GCFS throwing error at end of script from aiohttp session
+  clean up
 
 ### Security
 
