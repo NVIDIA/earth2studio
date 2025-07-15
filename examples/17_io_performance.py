@@ -34,6 +34,12 @@ In this example you will learn:
 - Initializing and writing with the Asynchronous Non-blocking Zarr IO backend
 - Discussing performance implications and strategies that can be used
 """
+# /// script
+# dependencies = [
+#   "earth2studio[dlwp] @ git+https://github.com/NVIDIA/earth2studio.git",
+#   "matplotlib",
+# ]
+# ///
 
 # %%
 # Set Up

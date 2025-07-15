@@ -33,6 +33,12 @@ In this example you will learn:
 - Extend a built-in method using custom code.
 - Post-processing results
 """
+# /// script
+# dependencies = [
+#   "earth2studio[dlwp,perturbation] @ git+https://github.com/NVIDIA/earth2studio.git",
+#   "matplotlib",
+# ]
+# ///
 
 # %%
 # Set Up

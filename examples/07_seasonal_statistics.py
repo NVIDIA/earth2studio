@@ -34,10 +34,16 @@ In this example you will learn:
 - Running a simple built in workflow
 - Post-processing results
 """
+# /// script
+# dependencies = [
+#   "earth2studio[pangu,statistics] @ git+https://github.com/NVIDIA/earth2studio.git",
+#   "matplotlib",
+# ]
+# ///
 
 # %%
-# Creating a statistical workflow
-# -----------------------------------
+# Creating a Statistical Workflow
+# -------------------------------
 #
 # Start with creating a simple inference workflow to use. We encourage
 # users to explore and experiment with their own custom workflows that borrow ideas from

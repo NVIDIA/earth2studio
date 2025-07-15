@@ -50,6 +50,12 @@ In this example you will learn:
 - How to visualize results
 
 """
+# /// script
+# dependencies = [
+#   "earth2studio[sfno] @ git+https://github.com/NVIDIA/earth2studio.git",
+#   "cartopy",
+# ]
+# ///
 
 # %%
 # Set Up

@@ -34,6 +34,12 @@ In this example you will learn:
 - How to couple the TC tracker to a prognostic model
 - Post-processing results
 """
+# /// script
+# dependencies = [
+#   "earth2studio[cyclone,sfno] @ git+https://github.com/NVIDIA/earth2studio.git",
+#   "cartopy",
+# ]
+# ///
 
 # %%
 # Set Up
