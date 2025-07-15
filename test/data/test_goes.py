@@ -196,6 +196,7 @@ def test_goes_cache(time, variable, cache):
         ("goes17", "C", datetime(2022, 6, 25, 12, 0, 0), "vis064", True),
         ("foo", "F", datetime(2022, 6, 25, 12, 0, 0), "vis047", False),
         ("goes16", "X", datetime(2022, 6, 25, 12, 0, 0), "vis047", False),
+        ("goes16", "X", datetime(2022, 6, 25, 12, 0, 0), "foo", False),
     ],
 )
 def test_goes_sources(satellite, scan_mode, time, variable, valid):

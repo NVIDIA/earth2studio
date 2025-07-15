@@ -451,10 +451,6 @@ class GOES:
                     f"Requested date time {time} needs to be {self.SCAN_TIME_FREQUENCY[self._scan_mode]} second interval for GOES with scan mode {self._scan_mode}"
                 )
 
-            # Check if satellite was operational at this time
-            if self._satellite not in self.GOES_HISTORY_RANGE:
-                raise ValueError(f"Unknown satellite {self._satellite}")
-
             start_date, end_date = self.GOES_HISTORY_RANGE[self._satellite]
             if time < start_date:
                 raise ValueError(
