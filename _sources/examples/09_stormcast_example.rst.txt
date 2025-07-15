@@ -29,7 +29,19 @@ see
 
  - https://arxiv.org/abs/2408.10958
 
-.. GENERATED FROM PYTHON SOURCE LINES 33-38
+.. GENERATED FROM PYTHON SOURCE LINES 31-38
+
+.. code-block:: Python
+
+    # /// script
+    # dependencies = [
+    #   "earth2studio[data,stormcast] @ git+https://github.com/NVIDIA/earth2studio.git",
+    #   "cartopy",
+    # ]
+    # ///
+
+
+.. GENERATED FROM PYTHON SOURCE LINES 39-44
 
 Set Up
 ------
@@ -37,14 +49,14 @@ All workflows inside Earth2Studio require constructed components to be
 handed to them. In this example, let's take a look at the most basic:
 :py:meth:`earth2studio.run.deterministic`.
 
-.. GENERATED FROM PYTHON SOURCE LINES 40-44
+.. GENERATED FROM PYTHON SOURCE LINES 46-50
 
 .. literalinclude:: ../../earth2studio/run.py
    :language: python
    :start-after: # sphinx - deterministic start
    :end-before: # sphinx - deterministic end
 
-.. GENERATED FROM PYTHON SOURCE LINES 46-55
+.. GENERATED FROM PYTHON SOURCE LINES 52-61
 
 Thus, we need the following:
 
@@ -56,7 +68,7 @@ StormCast also requires a conditioning data source. We use a forecast data sourc
 GFS_FX :py:class:`earth2studio.data.GFS_FX` which is the default, but a non-forecast
 data source such as ARCO could also be used with appropriate time stamps.
 
-.. GENERATED FROM PYTHON SOURCE LINES 57-87
+.. GENERATED FROM PYTHON SOURCE LINES 63-93
 
 .. code-block:: Python
 
@@ -91,7 +103,7 @@ data source such as ARCO could also be used with appropriate time stamps.
     io = ZarrBackend()
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 88-96
+.. GENERATED FROM PYTHON SOURCE LINES 94-102
 
 Execute the Workflow
 --------------------
@@ -102,7 +114,7 @@ saving to file. Check the API docs for more information.
 
 For the forecast we will predict for 4 hours
 
-.. GENERATED FROM PYTHON SOURCE LINES 98-107
+.. GENERATED FROM PYTHON SOURCE LINES 104-113
 
 .. code-block:: Python
 
@@ -116,7 +128,7 @@ For the forecast we will predict for 4 hours
     print(io.root.tree())
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 108-115
+.. GENERATED FROM PYTHON SOURCE LINES 114-121
 
 Post Processing
 ---------------
@@ -126,7 +138,7 @@ fields on projections of a sphere. Here we will just plot the temperature at 2 m
 
 Notice that the Zarr IO function has additional APIs to interact with the stored data.
 
-.. GENERATED FROM PYTHON SOURCE LINES 117-159
+.. GENERATED FROM PYTHON SOURCE LINES 123-165
 
 .. code-block:: Python
 

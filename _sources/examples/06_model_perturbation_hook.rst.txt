@@ -42,10 +42,22 @@ In this example you will learn:
 - Choose a subselection of coordinates to save to an IO object.
 - Post-processing results
 
-.. GENERATED FROM PYTHON SOURCE LINES 45-64
+.. GENERATED FROM PYTHON SOURCE LINES 43-50
+
+.. code-block:: Python
+
+    # /// script
+    # dependencies = [
+    #   "earth2studio[dlwp] @ git+https://github.com/NVIDIA/earth2studio.git",
+    #   "cartopy",
+    # ]
+    # ///
+
+
+.. GENERATED FROM PYTHON SOURCE LINES 51-70
 
 Creating an Ensemble Workflow
------------------------------------
+-----------------------------
 
 To start let's begin with creating an ensemble workflow to use. We encourage
 users to explore and experiment with their own custom workflows that borrow ideas from
@@ -64,7 +76,7 @@ method that accepts the following:
 - output_coords: CoordSystem of output coordinates that should be saved. Should be
   a proper subset of model output coordinates.
 
-.. GENERATED FROM PYTHON SOURCE LINES 66-80
+.. GENERATED FROM PYTHON SOURCE LINES 72-86
 
 Set Up
 ------
@@ -81,7 +93,7 @@ default (identity) forward and rear hooks. Then we will define new hooks for the
 inference request.
 %%
 
-.. GENERATED FROM PYTHON SOURCE LINES 80-107
+.. GENERATED FROM PYTHON SOURCE LINES 86-113
 
 .. code-block:: Python
 
@@ -113,7 +125,7 @@ inference request.
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 108-116
+.. GENERATED FROM PYTHON SOURCE LINES 114-122
 
 Execute the Workflow
 --------------------
@@ -124,7 +136,7 @@ The workflow will return the provided IO object back to the user, which can be u
 then post process. Some have additional APIs that can be handy for post-processing or
 saving to file. Check the API docs for more information.
 
-.. GENERATED FROM PYTHON SOURCE LINES 118-141
+.. GENERATED FROM PYTHON SOURCE LINES 124-147
 
 .. code-block:: Python
 
@@ -152,7 +164,7 @@ saving to file. Check the API docs for more information.
     )
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 142-147
+.. GENERATED FROM PYTHON SOURCE LINES 148-153
 
 Now let's introduce slight model perturbation using the prognostic model hooks defined
 in :py:class:`earth2studio.models.px.utils.PrognosticMixin`.
@@ -160,7 +172,7 @@ Note that :py:obj:`center.unsqueeze(-1)` is DLWP specific since it operates on a
 with grid dimensions (nface, lat, lon) instead of just (lat,lon).
 To switch out the model, consider removing the :py:meth:`unsqueeze` .
 
-.. GENERATED FROM PYTHON SOURCE LINES 149-177
+.. GENERATED FROM PYTHON SOURCE LINES 155-183
 
 .. code-block:: Python
 
@@ -193,7 +205,7 @@ To switch out the model, consider removing the :py:meth:`unsqueeze` .
     )
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 178-185
+.. GENERATED FROM PYTHON SOURCE LINES 184-191
 
 Post Processing
 ---------------
@@ -203,7 +215,7 @@ unperturbed/perturbed model.
 
 Notice that the Zarr IO function has additional APIs to interact with the stored data.
 
-.. GENERATED FROM PYTHON SOURCE LINES 187-322
+.. GENERATED FROM PYTHON SOURCE LINES 193-328
 
 .. code-block:: Python
 

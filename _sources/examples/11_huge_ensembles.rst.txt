@@ -51,7 +51,19 @@ In this example you will learn:
 - How to create a simple ensemble inference loop
 - How to visualize results
 
-.. GENERATED FROM PYTHON SOURCE LINES 55-70
+.. GENERATED FROM PYTHON SOURCE LINES 53-60
+
+.. code-block:: Python
+
+    # /// script
+    # dependencies = [
+    #   "earth2studio[sfno] @ git+https://github.com/NVIDIA/earth2studio.git",
+    #   "cartopy",
+    # ]
+    # ///
+
+
+.. GENERATED FROM PYTHON SOURCE LINES 61-76
 
 Set Up
 ------
@@ -69,7 +81,7 @@ This example also needs the following:
 - Perturbation Method: HENS uses a novel perturbation method :py:class:`earth2studio.perturbation.HemisphericCentredBredVector`.
 - Seeding Perturbation Method: Perturbation method to seed the Bred Vector :py:class:`earth2studio.perturbation.CorrelatedSphericalGaussian`.
 
-.. GENERATED FROM PYTHON SOURCE LINES 72-110
+.. GENERATED FROM PYTHON SOURCE LINES 78-116
 
 .. code-block:: Python
 
@@ -112,7 +124,7 @@ This example also needs the following:
     data = GFS()
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 111-124
+.. GENERATED FROM PYTHON SOURCE LINES 117-130
 
 Execute the Workflow
 --------------------
@@ -128,7 +140,7 @@ Before the ensemble workflow can get executed the following set up is needed:
 If multiple GPUs are being used, one could parallelize inference using different
 checkpoints on each card.
 
-.. GENERATED FROM PYTHON SOURCE LINES 126-181
+.. GENERATED FROM PYTHON SOURCE LINES 132-187
 
 .. code-block:: Python
 
@@ -188,7 +200,7 @@ checkpoints on each card.
         torch.cuda.empty_cache()
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 182-188
+.. GENERATED FROM PYTHON SOURCE LINES 188-194
 
 Post Processing
 ---------------
@@ -197,7 +209,7 @@ respective checkpoints used.
 The rest of the example is focused on some basic post processing to visualize the
 results.
 
-.. GENERATED FROM PYTHON SOURCE LINES 190-248
+.. GENERATED FROM PYTHON SOURCE LINES 196-254
 
 .. code-block:: Python
 

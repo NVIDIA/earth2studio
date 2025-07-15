@@ -36,7 +36,19 @@ In this example you will learn:
 - Initializing and writing with the Asynchronous Non-blocking Zarr IO backend
 - Discussing performance implications and strategies that can be used
 
-.. GENERATED FROM PYTHON SOURCE LINES 39-44
+.. GENERATED FROM PYTHON SOURCE LINES 37-44
+
+.. code-block:: Python
+
+    # /// script
+    # dependencies = [
+    #   "earth2studio[dlwp] @ git+https://github.com/NVIDIA/earth2studio.git",
+    #   "matplotlib",
+    # ]
+    # ///
+
+
+.. GENERATED FROM PYTHON SOURCE LINES 45-50
 
 Set Up
 ------
@@ -44,7 +56,7 @@ To demonstrate different IO, this example will use a simple ensemble workflow th
 will manually create ourselves. One could use the built in workflow in Earth2Studio
 however, this will allow us to better understand the APIs.
 
-.. GENERATED FROM PYTHON SOURCE LINES 46-52
+.. GENERATED FROM PYTHON SOURCE LINES 52-58
 
 We need the following components:
 
@@ -53,7 +65,7 @@ We need the following components:
 - Perturbation Method: Use the standard Gaussian method :py:class:`earth2studio.perturbation.Gaussian`.
 - IO Backends: Use a few IO Backends including :py:class:`earth2studio.io.AsyncZarrBackend`, :py:class:`earth2studio.io.NetCDF4Backend` and :py:class:`earth2studio.io.ZarrBackend`.
 
-.. GENERATED FROM PYTHON SOURCE LINES 54-83
+.. GENERATED FROM PYTHON SOURCE LINES 60-89
 
 .. code-block:: Python
 
@@ -87,7 +99,7 @@ We need the following components:
     pt = Gaussian()
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 84-91
+.. GENERATED FROM PYTHON SOURCE LINES 90-97
 
 Creating a Simple Ensemble Workflow
 -----------------------------------
@@ -97,7 +109,7 @@ In this case, this is for an ensemble inference workflow that will predict a 5 d
 forecast for Christmas 2022. Following standard Earth2Studio practices, the function
 accepts initialized prognostic, data source, io backend and perturbation method.
 
-.. GENERATED FROM PYTHON SOURCE LINES 93-194
+.. GENERATED FROM PYTHON SOURCE LINES 99-200
 
 .. code-block:: Python
 
@@ -203,7 +215,7 @@ accepts initialized prognostic, data source, io backend and perturbation method.
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 195-203
+.. GENERATED FROM PYTHON SOURCE LINES 201-209
 
 Local Storage Zarr IO
 ---------------------
@@ -214,7 +226,7 @@ Chunking play an important role on performance, both with respect to compression
 also when accessing data.
 Here we will chunk the output data based on time and lead_time
 
-.. GENERATED FROM PYTHON SOURCE LINES 205-216
+.. GENERATED FROM PYTHON SOURCE LINES 211-222
 
 .. code-block:: Python
 
@@ -230,7 +242,7 @@ Here we will chunk the output data based on time and lead_time
     zarr_local_clock = time.time() - start_time
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 217-223
+.. GENERATED FROM PYTHON SOURCE LINES 223-229
 
 .. code-block:: Python
 
@@ -241,7 +253,7 @@ Here we will chunk the output data based on time and lead_time
     )
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 224-232
+.. GENERATED FROM PYTHON SOURCE LINES 230-238
 
 Compressed Local Storage Zarr IO
 --------------------------------
@@ -252,7 +264,7 @@ needs to get sent over the network to a remote store, compression is essential.
 With the standard Zarr backend, this will cause a very noticeable slow down, but note
 that the output store will be 3x smaller!
 
-.. GENERATED FROM PYTHON SOURCE LINES 234-250
+.. GENERATED FROM PYTHON SOURCE LINES 240-256
 
 .. code-block:: Python
 
@@ -273,7 +285,7 @@ that the output store will be 3x smaller!
     zarr_local_clock = time.time() - start_time
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 251-258
+.. GENERATED FROM PYTHON SOURCE LINES 257-264
 
 .. code-block:: Python
 
@@ -285,7 +297,7 @@ that the output store will be 3x smaller!
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 259-265
+.. GENERATED FROM PYTHON SOURCE LINES 265-271
 
 Local Storage NetCDF IO
 -----------------------
@@ -294,7 +306,7 @@ file.
 For local storage, NetCDF it typically preferred since it keeps all outputs into
 a single file.
 
-.. GENERATED FROM PYTHON SOURCE LINES 267-273
+.. GENERATED FROM PYTHON SOURCE LINES 273-279
 
 .. code-block:: Python
 
@@ -305,7 +317,7 @@ a single file.
     nc_local_clock = time.time() - start_time
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 274-280
+.. GENERATED FROM PYTHON SOURCE LINES 280-286
 
 .. code-block:: Python
 
@@ -316,7 +328,7 @@ a single file.
     )
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 281-287
+.. GENERATED FROM PYTHON SOURCE LINES 287-293
 
 In Memory Zarr IO
 -----------------
@@ -325,7 +337,7 @@ In-memory stores more limited in size depending on the hardware being used.
 Also one needs to be careful with in memory stores, once the Python object is deleted
 the data is gone.
 
-.. GENERATED FROM PYTHON SOURCE LINES 289-297
+.. GENERATED FROM PYTHON SOURCE LINES 295-303
 
 .. code-block:: Python
 
@@ -338,7 +350,7 @@ the data is gone.
     zarr_memory_clock = time.time() - start_time
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 298-301
+.. GENERATED FROM PYTHON SOURCE LINES 304-307
 
 .. code-block:: Python
 
@@ -346,7 +358,7 @@ the data is gone.
     print(f"\nIn memory zarr store inference time: {zarr_memory_clock}s")
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 302-315
+.. GENERATED FROM PYTHON SOURCE LINES 308-321
 
 Compressed Local Async Zarr IO
 ------------------------------
@@ -362,7 +374,7 @@ users specify `parallel_coords` in the constructor that denote coords that slice
 be written to during inference.
 Typically this might be `time`, `lead_time` and `ensemble`.
 
-.. GENERATED FROM PYTHON SOURCE LINES 317-333
+.. GENERATED FROM PYTHON SOURCE LINES 323-339
 
 .. code-block:: Python
 
@@ -383,7 +395,7 @@ Typically this might be `time`, `lead_time` and `ensemble`.
     zarr_async_clock = time.time() - start_time
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 334-340
+.. GENERATED FROM PYTHON SOURCE LINES 340-346
 
 .. code-block:: Python
 
@@ -394,7 +406,7 @@ Typically this might be `time`, `lead_time` and `ensemble`.
     )
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 341-353
+.. GENERATED FROM PYTHON SOURCE LINES 347-359
 
 Compressed Local Non-Blocking Async Zarr IO
 -------------------------------------------
@@ -409,7 +421,7 @@ write threads to finish before the object is deleted.
 Note that this backend allows Zarr to be comparable to uncompressed NetCDF even 3x
 compression!
 
-.. GENERATED FROM PYTHON SOURCE LINES 355-370
+.. GENERATED FROM PYTHON SOURCE LINES 361-376
 
 .. code-block:: Python
 
@@ -429,7 +441,7 @@ compression!
     zarr_nonblocking_async_clock = time.time() - start_time
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 371-379
+.. GENERATED FROM PYTHON SOURCE LINES 377-385
 
 .. code-block:: Python
 
@@ -442,7 +454,7 @@ compression!
     )
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 380-399
+.. GENERATED FROM PYTHON SOURCE LINES 386-405
 
 Remote Non-Blocking Async Zarr IO
 ----------------------------------
@@ -464,7 +476,7 @@ callable object.
 Lastly we can increase the max number of thread workers with the `pool_size` parameter
 to further boost performance.
 
-.. GENERATED FROM PYTHON SOURCE LINES 401-437
+.. GENERATED FROM PYTHON SOURCE LINES 407-443
 
 .. code-block:: Python
 
@@ -505,14 +517,14 @@ to further boost performance.
         # fs.rm("earth2studio/ci/example/17_io_async.zarr", recursive=True)
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 438-442
+.. GENERATED FROM PYTHON SOURCE LINES 444-448
 
 Post-Processing
 ---------------
 Lastly, we can plot the each of the local Zarr stores to verify that indeed they are
 the same.
 
-.. GENERATED FROM PYTHON SOURCE LINES 444-484
+.. GENERATED FROM PYTHON SOURCE LINES 450-490
 
 .. code-block:: Python
 

@@ -1116,7 +1116,7 @@ Earth2Studio in an isolated environment.
 For developer environments, please refer to the <a class="reference internal" href="../developer/overview.html#developer-overview"><span class="std std-ref">Overview</span></a>.</p>
 <section id="uv-project">
 <h2>uv Project<a class="headerlink" href="#uv-project" title="Link to this heading">#</a></h2>
-<p>Using uv is the recommend way to set up a Python environment for Earth2Studio.
+<p>Using uv is the recommend way to set up a local Python environment for Earth2Studio.
 Assuming <a class="reference external" href="https://docs.astral.sh/uv/getting-started/installation/">uv is installed</a>, use
 the following commands:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>mkdir<span class="w"> </span>earth2studio-project<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nb">cd</span><span class="w"> </span>earth2studio-project
@@ -1133,7 +1133,8 @@ uv<span class="w"> </span>add<span class="w"> </span><span class="s2">&quot;eart
 <section id="pytorch-docker-container">
 <span id="pytorch-container-environment"></span><h2>PyTorch Docker Container<a class="headerlink" href="#pytorch-docker-container" title="Link to this heading">#</a></h2>
 <p>For a docker environment the <a class="reference external" href="https://catalog.ngc.nvidia.com/orgs/nvidia/containers/pytorch">Nvidia PyTorch container</a>
-provides a good base with many dependencies already installed.
+provides a good base with many dependencies already installed and optimized for NVIDIA
+hardware.
 In container instances, using a virtual environment is often <a class="reference external" href="https://docs.astral.sh/uv/pip/environments/#using-arbitrary-python-environments">not necessary</a>.
 It is recommend using the following commands to install using the container’s Python
 interpreter:</p>

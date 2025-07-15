@@ -578,7 +578,10 @@ represent notebooks as code.
 Sphinx Gallery supports embedded reST (reStructuredText) syntax in the form of comments.
 These comments are automatically rendered as formatted text on the documentation web
 pages and as markdown cells in the converted Jupyter notebooks.
-For more details on the syntax, see the <a class="reference external" href="https://sphinx-gallery.github.io/stable/syntax.html#embed-rest-in-your-example-python-files">embedded reST documentation</a>.
+For more details on the syntax, see the <a class="reference external" href="https://sphinx-gallery.github.io/stable/syntax.html#embed-rest-in-your-example-python-files">embedded reST documentation</a>.</p>
+<p>To specify required dependencies, use <a class="reference external" href="https://docs.astral.sh/uv/guides/scripts/#declaring-script-dependencies%3E">uv inline metadata</a>
+which allows each example to use different dependency groups or packages not shipped
+with Earth2Studio.
 To create an example, the best method is to copy an existing example and follow the
 structure:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># %%</span>
@@ -599,6 +602,13 @@ structure:</p>
 <span class="sd">- Running a simple built in workflow</span>
 <span class="sd">- Post-processing results</span>
 <span class="sd">&quot;&quot;&quot;</span>
+<span class="c1"># /// script</span>
+<span class="c1"># dependencies = [</span>
+<span class="c1">#   &quot;earth2studio @ git+https://github.com/NVIDIA/earth2studio.git&quot;,</span>
+<span class="c1">#   &quot;cartopy&quot;,</span>
+<span class="c1">#   &quot;other depedencies...&quot;,</span>
+<span class="c1"># ]</span>
+<span class="c1"># ///</span>
 
 <span class="c1"># %%</span>
 <span class="c1"># Set Up</span>

@@ -35,7 +35,19 @@ In this example you will learn:
 - Running a simple built in workflow for ensembling
 - Post-processing results
 
-.. GENERATED FROM PYTHON SOURCE LINES 38-43
+.. GENERATED FROM PYTHON SOURCE LINES 36-43
+
+.. code-block:: Python
+
+    # /// script
+    # dependencies = [
+    #   "earth2studio[fcn,perturbation] @ git+https://github.com/NVIDIA/earth2studio.git",
+    #   "cartopy",
+    # ]
+    # ///
+
+
+.. GENERATED FROM PYTHON SOURCE LINES 44-49
 
 Set Up
 ------
@@ -43,14 +55,14 @@ All workflows inside Earth2Studio require constructed components to be
 handed to them. In this example, we will use the built in ensemble workflow
 :py:meth:`earth2studio.run.ensemble`.
 
-.. GENERATED FROM PYTHON SOURCE LINES 45-49
+.. GENERATED FROM PYTHON SOURCE LINES 51-55
 
 .. literalinclude:: ../../earth2studio/run.py
    :language: python
    :start-after: # sphinx - ensemble start
    :end-before: # sphinx - ensemble end
 
-.. GENERATED FROM PYTHON SOURCE LINES 51-57
+.. GENERATED FROM PYTHON SOURCE LINES 57-63
 
 We need the following:
 
@@ -59,7 +71,7 @@ We need the following:
 - Datasource: Pull data from the GFS data api :py:class:`earth2studio.data.GFS`.
 - IO Backend: Save the outputs into a Zarr store :py:class:`earth2studio.io.ZarrBackend`.
 
-.. GENERATED FROM PYTHON SOURCE LINES 59-92
+.. GENERATED FROM PYTHON SOURCE LINES 65-98
 
 .. code-block:: Python
 
@@ -97,7 +109,7 @@ We need the following:
     )
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 93-102
+.. GENERATED FROM PYTHON SOURCE LINES 99-108
 
 Execute the Workflow
 --------------------
@@ -109,7 +121,7 @@ saving to file. Check the API docs for more information.
 For the forecast we will predict for 10 steps (for FCN, this is 60 hours) with 8 ensemble
 members which will be ran in 2 batches with batch size 4.
 
-.. GENERATED FROM PYTHON SOURCE LINES 104-120
+.. GENERATED FROM PYTHON SOURCE LINES 110-126
 
 .. code-block:: Python
 
@@ -130,7 +142,7 @@ members which will be ran in 2 batches with batch size 4.
     )
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 121-127
+.. GENERATED FROM PYTHON SOURCE LINES 127-133
 
 Post Processing
 ---------------
@@ -139,7 +151,7 @@ fields on projections of a sphere.
 
 Notice that the Zarr IO function has additional APIs to interact with the stored data.
 
-.. GENERATED FROM PYTHON SOURCE LINES 129-185
+.. GENERATED FROM PYTHON SOURCE LINES 135-191
 
 .. code-block:: Python
 
