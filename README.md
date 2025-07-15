@@ -54,17 +54,17 @@ and replacing `DLWP` references with another [forecast model][e2studio_px_api].
 
 ## Latest News
 
-- The latest **Climate in a Bottle** generative AI model from NVIDIA research had been
-    added via several APIs inclding a [data source](https://nvidia.github.io/earth2studio/modules/generated/data/earth2studio.data.CBottle3D.html),
+- The latest **Climate in a Bottle** generative AI model from NVIDIA research has been
+    added via several APIs including a [data source](https://nvidia.github.io/earth2studio/modules/generated/data/earth2studio.data.CBottle3D.html),
     [infilling](https://nvidia.github.io/earth2studio/modules/generated/models/dx/earth2studio.models.dx.CBottleInfill.html)
     and [super-resolution](https://nvidia.github.io/earth2studio/modules/generated/models/dx/earth2studio.models.dx.CBottleSR.html)
     APIs. See the [cBottle examples](https://nvidia.github.io/earth2studio/examples/index.html)
     for more.
-- The lon awaited **GraphCast 1 degree** [prognostic model](https://nvidia.github.io/earth2studio/modules/generated/models/px/earth2studio.models.px.GraphCastSmall.html)
+- The long awaited **GraphCast 1 degree** [prognostic model](https://nvidia.github.io/earth2studio/modules/generated/models/px/earth2studio.models.px.GraphCastSmall.html)
     and **GraphCast Operational** [prognostic model](https://nvidia.github.io/earth2studio/modules/generated/models/px/earth2studio.models.px.GraphCastOperational.html)
     are now added.
 - Advanced **Subseasonal-to-Seasonal (S2S) forecasting** [recipe](./recipes/s2s/)
-    added demonstring new inference pipelines for between  weather forecasts (up to 2
+    added demonstrating new inference pipelines for between weather forecasts (up to 2
     weeks) and seasonal forecasts (3-6 months).
 
 For a complete list of latest features and improvements see the [changelog](./CHANGELOG.md).
@@ -72,7 +72,7 @@ For a complete list of latest features and improvements see the [changelog](./CH
 ## Overview
 
 Earth2Studio is an *AI inference pipeline toolkit* focused on geospatial that is
-designed to ride on top of different AI frameworks, model architecutres, data sources
+designed to ride on top of different AI frameworks, model architectures, data sources
 and SciML tooling while providing a unified API.
 
 <div align="center">
@@ -81,9 +81,9 @@ and SciML tooling while providing a unified API.
 
 </div>
 
-The composability of the different core components in Earth2Studio easily allow the
+The composability of the different core components in Earth2Studio easily allows the
 development and deployment of increasingly complex pipelines that may chain multiple
-data sources, AI models  and more together.
+data sources, AI models and more together.
 
 <div align="center">
 
@@ -91,7 +91,7 @@ data sources, AI models  and more together.
 
 </div>
 
-The unified ecosystem Earth2Studio provides, enables users the oppurtunity to rapidly
+The unified ecosystem Earth2Studio provides users the opportunity to rapidly
 swap out components for alternatives.
 In addition to the largest model zoo of weather/climate AI models, Earth2Studio is
 packed with useful functionality such as optimized data access to cloud data stores,
@@ -102,7 +102,7 @@ Earth2Studio can be used for seamless deployment of geo-spatial models trained i
 
 ## Features
 
-Earth2Studio  package focuses on supplying users the tools to build their own
+Earth2Studio package focuses on supplying users the tools to build their own
 workflows, pipelines, APIs, packages, etc. via modular components including:
 
 <details>
@@ -119,7 +119,7 @@ Earth2Studio maintains the largest collection of pre-trained state-of-the-art AI
     models, covering various resolutions, architectures, and forecasting capabilities to
     suit different computational and accuracy requirements.
 
-Avaiable models include but is not limited to:
+Available models include but are not limited to:
 
 | Model | Resolution | Architecture | Time Step | Coverage |
 |-------|------------|--------------|-----------|----------|
@@ -152,7 +152,7 @@ Earth2Studio contains a growing collection of specialized diagnostic models for
     various phenomena including precipitation prediction, tropical cyclone tracking,
     solar radiation estimation, wind gust forecasting, and more.
 
-Avaiable diagnostics include but is not limited to:
+Available diagnostics include but are not limited to:
 
 | Model | Resolution | Architecture | Coverage | Output |
 |-------|------------|--------------|----------|--------|
@@ -185,7 +185,7 @@ Earth2Studio includes data sources ranging from operational weather models (GFS,
     handles the complicated parts giving the users an easy to use Xarray data array of
     requested data.
 
-Avaiable data sources include but is not limited to:
+Available data sources include but are not limited to:
 
 | Data Source | Type | Resolution | Coverage | Data Format |
 |-------------|------|------------|----------|-------------|
@@ -217,7 +217,7 @@ For a complete list, see the [data source API docs][e2studio_data_api].
 Earth2Studio includes IO backends ranging from traditional scientific formats (NetCDF)
     and modern cloud-optimized formats (Zarr) to in-memory storage backends.
 
-Avaiable IO backends include:
+Available IO backends include:
 
 | IO Backend | Format | Features | Location |
 |------------|--------|----------|----------|
@@ -232,14 +232,14 @@ For a complete list, see the [IO API docs][e2studio_io_api].
 </details>
 
 <details>
-<summary>Peturbation Methods</summary>
+<summary>Perturbation Methods</summary>
 
 [Perturbation methods][e2studio_pb_url]
     in Earth2Studio provide a standardized interface for adding noise
     to data arrays, typically enabling the creation of ensembling forecast pipelines
     that capture uncertainty in weather and climate predictions.
 
-Avaiable perturbation include but is not limited to:
+Available perturbations include but are not limited to:
 
 | Perturbation Method | Type | Spatial Correlation | Temporal Correlation |
 |---------------------|------|-------------------|---------------------|
@@ -263,7 +263,7 @@ For a complete list, see the [perturbations API docs][e2studio_pb_url].
     through various statistical measures including error metrics, correlation
     coefficients, and ensemble verification statistics.
 
-Available operations include but is not limited to:
+Available operations include but are not limited to:
 
 | Statistic | Type | Application |
 |-----------|------|-------------|
