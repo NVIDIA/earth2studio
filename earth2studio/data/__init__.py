@@ -21,6 +21,7 @@ from .cds import CDS
 from .const import Constant, Constant_FX
 from .gefs import GEFS_FX, GEFS_FX_721x1440
 from .gfs import GFS, GFS_FX
+from .goes import GOES
 from .hrrr import HRRR, HRRR_FX
 from .ifs import IFS
 from .imerg import IMERG
