@@ -219,13 +219,13 @@ Earth2Studio includes IO backends ranging from traditional scientific formats (N
 
 Avaiable IO backends include:
 
-| IO Backend | Format | Storage Type | Features | Location |
-|------------|--------|--------------|----------|----------|
-| ZarrBackend | Zarr | File/Directory | Compression, Chunking | In-Memory/Local |
-| AsyncZarrBackend | Zarr | File/Directory | Async writes, Parallel I/O | In-Memory/Local/Remote |
-| NetCDF4Backend | NetCDF4 | File | CF-compliant, Metadata | Local |
-| XarrayBackend | Xarray Dataset | In-memory | Rich metadata, Analysis-ready | In-Memory |
-| KVBackend | Key-Value | In-memory | GPU storage, Fast access | In-Memory |
+| IO Backend | Format | Features | Location |
+|------------|--------|----------|----------|
+| ZarrBackend | Zarr | Compression, Chunking | In-Memory/Local |
+| AsyncZarrBackend | Zarr | Async writes, Parallel I/O | In-Memory/Local/Remote |
+| NetCDF4Backend | NetCDF4 | CF-compliant, Metadata | Local |
+| XarrayBackend | Xarray Dataset | Rich metadata, Analysis-ready | In-Memory |
+| KVBackend | Key-Value| Fast Temporary Access | In-Memory |
 
 For a complete list, see the [IO API docs][e2studio_io_api].
 
