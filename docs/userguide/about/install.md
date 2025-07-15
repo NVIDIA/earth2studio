@@ -633,7 +633,7 @@ For developer environments, please refer to the {ref}`developer_overview`.
 
 ## uv Project
 
-Using uv is the recommend way to set up a Python environment for Earth2Studio.
+Using uv is the recommend way to set up a local Python environment for Earth2Studio.
 Assuming [uv is installed](https://docs.astral.sh/uv/getting-started/installation/), use
 the following commands:
 
@@ -655,7 +655,8 @@ uv add "earth2studio @ git+https://github.com/NVIDIA/earth2studio.git@0.8.1"
 ## PyTorch Docker Container
 
 For a docker environment the [Nvidia PyTorch container](https://catalog.ngc.nvidia.com/orgs/nvidia/containers/pytorch)
-provides a good base with many dependencies already installed.
+provides a good base with many dependencies already installed and optimized for NVIDIA
+hardware.
 In container instances, using a virtual environment is often [not necessary](https://docs.astral.sh/uv/pip/environments/#using-arbitrary-python-environments).
 It is recommend using the following commands to install using the container's Python
 interpreter:
@@ -683,6 +684,7 @@ uv pip install --system \
 ```
 
 :::
+
 <!-- markdownlint-enable MD013 -->
 
 ## Custom Container

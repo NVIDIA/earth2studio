@@ -118,6 +118,10 @@ Sphinx Gallery supports embedded reST (reStructuredText) syntax in the form of c
 These comments are automatically rendered as formatted text on the documentation web
 pages and as markdown cells in the converted Jupyter notebooks.
 For more details on the syntax, see the [embedded reST documentation](https://sphinx-gallery.github.io/stable/syntax.html#embed-rest-in-your-example-python-files).
+
+To specify required dependencies, use [uv inline metadata](https://docs.astral.sh/uv/guides/scripts/#declaring-script-dependencies>)
+which allows each example to use different dependency groups or packages not shipped
+with Earth2Studio.
 To create an example, the best method is to copy an existing example and follow the
 structure:
 
@@ -140,6 +144,13 @@ In this example you will learn:
 - Running a simple built in workflow
 - Post-processing results
 """
+# /// script
+# dependencies = [
+#   "earth2studio @ git+https://github.com/NVIDIA/earth2studio.git",
+#   "cartopy",
+#   "other depedencies...",
+# ]
+# ///
 
 # %%
 # Set Up

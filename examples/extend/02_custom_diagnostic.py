@@ -30,6 +30,12 @@ In this example you will learn:
 - Implementing a custom diagnostic model
 - Running this custom model in a workflow with built in prognostic
 """
+# /// script
+# dependencies = [
+#   "earth2studio[dlwp] @ git+https://github.com/NVIDIA/earth2studio.git",
+#   "cartopy",
+# ]
+# ///
 
 # %%
 # Custom Diagnostic

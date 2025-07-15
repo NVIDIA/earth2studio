@@ -32,6 +32,12 @@ In this example you will learn:
 - Running a simple built in workflow
 - Post-processing results
 """
+# /// script
+# dependencies = [
+#   "earth2studio[dlwp] @ git+https://github.com/NVIDIA/earth2studio.git",
+#   "cartopy",
+# ]
+# ///
 
 # %%
 # Set Up
