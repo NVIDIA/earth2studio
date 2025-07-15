@@ -71,9 +71,9 @@ For a complete list of latest features and improvements see the [changelog](./CH
 
 ## Overview
 
-Earth2Studio is an *AI inference pipeline toolkit* focused on geospatial that is
-designed to ride on top of different AI frameworks, model architectures, data sources
-and SciML tooling while providing a unified API.
+Earth2Studio is an *AI inference pipeline toolkit* focused on geospatial applications
+that is designed to ride on top of different AI frameworks, model architectures, data
+sources and SciML tooling while providing a unified API.
 
 <div align="center">
 
@@ -91,7 +91,7 @@ data sources, AI models and more together.
 
 </div>
 
-The unified ecosystem Earth2Studio provides users the opportunity to rapidly
+The unified ecosystem of Earth2Studio provides users the opportunity to rapidly
 swap out components for alternatives.
 In addition to the largest model zoo of weather/climate AI models, Earth2Studio is
 packed with useful functionality such as optimized data access to cloud data stores,
