@@ -64,8 +64,8 @@ and replacing `DLWP` references with another [forecast model][e2studio_px_api].
     and **GraphCast Operational** [prognostic model](https://nvidia.github.io/earth2studio/modules/generated/models/px/earth2studio.models.px.GraphCastOperational.html)
     are now added.
 - Advanced **Subseasonal-to-Seasonal (S2S) forecasting** [recipe](./recipes/s2s/)
-    added demonstrating new inference pipelines for between weather forecasts (up to 2
-    weeks) and seasonal forecasts (3-6 months).
+    added demonstrating new inference pipelines for subseasonal weather forecasts (from
+    2 weeks to 3 months).
 
 For a complete list of latest features and improvements see the [changelog](./CHANGELOG.md).
 
