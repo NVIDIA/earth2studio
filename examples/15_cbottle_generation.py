@@ -36,6 +36,12 @@ In this example you will learn:
 - Instantiating cBottle infill diagnostic model
 - Creating a simple infilling inference workflow
 """
+# /// script
+# dependencies = [
+#   "earth2studio[cbottle] @ git+https://github.com/NVIDIA/earth2studio.git",
+#   "cartopy",
+# ]
+# ///
 
 # %%
 # Set Up
