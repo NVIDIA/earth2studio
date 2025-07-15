@@ -222,9 +222,9 @@ def test_goes_sources(satellite, scan_mode, time, variable, valid):
 @pytest.mark.parametrize(
     "time",
     [
-        np.datetime64("2015-12-31T00:00:00"),
-        np.datetime64("2020-06-25T12:05:30"),
-        np.datetime64("2025-06-25T12:00:00"),
+        datetime(2015, 12, 31, 0, 0, 0),
+        datetime(2020, 6, 25, 12, 5, 30),
+        datetime(2025, 6, 25, 12, 0, 0),
     ],
 )
 @pytest.mark.parametrize("variable", ["vis047"])
@@ -232,12 +232,12 @@ def test_goes_available(time, variable):
     """Test GOES availability checks."""
 
     # Test availability check
-    if time < np.datetime64("2017-01-01T00:00:00"):
+    if time < datetime(2017, 1, 1, 0, 0, 0):
         assert not GOES.available(time, satellite="goes16", scan_mode="F")
         assert not GOES.available(time, satellite="goes17", scan_mode="F")
         assert not GOES.available(time, satellite="goes18", scan_mode="F")
         assert not GOES.available(time, satellite="goes19", scan_mode="F")
-    elif time > np.datetime64("2025-06-25T12:00:00"):
+    elif time > datetime(2025, 6, 25, 12, 0, 0):
         assert not GOES.available(time, satellite="goes16", scan_mode="F")
         assert not GOES.available(
             time, satellite="goes17", scan_mode="F"
