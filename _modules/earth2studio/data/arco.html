@@ -556,7 +556,13 @@
             <span class="n">access</span><span class="o">=</span><span class="s2">&quot;read_only&quot;</span><span class="p">,</span>
             <span class="n">block_size</span><span class="o">=</span><span class="mi">8</span><span class="o">**</span><span class="mi">20</span><span class="p">,</span>
             <span class="n">asynchronous</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="n">skip_instance_cache</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
         <span class="p">)</span>
+        <span class="c1"># Need to manually set this here, the reason being that when the file system</span>
+        <span class="c1"># defines the weak ref of the client, it needs the loop used to create it.</span>
+        <span class="c1"># Otherwise it will try to kill the client with another loop, throwing an error</span>
+        <span class="c1"># at the end of the script</span>
+        <span class="n">fs</span><span class="o">.</span><span class="n">_loop</span> <span class="o">=</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">get_event_loop</span><span class="p">()</span>
 
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span><span class="p">:</span>
             <span class="n">cache_options</span> <span class="o">=</span> <span class="p">{</span>
@@ -835,6 +841,7 @@
         <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
             <span class="k">return</span> <span class="kc">False</span>
 
+        <span class="c1"># TODO: FIX THIS, FOR ZARR 3.0 THIS IS DANGEROUS NON-ASYNC</span>
         <span class="n">gcs</span> <span class="o">=</span> <span class="n">gcsfs</span><span class="o">.</span><span class="n">GCSFileSystem</span><span class="p">(</span><span class="n">cache_timeout</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
 
         <span class="k">try</span><span class="p">:</span>
