@@ -135,6 +135,11 @@ class ARCO:
             block_size=8**20,
             asynchronous=True,
         )
+        # Need to manually set this here, the reason being that when the file system
+        # defines the weak ref of the client, it needs the loop used to create it.
+        # Otherwise it will try to kill the client with another loop, throwing an error
+        # at the end of the script
+        fs._loop = asyncio.get_event_loop()
 
         if self._cache:
             cache_options = {

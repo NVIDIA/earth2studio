@@ -99,6 +99,7 @@ class _WB2Base:
             block_size=8**20,
             asynchronous=True,
         )
+        fs._loop = asyncio.get_event_loop()
 
         if self._cache:
             cache_options = {
