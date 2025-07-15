@@ -1,3 +1,4 @@
+<!-- markdownlint-disable MD007 -->
 # Earth2Studio Cookbook
 
 Welcome to the Earth2Studio cookbook.
@@ -36,6 +37,10 @@ directly.
     weather prediction systems. The pipeline supports multi-GPU inference, tropical
     cyclone tracking, diagnostic models, and regional output.
 
+    - Difficulty: Advanced
+    - Inference Compute Type: Multi-GPU
+    - Estimated Runtime: 2 minutes to 12+ hours
+
 - [Subseasonal-to-Seasonal (S2S)](./s2s/)
 
     This recipe demonstrates how to run ensemble forecasts for subseasonal-to-seasonal
@@ -44,6 +49,10 @@ directly.
     distributed inference, parallel I/O using zarr format, diagnostic models, storage
     space reduction via regional output, and scoring capabilities including ECMWF AIWQ
     S2S metrics, with DLESyM and HENS-SFNO models being best-suited for S2S forecasting.
+
+    - Difficulty: Advanced
+    - Inference Compute Type: Multi-GPU
+    - Estimated Runtime: 10 minutes to 2 hours
 
 - [Recipe Template](./template/)
 
