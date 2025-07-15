@@ -33,6 +33,12 @@ In this example you will learn:
 - Running the built in diagnostic workflow
 - Post-processing results
 """
+# /// script
+# dependencies = [
+#   "earth2studio[dlwp] @ git+https://github.com/NVIDIA/earth2studio.git",
+#   "cartopy",
+# ]
+# ///
 
 # %%
 # Set Up

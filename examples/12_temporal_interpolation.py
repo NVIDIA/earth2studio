@@ -35,6 +35,12 @@ In this example you will learn:
 - How to run the interpolation model
 - How to visualize the results
 """
+# /// script
+# dependencies = [
+#   "earth2studio[sfno,interp-modafno] @ git+https://github.com/NVIDIA/earth2studio.git",
+#   "matplotlib",
+# ]
+# ///
 
 # %%
 # Set Up

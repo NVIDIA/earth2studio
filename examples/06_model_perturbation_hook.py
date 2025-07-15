@@ -40,10 +40,16 @@ In this example you will learn:
 - Choose a subselection of coordinates to save to an IO object.
 - Post-processing results
 """
+# /// script
+# dependencies = [
+#   "earth2studio[dlwp] @ git+https://github.com/NVIDIA/earth2studio.git",
+#   "cartopy",
+# ]
+# ///
 
 # %%
 # Creating an Ensemble Workflow
-# -----------------------------------
+# -----------------------------
 #
 # To start let's begin with creating an ensemble workflow to use. We encourage
 # users to explore and experiment with their own custom workflows that borrow ideas from
