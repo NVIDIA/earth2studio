@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added GOES (Geostationary Operational Environmental Satellite) data source
 - Async Zarr IO backend with non-blocking write calls
 - Different compression codec support in the ZarrBackend with `zarr_codecs` parameter
 - IO performance example
