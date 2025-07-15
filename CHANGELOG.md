@@ -10,12 +10,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- New metrics: Brier score, fractions skill score, log spectral distance, mean absolute error.
-- Option to compute error of ensemble mean in rmse and mae.
 - Async Zarr IO backend with non-blocking write calls
 - Different compression codec support in the ZarrBackend with `zarr_codecs` parameter
 - IO performance example
 - Unified CorrDiff Wrapper
+- Added UV script dependencies to all examples
+- New metrics: Brier score, fractions skill score, log spectral distance, mean absolute error.
+- Option to compute error of ensemble mean in rmse and mae.
 
 ### Changed
 
@@ -23,6 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Allow HCBV perturbation to handle constant outputs (like land sea mask, or
   geopotential at surface)
 - test/models/dx/test_corrdiff.py is now test/models/dx/test_corrdiff_taiwan.py
+- Updated APIs for optional dependency managment utils with improved error messages
 
 ### Deprecated
 
@@ -31,6 +33,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - DLWP output coords lead_time array to have proper shape
+- Fixed data sources using GCFS throwing error at end of script from aiohttp session
+  clean up
 
 ### Security
 

@@ -19,6 +19,19 @@ from collections import OrderedDict
 import numpy as np
 import torch
 
+from earth2studio.models.auto import AutoModelMixin, Package
+from earth2studio.models.batch import batch_coords, batch_func
+from earth2studio.models.dx.base import DiagnosticModel
+from earth2studio.utils import (
+    handshake_coords,
+    handshake_dim,
+)
+from earth2studio.utils.imports import (
+    OptionalDependencyFailure,
+    check_optional_dependencies,
+)
+from earth2studio.utils.type import CoordSystem
+
 try:
     import earth2grid
     from cbottle import patchify
@@ -33,6 +46,7 @@ try:
     )
     from earth2grid import healpix
 except ImportError:
+    OptionalDependencyFailure("cbottle")
     earth2grid = None
     healpix = None
     patchify = None
@@ -43,16 +57,6 @@ except ImportError:
     StackedRandomGenerator = None
     edm_sampler_from_sigma = None
     get_denoiser = None
-
-from earth2studio.models.auto import AutoModelMixin, Package
-from earth2studio.models.batch import batch_coords, batch_func
-from earth2studio.models.dx.base import DiagnosticModel
-from earth2studio.utils import (
-    check_extra_imports,
-    handshake_coords,
-    handshake_dim,
-)
-from earth2studio.utils.type import CoordSystem
 
 VARIABLES = [
     "tclw",
@@ -73,7 +77,7 @@ HPX_LEVEL_LR = 6
 HPX_LEVEL_HR = 10
 
 
-@check_extra_imports("cbottle", ["cbottle", "earth2grid"])
+@check_optional_dependencies()
 class CBottleSR(torch.nn.Module, AutoModelMixin):
     """Climate in a Bottle Super-Resolution (CBottleSR) model.
 
@@ -285,7 +289,7 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
         )
 
     @classmethod
-    @check_extra_imports("cbottle", ["cbottle", "earth2grid"])
+    @check_optional_dependencies()
     def load_model(
         cls,
         package: Package,

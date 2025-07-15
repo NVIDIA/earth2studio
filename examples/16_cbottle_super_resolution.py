@@ -35,6 +35,12 @@ In this example you will learn:
 - Performing super resolution on ERA5 data after infilling with cBottle
 - Post-processing and visualizing super-resolution results
 """
+# /// script
+# dependencies = [
+#   "earth2studio[cbottle] @ git+https://github.com/NVIDIA/earth2studio.git",
+#   "cartopy",
+# ]
+# ///
 
 # %%
 # Set Up

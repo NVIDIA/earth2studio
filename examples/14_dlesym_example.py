@@ -37,6 +37,12 @@ In this example you will learn:
 - How to use the output selection and regridding methods to select appropriate data
 - How to use the DLESyMLatLon model with earth2studio workflows
 """
+# /// script
+# dependencies = [
+#   "earth2studio[dlesym] @ git+https://github.com/NVIDIA/earth2studio.git",
+#   "cartopy",
+# ]
+# ///
 
 # %%
 # Set Up

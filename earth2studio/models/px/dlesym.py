@@ -22,22 +22,28 @@ import numpy as np
 import torch
 import xarray as xr
 
+from earth2studio.models.auto import AutoModelMixin, Package
+from earth2studio.models.batch import batch_coords, batch_func
+from earth2studio.models.px.base import PrognosticModel
+from earth2studio.models.px.utils import PrognosticMixin
+from earth2studio.utils import handshake_coords, handshake_dim
+from earth2studio.utils.imports import (
+    OptionalDependencyFailure,
+    check_optional_dependencies,
+)
+from earth2studio.utils.type import CoordSystem
+
 try:
     import earth2grid
     from omegaconf import OmegaConf
     from physicsnemo.models import Module
     from physicsnemo.utils.insolation import insolation
 except ImportError:
+    OptionalDependencyFailure("dlesym")
     Module = None
     insolation = None
     OmegaConf = None
     earth2grid = None
-from earth2studio.models.auto import AutoModelMixin, Package
-from earth2studio.models.batch import batch_coords, batch_func
-from earth2studio.models.px.base import PrognosticModel
-from earth2studio.models.px.utils import PrognosticMixin
-from earth2studio.utils import check_extra_imports, handshake_coords, handshake_dim
-from earth2studio.utils.type import CoordSystem
 
 _ATMOS_VARIABLES = [
     "z500",
@@ -63,7 +69,7 @@ _ATMOS_OUTPUT_TIMES = np.array(
 _OCEAN_OUTPUT_TIMES = np.array([48, 96], dtype="timedelta64[h]")
 
 
-@check_extra_imports("dlesym", [OmegaConf, Module, insolation])
+@check_optional_dependencies()
 class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     """DLESyM-V1-ERA5 prognostic model. This is an ensemble forecast model for
     global earth system modeling. This model includes an atmosphere and ocean
@@ -359,7 +365,7 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         return package
 
     @classmethod
-    @check_extra_imports("dlesym", [Module, OmegaConf])
+    @check_optional_dependencies()
     def load_model(
         cls,
         package: Package,
@@ -589,7 +595,7 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         return output_data
 
-    @check_extra_imports("dlesym", [insolation])
+    @check_optional_dependencies()
     def _make_insolation_tensor(
         self, anchor_times: np.ndarray, timedeltas: np.ndarray
     ) -> torch.Tensor:
@@ -945,7 +951,7 @@ class DLESyMLatLon(DLESyM):
         Keyword arguments for :class:`DLESyM`
     """
 
-    @check_extra_imports("dlesym", [OmegaConf, Module, insolation, earth2grid])
+    @check_optional_dependencies()
     def __init__(
         self,
         atmos_model: torch.nn.Module,

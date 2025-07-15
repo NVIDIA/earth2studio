@@ -17,16 +17,21 @@
 import numpy as np
 import torch
 
+from earth2studio.utils import handshake_dim
+from earth2studio.utils.imports import (
+    OptionalDependencyFailure,
+    check_optional_dependencies,
+)
+from earth2studio.utils.type import CoordSystem
+
 try:
     from torch_harmonics import InverseRealSHT
 except ImportError:
+    OptionalDependencyFailure("perturbation")
     InverseRealSHT = None
 
-from earth2studio.utils import check_extra_imports, handshake_dim
-from earth2studio.utils.type import CoordSystem
 
-
-@check_extra_imports("perturbation", [InverseRealSHT])
+@check_optional_dependencies()
 class SphericalGaussian:
     """Gaussian random field on the sphere with Matern covariance peturbation method
     output to a lat lon grid

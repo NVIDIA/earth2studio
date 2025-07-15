@@ -33,6 +33,12 @@ In this example you will learn:
 - Running a simple built in workflow for ensembling
 - Post-processing results
 """
+# /// script
+# dependencies = [
+#   "earth2studio[fcn,perturbation] @ git+https://github.com/NVIDIA/earth2studio.git",
+#   "cartopy",
+# ]
+# ///
 
 # %%
 # Set Up

@@ -633,7 +633,7 @@ For developer environments, please refer to the {ref}`developer_overview`.
 
 ## uv Project
 
-Using uv is the recommend way to set up a Python environment for Earth2Studio.
+Using uv is the recommend way to set up a local Python environment for Earth2Studio.
 Assuming [uv is installed](https://docs.astral.sh/uv/getting-started/installation/), use
 the following commands:
 
@@ -655,7 +655,8 @@ uv add "earth2studio @ git+https://github.com/NVIDIA/earth2studio.git@0.8.1"
 ## PyTorch Docker Container
 
 For a docker environment the [Nvidia PyTorch container](https://catalog.ngc.nvidia.com/orgs/nvidia/containers/pytorch)
-provides a good base with many dependencies already installed.
+provides a good base with many dependencies already installed and optimized for NVIDIA
+hardware.
 In container instances, using a virtual environment is often [not necessary](https://docs.astral.sh/uv/pip/environments/#using-arbitrary-python-environments).
 It is recommend using the following commands to install using the container's Python
 interpreter:
@@ -683,6 +684,7 @@ uv pip install --system \
 ```
 
 :::
+
 <!-- markdownlint-enable MD013 -->
 
 ## Custom Container
@@ -724,6 +726,40 @@ conda activate earth2studio
 
 uv pip install --system --break-system-packages "earth2studio@git+https://github.com/NVIDIA/earth2studio.git@0.8.1"
 ```
+
+# System Recommendations
+
+## Software
+
+Earth2Studio does not have any specific software version requirements.
+The following are recommended to closely match development and automation environments,
+minimizing the chance for unforeseen incompatibilities:
+
+- OS: Ubuntu 24.04 LTS
+- Python Version: 3.12
+- CUDA Version: 12.8
+
+## Hardware
+
+Earth2Studio does not have any specific hardware requirements, if PyTorch can run then
+many features of Earth2Studio should run as well.
+However, most models do require a GPU with sufficient memory and compute score to run
+without complications.
+The recommended hardware for the majority of models supported in Earth2Studio is:
+
+| GPU | GPU Memory (GB) | Precision | # of GPUs | Disk Space (GB) |
+|-----|-----------------|-----------|-----------|-----------------|
+| [NVIDIA GPU](https://developer.nvidia.com/cuda-gpus) with compute capability ≥ 8.9 | ≥40 | FP32 | 1 | 128 |
+
+This includes cards such as:
+
+- L40S
+- RTX A6000
+- H100
+- B200
+
+We encourage users to experiment on different hardware for their specific needs and
+usecase.
 
 (configuration_userguide)=
 
