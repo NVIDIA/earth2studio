@@ -178,8 +178,24 @@ E2STUDIO_VOCAB = {
     "skt": "skin temperature at surface",
     "slor": "slope of sub-grid scale orography",
     "sdor": "standard deviation of sub-grid scale orography",
-    "swvl1": "volumetric soil water layer 1 (m³/m³)",  # Ask SAs for name confirmation, altertative (vsw?)
-    "swvl2": "volumetric soil water layer 2 (m³/m³)",  # Ask SAs for name confirmation, altertative (vsw?)
-    "stl1": "soil temperature level 1 (K)",  # Ask SAs for name confirmation, altertative (sot?!?!)
-    "stl2": "soil temperature level 2 (K)",  # Ask SAs for name confirmation, altertative (sot?!?!)
+    "swvl1": "volumetric soil water layer 1 (m³/m³)",
+    "swvl2": "volumetric soil water layer 2 (m³/m³)",
+    "stl1": "soil temperature level 1 (K)",
+    "stl2": "soil temperature level 2 (K)",
+    "vis047": "Visible band at 0.47 µm (Blue)",
+    "vis064": "Visible band at 0.64 µm (Red)",
+    "nir086": "Near-IR band at 0.86 µm (Vegetation)",
+    "nir137": "Near-IR band at 1.37 µm (Cirrus)",
+    "nir161": "Near-IR band at 1.61 µm (Snow/Ice)",
+    "nir224": "Near-IR band at 2.24 µm (Cloud Particle Size)",
+    "ir390": "IR band at 3.90 µm (Shortwave Window)",
+    "ir619": "IR band at 6.19 µm (Upper-level Water Vapor)",
+    "ir695": "IR band at 6.95 µm (Mid-level Water Vapor)",
+    "ir734": "IR band at 7.34 µm (Lower-level Water Vapor)",
+    "ir850": "IR band at 8.50 µm (Cloud-top Phase)",
+    "ir961": "IR band at 9.61 µm (Ozone)",
+    "ir1035": "IR band at 10.35 µm (Clean IR Longwave Window)",
+    "ir1120": "IR band at 11.20 µm (IR Longwave Window)",
+    "ir1230": "IR band at 12.30 µm (Dirty IR Longwave Window)",
+    "ir1330": "IR band at 13.30 µm (CO2 Longwave IR)",
 }
