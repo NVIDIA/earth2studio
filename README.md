@@ -83,7 +83,7 @@ sources and SciML tooling while providing a unified API.
 
 The composability of the different core components in Earth2Studio easily allows the
 development and deployment of increasingly complex pipelines that may chain multiple
-data sources, AI models and more together.
+data sources, AI models and other modules together.
 
 <div align="center">
 
@@ -183,7 +183,8 @@ Earth2Studio includes data sources ranging from operational weather models (GFS,
     IFS) and reanalysis datasets (ERA5 via ARCO, CDS) to AI-generated climate data
     (cBottle) and local file systems. Fetching data is just plain easy, Earth2Studio
     handles the complicated parts giving the users an easy to use Xarray data array of
-    requested data.
+    requested data under a shared package wide [vocabulary][e2studio_lex_url] and
+    coordinate system.
 
 Available data sources include but are not limited to:
 
@@ -278,7 +279,7 @@ For a complete list, see the [statistics API docs][e2studio_stat_api].
 
 </details>
 
-For a more complete list of feature set, be sure to view the [documentation][e2studio_docs_url].
+For a more complete list of features, be sure to view the [documentation][e2studio_docs_url].
 Don't see what you need?
 Great news, extension and customization are at the heart of our [design][e2studio_customization_url].
 
@@ -329,6 +330,7 @@ Earth2Studio is provided under the Apache License 2.0, please see
 [e2studio_pb_api]: https://nvidia.github.io/earth2studio/modules/perturbation.html
 [e2studio_stat_url]: https://nvidia.github.io/earth2studio/userguide/components/statistics.html
 [e2studio_stat_api]: https://nvidia.github.io/earth2studio/modules/statistics.html
+[e2studio_lex_url]: https://nvidia.github.io/earth2studio/userguide/advanced/lexicon.html
 
 <!-- Misc links -->
 [physicsnemo_repo_url]: https://github.com/NVIDIA/physicsnemo
