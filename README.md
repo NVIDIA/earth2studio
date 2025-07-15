@@ -223,7 +223,7 @@ Avaiable IO backends include:
 |------------|--------|----------|----------|
 | ZarrBackend | Zarr | Compression, Chunking | In-Memory/Local |
 | AsyncZarrBackend | Zarr | Async writes, Parallel I/O | In-Memory/Local/Remote |
-| NetCDF4Backend | NetCDF4 | CF-compliant, Metadata | Local |
+| NetCDF4Backend | NetCDF4 | CF-compliant, Metadata | In-Memory/Local |
 | XarrayBackend | Xarray Dataset | Rich metadata, Analysis-ready | In-Memory |
 | KVBackend | Key-Value| Fast Temporary Access | In-Memory |
 
