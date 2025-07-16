@@ -94,6 +94,7 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
     Note
     ----
     For more information see the following references:
+
     - https://arxiv.org/abs/2505.06474v1
     - https://github.com/NVlabs/cBottle
     - https://catalog.ngc.nvidia.com/orgs/nvidia/teams/earth-2/models/cbottle
