@@ -17,7 +17,7 @@ import json
 import os
 from collections import OrderedDict
 from collections.abc import Generator, Iterator
-from zoneinfo import ZoneInfo
+from datetime import datetime
 
 import numpy as np
 import torch
@@ -287,7 +287,7 @@ class SFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 # https://github.com/NVIDIA/modulus-makani/blob/933b17d5a1ebfdb0e16e2ebbd7ee78cfccfda9e1/makani/third_party/climt/zenith_angle.py#L197
                 # Requires time zone data
                 t = [
-                    dt.replace(tzinfo=ZoneInfo("UTC"))
+                    datetime.fromisoformat(dt.isoformat() + "+00:00")
                     for dt in timearray_to_datetime(t + coords["lead_time"])
                 ]
                 x[j, i : i + 1] = self.model(x[j, i : i + 1], t)
