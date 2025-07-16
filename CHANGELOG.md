@@ -31,6 +31,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Incorrect datetime utc timezone calculation in SFNO wrapper was fixed.
 - DLWP output coords lead_time array to have proper shape
 - Fixed data sources using GCFS throwing error at end of script from aiohttp session
   clean up
