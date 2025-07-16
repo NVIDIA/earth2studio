@@ -13,7 +13,7 @@
 
 Earth2Studio is a Python-based package designed to get users up and running
 with AI weather and climate models *fast*.
-Our mission is to enable everyone to build, research and explore AI driven geospatial solutions.
+Our mission is to enable everyone to build, research and explore AI driven meteorology.
 
 <!-- markdownlint-disable MD036 -->
 **- Earth2Studio Documentation -**
@@ -71,9 +71,9 @@ For a complete list of latest features and improvements see the [changelog](./CH
 
 ## Overview
 
-Earth2Studio is an *AI inference pipeline toolkit* focused on geospatial applications
-that is designed to ride on top of different AI frameworks, model architectures, data
-sources and SciML tooling while providing a unified API.
+Earth2Studio is an *AI inference pipeline toolkit* focused on weather and climate
+applications that is designed to ride on top of different AI frameworks, model
+architectures, data sources and SciML tooling while providing a unified API.
 
 <div align="center">
 
@@ -103,7 +103,7 @@ statistical operations and more to accelerate your pipelines.
 
 </div>
 
-Earth2Studio can be used for seamless deployment of geo-spatial models trained in
+Earth2Studio can be used for seamless deployment of Earth-2 models trained in
 [PhysicsNeMo][physicsnemo_repo_url].
 
 ## Features
@@ -121,7 +121,7 @@ workflows, pipelines, APIs, packages, etc. via modular components including:
     forecasting.
 
 Earth2Studio maintains the largest collection of pre-trained state-of-the-art AI
-    weather/Climate models ranging from global forecast models to regional specialized
+    weather/climate models ranging from global forecast models to regional specialized
     models, covering various resolutions, architectures, and forecasting capabilities to
     suit different computational and accuracy requirements.
 
