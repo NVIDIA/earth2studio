@@ -296,7 +296,7 @@ requirements and the userguide for higher level philosophy, structure, and desig
 
 ## License
 
-Earth2Studio is provided under the Apache License 2.0, please see
+Earth2Studio is provided under the Apache License 2.0, please see the
 [LICENSE file][e2studio_license_url] for full license text.
 
 <!-- Badge links -->
