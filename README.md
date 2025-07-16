@@ -97,6 +97,12 @@ In addition to the largest model zoo of weather/climate AI models, Earth2Studio 
 packed with useful functionality such as optimized data access to cloud data stores,
 statistical operations and more to accelerate your pipelines.
 
+<div align="center">
+
+![Earth2Studio Overview 1](https://huggingface.co/datasets/NickGeneva/Earth2StudioAssets/resolve/main/0.9.0/earth2studio-readme-overview-3.webp)
+
+</div>
+
 Earth2Studio can be used for seamless deployment of geo-spatial models trained in
 [PhysicsNeMo][physicsnemo_repo_url].
 
