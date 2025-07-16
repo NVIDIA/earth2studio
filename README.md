@@ -22,7 +22,7 @@ Our mission is to enable everyone to build, research and explore AI driven geosp
 [Install][e2studio_install_url] | [User-Guide][e2studio_userguide_url] |
 [Examples][e2studio_examples_url] | [API][e2studio_api_url]
 
-![Earth2Studio Banner](https://huggingface.co/datasets/NickGeneva/Earth2StudioAssets/raw/main/0.2.0/earth2studio_feature_banner.png)
+![Earth2Studio Banner](https://huggingface.co/datasets/NickGeneva/Earth2StudioAssets/raw/main/0.2.0/earth2studio_feature_banner.png?id=1)
 
 </div>
 
@@ -77,7 +77,7 @@ sources and SciML tooling while providing a unified API.
 
 <div align="center">
 
-![Earth2Studio Overview 1](https://huggingface.co/datasets/NickGeneva/Earth2StudioAssets/resolve/main/0.9.0/earth2studio-readme-overview-1.png)
+![Earth2Studio Overview 1](https://huggingface.co/datasets/NickGeneva/Earth2StudioAssets/resolve/main/0.9.0/earth2studio-readme-overview-1.png?id=1)
 
 </div>
 
@@ -87,7 +87,7 @@ data sources, AI models and other modules together.
 
 <div align="center">
 
-![Earth2Studio Overview 1](https://huggingface.co/datasets/NickGeneva/Earth2StudioAssets/resolve/main/0.9.0/earth2studio-readme-overview-2.png)
+![Earth2Studio Overview 1](https://huggingface.co/datasets/NickGeneva/Earth2StudioAssets/resolve/main/0.9.0/earth2studio-readme-overview-2.png?id=1)
 
 </div>
 
@@ -99,7 +99,7 @@ statistical operations and more to accelerate your pipelines.
 
 <div align="center">
 
-![Earth2Studio Overview 1](https://huggingface.co/datasets/NickGeneva/Earth2StudioAssets/resolve/main/0.9.0/earth2studio-readme-overview-3.webp)
+![Earth2Studio Overview 1](https://huggingface.co/datasets/NickGeneva/Earth2StudioAssets/resolve/main/0.9.0/earth2studio-readme-overview-3.webp?id=1)
 
 </div>
 
