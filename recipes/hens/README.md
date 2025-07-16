@@ -296,6 +296,30 @@ diagnostic_models:
         architecture: earth2studio.models.dx.PrecipitationAFNO
 ```
 
+#### CorrDiff Downscaling Models
+
+CorrDiff downscaling models can be integrated into the pipeline to generate high-resolution
+ensemble outputs from the forecast model predictions. Each CorrDiff model is configured
+in the `corrdiff_models` section. The output for each CorrDiff model is saved as a single
+NetCDF file per batch, with each variable as a separate data variable in the file. The filename
+includes the project name, CorrDiff model name, model package, initial condition, and batch
+ID for traceability.
+
+```yaml
+corrdiff_models:
+    wind:
+        architecture: earth2studio.models.dx.CorrDiff
+        package: /output/mini_package
+        path: /output/
+```
+
+- `architecture`: The CorrDiff model class to use for downscaling.
+- `package`: Path to the model weights or checkpoint.
+- `path`: Output directory for the CorrDiff results.
+
+The CorrDiff output NetCDF will have the same lead_time coordinate as the main HENS output, and
+each variable will be a separate data variable in the resulting xarray Dataset.
+
 #### IC Data Source
 
 The IC data source configuration determines where the pipeline retrieves
@@ -399,6 +423,10 @@ To run the pipeline in a multi-GPU or multi-node environment:
 ```bash
 mpirun -n 2 uv run python main.py --config-name=your_config.yaml
 ```
+
+> [!Note]
+> CorrDiff output files are named as `corrdiff_{corrdiff_model}_pkg_{pkg}_{ic}_batch_{batch_id}.nc`
+for clarity and traceability.
 
 ## References
 
