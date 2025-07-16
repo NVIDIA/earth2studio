@@ -291,7 +291,7 @@ Great news, extension and customization are at the heart of our [design][e2studi
 
 ## Contributors
 
-Check out the [Contributing](CONTRIBUTING.md) document for details about the technical
+Check out the [contributing](CONTRIBUTING.md) document for details about the technical
 requirements and the userguide for higher level philosophy, structure, and design.
 
 ## License
