@@ -21,6 +21,7 @@ from omegaconf import DictConfig
 
 from earth2studio.data.base import DataSource
 from earth2studio.models.dx.base import DiagnosticModel
+from earth2studio.models.dx.corrdiff import CorrDiff
 from src.hens_ensemble import EnsembleBase
 from src.hens_perturbation import HENSPerturbation
 from src.hens_utilities import (
@@ -36,6 +37,7 @@ def run_inference(
     ensemble_configs: list[Any],
     model_dict: dict,
     dx_model_dict: dict,
+    cd_model_dict: dict,
     cyclone_tracker: DiagnosticModel | None,
     data_source: DataSource,
     output_coords_dict: dict,
@@ -101,6 +103,7 @@ def run_inference(
             perturbation=perturbation,
             output_coords_dict=output_coords_dict,
             dx_model_dict=dx_model_dict,
+            cd_model_dict=cd_model_dict,
             cyclone_tracking=cyclone_tracker,
             batch_size=cfg.batch_size,
             ensemble_idx_base=ens_idx,
