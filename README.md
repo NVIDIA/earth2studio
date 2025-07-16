@@ -55,7 +55,8 @@ and replacing `DLWP` references with another [forecast model][e2studio_px_api].
 
 ## Latest News
 
-- The latest **Climate in a Bottle** generative AI model from NVIDIA research has been
+- The latest [**Climate in a Bottle**](https://blogs.nvidia.com/blog/earth2-generative-ai-foundation-model-global-climate-kilometer-scale-resolution/)
+    generative AI model from NVIDIA research has been
     added via several APIs including a [data source](https://nvidia.github.io/earth2studio/modules/generated/data/earth2studio.data.CBottle3D.html),
     [infilling](https://nvidia.github.io/earth2studio/modules/generated/models/dx/earth2studio.models.dx.CBottleInfill.html)
     and [super-resolution](https://nvidia.github.io/earth2studio/modules/generated/models/dx/earth2studio.models.dx.CBottleSR.html)
