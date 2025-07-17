@@ -18,19 +18,24 @@ from collections import OrderedDict
 
 import torch
 
-try:
-    from physicsnemo.metrics.general.power_spectrum import power_spectrum
-except ImportError:
-    power_spectrum = None
-
-from earth2studio.utils import check_extra_imports, handshake_dim
+from earth2studio.utils import handshake_dim
+from earth2studio.utils.imports import (
+    OptionalDependencyFailure,
+    check_optional_dependencies,
+)
 from earth2studio.utils.type import CoordSystem
 
 from .moments import mean
 from .utils import _spatial_dims_to_end
 
+try:
+    from physicsnemo.metrics.general.power_spectrum import power_spectrum
+except ImportError:
+    OptionalDependencyFailure("statistics")
+    power_spectrum = None
 
-@check_extra_imports("statistics", [power_spectrum])
+
+@check_optional_dependencies()
 class log_spectral_distance:
     """
     Statistic for calculating the radially averaged 2D log spectral distance (LSD)
