@@ -128,7 +128,7 @@ For the forecast we will predict for two days (these will get executed as a batc
         print(f"Step {step}: ARCO tracks output shape {output.shape}")
 
     era5_tracks = output.cpu()
-    torch.save(era5_tracks, "era5.pt")
+    torch.save(era5_tracks, "outputs/13_era5_paths.pt")
 
 
 .. GENERATED FROM PYTHON SOURCE LINES 118-127
@@ -181,7 +181,7 @@ inference loop.
                 break
 
     sfno_tracks = output.cpu()
-    torch.save(sfno_tracks, "sfno.pt")
+    torch.save(sfno_tracks, "outputs/13_sfno_paths.pt")
 
 
 .. GENERATED FROM PYTHON SOURCE LINES 166-178
