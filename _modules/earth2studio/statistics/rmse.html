@@ -455,29 +455,38 @@
 <span class="sd">    reduction_dimensions: List[str]</span>
 <span class="sd">        A list of names corresponding to dimensions to perform the</span>
 <span class="sd">        statistical reduction over. Example: [&#39;lat&#39;, &#39;lon&#39;]</span>
-<span class="sd">    weights: torch.Tensor = None</span>
+<span class="sd">    weights: torch.Tensor | None = None</span>
 <span class="sd">        A tensor containing weights to assign to the reduction dimensions.</span>
 <span class="sd">        Note that these weights must have the same number of dimensions</span>
 <span class="sd">        as passed in reduction_dimensions.</span>
 <span class="sd">        Example: if reduction_dimensions = [&#39;lat&#39;, &#39;lon&#39;] then</span>
 <span class="sd">        assert weights.ndim == 2.</span>
 <span class="sd">    batch_update: bool = False</span>
-<span class="sd">        Whether to applying batch updates to the rmse with each invocation of __call__.</span>
+<span class="sd">        Whether to apply batch updates to the rmse with each invocation of __call__.</span>
 <span class="sd">        This is particularly useful when data is recieved in a stream of batches. Each</span>
 <span class="sd">        invocation of __call__ will return the running rmse. In particular, it will apply</span>
 <span class="sd">        the square root operation after calculating the running mean squared error.</span>
+<span class="sd">    ensemble_dimension: str | None = None</span>
+<span class="sd">        Compute ensemble mean over this dimension before computing RMSE. If None (default),</span>
+<span class="sd">        no reduction is perfomed.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">reduction_dimensions</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
-        <span class="n">weights</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">weights</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">batch_update</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">ensemble_dimension</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">):</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">mean</span> <span class="o">=</span> <span class="n">mean</span><span class="p">(</span>
             <span class="n">reduction_dimensions</span><span class="p">,</span> <span class="n">weights</span><span class="o">=</span><span class="n">weights</span><span class="p">,</span> <span class="n">batch_update</span><span class="o">=</span><span class="n">batch_update</span>
         <span class="p">)</span>
+        <span class="k">if</span> <span class="n">ensemble_dimension</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">ensemble_dimension</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="n">ensemble_dimension</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">ensemble_mean</span> <span class="o">=</span> <span class="n">mean</span><span class="p">([</span><span class="n">ensemble_dimension</span><span class="p">])</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">ensemble_dimension</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">weights</span> <span class="o">=</span> <span class="n">weights</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_reduction_dimensions</span> <span class="o">=</span> <span class="n">reduction_dimensions</span>
 
@@ -507,6 +516,8 @@
         <span class="k">for</span> <span class="n">dimension</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">reduction_dimensions</span><span class="p">:</span>
             <span class="n">handshake_dim</span><span class="p">(</span><span class="n">input_coords</span><span class="p">,</span> <span class="n">dimension</span><span class="p">)</span>
             <span class="n">output_coords</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">dimension</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">ensemble_dimension</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">output_coords</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ensemble_dimension</span><span class="p">)</span>
 
         <span class="k">return</span> <span class="n">output_coords</span>
 
@@ -535,7 +546,7 @@
 <span class="sd">            Ordered dict representing coordinate system that describes the `x` tensor.</span>
 <span class="sd">            `reduction_dimensions` must be in coords.</span>
 <span class="sd">        y : torch.Tensor</span>
-<span class="sd">            Input tensor #2 intended to be used as validation data, but ACC is symmetric</span>
+<span class="sd">            Input tensor #2 intended to be used as validation data, but RMSE is symmetric</span>
 <span class="sd">            with respect to `x` and `y`.</span>
 <span class="sd">        y_coords : CoordSystem</span>
 <span class="sd">            Ordered dict representing coordinate system that describes the `y` tensor.</span>
@@ -546,8 +557,85 @@
 <span class="sd">        tuple[torch.Tensor, CoordSystem]</span>
 <span class="sd">            Returns root mean squared error tensor with appropriate reduced coordinates.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">ensemble_dimension</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">x_coords</span><span class="p">)</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ensemble_mean</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">x_coords</span><span class="p">)</span>
         <span class="n">mse</span><span class="p">,</span> <span class="n">output_coords</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mean</span><span class="p">((</span><span class="n">x</span> <span class="o">-</span> <span class="n">y</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span><span class="p">,</span> <span class="n">x_coords</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">mse</span><span class="p">),</span> <span class="n">output_coords</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="mae">
+<a class="viewcode-back" href="../../../modules/generated/statistics/earth2studio.statistics.mae.html#earth2studio.statistics.mae">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">mae</span><span class="p">(</span><span class="n">rmse</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Statistic for calculating the mean absolute error of two tensors</span>
+<span class="sd">    over a set of given dimensions.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    reduction_dimensions: List[str]</span>
+<span class="sd">        A list of names corresponding to dimensions to perform the</span>
+<span class="sd">        statistical reduction over. Example: [&#39;lat&#39;, &#39;lon&#39;]</span>
+<span class="sd">    weights: torch.Tensor = None</span>
+<span class="sd">        A tensor containing weights to assign to the reduction dimensions.</span>
+<span class="sd">        Note that these weights must have the same number of dimensions</span>
+<span class="sd">        as passed in reduction_dimensions.</span>
+<span class="sd">        Example: if reduction_dimensions = [&#39;lat&#39;, &#39;lon&#39;] then</span>
+<span class="sd">        assert weights.ndim == 2.</span>
+<span class="sd">    batch_update: bool = False</span>
+<span class="sd">        Whether to applying batch updates to the rmse with each invocation of __call__.</span>
+<span class="sd">        This is particularly useful when data is recieved in a stream of batches. Each</span>
+<span class="sd">        invocation of __call__ will return the running rmse. In particular, it will apply</span>
+<span class="sd">        the square root operation after calculating the running mean squared error.</span>
+<span class="sd">    ensemble_dimension: str | None = None</span>
+<span class="sd">        Compute ensemble mean over this dimension before computing MAE. If None (default),</span>
+<span class="sd">        no reduction is perfomed.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">return</span> <span class="s2">&quot;_&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_reduction_dimensions</span> <span class="o">+</span> <span class="p">[</span><span class="s2">&quot;mae&quot;</span><span class="p">])</span>
+
+<div class="viewcode-block" id="mae.__call__">
+<a class="viewcode-back" href="../../../modules/generated/statistics/earth2studio.statistics.mae.html#earth2studio.statistics.mae.__call__">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__call__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+        <span class="n">x_coords</span><span class="p">:</span> <span class="n">CoordSystem</span><span class="p">,</span>
+        <span class="n">y</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+        <span class="n">y_coords</span><span class="p">:</span> <span class="n">CoordSystem</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">CoordSystem</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Apply metric to data `x` and `y`, checking that their coordinates</span>
+<span class="sd">        are broadcastable. While reducing over `reduction_dims`.</span>
+
+<span class="sd">        If batch_update was passed True upon metric initialization then this method</span>
+<span class="sd">        returns the running sample MAE over all seen batches.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        x : torch.Tensor</span>
+<span class="sd">            Input tensor, typically the forecast or prediction tensor, but MAE is</span>
+<span class="sd">            symmetric with respect to `x` and `y`.</span>
+<span class="sd">        x_coords : CoordSystem</span>
+<span class="sd">            Ordered dict representing coordinate system that describes the `x` tensor.</span>
+<span class="sd">            `reduction_dimensions` must be in coords.</span>
+<span class="sd">        y : torch.Tensor</span>
+<span class="sd">            Input tensor #2 intended to be used as validation data, but MAE is symmetric</span>
+<span class="sd">            with respect to `x` and `y`.</span>
+<span class="sd">        y_coords : CoordSystem</span>
+<span class="sd">            Ordered dict representing coordinate system that describes the `y` tensor.</span>
+<span class="sd">            `reduction_dimensions` must be in coords.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        tuple[torch.Tensor, CoordSystem]</span>
+<span class="sd">            Returns root mean squared error tensor with appropriate reduced coordinates.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">ensemble_dimension</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">x_coords</span><span class="p">)</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ensemble_mean</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">x_coords</span><span class="p">)</span>
+        <span class="n">mae</span><span class="p">,</span> <span class="n">output_coords</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="nb">abs</span><span class="p">(</span><span class="n">x</span> <span class="o">-</span> <span class="n">y</span><span class="p">),</span> <span class="n">x_coords</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">mae</span><span class="p">,</span> <span class="n">output_coords</span></div>
 </div>
 
 

@@ -459,7 +459,11 @@
 </details></li>
 <li class="toctree-l1 current active has-children"><a class="reference internal" href="../../statistics.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>: Statistics</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
 <li class="toctree-l2"><a class="reference internal" href="earth2studio.statistics.acc.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>.acc</a></li>
+<li class="toctree-l2"><a class="reference internal" href="earth2studio.statistics.brier.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>.brier</a></li>
 <li class="toctree-l2"><a class="reference internal" href="earth2studio.statistics.crps.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>.crps</a></li>
+<li class="toctree-l2"><a class="reference internal" href="earth2studio.statistics.fss.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>.fss</a></li>
+<li class="toctree-l2"><a class="reference internal" href="earth2studio.statistics.lsd.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>.lsd</a></li>
+<li class="toctree-l2"><a class="reference internal" href="earth2studio.statistics.mae.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>.mae</a></li>
 <li class="toctree-l2"><a class="reference internal" href="earth2studio.statistics.mean.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>.mean</a></li>
 <li class="toctree-l2"><a class="reference internal" href="earth2studio.statistics.rank_histogram.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>.rank_histogram</a></li>
 <li class="toctree-l2 current active"><a class="current reference internal" href="#"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>.rmse</a></li>
@@ -553,7 +557,7 @@
 <h1><a class="reference internal" href="../../statistics.html#module-earth2studio.statistics" title="earth2studio.statistics"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code></a>.rmse<a class="headerlink" href="#earth2studio-statistics-rmse" title="Link to this heading">#</a></h1>
 <dl class="py class">
 <dt class="sig sig-object py" id="earth2studio.statistics.rmse">
-<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">earth2studio.statistics.</span></span><span class="sig-name descname"><span class="pre">rmse</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">reduction_dimensions</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">weights</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">batch_update</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/earth2studio/statistics/rmse.html#rmse"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.statistics.rmse" title="Link to this definition">#</a></dt>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">earth2studio.statistics.</span></span><span class="sig-name descname"><span class="pre">rmse</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">reduction_dimensions</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">weights</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">batch_update</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ensemble_dimension</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/earth2studio/statistics/rmse.html#rmse"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.statistics.rmse" title="Link to this definition">#</a></dt>
 <dd><p>Statistic for calculating the root mean squared error of two tensors
 over a set of given dimensions.</p>
 <dl class="field-list simple">
@@ -561,15 +565,17 @@ over a set of given dimensions.</p>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>reduction_dimensions</strong> (<em>List</em><em>[</em><em>str</em><em>]</em>) – A list of names corresponding to dimensions to perform the
 statistical reduction over. Example: [‘lat’, ‘lon’]</p></li>
-<li><p><strong>weights</strong> (<em>torch.Tensor = None</em>) – A tensor containing weights to assign to the reduction dimensions.
+<li><p><strong>weights</strong> (<em>torch.Tensor</em><em> | </em><em>None = None</em>) – A tensor containing weights to assign to the reduction dimensions.
 Note that these weights must have the same number of dimensions
 as passed in reduction_dimensions.
 Example: if reduction_dimensions = [‘lat’, ‘lon’] then
 assert weights.ndim == 2.</p></li>
-<li><p><strong>batch_update</strong> (<em>bool = False</em>) – Whether to applying batch updates to the rmse with each invocation of __call__.
+<li><p><strong>batch_update</strong> (<em>bool = False</em>) – Whether to apply batch updates to the rmse with each invocation of __call__.
 This is particularly useful when data is recieved in a stream of batches. Each
 invocation of __call__ will return the running rmse. In particular, it will apply
 the square root operation after calculating the running mean squared error.</p></li>
+<li><p><strong>ensemble_dimension</strong> (<em>str</em><em> | </em><em>None = None</em>) – Compute ensemble mean over this dimension before computing RMSE. If None (default),
+no reduction is perfomed.</p></li>
 </ul>
 </dd>
 </dl>
@@ -587,7 +593,7 @@ returns the running sample RMSE over all seen batches.</p>
 symmetric with respect to <cite>x</cite> and <cite>y</cite>.</p></li>
 <li><p><strong>x_coords</strong> (<em>CoordSystem</em>) – Ordered dict representing coordinate system that describes the <cite>x</cite> tensor.
 <cite>reduction_dimensions</cite> must be in coords.</p></li>
-<li><p><strong>y</strong> (<em>torch.Tensor</em>) – Input tensor #2 intended to be used as validation data, but ACC is symmetric
+<li><p><strong>y</strong> (<em>torch.Tensor</em>) – Input tensor #2 intended to be used as validation data, but RMSE is symmetric
 with respect to <cite>x</cite> and <cite>y</cite>.</p></li>
 <li><p><strong>y_coords</strong> (<em>CoordSystem</em>) – Ordered dict representing coordinate system that describes the <cite>y</cite> tensor.
 <cite>reduction_dimensions</cite> must be in coords.</p></li>

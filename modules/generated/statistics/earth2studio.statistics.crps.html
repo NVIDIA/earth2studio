@@ -64,8 +64,8 @@
         </script>
     <link rel="index" title="Index" href="../../../genindex.html" />
     <link rel="search" title="Search" href="../../../search.html" />
-    <link rel="next" title="earth2studio.statistics.mean" href="earth2studio.statistics.mean.html" />
-    <link rel="prev" title="earth2studio.statistics.acc" href="earth2studio.statistics.acc.html" />
+    <link rel="next" title="earth2studio.statistics.fss" href="earth2studio.statistics.fss.html" />
+    <link rel="prev" title="earth2studio.statistics.brier" href="earth2studio.statistics.brier.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   <meta name="docsearch:version" content="0.9" />
@@ -459,7 +459,11 @@
 </details></li>
 <li class="toctree-l1 current active has-children"><a class="reference internal" href="../../statistics.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>: Statistics</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
 <li class="toctree-l2"><a class="reference internal" href="earth2studio.statistics.acc.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>.acc</a></li>
+<li class="toctree-l2"><a class="reference internal" href="earth2studio.statistics.brier.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>.brier</a></li>
 <li class="toctree-l2 current active"><a class="current reference internal" href="#"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>.crps</a></li>
+<li class="toctree-l2"><a class="reference internal" href="earth2studio.statistics.fss.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>.fss</a></li>
+<li class="toctree-l2"><a class="reference internal" href="earth2studio.statistics.lsd.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>.lsd</a></li>
+<li class="toctree-l2"><a class="reference internal" href="earth2studio.statistics.mae.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>.mae</a></li>
 <li class="toctree-l2"><a class="reference internal" href="earth2studio.statistics.mean.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>.mean</a></li>
 <li class="toctree-l2"><a class="reference internal" href="earth2studio.statistics.rank_histogram.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>.rank_histogram</a></li>
 <li class="toctree-l2"><a class="reference internal" href="earth2studio.statistics.rmse.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>.rmse</a></li>
@@ -554,7 +558,7 @@
 <dl class="py class">
 <dt class="sig sig-object py" id="earth2studio.statistics.crps">
 <em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">earth2studio.statistics.</span></span><span class="sig-name descname"><span class="pre">crps</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ensemble_dimension</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reduction_dimensions</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">weights</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fair</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/earth2studio/statistics/crps.html#crps"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.statistics.crps" title="Link to this definition">#</a></dt>
-<dd><p>Compute the Continuous Ranked Probably Score (CRPS).</p>
+<dd><p>Compute the Continuous Ranked Probability Score (CRPS).</p>
 <dl class="simple">
 <dt>Uses this formula</dt><dd><p># int [F(x) - 1(x-y)]^2 dx</p>
 </dd>
@@ -621,20 +625,20 @@ over which the CRPS/CDF is calculated with respect to.</p></li>
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="earth2studio.statistics.acc.html"
+       href="earth2studio.statistics.brier.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>.acc</p>
+        <p class="prev-next-title"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>.brier</p>
       </div>
     </a>
     <a class="right-next"
-       href="earth2studio.statistics.mean.html"
+       href="earth2studio.statistics.fss.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>.mean</p>
+        <p class="prev-next-title"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>.fss</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
