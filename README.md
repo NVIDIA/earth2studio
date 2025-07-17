@@ -12,7 +12,7 @@
 [![uv][e2studio_uv_img]][e2studio_uv_url]
 
 Earth2Studio is a Python-based package designed to get users up and running
-with AI Earth system surrogates *fast*.
+with AI Earth system models *fast*.
 Our mission is to enable everyone to build, research and explore AI driven weather and
 climate science.
 
