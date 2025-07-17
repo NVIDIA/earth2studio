@@ -750,7 +750,7 @@ class CorrDiffTaiwan(torch.nn.Module, AutoModelMixin):
     This model and checkpoint are from Mardani, Morteza, et al. 2023. For more
     information see the following references:
 
-    - https://arxiv.org/html/2309.15214v
+    - https://arxiv.org/abs/2309.15214
     - https://catalog.ngc.nvidia.com/orgs/nvidia/teams/modulus/models/corrdiff_inference_package
 
     Parameters
