@@ -10,12 +10,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Added GOES (Geostationary Operational Environmental Satellite) data source
 - Async Zarr IO backend with non-blocking write calls
 - Different compression codec support in the ZarrBackend with `zarr_codecs` parameter
 - IO performance example
 - Unified CorrDiff Wrapper
 - Added UV script dependencies to all examples
+- New metrics: Brier score, fractions skill score, log spectral distance, mean absolute error.
+- Option to compute error of ensemble mean in rmse and mae.
 
 ### Changed
 
