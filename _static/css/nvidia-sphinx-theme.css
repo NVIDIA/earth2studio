@@ -20,4 +20,7 @@ html{
 }
 .bd-page-width {
     max-width: 96rem;  /* default is 88rem */
- }
+}
+.sd-card-text{
+    color: var(--pst-color-text-base);
+}

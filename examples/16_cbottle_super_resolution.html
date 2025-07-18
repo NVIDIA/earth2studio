@@ -37,7 +37,7 @@
     <link rel="stylesheet" type="text/css" href="../_static/sg_gallery-dataframe.css?v=2082cf3c" />
     <link rel="stylesheet" type="text/css" href="../_static/sg_gallery-rendered-html.css?v=1277b6f3" />
     <link rel="stylesheet" type="text/css" href="../_static/sphinx-design.min.css?v=95c83b7e" />
-    <link rel="stylesheet" type="text/css" href="../_static/css/nvidia-sphinx-theme.css?v=418c9516" />
+    <link rel="stylesheet" type="text/css" href="../_static/css/nvidia-sphinx-theme.css?v=a9229f12" />
   
   <!-- So that users can add custom icons -->
   <script src="../_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
@@ -605,14 +605,14 @@ model to predict the missing variables, then perform super resolution.</p>
 </div>
 <div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>Fetching WB2 data:   0%|          | 0/2 [00:00&lt;?, ?it/s]
 
-2025-07-15 01:02:11.278 | DEBUG    | earth2studio.data.wb2:fetch_array:251 - Fetching WB2 zarr array for variable: v10m at 2020-01-01T00:00:00
+2025-07-18 21:38:26.108 | DEBUG    | earth2studio.data.wb2:fetch_array:253 - Fetching WB2 zarr array for variable: v10m at 2020-01-01T00:00:00
 
 Fetching WB2 data:   0%|          | 0/2 [00:00&lt;?, ?it/s]
 
-2025-07-15 01:02:11.278 | DEBUG    | earth2studio.data.wb2:fetch_array:251 - Fetching WB2 zarr array for variable: u10m at 2020-01-01T00:00:00
+2025-07-18 21:38:26.109 | DEBUG    | earth2studio.data.wb2:fetch_array:253 - Fetching WB2 zarr array for variable: u10m at 2020-01-01T00:00:00
 
 Fetching WB2 data:   0%|          | 0/2 [00:00&lt;?, ?it/s]
-Fetching WB2 data: 100%|██████████| 2/2 [00:00&lt;00:00, 123.32it/s]
+Fetching WB2 data: 100%|██████████| 2/2 [00:00&lt;00:00, 103.93it/s]
 </pre></div>
 </div>
 </section>
@@ -708,7 +708,7 @@ water (tclw) variable as an example.</p>
 <span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="s2">&quot;outputs/16_cbottle_super_resolution.jpg&quot;</span><span class="p">,</span> <span class="n">dpi</span><span class="o">=</span><span class="mi">150</span><span class="p">,</span> <span class="n">bbox_inches</span><span class="o">=</span><span class="s2">&quot;tight&quot;</span><span class="p">)</span>
 </pre></div>
 </div>
-<img src="../_images/sphx_glr_16_cbottle_super_resolution_001.png" srcset="../_images/sphx_glr_16_cbottle_super_resolution_001.png" alt="Synthetic Data (cBottle3D, low resolution), Synthetic Data Super Resolution (cBottle3D → CBottleSR), ERA5 Data (low resolution), ERA5 Infilled Super Resolution (ERA5 → CBottleInfill → CBottleSR)" class = "sphx-glr-single-img"/><p class="sphx-glr-timing"><strong>Total running time of the script:</strong> (3 minutes 21.717 seconds)</p>
+<img src="../_images/sphx_glr_16_cbottle_super_resolution_001.png" srcset="../_images/sphx_glr_16_cbottle_super_resolution_001.png" alt="Synthetic Data (cBottle3D, low resolution), Synthetic Data Super Resolution (cBottle3D → CBottleSR), ERA5 Data (low resolution), ERA5 Infilled Super Resolution (ERA5 → CBottleInfill → CBottleSR)" class = "sphx-glr-single-img"/><p class="sphx-glr-timing"><strong>Total running time of the script:</strong> (3 minutes 24.059 seconds)</p>
 <div class="sphx-glr-footer sphx-glr-footer-example docutils container" id="sphx-glr-download-examples-16-cbottle-super-resolution-py">
 <div class="sphx-glr-download sphx-glr-download-jupyter docutils container">
 <p><a class="reference download internal" download="" href="../_downloads/befbc3089893dae3e9ecc97bc9f11be8/16_cbottle_super_resolution.ipynb"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">Jupyter</span> <span class="pre">notebook:</span> <span class="pre">16_cbottle_super_resolution.ipynb</span></code></a></p>

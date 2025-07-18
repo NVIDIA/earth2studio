@@ -37,7 +37,7 @@
     <link rel="stylesheet" type="text/css" href="../_static/sg_gallery-dataframe.css?v=2082cf3c" />
     <link rel="stylesheet" type="text/css" href="../_static/sg_gallery-rendered-html.css?v=1277b6f3" />
     <link rel="stylesheet" type="text/css" href="../_static/sphinx-design.min.css?v=95c83b7e" />
-    <link rel="stylesheet" type="text/css" href="../_static/css/nvidia-sphinx-theme.css?v=418c9516" />
+    <link rel="stylesheet" type="text/css" href="../_static/css/nvidia-sphinx-theme.css?v=a9229f12" />
   
   <!-- So that users can add custom icons -->
   <script src="../_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
@@ -550,449 +550,449 @@ We can fetch a small time range from the data source and provide it to our model
     <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Step </span><span class="si">{</span><span class="n">step</span><span class="si">}</span><span class="s2">: ARCO tracks output shape </span><span class="si">{</span><span class="n">output</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 
 <span class="n">era5_tracks</span> <span class="o">=</span> <span class="n">output</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span>
-<span class="n">torch</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">era5_tracks</span><span class="p">,</span> <span class="s2">&quot;era5.pt&quot;</span><span class="p">)</span>
+<span class="n">torch</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">era5_tracks</span><span class="p">,</span> <span class="s2">&quot;outputs/13_era5_paths.pt&quot;</span><span class="p">)</span>
 </pre></div>
 </div>
 <div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:31.960 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v10m at 2009-08-05T00:00:00
+2025-07-18 21:31:34.529 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: v10m at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:31.961 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u850 at 2009-08-05T00:00:00
+2025-07-18 21:31:34.529 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: u10m at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:31.962 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u10m at 2009-08-05T00:00:00
+2025-07-18 21:31:34.530 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: msl at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:31.963 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: msl at 2009-08-05T00:00:00
+2025-07-18 21:31:34.530 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: u850 at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:31.964 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v850 at 2009-08-05T00:00:00
+2025-07-18 21:31:34.531 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: v850 at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
-Fetching ARCO data:  20%|██        | 1/5 [00:00&lt;00:01,  2.42it/s]
-Fetching ARCO data:  80%|████████  | 4/5 [00:00&lt;00:00,  9.34it/s]
-Fetching ARCO data: 100%|██████████| 5/5 [00:00&lt;00:00,  9.23it/s]
+Fetching ARCO data:  20%|██        | 1/5 [00:00&lt;00:01,  2.47it/s]
+Fetching ARCO data:  80%|████████  | 4/5 [00:00&lt;00:00,  9.14it/s]
+Fetching ARCO data: 100%|██████████| 5/5 [00:00&lt;00:00,  9.48it/s]
 Step 0: ARCO tracks output shape torch.Size([1, 7, 1, 4])
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:44.141 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v10m at 2009-08-05T06:00:00
+2025-07-18 21:31:46.396 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: v850 at 2009-08-05T06:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:44.141 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v850 at 2009-08-05T06:00:00
+2025-07-18 21:31:46.397 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: msl at 2009-08-05T06:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:44.142 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: msl at 2009-08-05T06:00:00
+2025-07-18 21:31:46.398 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: u850 at 2009-08-05T06:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:44.143 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u10m at 2009-08-05T06:00:00
+2025-07-18 21:31:46.398 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: u10m at 2009-08-05T06:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:44.143 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u850 at 2009-08-05T06:00:00
+2025-07-18 21:31:46.399 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: v10m at 2009-08-05T06:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
-Fetching ARCO data:  20%|██        | 1/5 [00:00&lt;00:01,  2.64it/s]
-Fetching ARCO data:  80%|████████  | 4/5 [00:00&lt;00:00,  9.51it/s]
-Fetching ARCO data: 100%|██████████| 5/5 [00:00&lt;00:00,  9.92it/s]
+Fetching ARCO data:  20%|██        | 1/5 [00:00&lt;00:01,  2.45it/s]
+Fetching ARCO data:  80%|████████  | 4/5 [00:00&lt;00:00,  9.10it/s]
+Fetching ARCO data: 100%|██████████| 5/5 [00:00&lt;00:00,  9.43it/s]
 Step 1: ARCO tracks output shape torch.Size([1, 7, 2, 4])
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:44.794 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u10m at 2009-08-05T12:00:00
+2025-07-18 21:31:47.068 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: v850 at 2009-08-05T12:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:44.795 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v850 at 2009-08-05T12:00:00
+2025-07-18 21:31:47.068 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: v10m at 2009-08-05T12:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:44.795 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: msl at 2009-08-05T12:00:00
+2025-07-18 21:31:47.069 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: u850 at 2009-08-05T12:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:44.796 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v10m at 2009-08-05T12:00:00
+2025-07-18 21:31:47.069 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: u10m at 2009-08-05T12:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:44.796 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u850 at 2009-08-05T12:00:00
+2025-07-18 21:31:47.070 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: msl at 2009-08-05T12:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
-Fetching ARCO data:  20%|██        | 1/5 [00:00&lt;00:01,  2.49it/s]
-Fetching ARCO data:  80%|████████  | 4/5 [00:00&lt;00:00,  9.16it/s]
-Fetching ARCO data: 100%|██████████| 5/5 [00:00&lt;00:00,  9.52it/s]
+Fetching ARCO data:  20%|██        | 1/5 [00:00&lt;00:01,  2.50it/s]
+Fetching ARCO data:  80%|████████  | 4/5 [00:00&lt;00:00,  8.91it/s]
+Fetching ARCO data: 100%|██████████| 5/5 [00:00&lt;00:00,  9.34it/s]
 Step 2: ARCO tracks output shape torch.Size([1, 7, 3, 4])
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:45.465 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v10m at 2009-08-05T18:00:00
+2025-07-18 21:31:47.745 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: v850 at 2009-08-05T18:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:45.466 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v850 at 2009-08-05T18:00:00
+2025-07-18 21:31:47.746 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: msl at 2009-08-05T18:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:45.467 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: msl at 2009-08-05T18:00:00
+2025-07-18 21:31:47.747 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: u850 at 2009-08-05T18:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:45.467 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u10m at 2009-08-05T18:00:00
+2025-07-18 21:31:47.747 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: u10m at 2009-08-05T18:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:45.468 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u850 at 2009-08-05T18:00:00
+2025-07-18 21:31:47.748 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: v10m at 2009-08-05T18:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
-Fetching ARCO data:  20%|██        | 1/5 [00:00&lt;00:01,  2.49it/s]
-Fetching ARCO data:  80%|████████  | 4/5 [00:00&lt;00:00,  9.21it/s]
-Fetching ARCO data: 100%|██████████| 5/5 [00:00&lt;00:00,  9.56it/s]
+Fetching ARCO data:  20%|██        | 1/5 [00:00&lt;00:01,  2.43it/s]
+Fetching ARCO data:  80%|████████  | 4/5 [00:00&lt;00:00,  9.49it/s]
+Fetching ARCO data: 100%|██████████| 5/5 [00:00&lt;00:00,  9.40it/s]
 Step 3: ARCO tracks output shape torch.Size([1, 8, 4, 4])
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:46.127 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u10m at 2009-08-06T00:00:00
+2025-07-18 21:31:48.413 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: v850 at 2009-08-06T00:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:46.127 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v850 at 2009-08-06T00:00:00
+2025-07-18 21:31:48.413 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: v10m at 2009-08-06T00:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:46.128 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: msl at 2009-08-06T00:00:00
+2025-07-18 21:31:48.414 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: u850 at 2009-08-06T00:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:46.129 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v10m at 2009-08-06T00:00:00
+2025-07-18 21:31:48.415 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: u10m at 2009-08-06T00:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:46.129 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u850 at 2009-08-06T00:00:00
+2025-07-18 21:31:48.415 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: msl at 2009-08-06T00:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
-Fetching ARCO data:  20%|██        | 1/5 [00:00&lt;00:01,  2.46it/s]
-Fetching ARCO data:  80%|████████  | 4/5 [00:00&lt;00:00,  9.17it/s]
-Fetching ARCO data: 100%|██████████| 5/5 [00:00&lt;00:00,  9.49it/s]
+Fetching ARCO data:  20%|██        | 1/5 [00:00&lt;00:01,  2.50it/s]
+Fetching ARCO data:  80%|████████  | 4/5 [00:00&lt;00:00,  9.59it/s]
+Fetching ARCO data: 100%|██████████| 5/5 [00:00&lt;00:00,  9.50it/s]
 Step 4: ARCO tracks output shape torch.Size([1, 9, 5, 4])
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:46.815 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v10m at 2009-08-06T06:00:00
+2025-07-18 21:31:49.094 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: v850 at 2009-08-06T06:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:46.816 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v850 at 2009-08-06T06:00:00
+2025-07-18 21:31:49.095 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: msl at 2009-08-06T06:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:46.817 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: msl at 2009-08-06T06:00:00
+2025-07-18 21:31:49.095 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: u850 at 2009-08-06T06:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:46.817 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u10m at 2009-08-06T06:00:00
+2025-07-18 21:31:49.096 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: u10m at 2009-08-06T06:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:46.818 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u850 at 2009-08-06T06:00:00
+2025-07-18 21:31:49.097 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: v10m at 2009-08-06T06:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
-Fetching ARCO data:  20%|██        | 1/5 [00:00&lt;00:01,  2.48it/s]
-Fetching ARCO data:  80%|████████  | 4/5 [00:00&lt;00:00,  9.17it/s]
-Fetching ARCO data: 100%|██████████| 5/5 [00:00&lt;00:00,  9.51it/s]
+Fetching ARCO data:  20%|██        | 1/5 [00:00&lt;00:01,  2.49it/s]
+Fetching ARCO data:  80%|████████  | 4/5 [00:00&lt;00:00,  9.67it/s]
+Fetching ARCO data: 100%|██████████| 5/5 [00:00&lt;00:00,  9.58it/s]
 Step 5: ARCO tracks output shape torch.Size([1, 10, 6, 4])
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:48.563 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u10m at 2009-08-06T12:00:00
+2025-07-18 21:31:50.826 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: v850 at 2009-08-06T12:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:48.563 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v850 at 2009-08-06T12:00:00
+2025-07-18 21:31:50.827 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: v10m at 2009-08-06T12:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:48.564 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: msl at 2009-08-06T12:00:00
+2025-07-18 21:31:50.827 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: u850 at 2009-08-06T12:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:48.565 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v10m at 2009-08-06T12:00:00
+2025-07-18 21:31:50.828 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: u10m at 2009-08-06T12:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:48.565 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u850 at 2009-08-06T12:00:00
+2025-07-18 21:31:50.828 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: msl at 2009-08-06T12:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
-Fetching ARCO data:  20%|██        | 1/5 [00:00&lt;00:01,  2.50it/s]
-Fetching ARCO data:  80%|████████  | 4/5 [00:00&lt;00:00,  9.28it/s]
-Fetching ARCO data: 100%|██████████| 5/5 [00:00&lt;00:00,  9.62it/s]
+Fetching ARCO data:  20%|██        | 1/5 [00:00&lt;00:01,  2.45it/s]
+Fetching ARCO data:  80%|████████  | 4/5 [00:00&lt;00:00,  8.78it/s]
+Fetching ARCO data: 100%|██████████| 5/5 [00:00&lt;00:00,  9.17it/s]
 Step 6: ARCO tracks output shape torch.Size([1, 11, 7, 4])
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:49.212 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v10m at 2009-08-06T18:00:00
+2025-07-18 21:31:51.497 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: v850 at 2009-08-06T18:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:49.213 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v850 at 2009-08-06T18:00:00
+2025-07-18 21:31:51.498 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: msl at 2009-08-06T18:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:49.214 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: msl at 2009-08-06T18:00:00
+2025-07-18 21:31:51.498 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: u850 at 2009-08-06T18:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:49.214 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u10m at 2009-08-06T18:00:00
+2025-07-18 21:31:51.499 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: u10m at 2009-08-06T18:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:49.215 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u850 at 2009-08-06T18:00:00
+2025-07-18 21:31:51.499 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: v10m at 2009-08-06T18:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
-Fetching ARCO data:  20%|██        | 1/5 [00:00&lt;00:01,  2.50it/s]
-Fetching ARCO data:  80%|████████  | 4/5 [00:00&lt;00:00,  9.68it/s]
-Fetching ARCO data: 100%|██████████| 5/5 [00:00&lt;00:00,  9.59it/s]
+Fetching ARCO data:  20%|██        | 1/5 [00:00&lt;00:01,  2.43it/s]
+Fetching ARCO data:  80%|████████  | 4/5 [00:00&lt;00:00,  9.54it/s]
+Fetching ARCO data: 100%|██████████| 5/5 [00:00&lt;00:00,  9.18it/s]
 Step 7: ARCO tracks output shape torch.Size([1, 12, 8, 4])
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:49.868 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u10m at 2009-08-07T00:00:00
+2025-07-18 21:31:52.171 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: v850 at 2009-08-07T00:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:49.869 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v850 at 2009-08-07T00:00:00
+2025-07-18 21:31:52.172 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: v10m at 2009-08-07T00:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:49.869 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: msl at 2009-08-07T00:00:00
+2025-07-18 21:31:52.172 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: u850 at 2009-08-07T00:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:49.870 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v10m at 2009-08-07T00:00:00
+2025-07-18 21:31:52.173 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: u10m at 2009-08-07T00:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:49.870 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u850 at 2009-08-07T00:00:00
+2025-07-18 21:31:52.174 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: msl at 2009-08-07T00:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
-Fetching ARCO data:  20%|██        | 1/5 [00:00&lt;00:01,  2.50it/s]
-Fetching ARCO data:  80%|████████  | 4/5 [00:00&lt;00:00,  9.64it/s]
-Fetching ARCO data: 100%|██████████| 5/5 [00:00&lt;00:00,  9.34it/s]
+Fetching ARCO data:  20%|██        | 1/5 [00:00&lt;00:01,  2.48it/s]
+Fetching ARCO data:  80%|████████  | 4/5 [00:00&lt;00:00,  9.66it/s]
+Fetching ARCO data: 100%|██████████| 5/5 [00:00&lt;00:00,  9.53it/s]
 Step 8: ARCO tracks output shape torch.Size([1, 13, 9, 4])
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:50.559 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v10m at 2009-08-07T06:00:00
+2025-07-18 21:31:52.846 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: v850 at 2009-08-07T06:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:50.560 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v850 at 2009-08-07T06:00:00
+2025-07-18 21:31:52.846 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: msl at 2009-08-07T06:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:50.560 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: msl at 2009-08-07T06:00:00
+2025-07-18 21:31:52.847 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: u850 at 2009-08-07T06:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:50.561 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u10m at 2009-08-07T06:00:00
+2025-07-18 21:31:52.848 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: u10m at 2009-08-07T06:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:50.561 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u850 at 2009-08-07T06:00:00
+2025-07-18 21:31:52.848 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: v10m at 2009-08-07T06:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
-Fetching ARCO data:  20%|██        | 1/5 [00:00&lt;00:01,  2.47it/s]
-Fetching ARCO data:  80%|████████  | 4/5 [00:00&lt;00:00,  9.62it/s]
-Fetching ARCO data: 100%|██████████| 5/5 [00:00&lt;00:00,  9.27it/s]
+Fetching ARCO data:  20%|██        | 1/5 [00:00&lt;00:01,  2.45it/s]
+Fetching ARCO data:  80%|████████  | 4/5 [00:00&lt;00:00,  9.54it/s]
+Fetching ARCO data: 100%|██████████| 5/5 [00:00&lt;00:00,  9.40it/s]
 Step 9: ARCO tracks output shape torch.Size([1, 14, 10, 4])
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:51.243 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u10m at 2009-08-07T12:00:00
+2025-07-18 21:31:53.518 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: v850 at 2009-08-07T12:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:51.243 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v850 at 2009-08-07T12:00:00
+2025-07-18 21:31:53.519 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: v10m at 2009-08-07T12:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:51.244 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: msl at 2009-08-07T12:00:00
+2025-07-18 21:31:53.520 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: u850 at 2009-08-07T12:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:51.244 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v10m at 2009-08-07T12:00:00
+2025-07-18 21:31:53.520 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: u10m at 2009-08-07T12:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:51.245 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u850 at 2009-08-07T12:00:00
+2025-07-18 21:31:53.521 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: msl at 2009-08-07T12:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
-Fetching ARCO data:  20%|██        | 1/5 [00:00&lt;00:01,  2.48it/s]
-Fetching ARCO data:  80%|████████  | 4/5 [00:00&lt;00:00,  9.64it/s]
-Fetching ARCO data: 100%|██████████| 5/5 [00:00&lt;00:00,  9.47it/s]
+Fetching ARCO data:  20%|██        | 1/5 [00:00&lt;00:01,  2.46it/s]
+Fetching ARCO data:  80%|████████  | 4/5 [00:00&lt;00:00,  9.23it/s]
+Fetching ARCO data: 100%|██████████| 5/5 [00:00&lt;00:00,  9.25it/s]
 Step 10: ARCO tracks output shape torch.Size([1, 15, 11, 4])
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:51.901 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v10m at 2009-08-07T18:00:00
+2025-07-18 21:31:54.187 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: v850 at 2009-08-07T18:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:51.901 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v850 at 2009-08-07T18:00:00
+2025-07-18 21:31:54.187 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: msl at 2009-08-07T18:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:51.902 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: msl at 2009-08-07T18:00:00
+2025-07-18 21:31:54.188 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: u850 at 2009-08-07T18:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:51.903 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u10m at 2009-08-07T18:00:00
+2025-07-18 21:31:54.189 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: u10m at 2009-08-07T18:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:51.903 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u850 at 2009-08-07T18:00:00
+2025-07-18 21:31:54.189 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: v10m at 2009-08-07T18:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
-Fetching ARCO data:  20%|██        | 1/5 [00:00&lt;00:01,  2.56it/s]
-Fetching ARCO data:  80%|████████  | 4/5 [00:00&lt;00:00,  9.87it/s]
-Fetching ARCO data: 100%|██████████| 5/5 [00:00&lt;00:00,  9.75it/s]
+Fetching ARCO data:  20%|██        | 1/5 [00:00&lt;00:01,  2.49it/s]
+Fetching ARCO data:  80%|████████  | 4/5 [00:00&lt;00:00,  9.61it/s]
+Fetching ARCO data: 100%|██████████| 5/5 [00:00&lt;00:00,  9.52it/s]
 Step 11: ARCO tracks output shape torch.Size([1, 16, 12, 4])
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:52.546 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u10m at 2009-08-08T00:00:00
+2025-07-18 21:31:54.843 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: v850 at 2009-08-08T00:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:52.547 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v850 at 2009-08-08T00:00:00
+2025-07-18 21:31:54.843 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: v10m at 2009-08-08T00:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:52.547 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: msl at 2009-08-08T00:00:00
+2025-07-18 21:31:54.844 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: u850 at 2009-08-08T00:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:52.548 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v10m at 2009-08-08T00:00:00
+2025-07-18 21:31:54.844 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: u10m at 2009-08-08T00:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:52.548 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u850 at 2009-08-08T00:00:00
+2025-07-18 21:31:54.845 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: msl at 2009-08-08T00:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
-Fetching ARCO data:  20%|██        | 1/5 [00:00&lt;00:01,  2.46it/s]
-Fetching ARCO data:  80%|████████  | 4/5 [00:00&lt;00:00,  9.56it/s]
-Fetching ARCO data: 100%|██████████| 5/5 [00:00&lt;00:00,  9.47it/s]
+Fetching ARCO data:  20%|██        | 1/5 [00:00&lt;00:01,  2.48it/s]
+Fetching ARCO data:  80%|████████  | 4/5 [00:00&lt;00:00,  9.20it/s]
+Fetching ARCO data: 100%|██████████| 5/5 [00:00&lt;00:00,  9.54it/s]
 Step 12: ARCO tracks output shape torch.Size([1, 17, 13, 4])
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:53.711 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v10m at 2009-08-08T06:00:00
+2025-07-18 21:31:55.995 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: v850 at 2009-08-08T06:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:53.711 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v850 at 2009-08-08T06:00:00
+2025-07-18 21:31:55.995 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: msl at 2009-08-08T06:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:53.712 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: msl at 2009-08-08T06:00:00
+2025-07-18 21:31:55.996 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: u850 at 2009-08-08T06:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:53.712 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u10m at 2009-08-08T06:00:00
+2025-07-18 21:31:55.996 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: u10m at 2009-08-08T06:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:53.713 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u850 at 2009-08-08T06:00:00
+2025-07-18 21:31:55.997 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: v10m at 2009-08-08T06:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
-Fetching ARCO data:  20%|██        | 1/5 [00:00&lt;00:01,  2.53it/s]
-Fetching ARCO data:  80%|████████  | 4/5 [00:00&lt;00:00,  9.80it/s]
-Fetching ARCO data: 100%|██████████| 5/5 [00:00&lt;00:00,  9.71it/s]
+Fetching ARCO data:  20%|██        | 1/5 [00:00&lt;00:01,  2.46it/s]
+Fetching ARCO data:  80%|████████  | 4/5 [00:00&lt;00:00,  8.83it/s]
+Fetching ARCO data: 100%|██████████| 5/5 [00:00&lt;00:00,  9.22it/s]
 Step 13: ARCO tracks output shape torch.Size([1, 18, 14, 4])
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:54.358 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u10m at 2009-08-08T12:00:00
+2025-07-18 21:31:56.667 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: v850 at 2009-08-08T12:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:54.359 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v850 at 2009-08-08T12:00:00
+2025-07-18 21:31:56.667 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: v10m at 2009-08-08T12:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:54.359 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: msl at 2009-08-08T12:00:00
+2025-07-18 21:31:56.668 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: u850 at 2009-08-08T12:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:54.360 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v10m at 2009-08-08T12:00:00
+2025-07-18 21:31:56.669 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: u10m at 2009-08-08T12:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:54.360 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u850 at 2009-08-08T12:00:00
+2025-07-18 21:31:56.669 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: msl at 2009-08-08T12:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
-Fetching ARCO data:  20%|██        | 1/5 [00:00&lt;00:01,  2.50it/s]
-Fetching ARCO data:  80%|████████  | 4/5 [00:00&lt;00:00,  9.65it/s]
-Fetching ARCO data: 100%|██████████| 5/5 [00:00&lt;00:00,  9.38it/s]
+Fetching ARCO data:  20%|██        | 1/5 [00:00&lt;00:01,  2.52it/s]
+Fetching ARCO data:  80%|████████  | 4/5 [00:00&lt;00:00,  9.30it/s]
+Fetching ARCO data: 100%|██████████| 5/5 [00:00&lt;00:00,  9.34it/s]
 Step 14: ARCO tracks output shape torch.Size([1, 19, 15, 4])
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:55.015 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v10m at 2009-08-08T18:00:00
+2025-07-18 21:31:57.329 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: v850 at 2009-08-08T18:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:55.016 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v850 at 2009-08-08T18:00:00
+2025-07-18 21:31:57.329 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: msl at 2009-08-08T18:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:55.017 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: msl at 2009-08-08T18:00:00
+2025-07-18 21:31:57.330 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: u850 at 2009-08-08T18:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:55.017 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u10m at 2009-08-08T18:00:00
+2025-07-18 21:31:57.330 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: u10m at 2009-08-08T18:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:55.018 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u850 at 2009-08-08T18:00:00
+2025-07-18 21:31:57.331 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: v10m at 2009-08-08T18:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
-Fetching ARCO data:  20%|██        | 1/5 [00:00&lt;00:01,  2.49it/s]
-Fetching ARCO data: 100%|██████████| 5/5 [00:00&lt;00:00, 11.77it/s]
+Fetching ARCO data:  20%|██        | 1/5 [00:00&lt;00:01,  2.50it/s]
+Fetching ARCO data:  80%|████████  | 4/5 [00:00&lt;00:00,  9.71it/s]
 Fetching ARCO data: 100%|██████████| 5/5 [00:00&lt;00:00,  9.62it/s]
 Step 15: ARCO tracks output shape torch.Size([1, 20, 16, 4])
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:55.671 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u10m at 2009-08-09T00:00:00
+2025-07-18 21:31:57.981 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: v850 at 2009-08-09T00:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:55.672 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v850 at 2009-08-09T00:00:00
+2025-07-18 21:31:57.982 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: v10m at 2009-08-09T00:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:55.672 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: msl at 2009-08-09T00:00:00
+2025-07-18 21:31:57.983 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: u850 at 2009-08-09T00:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:55.673 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v10m at 2009-08-09T00:00:00
+2025-07-18 21:31:57.983 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: u10m at 2009-08-09T00:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:55.674 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u850 at 2009-08-09T00:00:00
+2025-07-18 21:31:57.984 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: msl at 2009-08-09T00:00:00
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
-Fetching ARCO data:  20%|██        | 1/5 [00:00&lt;00:01,  2.50it/s]
-Fetching ARCO data:  80%|████████  | 4/5 [00:00&lt;00:00,  9.11it/s]
-Fetching ARCO data: 100%|██████████| 5/5 [00:00&lt;00:00,  9.49it/s]
+Fetching ARCO data:  20%|██        | 1/5 [00:00&lt;00:01,  2.44it/s]
+Fetching ARCO data:  80%|████████  | 4/5 [00:00&lt;00:00,  9.49it/s]
+Fetching ARCO data: 100%|██████████| 5/5 [00:00&lt;00:00,  9.38it/s]
 Step 16: ARCO tracks output shape torch.Size([1, 21, 17, 4])
 </pre></div>
 </div>
@@ -1037,345 +1037,344 @@ inference loop.</p>
             <span class="k">break</span>
 
 <span class="n">sfno_tracks</span> <span class="o">=</span> <span class="n">output</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span>
-<span class="n">torch</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">sfno_tracks</span><span class="p">,</span> <span class="s2">&quot;sfno.pt&quot;</span><span class="p">)</span>
+<span class="n">torch</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">sfno_tracks</span><span class="p">,</span> <span class="s2">&quot;outputs/13_sfno_paths.pt&quot;</span><span class="p">)</span>
 </pre></div>
 </div>
 <div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:56.730 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: z250 at 2009-08-05T00:00:00
+2025-07-18 21:31:59.027 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: u100m at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:56.730 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: t250 at 2009-08-05T00:00:00
+2025-07-18 21:31:59.027 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: u500 at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:56.731 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v400 at 2009-08-05T00:00:00
+2025-07-18 21:31:59.028 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: v700 at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:56.731 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: q200 at 2009-08-05T00:00:00
+2025-07-18 21:31:59.028 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: z400 at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:56.732 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: z100 at 2009-08-05T00:00:00
+2025-07-18 21:31:59.029 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: t1000 at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:56.732 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v700 at 2009-08-05T00:00:00
+2025-07-18 21:31:59.030 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: q200 at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:56.733 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: z600 at 2009-08-05T00:00:00
+2025-07-18 21:31:59.030 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: v600 at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:56.733 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u200 at 2009-08-05T00:00:00
+2025-07-18 21:31:59.031 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: sp at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:56.734 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: t200 at 2009-08-05T00:00:00
+2025-07-18 21:31:59.032 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: u700 at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:56.734 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: q300 at 2009-08-05T00:00:00
+2025-07-18 21:31:59.032 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: u850 at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:56.735 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: q1000 at 2009-08-05T00:00:00
+2025-07-18 21:31:59.033 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: z50 at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:56.735 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u100 at 2009-08-05T00:00:00
+2025-07-18 21:31:59.033 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: t600 at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:56.736 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: t400 at 2009-08-05T00:00:00
+2025-07-18 21:31:59.034 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: t850 at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:56.736 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: t150 at 2009-08-05T00:00:00
+2025-07-18 21:31:59.034 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: u200 at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:56.737 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u150 at 2009-08-05T00:00:00
+2025-07-18 21:31:59.035 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: v150 at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:56.737 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v1000 at 2009-08-05T00:00:00
+2025-07-18 21:31:59.035 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: q600 at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:56.738 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v10m at 2009-08-05T00:00:00
+2025-07-18 21:31:59.035 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: q925 at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:56.738 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u400 at 2009-08-05T00:00:00
+2025-07-18 21:31:59.036 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: u10m at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:56.739 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: z925 at 2009-08-05T00:00:00
+2025-07-18 21:31:59.036 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: z925 at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:56.739 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: t600 at 2009-08-05T00:00:00
+2025-07-18 21:31:59.037 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: z500 at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:56.740 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v100m at 2009-08-05T00:00:00
+2025-07-18 21:31:59.038 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: q250 at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:56.740 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: t850 at 2009-08-05T00:00:00
+2025-07-18 21:31:59.038 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: t300 at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:56.741 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v150 at 2009-08-05T00:00:00
+2025-07-18 21:31:59.038 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: v50 at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:56.741 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: z150 at 2009-08-05T00:00:00
+2025-07-18 21:31:59.039 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: u150 at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:56.742 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u250 at 2009-08-05T00:00:00
+2025-07-18 21:31:59.039 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: q400 at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:56.742 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: q500 at 2009-08-05T00:00:00
+2025-07-18 21:31:59.040 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: t50 at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:56.743 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: q100 at 2009-08-05T00:00:00
+2025-07-18 21:31:59.040 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: z150 at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:56.743 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v100 at 2009-08-05T00:00:00
+2025-07-18 21:31:59.041 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: v250 at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:56.743 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u500 at 2009-08-05T00:00:00
+2025-07-18 21:31:59.041 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: t500 at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:56.744 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: z50 at 2009-08-05T00:00:00
+2025-07-18 21:31:59.042 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: v850 at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:56.744 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: t100 at 2009-08-05T00:00:00
+2025-07-18 21:31:59.042 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: q50 at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:56.745 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: t300 at 2009-08-05T00:00:00
+2025-07-18 21:31:59.043 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: v1000 at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:56.745 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v925 at 2009-08-05T00:00:00
+2025-07-18 21:31:59.043 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: v100m at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:56.746 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v50 at 2009-08-05T00:00:00
+2025-07-18 21:31:59.044 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: u300 at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:56.746 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v500 at 2009-08-05T00:00:00
+2025-07-18 21:31:59.044 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: u50 at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:56.747 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: q600 at 2009-08-05T00:00:00
+2025-07-18 21:31:59.045 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: t100 at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:56.747 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: z1000 at 2009-08-05T00:00:00
+2025-07-18 21:31:59.045 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: t250 at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:56.748 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v850 at 2009-08-05T00:00:00
+2025-07-18 21:31:59.046 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: q150 at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:56.748 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: q850 at 2009-08-05T00:00:00
+2025-07-18 21:31:59.046 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: z600 at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:56.749 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v250 at 2009-08-05T00:00:00
+2025-07-18 21:31:59.047 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: z250 at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:56.749 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: q400 at 2009-08-05T00:00:00
+2025-07-18 21:31:59.047 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: t200 at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:56.750 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: q925 at 2009-08-05T00:00:00
+2025-07-18 21:31:59.047 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: v925 at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:56.751 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: z400 at 2009-08-05T00:00:00
+2025-07-18 21:31:59.048 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: t2m at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:56.751 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: z500 at 2009-08-05T00:00:00
+2025-07-18 21:31:59.049 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: v400 at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:56.752 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v300 at 2009-08-05T00:00:00
+2025-07-18 21:31:59.049 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: t925 at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:56.752 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: z850 at 2009-08-05T00:00:00
+2025-07-18 21:31:59.050 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: q300 at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:56.753 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: sp at 2009-08-05T00:00:00
+2025-07-18 21:31:59.050 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: msl at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:56.753 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: t500 at 2009-08-05T00:00:00
+2025-07-18 21:31:59.051 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: v500 at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:56.754 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v600 at 2009-08-05T00:00:00
+2025-07-18 21:31:59.051 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: tcwv at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:56.754 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: q150 at 2009-08-05T00:00:00
+2025-07-18 21:31:59.052 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: u925 at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:56.755 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u850 at 2009-08-05T00:00:00
+2025-07-18 21:31:59.052 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: z700 at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:56.755 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u1000 at 2009-08-05T00:00:00
+2025-07-18 21:31:59.053 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: v100 at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:56.756 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u10m at 2009-08-05T00:00:00
+2025-07-18 21:31:59.053 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: q1000 at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:56.756 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u50 at 2009-08-05T00:00:00
+2025-07-18 21:31:59.054 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: z1000 at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:56.757 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: q250 at 2009-08-05T00:00:00
+2025-07-18 21:31:59.054 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: v10m at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:56.757 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u925 at 2009-08-05T00:00:00
+2025-07-18 21:31:59.055 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: z300 at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:56.758 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: t700 at 2009-08-05T00:00:00
+2025-07-18 21:31:59.055 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: v300 at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:56.758 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: v200 at 2009-08-05T00:00:00
+2025-07-18 21:31:59.056 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: t700 at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:56.758 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: t1000 at 2009-08-05T00:00:00
+2025-07-18 21:31:59.057 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: v200 at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:56.759 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: msl at 2009-08-05T00:00:00
+2025-07-18 21:31:59.057 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: q100 at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:56.759 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u700 at 2009-08-05T00:00:00
+2025-07-18 21:31:59.058 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: q850 at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:56.760 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: t50 at 2009-08-05T00:00:00
+2025-07-18 21:31:59.059 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: u250 at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:56.760 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: q700 at 2009-08-05T00:00:00
+2025-07-18 21:31:59.059 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: t400 at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:56.761 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u100m at 2009-08-05T00:00:00
+2025-07-18 21:31:59.060 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: z850 at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:56.761 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u300 at 2009-08-05T00:00:00
+2025-07-18 21:31:59.060 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: z100 at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:56.762 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: z200 at 2009-08-05T00:00:00
+2025-07-18 21:31:59.061 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: q500 at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:56.762 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: t925 at 2009-08-05T00:00:00
+2025-07-18 21:31:59.061 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: u400 at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:56.763 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: t2m at 2009-08-05T00:00:00
+2025-07-18 21:31:59.062 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: z200 at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:56.763 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: q50 at 2009-08-05T00:00:00
+2025-07-18 21:31:59.062 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: u600 at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:56.764 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: u600 at 2009-08-05T00:00:00
+2025-07-18 21:31:59.063 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: t150 at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:56.764 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: z700 at 2009-08-05T00:00:00
+2025-07-18 21:31:59.063 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: u100 at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:56.765 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: z300 at 2009-08-05T00:00:00
+2025-07-18 21:31:59.064 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: u1000 at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2025-07-15 00:55:56.765 | DEBUG    | earth2studio.data.arco:fetch_array:282 - Fetching ARCO zarr array for variable: tcwv at 2009-08-05T00:00:00
+2025-07-18 21:31:59.064 | DEBUG    | earth2studio.data.arco:fetch_array:288 - Fetching ARCO zarr array for variable: q700 at 2009-08-05T00:00:00
 
 Fetching ARCO data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
-Fetching ARCO data:   1%|▏         | 1/73 [00:03&lt;04:33,  3.79s/it]
-Fetching ARCO data:   4%|▍         | 3/73 [00:04&lt;01:21,  1.16s/it]
-Fetching ARCO data:   5%|▌         | 4/73 [00:04&lt;01:09,  1.00s/it]
-Fetching ARCO data:  11%|█         | 8/73 [00:05&lt;00:23,  2.76it/s]
-Fetching ARCO data:  30%|███       | 22/73 [00:06&lt;00:06,  7.58it/s]
-Fetching ARCO data: 100%|██████████| 73/73 [00:06&lt;00:00, 12.12it/s]
+Fetching ARCO data:   1%|▏         | 1/73 [00:04&lt;04:50,  4.03s/it]
+Fetching ARCO data:   5%|▌         | 4/73 [00:04&lt;01:03,  1.09it/s]
+Fetching ARCO data:   7%|▋         | 5/73 [00:06&lt;01:19,  1.17s/it]
+Fetching ARCO data:  29%|██▉       | 21/73 [00:07&lt;00:10,  4.88it/s]
+Fetching ARCO data: 100%|██████████| 73/73 [00:07&lt;00:00,  9.95it/s]
 
 Running inference:   0%|          | 0/17 [00:00&lt;?, ?it/s]Step 0: SFNO tracks output shape torch.Size([1, 7, 1, 4])
 
-Running inference:   6%|▌         | 1/17 [00:00&lt;00:02,  6.48it/s]Step 1: SFNO tracks output shape torch.Size([1, 8, 2, 4])
+Running inference:   6%|▌         | 1/17 [00:00&lt;00:02,  6.69it/s]Step 1: SFNO tracks output shape torch.Size([1, 8, 2, 4])
 
-Running inference:  12%|█▏        | 2/17 [00:00&lt;00:06,  2.15it/s]Step 2: SFNO tracks output shape torch.Size([1, 8, 3, 4])
+Running inference:  12%|█▏        | 2/17 [00:00&lt;00:06,  2.17it/s]Step 2: SFNO tracks output shape torch.Size([1, 8, 3, 4])
 
-Running inference:  18%|█▊        | 3/17 [00:01&lt;00:07,  1.79it/s]Step 3: SFNO tracks output shape torch.Size([1, 9, 4, 4])
+Running inference:  18%|█▊        | 3/17 [00:01&lt;00:07,  1.80it/s]Step 3: SFNO tracks output shape torch.Size([1, 9, 4, 4])
 
-Running inference:  24%|██▎       | 4/17 [00:02&lt;00:07,  1.67it/s]Step 4: SFNO tracks output shape torch.Size([1, 10, 5, 4])
+Running inference:  24%|██▎       | 4/17 [00:02&lt;00:07,  1.68it/s]Step 4: SFNO tracks output shape torch.Size([1, 10, 5, 4])
 
 Running inference:  29%|██▉       | 5/17 [00:02&lt;00:07,  1.61it/s]Step 5: SFNO tracks output shape torch.Size([1, 10, 6, 4])
 
 Running inference:  35%|███▌      | 6/17 [00:03&lt;00:07,  1.56it/s]Step 6: SFNO tracks output shape torch.Size([1, 10, 7, 4])
 
-Running inference:  41%|████      | 7/17 [00:04&lt;00:06,  1.55it/s]Step 7: SFNO tracks output shape torch.Size([1, 11, 8, 4])
+Running inference:  41%|████      | 7/17 [00:04&lt;00:06,  1.56it/s]Step 7: SFNO tracks output shape torch.Size([1, 11, 8, 4])
 
 Running inference:  47%|████▋     | 8/17 [00:04&lt;00:05,  1.53it/s]Step 8: SFNO tracks output shape torch.Size([1, 12, 9, 4])
 
 Running inference:  53%|█████▎    | 9/17 [00:05&lt;00:05,  1.51it/s]Step 9: SFNO tracks output shape torch.Size([1, 13, 10, 4])
 
-Running inference:  59%|█████▉    | 10/17 [00:06&lt;00:04,  1.51it/s]Step 10: SFNO tracks output shape torch.Size([1, 14, 11, 4])
+Running inference:  59%|█████▉    | 10/17 [00:06&lt;00:04,  1.52it/s]Step 10: SFNO tracks output shape torch.Size([1, 14, 11, 4])
 
-Running inference:  65%|██████▍   | 11/17 [00:06&lt;00:03,  1.52it/s]Step 11: SFNO tracks output shape torch.Size([1, 15, 12, 4])
+Running inference:  65%|██████▍   | 11/17 [00:06&lt;00:03,  1.53it/s]Step 11: SFNO tracks output shape torch.Size([1, 15, 12, 4])
 
-Running inference:  71%|███████   | 12/17 [00:07&lt;00:03,  1.52it/s]Step 12: SFNO tracks output shape torch.Size([1, 16, 13, 4])
+Running inference:  71%|███████   | 12/17 [00:07&lt;00:03,  1.53it/s]Step 12: SFNO tracks output shape torch.Size([1, 16, 13, 4])
 
-Running inference:  76%|███████▋  | 13/17 [00:08&lt;00:02,  1.51it/s]Step 13: SFNO tracks output shape torch.Size([1, 17, 14, 4])
+Running inference:  76%|███████▋  | 13/17 [00:08&lt;00:02,  1.52it/s]Step 13: SFNO tracks output shape torch.Size([1, 17, 14, 4])
 
-Running inference:  82%|████████▏ | 14/17 [00:08&lt;00:01,  1.50it/s]Step 14: SFNO tracks output shape torch.Size([1, 18, 15, 4])
+Running inference:  82%|████████▏ | 14/17 [00:08&lt;00:01,  1.51it/s]Step 14: SFNO tracks output shape torch.Size([1, 18, 15, 4])
 
-Running inference:  88%|████████▊ | 15/17 [00:09&lt;00:01,  1.52it/s]Step 15: SFNO tracks output shape torch.Size([1, 19, 16, 4])
+Running inference:  88%|████████▊ | 15/17 [00:09&lt;00:01,  1.53it/s]Step 15: SFNO tracks output shape torch.Size([1, 19, 16, 4])
 
 Running inference:  94%|█████████▍| 16/17 [00:10&lt;00:00,  1.52it/s]Step 16: SFNO tracks output shape torch.Size([1, 20, 17, 4])
 
-Running inference: 100%|██████████| 17/17 [00:10&lt;00:00,  1.50it/s]
-Running inference: 100%|██████████| 17/17 [00:10&lt;00:00,  1.57it/s]
+Running inference: 100%|██████████| 17/17 [00:10&lt;00:00,  1.51it/s]
+Running inference: 100%|██████████| 17/17 [00:10&lt;00:00,  1.58it/s]
 </pre></div>
 </div>
 <p>Note that before the inference loop of the AI model, the path buffer of the tracker
@@ -1472,7 +1471,7 @@ processing steps on the paths which may be enforcing path lengths are above a ce
 threshold or other geography based filters.</p>
 <p>No cyclone tracker is perfect, we encourage users to experiment and tune the tracker
 as needed.</p>
-<p class="sphx-glr-timing"><strong>Total running time of the script:</strong> (0 minutes 53.033 seconds)</p>
+<p class="sphx-glr-timing"><strong>Total running time of the script:</strong> (0 minutes 53.974 seconds)</p>
 <div class="sphx-glr-footer sphx-glr-footer-example docutils container" id="sphx-glr-download-examples-13-cyclone-tracking-py">
 <div class="sphx-glr-download sphx-glr-download-jupyter docutils container">
 <p><a class="reference download internal" download="" href="../_downloads/6d897d8f50be68ecc57b02ba668d45cb/13_cyclone_tracking.ipynb"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">Jupyter</span> <span class="pre">notebook:</span> <span class="pre">13_cyclone_tracking.ipynb</span></code></a></p>

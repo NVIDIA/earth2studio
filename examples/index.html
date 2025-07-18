@@ -37,7 +37,7 @@
     <link rel="stylesheet" type="text/css" href="../_static/sg_gallery-dataframe.css?v=2082cf3c" />
     <link rel="stylesheet" type="text/css" href="../_static/sg_gallery-rendered-html.css?v=1277b6f3" />
     <link rel="stylesheet" type="text/css" href="../_static/sphinx-design.min.css?v=95c83b7e" />
-    <link rel="stylesheet" type="text/css" href="../_static/css/nvidia-sphinx-theme.css?v=418c9516" />
+    <link rel="stylesheet" type="text/css" href="../_static/css/nvidia-sphinx-theme.css?v=a9229f12" />
   
   <!-- So that users can add custom icons -->
   <script src="../_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
@@ -467,8 +467,9 @@ Each requires installation of different optional dependency groups or additional
 packages for the specific models used or post-processing steps.
 Use uv to auto install dependencies on execution:</p>
 <p class="sd-card-text"><code class="docutils literal notranslate"><span class="pre">uv</span> <span class="pre">run</span> <span class="pre">&lt;example_script&gt;.py</span></code></p>
-<p class="sd-card-text">If you are using a container or other environment, and need to pip install then
-look for the <a class="reference external" href="https://docs.astral.sh/uv/guides/scripts/#declaring-script-dependencies">uv inline metadata</a>
+<p class="sd-card-text">If you are using a container or other type of environment, then pip installing will
+likely be needed.
+Look for the <a class="reference external" href="https://docs.astral.sh/uv/guides/scripts/#declaring-script-dependencies">uv inline metadata</a>
 blocks of the form:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># /// script</span>
 <span class="c1"># dependencies = [</span>
