@@ -848,7 +848,12 @@
 <span class="sd">            Dictionary of GFS vairables (byte offset, byte length)</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="c1"># Grab index file</span>
-        <span class="n">index_file</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_fetch_remote_file</span><span class="p">(</span><span class="n">index_uri</span><span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">index_file</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_fetch_remote_file</span><span class="p">(</span><span class="n">index_uri</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">FileNotFoundError</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">FileNotFoundError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;The specified data index, </span><span class="si">{</span><span class="n">index_uri</span><span class="si">}</span><span class="s2">, does not exist. Data seems to be missing.&quot;</span>
+            <span class="p">)</span>
         <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">index_file</span><span class="p">)</span> <span class="k">as</span> <span class="n">file</span><span class="p">:</span>
             <span class="n">index_lines</span> <span class="o">=</span> <span class="p">[</span><span class="n">line</span><span class="o">.</span><span class="n">rstrip</span><span class="p">()</span> <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">file</span><span class="p">]</span>
 

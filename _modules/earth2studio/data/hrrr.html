@@ -441,6 +441,7 @@
 <span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">pathlib</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">shutil</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">warnings</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Callable</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">datetime</span><span class="w"> </span><span class="kn">import</span> <span class="n">datetime</span><span class="p">,</span> <span class="n">timedelta</span><span class="p">,</span> <span class="n">timezone</span>
@@ -474,6 +475,9 @@
 
 <span class="n">logger</span><span class="o">.</span><span class="n">remove</span><span class="p">()</span>
 <span class="n">logger</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="k">lambda</span> <span class="n">msg</span><span class="p">:</span> <span class="n">tqdm</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">msg</span><span class="p">,</span> <span class="n">end</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">),</span> <span class="n">colorize</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+<span class="c1"># Silence FutureWarning from cfgrib</span>
+<span class="n">warnings</span><span class="o">.</span><span class="n">simplefilter</span><span class="p">(</span><span class="n">action</span><span class="o">=</span><span class="s2">&quot;ignore&quot;</span><span class="p">,</span> <span class="n">category</span><span class="o">=</span><span class="ne">FutureWarning</span><span class="p">)</span>
 
 
 <span class="nd">@dataclass</span>
@@ -946,7 +950,12 @@
 <span class="sd">            Dictionary of HRRR vairables (byte offset, byte length)</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="c1"># Grab index file</span>
-        <span class="n">index_file</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_fetch_remote_file</span><span class="p">(</span><span class="n">index_uri</span><span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">index_file</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_fetch_remote_file</span><span class="p">(</span><span class="n">index_uri</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">FileNotFoundError</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">FileNotFoundError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;The specified data index, </span><span class="si">{</span><span class="n">index_uri</span><span class="si">}</span><span class="s2">, does not exist. Data seems to be missing.&quot;</span>
+            <span class="p">)</span>
         <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">index_file</span><span class="p">)</span> <span class="k">as</span> <span class="n">file</span><span class="p">:</span>
             <span class="n">index_lines</span> <span class="o">=</span> <span class="p">[</span><span class="n">line</span><span class="o">.</span><span class="n">rstrip</span><span class="p">()</span> <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">file</span><span class="p">]</span>
 
@@ -1249,7 +1258,7 @@
 
         <span class="c1"># Make sure input time is valid</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_validate_time</span><span class="p">(</span><span class="n">time</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_validate_leadtime</span><span class="p">(</span><span class="n">lead_time</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_validate_leadtime</span><span class="p">(</span><span class="n">time</span><span class="p">,</span> <span class="n">lead_time</span><span class="p">)</span>
 
         <span class="c1"># https://filesystem-spec.readthedocs.io/en/latest/async.html#using-from-async</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fs</span><span class="p">,</span> <span class="n">s3fs</span><span class="o">.</span><span class="n">S3FileSystem</span><span class="p">):</span>
@@ -1302,7 +1311,9 @@
 
 
     <span class="nd">@classmethod</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">_validate_leadtime</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">lead_times</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">timedelta</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_validate_leadtime</span><span class="p">(</span>
+        <span class="bp">cls</span><span class="p">,</span> <span class="n">times</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">datetime</span><span class="p">],</span> <span class="n">lead_times</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">timedelta</span><span class="p">]</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Verify if lead time is valid for HRRR based on offline knowledge</span>
 
 <span class="sd">        Parameters</span>
@@ -1310,17 +1321,25 @@
 <span class="sd">        lead_times : list[timedelta]</span>
 <span class="sd">            list of lead times to fetch data</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">for</span> <span class="n">delta</span> <span class="ow">in</span> <span class="n">lead_times</span><span class="p">:</span>
-            <span class="k">if</span> <span class="ow">not</span> <span class="n">delta</span><span class="o">.</span><span class="n">total_seconds</span><span class="p">()</span> <span class="o">%</span> <span class="mi">3600</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                    <span class="sa">f</span><span class="s2">&quot;Requested lead time </span><span class="si">{</span><span class="n">delta</span><span class="si">}</span><span class="s2"> needs to be 1 hour interval for HRRR&quot;</span>
-                <span class="p">)</span>
-            <span class="n">hours</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">delta</span><span class="o">.</span><span class="n">total_seconds</span><span class="p">()</span> <span class="o">//</span> <span class="mi">3600</span><span class="p">)</span>
-            <span class="c1"># Note, one forecasts every 6 hours have 2 day lead times, others only have 18 hours</span>
-            <span class="k">if</span> <span class="n">hours</span> <span class="o">&gt;</span> <span class="mi">48</span> <span class="ow">or</span> <span class="n">hours</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                    <span class="sa">f</span><span class="s2">&quot;Requested lead time </span><span class="si">{</span><span class="n">delta</span><span class="si">}</span><span class="s2"> can only be between [0,48] hours for HRRR forecast&quot;</span>
-                <span class="p">)</span></div>
+        <span class="k">for</span> <span class="n">time</span> <span class="ow">in</span> <span class="n">times</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">delta</span> <span class="ow">in</span> <span class="n">lead_times</span><span class="p">:</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">delta</span><span class="o">.</span><span class="n">total_seconds</span><span class="p">()</span> <span class="o">%</span> <span class="mi">3600</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                        <span class="sa">f</span><span class="s2">&quot;Requested lead time </span><span class="si">{</span><span class="n">delta</span><span class="si">}</span><span class="s2"> needs to be 1 hour interval for HRRR&quot;</span>
+                    <span class="p">)</span>
+                <span class="n">hours</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">delta</span><span class="o">.</span><span class="n">total_seconds</span><span class="p">()</span> <span class="o">//</span> <span class="mi">3600</span><span class="p">)</span>
+                <span class="c1"># Note, one forecasts every 6 hours have 2 day lead times, others only have 18 hours</span>
+                <span class="k">if</span> <span class="n">hours</span> <span class="o">&gt;</span> <span class="mi">48</span> <span class="ow">or</span> <span class="n">hours</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                        <span class="sa">f</span><span class="s2">&quot;Requested lead time </span><span class="si">{</span><span class="n">delta</span><span class="si">}</span><span class="s2"> can only be between [0,48] hours for HRRR forecast&quot;</span>
+                    <span class="p">)</span>
+                <span class="k">if</span> <span class="p">(</span>
+                    <span class="ow">not</span> <span class="p">(</span><span class="n">time</span> <span class="o">-</span> <span class="n">datetime</span><span class="p">(</span><span class="mi">1900</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span><span class="o">.</span><span class="n">total_seconds</span><span class="p">()</span> <span class="o">%</span> <span class="mi">21600</span> <span class="o">==</span> <span class="mi">0</span>
+                    <span class="ow">and</span> <span class="n">hours</span> <span class="o">&gt;</span> <span class="mi">18</span>
+                <span class="p">):</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                        <span class="sa">f</span><span class="s2">&quot;Requested lead time </span><span class="si">{</span><span class="n">delta</span><span class="si">}</span><span class="s2"> can only be between [0,18] hours for HRRR forecast not on 6 hour interval </span><span class="si">{</span><span class="n">time</span><span class="si">}</span><span class="s2">&quot;</span>
+                    <span class="p">)</span></div>
 
 </pre></div>
 
