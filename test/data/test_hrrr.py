@@ -231,8 +231,9 @@ def test_hrrr_validate_inputs():
 def test_hrrr_fx_validate_leadtime():
     ds = HRRR_FX(cache=False)
     # Test valid lead times
+    times = [datetime(2024, 1, 1)]
     valid_lead_times = [timedelta(hours=1), timedelta(hours=12), timedelta(hours=48)]
-    ds._validate_leadtime(valid_lead_times)
+    ds._validate_leadtime(times, valid_lead_times)
 
     # Test invalid lead times
     invalid_lead_times = [
@@ -242,7 +243,12 @@ def test_hrrr_fx_validate_leadtime():
     ]
     for lt in invalid_lead_times:
         with pytest.raises(ValueError):
-            ds._validate_leadtime([lt])
+            ds._validate_leadtime(times, [lt])
+
+    times = [datetime(2024, 1, 1, 1), datetime(2024, 1, 1, 2), datetime(2024, 1, 1, 3)]
+    for time0 in times:
+        with pytest.raises(ValueError):
+            ds._validate_leadtime([time0], [timedelta(hours=19)])
 
 
 @pytest.mark.timeout(15)
