@@ -16,7 +16,7 @@
 
 __version__ = "0.9.0a0"
 
-# Deprication warnings
+# Deprecation warnings
 import sys
 import warnings
 
