@@ -301,19 +301,6 @@ def initialize_output(
                             f"Variable {v} not found in initialized {k} IO backend"
                         )
 
-                # Modify the inherited time/lead time coords in the io backend to be datetime64/timedelta64
-                # Needed as datetime64/timedelta64 are not supported by Zarr 3.0 yet
-                # https://github.com/zarr-developers/zarr-python/issues/2616
-                # TODO: Remove once fixed
-                if "time" in io_dict[k].coords:
-                    io_dict[k].coords["time"] = np.array(
-                        io_dict[k].coords["time"], dtype="datetime64[ns]"
-                    )
-                if "lead_time" in io_dict[k].coords:
-                    io_dict[k].coords["lead_time"] = np.array(
-                        io_dict[k].coords["lead_time"], dtype="timedelta64[ns]"
-                    )
-
                 # Verify expected coords
                 for c in total_coords.keys():
                     handshake_coords(io_dict[k].coords, total_coords, required_dim=c)

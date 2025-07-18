@@ -67,13 +67,6 @@ def main() -> None:
 
     for var in vars:
         with xr.open_zarr(path) as ds:
-            # Modify the inherited time/lead time coords in the io backend to be datetime64/timedelta64
-            # Needed as datetime64/timedelta64 are not supported by Zarr 3.0 yet
-            # https://github.com/zarr-developers/zarr-python/issues/2616
-            # TODO: Remove once fixed
-            ds["time"] = np.array(ds["time"], dtype="datetime64[ns]")
-            ds["lead_time"] = np.array(ds["lead_time"], dtype="timedelta64[ns]")
-
             # Load forecast data
             fcst = ds[var].isel(time=[0]).sel(lead_time=verif_lead_times)
             fcst_coords = CoordSystem(

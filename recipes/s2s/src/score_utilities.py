@@ -68,20 +68,6 @@ def initialize(cfg: DictConfig) -> tuple[dict, dict, dict, DataSource]:
         m: hydra.utils.instantiate(cfg.scoring.metrics[m]) for m in cfg.scoring.metrics
     }
 
-    for k in io_dict.keys():
-        # Modify the inherited time/lead time coords in the io backend to be datetime64/timedelta64
-        # Needed as datetime64/timedelta64 are not supported by Zarr 3.0 yet
-        # https://github.com/zarr-developers/zarr-python/issues/2616
-        # TODO: Remove once fixed
-        if "time" in io_dict[k].coords:
-            io_dict[k].coords["time"] = np.array(
-                io_dict[k].coords["time"], dtype="datetime64[ns]"
-            )
-        if "lead_time" in io_dict[k].coords:
-            io_dict[k].coords["lead_time"] = np.array(
-                io_dict[k].coords["lead_time"], dtype="timedelta64[ns]"
-            )
-
     # Initialize the IO backend to write scores
     score_io_dict = run_with_rank_ordered_execution(
         prepare_score_io_dict, cfg, io_dict, create_store=(dist.rank == 0)
@@ -166,16 +152,6 @@ def prepare_score_io_dict(
                     raise ValueError(
                         f"Array {a} not found in initialized {k} IO backend"
                     )
-            # Convert time and lead time coords to datetime64 and timedelta64
-            # Needed as datetime64/timedelta64 are not supported by Zarr 3.0 yet
-            # https://github.com/zarr-developers/zarr-python/issues/2616
-            # TODO: Remove once fixed
-            score_io_dict[k].coords["time"] = np.array(
-                score_io_dict[k].coords["time"], dtype="datetime64[ns]"
-            )
-            score_io_dict[k].coords["lead_time"] = np.array(
-                score_io_dict[k].coords["lead_time"], dtype="timedelta64[ns]"
-            )
 
     return score_io_dict
 

@@ -25,6 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   geopotential at surface)
 - test/models/dx/test_corrdiff.py is now test/models/dx/test_corrdiff_taiwan.py
 - Updated APIs for optional dependency managment utils with improved error messages
+- Allow Zarr backends to user datetime and timedelta arrays for Zarr 3.0
 
 ### Deprecated
 

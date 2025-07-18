@@ -408,9 +408,6 @@ class AsyncCachingFileSystem(AsyncFileSystem):
     cache_mapper: AbstractCacheMapper (optional)
         The object use to map from original filenames to cached filenames.
         Only one of this and ``same_names`` should be specified.
-
-    TODO: Move out of package
-    https://github.com/NickGeneva/asyncachefs
     """
 
     protocol: ClassVar[str | tuple[str, ...]] = ("blockcache", "cached")
