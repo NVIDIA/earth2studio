@@ -22,7 +22,6 @@ from typing import TYPE_CHECKING, Any, Union
 import numpy as np
 import torch
 import zarr
-from loguru import logger
 
 # Dealing with zarr 3.0 API breaks and type checking
 try:
@@ -193,20 +192,6 @@ class ZarrBackend:
         for dim, values in adjusted_coords.items():
             if dim not in self.coords:
                 if zarr_major_version >= 3:
-                    # Dates types not supported in zarr 3.0 at the moment
-                    # https://github.com/zarr-developers/zarr-python/issues/2616
-                    # TODO: Remove once fixed
-                    if np.issubdtype(values.dtype, np.datetime64):
-                        logger.warning(
-                            "Datetime64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch"
-                        )
-                        values = values.astype("datetime64[ns]").astype("int64")
-
-                    if np.issubdtype(values.dtype, np.timedelta64):
-                        logger.warning(
-                            "Timedelta64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch"
-                        )
-                        values = values.astype("timedelta64[ns]").astype("int64")
 
                     if "compressors" not in kwargs:
                         kwargs["compressors"] = self.zarr_codecs
@@ -237,20 +222,6 @@ class ZarrBackend:
             if k not in self.root:
                 values = coords[k]
                 if zarr_major_version >= 3:
-                    # Dates types not supported in zarr 3.0 at the moment
-                    # https://github.com/zarr-developers/zarr-python/issues/2616
-                    # TODO: Remove once fixed
-                    if np.issubdtype(values.dtype, np.datetime64):
-                        logger.warning(
-                            "Datetime64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch"
-                        )
-                        values = values.astype("datetime64[ns]").astype("int64")
-
-                    if np.issubdtype(values.dtype, np.timedelta64):
-                        logger.warning(
-                            "Timedelta64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch"
-                        )
-                        values = values.astype("timedelta64[ns]").astype("int64")
 
                     self.root.create_array(
                         k,
