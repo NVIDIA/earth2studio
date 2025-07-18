@@ -25,7 +25,7 @@ from earth2studio.data import IMERG
 
 
 @pytest.mark.slow
-@pytest.mark.xfail
+# @pytest.mark.xfail
 @pytest.mark.timeout(30)
 @pytest.mark.parametrize(
     "time",
