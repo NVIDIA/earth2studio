@@ -371,27 +371,12 @@ class AsyncZarrBackend:
             Scrubbed coordinate system
         """
         for key, value in coords.items():
-            # Dates types not supported in zarr 3.0 at the moment
-            # https://github.com/zarr-developers/zarr-python/issues/2616
-            # TODO: Remove once fixed
             # Handle some datetime conversions for users
             if np.issubdtype(value.dtype, object):
                 if isinstance(value[0], datetime.datetime):
                     value = value.astype("datetime64[ns]")
                 elif isinstance(value[0], datetime.timedelta):
                     value = value.astype("timedelta64[ns]")
-
-            if np.issubdtype(value.dtype, np.datetime64):
-                logger.warning(
-                    "Datetime64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch"
-                )
-                coords[key] = value.astype("datetime64[ns]").astype("int64")
-
-            if np.issubdtype(value.dtype, np.timedelta64):
-                logger.warning(
-                    "Timedelta64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch"
-                )
-                coords[key] = value.astype("timedelta64[ns]").astype("int64")
 
             if len(coords[key].shape) == 0:
                 raise ValueError(
