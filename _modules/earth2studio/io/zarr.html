@@ -442,7 +442,6 @@
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">zarr</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">loguru</span><span class="w"> </span><span class="kn">import</span> <span class="n">logger</span>
 
 <span class="c1"># Dealing with zarr 3.0 API breaks and type checking</span>
 <span class="k">try</span><span class="p">:</span>
@@ -617,20 +616,6 @@
         <span class="k">for</span> <span class="n">dim</span><span class="p">,</span> <span class="n">values</span> <span class="ow">in</span> <span class="n">adjusted_coords</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
             <span class="k">if</span> <span class="n">dim</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">coords</span><span class="p">:</span>
                 <span class="k">if</span> <span class="n">zarr_major_version</span> <span class="o">&gt;=</span> <span class="mi">3</span><span class="p">:</span>
-                    <span class="c1"># Dates types not supported in zarr 3.0 at the moment</span>
-                    <span class="c1"># https://github.com/zarr-developers/zarr-python/issues/2616</span>
-                    <span class="c1"># TODO: Remove once fixed</span>
-                    <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">issubdtype</span><span class="p">(</span><span class="n">values</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">datetime64</span><span class="p">):</span>
-                        <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
-                            <span class="s2">&quot;Datetime64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch&quot;</span>
-                        <span class="p">)</span>
-                        <span class="n">values</span> <span class="o">=</span> <span class="n">values</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="s2">&quot;datetime64[ns]&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="s2">&quot;int64&quot;</span><span class="p">)</span>
-
-                    <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">issubdtype</span><span class="p">(</span><span class="n">values</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">timedelta64</span><span class="p">):</span>
-                        <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
-                            <span class="s2">&quot;Timedelta64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch&quot;</span>
-                        <span class="p">)</span>
-                        <span class="n">values</span> <span class="o">=</span> <span class="n">values</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="s2">&quot;timedelta64[ns]&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="s2">&quot;int64&quot;</span><span class="p">)</span>
 
                     <span class="k">if</span> <span class="s2">&quot;compressors&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">:</span>
                         <span class="n">kwargs</span><span class="p">[</span><span class="s2">&quot;compressors&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">zarr_codecs</span>
@@ -661,20 +646,6 @@
             <span class="k">if</span> <span class="n">k</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">root</span><span class="p">:</span>
                 <span class="n">values</span> <span class="o">=</span> <span class="n">coords</span><span class="p">[</span><span class="n">k</span><span class="p">]</span>
                 <span class="k">if</span> <span class="n">zarr_major_version</span> <span class="o">&gt;=</span> <span class="mi">3</span><span class="p">:</span>
-                    <span class="c1"># Dates types not supported in zarr 3.0 at the moment</span>
-                    <span class="c1"># https://github.com/zarr-developers/zarr-python/issues/2616</span>
-                    <span class="c1"># TODO: Remove once fixed</span>
-                    <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">issubdtype</span><span class="p">(</span><span class="n">values</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">datetime64</span><span class="p">):</span>
-                        <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
-                            <span class="s2">&quot;Datetime64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch&quot;</span>
-                        <span class="p">)</span>
-                        <span class="n">values</span> <span class="o">=</span> <span class="n">values</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="s2">&quot;datetime64[ns]&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="s2">&quot;int64&quot;</span><span class="p">)</span>
-
-                    <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">issubdtype</span><span class="p">(</span><span class="n">values</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">timedelta64</span><span class="p">):</span>
-                        <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
-                            <span class="s2">&quot;Timedelta64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch&quot;</span>
-                        <span class="p">)</span>
-                        <span class="n">values</span> <span class="o">=</span> <span class="n">values</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="s2">&quot;timedelta64[ns]&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="s2">&quot;int64&quot;</span><span class="p">)</span>
 
                     <span class="bp">self</span><span class="o">.</span><span class="n">root</span><span class="o">.</span><span class="n">create_array</span><span class="p">(</span>
                         <span class="n">k</span><span class="p">,</span>
