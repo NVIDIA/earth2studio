@@ -420,7 +420,12 @@ class GFS:
             Dictionary of GFS vairables (byte offset, byte length)
         """
         # Grab index file
-        index_file = await self._fetch_remote_file(index_uri)
+        try:
+            index_file = await self._fetch_remote_file(index_uri)
+        except FileNotFoundError:
+            raise FileNotFoundError(
+                f"The specified data index, {index_uri}, does not exist. Data seems to be missing."
+            )
         with open(index_file) as file:
             index_lines = [line.rstrip() for line in file]
 

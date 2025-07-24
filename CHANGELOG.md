@@ -10,12 +10,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Added GOES (Geostationary Operational Environmental Satellite) data source
 - Async Zarr IO backend with non-blocking write calls
 - Different compression codec support in the ZarrBackend with `zarr_codecs` parameter
 - IO performance example
 - Unified CorrDiff Wrapper
 - Added UV script dependencies to all examples
+- New metrics: Brier score, fractions skill score, log spectral distance, mean absolute error.
+- Option to compute error of ensemble mean in rmse and mae.
 
 ### Changed
 
@@ -24,6 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   geopotential at surface)
 - test/models/dx/test_corrdiff.py is now test/models/dx/test_corrdiff_taiwan.py
 - Updated APIs for optional dependency managment utils with improved error messages
+- Allow Zarr backends to user datetime and timedelta arrays for Zarr 3.0
 
 ### Deprecated
 
@@ -31,9 +33,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Incorrect datetime utc timezone calculation in SFNO wrapper was fixed.
 - DLWP output coords lead_time array to have proper shape
 - Fixed data sources using GCFS throwing error at end of script from aiohttp session
   clean up
+- Fixed HRRR_FX valid lead time check for date times not on 6 hour interval
 
 ### Security
 

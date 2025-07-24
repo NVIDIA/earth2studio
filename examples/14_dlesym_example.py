@@ -78,7 +78,9 @@ from earth2studio.data import ARCO
 from earth2studio.data.utils import fetch_data
 from earth2studio.models.px.dlesym import DLESyM, DLESyMLatLon
 
-device = "cpu" if not torch.cuda.is_available() else "cuda"
+device = "cuda"
+if not torch.cuda.is_available():
+    raise RuntimeError("GPU/CUDA required for DLESyM")
 
 # Create the data source
 data = ARCO()

@@ -21,6 +21,7 @@ import hashlib
 import os
 import pathlib
 import shutil
+import warnings
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
@@ -54,6 +55,9 @@ except ImportError:
 
 logger.remove()
 logger.add(lambda msg: tqdm.write(msg, end=""), colorize=True)
+
+# Silence FutureWarning from cfgrib
+warnings.simplefilter(action="ignore", category=FutureWarning)
 
 
 @dataclass
@@ -518,7 +522,12 @@ class HRRR:
             Dictionary of HRRR vairables (byte offset, byte length)
         """
         # Grab index file
-        index_file = await self._fetch_remote_file(index_uri)
+        try:
+            index_file = await self._fetch_remote_file(index_uri)
+        except FileNotFoundError:
+            raise FileNotFoundError(
+                f"The specified data index, {index_uri}, does not exist. Data seems to be missing."
+            )
         with open(index_file) as file:
             index_lines = [line.rstrip() for line in file]
 
@@ -810,7 +819,7 @@ class HRRR_FX(HRRR):
 
         # Make sure input time is valid
         self._validate_time(time)
-        self._validate_leadtime(lead_time)
+        self._validate_leadtime(time, lead_time)
 
         # https://filesystem-spec.readthedocs.io/en/latest/async.html#using-from-async
         if isinstance(self.fs, s3fs.S3FileSystem):
@@ -862,7 +871,9 @@ class HRRR_FX(HRRR):
         return xr_array
 
     @classmethod
-    def _validate_leadtime(cls, lead_times: list[timedelta]) -> None:
+    def _validate_leadtime(
+        cls, times: list[datetime], lead_times: list[timedelta]
+    ) -> None:
         """Verify if lead time is valid for HRRR based on offline knowledge
 
         Parameters
@@ -870,14 +881,22 @@ class HRRR_FX(HRRR):
         lead_times : list[timedelta]
             list of lead times to fetch data
         """
-        for delta in lead_times:
-            if not delta.total_seconds() % 3600 == 0:
-                raise ValueError(
-                    f"Requested lead time {delta} needs to be 1 hour interval for HRRR"
-                )
-            hours = int(delta.total_seconds() // 3600)
-            # Note, one forecasts every 6 hours have 2 day lead times, others only have 18 hours
-            if hours > 48 or hours < 0:
-                raise ValueError(
-                    f"Requested lead time {delta} can only be between [0,48] hours for HRRR forecast"
-                )
+        for time in times:
+            for delta in lead_times:
+                if not delta.total_seconds() % 3600 == 0:
+                    raise ValueError(
+                        f"Requested lead time {delta} needs to be 1 hour interval for HRRR"
+                    )
+                hours = int(delta.total_seconds() // 3600)
+                # Note, one forecasts every 6 hours have 2 day lead times, others only have 18 hours
+                if hours > 48 or hours < 0:
+                    raise ValueError(
+                        f"Requested lead time {delta} can only be between [0,48] hours for HRRR forecast"
+                    )
+                if (
+                    not (time - datetime(1900, 1, 1)).total_seconds() % 21600 == 0
+                    and hours > 18
+                ):
+                    raise ValueError(
+                        f"Requested lead time {delta} can only be between [0,18] hours for HRRR forecast not on 6 hour interval {time}"
+                    )
