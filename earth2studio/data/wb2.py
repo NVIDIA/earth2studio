@@ -691,3 +691,18 @@ class WB2Climatology(_WB2Base):
         """
         tt = time.timetuple()
         return tt.tm_hour // 6, tt.tm_yday - 1
+
+    @classmethod
+    def _validate_time(cls, times: list[datetime]) -> None:
+        """Verify if date time is valid for WeatherBench 2 climatology.
+
+        Parameters
+        ----------
+        times : list[datetime]
+            list of date times to fetch data
+        """
+        for time in times:
+            if not (time - datetime(1900, 1, 1)).total_seconds() % 21600 == 0:
+                raise ValueError(
+                    f"Requested date time {time} needs to be 6 hour interval for WeatherBench 2 climatology"
+                )
