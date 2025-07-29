@@ -202,6 +202,33 @@ uv add earth2studio --extra fcn
 :::
 ::::
 :::::
+:::::{tab-item} FourCastNet 3
+Notes: Recommended to install [torch-harmonics](https://github.com/NVIDIA/torch-harmonics)
+with CUDA extensions for best performance. [Modulus-Makani](https://github.com/NVIDIA/modulus-makani.git)
+needs to be installed manually.
+
+::::{tab-set}
+:::{tab-item} pip
+
+```bash
+export FORCE_CUDA_EXTENSION=1
+pip install --no-build-isolation torch-harmonics==0.8.0
+pip install "makani @ git+https://github.com/NVIDIA/modulus-makani.git@v0.2.1"
+pip install earth2studio[fcn3]
+```
+
+:::
+:::{tab-item} uv
+
+```bash
+export FORCE_CUDA_EXTENSION=1
+uv add torch-harmonics==0.8.0 --no-build-isolation
+uv add earth2studio --extra fcn3
+```
+
+:::
+::::
+:::::
 :::::{tab-item} FengWu
 Notes: Requires [ONNX GPU Runtime](https://onnxruntime.ai/docs/install/). May need
 manual install depending on CUDA and Python version.
@@ -293,7 +320,7 @@ installed manually.
 :::{tab-item} pip
 
 ```bash
-pip install "makani[all] @ git+https://github.com/NickGeneva/modulus-makani.git@3da09f9e52a6393839d73d44262779ac7279bc2f"
+pip install "makani @ git+https://github.com/NVIDIA/modulus-makani.git@v0.2.1"
 pip install earth2studio[sfno]
 ```
 
