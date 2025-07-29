@@ -13,11 +13,11 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import importlib.util
 import json
 from collections import OrderedDict
 from collections.abc import Generator, Iterator
 from datetime import datetime
-from importlib.utils import find_spec
 
 import numpy as np
 import torch
@@ -120,26 +120,32 @@ VARIABLES = [
 @check_optional_dependencies()
 class FCN3(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     """
+    FourCastNet 3 advances global weather modeling by implementing a scalable,
+    geometric machine learning (ML) approach to probabilistic ensemble forecasting.
+    The approach is designed to respect spherical geometry and to accurately model the
+    spatially correlated probabilistic nature of the problem, resulting in stable
+    spectra and realistic dynamics across multiple scales.
 
-    FourCastNet 3 global probabilisticprognostic model.
-    Consists of a single model with a time-step size of 6 hours.
-    FourCastNet 3 operates on 0.25 degree lat-lon grid (south-pole excluding)
+    FourCastNet 3 is a global probabilistic prognostic model.
+    It operates on a 0.25 degree lat-lon grid (south-pole excluding)
     equirectangular grid with 72 variables.
+
+    Note
+    ----
+    This model requires at least 60 GB of GPU memory to run.
+
+    References
+    ----------
+    - https://arxiv.org/abs/2507.12144v2
+    - https://arxiv.org/abs/2402.16845
+    - https://catalog.ngc.nvidia.com/orgs/nvidia/teams/earth-2/models/fourcastnet3
 
     Parameters
     ----------
     core_model : torch.nn.Module
         Core PyTorch model with loaded weights
-    center : torch.Tensor
-        Model center normalization tensor
-    scale : torch.Tensor
-        Model scale normalization tensor
-    mins : torch.Tensor
-        Model minimum normalization tensor
-    maxs : torch.Tensor
-        Model maximum normalization tensor
     variables : np.array, optional
-        Variables associated with model, by default 73 variable model.
+        Variables associated with model, by default 72 variable model.
     """
 
     def __init__(
@@ -177,6 +183,7 @@ class FCN3(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     @batch_coords()
     def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
         """Output coordinate system of the prognostic model
+
         Parameters
         ----------
         input_coords : CoordSystem
@@ -247,7 +254,9 @@ class FCN3(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             Prognostic model
         """
 
-        _cuda_extension_available = find_spec("disco_cuda_extension") is not None
+        _cuda_extension_available = (
+            importlib.util.find_spec("disco_cuda_extension") is not None
+        )
 
         if not _cuda_extension_available:
             logger.warning(

@@ -27,8 +27,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - test/models/dx/test_corrdiff.py is now test/models/dx/test_corrdiff_taiwan.py
 - Updated APIs for optional dependency managment utils with improved error messages
 - Allow Zarr backends to user datetime and timedelta arrays for Zarr 3.0
-- Changed torch-harmonics to 0.8.0
-- Changed makani to 0.2.1
 
 ### Deprecated
 
@@ -48,6 +46,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Dependencies
 
 - Adding rich to core dependencies
+- Changed torch-harmonics to 0.8.0
+- Changed makani to 0.2.1
 
 ## [0.8.1] - 2025-07-07
 
