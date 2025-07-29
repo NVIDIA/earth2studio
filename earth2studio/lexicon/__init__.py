@@ -17,6 +17,7 @@
 from .arco import ARCOLexicon
 from .cbottle import CBottleLexicon
 from .cds import CDSLexicon
+from .cmip6 import CMIP6Lexicon
 from .gefs import GEFSLexicon, GEFSLexiconSel
 from .gfs import GFSLexicon
 from .goes import GOESLexicon
@@ -25,4 +26,3 @@ from .ifs import IFSLexicon
 from .imerg import IMERGLexicon
 from .ncar import NCAR_ERA5Lexicon
 from .wb2 import WB2ClimatetologyLexicon, WB2Lexicon
-from .cmip6 import CMIP6Lexicon

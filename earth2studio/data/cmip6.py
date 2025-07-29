@@ -14,14 +14,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os
 from datetime import datetime
-from typing import Any
 
-import xarray as xr
-import numpy as np
-from pandas import to_datetime
 import intake_esgf
+import numpy as np
+import xarray as xr
 
 from earth2studio.data.utils import prep_data_inputs
 from earth2studio.lexicon.cmip6 import CMIP6Lexicon
@@ -90,10 +87,8 @@ class CMIP6:
         time, variable = prep_data_inputs(time, variable)
 
         # Convert variable to
-        cmip6_variable_id = set()
-        for v in variable:
-            cmip6_variable_id.add(CMIP6Lexicon[v][0][0])
-        cmip6_variable_id = list(cmip6_variable_id)
+        var_set: set[str] = {CMIP6Lexicon[v][0][0] for v in variable}
+        cmip6_variable_id = list(var_set)
 
         # Search for data
         self.catalog.search(
@@ -106,15 +101,15 @@ class CMIP6:
         dsd = self.catalog.to_dataset_dict(prefer_streaming=True, add_measures=False)
 
         # Assert that we have all the data and no extra dimensions
-        dsd_keys = set(list(dsd.keys()))
-        cmip6_variable_id = set(cmip6_variable_id)
-        if dsd_keys - cmip6_variable_id:
+        dsd_keys: set[str] = set(dsd.keys())
+        cmip6_ids_set = var_set
+        if dsd_keys - cmip6_ids_set:
             raise IndexError(
-                f"Variable(s) {dsd_keys - cmip6_variable_id} not found in CMIP6 dataset"
+                f"Variable(s) {cmip6_ids_set - dsd_keys} not found in CMIP6 dataset"
             )
-        if cmip6_variable_id - dsd_keys:
+        if cmip6_ids_set - dsd_keys:
             raise IndexError(
-                f"Variable(s) {cmip6_variable_id - dsd_keys} not found in CMIP6 dataset"
+                f"Variable(s) {dsd_keys - cmip6_ids_set} not found in CMIP6 dataset"
             )
 
         # Get lat/lon and calendar from first dataset
@@ -126,17 +121,21 @@ class CMIP6:
         time = self._convert_times(time, ds.time.dt.calendar)
 
         # Subset time; rely on xarray's KeyError if a timestamp is missing
-        for k, v in dsd.items():
-            try:
-                dsd[k] = v.sel(time=time)  # type: ignore[arg-type]
-            except KeyError as e:
+        requested_set = set(time)
+        for var_name, ds_var in dsd.items():
+            available_set = set(ds_var.time.values.tolist())  # type: ignore[arg-type]
+            if not requested_set.issubset(available_set):
                 raise ValueError(
-                    f"One or more requested timestamps {time} not found in CMIP6 dataset '{k}'."
-                ) from e
+                    f"One or more requested timestamps {time} not found in CMIP6 dataset '{var_name}'."
+                )
+
+            dsd[var_name] = ds_var.sel(time=time)  # type: ignore[arg-type]
 
         # Make data array
         da = xr.DataArray(
-            data=np.empty((len(time), len(variable), len(lat), len(lon)), dtype=np.float32),
+            data=np.empty(
+                (len(time), len(variable), len(lat), len(lon)), dtype=np.float32
+            ),
             dims=["time", "variable", "lat", "lon"],
             coords={
                 "time": time,
@@ -161,7 +160,9 @@ class CMIP6:
                 # Convert hPa → Pa to match dataset units
                 target_pa = level * 100.0
                 if "plev" not in data_arr.coords:
-                    raise ValueError(f"Variable '{cmip6_var}' expected to have a 'plev' coordinate but none found")
+                    raise ValueError(
+                        f"Variable '{cmip6_var}' expected to have a 'plev' coordinate but none found"
+                    )
 
                 try:
                     data_arr = data_arr.sel(plev=target_pa)
@@ -169,7 +170,8 @@ class CMIP6:
                     available = data_arr.plev.values / 100.0
                     raise ValueError(
                         f"Requested pressure level {level} hPa for variable '{cmip6_var}' not found."
-                        f" Available levels: {available}" ) from e
+                        f" Available levels: {available}"
+                    ) from e
 
             # At this point data_arr dims should be (time, lat, lon)
             # Convert to numpy (trigger load) and apply modifier
@@ -177,12 +179,8 @@ class CMIP6:
 
         return da
 
-    # ------------------------------------------------------------------
-    # Helper utilities ---------------------------------------------------
-    # ------------------------------------------------------------------
-
     @staticmethod
-    def _convert_times(raw_times: list, calendar: str):
+    def _convert_times(raw_times: list, calendar: str) -> list[object]:
         """Convert python/NumPy datetimes to matching ``cftime`` objects.
 
         Parameters
@@ -191,31 +189,32 @@ class CMIP6:
             List of datetime-like objects (``datetime``, ``numpy.datetime64`` or
             already-converted ``cftime`` objects).
         calendar : str
-            CF calendar name present in the dataset (e.g. ``noleap``,
-            ``360_day``).
+            The calendar type of the dataset.
 
         Returns
         -------
-        list
-            List of times converted to the appropriate ``cftime`` class.
+        List of times converted to the appropriate ``cftime`` class.
         """
+        import cftime  # local import
 
-        import cftime  # local import to avoid global hard dependency
-
-        converted = []
+        converted: list[object] = []
         for ts in raw_times:
-            # Already a cftime object – accept as-is
             if ts.__class__.__module__.startswith("cftime"):
                 converted.append(ts)
                 continue
 
-            # Normalize numpy datetime64 to python datetime
             if isinstance(ts, np.datetime64):
                 ts = ts.astype("datetime64[us]").astype(datetime)
 
             if isinstance(ts, datetime):
-                y, m, d, H, Mi, S = ts.year, ts.month, ts.day, ts.hour, ts.minute, ts.second
-
+                y, m, d, H, Mi, S = (
+                    ts.year,
+                    ts.month,
+                    ts.day,
+                    ts.hour,
+                    ts.minute,
+                    ts.second,
+                )
                 if calendar in ("noleap", "365_day"):
                     converted.append(cftime.DatetimeNoLeap(y, m, d, H, Mi, S))
                 elif calendar in ("360_day",):
@@ -226,4 +225,3 @@ class CMIP6:
                 raise TypeError(f"Unsupported time type: {type(ts)}")
 
         return converted
-
