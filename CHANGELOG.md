@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added UV script dependencies to all examples
 - New metrics: Brier score, fractions skill score, log spectral distance, mean absolute error.
 - Option to compute error of ensemble mean in rmse and mae.
+- Added FourCastNet 3 model.
 
 ### Changed
 
@@ -26,6 +27,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - test/models/dx/test_corrdiff.py is now test/models/dx/test_corrdiff_taiwan.py
 - Updated APIs for optional dependency managment utils with improved error messages
 - Allow Zarr backends to user datetime and timedelta arrays for Zarr 3.0
+- Changed torch-harmonics to 0.8.0
+- Changed makani to 0.2.1
 
 ### Deprecated
 
