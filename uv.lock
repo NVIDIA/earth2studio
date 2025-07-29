@@ -359,19 +359,6 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/2d/6a/885bc91484e1aa8f618f6f0228d76d0e67000b0fdd6090673b777e311913/asciitree-0.3.3.tar.gz", hash = "sha256:4aa4b9b649f85e3fcb343363d97564aa1fb62e249677f2e18a96765145cc0f6e", size = 3951, upload-time = "2016-09-05T19:10:42.681Z" }
 
 [[package]]
-name = "astunparse"
-version = "1.6.3"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "six" },
-    { name = "wheel" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/f3/af/4182184d3c338792894f34a62672919db7ca008c89abee9b564dd34d8029/astunparse-1.6.3.tar.gz", hash = "sha256:5ad93a8456f0d084c3456d059fd9a92cce667963232cbf763eac3bc5b7940872", size = 18290, upload-time = "2019-12-22T18:12:13.129Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/2b/03/13dde6512ad7b4557eb792fbcf0c653af6076b81e5941d36ec61f7ce6028/astunparse-1.6.3-py2.py3-none-any.whl", hash = "sha256:c2652417f2c8b5bb325c885ae329bdf3f86424075c4fd1a128674bc6fba4b8e8", size = 12732, upload-time = "2019-12-22T18:12:11.297Z" },
-]
-
-[[package]]
 name = "async-timeout"
 version = "5.0.1"
 source = { registry = "https://pypi.org/simple" }
@@ -1409,10 +1396,8 @@ all = [
     { name = "importlib-metadata" },
     { name = "jax", version = "0.5.3", source = { registry = "https://pypi.org/simple" }, extra = ["cuda12"], marker = "sys_platform == 'linux' or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-aurora-fork') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-corrdiff') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-dlwp') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-fcn') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-precip-afno') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-sfno') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-stormcast')" },
     { name = "jax", version = "0.6.1", source = { registry = "https://pypi.org/simple" }, extra = ["cuda12"], marker = "sys_platform != 'linux' or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-aurora-fork') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-corrdiff') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-dlwp') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-fcn') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-precip-afno') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-sfno') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-stormcast')" },
-    { name = "jsbeautifier" },
-    { name = "makani", extra = ["all"] },
+    { name = "makani" },
     { name = "microsoft-aurora" },
-    { name = "numba" },
     { name = "nvidia-physicsnemo" },
     { name = "nvtx" },
     { name = "omegaconf" },
@@ -1422,8 +1407,6 @@ all = [
     { name = "ruamel-yaml" },
     { name = "scikit-image" },
     { name = "scipy" },
-    { name = "tensorly" },
-    { name = "tensorly-torch" },
     { name = "torch-harmonics" },
 ]
 aurora = [
@@ -1466,6 +1449,11 @@ dlwp = [
 fcn = [
     { name = "nvidia-physicsnemo" },
 ]
+fcn3 = [
+    { name = "makani" },
+    { name = "moviepy" },
+    { name = "ruamel-yaml" },
+]
 fengwu = [
     { name = "onnxruntime-gpu" },
 ]
@@ -1495,14 +1483,9 @@ precip-afno-v2 = [
     { name = "nvidia-physicsnemo" },
 ]
 sfno = [
-    { name = "importlib-metadata" },
-    { name = "jsbeautifier" },
-    { name = "makani", extra = ["all"], marker = "(extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-aurora-fork') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-corrdiff') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-dlwp') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-fcn') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-precip-afno') or (extra != 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-sfno') or (extra == 'extra-12-earth2studio-aurora' and extra != 'extra-12-earth2studio-sfno' and extra == 'extra-12-earth2studio-stormcast') or (extra != 'extra-12-earth2studio-aurora-fork' and extra != 'extra-12-earth2studio-corrdiff' and extra != 'extra-12-earth2studio-dlwp' and extra != 'extra-12-earth2studio-fcn' and extra != 'extra-12-earth2studio-precip-afno' and extra == 'extra-12-earth2studio-sfno')" },
-    { name = "numba" },
+    { name = "makani" },
     { name = "pynvml" },
     { name = "ruamel-yaml" },
-    { name = "tensorly" },
-    { name = "tensorly-torch" },
     { name = "torch-harmonics" },
 ]
 solarradiation-afno = [
@@ -1601,21 +1584,18 @@ requires-dist = [
     { name = "hydra-core", marker = "extra == 'dlesym'", specifier = ">=1.3.2" },
     { name = "importlib-metadata", marker = "extra == 'all'" },
     { name = "importlib-metadata", marker = "extra == 'dlwp'" },
-    { name = "importlib-metadata", marker = "extra == 'sfno'" },
     { name = "jax", extras = ["cuda12"], marker = "extra == 'all'", specifier = ">=0.4.26" },
     { name = "jax", extras = ["cuda12"], marker = "extra == 'graphcast'", specifier = ">=0.4.26" },
-    { name = "jsbeautifier", marker = "extra == 'all'", specifier = ">=1.15.4" },
-    { name = "jsbeautifier", marker = "extra == 'sfno'", specifier = ">=1.15.4" },
     { name = "loguru" },
-    { name = "makani", extras = ["all"], marker = "extra == 'all'", git = "https://github.com/NickGeneva/modulus-makani.git?rev=3da09f9e52a6393839d73d44262779ac7279bc2f" },
-    { name = "makani", extras = ["all"], marker = "extra == 'sfno'", git = "https://github.com/NickGeneva/modulus-makani.git?rev=3da09f9e52a6393839d73d44262779ac7279bc2f" },
+    { name = "makani", marker = "extra == 'all'", git = "https://github.com/NVIDIA/makani.git?rev=17a1e704ddb3cd4d8fb6644d901268b5ea89cfc5" },
+    { name = "makani", marker = "extra == 'fcn3'", git = "https://github.com/NVIDIA/makani.git?rev=17a1e704ddb3cd4d8fb6644d901268b5ea89cfc5" },
+    { name = "makani", marker = "extra == 'sfno'", git = "https://github.com/NVIDIA/makani.git?rev=17a1e704ddb3cd4d8fb6644d901268b5ea89cfc5" },
     { name = "microsoft-aurora", marker = "extra == 'all'", git = "https://github.com/NickGeneva/aurora.git?rev=ab41cf1de67d5dcc723b96fc9a6219e4b548d181" },
     { name = "microsoft-aurora", marker = "extra == 'aurora'", git = "https://github.com/NickGeneva/aurora.git?rev=ab41cf1de67d5dcc723b96fc9a6219e4b548d181" },
     { name = "microsoft-aurora", marker = "extra == 'aurora-fork'", git = "https://github.com/NickGeneva/aurora.git?rev=ab41cf1de67d5dcc723b96fc9a6219e4b548d181" },
+    { name = "moviepy", marker = "extra == 'fcn3'" },
     { name = "nest-asyncio" },
     { name = "netcdf4", specifier = ">=1.6.4" },
-    { name = "numba", marker = "extra == 'all'", specifier = ">=0.61.0" },
-    { name = "numba", marker = "extra == 'sfno'", specifier = ">=0.61.0" },
     { name = "numcodecs", specifier = "<0.15.0" },
     { name = "nvidia-physicsnemo", marker = "extra == 'all'", specifier = ">=1.0.1" },
     { name = "nvidia-physicsnemo", marker = "extra == 'corrdiff'", specifier = ">=1.0.1" },
@@ -1647,6 +1627,7 @@ requires-dist = [
     { name = "python-dotenv" },
     { name = "rich" },
     { name = "ruamel-yaml", marker = "extra == 'all'", specifier = ">=0.18.10" },
+    { name = "ruamel-yaml", marker = "extra == 'fcn3'", specifier = ">=0.18.14" },
     { name = "ruamel-yaml", marker = "extra == 'sfno'", specifier = ">=0.18.10" },
     { name = "s3fs", specifier = ">=2023.5.0" },
     { name = "scikit-image", marker = "extra == 'all'", specifier = ">=0.25.2" },
@@ -1655,20 +1636,17 @@ requires-dist = [
     { name = "scipy", marker = "extra == 'corrdiff'", specifier = ">=1.15.2" },
     { name = "scipy", marker = "extra == 'data'", specifier = ">=1.15.2" },
     { name = "scipy", marker = "extra == 'stormcast'", specifier = ">=1.15.2" },
-    { name = "tensorly", marker = "extra == 'all'", specifier = ">=0.9.0" },
-    { name = "tensorly", marker = "extra == 'sfno'", specifier = ">=0.9.0" },
-    { name = "tensorly-torch", marker = "extra == 'all'", specifier = ">=0.5.0" },
-    { name = "tensorly-torch", marker = "extra == 'sfno'", specifier = ">=0.5.0" },
     { name = "torch", marker = "sys_platform != 'linux'", specifier = ">=2.5.0", index = "https://download.pytorch.org/whl/cpu" },
     { name = "torch", marker = "sys_platform == 'linux'", specifier = ">=2.5.0", index = "https://download.pytorch.org/whl/cu128" },
     { name = "torch-harmonics", marker = "extra == 'all'", specifier = ">=0.7.4" },
+    { name = "torch-harmonics", marker = "extra == 'all'", specifier = ">=0.8.0" },
     { name = "torch-harmonics", marker = "extra == 'perturbation'", specifier = ">=0.7.4" },
-    { name = "torch-harmonics", marker = "extra == 'sfno'", specifier = ">=0.7.4" },
+    { name = "torch-harmonics", marker = "extra == 'sfno'", specifier = ">=0.8.0" },
     { name = "tqdm", specifier = ">=4.65.0" },
     { name = "xarray", extras = ["parallel"], specifier = ">=2023.1.0" },
     { name = "zarr", specifier = ">=2.14.2" },
 ]
-provides-extras = ["aifs", "all", "aurora", "aurora-fork", "cbottle", "climatenet", "corrdiff", "cyclone", "data", "derived", "dlesym", "dlwp", "fcn", "fengwu", "fuxi", "graphcast", "interp-modafno", "pangu", "perturbation", "precip-afno", "precip-afno-v2", "sfno", "solarradiation-afno", "statistics", "stormcast", "windgust-afno"]
+provides-extras = ["aifs", "all", "aurora", "aurora-fork", "cbottle", "climatenet", "corrdiff", "cyclone", "data", "derived", "dlesym", "dlwp", "fcn", "fcn3", "fengwu", "fuxi", "graphcast", "interp-modafno", "pangu", "perturbation", "precip-afno", "precip-afno-v2", "sfno", "solarradiation-afno", "statistics", "stormcast", "windgust-afno"]
 
 [package.metadata.requires-dev]
 build = [
@@ -2173,15 +2151,6 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/00/f7/27f15d41f0ed38e8fcc488584b57e902b331da7f7c6dcda53721b15838fc/fsspec-2025.5.1.tar.gz", hash = "sha256:2e55e47a540b91843b755e83ded97c6e897fa0942b11490113f09e9c443c2475", size = 303033, upload-time = "2025-05-24T12:03:23.792Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/bb/61/78c7b3851add1481b048b5fdc29067397a1784e2910592bc81bb3f608635/fsspec-2025.5.1-py3-none-any.whl", hash = "sha256:24d3a2e663d5fc735ab256263c4075f374a174c3410c0b25e5bd1970bceaa462", size = 199052, upload-time = "2025-05-24T12:03:21.66Z" },
-]
-
-[[package]]
-name = "gast"
-version = "0.6.0"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/3c/14/c566f5ca00c115db7725263408ff952b8ae6d6a4e792ef9c84e77d9af7a1/gast-0.6.0.tar.gz", hash = "sha256:88fc5300d32c7ac6ca7b515310862f71e6fdf2c029bbec7c66c0f5dd47b6b1fb", size = 27708, upload-time = "2024-06-27T20:31:49.527Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/a3/61/8001b38461d751cd1a0c3a6ae84346796a5758123f3ed97a1b121dfbf4f3/gast-0.6.0-py3-none-any.whl", hash = "sha256:52b182313f7330389f72b069ba00f174cfe2a06411099547288839c6cbafbd54", size = 21173, upload-time = "2024-07-09T13:15:15.615Z" },
 ]
 
 [[package]]
@@ -3436,25 +3405,21 @@ wheels = [
 
 [[package]]
 name = "makani"
-version = "0.1.0"
-source = { git = "https://github.com/NickGeneva/modulus-makani.git?rev=3da09f9e52a6393839d73d44262779ac7279bc2f#3da09f9e52a6393839d73d44262779ac7279bc2f" }
+version = "0.2.0"
+source = { git = "https://github.com/NVIDIA/makani.git?rev=17a1e704ddb3cd4d8fb6644d901268b5ea89cfc5#17a1e704ddb3cd4d8fb6644d901268b5ea89cfc5" }
 dependencies = [
+    { name = "h5py" },
+    { name = "importlib-metadata" },
+    { name = "jsbeautifier" },
+    { name = "more-itertools" },
     { name = "numba" },
     { name = "numpy" },
-    { name = "nvidia-dali-cuda110" },
     { name = "nvidia-physicsnemo" },
-    { name = "tensorly" },
-    { name = "tensorly-torch" },
+    { name = "pynvml" },
     { name = "torch", version = "2.7.1", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "sys_platform == 'darwin' or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-aurora-fork') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-corrdiff') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-dlwp') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-fcn') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-precip-afno') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-sfno') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-stormcast')" },
     { name = "torch", version = "2.7.1+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "(sys_platform != 'darwin' and sys_platform != 'linux') or (sys_platform == 'darwin' and extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-aurora-fork') or (sys_platform == 'darwin' and extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-corrdiff') or (sys_platform == 'darwin' and extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-dlwp') or (sys_platform == 'darwin' and extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-fcn') or (sys_platform == 'darwin' and extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-precip-afno') or (sys_platform == 'darwin' and extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-sfno') or (sys_platform == 'darwin' and extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-stormcast') or (sys_platform == 'linux' and extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-aurora-fork') or (sys_platform == 'linux' and extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-corrdiff') or (sys_platform == 'linux' and extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-dlwp') or (sys_platform == 'linux' and extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-fcn') or (sys_platform == 'linux' and extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-precip-afno') or (sys_platform == 'linux' and extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-sfno') or (sys_platform == 'linux' and extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-stormcast')" },
     { name = "torch", version = "2.7.1+cu128", source = { registry = "https://download.pytorch.org/whl/cu128" }, marker = "sys_platform == 'linux' or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-aurora-fork') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-corrdiff') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-dlwp') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-fcn') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-precip-afno') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-sfno') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-stormcast')" },
     { name = "torch-harmonics" },
-]
-
-[package.optional-dependencies]
-all = [
-    { name = "imageio" },
-    { name = "moviepy" },
     { name = "tqdm" },
     { name = "wandb" },
 ]
@@ -4554,20 +4519,6 @@ wheels = [
 ]
 
 [[package]]
-name = "nvidia-dali-cuda110"
-version = "1.50.0"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "astunparse" },
-    { name = "dm-tree" },
-    { name = "gast" },
-    { name = "nvidia-nvimgcodec-cu11", extra = ["all"] },
-    { name = "packaging" },
-    { name = "six" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/4d/39/a395c132948b8e40a3f5bbaae6d2b1db4983dbef1346afa086348139263f/nvidia_dali_cuda110-1.50.0.tar.gz", hash = "sha256:2aab3363e7428eae4ea040fc77a417170ffb5313ee1b352e80dc63190ab63b3c", size = 1607, upload-time = "2025-05-27T17:43:55.142Z" }
-
-[[package]]
 name = "nvidia-ml-py"
 version = "12.575.51"
 source = { registry = "https://pypi.org/simple" }
@@ -4611,34 +4562,6 @@ wheels = [
 ]
 
 [[package]]
-name = "nvidia-nvcomp-cu11"
-version = "4.2.0.14"
-source = { registry = "https://pypi.org/simple" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/33/3b/b2664b92a45be3cade6ca033d743041e593cc510ea6f76ab49c28fc71794/nvidia_nvcomp_cu11-4.2.0.14-py3-none-manylinux_2_28_aarch64.whl", hash = "sha256:84cef688a27d45bf803e54665ee88cc55c3fd9039106d7fee2e2b994a44c0660", size = 30706461, upload-time = "2025-02-21T20:19:37.928Z" },
-    { url = "https://files.pythonhosted.org/packages/4d/9b/d5d42fd00b74b61e8208a53001a8c4af9724114c7a81fe88463fa994522f/nvidia_nvcomp_cu11-4.2.0.14-py3-none-manylinux_2_28_x86_64.whl", hash = "sha256:cd848d3d340156a51da38e1d59d686dd38080666b012d6c01f8c34a3c0a010dd", size = 30888814, upload-time = "2025-02-21T20:21:08.909Z" },
-    { url = "https://files.pythonhosted.org/packages/0a/8e/9d86ce0c7b8ae1a098ce27571c0a81c1ed87ca0a3a304139f5a4900c4c5e/nvidia_nvcomp_cu11-4.2.0.14-py3-none-win_amd64.whl", hash = "sha256:3eab144c3d75e0ae13347de77dea150538a85a662019de8dc65ba6af56c4b734", size = 24172507, upload-time = "2025-02-21T20:22:09.672Z" },
-]
-
-[[package]]
-name = "nvidia-nvimgcodec-cu11"
-version = "0.5.0.13"
-source = { registry = "https://pypi.org/simple" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/58/84/2ed139ffa8961549acf168a554187b3cda9820076d687ede9ed95cd458be/nvidia_nvimgcodec_cu11-0.5.0.13-py3-none-manylinux2014_aarch64.whl", hash = "sha256:0cb46e2032e2ae91afd48ba65b4a990c786927969110119a611859f6022bc417", size = 21191582, upload-time = "2025-03-18T10:39:52.113Z" },
-    { url = "https://files.pythonhosted.org/packages/60/69/d26efdefee269e87c034b229d94bf878ec033fca1b7cd4644395e706cf38/nvidia_nvimgcodec_cu11-0.5.0.13-py3-none-manylinux2014_x86_64.whl", hash = "sha256:d82ccf33921a35d965e975bfcf7f64472c804cb0f734a8fe692d9dca7e1e8643", size = 28158953, upload-time = "2025-03-18T10:41:13.672Z" },
-    { url = "https://files.pythonhosted.org/packages/fd/63/eb8e69306ef771a92d2e668f9ea49645a85e18da433e3733650778951977/nvidia_nvimgcodec_cu11-0.5.0.13-py3-none-win_amd64.whl", hash = "sha256:2b9dd3d3bd05c9432b84e576113e90bc949f356ae9edb24fe46bd8fa4d14a337", size = 35262845, upload-time = "2025-03-18T10:38:48.852Z" },
-]
-
-[package.optional-dependencies]
-all = [
-    { name = "nvidia-nvcomp-cu11" },
-    { name = "nvidia-nvjpeg-cu11" },
-    { name = "nvidia-nvjpeg2k-cu11" },
-    { name = "nvidia-nvtiff-cu11" },
-]
-
-[[package]]
 name = "nvidia-nvjitlink-cu12"
 version = "12.8.61"
 source = { registry = "https://pypi.org/simple" }
@@ -4675,43 +4598,12 @@ wheels = [
 ]
 
 [[package]]
-name = "nvidia-nvjpeg-cu11"
-version = "11.9.0.86"
-source = { registry = "https://pypi.org/simple" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/f2/ae/c107ddeca0a372febb9b2dc8bb6f635776bcb530102f3902ece3b657ad5e/nvidia_nvjpeg_cu11-11.9.0.86-py3-none-manylinux1_x86_64.whl", hash = "sha256:df47fa7ad48694f8ee6eca5c184f1cf916866da1e57516bc0d382f9b2212ca18", size = 2720212, upload-time = "2022-10-03T23:37:36.358Z" },
-    { url = "https://files.pythonhosted.org/packages/f9/be/ae4948ee6ac45b7613d24a1a22916612e27c793376b0397e815b320b629e/nvidia_nvjpeg_cu11-11.9.0.86-py3-none-manylinux2014_aarch64.whl", hash = "sha256:6906152ea0f64b0c61a7d798c413fc738bafa27013fd49f5e1d832642787d32e", size = 2570204, upload-time = "2024-08-17T00:06:35.855Z" },
-    { url = "https://files.pythonhosted.org/packages/cb/6b/05030bce2d6eadd40f44e1be5070056af96213ce73e291ffe25734d50ab1/nvidia_nvjpeg_cu11-11.9.0.86-py3-none-manylinux2014_x86_64.whl", hash = "sha256:124e204cb7520b9ec7456d879ef96f80a7821c3c64b0e6c89d70d84825036b3c", size = 2720217, upload-time = "2024-08-17T00:06:55.554Z" },
-    { url = "https://files.pythonhosted.org/packages/bb/d8/bca32d2c68eada1b38d082f4d4248aecdf383fba9f085bdb027c24696cac/nvidia_nvjpeg_cu11-11.9.0.86-py3-none-win_amd64.whl", hash = "sha256:b47814394f585825bcbb2ad4aba4d8cd8ff24bf5d875c4502cf450d15a3aa0c6", size = 2087853, upload-time = "2022-10-03T23:41:29.071Z" },
-]
-
-[[package]]
-name = "nvidia-nvjpeg2k-cu11"
-version = "0.8.1.40"
-source = { registry = "https://pypi.org/simple" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/4f/85/1daca97fbef54307691dde4bbd94b654a0535d3cdff1cb4a75adecc3f2be/nvidia_nvjpeg2k_cu11-0.8.1.40-py3-none-manylinux2014_aarch64.whl", hash = "sha256:5bc4a20f9b00097cfcbbf6d4905668717db5d381425144b06b9fce957b3a793e", size = 3777617, upload-time = "2024-12-03T19:33:58.926Z" },
-    { url = "https://files.pythonhosted.org/packages/9d/15/88dbe4f0ca93a8e5d381a993f384e7eb929d51476fcc905b848b14a2bcd7/nvidia_nvjpeg2k_cu11-0.8.1.40-py3-none-manylinux2014_x86_64.whl", hash = "sha256:47b5f2f3217b5bf9935d013152df6e0412d11741bfee81419bdb4ad52d68aeb7", size = 3836113, upload-time = "2024-12-03T19:32:51.405Z" },
-    { url = "https://files.pythonhosted.org/packages/13/54/00c1e342def88af39b2fba9364c4fccdde8bb6f19c80a58c53b120edc104/nvidia_nvjpeg2k_cu11-0.8.1.40-py3-none-win_amd64.whl", hash = "sha256:752e86cb7201ca8c2896ed4f09aedf2c39b88fe1d3726b35f96a842b4433d416", size = 3321668, upload-time = "2024-12-03T19:36:16.253Z" },
-]
-
-[[package]]
 name = "nvidia-nvshmem-cu12"
 version = "3.2.5"
 source = { registry = "https://pypi.org/simple" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/14/c6/b8964791afb59207765ddbcfeeda1ad50c134b039e62a3ccfb16808407e0/nvidia_nvshmem_cu12-3.2.5-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl", hash = "sha256:e076957d5cc72e51061a04f2d46f55df477be53e8a55d0d621be08f7aefe1d00", size = 90735383, upload-time = "2025-03-12T20:22:21.333Z" },
     { url = "https://files.pythonhosted.org/packages/11/11/8e5881d502b42b2622dff6990cd3ca0cd1fac305a0a6a00f0ad21eec473d/nvidia_nvshmem_cu12-3.2.5-py3-none-manylinux_2_29_aarch64.whl", hash = "sha256:2f5798d65f1a08f9878aae17cf4d3dcbfe884d1f12cf170556cd40f2be90ca96", size = 90544751, upload-time = "2025-03-12T20:21:47.852Z" },
-]
-
-[[package]]
-name = "nvidia-nvtiff-cu11"
-version = "0.5.0.67"
-source = { registry = "https://pypi.org/simple" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/1a/b2/3b470a42ab20920f40a6138cc345379e412bfee0d58a989fb26bc6b15581/nvidia_nvtiff_cu11-0.5.0.67-py3-none-manylinux2014_aarch64.whl", hash = "sha256:d043962a7c24085a85e93285f314a8c90bdbefef9ed48b74f943c02b3ce3f47e", size = 1579105, upload-time = "2025-02-27T20:17:09.262Z" },
-    { url = "https://files.pythonhosted.org/packages/2e/13/27a18d88ed9001a98c80d3ffb1f0eec7fb77e277b7468421dc37ddebed6f/nvidia_nvtiff_cu11-0.5.0.67-py3-none-manylinux2014_x86_64.whl", hash = "sha256:42881265c130cd62c031c154cfe108e5fb51c515b329dab627c60c46a4cbf764", size = 1638965, upload-time = "2025-02-27T20:19:16.859Z" },
-    { url = "https://files.pythonhosted.org/packages/e5/bd/64066b2d48f93b93bff02482848432ac903774caef394f14fe4541c94c9f/nvidia_nvtiff_cu11-0.5.0.67-py3-none-win_amd64.whl", hash = "sha256:18d8a3256cd26540697979a7d289a7165c8c654af86fcdea3c2777b77f349494", size = 1181729, upload-time = "2025-02-27T20:20:02.735Z" },
 ]
 
 [[package]]
@@ -6776,32 +6668,6 @@ wheels = [
 ]
 
 [[package]]
-name = "tensorly"
-version = "0.9.0"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "numpy" },
-    { name = "scipy" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/57/39/76a859505dc5331cf43baba1fc011e85184c8ad0dbe01e6b01fe0f935ea2/tensorly-0.9.0.tar.gz", hash = "sha256:9b970dde47e2267a17b66a1444113e879c0bb77fb22f497a4207eb2b548ff792", size = 7327121, upload-time = "2024-11-12T14:54:20.504Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/c3/ad/83380fb3c85ddf68c509059cf328374c1878f87382070475abc72867c7ba/tensorly-0.9.0-py3-none-any.whl", hash = "sha256:a393022ff1616a36c021496f46a955d94234d6bc8c42793f477a6be8849f4873", size = 7414316, upload-time = "2024-11-12T14:54:17.431Z" },
-]
-
-[[package]]
-name = "tensorly-torch"
-version = "0.5.0"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "numpy" },
-    { name = "scipy" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/d6/24/afea0adc5c29ae40d28bc359eaf888a1605699fbba690e76ec67c51b055a/tensorly-torch-0.5.0.tar.gz", hash = "sha256:4c2f19f361113ca78f09b504a786075b0f51425468ae997a5f8018d4be6a4db5", size = 43306, upload-time = "2024-06-09T17:36:18.674Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/fb/35/2da451f342ee532bf66507c89ff3cdefc0dfbacff83a2f088811deb2df17/tensorly_torch-0.5.0-py3-none-any.whl", hash = "sha256:6a14cab43bb82892e58940fb75e5c55ec1a550d9063fb722469f93cba449940b", size = 59264, upload-time = "2024-06-09T17:36:16.964Z" },
-]
-
-[[package]]
 name = "tensorstore"
 version = "0.1.75"
 source = { registry = "https://pypi.org/simple" }
@@ -7116,7 +6982,7 @@ wheels = [
 
 [[package]]
 name = "torch-harmonics"
-version = "0.7.4"
+version = "0.8.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "numpy" },
@@ -7124,7 +6990,7 @@ dependencies = [
     { name = "torch", version = "2.7.1+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "(sys_platform != 'darwin' and sys_platform != 'linux') or (sys_platform == 'darwin' and extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-aurora-fork') or (sys_platform == 'darwin' and extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-corrdiff') or (sys_platform == 'darwin' and extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-dlwp') or (sys_platform == 'darwin' and extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-fcn') or (sys_platform == 'darwin' and extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-precip-afno') or (sys_platform == 'darwin' and extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-sfno') or (sys_platform == 'darwin' and extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-stormcast') or (sys_platform == 'linux' and extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-aurora-fork') or (sys_platform == 'linux' and extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-corrdiff') or (sys_platform == 'linux' and extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-dlwp') or (sys_platform == 'linux' and extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-fcn') or (sys_platform == 'linux' and extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-precip-afno') or (sys_platform == 'linux' and extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-sfno') or (sys_platform == 'linux' and extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-stormcast')" },
     { name = "torch", version = "2.7.1+cu128", source = { registry = "https://download.pytorch.org/whl/cu128" }, marker = "sys_platform == 'linux' or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-aurora-fork') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-corrdiff') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-dlwp') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-fcn') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-precip-afno') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-sfno') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-stormcast')" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/82/38/9a198a92d32410d22fdf5896e4e6cc9d9fcaa1b01205197062f3b039aae9/torch_harmonics-0.7.4.tar.gz", hash = "sha256:fa7b7a86ded81600e32b55bd0c3c040a5dfef96849305670b7bb24fb96dda2c7", size = 4702249, upload-time = "2025-01-14T16:22:54.683Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/9f/b5/fb47e55b935c868cce08cc5bb4912e665e5b3e438c76ba54ed3ab205cf77/torch_harmonics-0.8.0.tar.gz", hash = "sha256:b44340184416283a3636640a9050c2187515d6bd9858fa0421b048b66465f773", size = 5844331, upload-time = "2025-07-21T16:48:39.912Z" }
 
 [[package]]
 name = "torchvision"
