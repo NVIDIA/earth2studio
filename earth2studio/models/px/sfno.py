@@ -13,7 +13,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import json
+import fnmatch
 import os
 from collections import OrderedDict
 from collections.abc import Generator, Iterator
@@ -35,10 +35,22 @@ from earth2studio.utils.time import timearray_to_datetime
 from earth2studio.utils.type import CoordSystem
 
 try:
-    from makani.models.model_package import load_model_package
+    from makani.models import model_registry
+    from makani.models.model_package import (
+        LocalPackage,
+        ModelWrapper,
+        load_model_package,
+    )
+    from makani.utils.driver import Driver
+    from makani.utils.YParams import ParamsBase
 except ImportError:
     OptionalDependencyFailure("sfno")
     load_model_package = None
+    Driver = None
+    ParamsBase = None
+    LocalPackage = None
+    model_registry = None
+    ModelWrapper = None
 
 VARIABLES = [
     "u10m",
@@ -148,14 +160,10 @@ class SFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def __init__(
         self,
         core_model: torch.nn.Module,
-        center: torch.Tensor,
-        scale: torch.Tensor,
         variables: np.array = np.array(VARIABLES),
     ):
         super().__init__()
         self.model = core_model
-        self.register_buffer("center", center)
-        self.register_buffer("scale", scale)
         self.variables = variables
         if "2d" in self.variables:
             self.variables[self.variables == "2d"] = "d2m"
@@ -238,7 +246,7 @@ class SFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     @classmethod
     @check_optional_dependencies()
     def load_model(
-        cls, package: Package, variables: list = VARIABLES
+        cls, package: Package, variables: list = VARIABLES, device: str = "cpu"
     ) -> PrognosticModel:
         """Load prognostic from package
 
@@ -254,24 +262,58 @@ class SFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         PrognosticModel
             Prognostic model
         """
-        model = load_model_package(package)
+
+        # Makani load_model_package
+        path = package.resolve("config.json")
+        params = ParamsBase.from_json(path)
+
+        # Set global_means_path and global_stds_path
+        params.global_means_path = package.resolve("global_means.npy")
+        params.global_stds_path = package.resolve("global_stds.npy")
+        params.in_channels = np.arange(len(variables))
+        params.out_channels = np.arange(len(variables))
+
+        LocalPackage._load_static_data(package, params)
+
+        # assume we are not distributed
+        # distributed checkpoints might be saved with different params values
+        params.img_local_offset_x = 0
+        params.img_local_offset_y = 0
+        params.img_local_shape_x = params.img_shape_x
+        params.img_local_shape_y = params.img_shape_y
+
+        # get the model
+        model = model_registry.get_model(params, multistep=False).to(device)
+
+        # Load checkpoint
+        best_checkpoint_path = package.get(LocalPackage.MODEL_PACKAGE_CHECKPOINT_PATH)
+        checkpoint = torch.load(
+            best_checkpoint_path, weights_only=False, map_location=device
+        )
+        state_dict = checkpoint["model_state"]
+        torch.nn.modules.utils.consume_prefix_in_state_dict_if_present(
+            state_dict, "module."
+        )
+
+        # Resize model.blocks filters for some reason
+        keys_to_resize = fnmatch.filter(
+            state_dict.keys(), "model.blocks.*.filter.filter.weight"
+        )
+        for key in keys_to_resize:
+            state_dict[key] = state_dict[key].unsqueeze(0)
+
+        model.load_state_dict(state_dict)
+
+        # Wrap model
+        model = ModelWrapper(model, params=params)
+
+        # Set model to eval mode
         model.eval()
 
         # Load variables
-        config_path = package.get("config.json")
-        with open(config_path) as f:
-            variables = json.load(f)["channel_names"]
+        variables = np.array(model.params.channel_names)
 
-        # Load center and std normalizations
-        local_center = torch.Tensor(np.load(package.resolve("global_means.npy")))[
-            :, : len(variables)
-        ]
-        local_std = torch.Tensor(np.load(package.resolve("global_stds.npy")))[
-            :, : len(variables)
-        ]
-        return cls(
-            model, center=local_center, scale=local_std, variables=np.array(variables)
-        )
+        return cls(model, variables=variables)
 
     @torch.inference_mode()
     def _forward(
@@ -281,7 +323,6 @@ class SFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     ) -> tuple[torch.Tensor, CoordSystem]:
         output_coords = self.output_coords(coords)
         x = x.squeeze(2)
-        x = (x - self.center) / self.scale
         for j, _ in enumerate(coords["batch"]):
             for i, t in enumerate(coords["time"]):
                 # https://github.com/NVIDIA/modulus-makani/blob/933b17d5a1ebfdb0e16e2ebbd7ee78cfccfda9e1/makani/third_party/climt/zenith_angle.py#L197
@@ -290,8 +331,7 @@ class SFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                     datetime.fromisoformat(dt.isoformat() + "+00:00")
                     for dt in timearray_to_datetime(t + coords["lead_time"])
                 ]
-                x[j, i : i + 1] = self.model(x[j, i : i + 1], t)
-        x = self.scale * x + self.center
+                x[j, i : i + 1] = self.model(x[j, i : i + 1], t, normalized_data=False)
         x = x.unsqueeze(2)
         return x, output_coords
 
@@ -353,3 +393,8 @@ class SFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             output data tensor and coordinate system dictionary.
         """
         yield from self._default_generator(x, coords)
+
+
+if __name__ == "__main__":
+    model = SFNO.load_model(SFNO.load_default_package())
+    print(model)

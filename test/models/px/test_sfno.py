@@ -27,7 +27,7 @@ from earth2studio.utils import handshake_dim
 
 
 class PhooSFNOModel(torch.nn.Module):
-    def forward(self, x, t):
+    def forward(self, x, t, normalized_data=True):
         return x
 
 
@@ -48,9 +48,7 @@ def test_sfno_call(time, device):
 
     # Spoof model
     model = PhooSFNOModel()
-    center = torch.zeros(1, 73, 1, 1)
-    scale = torch.ones(1, 73, 1, 1)
-    p = SFNO(model, center, scale).to(device)
+    p = SFNO(model).to(device)
 
     # Create "domain coords"
     dc = {k: p.input_coords()[k] for k in ["lat", "lon"]}
@@ -88,9 +86,7 @@ def test_sfno_iter(ensemble, device):
     time = np.array([np.datetime64("1993-04-05T00:00")])
     # Spoof model
     model = PhooSFNOModel()
-    center = torch.zeros(1, 73, 1, 1)
-    scale = torch.ones(1, 73, 1, 1)
-    p = SFNO(model, center, scale).to(device)
+    p = SFNO(model).to(device)
 
     # Create "domain coords"
     dc = {k: p.input_coords()[k] for k in ["lat", "lon"]}
@@ -141,9 +137,7 @@ def test_sfno_exceptions(dc, device):
     time = np.array([np.datetime64("1993-04-05T00:00")])
     # Spoof model
     model = PhooSFNOModel()
-    center = torch.zeros(1, 73, 1, 1)
-    scale = torch.ones(1, 73, 1, 1)
-    p = SFNO(model, center, scale).to(device)
+    p = SFNO(model).to(device)
 
     # Initialize Data Source
     r = Random(dc)
