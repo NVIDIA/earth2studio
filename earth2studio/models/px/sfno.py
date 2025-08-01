@@ -270,6 +270,15 @@ class SFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         # Set global_means_path and global_stds_path
         params.global_means_path = package.resolve("global_means.npy")
         params.global_stds_path = package.resolve("global_stds.npy")
+        # Need to manually set min and max paths to none.
+        params.min_path = None
+        params.max_path = None
+
+        # Need to manually set in and out channels to all variables.
+        if params.channel_names is None:
+            params.channel_names = variables
+        else:
+            variables = params.channel_names
         params.in_channels = np.arange(len(variables))
         params.out_channels = np.arange(len(variables))
 
@@ -281,6 +290,10 @@ class SFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         params.img_local_offset_y = 0
         params.img_local_shape_x = params.img_shape_x
         params.img_local_shape_y = params.img_shape_y
+
+        # set grid type to sinusoidal without cosine features added in makani 0.2.0
+        if params.get("add_cos_to_grid", None) is None:
+            params.add_cos_to_grid = False
 
         # get the model
         model = model_registry.get_model(params, multistep=False).to(device)

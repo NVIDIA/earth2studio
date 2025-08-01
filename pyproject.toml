@@ -211,7 +211,7 @@ override-dependencies = []
 [tool.uv.sources]
 cbottle = { git = "https://github.com/NVlabs/cBottle.git", rev = "0b8c6787053dc80f14fbb68a54d6815749c9d0e9" }
 earth2grid = { git = "https://github.com/NVlabs/earth2grid.git", rev = "aefb10793aa372bae7d0951d627a89e2983fd0ca" }
-makani = { git = "https://github.com/NVIDIA/makani.git", rev = "17a1e704ddb3cd4d8fb6644d901268b5ea89cfc5"}
+makani = { git = "https://github.com/NVIDIA/makani.git", rev = "49280812513d8f1daf872a2e9343855a6adb3acf"}
 microsoft-aurora = { git = "https://github.com/NickGeneva/aurora.git", rev = "ab41cf1de67d5dcc723b96fc9a6219e4b548d181" }
 graphcast = { git = "https://github.com/deepmind/graphcast.git", rev = "7077d40a36db6541e3ed72ccaed1c0d202fa6014" }
 torch = [
