@@ -48,4 +48,4 @@ def test_cmip6_lexicon(variable, device):
             assert v[0] in ["u", "v", "t", "z", "r", "q", "w"]
             # pressure level matches encoded hPa
             assert isinstance(level, int)
-            assert f"{level}" in v 
+            assert f"{level}" in v

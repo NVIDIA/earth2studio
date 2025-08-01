@@ -434,7 +434,7 @@ class CBottleInfill(torch.nn.Module, AutoModelMixin):
         if "sst" in self.input_coords()["variable"]:
             sst_idx = np.where(self.input_coords()["variable"] == "sst")[0]
             sst_data = x[..., sst_idx, :, :].clone()
-            sst_data = self.input_regridder(sst_data.double()).squeeze()
+            sst_data = self.input_regridder(sst_data.double()).squeeze(0)
         # If not we will use the AMIP SST the model was trained with to condition
         else:
             self._validate_sst_time(time)
@@ -444,6 +444,14 @@ class CBottleInfill(torch.nn.Module, AutoModelMixin):
                 + 273.15
             ).to(self.device_buffer.device)
             sst_data = self.sst_regridder(sst_data)
+            import matplotlib.pyplot as plt
+
+            plt.figure()
+            plt.contourf(sst_data[0, 0, :, :].cpu())
+            plt.colorbar()
+            plt.savefig("sst_debug.jpg")
+            plt.close()
+            exit()
 
         # Regrid in known variables and normalize, the BatchInfo will handle the denorm
         # for all outputs in the call function
