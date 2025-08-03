@@ -26,8 +26,8 @@ from earth2studio.lexicon import CMIP6Lexicon
     "variable",
     [
         ["t2m"],
-        ["u10m", "v200"],
-        ["tcwv", "z500", "q850"],
+        ["u10m", "v100"],
+        ["z500", "q850"],
     ],
 )
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])

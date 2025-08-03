@@ -56,13 +56,13 @@ class CMIP6Lexicon(metaclass=LexiconType):
             "sfcwind": ("sfcWind", -1),  # surface wind speed
             "snc": ("snc", -1),  # snow area fraction
             "snw": ("snw", -1),  # surface snow water equivalent (kg m-2)
+            "sst": ("tos", -1),  # sea surface temperature
             # TODO: The following variables could be in the general CMIP6 lexicon
             # however they are not currently validated. We will leave these commented
             # out for now until they are needed.
             # "d2m": ("tdps", -1),  # surface dew-point temperature
             # "r2m": ("hurs", -1),  # surface relative humidity
             # "sic": ("siconc", -1), # sea ice concentration
-            "sst": ("tos", -1),  # sea surface temperature
             # "sp": ("ps", -1),    # surface pressure
             # "tcwv": ("prw", -1), # total column water vapor
             # "rsut": ("rsut", -1), # outgoing shortwave radiation
@@ -115,7 +115,7 @@ class CMIP6Lexicon(metaclass=LexiconType):
         Returns
         -------
         tuple
-            *(cmip6_variable_id, level_hPa)* and a modifier callable.
+            *((cmip6_variable_id, level_hPa), modifier)*
         """
         cmip6_key = cls.VOCAB[val]
 
