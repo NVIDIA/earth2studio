@@ -23,15 +23,16 @@ import pytest
 
 from earth2studio.data import CMIP6
 
+
 @pytest.mark.slow
 @pytest.mark.xfail
 @pytest.mark.timeout(60)
 @pytest.mark.parametrize(
     "table_id, variable",
     [
-        pytest.param("day",  ["t2m"],            id="atmos_single"),
-        pytest.param("day",  ["u10m", "v10m"],   id="atmos_multi"),
-        pytest.param("Omon", ["sst"],            id="ocean_sst"),
+        pytest.param("day", ["t2m"], id="atmos_single"),
+        pytest.param("day", ["u10m", "v10m"], id="atmos_multi"),
+        pytest.param("Omon", ["sst"], id="ocean_sst"),
     ],
 )
 @pytest.mark.parametrize(
@@ -61,7 +62,8 @@ def test_cmip6_fetch(table_id, variable, time):
 
     assert shape[0] == len(time)
     assert shape[1] == len(variable)
-    assert np.array_equal(data.coords["variable"].values, np.array(variable)) 
+    assert np.array_equal(data.coords["variable"].values, np.array(variable))
+
 
 def test_cmip6_init_valid():
     """CMIP6 initialisation with typical parameters should succeed."""
@@ -78,6 +80,7 @@ def test_cmip6_init_valid():
     assert ds.source_id == "MPI-ESM1-2-LR"
     assert ds.table_id == "Amon"
     assert ds.variant_label == "r1i1p1f1"
+
 
 @pytest.mark.timeout(30)
 @pytest.mark.parametrize(
