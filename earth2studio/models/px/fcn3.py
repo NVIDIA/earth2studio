@@ -299,7 +299,10 @@ class FCN3(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                     datetime.fromisoformat(dt.isoformat() + "+00:00")
                     for dt in timearray_to_datetime(t + coords["lead_time"])
                 ]
-                with torch.autocast(device_type=x.device.type, dtype=torch.bfloat16):
+                with torch.autocast(
+                    device_type=x.device.type,
+                    dtype=torch.bfloat16 if x.device.type == "cuda" else torch.float32,
+                ):
                     x[j, i : i + 1] = self.model(
                         x[j, i : i + 1], t, normalized_data=False, replace_state=True
                     )
