@@ -406,8 +406,3 @@ class SFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             output data tensor and coordinate system dictionary.
         """
         yield from self._default_generator(x, coords)
-
-
-if __name__ == "__main__":
-    model = SFNO.load_model(SFNO.load_default_package())
-    print(model)
