@@ -61,6 +61,7 @@ data = [
     "cdsapi>=0.7.5",
     "eccodes>=2.38.0",
     "ecmwf-opendata>=0.3.3",
+    "intake-esgf>=0.9.4",
     "pyproj>=3.7.1",
     "scipy>=1.15.2",
 ]
