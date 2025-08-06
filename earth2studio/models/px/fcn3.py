@@ -41,6 +41,8 @@ except ImportError:
     OptionalDependencyFailure("fcn3")
     load_model_package = None
 
+_cuda_extension_available = importlib.util.find_spec("disco_cuda_extension") is not None
+
 VARIABLES = [
     "u10m",
     "v10m",
@@ -254,10 +256,6 @@ class FCN3(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             Prognostic model
         """
 
-        _cuda_extension_available = (
-            importlib.util.find_spec("disco_cuda_extension") is not None
-        )
-
         if not _cuda_extension_available:
             logger.warning(
                 "torch-harmonics disco CUDA extension is not available.\n"
@@ -301,7 +299,9 @@ class FCN3(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 ]
                 with torch.autocast(
                     device_type=x.device.type,
-                    dtype=torch.bfloat16 if x.device.type == "cuda" else torch.float32,
+                    dtype=(
+                        torch.bfloat16 if _cuda_extension_available else torch.float32
+                    ),
                 ):
                     x[j, i : i + 1] = self.model(
                         x[j, i : i + 1], t, normalized_data=False, replace_state=True

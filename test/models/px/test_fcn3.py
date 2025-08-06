@@ -163,6 +163,15 @@ def model(model_cache_context) -> FCN3:
 @pytest.mark.ci_cache
 @pytest.mark.timeout(360)
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+def test_fcn3_load_package(device, model):
+    torch.cuda.empty_cache()
+    # Test the cached model package FCN3
+    model.to(device)
+
+
+@pytest.mark.ci_cache
+@pytest.mark.timeout(360)
+@pytest.mark.parametrize("device", ["cuda:0"])
 def test_fcn3_package(device, model):
     torch.cuda.empty_cache()
     time = np.array([np.datetime64("1993-04-05T00:00")])
