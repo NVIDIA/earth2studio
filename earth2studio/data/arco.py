@@ -73,7 +73,7 @@ class ARCO:
     ARCO_LON = np.linspace(0, 359.75, 1440)
 
     def __init__(
-        self, cache: bool = True, verbose: bool = True, async_timeout: int = 600
+        self, cache: bool = True, verbose: bool = True, async_timeout: int = 600, max_concurrent_requests: int = 20
     ):
         # Check Zarr version and use appropriate method
         try:
@@ -85,6 +85,7 @@ class ARCO:
 
         self._cache = cache
         self._verbose = verbose
+        self.max_concurrent_requests = max_concurrent_requests
 
         if self.zarr_major_version >= 3:
             # Check to see if there is a running loop (initialized in async)
@@ -246,12 +247,15 @@ class ARCO:
             },
         )
 
+        # Create semaphore to limit concurrent requests
+        semaphore = asyncio.Semaphore(self.max_concurrent_requests)
+        
         args = [
             (t, i, v, j) for j, v in enumerate(variable) for i, t in enumerate(time)
         ]
-        func_map = map(functools.partial(self.fetch_wrapper, xr_array=xr_array), args)
+        func_map = map(functools.partial(self.fetch_wrapper, xr_array=xr_array, semaphore=semaphore), args)
 
-        # Launch all fetch requests
+        # Launch controlled fetch requests
         await tqdm.gather(
             *func_map, desc="Fetching ARCO data", disable=(not self._verbose)
         )
@@ -261,10 +265,12 @@ class ARCO:
         self,
         e: tuple[datetime, int, str, int],
         xr_array: xr.DataArray,
+        semaphore: asyncio.Semaphore,
     ) -> None:
-        """Small wrapper to pack arrays into the DataArray"""
-        out = await self.fetch_array(e[0], e[2])
-        xr_array[e[1], e[3]] = out
+        """Small wrapper to pack arrays into the DataArray with concurrency control"""
+        async with semaphore:
+            out = await self.fetch_array(e[0], e[2])
+            xr_array[e[1], e[3]] = out
 
     async def fetch_array(self, time: datetime, variable: str) -> np.ndarray:
         """Fetches requested array from remote store
