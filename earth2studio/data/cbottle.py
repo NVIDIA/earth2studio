@@ -211,7 +211,7 @@ class CBottle3D(torch.nn.Module, AutoModelMixin):
             batch["second_of_day"] = second_of_day[start_idx:end_idx]
             batch["day_of_year"] = day_of_year[start_idx:end_idx]
 
-            output, _ = self.core_model.sample(batch, seed=self.seed)
+            output, coords = self.core_model.sample(batch, seed=self.seed)
             output = output[:, varidx]
             outputs.append(output)
 
@@ -224,9 +224,7 @@ class CBottle3D(torch.nn.Module, AutoModelMixin):
             latlon_grid = earth2grid.latlon.equiangular_lat_lon_grid(
                 nlat, nlon, includes_south_pole=True
             )
-            regridder = earth2grid.get_regridder(
-                self.core_model.net.domain._grid, latlon_grid
-            ).to(device)
+            regridder = earth2grid.get_regridder(coords.grid, latlon_grid).to(device)
             field_regridded = regridder(x).squeeze(2)
 
             return xr.DataArray(
