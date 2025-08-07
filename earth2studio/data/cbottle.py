@@ -87,7 +87,8 @@ class CBottle3D(torch.nn.Module, AutoModelMixin):
         Batch size to generate time samples at, consider adjusting based on hardware
         being used, by default 4
     seed : int | None, optional
-        Random generator seed for latent variables, by default None
+        If set, will fix the seed of the random generator for latent variables, by
+        default None
     cache : bool, optional
         Does nothing at the moment, by default False
     verbose : bool, optional
@@ -384,7 +385,8 @@ class CBottle3D(torch.nn.Module, AutoModelMixin):
             Batch size to generate time samples at, consider adjusting based on hardware
             being used, by default 4
         seed : int | None, optional
-            Random generator seed for latent variables, by default None
+            If set, will fix the seed of the random generator for latent variables, by
+            default None
         verbose : bool, optional
             Print generation progress, by default True
 
