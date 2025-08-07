@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added UV script dependencies to all examples
 - New metrics: Brier score, fractions skill score, log spectral distance, mean absolute error.
 - Option to compute error of ensemble mean in rmse and mae.
+- Added FourCastNet 3 model.
 
 ### Changed
 
@@ -45,6 +46,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Dependencies
 
 - Adding rich to core dependencies
+- Changed torch-harmonics to 0.8.0
+- Changed makani to 0.2.1
 
 ## [0.8.1] - 2025-07-07
 
