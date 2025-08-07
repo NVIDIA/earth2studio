@@ -1589,9 +1589,9 @@ requires-dist = [
     { name = "jax", extras = ["cuda12"], marker = "extra == 'all'", specifier = ">=0.4.26" },
     { name = "jax", extras = ["cuda12"], marker = "extra == 'graphcast'", specifier = ">=0.4.26" },
     { name = "loguru" },
-    { name = "makani", marker = "extra == 'all'", git = "https://github.com/NVIDIA/makani.git?rev=17a1e704ddb3cd4d8fb6644d901268b5ea89cfc5" },
-    { name = "makani", marker = "extra == 'fcn3'", git = "https://github.com/NVIDIA/makani.git?rev=17a1e704ddb3cd4d8fb6644d901268b5ea89cfc5" },
-    { name = "makani", marker = "extra == 'sfno'", git = "https://github.com/NVIDIA/makani.git?rev=17a1e704ddb3cd4d8fb6644d901268b5ea89cfc5" },
+    { name = "makani", marker = "extra == 'all'", git = "https://github.com/NVIDIA/makani.git?rev=49280812513d8f1daf872a2e9343855a6adb3acf" },
+    { name = "makani", marker = "extra == 'fcn3'", git = "https://github.com/NVIDIA/makani.git?rev=49280812513d8f1daf872a2e9343855a6adb3acf" },
+    { name = "makani", marker = "extra == 'sfno'", git = "https://github.com/NVIDIA/makani.git?rev=49280812513d8f1daf872a2e9343855a6adb3acf" },
     { name = "microsoft-aurora", marker = "extra == 'all'", git = "https://github.com/NickGeneva/aurora.git?rev=ab41cf1de67d5dcc723b96fc9a6219e4b548d181" },
     { name = "microsoft-aurora", marker = "extra == 'aurora'", git = "https://github.com/NickGeneva/aurora.git?rev=ab41cf1de67d5dcc723b96fc9a6219e4b548d181" },
     { name = "microsoft-aurora", marker = "extra == 'aurora-fork'", git = "https://github.com/NickGeneva/aurora.git?rev=ab41cf1de67d5dcc723b96fc9a6219e4b548d181" },
@@ -3411,7 +3411,7 @@ wheels = [
 [[package]]
 name = "makani"
 version = "0.2.0"
-source = { git = "https://github.com/NVIDIA/makani.git?rev=17a1e704ddb3cd4d8fb6644d901268b5ea89cfc5#17a1e704ddb3cd4d8fb6644d901268b5ea89cfc5" }
+source = { git = "https://github.com/NVIDIA/makani.git?rev=49280812513d8f1daf872a2e9343855a6adb3acf#49280812513d8f1daf872a2e9343855a6adb3acf" }
 dependencies = [
     { name = "h5py" },
     { name = "importlib-metadata" },
@@ -3583,7 +3583,7 @@ wheels = [
 
 [[package]]
 name = "microsoft-aurora"
-version = "0.1.dev55+gab41cf1"
+version = "0.1.dev55+gab41cf1de"
 source = { git = "https://github.com/NickGeneva/aurora.git?rev=ab41cf1de67d5dcc723b96fc9a6219e4b548d181#ab41cf1de67d5dcc723b96fc9a6219e4b548d181" }
 dependencies = [
     { name = "azure-storage-blob" },
