@@ -32,7 +32,7 @@ body:
     attributes:
       label: Version
       description: What version of Earth2Studio are you running?
-      placeholder: "example: 0.8.1"
+      placeholder: "example: 0.9.0"
     validations:
       required: true
 
