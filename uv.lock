@@ -1454,6 +1454,7 @@ fcn3 = [
     { name = "makani" },
     { name = "moviepy" },
     { name = "ruamel-yaml" },
+    { name = "scipy" },
 ]
 fengwu = [
     { name = "onnxruntime-gpu" },
@@ -1488,6 +1489,7 @@ sfno = [
     { name = "moviepy" },
     { name = "pynvml" },
     { name = "ruamel-yaml" },
+    { name = "scipy" },
     { name = "torch-harmonics" },
 ]
 solarradiation-afno = [
@@ -1637,9 +1639,12 @@ requires-dist = [
     { name = "s3fs", specifier = ">=2023.5.0" },
     { name = "scikit-image", marker = "extra == 'all'", specifier = ">=0.25.2" },
     { name = "scikit-image", marker = "extra == 'cyclone'", specifier = ">=0.25.2" },
+    { name = "scipy", marker = "extra == 'all'", specifier = ">=1.10.0" },
     { name = "scipy", marker = "extra == 'all'", specifier = ">=1.15.2" },
     { name = "scipy", marker = "extra == 'corrdiff'", specifier = ">=1.15.2" },
     { name = "scipy", marker = "extra == 'data'", specifier = ">=1.15.2" },
+    { name = "scipy", marker = "extra == 'fcn3'", specifier = ">=1.10.0" },
+    { name = "scipy", marker = "extra == 'sfno'", specifier = ">=1.10.0" },
     { name = "scipy", marker = "extra == 'stormcast'", specifier = ">=1.15.2" },
     { name = "torch", marker = "sys_platform != 'linux'", specifier = ">=2.5.0", index = "https://download.pytorch.org/whl/cpu" },
     { name = "torch", marker = "sys_platform == 'linux'", specifier = ">=2.5.0", index = "https://download.pytorch.org/whl/cu128" },
@@ -3583,7 +3588,7 @@ wheels = [
 
 [[package]]
 name = "microsoft-aurora"
-version = "0.1.dev55+gab41cf1de"
+version = "0.1.dev55+gab41cf1"
 source = { git = "https://github.com/NickGeneva/aurora.git?rev=ab41cf1de67d5dcc723b96fc9a6219e4b548d181#ab41cf1de67d5dcc723b96fc9a6219e4b548d181" }
 dependencies = [
     { name = "azure-storage-blob" },
