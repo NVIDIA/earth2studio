@@ -53,20 +53,11 @@ VARIABLES = np.array(list(CBottleLexicon.VOCAB.keys()))
 
 @check_optional_dependencies()
 class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
-    """Climate in a bottle tropical cyclone guidance diagnostic
-    Climate in a Bottle (cBottle) is an AI model for emulating global km-scale climate
-    simulations and reanalysis on the equal-area HEALPix grid. The cBottle infill
-    diagnostic enables users to generate all variables supported by cBottle from just
-    a subset ontop of existing monthly average sea surface temperatures and solar
-    conditioning. The cBottle infill model uses the a globally-trained coarse-resolution
-    image diffusion model that generates 100km (50k-pixel) fields
-
-    Note
-    ----
-    Unlike other diagnostics that have a fixed input, this diagnostic allows users to
-    specify the input to be any subset of cBottle's output variables.
-    Namely, the model can be adapted to the data present in the inference pipeline and
-    will always generate all output fields based on the information provided.
+    """Climate in a bottle tropical cyclone guidance diagnostic.
+    This model for Climate in a Bottle (cBottle) allows users to provide an cyclone
+    guidance map on a lat-lon grid and synthesis global climate realizations at that
+    given time. The tropical cyclone guidance field is down sampled to a resolution of
+    HPX Level 3, which is then used during the sampling process.
 
     Note
     ----
@@ -79,13 +70,11 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
     Parameters
     ----------
     core_model : torch.nn.Module
-        Core Pytorch model
+        Core Pytorch diffusion model
+    classifier_model : torch.nn.Module
+        Pytorch classifier model
     sst_ds : xr.Dataset
         Sea surface temperature xarray dataset
-    input_variables: list[str] | VariableArray
-        List of input variables that will be provided for conditioning the output
-        generation. Must be a subset of the cBottle output / supported variables.
-        See cBottle lexicon for full list.
     sampler_steps : int, optional
         Number of diffusion steps, by default 18
     sigma_max : float, optional
@@ -104,27 +93,20 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
         core_model: torch.nn.Module,
         classifier_model: torch.nn.Module,
         sst_ds: xr.Dataset,
-        lat_lon: bool = True,
         sampler_steps: int = 18,
         sigma_max: float = 200.0,
         batch_size: int = 4,
         seed: int | None = None,
-        cache: bool = False,
-        verbose: bool = True,
     ):
         super().__init__()
 
         self.sst = sst_ds
-        self.lat_lon = lat_lon
         self.sigma_max = sigma_max
         self.sampler_steps = sampler_steps
         self.batch_size = batch_size
         self.seed = seed
         self._class_model = classifier_model
         self.core_model = CBottle3d(core_model, separate_classifier=classifier_model)
-
-        self._cache = cache
-        self._verbose = verbose
 
         # Set up SST Lat Lon to HPX regridder
         lon_center = self.sst.lon.values
@@ -143,6 +125,8 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
             self.core_model.classifier_grid.lat, self.core_model.classifier_grid.lon
         )
 
+        self.register_buffer("lat_grid", torch.tensor(self.input_coords()["lat"]))
+        self.register_buffer("lon_grid", torch.tensor(self.input_coords()["lon"]))
         # Empty tensor just to make tracking current device easier
         self.register_buffer("device_buffer", torch.empty(0))
 
@@ -281,10 +265,6 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
         torch.Tensor
             guidance pixel array for the classifier model
         """
-        # TODO: Move into constructor
-        lat_grid = torch.tensor(self.input_coords()["lat"]).to(x.device)
-        lon_grid = torch.tensor(self.input_coords()["lon"]).to(x.device)
-
         guidance_data = torch.full(
             (x.shape[0], 1, 1, *self.core_model.classifier_grid.shape),
             torch.nan,
@@ -294,7 +274,7 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
         for batch in range(x.shape[0]):
             idx = torch.nonzero(x[batch])
             idx = self.core_model.classifier_grid.ang2pix(
-                lon_grid[idx[:, 1]], lat_grid[idx[:, 0]]
+                self.lon_grid[idx[:, 1]], self.lat_grid[idx[:, 0]]
             )
             guidance_data[batch, :, :, idx] = 1
 
@@ -441,20 +421,6 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
             "day_of_year": torch.tensor(day_of_year.astype(np.float32)).unsqueeze(1),
         }
         return out
-
-    def _regrid_outputs(self, x: torch.Tensor) -> torch.Tensor:
-        """Regrids output tensor from model as needed (in this case to lat / lon)"""
-        # Convert back into lat lon
-        nlat, nlon = 721, 1440
-        device = self.device_buffer.device
-        latlon_grid = earth2grid.latlon.equiangular_lat_lon_grid(
-            nlat, nlon, includes_south_pole=True
-        )
-        regridder = earth2grid.get_regridder(
-            self.core_model.domain._grid, latlon_grid
-        ).to(device)
-
-        return regridder(x).squeeze().float()
 
     def _validate_sst_time(self, times: list[datetime]) -> None:
         """Verify if date time is valid for use with the default AMIP mid-month SST data
