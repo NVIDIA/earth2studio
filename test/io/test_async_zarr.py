@@ -38,12 +38,13 @@ try:
 except Exception:
     zarr_major_version = 2
 if zarr_major_version < 3:
-    pytest.skip("Zarr version 2 not supported")
+    pytest.skip("Zarr version 2 not supported", allow_module_level=True)
 
 from earth2studio.io import AsyncZarrBackend
 from earth2studio.utils.coords import split_coords
 
 
+@pytest.mark.asyncio
 @pytest.mark.parametrize(
     "time",
     [
