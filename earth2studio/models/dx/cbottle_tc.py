@@ -56,8 +56,8 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
     """Climate in a bottle tropical cyclone guidance diagnostic.
     This model for Climate in a Bottle (cBottle) allows users to provide an cyclone
     guidance map on a lat-lon grid and synthesis global climate realizations at that
-    given time. The tropical cyclone guidance field is down sampled to a resolution of
-    HPX Level 3, which is then used during the sampling process.
+    given time. The tropical cyclone guidance field is regridded to HPX Level 3, which
+    is then used during the sampling process.
 
     Note
     ----
@@ -78,7 +78,7 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
     sampler_steps : int, optional
         Number of diffusion steps, by default 18
     sigma_max : float, optional
-        Noise amplitude used to generate latent variables, by default 80
+        Noise amplitude used to generate latent variables, by default 200
     batch_size : int, optional
         Batch size to generate time samples at, consider adjusting based on hardware
         being used, by default 4
@@ -105,6 +105,7 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
         self.sampler_steps = sampler_steps
         self.batch_size = batch_size
         self.seed = seed
+        self._core_model = core_model
         self._class_model = classifier_model
         self.core_model = CBottle3d(core_model, separate_classifier=classifier_model)
 
@@ -119,10 +120,6 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
         grid = earth2grid.latlon.LatLonGrid(self.sst.lat.values, src_lon)
         self.sst_regridder = grid.get_bilinear_regridder_to(
             self.core_model.output_grid.lat, lon=target_lon
-        )
-
-        self.tc_regridder = grid.get_bilinear_regridder_to(
-            self.core_model.classifier_grid.lat, self.core_model.classifier_grid.lon
         )
 
         self.register_buffer("lat_grid", torch.tensor(self.input_coords()["lat"]))
@@ -251,7 +248,50 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
             seed=seed,
         )
 
-    def _calc_guidance_pixels(self, x: torch.Tensor) -> torch.Tensor:
+    @staticmethod
+    def create_guidance_tensor(
+        lat_coords: torch.Tensor, lon_coords: torch.Tensor
+    ) -> tuple[torch.Tensor, OrderedDict]:
+        """Creates a TC guidance tensor from lat/lon coordinates.
+
+        Parameters
+        ----------
+        lat_coords : torch.Tensor
+            Latitude coordinates where TC guidance should be set
+        lon_coords : torch.Tensor
+            Longitude coordinates where TC guidance should be set
+
+        Returns
+        -------
+        tuple[torch.Tensor, OrderedDict]
+            Tuple containing:
+            - Guidance tensor with shape (1,1,1,721,1440) where values are 1 at the specified coordinates
+            - OrderedDict with coordinate dimensions and values
+        """
+        # Convert any longitudes in -180 to 180 range to 0 to 360 range
+        lon_coords = torch.where(lon_coords < 0, lon_coords + 360, lon_coords)
+
+        lat_grid = np.linspace(90, -90, 721)
+        lon_grid = np.linspace(0, 360, 1440, endpoint=False)
+        guidance = torch.full((1, 1, 1, 721, 1440), 0).float()
+
+        lat_idx = torch.searchsorted(torch.from_numpy(-lat_grid), -lat_coords)
+        lon_idx = torch.searchsorted(torch.from_numpy(lon_grid), lon_coords)
+        guidance[0, 0, 0, lat_idx, lon_idx] = 1
+
+        coords = OrderedDict(
+            {
+                "time": np.empty(0),
+                "lead_time": np.array([timedelta(hours=0)]),
+                "variable": np.array(["tc_guidance"]),
+                "lat": lat_grid,
+                "lon": lon_grid,
+            }
+        )
+
+        return guidance, coords
+
+    def _latlon_guidance_to_hpx(self, x: torch.Tensor) -> torch.Tensor:
         """Calculates HPX guidance pixel IDs
 
         Parameters
@@ -302,9 +342,9 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
         images = input["target"].to(device)
         second_of_day = input["second_of_day"].to(device)
         day_of_year = input["day_of_year"].to(device)
+
         self.core_model.sigma_max = torch.Tensor([self.sigma_max]).to(device)
         self.core_model.num_steps = self.sampler_steps
-
         # Process in batches with progress bar if verbose is enabled
         batch_size = self.batch_size
         n_samples = images.shape[0]
@@ -323,7 +363,7 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
             batch["second_of_day"] = second_of_day[start_idx:end_idx]
             batch["day_of_year"] = day_of_year[start_idx:end_idx]
 
-            indices_where_tc = self._calc_guidance_pixels(x[start_idx:end_idx, 0])
+            indices_where_tc = self._latlon_guidance_to_hpx(x[start_idx:end_idx, 0])
 
             output, coords = self.core_model.sample(
                 batch, guidance_pixels=indices_where_tc, seed=self.seed
