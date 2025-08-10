@@ -92,13 +92,16 @@ class TestCBottleTCMock:
             (torch.tensor([-30.0]), torch.tensor([0.0])),  # Southern hemisphere
         ],
     )
-    def test_create_guidance_tensor(self, lat_coords, lon_coords):
+    @pytest.mark.parametrize(
+        "times", [[datetime(1990, 1, 1)], [datetime(1990, 1, 1), datetime(1990, 1, 2)]]
+    )
+    def test_create_guidance_tensor(self, lat_coords, lon_coords, times):
         """Test guidance tensor creation with different coordinate combinations"""
         guidance, coords = CBottleTCGuidance.create_guidance_tensor(
-            lat_coords, lon_coords
+            lat_coords, lon_coords, times
         )
 
-        assert guidance.shape == (1, 1, 1, 721, 1440)
+        assert guidance.shape == (1, len(times), 1, 721, 1440)
         assert guidance.dtype == torch.float32
         assert torch.sum(guidance) == len(lat_coords)  # One point per coordinate pair
 
@@ -117,6 +120,10 @@ class TestCBottleTCMock:
                 torch.zeros(1, 2, 1, 1, 721, 1440),
                 np.array([datetime(2000, 1, 2, 3, 4, 5), datetime(1980, 8, 1)]),
             ),
+            (
+                torch.zeros(2, 2, 1, 1, 721, 1440),
+                np.array([datetime(2000, 1, 2, 3, 4, 5), datetime(1980, 8, 1)]),
+            ),
         ],
     )
     @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
@@ -127,6 +134,7 @@ class TestCBottleTCMock:
             device
         )
         dx.sampler_steps = 2  # Speed up sampler
+        dx.batch_size = 2
 
         coords = OrderedDict(
             {
@@ -173,19 +181,49 @@ class TestCBottleTCMock:
             dx._validate_sst_time(invalid_times)
 
 
-# @patch('earth2studio.models.dx.cbottle_tc.check_optional_dependencies')
-# def test_optional_dependencies_missing(mock_check):
-#     """Test behavior when optional dependencies are missing"""
-#     mock_check.side_effect = Exception("cbottle not available")
+@pytest.mark.ci_cache
+@pytest.mark.slow
+@pytest.mark.timeout(30)
+@pytest.mark.parametrize("device", ["cuda:0"])
+def test_cbottle_tc_package(device, model_cache_context):
+    # Test the cached model package
+    # Only cuda used here to speed things up, but CPU also works
+    with model_cache_context():
+        package = CBottleTCGuidance.load_default_package()
+        dx = CBottleTCGuidance.load_model(package.to(device))
 
-#     with pytest.raises(Exception, match="cbottle not available"):
-#         CBottleTCGuidance.load_model(MagicMock())
+    # Guidance over florida
+    lat = 27
+    lon = -82
+    time = np.array([datetime(2000, 8, 9, 10), datetime(2005, 10, 11, 12)])
+    guidance, coords = CBottleTCGuidance.create_guidance_tensor(
+        torch.tensor([lat]),
+        torch.tensor([lon]),
+        time,
+    )
+    guidance = guidance.to(device)
 
+    out, out_coords = dx(guidance, coords)
+    assert out.shape == torch.Size(
+        [
+            1,
+            out_coords["time"].shape[0],
+            out_coords["lead_time"].shape[0],
+            out_coords["variable"].shape[0],
+            721,
+            1440,
+        ]
+    )
+    assert np.all(out_coords["variable"] == dx.output_coords(coords)["variable"])
+    assert np.all(out_coords["time"] == time)
+    handshake_dim(out_coords, "lon", -1)
+    handshake_dim(out_coords, "lat", -2)
+    handshake_dim(out_coords, "variable", -3)
+    handshake_dim(out_coords, "lead_time", -4)
+    handshake_dim(out_coords, "time", -5)
 
-# def test_load_default_package():
-#     """Test default package loading"""
-#     package = CBottleTCGuidance.load_default_package()
-
-#     assert package.uri == "ngc://models/nvidia/earth-2/cbottle@1.2"
-#     assert "cache_storage" in package.cache_options
-#     assert "same_names" in package.cache_options
+    # For a physical sanity check, see if tcwv is high at the guidance location
+    vidx = np.where(out_coords["variable"] == "tcwv")[0]
+    lat_idx = 4 * (90 - lat)
+    lon_idx = 4 * (360 + lon)
+    assert (out[:, :, :, vidx, lat_idx, lon_idx] >= 70).all()

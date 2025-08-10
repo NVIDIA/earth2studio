@@ -33,7 +33,8 @@ from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
 )
-from earth2studio.utils.type import CoordSystem
+from earth2studio.utils.time import to_time_array
+from earth2studio.utils.type import CoordSystem, TimeArray
 
 try:
     import earth2grid
@@ -250,7 +251,9 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
 
     @staticmethod
     def create_guidance_tensor(
-        lat_coords: torch.Tensor, lon_coords: torch.Tensor
+        lat_coords: torch.Tensor,
+        lon_coords: torch.Tensor,
+        times: list[datetime] | TimeArray,
     ) -> tuple[torch.Tensor, OrderedDict]:
         """Creates a TC guidance tensor from lat/lon coordinates.
 
@@ -260,20 +263,25 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
             Latitude coordinates where TC guidance should be set
         lon_coords : torch.Tensor
             Longitude coordinates where TC guidance should be set
+        times: list[datetime] | TimeArray
+            List of datetime objects or numpy datetime64 array specifying the times for
+            the guidance tensor's coordinate system
 
         Returns
         -------
         tuple[torch.Tensor, OrderedDict]
             Tuple containing:
-            - Guidance tensor with shape (1,1,1,721,1440) where values are 1 at the specified coordinates
+            - Guidance tensor with shape (1,n,1,721,1440) where values are 1 at the
+                specified coordinates
             - OrderedDict with coordinate dimensions and values
         """
+        times = to_time_array(times)
         # Convert any longitudes in -180 to 180 range to 0 to 360 range
         lon_coords = torch.where(lon_coords < 0, lon_coords + 360, lon_coords)
 
         lat_grid = np.linspace(90, -90, 721)
         lon_grid = np.linspace(0, 360, 1440, endpoint=False)
-        guidance = torch.full((1, 1, 1, 721, 1440), 0).float()
+        guidance = torch.full((1, times.shape[0], 1, 721, 1440), 0).float()
 
         lat_idx = torch.searchsorted(torch.from_numpy(-lat_grid), -lat_coords)
         lon_idx = torch.searchsorted(torch.from_numpy(lon_grid), lon_coords)
@@ -281,7 +289,7 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
 
         coords = OrderedDict(
             {
-                "time": np.empty(0),
+                "time": times,
                 "lead_time": np.array([timedelta(hours=0)]),
                 "variable": np.array(["tc_guidance"]),
                 "lat": lat_grid,
@@ -329,12 +337,13 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
         """Forward pass of diagnostic"""
         output_coords = self.output_coords(coords)
 
-        time = output_coords["time"][:, None]
-        lead = output_coords["lead_time"][None, :]
-        time = [pd.to_datetime(t) for t in (time + lead).reshape(-1)]
+        n_batch = x.shape[0]
+        times = output_coords["time"][:, None]
+        leads = output_coords["lead_time"][None, :]
+        times = n_batch * [pd.to_datetime(t) for t in (times + leads).reshape(-1)]
         x = x.reshape(-1, x.shape[-3], x.shape[-2], x.shape[-1])
 
-        input = self.get_cbottle_input(time)
+        input = self.get_cbottle_input(times)
 
         device = self.device_buffer.device
         condition = input["condition"].to(device)
@@ -346,14 +355,13 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
         self.core_model.sigma_max = torch.Tensor([self.sigma_max]).to(device)
         self.core_model.num_steps = self.sampler_steps
         # Process in batches with progress bar if verbose is enabled
-        batch_size = self.batch_size
-        n_samples = images.shape[0]
-        n_batches = x.shape[0] // batch_size + 1
+        n_samples = len(times)
+        n_batches = (n_samples + self.batch_size - 1) // self.batch_size
 
         outputs = []
         for i in range(n_batches):
-            start_idx = i * batch_size
-            end_idx = min((i + 1) * batch_size, n_samples)
+            start_idx = i * self.batch_size
+            end_idx = min((i + 1) * self.batch_size, n_samples)
 
             # Get batch slices
             batch = {}
@@ -364,7 +372,6 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
             batch["day_of_year"] = day_of_year[start_idx:end_idx]
 
             indices_where_tc = self._latlon_guidance_to_hpx(x[start_idx:end_idx, 0])
-
             output, coords = self.core_model.sample(
                 batch, guidance_pixels=indices_where_tc, seed=self.seed
             )
@@ -394,6 +401,7 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
     def get_cbottle_input(
         self,
         times: list[datetime],
+        n_batch: int = 1,
         label: int = 1,  # 0 for ICON, 1 for ERA5
     ) -> dict[str, torch.Tensor]:
         """Prepares the CBottle inputs
