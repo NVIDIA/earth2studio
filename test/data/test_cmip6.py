@@ -31,7 +31,7 @@ from earth2studio.data import CMIP6
     "table_id, variable",
     [
         pytest.param("day", ["t2m"], id="atmos_single"),
-        pytest.param("day", ["u10m", "v10m"], id="atmos_multi"),
+        pytest.param("day", ["u10m", "v10m", "t500"], id="atmos_multi"),
         pytest.param("Omon", ["sst"], id="ocean_sst"),
     ],
 )
@@ -42,6 +42,10 @@ from earth2studio.data import CMIP6
         pytest.param(
             [datetime(2015, 1, 15), datetime(2015, 1, 17)],
             id="two_stamps",
+        ),
+        pytest.param(
+            datetime(2014, 1, 15),
+            id="non_matching_timespan",
         ),
     ],
 )

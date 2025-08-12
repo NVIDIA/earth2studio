@@ -15,13 +15,13 @@
 # limitations under the License.
 
 import warnings
-from collections.abc import Callable
 from datetime import datetime
 from typing import Union, cast
 
 import cftime
 import numpy as np
 import xarray as xr
+from tqdm.auto import tqdm
 
 # Project-level imports come after stdlib/third-party
 from earth2studio.utils.imports import (
@@ -96,6 +96,7 @@ class CMIP6:
         variant_label: str,
         file_start: str = None,
         file_end: str = None,
+        verbose: bool = True,
     ):
         self.experiment_id = experiment_id
         self.source_id = source_id
@@ -103,6 +104,7 @@ class CMIP6:
         self.variant_label = variant_label
         self.file_start = file_start
         self.file_end = file_end
+        self._verbose = verbose
 
         # Create catalog
         self.catalog = intake_esgf.ESGFCatalog()
@@ -207,8 +209,8 @@ class CMIP6:
         # Find the nearest available times in the first dataset.
         time = self._convert_times_to_cftime(time, ds.time.dt.calendar)
         ds_nearest = ds.sel(time=time, method="nearest")  # type: ignore[arg-type]
-        selected_times = ds_nearest.time.values.tolist()
-        if any(t_req != t_sel for t_req, t_sel in zip(time, selected_times)):
+        selected_times = ds_nearest.time.values
+        if np.any(np.asarray(time, dtype=selected_times.dtype) != selected_times):
             warnings.warn(
                 "One or more requested timestamps were not found exactly in the CMIP6 dataset; "
                 "nearest available snapshots have been substituted.",
@@ -232,13 +234,17 @@ class CMIP6:
         )
 
         # Populate the array
-        for var_idx, var in enumerate(variable):
+        for var_idx, var in enumerate(
+            tqdm(
+                variable,
+                total=len(variable),
+                desc="Fetching CMIP6 variables",
+                disable=(not self._verbose),
+            )
+        ):
 
             # Get variable, level, and modifier
-            EntryT = tuple[
-                tuple[str, int], Callable[[np.ndarray], np.ndarray]
-            ]  # NOTE: I couldn't figure out hot to fix the ruff error on this so just added this type hint
-            cmip6_entry = cast(EntryT, CMIP6Lexicon.get_item(var))
+            cmip6_entry = CMIP6Lexicon.get_item(var)
             (cmip6_var, level), modifier = cmip6_entry
 
             # Get data array
@@ -285,22 +291,20 @@ class CMIP6:
         time : datetime | np.datetime64
             Timestamp to test (UTC).
         experiment_id : str
-            CMIP6 experiment identifier (e.g. ``"historical"``, ``"ssp585"``).
+            CMIP6 experiment identifier (e.g. "historical", "ssp585").
         source_id : str
-            CMIP6 model identifier (e.g. ``"MPI-ESM1-2-LR"``).
+            CMIP6 model identifier (e.g. "MPI-ESM1-2-LR").
         table_id : str
-            CMOR table describing variable realm/frequency (``"Amon"``,
-            ``"Omon"``, ``"SImon"`` …).
+            CMOR table describing variable realm/frequency ("Amon", "Omon", "SImon" ...).
         variant_label : str
-            Ensemble member / initial-condition label such as
-            ``"r1i1p1f1"``.
+            Ensemble member / initial-condition label such as "r1i1p1f1".
 
         Notes
         -----
         The check performs a lightweight ESGF search restricted to a one-day
         window surrounding *time*.  If any dataset is returned and the target
-        timestamp lies within the dataset’s time span, ``True`` is returned.
-        Otherwise returns ``False``.
+        timestamp lies within the dataset's time span, `True` is returned.
+        Otherwise returns `False`.
         """
 
         if isinstance(time, np.datetime64):  # np.datetime64 → datetime

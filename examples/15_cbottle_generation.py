@@ -54,7 +54,7 @@ In this example you will learn:
 # Thus, we need the following:
 #
 # - Datasource: Generate data from the CBottle3D data api :py:class:`earth2studio.data.CBottle3D`.
-# - Datasource: Pull data from the WeatherBench2 data api :py:class:`earth2studio.data.WB2ERA5`.
+# - Datasource: Pull data from a CMIP6 model via :py:class:`earth2studio.data.CMIP6`.
 # - Diagnostic Model: Use the built in CBottle Infill Model :py:class:`earth2studio.models.dx.CBottleInfill`.
 
 # %%
@@ -65,191 +65,177 @@ from dotenv import load_dotenv
 
 load_dotenv()  # TODO: make common example prep function
 
-import torch
-
-from earth2studio.data import WB2ERA5, CBottle3D
-from earth2studio.models.dx import CBottleInfill
-
-# Load the default model package which downloads the check point from NGC
-package = CBottle3D.load_default_package()
-cbottle_ds = CBottle3D.load_model(package)
-# This is an AI data source, so also move it to device
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-cbottle_ds = cbottle_ds.to(device)
-
-# Create the ground truth data source
-era5_ds = WB2ERA5()
-
-# %%
-# Generating Synthetic Weather Data
-# ---------------------------------
-# Once loaded, generating data from cBottle is as easy as any other data source.
-# Under the hood the model is conditioned on the timestamp requested as well as a
-# mid-month SST field which is internally handle for users but limits the range of the
-# data source to years between 1970 and 2022.
-#
-# Note that this diffusion model is stochastic, so querying the same timestamp will
-# generate different fields that are reflective of the requested time and SST state.
-# One can use `set_seed` for reproducibility.
-
-# %%
-
 from datetime import datetime
 
-n_samples = 5
-timestamp = datetime(2022, 9, 5)
-
-# Fetch the ground truth
-era5_da = era5_ds([timestamp], ["msl", "tcwv"])
-# Generate some samples from cBottle
-cbottle_da = cbottle_ds([timestamp for i in range(n_samples)], ["msl", "tcwv"])
-
-print(era5_da)
-print(cbottle_da)
-
-# %%
-# Post Processing CBottle Data
-# ----------------------------
-# Let's visualize this data to better understand what the cBottle data source is able to
-# provide.
-# It is clear that each sample is indeed unique, yet remains physically realizable.
-# In other words the cBottle data source can be used to create climates that
-# do not exist but could based on the conditional distribution learned from the training
-# data.
-
-# %%
 import cartopy.crs as ccrs
 import matplotlib.pyplot as plt
-
-variable = "tcwv"
-
-plt.close("all")
-projection = ccrs.Orthographic(central_longitude=300.0)
-
-# Create a figure and axes with the specified projection
-fig, ax = plt.subplots(2, 3, subplot_kw={"projection": projection}, figsize=(11, 6))
-ax = ax.flatten()
-
-ax[0].pcolormesh(
-    era5_da.coords["lon"],
-    era5_da.coords["lat"],
-    era5_da.sel(variable=variable).isel(time=0),
-    transform=ccrs.PlateCarree(),
-    cmap="cubehelix",
-)
-ax[0].set_title("ERA5")
-
-for i in range(n_samples):
-    ax[i + 1].pcolormesh(
-        cbottle_da.coords["lon"],
-        cbottle_da.coords["lat"],
-        cbottle_da.sel(variable=variable).isel(time=i),
-        transform=ccrs.PlateCarree(),
-        cmap="cubehelix",
-        vmin=0,
-        vmax=90,
-    )
-    ax[i + 1].set_title(f"CBottle Sample {i}")
-
-for ax0 in ax:
-    ax0.coastlines()
-    ax0.gridlines()
-
-plt.tight_layout()
-plt.savefig("outputs/12_tcwv_cbottle_datasource.jpg")
-
-# %%
-# Variable Infilling with CBottleInfill Diagnostic
-# ------------------------------------------------
-# Next lets look at using the same model but for variable infilling.
-# CBottleInfill allows users to generate global weather fields like the data source but
-# condition it on a set of input fields that can be configured.
-# This means that this diagnostic is extremely flexible and can be used with all types
-# of data sources and models.
-#
-# To demonstrate this lets consider two instances of the infilling diagnostic with a
-# different set of inputs and then compare the resulting infilled variables.
-# Note that the outputs of both configurations are the same size with the same
-# variables.
-
-# %%
 import numpy as np
+import torch
 
+from earth2studio.data import ARCO, CMIP6
 from earth2studio.data.utils import fetch_data
+from earth2studio.models.dx import CBottleInfill
+
+# Device setup
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+# Ground-truth data source (CMIP6 CanESM5, SSP585, daily table)
+cmip6_ds_atmos = CMIP6(
+    experiment_id="ssp585",
+    source_id="CanESM5",
+    table_id="day",
+    variant_label="r1i1p2f1",
+)
+cmip6_ds_ocean = CMIP6(
+    experiment_id="ssp585",
+    source_id="CanESM5",
+    table_id="Omon",
+    variant_label="r1i1p2f1",
+)
+
+# ERA5 ARCO datasource for reference plots
+arco_ds = ARCO(cache=False, verbose=False)
 
 # Input variables
 input_variables = ["u10m", "v10m"]
+timestamp = datetime(2015, 1, 15, 12)
+n_samples = 1
 
 # Load the default model package which downloads the check point from NGC
 package = CBottleInfill.load_default_package()
-model = CBottleInfill.load_model(package, input_variables=input_variables)
+model = CBottleInfill.load_model(package, input_variables=input_variables + ["sst"])
+# model = CBottleInfill.load_model(package, input_variables=input_variables)
 model = model.to(device)
+
+# Build target interpolation grid based on the model coordinates
+lat_1d = model.input_coords()["lat"]
+lon_1d = model.input_coords()["lon"]
+_lat, _lon = np.meshgrid(lat_1d, lon_1d, indexing="ij")
+interp_grid = {"_lat": _lat, "_lon": _lon}
 
 model.set_seed(0)
 torch.manual_seed(0)
 torch.cuda.manual_seed(0)
 
+# Prepare conditioning data
 times = np.array([timestamp] * n_samples, dtype="datetime64[ns]")
-x, coords = fetch_data(era5_ds, times, input_variables, device=device)
-output_0, output_coords = model(x, coords)
-print(output_0.shape)
+x_atmos, coords_atmos = fetch_data(
+    cmip6_ds_atmos,
+    times,
+    input_variables,
+    device=device,
+    interp_to=interp_grid,
+    interp_method="linear",
+)
+x_ocean, coords_ocean = fetch_data(
+    cmip6_ds_ocean,
+    times,
+    ["sst"],
+    device=device,
+    interp_to=interp_grid,
+    interp_method="linear",
+)
 
-# %%
-# Now repeat the process above but with an expanded set of variables.
-# In this instance we provide a lot more data to the model to condition it with more
-# information.
+# ------------------------------------------------------------------
+# Clean NaNs in SST: nearest-neighbour fill along longitude (dim = -1)
+# ------------------------------------------------------------------
 
-# %%
-input_variables = [
-    "u10m",
-    "v10m",
-    "t2m",
-    "msl",
-    "z50",
-    "u50",
-    "v50",
-    "z500",
-    "u500",
-    "v500",
-    "z1000",
-    "u1000",
-    "v1000",
-]
 
-# Load the default model package which downloads the check point from NGC
-package = CBottleInfill.load_default_package()
-model = CBottleInfill.load_model(package, input_variables=input_variables)
-model = model.to(device)
+def _fill_nan_nearest(x: torch.Tensor, dim: int = -1) -> torch.Tensor:
+    """Fill NaNs by nearest neighbour along a single dimension.
 
-model.set_seed(0)
-torch.manual_seed(0)
-torch.cuda.manual_seed(0)
+    1. Forward-fill to get value/distance to previous valid sample.
+    2. Back-fill (using reversed tensor) to get next valid sample.
+    3. Pick whichever of the two is closer.  If one side is missing
+       (row begins/ends with NaNs) fall back to the other side.
+    """
 
-x, coords = fetch_data(era5_ds, times, input_variables, device=device)
-output_1, output_coords = model(x, coords)
-print(output_1.shape)
+    if not torch.isnan(x).any():
+        return x
 
-# %%
-# Post Processing CBottleInfill
-# -----------------------------
-# To post process the results, we take a look at a infilled variable, total column water
-# vapour.
-# Compared to the samples from the CBottle3D, the results are much more aligned with
-# the ground truth since the infill model is sampling a conditional distribution.
-# Additionally, the model provided more variables is better aligned with the ground
-# truth due the additional information provided.
+    # Helper: forward fill (propagate last valid value) *and* return index of that value
+    def _forward_fill(t: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+        nan = torch.isnan(t)
+        idx = torch.arange(t.shape[dim], device=t.device)
+        view = [1] * t.ndim
+        view[dim] = -1
+        idx = idx.view(view).expand_as(t)
+        idx = idx.masked_fill(nan, 0)
+        last_idx = torch.cummax(idx, dim=dim).values
+        filled = torch.take_along_dim(t, last_idx, dim=dim)
+        return filled, last_idx
 
-# %%
+    # forward & backward (reverse) fills
+    fwd_val, fwd_idx = _forward_fill(x)
+    rev_val, rev_idx = _forward_fill(torch.flip(x, [dim]))
+    bwd_val = torch.flip(rev_val, [dim])
+    bwd_idx = x.shape[dim] - 1 - torch.flip(rev_idx, [dim])
 
+    # Current index tensor for distance calculation
+    idx = torch.arange(x.shape[dim], device=x.device)
+    view = [1] * x.ndim
+    view[dim] = -1
+    idx = idx.view(view).expand_as(x)
+
+    dist_prev = idx - fwd_idx
+    dist_next = bwd_idx - idx
+
+    # Conditions: choose nearer valid; if one side NaN use the other.
+    use_prev = (torch.isnan(bwd_val)) | (
+        ~torch.isnan(fwd_val) & (dist_prev <= dist_next)
+    )
+
+    filled = torch.where(use_prev, fwd_val, bwd_val)
+
+    return torch.where(torch.isnan(x), filled, x)
+
+
+# Apply filling
+x_ocean = _fill_nan_nearest(x_ocean, dim=-1)
+
+# Debug plot: visualise filled SST field
+plt.figure(figsize=(8, 4))
+plt.contourf(
+    lon_1d,
+    lat_1d,
+    x_ocean[0, 0, 0].cpu(),
+    levels=100,
+    cmap="turbo",
+)
+plt.colorbar(label="SST (K)")
+plt.title("SST after NaN filling")
+plt.savefig("outputs/sst_filled_debug.jpg", dpi=150, bbox_inches="tight")
+plt.close()
+
+# Combine atmos and ocean data
+x = torch.cat([x_atmos, x_ocean], dim=2)
+coords = coords_atmos
+coords["variable"] = np.concatenate([coords["variable"], coords_ocean["variable"]])
+coords.pop("_lat")
+coords.pop("_lon")
+coords["lat"] = lat_1d
+coords["lon"] = lon_1d
+
+# Run the model
+output, output_coords = model(x, coords)
+
+# Post Processing
 variable = "tcwv"
 var_idx = np.where(output_coords["variable"] == "tcwv")[0][0]
-era5_data, _ = fetch_data(era5_ds, times[:1], [variable], device=device)
+era5_data, _ = fetch_data(
+    arco_ds,
+    times[:1],
+    [variable],
+    device=device,
+    interp_to=interp_grid,
+    interp_method="linear",
+)
 
 plt.close("all")
 projection = ccrs.Mollweide(central_longitude=0)
 
 # Create a figure and axes with the specified projection
-fig, ax = plt.subplots(2, 3, subplot_kw={"projection": projection}, figsize=(10, 6))
+fig, ax = plt.subplots(1, 2, subplot_kw={"projection": projection}, figsize=(10, 6))
 
 
 def plot_contour(
@@ -273,21 +259,11 @@ def plot_contour(
     ax0.gridlines()
 
 
-plot_contour(ax[0, 0], era5_data[0, 0, 0])
-plot_contour(ax[0, 1], torch.mean(output_0[:, 0, var_idx], axis=0))
-plot_contour(ax[0, 2], torch.mean(output_1[:, 0, var_idx], axis=0))
-plot_contour(
-    ax[1, 1], torch.std(output_0[:, 0, var_idx], axis=0), cmap="inferno", vrange=(0, 10)
-)
-plot_contour(
-    ax[1, 2], torch.std(output_1[:, 0, var_idx], axis=0), cmap="inferno", vrange=(0, 10)
-)
+plot_contour(ax[0], era5_data[0, 0, 0])
+plot_contour(ax[1], torch.mean(output[:, 0, var_idx], axis=0))
 
-ax[0, 0].set_title("ERA5")
-ax[0, 1].set_title("3 Input Variables Mean")
-ax[0, 2].set_title("13 Input Variables Mean")
-ax[1, 1].set_title("3 Input Variables Std")
-ax[1, 2].set_title("13 Input Variables Std")
+ax[0].set_title("ERA5 (ARCO)")
+ax[1].set_title(f"Input Variables Mean: {input_variables}")
 
 plt.tight_layout()
-plt.savefig("outputs/12_tcwv_cbottle_infill.jpg")
+plt.savefig("outputs/15_infill_cmip6_cbottle.jpg")
