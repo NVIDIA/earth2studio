@@ -22,6 +22,7 @@ from earth2studio.models.px.base import PrognosticModel
 from earth2studio.models.px.dlesym import DLESyM, DLESyMLatLon
 from earth2studio.models.px.dlwp import DLWP
 from earth2studio.models.px.fcn import FCN
+from earth2studio.models.px.fcn3 import FCN3
 from earth2studio.models.px.fengwu import FengWu
 from earth2studio.models.px.fuxi import FuXi
 from earth2studio.models.px.graphcast_operational import GraphCastOperational

@@ -30,7 +30,7 @@ from earth2studio.utils import handshake_dim
 class PhooSFNOModel(torch.nn.Module):
     """Mock SFNO model for testing."""
 
-    def forward(self, x, t):
+    def forward(self, x, t, normalized_data=True):
         return x
 
 
@@ -60,7 +60,7 @@ def test_forecast_interpolation_call(time, device):
     sfno_model = PhooSFNOModel()
     center = torch.zeros(1, 73, 1, 1)
     scale = torch.ones(1, 73, 1, 1)
-    base_model = SFNO(sfno_model, center, scale).to(device)
+    base_model = SFNO(sfno_model).to(device)
 
     # Set up interpolation model
     interp_model = PhooInterpolationModel()
@@ -118,7 +118,7 @@ def test_forecast_interpolation_iter(ensemble, device):
     sfno_model = PhooSFNOModel()
     center = torch.zeros(1, 73, 1, 1)
     scale = torch.ones(1, 73, 1, 1)
-    base_model = SFNO(sfno_model, center, scale).to(device)
+    base_model = SFNO(sfno_model).to(device)
 
     # Set up interpolation model
     interp_model = PhooInterpolationModel()
@@ -199,7 +199,7 @@ def test_forecast_interpolation_exceptions(dc, device):
     sfno_model = PhooSFNOModel()
     center = torch.zeros(1, 73, 1, 1)
     scale = torch.ones(1, 73, 1, 1)
-    base_model = SFNO(sfno_model, center, scale).to(device)
+    base_model = SFNO(sfno_model).to(device)
 
     # Set up interpolation model
     interp_model = PhooInterpolationModel()

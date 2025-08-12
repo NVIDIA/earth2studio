@@ -13,14 +13,15 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import fnmatch
-import os
+import importlib.util
+import json
 from collections import OrderedDict
 from collections.abc import Generator, Iterator
 from datetime import datetime
 
 import numpy as np
 import torch
+from loguru import logger
 
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_coords, batch_func
@@ -35,22 +36,12 @@ from earth2studio.utils.time import timearray_to_datetime
 from earth2studio.utils.type import CoordSystem
 
 try:
-    from makani.models import model_registry
-    from makani.models.model_package import (
-        LocalPackage,
-        ModelWrapper,
-        load_model_package,
-    )
-    from makani.utils.driver import Driver
-    from makani.utils.YParams import ParamsBase
+    from makani.models.model_package import load_model_package
 except ImportError:
-    OptionalDependencyFailure("sfno")
+    OptionalDependencyFailure("fcn3")
     load_model_package = None
-    Driver = None
-    ParamsBase = None
-    LocalPackage = None
-    model_registry = None
-    ModelWrapper = None
+
+_cuda_extension_available = importlib.util.find_spec("disco_cuda_extension") is not None
 
 VARIABLES = [
     "u10m",
@@ -58,7 +49,6 @@ VARIABLES = [
     "u100m",
     "v100m",
     "t2m",
-    "sp",
     "msl",
     "tcwv",
     "u50",
@@ -130,31 +120,34 @@ VARIABLES = [
 
 
 @check_optional_dependencies()
-class SFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
-    """Spherical Fourier Operator Network global prognostic model.
-    Consists of a single model with a time-step size of 6 hours.
-    FourCastNet operates on 0.25 degree lat-lon grid (south-pole excluding)
-    equirectangular grid with 73 variables.
+class FCN3(torch.nn.Module, AutoModelMixin, PrognosticMixin):
+    """
+    FourCastNet 3 advances global weather modeling by implementing a scalable,
+    geometric machine learning (ML) approach to probabilistic ensemble forecasting.
+    The approach is designed to respect spherical geometry and to accurately model the
+    spatially correlated probabilistic nature of the problem, resulting in stable
+    spectra and realistic dynamics across multiple scales.
+
+    FourCastNet 3 is a global probabilistic prognostic model.
+    It operates on a 0.25 degree lat-lon grid (south-pole excluding)
+    equirectangular grid with 72 variables.
 
     Note
     ----
-    This model and checkpoint are trained using Modulus-Makani. For more information
-    see the following references:
+    This model requires at least 60 GB of GPU memory to run.
 
-    - https://arxiv.org/abs/2306.03838
-    - https://github.com/NVIDIA/modulus-makani
-    - https://catalog.ngc.nvidia.com/orgs/nvidia/teams/modulus/models/sfno_73ch_small
+    References
+    ----------
+    - https://arxiv.org/abs/2507.12144v2
+    - https://arxiv.org/abs/2402.16845
+    - https://catalog.ngc.nvidia.com/orgs/nvidia/teams/earth-2/models/fourcastnet3
 
     Parameters
     ----------
     core_model : torch.nn.Module
         Core PyTorch model with loaded weights
-    center : torch.Tensor
-        Model center normalization tensor
-    scale : torch.Tensor
-        Model scale normalization tensor
     variables : np.array, optional
-        Variables associated with model, by default 73 variable model.
+        Variables associated with model, by default 72 variable model.
     """
 
     def __init__(
@@ -169,7 +162,7 @@ class SFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             self.variables[self.variables == "2d"] = "d2m"
 
     def __str__(self) -> str:
-        return "sfno_73ch_small"
+        return "fcn3"
 
     def input_coords(self) -> CoordSystem:
         """Input coordinate system of the prognostic model
@@ -192,6 +185,7 @@ class SFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     @batch_coords()
     def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
         """Output coordinate system of the prognostic model
+
         Parameters
         ----------
         input_coords : CoordSystem
@@ -234,19 +228,18 @@ class SFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def load_default_package(cls) -> Package:
         """Load prognostic package"""
         package = Package(
-            "ngc://models/nvidia/modulus/sfno_73ch_small@0.1.0",
+            "ngc://models/nvidia/earth-2/fourcastnet3@0.1.0",
             cache_options={
-                "cache_storage": Package.default_cache("sfno"),
+                "cache_storage": Package.default_cache("fcn3"),
                 "same_names": True,
             },
         )
-        package.root = os.path.join(package.root, "sfno_73ch_small")
         return package
 
     @classmethod
     @check_optional_dependencies()
     def load_model(
-        cls, package: Package, variables: list = VARIABLES, device: str = "cpu"
+        cls, package: Package, variables: list = VARIABLES
     ) -> PrognosticModel:
         """Load prognostic from package
 
@@ -255,7 +248,7 @@ class SFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         package : Package
             Package to load model from
         variables : list, optional
-            Model variable override, by default VARIABLES for SFNO 73 channel
+            Model variable override, by default VARIABLES for FCN3 72 channel
 
         Returns
         -------
@@ -263,68 +256,24 @@ class SFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             Prognostic model
         """
 
-        # Makani load_model_package
-        path = package.resolve("config.json")
-        params = ParamsBase.from_json(path)
-
-        # Set global_means_path and global_stds_path
-        params.global_means_path = package.resolve("global_means.npy")
-        params.global_stds_path = package.resolve("global_stds.npy")
-        # Need to manually set min and max paths to none.
-        params.min_path = None
-        params.max_path = None
-
-        # Need to manually set in and out channels to all variables.
-        if params.channel_names is None:
-            params.channel_names = variables
-        else:
-            variables = params.channel_names
-        params.in_channels = np.arange(len(variables))
-        params.out_channels = np.arange(len(variables))
-
-        LocalPackage._load_static_data(package, params)
-
-        # assume we are not distributed
-        # distributed checkpoints might be saved with different params values
-        params.img_local_offset_x = 0
-        params.img_local_offset_y = 0
-        params.img_local_shape_x = params.img_shape_x
-        params.img_local_shape_y = params.img_shape_y
-
-        # set grid type to sinusoidal without cosine features added in makani 0.2.0
-        if params.get("add_cos_to_grid", None) is None:
-            params.add_cos_to_grid = False
-
-        # get the model
-        model = model_registry.get_model(params, multistep=False).to(device)
-
-        # Load checkpoint
-        best_checkpoint_path = package.get(LocalPackage.MODEL_PACKAGE_CHECKPOINT_PATH)
-        checkpoint = torch.load(
-            best_checkpoint_path, weights_only=False, map_location=device
-        )
-        state_dict = checkpoint["model_state"]
-        torch.nn.modules.utils.consume_prefix_in_state_dict_if_present(
-            state_dict, "module."
-        )
-
-        # Resize model.blocks filters for some reason
-        keys_to_resize = fnmatch.filter(
-            state_dict.keys(), "model.blocks.*.filter.filter.weight"
-        )
-        for key in keys_to_resize:
-            state_dict[key] = state_dict[key].unsqueeze(0)
-
-        model.load_state_dict(state_dict)
-
-        # Wrap model
-        model = ModelWrapper(model, params=params)
-
-        # Set model to eval mode
+        if not _cuda_extension_available:
+            logger.warning(
+                "torch-harmonics disco CUDA extension is not available.\n"
+                "FCN3 run on GPU/CUDA will be slower.\n"
+                "Please install torch-harmonics in the following way:\n"
+                "export FORCE_CUDA_EXTENSION=1\n"
+                "pip install --no-build-isolation torch-harmonics"
+            )
+        model = load_model_package(package)
         model.eval()
 
         # Load variables
-        variables = np.array(model.params.channel_names)
+        config_path = package.get("config.json")
+        with open(config_path) as f:
+            config = json.load(f)
+            variables = config["channel_names"]
+
+        variables = np.array(variables)
 
         return cls(model, variables=variables)
 
@@ -336,6 +285,10 @@ class SFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     ) -> tuple[torch.Tensor, CoordSystem]:
         output_coords = self.output_coords(coords)
         x = x.squeeze(2)
+
+        # For normalization, we will use both z-normalization and minmax normalization
+        # The center/scale and min/max should be constructed to only apply to the correct variables, respectively.
+        # See `load_model` for more details.
         for j, _ in enumerate(coords["batch"]):
             for i, t in enumerate(coords["time"]):
                 # https://github.com/NVIDIA/modulus-makani/blob/933b17d5a1ebfdb0e16e2ebbd7ee78cfccfda9e1/makani/third_party/climt/zenith_angle.py#L197
@@ -344,7 +297,15 @@ class SFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                     datetime.fromisoformat(dt.isoformat() + "+00:00")
                     for dt in timearray_to_datetime(t + coords["lead_time"])
                 ]
-                x[j, i : i + 1] = self.model(x[j, i : i + 1], t, normalized_data=False)
+                with torch.autocast(
+                    device_type=x.device.type,
+                    dtype=(
+                        torch.bfloat16 if _cuda_extension_available else torch.float32
+                    ),
+                ):
+                    x[j, i : i + 1] = self.model(
+                        x[j, i : i + 1], t, normalized_data=False, replace_state=True
+                    )
         x = x.unsqueeze(2)
         return x, output_coords
 
