@@ -235,7 +235,7 @@ class SOI:
         from physicsnemo.utils.filesystem import _download_cached
 
         file_path = _download_cached(
-            "http://data.longpaddock.qld.gov.au/SeasonalClimateOutlook/SouthernOscillationIndex/SOIDataFiles/DailySOI1933-1992Base.txt"
+            "https://data.longpaddock.qld.gov.au/SeasonalClimateOutlook/SouthernOscillationIndex/SOIDataFiles/DailySOI1933-1992Base.txt"
         )
         ds = pd.read_csv(file_path, sep=r"\s+")
         dates = pd.date_range("1999-01-01", freq="d", periods=len(ds))
