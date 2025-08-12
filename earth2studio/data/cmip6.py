@@ -177,7 +177,6 @@ class CMIP6:
         ds = dsd[list(dsd.keys())[0]]
 
         # Regular lat-lon grid → lat/lon 1-D coordinates exist
-        print(set(ds.coords))
         if {"lat", "lon"} <= set(ds.coords):
             lat_1d = ds["lat"].values
             lon_1d = ds["lon"].values
@@ -208,27 +207,39 @@ class CMIP6:
             )
 
         # Find the nearest available times in the first dataset.
-        time = self._convert_times_to_cftime(time, ds.time.dt.calendar)
-        ds_nearest = ds.sel(time=time, method="nearest")  # type: ignore[arg-type]
-        selected_times = ds_nearest.time.values
-        if np.any(np.asarray(time, dtype=selected_times.dtype) != selected_times):
+        # Preserve original requested times for reference while sampling nearest data.
+        requested_times = self._convert_times_to_datetime(time)
+        selection_times = self._convert_times_to_cftime(
+            requested_times, ds.time.dt.calendar
+        )
+        ds_nearest = ds.sel(time=selection_times, method="nearest")  # type: ignore[arg-type]
+        selected_times = ds_nearest.time.values  # cftime objects in dataset calendar
+        selected_times_dt = self._convert_times_to_datetime(list(selected_times))
+
+        if not np.array_equal(
+            np.asarray(requested_times, dtype=object),
+            np.asarray(selected_times_dt, dtype=object),
+        ):
             warnings.warn(
                 "One or more requested timestamps were not found exactly in the CMIP6 dataset; "
                 "nearest available snapshots have been substituted.",
                 UserWarning,
             )
-        time = selected_times
+        # Use selected (actual available) times for data subsetting
+        selection_times = selected_times
 
         # Subset time; rely on xarray's KeyError if a timestamp is missing
         for var_name, ds_var in dsd.items():
-            dsd[var_name] = ds_var.sel(time=time)  # type: ignore[arg-type]
+            dsd[var_name] = ds_var.sel(time=selection_times)  # type: ignore[arg-type]
 
         # Make data array
         da = xr.DataArray(
             data=np.empty((len(time), len(variable), *grid_shape), dtype=np.float32),
             dims=["time", "variable", *da_dims_xy],
             coords={
-                "time": self._convert_times_to_datetime(time),
+                "time": selected_times_dt,
+                # Keep the originally requested timestamps alongside the actual sampled times
+                "time_requested": ("time", requested_times),
                 "variable": variable,
                 **coord_dict,
             },
