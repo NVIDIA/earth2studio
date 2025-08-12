@@ -177,6 +177,7 @@ class CMIP6:
         ds = dsd[list(dsd.keys())[0]]
 
         # Regular lat-lon grid → lat/lon 1-D coordinates exist
+        print(set(ds.coords))
         if {"lat", "lon"} <= set(ds.coords):
             lat_1d = ds["lat"].values
             lon_1d = ds["lon"].values

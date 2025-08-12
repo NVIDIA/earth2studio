@@ -16,6 +16,7 @@
 
 """Unit tests for the CMIP6 lexicon."""
 
+import numpy as np
 import pytest
 import torch
 
@@ -49,3 +50,29 @@ def test_cmip6_lexicon(variable, device):
             # pressure level matches encoded hPa
             assert isinstance(level, int)
             assert f"{level}" in v
+
+
+def test_cmip6_lexicon_sst_modifier():
+    """Ensure SST modifier converts degC to K and leaves K unchanged."""
+    (_, _), mod = CMIP6Lexicon["sst"]
+
+    # Likely degC input → should be converted to K
+    x_c = np.array([0.0, 10.0, 50.0], dtype=np.float32)
+    out_c = mod(x_c.copy())
+    assert np.allclose(out_c, x_c + 273.15)
+
+    # Likely Kelvin input → should be unchanged
+    x_k = np.array([270.0, 285.0, 300.0], dtype=np.float32)
+    out_k = mod(x_k.copy())
+    assert np.allclose(out_k, x_k)
+
+
+def test_cmip6_lexicon_z_modifier():
+    """Geopotential height should be converted from meters to m^2 s^-2."""
+    (var_id, level), mod = CMIP6Lexicon["z500"]
+    assert var_id == "zg"
+    assert level == 500
+
+    x = np.array([1.0, 2.0, 3.5], dtype=np.float32)
+    out = mod(x.copy())
+    assert np.allclose(out, x * 9.80665)
