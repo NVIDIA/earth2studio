@@ -14,8 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from __future__ import annotations
-
+import pathlib
+import shutil
 from datetime import datetime
 
 import numpy as np
@@ -67,6 +67,54 @@ def test_cmip6_fetch(table_id, variable, time):
     assert shape[0] == len(time)
     assert shape[1] == len(variable)
     assert np.array_equal(data.coords["variable"].values, np.array(variable))
+
+
+@pytest.mark.slow
+@pytest.mark.xfail
+@pytest.mark.timeout(60)
+@pytest.mark.parametrize(
+    "table_id, variable",
+    [
+        pytest.param("day", ["msl"]),
+    ],
+)
+@pytest.mark.parametrize(
+    "time",
+    [
+        pytest.param(datetime(2015, 1, 16)),
+    ],
+)
+@pytest.mark.parametrize("cache", [True, False])
+def test_cmip6_cache(table_id, variable, time, cache):
+
+    ds = CMIP6(
+        experiment_id="ssp585",
+        source_id="CanESM5",
+        table_id=table_id,
+        variant_label="r1i1p2f1",
+        cache=cache,
+    )
+    data = ds(time, variable)
+    shape = data.shape
+
+    assert shape[0] == len(time)
+    assert shape[1] == len(variable)
+    assert not np.isnan(data.values).any()
+    # Cache should be present
+    assert pathlib.Path(ds.cache).is_dir() == cache
+
+    # Load from cach or refetch
+    data = ds(time, variable[0])
+    shape = data.shape
+
+    assert shape[0] == len(time)
+    assert shape[1] == len(variable)
+    assert not np.isnan(data.values).any()
+
+    try:
+        shutil.rmtree(ds.cache)
+    except FileNotFoundError:
+        pass
 
 
 def test_cmip6_init_valid():
