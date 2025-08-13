@@ -14,6 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
+import shutil
 import warnings
 from datetime import datetime
 from typing import Union, cast
@@ -35,7 +37,7 @@ except ImportError:
     OptionalDependencyFailure("data")
     intake_esgf = None
 
-from earth2studio.data.utils import prep_data_inputs
+from earth2studio.data.utils import datasource_cache_root, prep_data_inputs
 from earth2studio.lexicon.cmip6 import CMIP6Lexicon
 from earth2studio.utils.type import TimeArray, VariableArray
 
@@ -61,19 +63,23 @@ class CMIP6:
     Parameters
     ----------
     experiment_id : str
-        CMIP6 experiment identifier (e.g. ``"historical"``, ``"ssp585"``).
+        CMIP6 experiment identifier (e.g. "historical", "ssp585")
     source_id : str
-        CMIP6 model identifier (e.g. ``"MPI-ESM1-2-LR"``).
+        CMIP6 model identifier (e.g. "MPI-ESM1-2-LR")
     table_id : str
-        CMOR table describing variable realm/frequency (``"Amon"``,
-        ``"Omon"``, ``"SImon"`` …).
+        CMOR table describing variable realm/frequency ("Amon", "Omon", "SImon")
     variant_label : str
-        Ensemble member / initial-condition label such as
-        ``"r1i1p1f1"``.
-    file_start, file_end : str | None, optional
-        Optional filename prefix/suffix filters forwarded to
-        ``ESGFCatalog.search`` to constrain the final dataset
-        selection.  Leave ``None`` to accept all.
+        Ensemble member / initial-condition label such as "r1i1p1f1".
+    file_start : str, optional
+        Optional filename prefix filters forwarded to ``ESGFCatalog.search`` to
+        constrain the final dataset selection. Leave None to accept all, by default None
+    file_end : str, optional
+        Optional filename suffix filters forwarded to ``ESGFCatalog.search`` to
+        constrain the final dataset selection. Leave None to accept all, by default None
+    cache : bool, optional
+        Cache data source on local memory, by default True
+    verbose : bool, optional
+        Print download progress, by default True
 
     Notes
     -----
@@ -96,6 +102,7 @@ class CMIP6:
         variant_label: str,
         file_start: str = None,
         file_end: str = None,
+        cache: bool = True,
         verbose: bool = True,
     ):
         self.experiment_id = experiment_id
@@ -104,10 +111,12 @@ class CMIP6:
         self.variant_label = variant_label
         self.file_start = file_start
         self.file_end = file_end
+        self._cache = cache
         self._verbose = verbose
 
         # Create catalog
         self.catalog = intake_esgf.ESGFCatalog()
+        self.catalog.conf.set(local_cache=self.cache)
 
     def __call__(
         self,
@@ -285,6 +294,10 @@ class CMIP6:
             # Convert to numpy (trigger load) and apply modifier
             da.values[:, var_idx, :, :] = modifier(data_arr.values)
 
+        # Delete cache if needed
+        if not self._cache:
+            shutil.rmtree(self.cache)
+
         return da
 
     @classmethod
@@ -349,6 +362,14 @@ class CMIP6:
             return True
         else:
             return False
+
+    @property
+    def cache(self) -> str:
+        """Get the appropriate cache location."""
+        cache_location = os.path.join(datasource_cache_root(), "cmip6")
+        if not self._cache:
+            cache_location = os.path.join(cache_location, "tmp_cmip6")
+        return cache_location
 
     @staticmethod
     def _convert_times_to_cftime(
