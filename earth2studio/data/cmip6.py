@@ -81,8 +81,8 @@ class CMIP6:
     verbose : bool, optional
         Print download progress, by default True
 
-    Notes
-    -----
+    Note
+    ----
     Additional information on the CMIP6 data repository can be referenced here:
 
     - https://esgf-node.llnl.gov/search/cmip6/
