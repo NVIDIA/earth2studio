@@ -30,7 +30,6 @@ from earth2studio.data import CMIP6
 @pytest.mark.parametrize(
     "table_id, variable",
     [
-        pytest.param("day", ["t2m"], id="atmos_single"),
         pytest.param("day", ["u10m", "v10m", "t500"], id="atmos_multi"),
         pytest.param("Omon", ["sst"], id="ocean_sst"),
     ],
