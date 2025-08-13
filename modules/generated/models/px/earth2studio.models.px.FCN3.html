@@ -415,6 +415,7 @@
 <li class="toctree-l1 has-children"><a class="reference internal" href="../../../datasources.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>: Data Sources</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l2"><a class="reference internal" href="../../data/earth2studio.data.ARCO.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.ARCO</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../data/earth2studio.data.CDS.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.CDS</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../data/earth2studio.data.CMIP6.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.CMIP6</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../data/earth2studio.data.GFS.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.GFS</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../data/earth2studio.data.GOES.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.GOES</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../data/earth2studio.data.HRRR.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.HRRR</a></li>
@@ -569,14 +570,13 @@ It operates on a 0.25 degree lat-lon grid (south-pole excluding)
 equirectangular grid with 72 variables.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>This model requires at least 60 GB of GPU memory to run.</p>
-</div>
-<p class="rubric">References</p>
+<p>For more information see the following references:</p>
 <ul class="simple">
 <li><p><a class="reference external" href="https://arxiv.org/abs/2507.12144v2">https://arxiv.org/abs/2507.12144v2</a></p></li>
 <li><p><a class="reference external" href="https://arxiv.org/abs/2402.16845">https://arxiv.org/abs/2402.16845</a></p></li>
 <li><p><a class="reference external" href="https://catalog.ngc.nvidia.com/orgs/nvidia/teams/earth-2/models/fourcastnet3">https://catalog.ngc.nvidia.com/orgs/nvidia/teams/earth-2/models/fourcastnet3</a></p></li>
 </ul>
+</div>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
@@ -585,6 +585,10 @@ equirectangular grid with 72 variables.</p>
 </ul>
 </dd>
 </dl>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>This model requires at least 60 GB of GPU memory to run.</p>
+</div>
 <dl class="py method">
 <dt class="sig sig-object py" id="earth2studio.models.px.FCN3.__call__">
 <span class="sig-name descname"><span class="pre">__call__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">coords</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/earth2studio/models/px/fcn3.html#FCN3.__call__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.px.FCN3.__call__" title="Link to this definition">#</a></dt>
