@@ -121,8 +121,7 @@ VARIABLES = [
 
 @check_optional_dependencies()
 class FCN3(torch.nn.Module, AutoModelMixin, PrognosticMixin):
-    """
-    FourCastNet 3 advances global weather modeling by implementing a scalable,
+    """FourCastNet 3 advances global weather modeling by implementing a scalable,
     geometric machine learning (ML) approach to probabilistic ensemble forecasting.
     The approach is designed to respect spherical geometry and to accurately model the
     spatially correlated probabilistic nature of the problem, resulting in stable
@@ -134,10 +133,8 @@ class FCN3(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     Note
     ----
-    This model requires at least 60 GB of GPU memory to run.
+    For more information see the following references:
 
-    References
-    ----------
     - https://arxiv.org/abs/2507.12144v2
     - https://arxiv.org/abs/2402.16845
     - https://catalog.ngc.nvidia.com/orgs/nvidia/teams/earth-2/models/fourcastnet3
@@ -148,6 +145,10 @@ class FCN3(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         Core PyTorch model with loaded weights
     variables : np.array, optional
         Variables associated with model, by default 72 variable model.
+
+    Warning
+    -------
+    This model requires at least 60 GB of GPU memory to run.
     """
 
     def __init__(
