@@ -53,11 +53,10 @@ CFDatetime = Union[
 class CMIP6:
     """CMIP6 data source for Earth2Studio.
 
-    This class provides a thin convenience wrapper around the
-    `intake-esgf` catalog that hosts the Coupled Model Inter-comparison
-    Project Phase 6 (CMIP6) archive. This is meant to provide a seemless
-    interface to the CMIP6 archive for Earth2Studio however the CMIP6
-    archive is very large there may be data that will break this interface.
+    This class provides a thin convenience wrapper around the `intake-esgf` catalog that
+    hosts the Coupled Model Inter-comparison Project Phase 6 (CMIP6) archive. This is
+    meant to provide a seemless interface to the CMIP6 archive for Earth2Studio however
+    the CMIP6 archive is very large there may be data that will break this interface.
     Currently this supports both atmospheric and oceanic datasets.
 
     Parameters
@@ -81,6 +80,11 @@ class CMIP6:
     verbose : bool, optional
         Print download progress, by default True
 
+    Warning
+    -------
+    This is a remote data source and can potentially download a large amount of data
+    to your local machine for large requests.
+
     Note
     ----
     Additional information on the CMIP6 data repository can be referenced here:
@@ -92,6 +96,11 @@ class CMIP6:
     be referenced here:
 
     - https://intake-esgf.readthedocs.io/en/latest/
+
+    Note
+    ----
+    This data source will retrieve the closest time possible, depending on the
+    experiment this may be significantly different than what was requested.
     """
 
     def __init__(
@@ -115,8 +124,8 @@ class CMIP6:
         self._verbose = verbose
 
         # Create catalog
+        intake_esgf.conf.set(local_cache=self.cache)
         self.catalog = intake_esgf.ESGFCatalog()
-        self.catalog.conf.set(local_cache=self.cache)
 
     def __call__(
         self,
