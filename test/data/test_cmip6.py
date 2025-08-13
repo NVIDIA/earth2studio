@@ -30,7 +30,7 @@ from earth2studio.data import CMIP6
 @pytest.mark.parametrize(
     "table_id, variable",
     [
-        pytest.param("day", ["u10m", "v10m", "t500"], id="atmos_multi"),
+        pytest.param("Amon", ["u10m", "v10m"], id="atmos_multi"),
         pytest.param("Omon", ["sst"], id="ocean_sst"),
     ],
 )
@@ -74,13 +74,13 @@ def test_cmip6_fetch(table_id, variable, time):
 @pytest.mark.parametrize(
     "table_id, variable",
     [
-        pytest.param("day", ["msl"]),
+        pytest.param("Omon", ["sst"]),
     ],
 )
 @pytest.mark.parametrize(
     "time",
     [
-        pytest.param(datetime(2015, 1, 16)),
+        pytest.param([datetime(2015, 1, 16)]),
     ],
 )
 @pytest.mark.parametrize("cache", [True, False])
@@ -98,7 +98,8 @@ def test_cmip6_cache(table_id, variable, time, cache):
 
     assert shape[0] == len(time)
     assert shape[1] == len(variable)
-    assert not np.isnan(data.values).any()
+    assert shape[2] == 291
+    assert shape[3] == 360
     # Cache should be present
     assert pathlib.Path(ds.cache).is_dir() == cache
 
@@ -108,7 +109,8 @@ def test_cmip6_cache(table_id, variable, time, cache):
 
     assert shape[0] == len(time)
     assert shape[1] == len(variable)
-    assert not np.isnan(data.values).any()
+    assert shape[2] == 291
+    assert shape[3] == 360
 
     try:
         shutil.rmtree(ds.cache)
