@@ -83,7 +83,8 @@ class CMIP6:
     Warning
     -------
     This is a remote data source and can potentially download a large amount of data
-    to your local machine for large requests.
+    to your local machine for large requests. The source data used is provided in an
+    unoptimized format.
 
     Note
     ----
