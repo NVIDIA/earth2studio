@@ -20,8 +20,9 @@ import asyncio
 import hashlib
 import os
 import pathlib
+import shutil
 from datetime import datetime, timezone
-from typing import Literal
+
 
 import h5py  # type: ignore
 import nest_asyncio
@@ -34,10 +35,6 @@ from tqdm.asyncio import tqdm
 from earth2studio.data.utils import datasource_cache_root, prep_data_inputs
 from earth2studio.lexicon.jpss import JPSSLexicon
 from earth2studio.utils.type import TimeArray, VariableArray
-
-
-SatelliteName = Literal["noaa-20", "noaa-21", "snpp"]
-BandType = Literal["I", "M"]
 
 
 class JPSS:
@@ -57,45 +54,58 @@ class JPSS:
         Show progress bars. Default True.
     async_timeout : int, optional
         Timeout for async operations in seconds. Default 600.
-    field : str, optional
-        HDF5 dataset to extract from VIIRS SDR files. Default "Radiance".
     
     Note
     ----
     The returned data automatically includes '_lat' and '_lon' variables containing
     latitude and longitude coordinates for each pixel. All requested variables must
     be of the same band type (I or M) to ensure consistent spatial resolution.
+    
+    - I-bands: 3200 x 5424 pixels (375m resolution)
+    - M-bands: 1600 x 2712 pixels (750m resolution)
+    
+    Currently only "Radiance" data is extracted from VIIRS SDR files. Future versions
+    may add support for "Reflectance" data for applicable bands.
     """
 
     BASE_URL = "s3://{bucket}/{product}/{year:04d}/{month:02d}/{day:02d}/"
-    SATELLITE_BUCKETS: dict[SatelliteName, str] = {
+    SATELLITE_BUCKETS: dict[str, str] = {
         "noaa-20": "noaa-nesdis-n20-pds",
         "noaa-21": "noaa-nesdis-n21-pds",
         "snpp": "noaa-nesdis-snpp-pds",
     }
+    VALID_SATELLITES = ["noaa-20", "noaa-21", "snpp"]
+    VALID_BAND_TYPES = ["I", "M"]
+    
+    # VIIRS band dimensions (standard granule sizes)
+    # I-bands: 375m resolution, M-bands: 750m resolution
+    BAND_DIMENSIONS = {
+        "I": (1536, 6400),  # I-bands: ~3200 x 5424 pixels
+        "M": (1600, 2712),  # M-bands: ~1600 x 2712 pixels (half resolution)
+    }
 
     def __init__(
         self,
-        satellite: SatelliteName = "noaa-20",
-        band_type: BandType = "I",
+        satellite: str = "noaa-20",
+        band_type: str = "I",
         max_workers: int = 24,
         cache: bool = True,
         verbose: bool = True,
         async_timeout: int = 600,
-        field: str = "Radiance",
     ) -> None:
-        if satellite not in self.SATELLITE_BUCKETS:
-            raise ValueError(f"Invalid satellite {satellite}")
-        if band_type not in ["I", "M"]:
-            raise ValueError(f"Invalid band_type {band_type}. Must be 'I' or 'M'")
+        if satellite not in self.VALID_SATELLITES:
+            raise ValueError(f"Invalid satellite {satellite}. Must be one of {self.VALID_SATELLITES}")
+        if band_type not in self.VALID_BAND_TYPES:
+            raise ValueError(f"Invalid band_type {band_type}. Must be one of {self.VALID_BAND_TYPES}")
 
-        self._satellite: SatelliteName = satellite
-        self._band_type: BandType = band_type
+        self._satellite: str = satellite
+        self._band_type: str = band_type
         self._max_workers = max_workers
         self._cache = cache
         self._verbose = verbose
         self._async_timeout = async_timeout
-        self._field = field
+        # TODO: Add support for "Reflectance" field in future versions
+        # Currently only "Radiance" is supported for all VIIRS bands
 
         try:
             loop = asyncio.get_running_loop()
@@ -104,6 +114,7 @@ class JPSS:
             self.fs = None
 
     async def _async_init(self) -> None:
+        """Async initialization of S3 filesystem"""
         self.fs = s3fs.S3FileSystem(anon=True, client_kwargs={}, asynchronous=True)
 
     def __call__(
@@ -111,6 +122,21 @@ class JPSS:
         time: datetime | list[datetime] | TimeArray,
         variable: str | list[str] | VariableArray,
     ) -> xr.DataArray:
+        """Function to get data
+
+        Parameters
+        ----------
+        time : datetime | list[datetime] | TimeArray
+            Timestamps to return data for (UTC).
+        variable : str | list[str] | VariableArray
+            String, list of strings or array of strings that refer to variables to
+            return. Must be in the JPSS lexicon.
+
+        Returns
+        -------
+        xr.DataArray
+            Data array containing the requested JPSS data
+        """
         nest_asyncio.apply()
         try:
             loop = asyncio.get_event_loop()
@@ -126,8 +152,6 @@ class JPSS:
         )
 
         if not self._cache:
-            import shutil
-
             shutil.rmtree(self.cache, ignore_errors=True)
 
         return xr_array
@@ -137,25 +161,42 @@ class JPSS:
         time: datetime | list[datetime] | TimeArray,
         variable: str | list[str] | VariableArray,
     ) -> xr.DataArray:
+        """Async function to get data
+        
+        Parameters
+        ----------
+        time : datetime | list[datetime] | TimeArray
+            Timestamps to return data for (UTC).
+        variable : str | list[str] | VariableArray
+            String, list of strings or array of strings that refer to variables to
+            return. Must be in the JPSS lexicon.
+
+        Returns
+        -------
+        xr.DataArray
+            Data array containing the requested JPSS data
+        """
         if self.fs is None:
             raise ValueError(
                 "File store is not initialized! If you are calling this function directly, make sure the data source is initialized inside the async loop!"
             )
 
+        # Prepare data inputs
         time, variable = prep_data_inputs(time, variable)
-        pathlib.Path(self.cache).mkdir(parents=True, exist_ok=True)
 
-        # Validate that all requested variables match the band type
+        # Validate band types before fetching data
         self._validate_band_types(variable)
+
+        # Create cache directory if it doesn't exist
+        pathlib.Path(self.cache).mkdir(parents=True, exist_ok=True)
 
         # Add lat/lon to the variable list
         extended_variables = list(variable) + ["_lat", "_lon"]
 
         session = await self.fs.set_session()
 
-        # Discover shape using the first timestamp
-        first_arr = await self.fetch_array(time=time[0], variable=variable)
-        y_size, x_size = first_arr.shape[1], first_arr.shape[2]
+        # Use fixed dimensions based on band type
+        y_size, x_size = self.BAND_DIMENSIONS[self._band_type]
         
         # Create array with extended variables (original + lat + lon)
         xr_array = xr.DataArray(
@@ -190,27 +231,17 @@ class JPSS:
         e: tuple[int, datetime, list[str]],
         xr_array: xr.DataArray,
     ) -> None:
+        """Small wrapper to pack arrays into the DataArray"""
         # Fetch data variables
         data_out = await self.fetch_array(time=e[1], variable=e[2])
         
         # Fetch geolocation data (lat/lon)
-        try:
-            lat, lon = await self._fetch_geolocation_for_band_type(time=e[1])
-        except FileNotFoundError as e:
-            logger.warning(f"Geolocation data not found: {e}")
-            # Create dummy lat/lon grids with proper shape
-            data_shape = data_out.shape[1:]  # (y, x) from data_out which is (n_vars, y, x)
-            lat = np.full(data_shape, np.nan, dtype=np.float32)
-            lon = np.full(data_shape, np.nan, dtype=np.float32)
+        lat, lon = await self._fetch_geolocation_for_band_type(time=e[1])
         
         # Combine data and geolocation
-        # data_out shape: (n_variables, y, x)
-        # lat, lon shape: (y, x)
-        combined_out = np.zeros((data_out.shape[0] + 2, data_out.shape[1], data_out.shape[2]), dtype=np.float32)
-        combined_out[:data_out.shape[0]] = data_out  # Data variables
-        combined_out[-2] = lat  # _lat
-        combined_out[-1] = lon  # _lon
-        
+        combined_out = np.concatenate([data_out, np.expand_dims(lat, axis=0), np.expand_dims(lon, axis=0)], axis=0)
+
+        # Add to xr_array
         xr_array[e[0]] = combined_out
 
     async def fetch_array(
@@ -218,23 +249,35 @@ class JPSS:
         time: datetime,
         variable: list[str],
     ) -> np.ndarray:
+        """Fetch VIIRS data array
+
+        Parameters
+        ----------
+        time : datetime
+            Time to get data for
+        variable : list[str]
+            List of variable names to fetch
+
+        Returns
+        -------
+        np.ndarray
+            VIIRS data array
+        """
+
+        # Validate file system (probably not needed)
         if self.fs is None:
             raise ValueError("File system is not initialized")
-
+        
         # Map standardized variables to (product_code, dataset, modifier)
         mappings: list[tuple[str, str, str, callable]] = []
         for v in variable:
-            try:
-                product_code, dataset_name, modifier = JPSSLexicon[v]
-            except KeyError:
+            if v in JPSSLexicon.VOCAB:
+                product_identifier, modifier = JPSSLexicon[v]
+                # Parse "SVI01/Radiance" format
+                product_code, dataset_name = product_identifier.split("/")
+                mappings.append((v, product_code, dataset_name, modifier))
+            else:
                 logger.warning(f"Variable {v} not found in VIIRS lexicon; skipping.")
-                continue
-            # Allow class-level override of dataset field
-            dataset = self._field if self._field else dataset_name
-            mappings.append((v, product_code, dataset, modifier))
-
-        if len(mappings) == 0:
-            raise ValueError("No valid VIIRS variables provided.")
 
         # Build arrays per variable
         arrays: list[np.ndarray] = []
@@ -245,28 +288,148 @@ class JPSS:
 
             # Read the dataset from HDF5
             with h5py.File(local_file, "r") as h5:
-                # Dataset names in VIIRS SDR files typically include "Data" group.
-                # Common paths: e.g., "/All_Data/VIIRS-XYZ-SDR_All/{dataset}"
+                # Get dataset from HDF5 file
                 ds = self._find_dataset(h5, dataset_name)
                 data = ds[...]
-                arrays.append(np.asarray(modifier(data)))
+                
+                # Filter VIIRS fill values BEFORE converting to float32 to preserve original dtype
+                filtered_data = self._filter_fill_values(data, ds)
+                
+                # Apply modifier and convert to float32 for consistency
+                processed_data = np.asarray(modifier(filtered_data), dtype=np.float32)
+                
+                arrays.append(processed_data)
 
         out = np.stack(arrays, axis=0)
+        
         return out
 
+    def _filter_fill_values(self, data: np.ndarray, dataset: h5py.Dataset) -> np.ndarray:
+        """Filter VIIRS fill values and convert them to NaN.
+        
+        VIIRS uses fill values instead of NaN for invalid pixels (bow-tie effect, etc).
+        This method identifies and converts these to NaN for proper handling.
+        
+        Parameters
+        ----------
+        data : np.ndarray
+            The data array to filter
+        dataset : h5py.Dataset
+            The HDF5 dataset (used to check for fill value attributes)
+            
+        Returns
+        -------
+        np.ndarray
+            Data array with fill values converted to NaN
+        """
+
+        # Make a copy and convert to float to allow NaN assignment
+        filtered_data = data.astype(np.float32)
+        
+        # First, check if the dataset has explicit fill value attributes
+        fill_value = None
+        for attr_name in ['_FillValue', 'missing_value', 'fill_value']:
+            if attr_name in dataset.attrs:
+                fill_value = dataset.attrs[attr_name]
+                if isinstance(fill_value, np.ndarray):
+                    fill_value = fill_value.item()
+                logger.debug(f"Found fill value attribute {attr_name}: {fill_value}")
+                break
+        
+        # Apply explicit fill value if found
+        if fill_value is not None:
+            filtered_data[filtered_data == fill_value] = np.nan
+        
+        # Apply common VIIRS fill value patterns
+        if data.dtype in [np.uint16, np.uint8]:
+            # For unsigned integer data, values near maximum are typically fill
+            if data.dtype == np.uint16:
+                # VIIRS commonly uses these specific fill values
+                common_fill_values = [65535, 65534, 65533, 65532, 65531, 65530, 65529]  # Check specific values first
+                for fv in common_fill_values:
+                    filtered_data[filtered_data == fv] = np.nan
+                
+                # For VIIRS, if we see uniform values across entire array, it's likely all fill
+                if not np.all(np.isnan(filtered_data)):
+                    valid_data = filtered_data[~np.isnan(filtered_data)]
+                    if len(valid_data) > 0:
+                        # Check if all values are the same (indicating fill data)
+                        unique_vals = np.unique(valid_data)
+                        if len(unique_vals) == 1 and unique_vals[0] >= 60000:
+
+                            filtered_data[:] = np.nan
+                        else:
+                            # Use 99.5th percentile as upper threshold - anything above is likely fill
+                            fill_threshold = np.percentile(valid_data, 99.5)
+                            # But don't go below a reasonable minimum threshold
+                            fill_threshold = max(fill_threshold, 60000)
+
+                            filtered_data[filtered_data >= fill_threshold] = np.nan
+            else:  # uint8
+                common_fill_values = [255, 254, 253]
+                for fv in common_fill_values:
+                    filtered_data[filtered_data == fv] = np.nan
+            
+        elif data.dtype in [np.int16, np.int8]:
+            # For signed integer data, check both extreme values
+            if data.dtype == np.int16:
+                # Common VIIRS signed fill values
+                fill_values = [-32768, -32767, 32767]
+            else:  # int8
+                fill_values = [-128, -127, 127]
+            
+            for fv in fill_values:
+                filtered_data[filtered_data == fv] = np.nan
+                
+        # Additional checks for obviously invalid data
+        # Negative radiance values are often invalid (TODO: Handle reflectance when added)
+        filtered_data[filtered_data < 0] = np.nan
+        
+        return filtered_data
+
     def _validate_band_types(self, variables: list[str]) -> None:
-        """Validate that all requested variables match the configured band type."""
+        """Validate that all requested variables match the configured band type.
+        
+        Parameters
+        ----------
+        variables : list[str]
+            List of variable names to validate
+            
+        Raises
+        ------
+        ValueError
+            If any variable doesn't match the configured band type or has invalid format
+        """
+        mismatched_vars = []
+        invalid_format_vars = []
+        
         for var in variables:
-            try:
-                product_code, _, _ = JPSSLexicon[var]
-                var_band_type = "I" if product_code.startswith("SVI") else "M"
-                if var_band_type != self._band_type:
-                    raise ValueError(
-                        f"Variable '{var}' is a {var_band_type}-band but this JPSS instance is configured for {self._band_type}-bands. "
-                        f"Create separate instances for I-bands and M-bands due to different spatial resolutions."
-                    )
-            except KeyError:
-                raise ValueError(f"Variable '{var}' not found in JPSS lexicon")
+            # Extract band type from variable name (viirs1i -> I, viirs5m -> M)
+            if var.startswith("viirs") and var.endswith("i"):
+                var_band_type = "I"
+            elif var.startswith("viirs") and var.endswith("m"):
+                var_band_type = "M"
+            else:
+                invalid_format_vars.append(var)
+                continue
+            
+            if var_band_type != self._band_type:
+                mismatched_vars.append((var, var_band_type))
+        
+        # Raise descriptive errors
+        if invalid_format_vars:
+            raise ValueError(
+                f"Invalid VIIRS variable format: {invalid_format_vars}. "
+                f"Expected format: 'viirs{{number}}i' for I-bands or 'viirs{{number}}m' for M-bands"
+            )
+        
+        if mismatched_vars:
+            var_list = [f"'{var}' ({band_type}-band)" for var, band_type in mismatched_vars]
+            raise ValueError(
+                f"Band type mismatch: {', '.join(var_list)} cannot be used with this JPSS instance "
+                f"configured for {self._band_type}-bands. Create separate instances for I-bands and M-bands "
+                f"due to different spatial resolutions (I-bands: 375m, M-bands: 750m)."
+            )
 
     async def _fetch_geolocation_for_band_type(self, time: datetime) -> tuple[np.ndarray, np.ndarray]:
         """Fetch geolocation data from VIIRS geolocation files."""
@@ -392,18 +555,18 @@ class JPSS:
             for gname, grp in h5["All_Data"].items():
                 if isinstance(grp, h5py.Group) and dataset_name in grp:
                     return grp[dataset_name]
-        # Fallback: exhaustive search
-        found = None
-        def visitor(name, obj):
-            nonlocal found
-            if found is not None:
-                return
-            if isinstance(obj, h5py.Dataset) and name.endswith("/" + dataset_name):
-                found = obj
-        h5.visititems(visitor)
-        if found is not None:
-            return found
-        raise KeyError(f"Dataset {dataset_name} not found in file")
+        ## Fallback: exhaustive search
+        #found = None
+        #def visitor(name, obj):
+        #    nonlocal found
+        #    if found is not None:
+        #        return
+        #    if isinstance(obj, h5py.Dataset) and name.endswith("/" + dataset_name):
+        #        found = obj
+        #h5.visititems(visitor)
+        #if found is not None:
+        #    return found
+        #raise KeyError(f"Dataset {dataset_name} not found in file")
 
     async def _get_s3_path(self, time: datetime, product_code: str) -> str:
         if self.fs is None:
@@ -475,21 +638,22 @@ class JPSS:
     def available(
         cls,
         time: datetime | np.datetime64,
-        satellite: SatelliteName = "noaa-20",
-        band_type: BandType = "I",
-        variable: str = "i1",
+        satellite: str = "noaa-20",
+        band_type: str = "I",
+        variable: str = "viirs1i",
     ) -> bool:
         if isinstance(time, np.datetime64):
             _unix = np.datetime64(0, "s")
             _ds = np.timedelta64(1, "s")
             time = datetime.fromtimestamp((time - _unix) / _ds, timezone.utc)
 
-        if satellite not in cls.SATELLITE_BUCKETS:
-            raise ValueError(f"Invalid satellite {satellite}")
+        if satellite not in cls.VALID_SATELLITES:
+            raise ValueError(f"Invalid satellite {satellite}. Must be one of {cls.VALID_SATELLITES}")
 
         try:
-            product_code, _, _ = JPSSLexicon[variable]
-        except KeyError:
+            product_identifier, _ = JPSSLexicon[variable]
+            product_code = product_identifier.split("/")[0]
+        except (KeyError, ValueError):
             return False
 
         bucket = cls.SATELLITE_BUCKETS[satellite]
