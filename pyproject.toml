@@ -208,7 +208,7 @@ no-build-isolation-package = ["earth2grid", "flash-attn"]
 override-dependencies = []
 
 [tool.uv.sources]
-cbottle = { git = "https://github.com/NickGeneva/cBottle.git", rev = "e4621e54de99ea3fce5090a7dfc87c00e5e4b5f3" }
+cbottle = { git = "https://github.com/NickGeneva/cBottle.git", rev = "379fd3bc3f5a669e8ddd37956056e4cdc4fe483e" }
 earth2grid = { git = "https://github.com/NVlabs/earth2grid.git", rev = "v2025.7.1" }
 makani = { git = "https://github.com/NickGeneva/modulus-makani.git", rev = "3da09f9e52a6393839d73d44262779ac7279bc2f" }
 microsoft-aurora = { git = "https://github.com/NickGeneva/aurora.git", rev = "ab41cf1de67d5dcc723b96fc9a6219e4b548d181" }
