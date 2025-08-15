@@ -195,9 +195,9 @@ class CBottleVideo(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             Coordinate system dictionary
         """
         target_input_coords = self.input_coords()
-        handshake_dim(input_coords, "variable", -3)
-        handshake_dim(input_coords, "lead_time", -4)
-        handshake_dim(input_coords, "time", -5)
+        handshake_dim(input_coords, "variable", 3)
+        handshake_dim(input_coords, "lead_time", 2)
+        handshake_dim(input_coords, "time", 1)
         handshake_coords(input_coords, target_input_coords, "variable")
 
         if self.lat_lon:
@@ -244,12 +244,12 @@ class CBottleVideo(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         x = x.transpose(1, 2)
         input_batch = self.get_cbottle_input(x, times, device=device)
         out, _ = self.core_model.sample(input_batch, seed=self.seed)
+        # [time, vars, lead, hpx] -> [time, lead, vars, hpx]
+        out = out.transpose(1, 2)
         # Regrid if needed
         if self.lat_lon:
-            out = self.output_regridder(out.double()).squeeze(2)
+            out = self.output_regridder(out.double())
 
-        # [time, vars, lead, lat, lon] -> [time, lead, vars, lat, lon]
-        out = out.transpose(1, 2)
         return out
 
     def get_cbottle_input(
@@ -459,7 +459,7 @@ class CBottleVideo(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         times = coords["time"].repeat(coords["batch"].shape[0])
 
-        domain_shape = list(x.shape)[-3:]  # Auto handle lat/lon vs healpix
+        domain_shape = list(x.shape)[3:]  # Auto handle lat/lon vs healpix
         x = x.reshape(-1, coords["lead_time"].shape[0], *domain_shape)
         x = self._forward(x, times)
         x = x.reshape(
@@ -474,7 +474,7 @@ class CBottleVideo(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         times = coords["time"].repeat(coords["batch"].shape[0])
         coords = self.output_coords(coords)
-        domain_shape = list(x.shape)[-3:]  # Auto handle lat/lon vs healpix
+        domain_shape = list(x.shape)[3:]  # Auto handle lat/lon vs healpix
         start_frame = True
         while True:
             # Front hook
