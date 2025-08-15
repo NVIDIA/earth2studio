@@ -1,0 +1,20 @@
+﻿:mod:`earth2studio.statistics`.acc
+=========================================
+
+.. currentmodule:: earth2studio.statistics
+
+.. autoclass:: acc
+
+   
+    .. automethod:: __call__
+   
+
+.. _sphx_glr_backref_earth2studio.statistics.acc:
+
+.. minigallery:: earth2studio.statistics.acc
+      :add-heading:
+      :heading-level: ^
+
+.. raw:: html
+
+    <div class="clearer"></div>

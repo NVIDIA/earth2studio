@@ -1,0 +1,461 @@
+:orphan:
+
+Examples
+========
+
+This is a collection of examples in Earth2Studio that demonstrate various functionality
+and commonly used workflows.
+
+.. dropdown:: Running Examples
+    :color: info
+    :icon: rocket
+
+    Earth2Studio examples can be downloaded as a notebook or runnable Python script.
+    Each requires installation of different optional dependency groups or additional
+    packages for the specific models used or post-processing steps.
+    Use uv to auto install dependencies on execution:
+
+    ``uv run <example_script>.py``
+
+    If you are using a container or other type of environment, then pip installing will
+    likely be needed.
+    Look for the `uv inline metadata <https://docs.astral.sh/uv/guides/scripts/#declaring-script-dependencies>`_
+    blocks of the form:
+
+    .. code-block:: python
+
+        # /// script
+        # dependencies = [
+        #   "earth2studio @ git+https://github.com/NVIDIA/earth2studio.git",
+        #   "cartopy",
+        # ]
+        # ///
+
+    Pip install these packages then execute the example with:
+
+    ``python <example_script>.py``
+
+
+
+.. raw:: html
+
+    <div class="sphx-glr-thumbnails">
+
+.. thumbnail-parent-div-open
+
+.. raw:: html
+
+    <div class="sphx-glr-thumbcontainer" tooltip="Basic deterministic inference workflow.">
+
+.. only:: html
+
+  .. image:: /examples/images/thumb/sphx_glr_01_deterministic_workflow_thumb.png
+    :alt:
+
+  :ref:`sphx_glr_examples_01_deterministic_workflow.py`
+
+.. raw:: html
+
+      <div class="sphx-glr-thumbnail-title">Running Deterministic Inference</div>
+    </div>
+
+
+.. raw:: html
+
+    <div class="sphx-glr-thumbcontainer" tooltip="Basic prognostic + diagnostic inference workflow.">
+
+.. only:: html
+
+  .. image:: /examples/images/thumb/sphx_glr_02_diagnostic_workflow_thumb.png
+    :alt:
+
+  :ref:`sphx_glr_examples_02_diagnostic_workflow.py`
+
+.. raw:: html
+
+      <div class="sphx-glr-thumbnail-title">Running Diagnostic Inference</div>
+    </div>
+
+
+.. raw:: html
+
+    <div class="sphx-glr-thumbcontainer" tooltip="Simple ensemble inference workflow.">
+
+.. only:: html
+
+  .. image:: /examples/images/thumb/sphx_glr_03_ensemble_workflow_thumb.png
+    :alt:
+
+  :ref:`sphx_glr_examples_03_ensemble_workflow.py`
+
+.. raw:: html
+
+      <div class="sphx-glr-thumbnail-title">Running Ensemble Inference</div>
+    </div>
+
+
+.. raw:: html
+
+    <div class="sphx-glr-thumbcontainer" tooltip="Generative downscaling over Taiwan using CorrDiff diffusion model.">
+
+.. only:: html
+
+  .. image:: /examples/images/thumb/sphx_glr_04_corrdiff_inference_thumb.png
+    :alt:
+
+  :ref:`sphx_glr_examples_04_corrdiff_inference.py`
+
+.. raw:: html
+
+      <div class="sphx-glr-thumbnail-title">Generative Downscaling</div>
+    </div>
+
+
+.. raw:: html
+
+    <div class="sphx-glr-thumbcontainer" tooltip="Intermediate ensemble inference using a custom perturbation method.">
+
+.. only:: html
+
+  .. image:: /examples/images/thumb/sphx_glr_05_ensemble_workflow_extend_thumb.png
+    :alt:
+
+  :ref:`sphx_glr_examples_05_ensemble_workflow_extend.py`
+
+.. raw:: html
+
+      <div class="sphx-glr-thumbnail-title">Single Variable Perturbation Method</div>
+    </div>
+
+
+.. raw:: html
+
+    <div class="sphx-glr-thumbcontainer" tooltip="Adding model noise by using custom hooks.">
+
+.. only:: html
+
+  .. image:: /examples/images/thumb/sphx_glr_06_model_perturbation_hook_thumb.png
+    :alt:
+
+  :ref:`sphx_glr_examples_06_model_perturbation_hook.py`
+
+.. raw:: html
+
+      <div class="sphx-glr-thumbnail-title">Model Hook Injection: Perturbation</div>
+    </div>
+
+
+.. raw:: html
+
+    <div class="sphx-glr-thumbcontainer" tooltip="Simple seasonal statistic inference workflow.">
+
+.. only:: html
+
+  .. image:: /examples/images/thumb/sphx_glr_07_seasonal_statistics_thumb.png
+    :alt:
+
+  :ref:`sphx_glr_examples_07_seasonal_statistics.py`
+
+.. raw:: html
+
+      <div class="sphx-glr-thumbnail-title">Statistical Inference</div>
+    </div>
+
+
+.. raw:: html
+
+    <div class="sphx-glr-thumbcontainer" tooltip="Setting up distributed manager for parallel inference.">
+
+.. only:: html
+
+  .. image:: /examples/images/thumb/sphx_glr_08_distributed_manager_thumb.png
+    :alt:
+
+  :ref:`sphx_glr_examples_08_distributed_manager.py`
+
+.. raw:: html
+
+      <div class="sphx-glr-thumbnail-title">Distributed Manager Inference</div>
+    </div>
+
+
+.. raw:: html
+
+    <div class="sphx-glr-thumbcontainer" tooltip="Basic StormCast inference workflow.">
+
+.. only:: html
+
+  .. image:: /examples/images/thumb/sphx_glr_09_stormcast_example_thumb.png
+    :alt:
+
+  :ref:`sphx_glr_examples_09_stormcast_example.py`
+
+.. raw:: html
+
+      <div class="sphx-glr-thumbnail-title">Running StormCast Inference</div>
+    </div>
+
+
+.. raw:: html
+
+    <div class="sphx-glr-thumbcontainer" tooltip="Ensemble StormCast inference workflow.">
+
+.. only:: html
+
+  .. image:: /examples/images/thumb/sphx_glr_10_stormcast_ensemble_example_thumb.png
+    :alt:
+
+  :ref:`sphx_glr_examples_10_stormcast_ensemble_example.py`
+
+.. raw:: html
+
+      <div class="sphx-glr-thumbnail-title">Running StormCast Ensemble Inference</div>
+    </div>
+
+
+.. raw:: html
+
+    <div class="sphx-glr-thumbcontainer" tooltip="Basic multi-checkpoint Huge Ensembles (HENS) inference workflow.">
+
+.. only:: html
+
+  .. image:: /examples/images/thumb/sphx_glr_11_huge_ensembles_thumb.png
+    :alt:
+
+  :ref:`sphx_glr_examples_11_huge_ensembles.py`
+
+.. raw:: html
+
+      <div class="sphx-glr-thumbnail-title">Huge Ensembles (HENS) Checkpoints</div>
+    </div>
+
+
+.. raw:: html
+
+    <div class="sphx-glr-thumbcontainer" tooltip="Temporal Interpolation inference using InterpModAFNO model.">
+
+.. only:: html
+
+  .. image:: /examples/images/thumb/sphx_glr_12_temporal_interpolation_thumb.png
+    :alt:
+
+  :ref:`sphx_glr_examples_12_temporal_interpolation.py`
+
+.. raw:: html
+
+      <div class="sphx-glr-thumbnail-title">Temporal Interpolation</div>
+    </div>
+
+
+.. raw:: html
+
+    <div class="sphx-glr-thumbcontainer" tooltip="Tropical cyclone tracking with tracker diagnostic models.">
+
+.. only:: html
+
+  .. image:: /examples/images/thumb/sphx_glr_13_cyclone_tracking_thumb.png
+    :alt:
+
+  :ref:`sphx_glr_examples_13_cyclone_tracking.py`
+
+.. raw:: html
+
+      <div class="sphx-glr-thumbnail-title">Tropical Cyclone Tracking</div>
+    </div>
+
+
+.. raw:: html
+
+    <div class="sphx-glr-thumbcontainer" tooltip="Basic deterministic inference workflow for the DLESyM model.">
+
+.. only:: html
+
+  .. image:: /examples/images/thumb/sphx_glr_14_dlesym_example_thumb.png
+    :alt:
+
+  :ref:`sphx_glr_examples_14_dlesym_example.py`
+
+.. raw:: html
+
+      <div class="sphx-glr-thumbnail-title">Running DLESyM Inference</div>
+    </div>
+
+
+.. raw:: html
+
+    <div class="sphx-glr-thumbcontainer" tooltip="Climate in a Bottle (cBottle) inference workflows for global weather data synthesis.">
+
+.. only:: html
+
+  .. image:: /examples/images/thumb/sphx_glr_15_cbottle_generation_thumb.png
+    :alt:
+
+  :ref:`sphx_glr_examples_15_cbottle_generation.py`
+
+.. raw:: html
+
+      <div class="sphx-glr-thumbnail-title">CBottle Data Generation and Infilling</div>
+    </div>
+
+
+.. raw:: html
+
+    <div class="sphx-glr-thumbcontainer" tooltip="Climate in a Bottle (cBottle) super resolution workflows for global weather.">
+
+.. only:: html
+
+  .. image:: /examples/images/thumb/sphx_glr_16_cbottle_super_resolution_thumb.png
+    :alt:
+
+  :ref:`sphx_glr_examples_16_cbottle_super_resolution.py`
+
+.. raw:: html
+
+      <div class="sphx-glr-thumbnail-title">CBottle Super Resolution</div>
+    </div>
+
+
+.. raw:: html
+
+    <div class="sphx-glr-thumbcontainer" tooltip="Leverage different IO backends for storing inference results.">
+
+.. only:: html
+
+  .. image:: /examples/images/thumb/sphx_glr_17_io_performance_thumb.png
+    :alt:
+
+  :ref:`sphx_glr_examples_17_io_performance.py`
+
+.. raw:: html
+
+      <div class="sphx-glr-thumbnail-title">IO Backend Performance</div>
+    </div>
+
+
+.. thumbnail-parent-div-close
+
+.. raw:: html
+
+    </div>
+
+
+.. toctree::
+   :hidden:
+
+   /examples/01_deterministic_workflow
+   /examples/02_diagnostic_workflow
+   /examples/03_ensemble_workflow
+   /examples/04_corrdiff_inference
+   /examples/05_ensemble_workflow_extend
+   /examples/06_model_perturbation_hook
+   /examples/07_seasonal_statistics
+   /examples/08_distributed_manager
+   /examples/09_stormcast_example
+   /examples/10_stormcast_ensemble_example
+   /examples/11_huge_ensembles
+   /examples/12_temporal_interpolation
+   /examples/13_cyclone_tracking
+   /examples/14_dlesym_example
+   /examples/15_cbottle_generation
+   /examples/16_cbottle_super_resolution
+   /examples/17_io_performance
+
+
+Extending Earth2Studio
+----------------------
+
+Examples focused on demonstrating how to extend Earth2Studio with user-defined
+components.
+
+
+
+.. raw:: html
+
+    <div class="sphx-glr-thumbnails">
+
+.. thumbnail-parent-div-open
+
+.. raw:: html
+
+    <div class="sphx-glr-thumbcontainer" tooltip="Implementing a custom prognostic model">
+
+.. only:: html
+
+  .. image:: /examples/extend/images/thumb/sphx_glr_01_custom_prognostic_thumb.png
+    :alt:
+
+  :ref:`sphx_glr_examples_extend_01_custom_prognostic.py`
+
+.. raw:: html
+
+      <div class="sphx-glr-thumbnail-title">Extending Prognostic Models</div>
+    </div>
+
+
+.. raw:: html
+
+    <div class="sphx-glr-thumbcontainer" tooltip="Implementing a custom diagnostic model">
+
+.. only:: html
+
+  .. image:: /examples/extend/images/thumb/sphx_glr_02_custom_diagnostic_thumb.png
+    :alt:
+
+  :ref:`sphx_glr_examples_extend_02_custom_diagnostic.py`
+
+.. raw:: html
+
+      <div class="sphx-glr-thumbnail-title">Extending Diagnostic Models</div>
+    </div>
+
+
+.. raw:: html
+
+    <div class="sphx-glr-thumbcontainer" tooltip="Implementing a custom data source">
+
+.. only:: html
+
+  .. image:: /examples/extend/images/thumb/sphx_glr_03_custom_datasource_thumb.png
+    :alt:
+
+  :ref:`sphx_glr_examples_extend_03_custom_datasource.py`
+
+.. raw:: html
+
+      <div class="sphx-glr-thumbnail-title">Extending Data Sources</div>
+    </div>
+
+
+.. thumbnail-parent-div-close
+
+.. raw:: html
+
+    </div>
+
+
+.. toctree::
+   :hidden:
+   :includehidden:
+
+
+   /examples/extend/index.rst
+
+
+.. only:: html
+
+  .. container:: sphx-glr-footer sphx-glr-footer-gallery
+
+    .. container:: sphx-glr-download sphx-glr-download-python
+
+      :download:`Download all examples in Python source code: examples_python.zip </examples/examples_python.zip>`
+
+    .. container:: sphx-glr-download sphx-glr-download-jupyter
+
+      :download:`Download all examples in Jupyter notebooks: examples_jupyter.zip </examples/examples_jupyter.zip>`
+
+
+.. only:: html
+
+ .. rst-class:: sphx-glr-signature
+
+    `Gallery generated by Sphinx-Gallery <https://sphinx-gallery.github.io>`_
