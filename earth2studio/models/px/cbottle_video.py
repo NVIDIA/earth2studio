@@ -189,7 +189,6 @@ class CBottleVideo(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         handshake_coords(input_coords, target_input_coords, "variable")
 
         output_coords = input_coords.copy()
-        output_coords["variable"] = np.array(self.output_variables)
         output_coords["lead_time"] = input_coords["lead_time"] + np.array(
             [self._time_step]
         )
@@ -205,13 +204,16 @@ class CBottleVideo(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         if self.lat_lon:
             x = self.condition_regridder(x.double())
 
+        # CBottle video expects [time, vars, time-step, hpx]
+        x = x.transpose(1, 2)
         input_batch = self.get_cbottle_input(x, times, device=device)
         out, _ = self.core_model.sample(input_batch, seed=self.seed)
         # Regrid if needed
         if self.lat_lon:
             out = self.output_regridder(out.double()).squeeze(2)
 
-        # TODO: deal with coords
+        # [time, vars, lead, lat, lon] -> [time, lead, vars, lat, lon]
+        out = out.transpose(1, 2)
         return out
 
     def get_cbottle_input(
@@ -240,7 +242,6 @@ class CBottleVideo(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         dict[str, torch.Tensor]
             Dictionary of input tensors for CBottle
         """
-        device
         time_steps = [i * self._time_step for i in range(self._time_length)]
         times = times[:, None] + np.array(time_steps, dtype=np.timedelta64)[None, :]
 
@@ -264,11 +265,23 @@ class CBottleVideo(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             device=device,
         )
         cond[:, self._nan_channels, :, :] = torch.nan
-
         # If initial state to condition the model
         if not torch.isnan(conditions).all():
+            means = (
+                torch.tensor(self.core_model.batch_info.center)
+                .to(device)
+                .unsqueeze(-1)
+                .unsqueeze(-1)
+            )
+            stds = (
+                torch.tensor(self.core_model.batch_info.scales)
+                .to(device)
+                .unsqueeze(-1)
+                .unsqueeze(-1)
+            )
+            conditions = (conditions.to(device) - means) / stds
             cond[:, :-2, :1, :] = conditions.to(device)
-            cond[:, -1, :1, :] = 1
+            cond[:, -1, :1, :] = 1  # Frame mask to 1
 
         def reorder(x: torch.Tensor) -> torch.Tensor:
             x = torch.as_tensor(x)
@@ -291,15 +304,15 @@ class CBottleVideo(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         second_of_day = torch.tensor(second_of_day.astype(np.float32), device=device)
         day_of_year = torch.tensor(day_of_year.astype(np.float32), device=device)
 
-        # Target tensor (TODO: Not needed for video model)
-        target = torch.zeros(
-            (len(times), self.VARIABLES.shape[0], 1, 4**HPX_LEVEL * 12),
-            dtype=torch.float32,
-            device=device,
-        )
-        target[:, self._nan_channels, ...] = torch.nan
-        target = target.repeat(1, 1, self._time_length, 1)
-        # target = torch.empty(1, device=device)
+        # Target tensor, not needed for video model
+        # target = torch.zeros(
+        #     (len(times), self.VARIABLES.shape[0], 1, 4**HPX_LEVEL * 12),
+        #     dtype=torch.float32,
+        #     device=device,
+        # )
+        # target[:, self._nan_channels, ...] = torch.nan
+        # target = target.repeat(1, 1, self._time_length, 1)
+        target = torch.empty(1, device=device)
 
         # Label tensor
         labels = torch.nn.functional.one_hot(
@@ -315,28 +328,6 @@ class CBottleVideo(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             "day_of_year": day_of_year,
         }
         return out
-
-    @classmethod
-    def _validate_time(cls, times: list[datetime]) -> None:
-        """Verify if date time is valid for CBottle3D, governed but the CMIP SST data
-        used to train it
-
-        Parameters
-        ----------
-        times : list[datetime]
-            list of date times to fetch data
-        """
-        for time in times:
-
-            if time < datetime(year=1940, month=1, day=1):
-                raise ValueError(
-                    f"Requested date time {time} needs to be after January 1st, 1940 for CBottle3D"
-                )
-
-            if time >= datetime(year=2022, month=12, day=16, hour=12):
-                raise ValueError(
-                    f"Requested date time {time} needs to be before December 16th, 2022 for CBottle3D"
-                )
 
     @classmethod
     def load_default_package(cls) -> Package:
@@ -457,16 +448,16 @@ class CBottleVideo(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self, x: torch.Tensor, coords: CoordSystem
     ) -> Generator[tuple[torch.Tensor, CoordSystem], None, None]:
 
+        times = coords["time"].repeat(coords["batch"].shape[0])
         coords = self.output_coords(coords)
+
+        start_frame = True
         while True:
             # Front hook
             x, coords = self.front_hook(x, coords)
-            # Note that the input just conditions the model, so we need to run forward
-            # even for the first step
-            times = coords["time"].repeat(coords["batch"].shape[0])
             x = x.reshape(
                 -1,
-                coords["lead_time"].shape[0],
+                1,
                 coords["variable"].shape[0],
                 coords["lat"].shape[0],
                 coords["lon"].shape[0],
@@ -475,21 +466,28 @@ class CBottleVideo(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             x = x.reshape(
                 coords["batch"].shape[0],
                 coords["time"].shape[0],
-                coords["lead_time"].shape[0],
+                -1,
                 coords["variable"].shape[0],
                 coords["lat"].shape[0],
                 coords["lon"].shape[0],
             )
+            # Note that the input just conditions the model, so we need to run forward
+            # even for the initial time step unlike the auto regressive models
+            if start_frame:
+                start_frame = False
+                coords["lead_time"] = np.array([np.timedelta64(0)])
+                output_tensor, coords_out = self.rear_hook(x[:, :, 0:1], coords)
+                yield output_tensor, coords_out
+
             # Yield the 12 generated frames
-            for i in range(self._time_length):
+            for i in range(1, self._time_length):
                 coords["lead_time"] = coords["lead_time"] + np.array([self._time_step])
                 # Rear hook
                 output_tensor, coords_out = self.rear_hook(x[:, :, i : i + 1], coords)
                 yield output_tensor, coords_out
 
             # Use last generated frame as the first input one (has not been formally verified for accuracy)
-            coords["time"] = coords["time"] + np.array([11 * self._time_step])
-            coords["lead_time"] = np.array([np.timedelta64(hours=0)])
+            times = coords["time"] + 11 * np.array([self._time_step])
             x = x[:, :, -1:, :, :]
 
     def create_iterator(
