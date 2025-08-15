@@ -22,11 +22,11 @@ import numpy as np
 import torch
 import xarray as xr
 
-from earth2studio.data.base import DataSource
 from earth2studio.lexicon import CBottleLexicon
 from earth2studio.models.auto import Package
 from earth2studio.models.auto.mixin import AutoModelMixin
 from earth2studio.models.batch import batch_coords, batch_func
+from earth2studio.models.px.base import PrognosticModel
 from earth2studio.models.px.utils import PrognosticMixin
 from earth2studio.utils import handshake_coords, handshake_dim
 from earth2studio.utils.imports import (
@@ -56,10 +56,15 @@ HPX_LEVEL = 6
 class CBottleVideo(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     """Climate in a bottle video prognostic
     Climate in a Bottle (cBottle) is an AI model for emulating global km-scale climate
-    simulations and reanalysis on the equal-area HEALPix grid. The cBottle data source
-    uses the a globally-trained coarse-resolution image diffusion model that generates
-    100km (50k-pixel) fields given monthly average sea surface temperatures and solar
-    conditioning.
+    simulations and reanalysis on the equal-area HEALPix grid. The cBottle video
+    prognostic model uses the video diffusion checkpoint of CBottle trained to predict
+    12 frames (initial state including) at a time.
+
+    Note
+    ----
+    This wrapper allows users to provide an input condition for the first frame of the
+    model. If this tensor is all NaNs no variable conditioning will be used running the
+    network outside of time-stamp and respective SST.
 
     Note
     ----
@@ -153,16 +158,27 @@ class CBottleVideo(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         CoordSystem
             Coordinate system dictionary
         """
-        return OrderedDict(
-            {
-                "batch": np.empty(0),
-                "time": np.empty(0),
-                "lead_time": np.array([np.timedelta64(0, "h")]),
-                "variable": np.array(self.VARIABLES),
-                "lat": np.linspace(90, -90, 721),
-                "lon": np.linspace(0, 360, 1440, endpoint=False),
-            }
-        )
+        if self.lat_lon:
+            return OrderedDict(
+                {
+                    "batch": np.empty(0),
+                    "time": np.empty(0),
+                    "lead_time": np.array([np.timedelta64(0, "h")]),
+                    "variable": np.array(self.VARIABLES),
+                    "lat": np.linspace(90, -90, 721),
+                    "lon": np.linspace(0, 360, 1440, endpoint=False),
+                }
+            )
+        else:
+            return OrderedDict(
+                {
+                    "batch": np.empty(0),
+                    "time": np.empty(0),
+                    "lead_time": np.array([np.timedelta64(0, "h")]),
+                    "variable": np.array(self.VARIABLES),
+                    "hpx": np.arange(4**HPX_LEVEL * 12),
+                }
+            )
 
     @batch_coords()
     def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
@@ -179,14 +195,19 @@ class CBottleVideo(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             Coordinate system dictionary
         """
         target_input_coords = self.input_coords()
-        handshake_dim(input_coords, "lon", -1)
-        handshake_dim(input_coords, "lat", -2)
         handshake_dim(input_coords, "variable", -3)
         handshake_dim(input_coords, "lead_time", -4)
         handshake_dim(input_coords, "time", -5)
-        handshake_coords(input_coords, target_input_coords, "lon")
-        handshake_coords(input_coords, target_input_coords, "lat")
         handshake_coords(input_coords, target_input_coords, "variable")
+
+        if self.lat_lon:
+            handshake_dim(input_coords, "lon", -1)
+            handshake_dim(input_coords, "lat", -2)
+            handshake_coords(input_coords, target_input_coords, "lon")
+            handshake_coords(input_coords, target_input_coords, "lat")
+        else:
+            handshake_dim(input_coords, "hpx", -1)
+            handshake_coords(input_coords, target_input_coords, "hpx")
 
         output_coords = input_coords.copy()
         output_coords["lead_time"] = input_coords["lead_time"] + np.array(
@@ -195,7 +216,22 @@ class CBottleVideo(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         return output_coords
 
     def _forward(self, x: torch.Tensor, times: TimeArray) -> torch.Tensor:
+        """Executes forward sample of the model given conditional tensor and time array
 
+        Parameters
+        ----------
+        x : torch.Tensor
+            Input tensor to condition video model. Of size [time,1,45,721,1440] if
+            lat_lon or [time,1,45,49152] if healpix
+        times : TimeArray
+            Time stamp array of size [time]
+
+        Returns
+        -------
+        torch.Tensor
+            12 forecast steps (initial step including) [time, 12, 45, 721, 1440] if
+            lat_lon or [time, 1, 45, 49152] if healpix
+        """
         device = self.device_buffer.device
         self.core_model.sigma_min = self.sigma_min
         self.core_model.sigma_max = self.sigma_max
@@ -220,27 +256,28 @@ class CBottleVideo(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self,
         conditions: torch.Tensor,
         times: TimeArray,
-        label: int = 1,  # 0 for ICON, 1 for ERA5
+        label: int = 1,
         device: torch.device = "cpu",
     ) -> dict[str, torch.Tensor]:
-        """Prepares the CBottle inputs
-
-        Adopted from:
-
-        - https://github.com/NVlabs/cBottle/blob/ed96dfe35d87ecefa4846307807e8241c4b24e71/src/cbottle/datasets/amip_sst_loader.py#L55
-        - https://github.com/NVlabs/cBottle/blob/4f44c125398896fad1f4c9df3d80dc845758befa/src/cbottle/datasets/dataset_3d.py#L393
+        """Creates batch input for cbottle
 
         Parameters
         ----------
-        times : list[datetime]
-            List of times for inference
+        conditions : torch.Tensor
+            HPX conditional tensor for first time-step of size
+            [time, 45, 1, 4**HPX_LEVEL*12]. If all NaNs no condition will be used.
+        times : TimeArray
+            Array of np.datetime64 time stamps to be samples of size [time], must have
+            SST that can be sampled from self.sst
         label : int, optional
-            Label ID, by default 1
+            0 for ICON, 1 for ERA5, by default 1
+        device : torch.device, optional
+            Torch device, by default "cpu"
 
         Returns
         -------
         dict[str, torch.Tensor]
-            Dictionary of input tensors for CBottle
+            Input batch dictionary used in the CBottle repo
         """
         time_steps = [i * self._time_step for i in range(self._time_length)]
         times = times[:, None] + np.array(time_steps, dtype=np.timedelta64)[None, :]
@@ -304,7 +341,7 @@ class CBottleVideo(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         second_of_day = torch.tensor(second_of_day.astype(np.float32), device=device)
         day_of_year = torch.tensor(day_of_year.astype(np.float32), device=device)
 
-        # Target tensor, not needed for video model
+        # Target tensor, not needed for video model since no infill
         # target = torch.zeros(
         #     (len(times), self.VARIABLES.shape[0], 1, 4**HPX_LEVEL * 12),
         #     dtype=torch.float32,
@@ -347,7 +384,7 @@ class CBottleVideo(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         package: Package,
         lat_lon: bool = True,
         seed: int | None = None,
-    ) -> DataSource:
+    ) -> PrognosticModel:
         """Load AI datasource from package
 
         Parameters
@@ -355,22 +392,17 @@ class CBottleVideo(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         package : Package
             CBottle AI model package
         lat_lon : bool, optional
-            Lat/lon toggle, if true data source will return output on a 0.25 deg lat/lon
+            Lat/lon toggle, if true prognostic input/output on a 0.25 deg lat/lon
             grid. If false, the native nested HealPix grid will be returned, by default
             True
-        batch_size : int, optional
-            Batch size to generate time samples at, consider adjusting based on hardware
-            being used, by default 4
         seed : int | None, optional
             If set, will fix the seed of the random generator for latent variables, by
             default None
-        verbose : bool, optional
-            Print generation progress, by default True
 
         Returns
         -------
-        DataSource
-            Data source
+        PrognosticModel
+            Prognostic Model
         """
         checkpoints = [
             package.resolve("cBottle-video.zip"),
@@ -412,7 +444,8 @@ class CBottleVideo(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         Parameters
         ----------
         x : torch.Tensor
-            Input tensor
+            Input conditional tensor for first frame, if all NaNs model will not use
+            any conditioning.
         coords : CoordSystem
             Input coordinate system
 
@@ -425,21 +458,12 @@ class CBottleVideo(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         output_coords = self.output_coords(coords)
 
         times = coords["time"].repeat(coords["batch"].shape[0])
-        x = x.reshape(
-            -1,
-            coords["lead_time"].shape[0],
-            coords["variable"].shape[0],
-            coords["lat"].shape[0],
-            coords["lon"].shape[0],
-        )
+
+        domain_shape = list(x.shape)[-3:]  # Auto handle lat/lon vs healpix
+        x = x.reshape(-1, coords["lead_time"].shape[0], *domain_shape)
         x = self._forward(x, times)
         x = x.reshape(
-            coords["batch"].shape[0],
-            coords["time"].shape[0],
-            coords["lead_time"].shape[0],
-            coords["variable"].shape[0],
-            coords["lat"].shape[0],
-            coords["lon"].shape[0],
+            coords["batch"].shape[0], coords["time"].shape[0], -1, *domain_shape
         )
         return x[:, :, 1:2], output_coords
 
@@ -450,26 +474,15 @@ class CBottleVideo(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         times = coords["time"].repeat(coords["batch"].shape[0])
         coords = self.output_coords(coords)
-
+        domain_shape = list(x.shape)[-3:]  # Auto handle lat/lon vs healpix
         start_frame = True
         while True:
             # Front hook
             x, coords = self.front_hook(x, coords)
-            x = x.reshape(
-                -1,
-                1,
-                coords["variable"].shape[0],
-                coords["lat"].shape[0],
-                coords["lon"].shape[0],
-            )
+            x = x.reshape(-1, 1, *domain_shape)
             x = self._forward(x, times)
             x = x.reshape(
-                coords["batch"].shape[0],
-                coords["time"].shape[0],
-                -1,
-                coords["variable"].shape[0],
-                coords["lat"].shape[0],
-                coords["lon"].shape[0],
+                coords["batch"].shape[0], coords["time"].shape[0], -1, *domain_shape
             )
             # Note that the input just conditions the model, so we need to run forward
             # even for the initial time step unlike the auto regressive models
@@ -502,7 +515,6 @@ class CBottleVideo(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             Input tensor
         coords : CoordSystem
             Input coordinate system
-
 
         Yields
         ------
