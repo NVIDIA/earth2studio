@@ -244,11 +244,11 @@ class CBottleVideo(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         x = x.transpose(1, 2)
         input_batch = self.get_cbottle_input(x, times, device=device)
         out, _ = self.core_model.sample(input_batch, seed=self.seed)
-        # [time, vars, lead, hpx] -> [time, lead, vars, hpx]
-        out = out.transpose(1, 2)
         # Regrid if needed
         if self.lat_lon:
             out = self.output_regridder(out.double())
+        # [time, vars, lead, ...] -> [time, lead, vars, ...]
+        out = out.transpose(1, 2)
 
         return out
 
