@@ -198,12 +198,12 @@ class CBottleVideo(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def _forward(self, x: torch.Tensor, times: TimeArray) -> torch.Tensor:
 
         device = self.device_buffer.device
-        self.core_model.sigma_min = torch.tensor([self.sigma_min]).to(device)
-        self.core_model.sigma_max = torch.tensor([self.sigma_max]).to(device)
+        self.core_model.sigma_min = self.sigma_min
+        self.core_model.sigma_max = self.sigma_max
         self.core_model.num_steps = self.sampler_steps
 
         if self.lat_lon:
-            x = self.condition_regridder(x.double()).float()
+            x = self.condition_regridder(x.double())
 
         input_batch = self.get_cbottle_input(x, times, device=device)
         out, _ = self.core_model.sample(input_batch, seed=self.seed)
@@ -252,7 +252,12 @@ class CBottleVideo(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         # TODO: Fix on off device in efficiency here
         cond = torch.zeros(
-            times.shape[0], 47, times.shape[1], 4**HPX_LEVEL * 12, device=device
+            times.shape[0],
+            47,
+            times.shape[1],
+            4**HPX_LEVEL * 12,
+            dtype=torch.double,
+            device=device,
         )
         cond[:, -2, :, :] = torch.tensor(
             encode_sst(sst_data.cpu()).reshape(times.shape[0], times.shape[1], -1),
