@@ -39,6 +39,7 @@ from earth2studio.models.auto.package import (
 from earth2studio.models.dx import (
     CBottleInfill,
     CBottleSR,
+    CBottleTCGuidance,
     ClimateNet,
     CorrDiffTaiwan,
     PrecipitationAFNO,
@@ -90,6 +91,7 @@ from earth2studio.models.px import (
         CorrDiffTaiwan,
         CBottleInfill,
         CBottleSR,
+        CBottleTCGuidance,
         WindgustAFNO,
         InterpModAFNO,
         PrecipitationAFNOv2,
