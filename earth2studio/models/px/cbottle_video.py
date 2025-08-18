@@ -66,6 +66,11 @@ class CBottleVideo(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     model. If this tensor is all NaNs no variable conditioning will be used running the
     network outside of time-stamp and respective SST.
 
+    Warning
+    -------
+    Default model package has SST data from January 1940 to December 2022, expanded SST
+    data should be provided out of this range.
+
     Note
     ----
     For more information see the following references:
@@ -303,7 +308,11 @@ class CBottleVideo(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         )
         cond[:, self._nan_channels, :, :] = torch.nan
         # If initial state to condition the model
-        if not torch.isnan(conditions).all():
+        if (
+            not torch.isnan(conditions).all()
+            and self.core_model.batch_info.center
+            and self.core_model.batch_info.scales
+        ):
             means = (
                 torch.tensor(self.core_model.batch_info.center)
                 .to(device)
@@ -500,8 +509,8 @@ class CBottleVideo(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 yield output_tensor, coords_out
 
             # Use last generated frame as the first input one (has not been formally verified for accuracy)
-            times = coords["time"] + 11 * np.array([self._time_step])
-            x = x[:, :, -1:, :, :]
+            times = times + 11 * np.array([self._time_step])
+            x = x[:, :, -1:, ...]
 
     def create_iterator(
         self, x: torch.Tensor, coords: CoordSystem
