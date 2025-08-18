@@ -4,7 +4,7 @@ install:
 
 .PHONY: install-docker
 install-docker:
-	uv pip install --system --break-system-packages --no-install-package torch --no-install-package flash-attention .[all,aifs] --group dev
+	uv pip install --system --break-system-packages .[all,aifs] --group dev
 	uv pip install --system --break-system-packages zarr~=3.0
 
 .PHONY: setup-ci

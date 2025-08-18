@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 2
 requires-python = ">=3.10"
 resolution-markers = [
     "python_full_version >= '3.13' and sys_platform != 'darwin' and sys_platform != 'linux'",
@@ -1350,7 +1350,7 @@ wheels = [
 [[package]]
 name = "earth2grid"
 version = "2025.7.1+torch27"
-source = { git = "https://github.com/NVlabs/earth2grid.git?rev=v2025.7.1#b57ed2ddda1e620a082288736f49ad1969482138" }
+source = { git = "https://github.com/NVlabs/earth2grid.git?rev=661445e2c68edc76f52632aa0528af482357f1b8#661445e2c68edc76f52632aa0528af482357f1b8" }
 dependencies = [
     { name = "einops" },
     { name = "numpy" },
@@ -1577,9 +1577,9 @@ requires-dist = [
     { name = "cucim-cu12", marker = "extra == 'cyclone'", specifier = ">=25.4.0" },
     { name = "dm-haiku", marker = "extra == 'all'", specifier = ">=0.0.14" },
     { name = "dm-haiku", marker = "extra == 'graphcast'", specifier = ">=0.0.14" },
-    { name = "earth2grid", marker = "extra == 'all'", git = "https://github.com/NVlabs/earth2grid.git?rev=v2025.7.1" },
-    { name = "earth2grid", marker = "extra == 'cbottle'", git = "https://github.com/NVlabs/earth2grid.git?rev=v2025.7.1" },
-    { name = "earth2grid", marker = "extra == 'dlesym'", git = "https://github.com/NVlabs/earth2grid.git?rev=v2025.7.1" },
+    { name = "earth2grid", marker = "extra == 'all'", git = "https://github.com/NVlabs/earth2grid.git?rev=661445e2c68edc76f52632aa0528af482357f1b8" },
+    { name = "earth2grid", marker = "extra == 'cbottle'", git = "https://github.com/NVlabs/earth2grid.git?rev=661445e2c68edc76f52632aa0528af482357f1b8" },
+    { name = "earth2grid", marker = "extra == 'dlesym'", git = "https://github.com/NVlabs/earth2grid.git?rev=661445e2c68edc76f52632aa0528af482357f1b8" },
     { name = "earthkit-regrid", marker = "extra == 'aifs'", specifier = "==0.4.0" },
     { name = "eccodes", marker = "extra == 'all'", specifier = ">=2.38.0" },
     { name = "eccodes", marker = "extra == 'data'", specifier = ">=2.38.0" },
@@ -1589,7 +1589,7 @@ requires-dist = [
     { name = "einops", marker = "extra == 'all'", specifier = ">=0.8.1" },
     { name = "einops", marker = "extra == 'corrdiff'", specifier = ">=0.8.1" },
     { name = "einops", marker = "extra == 'stormcast'", specifier = ">=0.8.1" },
-    { name = "flash-attn", marker = "extra == 'aifs'", specifier = ">=2.7.3" },
+    { name = "flash-attn", marker = "extra == 'aifs'" },
     { name = "flax", marker = "extra == 'all'", specifier = ">=0.10.6" },
     { name = "flax", marker = "extra == 'graphcast'", specifier = ">=0.10.6" },
     { name = "fsspec", specifier = ">=2024.2.0" },
@@ -3629,7 +3629,7 @@ wheels = [
 
 [[package]]
 name = "microsoft-aurora"
-version = "0.1.dev55+gab41cf1"
+version = "0.1.dev55+gab41cf1de"
 source = { git = "https://github.com/NickGeneva/aurora.git?rev=ab41cf1de67d5dcc723b96fc9a6219e4b548d181#ab41cf1de67d5dcc723b96fc9a6219e4b548d181" }
 dependencies = [
     { name = "azure-storage-blob" },
