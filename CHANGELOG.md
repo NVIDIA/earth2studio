@@ -6,7 +6,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.9.0a0] - 2025-07-xx
+## [0.9.0] - 2025-08-19
 
 ### Added
 
@@ -28,10 +28,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Updated APIs for optional dependency managment utils with improved error messages
 - Allow Zarr backends to user datetime and timedelta arrays for Zarr 3.0
 
-### Deprecated
-
-### Removed
-
 ### Fixed
 
 - Incorrect datetime utc timezone calculation in SFNO wrapper was fixed.
@@ -40,8 +36,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   clean up
 - Fixed HRRR_FX valid lead time check for date times not on 6 hour interval
 - Removed time limits for WB2 climatology data source
-
-### Security
 
 ### Dependencies
 
