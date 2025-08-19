@@ -10,6 +10,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added CMIP6 data source
+
 ### Changed
 
 ### Deprecated
@@ -31,10 +33,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - IO performance example
 - Unified CorrDiff Wrapper
 - Added UV script dependencies to all examples
-- Added CMIP6 data source
-- New metrics: Brier score, fractions skill score, log spectral distance, mean absolute error.
-- Option to compute error of ensemble mean in rmse and mae.
-- Added FourCastNet 3 model.
+- New metrics: Brier score, fractions skill score, log spectral distance, mean absolute
+  error
+- Option to compute error of ensemble mean in rmse and mae
+- Added FourCastNet 3 model
 
 ### Changed
 
