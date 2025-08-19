@@ -44,6 +44,8 @@ from earth2studio.utils.type import CoordSystem
 
 try:
     import onnxruntime as ort
+
+    ort.preload_dlls()
     from onnxruntime import InferenceSession
 except ImportError:
     OptionalDependencyFailure("pangu")
