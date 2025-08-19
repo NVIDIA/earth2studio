@@ -407,7 +407,7 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
             batch["day_of_year"] = day_of_year[start_idx:end_idx]
 
             indices_where_tc = self._latlon_guidance_to_hpx(x[start_idx:end_idx])
-            output, coords = self.core_model.sample(
+            output, cb_coords = self.core_model.sample(
                 batch, guidance_pixels=indices_where_tc, seed=self.seed
             )
             outputs.append(output)
@@ -420,7 +420,7 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
             latlon_grid = earth2grid.latlon.equiangular_lat_lon_grid(
                 nlat, nlon, includes_south_pole=True
             )
-            regridder = earth2grid.get_regridder(coords.grid, latlon_grid).to(device)
+            regridder = earth2grid.get_regridder(cb_coords.grid, latlon_grid).to(device)
             output = regridder(output).squeeze(2)
 
             output = output.reshape(
