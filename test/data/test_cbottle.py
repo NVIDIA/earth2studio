@@ -15,6 +15,7 @@
 # limitations under the License.
 
 import datetime
+import importlib
 
 import numpy as np
 import pytest
@@ -227,6 +228,10 @@ def test_cbottle_package(time, variable, device, model_cache_context):
 @pytest.mark.timeout(60)
 @pytest.mark.parametrize("time", [datetime.datetime(year=2000, month=12, day=31)])
 @pytest.mark.parametrize("variable", [["sic", "u10m", "t2m"]])
+@pytest.mark.skipif(
+    importlib.util.find_spec("apex.contrib.group_norm") is not None,
+    reason="Test requires apex.contrib.group_norm to not be installed",
+)
 def test_cbottle_package_cpu(time, variable, model_cache_context):
     # Test the cached model package
     with model_cache_context():
