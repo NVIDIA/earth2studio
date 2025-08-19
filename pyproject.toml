@@ -61,6 +61,7 @@ data = [
     "cdsapi>=0.7.5",
     "eccodes>=2.38.0",
     "ecmwf-opendata>=0.3.3",
+    "intake-esgf>=0.9.4",
     "pyproj>=3.7.1",
     "scipy>=1.15.2",
 ]
@@ -97,6 +98,11 @@ dlwp = [
 fcn = [
     "nvidia-physicsnemo>=1.0.1",
 ]
+fcn3 = [
+    "makani",
+    "ruamel.yaml>=0.18.14",
+    "moviepy"
+]
 fengwu = [
     "onnxruntime-gpu>=1.21.0",
 ]
@@ -116,15 +122,11 @@ pangu = [
     "onnxruntime-gpu>=1.21.0",
 ]
 sfno = [
-    "importlib_metadata",
-    "jsbeautifier>=1.15.4",
-    "makani[all]",
-    "numba>=0.61.0",
+    "makani",
     "pynvml>=12.0.0",
     "ruamel-yaml>=0.18.10",
-    "tensorly>=0.9.0",
-    "tensorly-torch>=0.5.0",
-    "torch-harmonics>=0.7.4",
+    "torch-harmonics>=0.8.0",
+    "moviepy"
 ]
 stormcast = [
     "einops>=0.8.1",
@@ -166,7 +168,7 @@ windgust-afno = [
 # All, must not have conflicts
 all = [
     "earth2studio[data,perturbation,statistics]",
-    "earth2studio[aurora-fork,dlesym,dlwp,fcn,fengwu,interp-modafno,pangu,sfno,stormcast,graphcast]",
+    "earth2studio[aurora-fork,dlesym,dlwp,fcn,fcn3,fengwu,interp-modafno,pangu,sfno,stormcast,graphcast]",
     "earth2studio[cbottle,climatenet,corrdiff,precip-afno,cyclone,precip-afno-v2,solarradiation-afno,windgust-afno]",
 ]
 
@@ -210,7 +212,7 @@ override-dependencies = []
 [tool.uv.sources]
 cbottle = { git = "https://github.com/NickGeneva/cBottle.git", rev = "e4621e54de99ea3fce5090a7dfc87c00e5e4b5f3" }
 earth2grid = { git = "https://github.com/NVlabs/earth2grid.git", rev = "661445e2c68edc76f52632aa0528af482357f1b8" }
-makani = { git = "https://github.com/NickGeneva/modulus-makani.git", rev = "3da09f9e52a6393839d73d44262779ac7279bc2f" }
+makani = { git = "https://github.com/NVIDIA/makani.git", rev = "49280812513d8f1daf872a2e9343855a6adb3acf"}
 microsoft-aurora = { git = "https://github.com/NickGeneva/aurora.git", rev = "ab41cf1de67d5dcc723b96fc9a6219e4b548d181" }
 graphcast = { git = "https://github.com/deepmind/graphcast.git", rev = "7077d40a36db6541e3ed72ccaed1c0d202fa6014" }
 torch = [

@@ -15,8 +15,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - IO performance example
 - Unified CorrDiff Wrapper
 - Added UV script dependencies to all examples
+- Added CMIP6 data source
 - New metrics: Brier score, fractions skill score, log spectral distance, mean absolute error.
-- Option to compute error of ensemble mean in rmse and mae.
+- Option to compute error of ensemble mean in rmse and mae
+- Added FourCastNet 3 model
 - Added CBottle Tropical Cyclone guidance diagnostic
 
 ### Changed
@@ -48,6 +50,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Adding rich to core dependencies
 - Bumped CBottle (and Earth2Grid) versions
+- Changed torch-harmonics to 0.8.0
+- Changed makani to 0.2.1
 
 ## [0.8.1] - 2025-07-07
 
