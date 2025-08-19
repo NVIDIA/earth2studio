@@ -54,7 +54,7 @@ VARIABLES = np.array(list(CBottleLexicon.VOCAB.keys()))
 
 @check_optional_dependencies()
 class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
-    """Climate in a bottle tropical cyclone guidance diagnostic.
+    """Climate in a Bottle tropical cyclone guidance diagnostic.
     This model for Climate in a Bottle (cBottle) allows users to provide an cyclone
     guidance map on a lat-lon grid and synthesis global climate realizations at that
     given time. The tropical cyclone guidance field is regridded to HPX Level 3, which
@@ -67,6 +67,11 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
     - https://arxiv.org/abs/2505.06474v1
     - https://github.com/NVlabs/cBottle
     - https://catalog.ngc.nvidia.com/orgs/nvidia/teams/earth-2/models/cbottle
+
+    Note
+    ----
+    This model provides the function :py:func:`CBottleTCGuidance.create_guidance_tensor`
+    as a utility to create the input guidance tensor.
 
     Parameters
     ----------
