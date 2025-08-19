@@ -117,6 +117,7 @@ class CBottle3D(torch.nn.Module, AutoModelMixin):
         self.sampler_steps = sampler_steps
         self.batch_size = batch_size
         self.seed = seed
+        self._core_model = core_model  # Needed to move model to device
         self.core_model = CBottle3d(core_model)
 
         self._cache = cache
@@ -234,7 +235,7 @@ class CBottle3D(torch.nn.Module, AutoModelMixin):
                 coords={
                     "time": np.array(time),
                     "variable": np.array(variable),
-                    "lat": np.linspace(90, -90, nlat, endpoint=False),
+                    "lat": np.linspace(90, -90, nlat),
                     "lon": np.linspace(0, 360, nlon, endpoint=False),
                 },
             )
