@@ -6,7 +6,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.9.0a0] - 2025-07-xx
+## [0.10.0] - 2025-09-xx
+
+### Added
+
+- Added CMIP6 data source
+- Added CBottle Tropical Cyclone guidance diagnostic
+
+### Changed
+
+### Deprecated
+
+### Removed
+
+### Fixed
+
+### Security
+
+### Dependencies
+
+- Bumped CBottle (and Earth2Grid) versions
+
+## [0.9.0] - 2025-08-19
 
 ### Added
 
@@ -15,11 +36,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - IO performance example
 - Unified CorrDiff Wrapper
 - Added UV script dependencies to all examples
-- Added CMIP6 data source
-- New metrics: Brier score, fractions skill score, log spectral distance, mean absolute error.
+- New metrics: Brier score, fractions skill score, log spectral distance, mean absolute
+  error
 - Option to compute error of ensemble mean in rmse and mae
 - Added FourCastNet 3 model
-- Added CBottle Tropical Cyclone guidance diagnostic
 
 ### Changed
 
@@ -31,10 +51,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Allow Zarr backends to user datetime and timedelta arrays for Zarr 3.0
 - Updated CBottle data source to mixture of experts
 
-### Deprecated
-
-### Removed
-
 ### Fixed
 
 - Incorrect datetime utc timezone calculation in SFNO wrapper was fixed.
@@ -44,12 +60,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed HRRR_FX valid lead time check for date times not on 6 hour interval
 - Removed time limits for WB2 climatology data source
 
-### Security
-
 ### Dependencies
 
 - Adding rich to core dependencies
-- Bumped CBottle (and Earth2Grid) versions
 - Changed torch-harmonics to 0.8.0
 - Changed makani to 0.2.1
 
