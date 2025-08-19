@@ -19,7 +19,6 @@ import os
 import time
 from collections import OrderedDict
 from collections.abc import Callable
-from importlib.metadata import version
 from unittest.mock import patch
 
 import fsspec
@@ -31,14 +30,6 @@ import xarray as xr
 import zarr
 from fsspec.implementations.local import LocalFileSystem
 from fsspec.implementations.memory import MemoryFileSystem
-
-try:
-    zarr_version = version("zarr")
-    zarr_major_version = int(zarr_version.split(".")[0])
-except Exception:
-    zarr_major_version = 2
-if zarr_major_version < 3:
-    pytest.skip("Zarr version 2 not supported", allow_module_level=True)
 
 from earth2studio.io import AsyncZarrBackend
 from earth2studio.utils.coords import split_coords
