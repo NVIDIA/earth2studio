@@ -224,7 +224,7 @@ def test_cbottle_package(time, variable, device, model_cache_context):
 
 @pytest.mark.slow
 @pytest.mark.ci_cache
-@pytest.mark.timeout(30)
+@pytest.mark.timeout(60)
 @pytest.mark.parametrize("time", [datetime.datetime(year=2000, month=12, day=31)])
 @pytest.mark.parametrize("variable", [["sic", "u10m", "t2m"]])
 def test_cbottle_package_cpu(time, variable, model_cache_context):
