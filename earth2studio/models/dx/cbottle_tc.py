@@ -320,7 +320,7 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
 
         lat_idx = torch.searchsorted(torch.from_numpy(-lat_grid), -lat_coords)
         lon_idx = torch.searchsorted(torch.from_numpy(lon_grid), lon_coords)
-        guidance[0, 0, 0, lat_idx, lon_idx] = 1
+        guidance[:, :, :, lat_idx, lon_idx] = 1
 
         coords = OrderedDict(
             {
