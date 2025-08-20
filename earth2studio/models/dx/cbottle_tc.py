@@ -316,7 +316,7 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
 
         lat_grid = np.linspace(90, -90, 721)
         lon_grid = np.linspace(0, 360, 1440, endpoint=False)
-        guidance = torch.full((1, times.shape[0], 1, 721, 1440), 0).float()
+        guidance = torch.full((times.shape[0], 1, 1, 721, 1440), 0).float()
 
         lat_idx = torch.searchsorted(torch.from_numpy(-lat_grid), -lat_coords)
         lon_idx = torch.searchsorted(torch.from_numpy(lon_grid), lon_coords)
