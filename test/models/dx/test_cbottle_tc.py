@@ -101,7 +101,7 @@ class TestCBottleTCMock:
             lat_coords, lon_coords, times
         )
 
-        assert guidance.shape == (1, len(times), 1, 721, 1440)
+        assert guidance.shape == (len(times), 1, 1, 721, 1440)
         assert guidance.dtype == torch.float32
         assert torch.sum(guidance) == len(times) * len(
             lat_coords
@@ -244,8 +244,8 @@ def test_cbottle_tc_package(device, model_cache_context):
     out, out_coords = dx(guidance, coords)
     assert out.shape == torch.Size(
         [
-            1,
             out_coords["time"].shape[0],
+            1,
             out_coords["lead_time"].shape[0],
             out_coords["variable"].shape[0],
             721,
