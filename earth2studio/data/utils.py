@@ -288,7 +288,7 @@ def datasource_to_file(
     backend: Literal["netcdf", "zarr"] = "netcdf",
     chunks: dict[str, int] = {"variable": 1},
     dtype: np.dtype | None = None,
-    **kwargs: typing.Any,
+    backend_kwargs: dict[str, typing.Any] | None = None,
 ) -> None:
     """Utility function that can be used for building a local data store needed
     for an inference request. This file can then be used with the
@@ -314,8 +314,8 @@ def datasource_to_file(
         Chunk sizes along each dimension, by default {"variable": 1}
     dtype : np.dtype, optional
         Data type for storing data
-    **kwargs : Any, optional
-        Additional keyword arguments forwarded to the underlying
+    backend_kwargs : dict[str, Any], optional
+        Dictionary of keyword arguments forwarded to the underlying
         ``xarray.DataArray.to_netcdf`` / ``xarray.DataArray.to_zarr``
         call depending on the selected backend.
     """
@@ -344,9 +344,9 @@ def datasource_to_file(
 
     match backend:
         case "netcdf":
-            da.to_netcdf(file_name, **kwargs)
+            da.to_netcdf(file_name, **backend_kwargs)
         case "zarr":
-            da.to_zarr(file_name, **kwargs)
+            da.to_zarr(file_name, **backend_kwargs)
         case _:
             raise ValueError(f"Unsupported backend {backend}")
 

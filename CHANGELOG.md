@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Added CMIP6 data source
+- Exposed backend arguments of netcdf/zarr to datasource_to_file signature
 
 ### Changed
 
