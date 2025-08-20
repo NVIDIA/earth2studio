@@ -231,7 +231,9 @@ def test_cbottle_tc_package(device, model_cache_context):
     # Guidance over florida
     lat = 27
     lon = -82
-    time = np.array([datetime(2000, 8, 9, 10), datetime(2005, 10, 11, 12)])
+    time = np.array(
+        [datetime(2000, 8, 9, 10), datetime(2005, 10, 11, 12)], dtype=np.datetime64
+    )
     guidance, coords = CBottleTCGuidance.create_guidance_tensor(
         torch.tensor([lat]),
         torch.tensor([lon]),
