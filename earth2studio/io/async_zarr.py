@@ -21,7 +21,6 @@ import threading
 from collections.abc import Callable
 
 # import threading
-from importlib.metadata import version
 from typing import Any
 
 import fsspec
@@ -32,20 +31,8 @@ import zarr
 from fsspec.asyn import AsyncFileSystem
 from fsspec.implementations.local import LocalFileSystem
 from loguru import logger
-
-# Dealing with zarr 3.0 API breaks and type checking
-try:
-    zarr_version = version("zarr")
-    zarr_major_version = int(zarr_version.split(".")[0])
-except Exception:
-    zarr_major_version = 2
-
-if zarr_major_version >= 3:
-    from zarr import AsyncGroup
-    from zarr.core.array import CompressorsLike
-else:
-    AsyncGroup = Any
-    CompressorsLike = Any
+from zarr import AsyncGroup
+from zarr.core.array import CompressorsLike
 
 from earth2studio.utils.type import CoordSystem
 
@@ -132,15 +119,6 @@ class AsyncZarrBackend:
         # May need to trigger warning about this, needed to handle multi-threading!
         # But silent for now since people wont know what this means / get confused by an error message I think
         AsyncFileSystem.cachable = False
-
-        try:
-            zarr_version = version("zarr")
-            zarr_major_version = int(zarr_version.split(".")[0])
-        except Exception:
-            zarr_major_version = 2
-
-        if zarr_major_version < 3:
-            raise ImportError("This IO store only support Zarr 3.0 and above")
 
         if not callable(fs_factory):
             raise TypeError(

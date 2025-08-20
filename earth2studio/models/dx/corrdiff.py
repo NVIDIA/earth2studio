@@ -19,7 +19,6 @@ import zipfile
 from collections import OrderedDict
 from collections.abc import Callable, Sequence
 from functools import partial
-from importlib.metadata import version
 from pathlib import Path
 from typing import Literal
 
@@ -907,32 +906,15 @@ class CorrDiffTaiwan(torch.nn.Module, AutoModelMixin):
             )
         ).eval()
 
-        # Get dataset for lat/lon grid info and centers/stds'
-        try:
-            zarr_version = version("zarr")
-            zarr_major_version = int(zarr_version.split(".")[0])
-        except Exception:
-            # Fallback to older method if version check fails
-            zarr_major_version = 2  # Assume older version if we can't determine
+        store = zarr.storage.LocalStore(
+            str(
+                checkpoint_zip.parent
+                / Path(
+                    "corrdiff_inference_package/dataset/2023-01-24-cwb-4years_5times.zarr"
+                )
+            )
+        )
 
-        if zarr_major_version >= 3:
-            store = zarr.storage.LocalStore(
-                str(
-                    checkpoint_zip.parent
-                    / Path(
-                        "corrdiff_inference_package/dataset/2023-01-24-cwb-4years_5times.zarr"
-                    )
-                )
-            )
-        else:
-            store = zarr.storage.DirectoryStore(
-                str(
-                    checkpoint_zip.parent
-                    / Path(
-                        "corrdiff_inference_package/dataset/2023-01-24-cwb-4years_5times.zarr"
-                    )
-                )
-            )
         root = zarr.group(store)
         # Get output lat/lon grid
         out_lat = torch.as_tensor(root["XLAT"][:], dtype=torch.float32)
