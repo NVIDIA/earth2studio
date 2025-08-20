@@ -16,19 +16,16 @@
 
 from collections import OrderedDict
 from collections.abc import Iterator
-from typing import Any, TypeAlias, Union
+from typing import Any
 
 import numpy as np
 import torch
 import zarr
-from zarr.core import Array
-from zarr.core.array import Array as Array3
+from zarr.core.array import Array as ZarrArray
 from zarr.core.array import CompressorsLike
 
 from earth2studio.utils.coords import convert_multidim_to_singledim
 from earth2studio.utils.type import CoordSystem
-
-ZarrArray: TypeAlias = Union[Array, Array3]
 
 
 class ZarrBackend:
