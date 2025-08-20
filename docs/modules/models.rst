@@ -33,6 +33,7 @@ Thus are typically used to generate forecast predictions.
    DLESyMLatLon
    DLWP
    FCN
+   FCN3
    FengWu
    FuXi
    GraphCastOperational
@@ -70,6 +71,7 @@ etc.
 
    CBottleInfill
    CBottleSR
+   CBottleTCGuidance
    CorrDiffTaiwan
    ClimateNet
    DerivedRH

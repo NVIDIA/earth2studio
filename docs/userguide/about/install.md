@@ -29,7 +29,7 @@ and it's recommended that users use an uv project for the best install experienc
 ```bash
 mkdir earth2studio-project && cd earth2studio-project
 uv init --python=3.12
-uv add "earth2studio @ git+https://github.com/NVIDIA/earth2studio.git@0.8.1"
+uv add "earth2studio @ git+https://github.com/NVIDIA/earth2studio.git@0.9.0"
 ```
 
 :::{admonition} uv install
@@ -202,6 +202,33 @@ uv add earth2studio --extra fcn
 :::
 ::::
 :::::
+:::::{tab-item} FourCastNet 3
+Notes: Recommended to install [torch-harmonics](https://github.com/NVIDIA/torch-harmonics)
+with CUDA extensions for best performance. [Modulus-Makani](https://github.com/NVIDIA/modulus-makani.git)
+needs to be installed manually.
+
+::::{tab-set}
+:::{tab-item} pip
+
+```bash
+export FORCE_CUDA_EXTENSION=1
+pip install --no-build-isolation torch-harmonics==0.8.0
+pip install "makani @ git+https://github.com/NVIDIA/modulus-makani.git@49280812513d8f1daf872a2e9343855a6adb3acf"
+pip install earth2studio[fcn3]
+```
+
+:::
+:::{tab-item} uv
+
+```bash
+export FORCE_CUDA_EXTENSION=1
+uv add torch-harmonics==0.8.0 --no-build-isolation
+uv add earth2studio --extra fcn3
+```
+
+:::
+::::
+:::::
 :::::{tab-item} FengWu
 Notes: Requires [ONNX GPU Runtime](https://onnxruntime.ai/docs/install/). May need
 manual install depending on CUDA and Python version.
@@ -293,7 +320,7 @@ installed manually.
 :::{tab-item} pip
 
 ```bash
-pip install "makani[all] @ git+https://github.com/NickGeneva/modulus-makani.git@3da09f9e52a6393839d73d44262779ac7279bc2f"
+pip install "makani @ git+https://github.com/NVIDIA/modulus-makani.git@49280812513d8f1daf872a2e9343855a6adb3acf"
 pip install earth2studio[sfno]
 ```
 
@@ -640,14 +667,14 @@ the following commands:
 ```bash
 mkdir earth2studio-project && cd earth2studio-project
 uv init --python=3.12
-uv add "earth2studio @ git+https://github.com/NVIDIA/earth2studio.git@0.8.1"
+uv add "earth2studio @ git+https://github.com/NVIDIA/earth2studio.git@0.9.0"
 ```
 
 or if you are already inside an existing uv project:
 
 ```bash
 uv venv --python=3.12
-uv add "earth2studio @ git+https://github.com/NVIDIA/earth2studio.git@0.8.1"
+uv add "earth2studio @ git+https://github.com/NVIDIA/earth2studio.git@0.9.0"
 ```
 
 (pytorch_container_environment)=
@@ -667,7 +694,7 @@ docker run -it -t nvcr.io/nvidia/pytorch:25.05-py3
 >>> apt-get update && apt-get install -y git make curl && rm -rf /var/lib/apt/lists/*
 >>> unset PIP_CONSTRAINT
 >>> curl -LsSf https://astral.sh/uv/install.sh | sh && source $HOME/.local/bin/env
->>> uv pip install --system --break-system-packages "earth2studio@git+https://github.com/NVIDIA/earth2studio.git@0.8.1"
+>>> uv pip install --system --break-system-packages "earth2studio@git+https://github.com/NVIDIA/earth2studio.git@0.9.0"
 ```
 
 <!-- markdownlint-disable MD013 -->
@@ -680,7 +707,7 @@ do with pip e.g.
 ```bash
 uv pip install --system \
     --break-system-packages \
-    "earth2studio[all]@git+https://github.com/NVIDIA/earth2studio.git@0.8.1"
+    "earth2studio[all]@git+https://github.com/NVIDIA/earth2studio.git@0.9.0"
 ```
 
 :::
@@ -708,7 +735,7 @@ WORKDIR /app
 # Disable contraint files in the container
 ENV PIP_CONSTRAINT=
 # Install Earth2Studio and dependencies
-RUN uv pip install --system --break-system-packages "earth2studio@git+https://github.com/NVIDIA/earth2studio.git@0.8.1"
+RUN uv pip install --system --break-system-packages "earth2studio@git+https://github.com/NVIDIA/earth2studio.git@0.9.0"
 ```
 
 ## Conda Environment
@@ -724,7 +751,7 @@ package tooling.
 conda create -n earth2studio python=3.12
 conda activate earth2studio
 
-uv pip install --system --break-system-packages "earth2studio@git+https://github.com/NVIDIA/earth2studio.git@0.8.1"
+uv pip install --system --break-system-packages "earth2studio@git+https://github.com/NVIDIA/earth2studio.git@0.9.0"
 ```
 
 # System Recommendations

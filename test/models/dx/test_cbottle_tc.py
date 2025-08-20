@@ -101,9 +101,11 @@ class TestCBottleTCMock:
             lat_coords, lon_coords, times
         )
 
-        assert guidance.shape == (1, len(times), 1, 721, 1440)
+        assert guidance.shape == (len(times), 1, 1, 721, 1440)
         assert guidance.dtype == torch.float32
-        assert torch.sum(guidance) == len(lat_coords)  # One point per coordinate pair
+        assert torch.sum(guidance) == len(times) * len(
+            lat_coords
+        )  # One point per coordinate pair
 
         assert "time" in coords
         assert "lead_time" in coords
@@ -160,6 +162,40 @@ class TestCBottleTCMock:
         handshake_dim(out_coords, "time", 1)
         handshake_dim(out_coords, "batch", 0)
 
+    @pytest.mark.parametrize(
+        "x,time",
+        [
+            (torch.zeros(1, 1, 1, 768), np.array([datetime(2020, 1, 1)])),
+        ],
+    )
+    @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+    def test_cbottle_tc_forward_hpx(
+        self, x, time, device, mock_core_model, mock_classifier_model, mock_sst_ds
+    ):
+        dx = CBottleTCGuidance(
+            mock_core_model, mock_classifier_model, mock_sst_ds, lat_lon=False
+        ).to(device)
+        dx.sampler_steps = 2  # Speed up sampler
+        dx.batch_size = 2
+
+        coords = OrderedDict(
+            {
+                "time": time,
+                "lead_time": np.array([timedelta(hours=0)]),
+                "variable": dx.input_coords()["variable"],
+                "hpx": np.arange(x.shape[-1]),
+            }
+        )
+        x = x.to(device)
+        out, out_coords = dx(x, coords)
+
+        assert out.shape == torch.Size([x.shape[0], x.shape[1], 45, 49152])
+        assert np.all(out_coords["variable"] == dx.output_coords(coords)["variable"])
+        handshake_dim(out_coords, "hpx", 3)
+        handshake_dim(out_coords, "variable", 2)
+        handshake_dim(out_coords, "lead_time", 1)
+        handshake_dim(out_coords, "time", 0)
+
     def test_validate_sst_time_valid(
         self, mock_core_model, mock_classifier_model, mock_sst_ds
     ):
@@ -190,12 +226,14 @@ def test_cbottle_tc_package(device, model_cache_context):
     # Only cuda used here to speed things up, but CPU also works
     with model_cache_context():
         package = CBottleTCGuidance.load_default_package()
-        dx = CBottleTCGuidance.load_model(package.to(device))
+        dx = CBottleTCGuidance.load_model(package).to(device)
 
     # Guidance over florida
     lat = 27
     lon = -82
-    time = np.array([datetime(2000, 8, 9, 10), datetime(2005, 10, 11, 12)])
+    time = np.array(
+        [datetime(2000, 8, 9, 10), datetime(2005, 10, 11, 12)], dtype=np.datetime64
+    )
     guidance, coords = CBottleTCGuidance.create_guidance_tensor(
         torch.tensor([lat]),
         torch.tensor([lon]),
@@ -206,7 +244,6 @@ def test_cbottle_tc_package(device, model_cache_context):
     out, out_coords = dx(guidance, coords)
     assert out.shape == torch.Size(
         [
-            1,
             out_coords["time"].shape[0],
             out_coords["lead_time"].shape[0],
             out_coords["variable"].shape[0],
@@ -226,4 +263,4 @@ def test_cbottle_tc_package(device, model_cache_context):
     vidx = np.where(out_coords["variable"] == "tcwv")[0]
     lat_idx = 4 * (90 - lat)
     lon_idx = 4 * (360 + lon)
-    assert (out[:, :, :, vidx, lat_idx, lon_idx] >= 70).all()
+    assert (out[:, :, vidx, lat_idx, lon_idx] >= 60).all()

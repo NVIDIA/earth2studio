@@ -19,6 +19,8 @@ from typing import TypeVar
 
 try:
     import onnxruntime as ort
+
+    ort.preload_dlls()
     from onnxruntime import InferenceSession
 except ImportError:
     ort = None
