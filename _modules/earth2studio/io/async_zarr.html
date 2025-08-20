@@ -441,7 +441,6 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Callable</span>
 
 <span class="c1"># import threading</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">importlib.metadata</span><span class="w"> </span><span class="kn">import</span> <span class="n">version</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">fsspec</span>
@@ -452,20 +451,8 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">fsspec.asyn</span><span class="w"> </span><span class="kn">import</span> <span class="n">AsyncFileSystem</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fsspec.implementations.local</span><span class="w"> </span><span class="kn">import</span> <span class="n">LocalFileSystem</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">loguru</span><span class="w"> </span><span class="kn">import</span> <span class="n">logger</span>
-
-<span class="c1"># Dealing with zarr 3.0 API breaks and type checking</span>
-<span class="k">try</span><span class="p">:</span>
-    <span class="n">zarr_version</span> <span class="o">=</span> <span class="n">version</span><span class="p">(</span><span class="s2">&quot;zarr&quot;</span><span class="p">)</span>
-    <span class="n">zarr_major_version</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">zarr_version</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;.&quot;</span><span class="p">)[</span><span class="mi">0</span><span class="p">])</span>
-<span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
-    <span class="n">zarr_major_version</span> <span class="o">=</span> <span class="mi">2</span>
-
-<span class="k">if</span> <span class="n">zarr_major_version</span> <span class="o">&gt;=</span> <span class="mi">3</span><span class="p">:</span>
-    <span class="kn">from</span><span class="w"> </span><span class="nn">zarr</span><span class="w"> </span><span class="kn">import</span> <span class="n">AsyncGroup</span>
-    <span class="kn">from</span><span class="w"> </span><span class="nn">zarr.core.array</span><span class="w"> </span><span class="kn">import</span> <span class="n">CompressorsLike</span>
-<span class="k">else</span><span class="p">:</span>
-    <span class="n">AsyncGroup</span> <span class="o">=</span> <span class="n">Any</span>
-    <span class="n">CompressorsLike</span> <span class="o">=</span> <span class="n">Any</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">zarr</span><span class="w"> </span><span class="kn">import</span> <span class="n">AsyncGroup</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">zarr.core.array</span><span class="w"> </span><span class="kn">import</span> <span class="n">CompressorsLike</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.utils.type</span><span class="w"> </span><span class="kn">import</span> <span class="n">CoordSystem</span>
 
@@ -554,15 +541,6 @@
         <span class="c1"># May need to trigger warning about this, needed to handle multi-threading!</span>
         <span class="c1"># But silent for now since people wont know what this means / get confused by an error message I think</span>
         <span class="n">AsyncFileSystem</span><span class="o">.</span><span class="n">cachable</span> <span class="o">=</span> <span class="kc">False</span>
-
-        <span class="k">try</span><span class="p">:</span>
-            <span class="n">zarr_version</span> <span class="o">=</span> <span class="n">version</span><span class="p">(</span><span class="s2">&quot;zarr&quot;</span><span class="p">)</span>
-            <span class="n">zarr_major_version</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">zarr_version</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;.&quot;</span><span class="p">)[</span><span class="mi">0</span><span class="p">])</span>
-        <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
-            <span class="n">zarr_major_version</span> <span class="o">=</span> <span class="mi">2</span>
-
-        <span class="k">if</span> <span class="n">zarr_major_version</span> <span class="o">&lt;</span> <span class="mi">3</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ImportError</span><span class="p">(</span><span class="s2">&quot;This IO store only support Zarr 3.0 and above&quot;</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="ow">not</span> <span class="nb">callable</span><span class="p">(</span><span class="n">fs_factory</span><span class="p">):</span>
             <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>

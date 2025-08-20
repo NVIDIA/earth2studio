@@ -440,15 +440,12 @@
 <span class="kn">import</span><span class="w"> </span><span class="nn">pathlib</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">shutil</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">datetime</span><span class="w"> </span><span class="kn">import</span> <span class="n">datetime</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">importlib.metadata</span><span class="w"> </span><span class="kn">import</span> <span class="n">version</span>
 
-<span class="kn">import</span><span class="w"> </span><span class="nn">fsspec</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">gcsfs</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">nest_asyncio</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">xarray</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">xr</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">zarr</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">fsspec.implementations.cached</span><span class="w"> </span><span class="kn">import</span> <span class="n">WholeFileCacheFileSystem</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">loguru</span><span class="w"> </span><span class="kn">import</span> <span class="n">logger</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">tqdm.asyncio</span><span class="w"> </span><span class="kn">import</span> <span class="n">tqdm</span>
 
@@ -497,49 +494,20 @@
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">cache</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span> <span class="n">verbose</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span> <span class="n">async_timeout</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">600</span>
     <span class="p">):</span>
-        <span class="c1"># Check Zarr version and use appropriate method</span>
-        <span class="k">try</span><span class="p">:</span>
-            <span class="n">zarr_version</span> <span class="o">=</span> <span class="n">version</span><span class="p">(</span><span class="s2">&quot;zarr&quot;</span><span class="p">)</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">zarr_major_version</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">zarr_version</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;.&quot;</span><span class="p">)[</span><span class="mi">0</span><span class="p">])</span>
-        <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
-            <span class="c1"># Fallback to older method if version check fails</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">zarr_major_version</span> <span class="o">=</span> <span class="mi">2</span>  <span class="c1"># Assume older version if we can&#39;t determine</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span> <span class="o">=</span> <span class="n">cache</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_verbose</span> <span class="o">=</span> <span class="n">verbose</span>
 
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">zarr_major_version</span> <span class="o">&gt;=</span> <span class="mi">3</span><span class="p">:</span>
-            <span class="c1"># Check to see if there is a running loop (initialized in async)</span>
-            <span class="k">try</span><span class="p">:</span>
-                <span class="n">nest_asyncio</span><span class="o">.</span><span class="n">apply</span><span class="p">()</span>  <span class="c1"># Monkey patch asyncio to work in notebooks</span>
-                <span class="n">loop</span> <span class="o">=</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">get_running_loop</span><span class="p">()</span>
-                <span class="n">loop</span><span class="o">.</span><span class="n">run_until_complete</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_async_init</span><span class="p">())</span>
-            <span class="k">except</span> <span class="ne">RuntimeError</span><span class="p">:</span>
-                <span class="c1"># Else we assume that async calls will be used which in that case</span>
-                <span class="c1"># we will init the group in the call function when we have the loop</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">zarr_group</span> <span class="o">=</span> <span class="kc">None</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">level_coords</span> <span class="o">=</span> <span class="kc">None</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="n">fs</span> <span class="o">=</span> <span class="n">gcsfs</span><span class="o">.</span><span class="n">GCSFileSystem</span><span class="p">(</span>
-                <span class="n">cache_timeout</span><span class="o">=-</span><span class="mi">1</span><span class="p">,</span>
-                <span class="n">token</span><span class="o">=</span><span class="s2">&quot;anon&quot;</span><span class="p">,</span>  <span class="c1"># noqa: S106 # nosec B106</span>
-                <span class="n">access</span><span class="o">=</span><span class="s2">&quot;read_only&quot;</span><span class="p">,</span>
-                <span class="n">block_size</span><span class="o">=</span><span class="mi">8</span><span class="o">**</span><span class="mi">20</span><span class="p">,</span>
-                <span class="n">asynchronous</span><span class="o">=</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">zarr_major_version</span> <span class="o">==</span> <span class="mi">3</span><span class="p">),</span>
-            <span class="p">)</span>
-            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span><span class="p">:</span>
-                <span class="n">cache_options</span> <span class="o">=</span> <span class="p">{</span>
-                    <span class="s2">&quot;cache_storage&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">cache</span><span class="p">,</span>
-                    <span class="s2">&quot;expiry_time&quot;</span><span class="p">:</span> <span class="mi">31622400</span><span class="p">,</span>  <span class="c1"># 1 year</span>
-                <span class="p">}</span>
-                <span class="n">fs</span> <span class="o">=</span> <span class="n">WholeFileCacheFileSystem</span><span class="p">(</span><span class="n">fs</span><span class="o">=</span><span class="n">fs</span><span class="p">,</span> <span class="o">**</span><span class="n">cache_options</span><span class="p">)</span>
-            <span class="c1"># Legacy method for Zarr &lt; 3.0</span>
-            <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Using Zarr 2.0 method for ARCO&quot;</span><span class="p">)</span>
-            <span class="n">fs_map</span> <span class="o">=</span> <span class="n">fsspec</span><span class="o">.</span><span class="n">FSMap</span><span class="p">(</span>
-                <span class="s2">&quot;gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3&quot;</span><span class="p">,</span> <span class="n">fs</span>
-            <span class="p">)</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">zarr_group</span> <span class="o">=</span> <span class="n">zarr</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="n">fs_map</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;r&quot;</span><span class="p">)</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">level_coords</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">zarr_group</span><span class="p">[</span><span class="s2">&quot;level&quot;</span><span class="p">][:]</span>
+        <span class="c1"># Check to see if there is a running loop (initialized in async)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">nest_asyncio</span><span class="o">.</span><span class="n">apply</span><span class="p">()</span>  <span class="c1"># Monkey patch asyncio to work in notebooks</span>
+            <span class="n">loop</span> <span class="o">=</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">get_running_loop</span><span class="p">()</span>
+            <span class="n">loop</span><span class="o">.</span><span class="n">run_until_complete</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_async_init</span><span class="p">())</span>
+        <span class="k">except</span> <span class="ne">RuntimeError</span><span class="p">:</span>
+            <span class="c1"># Else we assume that async calls will be used which in that case</span>
+            <span class="c1"># we will init the group in the call function when we have the loop</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">zarr_group</span><span class="p">:</span> <span class="n">zarr</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">group</span><span class="o">.</span><span class="n">AsyncGroup</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">level_coords</span> <span class="o">=</span> <span class="kc">None</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">async_timeout</span> <span class="o">=</span> <span class="n">async_timeout</span>
 
@@ -723,38 +691,23 @@
             <span class="k">raise</span> <span class="n">e</span>
 
         <span class="n">arco_variable</span><span class="p">,</span> <span class="n">level</span> <span class="o">=</span> <span class="n">arco_name</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;::&quot;</span><span class="p">)</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">zarr_major_version</span> <span class="o">&gt;=</span> <span class="mi">3</span><span class="p">:</span>
-            <span class="n">zarr_array</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">zarr_group</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">arco_variable</span><span class="p">)</span>
-            <span class="n">shape</span> <span class="o">=</span> <span class="n">zarr_array</span><span class="o">.</span><span class="n">shape</span>
-            <span class="c1"># Static variables</span>
-            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">shape</span><span class="p">)</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
-                <span class="n">data</span> <span class="o">=</span> <span class="k">await</span> <span class="n">zarr_array</span><span class="o">.</span><span class="n">getitem</span><span class="p">(</span><span class="nb">slice</span><span class="p">(</span><span class="kc">None</span><span class="p">))</span>
-                <span class="n">output</span> <span class="o">=</span> <span class="n">modifier</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
-            <span class="c1"># Surface variable</span>
-            <span class="k">elif</span> <span class="nb">len</span><span class="p">(</span><span class="n">shape</span><span class="p">)</span> <span class="o">==</span> <span class="mi">3</span><span class="p">:</span>
-                <span class="n">data</span> <span class="o">=</span> <span class="k">await</span> <span class="n">zarr_array</span><span class="o">.</span><span class="n">getitem</span><span class="p">(</span><span class="n">time_index</span><span class="p">)</span>
-                <span class="n">output</span> <span class="o">=</span> <span class="n">modifier</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
-            <span class="c1"># Atmospheric variable</span>
-            <span class="k">else</span><span class="p">:</span>
-                <span class="c1"># Load levels coordinate system from Zarr store and check</span>
-                <span class="n">level_index</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">searchsorted</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">level_coords</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="n">level</span><span class="p">))</span>
-                <span class="n">data</span> <span class="o">=</span> <span class="k">await</span> <span class="n">zarr_array</span><span class="o">.</span><span class="n">getitem</span><span class="p">((</span><span class="n">time_index</span><span class="p">,</span> <span class="n">level_index</span><span class="p">))</span>
-                <span class="n">output</span> <span class="o">=</span> <span class="n">modifier</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+
+        <span class="n">zarr_array</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">zarr_group</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">arco_variable</span><span class="p">)</span>
+        <span class="n">shape</span> <span class="o">=</span> <span class="n">zarr_array</span><span class="o">.</span><span class="n">shape</span>
+        <span class="c1"># Static variables</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">shape</span><span class="p">)</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="k">await</span> <span class="n">zarr_array</span><span class="o">.</span><span class="n">getitem</span><span class="p">(</span><span class="nb">slice</span><span class="p">(</span><span class="kc">None</span><span class="p">))</span>
+            <span class="n">output</span> <span class="o">=</span> <span class="n">modifier</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+        <span class="c1"># Surface variable</span>
+        <span class="k">elif</span> <span class="nb">len</span><span class="p">(</span><span class="n">shape</span><span class="p">)</span> <span class="o">==</span> <span class="mi">3</span><span class="p">:</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="k">await</span> <span class="n">zarr_array</span><span class="o">.</span><span class="n">getitem</span><span class="p">(</span><span class="n">time_index</span><span class="p">)</span>
+            <span class="n">output</span> <span class="o">=</span> <span class="n">modifier</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+        <span class="c1"># Atmospheric variable</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="c1"># Zarr 2.0 fall back</span>
-            <span class="n">shape</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">zarr_group</span><span class="p">[</span><span class="n">arco_variable</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span>
-            <span class="c1"># Static variables</span>
-            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">shape</span><span class="p">)</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
-                <span class="n">output</span> <span class="o">=</span> <span class="n">modifier</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">zarr_group</span><span class="p">[</span><span class="n">arco_variable</span><span class="p">][:])</span>
-            <span class="c1"># Surface variable</span>
-            <span class="k">elif</span> <span class="nb">len</span><span class="p">(</span><span class="n">shape</span><span class="p">)</span> <span class="o">==</span> <span class="mi">3</span><span class="p">:</span>
-                <span class="n">output</span> <span class="o">=</span> <span class="n">modifier</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">zarr_group</span><span class="p">[</span><span class="n">arco_variable</span><span class="p">][</span><span class="n">time_index</span><span class="p">])</span>
-            <span class="c1"># Atmospheric variable</span>
-            <span class="k">else</span><span class="p">:</span>
-                <span class="n">level_index</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">level_coords</span> <span class="o">==</span> <span class="nb">int</span><span class="p">(</span><span class="n">level</span><span class="p">))[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
-                <span class="n">output</span> <span class="o">=</span> <span class="n">modifier</span><span class="p">(</span>
-                    <span class="bp">self</span><span class="o">.</span><span class="n">zarr_group</span><span class="p">[</span><span class="n">arco_variable</span><span class="p">][</span><span class="n">time_index</span><span class="p">,</span> <span class="n">level_index</span><span class="p">]</span>
-                <span class="p">)</span>
+            <span class="c1"># Load levels coordinate system from Zarr store and check</span>
+            <span class="n">level_index</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">searchsorted</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">level_coords</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="n">level</span><span class="p">))</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="k">await</span> <span class="n">zarr_array</span><span class="o">.</span><span class="n">getitem</span><span class="p">((</span><span class="n">time_index</span><span class="p">,</span> <span class="n">level_index</span><span class="p">))</span>
+            <span class="n">output</span> <span class="o">=</span> <span class="n">modifier</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
 
         <span class="k">return</span> <span class="n">output</span>
 
@@ -843,23 +796,10 @@
 
         <span class="c1"># TODO: FIX THIS, FOR ZARR 3.0 THIS IS DANGEROUS NON-ASYNC</span>
         <span class="n">gcs</span> <span class="o">=</span> <span class="n">gcsfs</span><span class="o">.</span><span class="n">GCSFileSystem</span><span class="p">(</span><span class="n">cache_timeout</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
-
-        <span class="k">try</span><span class="p">:</span>
-            <span class="n">zarr_version</span> <span class="o">=</span> <span class="n">version</span><span class="p">(</span><span class="s2">&quot;zarr&quot;</span><span class="p">)</span>
-            <span class="n">zarr_major_version</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">zarr_version</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;.&quot;</span><span class="p">)[</span><span class="mi">0</span><span class="p">])</span>
-        <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
-            <span class="n">zarr_major_version</span> <span class="o">=</span> <span class="mi">2</span>
-
-        <span class="k">if</span> <span class="n">zarr_major_version</span> <span class="o">&gt;=</span> <span class="mi">3</span><span class="p">:</span>
-            <span class="n">gcstore</span> <span class="o">=</span> <span class="n">zarr</span><span class="o">.</span><span class="n">storage</span><span class="o">.</span><span class="n">FsspecStore</span><span class="p">(</span>
-                <span class="n">gcs</span><span class="p">,</span>
-                <span class="n">path</span><span class="o">=</span><span class="s2">&quot;/gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3&quot;</span><span class="p">,</span>
-            <span class="p">)</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="n">gcstore</span> <span class="o">=</span> <span class="n">gcsfs</span><span class="o">.</span><span class="n">GCSMap</span><span class="p">(</span>
-                <span class="s2">&quot;gs://gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3&quot;</span><span class="p">,</span>
-                <span class="n">gcs</span><span class="o">=</span><span class="n">gcs</span><span class="p">,</span>
-            <span class="p">)</span>
+        <span class="n">gcstore</span> <span class="o">=</span> <span class="n">zarr</span><span class="o">.</span><span class="n">storage</span><span class="o">.</span><span class="n">FsspecStore</span><span class="p">(</span>
+            <span class="n">gcs</span><span class="p">,</span>
+            <span class="n">path</span><span class="o">=</span><span class="s2">&quot;/gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3&quot;</span><span class="p">,</span>
+        <span class="p">)</span>
 
         <span class="n">zarr_group</span> <span class="o">=</span> <span class="n">zarr</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="n">gcstore</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;r&quot;</span><span class="p">)</span>
         <span class="c1"># Load time coordinate system from Zarr store and check</span>
