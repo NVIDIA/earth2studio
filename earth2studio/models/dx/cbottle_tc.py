@@ -325,7 +325,7 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
         coords = OrderedDict(
             {
                 "time": times,
-                "lead_time": np.array([np.timedelta64(0)]),
+                "lead_time": np.array([np.timedelta64(0, "h")]),
                 "variable": np.array(["tc_guidance"]),
                 "lat": lat_grid,
                 "lon": lon_grid,
