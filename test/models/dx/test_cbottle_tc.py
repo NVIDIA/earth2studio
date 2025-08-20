@@ -103,7 +103,9 @@ class TestCBottleTCMock:
 
         assert guidance.shape == (1, len(times), 1, 721, 1440)
         assert guidance.dtype == torch.float32
-        assert torch.sum(guidance) == len(lat_coords)  # One point per coordinate pair
+        assert torch.sum(guidance) == len(times) * len(
+            lat_coords
+        )  # One point per coordinate pair
 
         assert "time" in coords
         assert "lead_time" in coords
@@ -224,7 +226,7 @@ def test_cbottle_tc_package(device, model_cache_context):
     # Only cuda used here to speed things up, but CPU also works
     with model_cache_context():
         package = CBottleTCGuidance.load_default_package()
-        dx = CBottleTCGuidance.load_model(package.to(device))
+        dx = CBottleTCGuidance.load_model(package).to(device)
 
     # Guidance over florida
     lat = 27
