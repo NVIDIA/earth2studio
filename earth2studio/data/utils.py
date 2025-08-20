@@ -29,7 +29,7 @@ from hashlib import sha256
 from inspect import signature
 from pathlib import Path
 from shutil import rmtree
-from typing import TYPE_CHECKING, ClassVar, Literal, TypeVar
+from typing import TYPE_CHECKING, Any, ClassVar, Literal, TypeVar
 
 import numpy as np
 import torch
@@ -288,7 +288,7 @@ def datasource_to_file(
     backend: Literal["netcdf", "zarr"] = "netcdf",
     chunks: dict[str, int] = {"variable": 1},
     dtype: np.dtype | None = None,
-    backend_kwargs: dict[str, typing.Any] | None = None,
+    backend_kwargs: dict[str, Any] = {},
 ) -> None:
     """Utility function that can be used for building a local data store needed
     for an inference request. This file can then be used with the
