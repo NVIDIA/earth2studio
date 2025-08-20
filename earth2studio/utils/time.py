@@ -13,7 +13,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta
 
 import numpy as np
 
@@ -35,7 +35,9 @@ def timearray_to_datetime(time: TimeArray) -> list[datetime]:
     """
     _unix = np.datetime64(0, "s")
     _ds = np.timedelta64(1, "s")
-    time = [datetime.fromtimestamp((date - _unix) / _ds, UTC) for date in time]
+    # TODO: Update to
+    # time = [datetime.fromtimestamp((date - _unix) / _ds, UTC) for date in time]
+    time = [datetime.utcfromtimestamp((date - _unix) / _ds) for date in time]
 
     return time
 
