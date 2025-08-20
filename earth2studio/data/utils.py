@@ -29,7 +29,7 @@ from hashlib import sha256
 from inspect import signature
 from pathlib import Path
 from shutil import rmtree
-from typing import TYPE_CHECKING, ClassVar, Literal, TypeVar
+from typing import TYPE_CHECKING, Any, ClassVar, Literal, TypeVar
 
 import numpy as np
 import torch
@@ -288,6 +288,7 @@ def datasource_to_file(
     backend: Literal["netcdf", "zarr"] = "netcdf",
     chunks: dict[str, int] = {"variable": 1},
     dtype: np.dtype | None = None,
+    backend_kwargs: dict[str, Any] = {},
 ) -> None:
     """Utility function that can be used for building a local data store needed
     for an inference request. This file can then be used with the
@@ -313,6 +314,10 @@ def datasource_to_file(
         Chunk sizes along each dimension, by default {"variable": 1}
     dtype : np.dtype, optional
         Data type for storing data
+    backend_kwargs : dict[str, Any], optional
+        Dictionary of keyword arguments forwarded to the underlying
+        ``xarray.DataArray.to_netcdf`` / ``xarray.DataArray.to_zarr``
+        call depending on the selected backend.
     """
     if isinstance(time, datetime):
         time = [time]
@@ -339,9 +344,9 @@ def datasource_to_file(
 
     match backend:
         case "netcdf":
-            da.to_netcdf(file_name)
+            da.to_netcdf(file_name, **backend_kwargs)
         case "zarr":
-            da.to_zarr(file_name)
+            da.to_zarr(file_name, **backend_kwargs)
         case _:
             raise ValueError(f"Unsupported backend {backend}")
 

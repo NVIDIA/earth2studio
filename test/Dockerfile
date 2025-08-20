@@ -1,3 +1,4 @@
+# 25.08 fails with onnxruntime-gpu 8/19/2025
 FROM nvcr.io/nvidia/pytorch:25.06-py3
 # Install uv
 COPY --from=ghcr.io/astral-sh/uv:0.6.13 /uv /uvx /bin/

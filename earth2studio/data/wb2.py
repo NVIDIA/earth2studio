@@ -21,7 +21,6 @@ import os
 import pathlib
 import shutil
 from datetime import datetime
-from importlib.metadata import version
 from typing import Literal
 
 import gcsfs
@@ -62,17 +61,6 @@ class _WB2Base:
         self._cache = cache
         self._verbose = verbose
         self.async_timeout = async_timeout
-
-        # Check Zarr version and use appropriate method
-        try:
-            zarr_version = version("zarr")
-            zarr_major_version = int(zarr_version.split(".")[0])
-        except Exception:
-            # Fallback to older method if version check fails
-            zarr_major_version = 2  # Assume older version if we can't determine
-        # Only zarr 3.0 support
-        if zarr_major_version < 3:
-            raise ModuleNotFoundError("Zarr 3.0 and above support only")
 
         # Check to see if there is a running loop (initialized in async)
         try:
