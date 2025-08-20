@@ -263,4 +263,4 @@ def test_cbottle_tc_package(device, model_cache_context):
     vidx = np.where(out_coords["variable"] == "tcwv")[0]
     lat_idx = 4 * (90 - lat)
     lon_idx = 4 * (360 + lon)
-    assert (out[:, :, :, vidx, lat_idx, lon_idx] >= 70).all()
+    assert (out[:, :, vidx, lat_idx, lon_idx] >= 70).all()
