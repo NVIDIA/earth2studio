@@ -11,8 +11,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Added CMIP6 data source
+- Added CBottle Tropical Cyclone guidance diagnostic
 
 ### Changed
+
+- Updated CBottle data source to mixture of experts models
 
 ### Deprecated
 
@@ -23,6 +26,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Security
 
 ### Dependencies
+
+- Bumped CBottle (and Earth2Grid) versions
 
 ## [0.9.0] - 2025-08-19
 
