@@ -438,6 +438,7 @@
 <span class="kn">import</span><span class="w"> </span><span class="nn">pathlib</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">datetime</span><span class="w"> </span><span class="kn">import</span> <span class="n">datetime</span><span class="p">,</span> <span class="n">timedelta</span>
 
+<span class="kn">import</span><span class="w"> </span><span class="nn">cftime</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">xarray</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">xr</span>
@@ -459,17 +460,15 @@
     <span class="kn">from</span><span class="w"> </span><span class="nn">cbottle.checkpointing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Checkpoint</span>
     <span class="kn">from</span><span class="w"> </span><span class="nn">cbottle.datasets.base</span><span class="w"> </span><span class="kn">import</span> <span class="n">TimeUnit</span>
     <span class="kn">from</span><span class="w"> </span><span class="nn">cbottle.datasets.dataset_2d</span><span class="w"> </span><span class="kn">import</span> <span class="n">encode_sst</span>
-    <span class="kn">from</span><span class="w"> </span><span class="nn">cbottle.datasets.dataset_3d</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_batch_info</span>
-    <span class="kn">from</span><span class="w"> </span><span class="nn">cbottle.denoiser_factories</span><span class="w"> </span><span class="kn">import</span> <span class="n">DenoiserType</span><span class="p">,</span> <span class="n">get_denoiser</span>
-    <span class="kn">from</span><span class="w"> </span><span class="nn">cbottle.diffusion_samplers</span><span class="w"> </span><span class="kn">import</span> <span class="n">edm_sampler_from_sigma</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">cbottle.inference</span><span class="w"> </span><span class="kn">import</span> <span class="n">CBottle3d</span><span class="p">,</span> <span class="n">MixtureOfExpertsDenoiser</span>
 <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+    <span class="n">OptionalDependencyFailure</span><span class="p">(</span><span class="s2">&quot;cbottle&quot;</span><span class="p">)</span>
     <span class="n">earth2grid</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">Checkpoint</span> <span class="o">=</span> <span class="kc">None</span>
-    <span class="n">edm_sampler_from_sigma</span> <span class="o">=</span> <span class="kc">None</span>
-    <span class="n">get_batch_info</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">TimeUnit</span> <span class="o">=</span> <span class="kc">None</span>
-    <span class="n">get_denoiser</span> <span class="o">=</span> <span class="kc">None</span>
-    <span class="n">OptionalDependencyFailure</span><span class="p">(</span><span class="s2">&quot;cbottle&quot;</span><span class="p">)</span>
+    <span class="n">encode_sst</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">CBottle3d</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">MixtureOfExpertsDenoiser</span> <span class="o">=</span> <span class="kc">None</span>
 
 <span class="n">HPX_LEVEL</span> <span class="o">=</span> <span class="mi">6</span>
 
@@ -509,8 +508,9 @@
 <span class="sd">    batch_size : int, optional</span>
 <span class="sd">        Batch size to generate time samples at, consider adjusting based on hardware</span>
 <span class="sd">        being used, by default 4</span>
-<span class="sd">    seed : int, optional</span>
-<span class="sd">        Random generator seed for latent variables, by default 0</span>
+<span class="sd">    seed : int | None, optional</span>
+<span class="sd">        If set, will fix the seed of the random generator for latent variables, by</span>
+<span class="sd">        default None</span>
 <span class="sd">    cache : bool, optional</span>
 <span class="sd">        Does nothing at the moment, by default False</span>
 <span class="sd">    verbose : bool, optional</span>
@@ -525,21 +525,22 @@
         <span class="n">sst_ds</span><span class="p">:</span> <span class="n">xr</span><span class="o">.</span><span class="n">Dataset</span><span class="p">,</span>
         <span class="n">lat_lon</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
         <span class="n">sampler_steps</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">18</span><span class="p">,</span>
-        <span class="n">sigma_max</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mi">80</span><span class="p">,</span>
+        <span class="n">sigma_max</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">200.0</span><span class="p">,</span>
         <span class="n">batch_size</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">4</span><span class="p">,</span>
-        <span class="n">seed</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span>
+        <span class="n">seed</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">cache</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
         <span class="n">verbose</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
     <span class="p">):</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">core_model</span> <span class="o">=</span> <span class="n">core_model</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">sst</span> <span class="o">=</span> <span class="n">sst_ds</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">lat_lon</span> <span class="o">=</span> <span class="n">lat_lon</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">sigma_max</span> <span class="o">=</span> <span class="n">sigma_max</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">sampler_steps</span> <span class="o">=</span> <span class="n">sampler_steps</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">batch_size</span> <span class="o">=</span> <span class="n">batch_size</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">rng</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">Generator</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">seed</span> <span class="o">=</span> <span class="n">seed</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_core_model</span> <span class="o">=</span> <span class="n">core_model</span>  <span class="c1"># Needed to move model to device</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">core_model</span> <span class="o">=</span> <span class="n">CBottle3d</span><span class="p">(</span><span class="n">core_model</span><span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span> <span class="o">=</span> <span class="n">cache</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_verbose</span> <span class="o">=</span> <span class="n">verbose</span>
@@ -562,8 +563,6 @@
 
         <span class="c1"># Empty tensor just to make tracking current device easier</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">register_buffer</span><span class="p">(</span><span class="s2">&quot;device_buffer&quot;</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">0</span><span class="p">))</span>
-        <span class="c1"># Set seed of random generator</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">set_seed</span><span class="p">(</span><span class="n">seed</span><span class="o">=</span><span class="n">seed</span><span class="p">)</span>
 
 <div class="viewcode-block" id="CBottle3D.__call__">
 <a class="viewcode-back" href="../../../modules/generated/data/earth2studio.data.CBottle3D.html#earth2studio.data.CBottle3D.__call__">[docs]</a>
@@ -596,7 +595,6 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">_validate_time</span><span class="p">(</span><span class="n">time</span><span class="p">)</span>
 
         <span class="nb">input</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_cbottle_input</span><span class="p">(</span><span class="n">time</span><span class="p">)</span>
-        <span class="n">batch_info</span> <span class="o">=</span> <span class="n">get_batch_info</span><span class="p">(</span><span class="n">time_step</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">time_unit</span><span class="o">=</span><span class="n">TimeUnit</span><span class="o">.</span><span class="n">HOUR</span><span class="p">)</span>
 
         <span class="n">varidx</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="k">for</span> <span class="n">var</span> <span class="ow">in</span> <span class="n">variable</span><span class="p">:</span>
@@ -614,7 +612,8 @@
         <span class="n">images</span> <span class="o">=</span> <span class="nb">input</span><span class="p">[</span><span class="s2">&quot;target&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
         <span class="n">second_of_day</span> <span class="o">=</span> <span class="nb">input</span><span class="p">[</span><span class="s2">&quot;second_of_day&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
         <span class="n">day_of_year</span> <span class="o">=</span> <span class="nb">input</span><span class="p">[</span><span class="s2">&quot;day_of_year&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
-        <span class="n">sigma_max</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">([</span><span class="bp">self</span><span class="o">.</span><span class="n">sigma_max</span><span class="p">])</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">core_model</span><span class="o">.</span><span class="n">sigma_max</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">([</span><span class="bp">self</span><span class="o">.</span><span class="n">sigma_max</span><span class="p">])</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">core_model</span><span class="o">.</span><span class="n">num_steps</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">sampler_steps</span>
 
         <span class="c1"># Process in batches with progress bar if verbose is enabled</span>
         <span class="n">batch_size</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">batch_size</span>
@@ -631,48 +630,16 @@
             <span class="n">end_idx</span> <span class="o">=</span> <span class="nb">min</span><span class="p">((</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="n">batch_size</span><span class="p">,</span> <span class="n">n_samples</span><span class="p">)</span>
 
             <span class="c1"># Get batch slices</span>
-            <span class="n">batch_images</span> <span class="o">=</span> <span class="n">images</span><span class="p">[</span><span class="n">start_idx</span><span class="p">:</span><span class="n">end_idx</span><span class="p">]</span>
-            <span class="n">batch_labels</span> <span class="o">=</span> <span class="n">labels</span><span class="p">[</span><span class="n">start_idx</span><span class="p">:</span><span class="n">end_idx</span><span class="p">]</span>
-            <span class="n">batch_condition</span> <span class="o">=</span> <span class="n">condition</span><span class="p">[</span><span class="n">start_idx</span><span class="p">:</span><span class="n">end_idx</span><span class="p">]</span>
-            <span class="n">batch_second_of_day</span> <span class="o">=</span> <span class="n">second_of_day</span><span class="p">[</span><span class="n">start_idx</span><span class="p">:</span><span class="n">end_idx</span><span class="p">]</span>
-            <span class="n">batch_day_of_year</span> <span class="o">=</span> <span class="n">day_of_year</span><span class="p">[</span><span class="n">start_idx</span><span class="p">:</span><span class="n">end_idx</span><span class="p">]</span>
+            <span class="n">batch</span> <span class="o">=</span> <span class="p">{}</span>
+            <span class="n">batch</span><span class="p">[</span><span class="s2">&quot;target&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">images</span><span class="p">[</span><span class="n">start_idx</span><span class="p">:</span><span class="n">end_idx</span><span class="p">]</span>
+            <span class="n">batch</span><span class="p">[</span><span class="s2">&quot;labels&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">labels</span><span class="p">[</span><span class="n">start_idx</span><span class="p">:</span><span class="n">end_idx</span><span class="p">]</span>
+            <span class="n">batch</span><span class="p">[</span><span class="s2">&quot;condition&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">condition</span><span class="p">[</span><span class="n">start_idx</span><span class="p">:</span><span class="n">end_idx</span><span class="p">]</span>
+            <span class="n">batch</span><span class="p">[</span><span class="s2">&quot;second_of_day&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">second_of_day</span><span class="p">[</span><span class="n">start_idx</span><span class="p">:</span><span class="n">end_idx</span><span class="p">]</span>
+            <span class="n">batch</span><span class="p">[</span><span class="s2">&quot;day_of_year&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">day_of_year</span><span class="p">[</span><span class="n">start_idx</span><span class="p">:</span><span class="n">end_idx</span><span class="p">]</span>
 
-            <span class="c1"># Generate latents</span>
-            <span class="n">batch_latents</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span>
-                <span class="p">(</span>
-                    <span class="n">end_idx</span> <span class="o">-</span> <span class="n">start_idx</span><span class="p">,</span>
-                    <span class="bp">self</span><span class="o">.</span><span class="n">core_model</span><span class="o">.</span><span class="n">img_channels</span><span class="p">,</span>
-                    <span class="bp">self</span><span class="o">.</span><span class="n">core_model</span><span class="o">.</span><span class="n">time_length</span><span class="p">,</span>
-                    <span class="bp">self</span><span class="o">.</span><span class="n">core_model</span><span class="o">.</span><span class="n">domain</span><span class="o">.</span><span class="n">numel</span><span class="p">(),</span>
-                <span class="p">),</span>
-                <span class="n">generator</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">rng</span><span class="p">,</span>
-            <span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
-            <span class="n">batch_xT</span> <span class="o">=</span> <span class="n">batch_latents</span> <span class="o">*</span> <span class="n">sigma_max</span>
-
-            <span class="c1"># Gets appropriate denoiser based on config</span>
-            <span class="n">batch_D</span> <span class="o">=</span> <span class="n">get_denoiser</span><span class="p">(</span>
-                <span class="n">net</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">core_model</span><span class="p">,</span>
-                <span class="n">images</span><span class="o">=</span><span class="n">batch_images</span><span class="p">,</span>
-                <span class="n">labels</span><span class="o">=</span><span class="n">batch_labels</span><span class="p">,</span>
-                <span class="n">condition</span><span class="o">=</span><span class="n">batch_condition</span><span class="p">,</span>
-                <span class="n">second_of_day</span><span class="o">=</span><span class="n">batch_second_of_day</span><span class="p">,</span>
-                <span class="n">day_of_year</span><span class="o">=</span><span class="n">batch_day_of_year</span><span class="p">,</span>
-                <span class="n">denoiser_type</span><span class="o">=</span><span class="n">DenoiserType</span><span class="o">.</span><span class="n">standard</span><span class="p">,</span>  <span class="c1"># &#39;mask_filling&#39;, &#39;infill&#39;, &#39;standard&#39;</span>
-                <span class="n">sigma_max</span><span class="o">=</span><span class="n">sigma_max</span><span class="p">,</span>
-                <span class="n">labels_when_nan</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-            <span class="p">)</span>
-
-            <span class="n">batch_out</span> <span class="o">=</span> <span class="n">edm_sampler_from_sigma</span><span class="p">(</span>
-                <span class="n">batch_D</span><span class="p">,</span>
-                <span class="n">batch_xT</span><span class="p">,</span>
-                <span class="n">num_steps</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">sampler_steps</span><span class="p">,</span>
-                <span class="n">randn_like</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">randn_like</span><span class="p">,</span>
-                <span class="n">sigma_max</span><span class="o">=</span><span class="nb">int</span><span class="p">(</span><span class="n">sigma_max</span><span class="p">),</span>  <span class="c1"># Convert to int for type compatibility</span>
-            <span class="p">)</span>
-
-            <span class="n">batch_x</span> <span class="o">=</span> <span class="n">batch_info</span><span class="o">.</span><span class="n">denormalize</span><span class="p">(</span><span class="n">batch_out</span><span class="p">)</span>
-            <span class="n">batch_x</span> <span class="o">=</span> <span class="n">batch_x</span><span class="p">[:,</span> <span class="n">varidx</span><span class="p">]</span>
-            <span class="n">outputs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">batch_x</span><span class="p">)</span>
+            <span class="n">output</span><span class="p">,</span> <span class="n">coords</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">core_model</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span><span class="n">batch</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">seed</span><span class="p">)</span>
+            <span class="n">output</span> <span class="o">=</span> <span class="n">output</span><span class="p">[:,</span> <span class="n">varidx</span><span class="p">]</span>
+            <span class="n">outputs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">output</span><span class="p">)</span>
 
         <span class="c1"># Concatenate all batches</span>
         <span class="n">x</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">(</span><span class="n">outputs</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
@@ -683,9 +650,7 @@
             <span class="n">latlon_grid</span> <span class="o">=</span> <span class="n">earth2grid</span><span class="o">.</span><span class="n">latlon</span><span class="o">.</span><span class="n">equiangular_lat_lon_grid</span><span class="p">(</span>
                 <span class="n">nlat</span><span class="p">,</span> <span class="n">nlon</span><span class="p">,</span> <span class="n">includes_south_pole</span><span class="o">=</span><span class="kc">True</span>
             <span class="p">)</span>
-            <span class="n">regridder</span> <span class="o">=</span> <span class="n">earth2grid</span><span class="o">.</span><span class="n">get_regridder</span><span class="p">(</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">core_model</span><span class="o">.</span><span class="n">domain</span><span class="o">.</span><span class="n">_grid</span><span class="p">,</span> <span class="n">latlon_grid</span>
-            <span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
+            <span class="n">regridder</span> <span class="o">=</span> <span class="n">earth2grid</span><span class="o">.</span><span class="n">get_regridder</span><span class="p">(</span><span class="n">coords</span><span class="o">.</span><span class="n">grid</span><span class="p">,</span> <span class="n">latlon_grid</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
             <span class="n">field_regridded</span> <span class="o">=</span> <span class="n">regridder</span><span class="p">(</span><span class="n">x</span><span class="p">)</span><span class="o">.</span><span class="n">squeeze</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
 
             <span class="k">return</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">(</span>
@@ -694,7 +659,7 @@
                 <span class="n">coords</span><span class="o">=</span><span class="p">{</span>
                     <span class="s2">&quot;time&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">time</span><span class="p">),</span>
                     <span class="s2">&quot;variable&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">variable</span><span class="p">),</span>
-                    <span class="s2">&quot;lat&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">90</span><span class="p">,</span> <span class="o">-</span><span class="mi">90</span><span class="p">,</span> <span class="n">nlat</span><span class="p">,</span> <span class="n">endpoint</span><span class="o">=</span><span class="kc">False</span><span class="p">),</span>
+                    <span class="s2">&quot;lat&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">90</span><span class="p">,</span> <span class="o">-</span><span class="mi">90</span><span class="p">,</span> <span class="n">nlat</span><span class="p">),</span>
                     <span class="s2">&quot;lon&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">360</span><span class="p">,</span> <span class="n">nlon</span><span class="p">,</span> <span class="n">endpoint</span><span class="o">=</span><span class="kc">False</span><span class="p">),</span>
                 <span class="p">},</span>
             <span class="p">)</span>
@@ -712,7 +677,7 @@
 
     <span class="k">def</span><span class="w"> </span><span class="nf">get_cbottle_input</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
-        <span class="n">time</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">datetime</span><span class="p">],</span>
+        <span class="n">times</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">datetime</span><span class="p">],</span>
         <span class="n">label</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>  <span class="c1"># 0 for ICON, 1 for ERA5</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Prepares the CBottle inputs</span>
@@ -720,11 +685,11 @@
 <span class="sd">        Adopted from:</span>
 
 <span class="sd">        - https://github.com/NVlabs/cBottle/blob/ed96dfe35d87ecefa4846307807e8241c4b24e71/src/cbottle/datasets/amip_sst_loader.py#L55</span>
-<span class="sd">        - https://github.com/NVlabs/cBottle/blob/ed96dfe35d87ecefa4846307807e8241c4b24e71/src/cbottle/datasets/dataset_3d.py#L247</span>
+<span class="sd">        - https://github.com/NVlabs/cBottle/blob/4f44c125398896fad1f4c9df3d80dc845758befa/src/cbottle/datasets/dataset_3d.py#L393</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
-<span class="sd">        time : list[datetime]</span>
+<span class="sd">        times : list[datetime]</span>
 <span class="sd">            List of times for inference</span>
 <span class="sd">        label : int, optional</span>
 <span class="sd">            Label ID, by default 1</span>
@@ -734,7 +699,7 @@
 <span class="sd">        dict[str, torch.Tensor]</span>
 <span class="sd">            Dictionary of input tensors for CBottle</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">time_arr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">time</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="s2">&quot;datetime64[ns]&quot;</span><span class="p">)</span>
+        <span class="n">time_arr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">times</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="s2">&quot;datetime64[ns]&quot;</span><span class="p">)</span>
         <span class="n">sst_data</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">from_numpy</span><span class="p">(</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">sst</span><span class="p">[</span><span class="s2">&quot;tosbcs&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">interp</span><span class="p">(</span><span class="n">time</span><span class="o">=</span><span class="n">time_arr</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s2">&quot;linear&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">values</span> <span class="o">+</span> <span class="mf">273.15</span>
         <span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">device_buffer</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
@@ -749,20 +714,25 @@
             <span class="p">)</span>
             <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">permute</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">))</span>
 
-        <span class="n">day_start</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">t</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="n">hour</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">minute</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">second</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">time</span><span class="p">])</span>
+        <span class="n">times</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="n">cftime</span><span class="o">.</span><span class="n">DatetimeGregorian</span><span class="p">(</span><span class="n">t</span><span class="o">.</span><span class="n">year</span><span class="p">,</span> <span class="n">t</span><span class="o">.</span><span class="n">month</span><span class="p">,</span> <span class="n">t</span><span class="o">.</span><span class="n">day</span><span class="p">,</span> <span class="n">t</span><span class="o">.</span><span class="n">hour</span><span class="p">,</span> <span class="n">t</span><span class="o">.</span><span class="n">minute</span><span class="p">,</span> <span class="n">t</span><span class="o">.</span><span class="n">second</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">times</span>
+        <span class="p">]</span>
+        <span class="n">day_start</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">t</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="n">hour</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">minute</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">second</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">times</span><span class="p">])</span>
         <span class="n">year_start</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">d</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="n">month</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">day</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">day_start</span><span class="p">])</span>
-        <span class="n">second_of_day</span> <span class="o">=</span> <span class="p">(</span><span class="n">time</span> <span class="o">-</span> <span class="n">day_start</span><span class="p">)</span> <span class="o">/</span> <span class="n">timedelta</span><span class="p">(</span><span class="n">seconds</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
-        <span class="n">day_of_year</span> <span class="o">=</span> <span class="p">(</span><span class="n">time</span> <span class="o">-</span> <span class="n">year_start</span><span class="p">)</span> <span class="o">/</span> <span class="n">timedelta</span><span class="p">(</span><span class="n">seconds</span><span class="o">=</span><span class="mi">86400</span><span class="p">)</span>
+        <span class="n">second_of_day</span> <span class="o">=</span> <span class="p">(</span><span class="n">times</span> <span class="o">-</span> <span class="n">day_start</span><span class="p">)</span> <span class="o">/</span> <span class="n">timedelta</span><span class="p">(</span><span class="n">seconds</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">day_of_year</span> <span class="o">=</span> <span class="p">(</span><span class="n">times</span> <span class="o">-</span> <span class="n">year_start</span><span class="p">)</span> <span class="o">/</span> <span class="n">timedelta</span><span class="p">(</span><span class="n">seconds</span><span class="o">=</span><span class="mi">86400</span><span class="p">)</span>
 
         <span class="c1"># [&quot;rlut&quot;, &quot;rsut&quot;, &quot;rsds&quot;]</span>
         <span class="n">nan_channels</span> <span class="o">=</span> <span class="p">[</span><span class="mi">38</span><span class="p">,</span> <span class="mi">39</span><span class="p">,</span> <span class="mi">42</span><span class="p">]</span>
         <span class="n">target</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span>
-            <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">time</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">VARIABLES</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">4</span><span class="o">**</span><span class="n">HPX_LEVEL</span> <span class="o">*</span> <span class="mi">12</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span>
+            <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">times</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">VARIABLES</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">4</span><span class="o">**</span><span class="n">HPX_LEVEL</span> <span class="o">*</span> <span class="mi">12</span><span class="p">),</span>
+            <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">,</span>
         <span class="p">)</span>
         <span class="n">target</span><span class="p">[:,</span> <span class="n">nan_channels</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span>
 
         <span class="n">labels</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">functional</span><span class="o">.</span><span class="n">one_hot</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">label</span><span class="p">),</span> <span class="n">num_classes</span><span class="o">=</span><span class="mi">1024</span><span class="p">)</span>
-        <span class="n">labels</span> <span class="o">=</span> <span class="n">labels</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">repeat</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">time</span><span class="p">),</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="n">labels</span> <span class="o">=</span> <span class="n">labels</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">repeat</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">times</span><span class="p">),</span> <span class="mi">1</span><span class="p">)</span>
 
         <span class="n">out</span> <span class="o">=</span> <span class="p">{</span>
             <span class="s2">&quot;target&quot;</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">target</span><span class="p">),</span>
@@ -775,16 +745,6 @@
         <span class="p">}</span>
 
         <span class="k">return</span> <span class="n">out</span>
-
-    <span class="k">def</span><span class="w"> </span><span class="nf">set_seed</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">seed</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Set seed of CBottle latent variable generator</span>
-
-<span class="sd">        Parameters</span>
-<span class="sd">        ----------</span>
-<span class="sd">        seed : int</span>
-<span class="sd">            Seed value</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">rng</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="n">seed</span><span class="p">)</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">cache</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
@@ -822,7 +782,7 @@
     <span class="k">def</span><span class="w"> </span><span class="nf">load_default_package</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Package</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Default pre-trained CBottle3D model package from Nvidia model registry&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="n">Package</span><span class="p">(</span>
-            <span class="s2">&quot;ngc://models/nvidia/earth-2/cbottle@1.1&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;ngc://models/nvidia/earth-2/cbottle@1.2&quot;</span><span class="p">,</span>
             <span class="n">cache_options</span><span class="o">=</span><span class="p">{</span>
                 <span class="s2">&quot;cache_storage&quot;</span><span class="p">:</span> <span class="n">Package</span><span class="o">.</span><span class="n">default_cache</span><span class="p">(</span><span class="s2">&quot;cbottle&quot;</span><span class="p">),</span>
                 <span class="s2">&quot;same_names&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
@@ -839,7 +799,7 @@
         <span class="n">package</span><span class="p">:</span> <span class="n">Package</span><span class="p">,</span>
         <span class="n">lat_lon</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
         <span class="n">batch_size</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">4</span><span class="p">,</span>
-        <span class="n">seed</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span>
+        <span class="n">seed</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">verbose</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">DataSource</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Load AI datasource from package</span>
@@ -855,8 +815,9 @@
 <span class="sd">        batch_size : int, optional</span>
 <span class="sd">            Batch size to generate time samples at, consider adjusting based on hardware</span>
 <span class="sd">            being used, by default 4</span>
-<span class="sd">        seed : int, optional</span>
-<span class="sd">            Random generator seed for latent variables, by default 0</span>
+<span class="sd">        seed : int | None, optional</span>
+<span class="sd">            If set, will fix the seed of the random generator for latent variables, by</span>
+<span class="sd">            default None</span>
 <span class="sd">        verbose : bool, optional</span>
 <span class="sd">            Print generation progress, by default True</span>
 
@@ -866,12 +827,16 @@
 <span class="sd">            Data source</span>
 <span class="sd">        &quot;&quot;&quot;</span>
 
-        <span class="k">with</span> <span class="n">Checkpoint</span><span class="p">(</span><span class="n">package</span><span class="o">.</span><span class="n">resolve</span><span class="p">(</span><span class="s2">&quot;cBottle-3d.zip&quot;</span><span class="p">))</span> <span class="k">as</span> <span class="n">checkpoint</span><span class="p">:</span>
-            <span class="n">core_model</span> <span class="o">=</span> <span class="n">checkpoint</span><span class="o">.</span><span class="n">read_model</span><span class="p">()</span>
+        <span class="n">checkpoints</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="n">package</span><span class="o">.</span><span class="n">resolve</span><span class="p">(</span><span class="s2">&quot;cBottle-3d/training-state-000512000.checkpoint&quot;</span><span class="p">),</span>
+            <span class="n">package</span><span class="o">.</span><span class="n">resolve</span><span class="p">(</span><span class="s2">&quot;cBottle-3d/training-state-002048000.checkpoint&quot;</span><span class="p">),</span>
+            <span class="n">package</span><span class="o">.</span><span class="n">resolve</span><span class="p">(</span><span class="s2">&quot;cBottle-3d/training-state-009856000.checkpoint&quot;</span><span class="p">),</span>
+        <span class="p">]</span>
 
-        <span class="n">core_model</span><span class="o">.</span><span class="n">eval</span><span class="p">()</span>
-        <span class="n">core_model</span><span class="o">.</span><span class="n">requires_grad_</span><span class="p">(</span><span class="kc">False</span><span class="p">)</span>
-        <span class="n">core_model</span><span class="o">.</span><span class="n">float</span><span class="p">()</span>
+        <span class="c1"># https://github.com/NVlabs/cBottle/blob/4f44c125398896fad1f4c9df3d80dc845758befa/src/cbottle/inference.py#L106</span>
+        <span class="n">core_model</span> <span class="o">=</span> <span class="n">MixtureOfExpertsDenoiser</span><span class="o">.</span><span class="n">from_pretrained</span><span class="p">(</span>
+            <span class="n">checkpoints</span><span class="p">,</span> <span class="p">(</span><span class="mf">100.0</span><span class="p">,</span> <span class="mf">10.0</span><span class="p">)</span>
+        <span class="p">)</span>
 
         <span class="c1"># The following code is left here for reference of how to access the AMIP SST</span>
         <span class="c1"># data from the original data store. NGC is faster and cleaner so it is also</span>

@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
     <link href="../../../../_static/favicon.ico" rel="icon" type="image/x-icon">
-    <title>earth2studio.models.dx.CorrDiffTaiwan &#8212; Earth2Studio 0.10.0a0 documentation</title>
+    <title>earth2studio.models.dx.CBottleTCGuidance &#8212; Earth2Studio 0.10.0a0 documentation</title>
   
   
   
@@ -54,7 +54,7 @@
     <script src="../../../../_static/togglebutton.js?v=4a39c7ea"></script>
     <script src="../../../../_static/design-tabs.js?v=f930bc37"></script>
     <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
-    <script>DOCUMENTATION_OPTIONS.pagename = 'modules/generated/models/dx/earth2studio.models.dx.CorrDiffTaiwan';</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'modules/generated/models/dx/earth2studio.models.dx.CBottleTCGuidance';</script>
     <script>
         DOCUMENTATION_OPTIONS.theme_version = '0.16.1';
         DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'https://raw.githubusercontent.com/NVIDIA/earth2studio/gh-pages/_static/switcher.json';
@@ -64,8 +64,8 @@
         </script>
     <link rel="index" title="Index" href="../../../../genindex.html" />
     <link rel="search" title="Search" href="../../../../search.html" />
-    <link rel="next" title="earth2studio.models.dx.ClimateNet" href="earth2studio.models.dx.ClimateNet.html" />
-    <link rel="prev" title="earth2studio.models.dx.CBottleTCGuidance" href="earth2studio.models.dx.CBottleTCGuidance.html" />
+    <link rel="next" title="earth2studio.models.dx.CorrDiffTaiwan" href="earth2studio.models.dx.CorrDiffTaiwan.html" />
+    <link rel="prev" title="earth2studio.models.dx.CBottleSR" href="earth2studio.models.dx.CBottleSR.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   <meta name="docsearch:version" content="0.10" />
@@ -394,8 +394,8 @@
 <li class="toctree-l2"><a class="reference internal" href="../px/earth2studio.models.px.StormCast.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.StormCast</a></li>
 <li class="toctree-l2"><a class="reference internal" href="earth2studio.models.dx.CBottleInfill.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.dx</span></code>.CBottleInfill</a></li>
 <li class="toctree-l2"><a class="reference internal" href="earth2studio.models.dx.CBottleSR.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.dx</span></code>.CBottleSR</a></li>
-<li class="toctree-l2"><a class="reference internal" href="earth2studio.models.dx.CBottleTCGuidance.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.dx</span></code>.CBottleTCGuidance</a></li>
-<li class="toctree-l2 current active"><a class="current reference internal" href="#"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.dx</span></code>.CorrDiffTaiwan</a></li>
+<li class="toctree-l2 current active"><a class="current reference internal" href="#"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.dx</span></code>.CBottleTCGuidance</a></li>
+<li class="toctree-l2"><a class="reference internal" href="earth2studio.models.dx.CorrDiffTaiwan.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.dx</span></code>.CorrDiffTaiwan</a></li>
 <li class="toctree-l2"><a class="reference internal" href="earth2studio.models.dx.ClimateNet.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.dx</span></code>.ClimateNet</a></li>
 <li class="toctree-l2"><a class="reference internal" href="earth2studio.models.dx.DerivedRH.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.dx</span></code>.DerivedRH</a></li>
 <li class="toctree-l2"><a class="reference internal" href="earth2studio.models.dx.DerivedRHDewpoint.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.dx</span></code>.DerivedRHDewpoint</a></li>
@@ -539,7 +539,7 @@
     
     <li class="breadcrumb-item"><a href="../../../models.html" class="nav-link"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models</span></code>: Models</a></li>
     
-    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.dx</span></code>.CorrDiffTaiwan</span></li>
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.dx</span></code>.CBottleTCGuidance</span></li>
   </ul>
 </nav>
 </div>
@@ -556,46 +556,49 @@
 <div id="searchbox"></div>
                 <article class="bd-article">
                   
-  <section id="earth2studio-models-dx-corrdifftaiwan">
-<h1><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.dx</span></code>.CorrDiffTaiwan<a class="headerlink" href="#earth2studio-models-dx-corrdifftaiwan" title="Link to this heading">#</a></h1>
+  <section id="earth2studio-models-dx-cbottletcguidance">
+<h1><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.dx</span></code>.CBottleTCGuidance<a class="headerlink" href="#earth2studio-models-dx-cbottletcguidance" title="Link to this heading">#</a></h1>
 <dl class="py class">
-<dt class="sig sig-object py" id="earth2studio.models.dx.CorrDiffTaiwan">
-<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">earth2studio.models.dx.</span></span><span class="sig-name descname"><span class="pre">CorrDiffTaiwan</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">residual_model</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">regression_model</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">in_center</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">in_scale</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">out_center</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">out_scale</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">out_lat</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">out_lon</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">number_of_samples</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">number_of_steps</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">8</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">solver</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'euler'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/earth2studio/models/dx/corrdiff.html#CorrDiffTaiwan"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.dx.CorrDiffTaiwan" title="Link to this definition">#</a></dt>
-<dd><p>CorrDiff is a Corrector Diffusion model that learns mappings between
-low- and high-resolution weather data with high fidelity. This particular
-model was trained over a particular region near Taiwan.</p>
+<dt class="sig sig-object py" id="earth2studio.models.dx.CBottleTCGuidance">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">earth2studio.models.dx.</span></span><span class="sig-name descname"><span class="pre">CBottleTCGuidance</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">core_model</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">classifier_model</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sst_ds</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">lat_lon</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sampler_steps</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">18</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sigma_max</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">200.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">batch_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">4</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">seed</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/earth2studio/models/dx/cbottle_tc.html#CBottleTCGuidance"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.dx.CBottleTCGuidance" title="Link to this definition">#</a></dt>
+<dd><p>Climate in a Bottle tropical cyclone guidance diagnostic.
+This model for Climate in a Bottle (cBottle) allows users to provide an cyclone
+guidance map on a lat-lon grid and synthesis global climate realizations at that
+given time. The tropical cyclone guidance field is regridded to HPX Level 3, which
+is then used during the sampling process.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>This model and checkpoint are from Mardani, Morteza, et al. 2023. For more
-information see the following references:</p>
+<p>For more information see the following references:</p>
 <ul class="simple">
-<li><p><a class="reference external" href="https://arxiv.org/abs/2309.15214">https://arxiv.org/abs/2309.15214</a></p></li>
-<li><p><a class="reference external" href="https://catalog.ngc.nvidia.com/orgs/nvidia/teams/modulus/models/corrdiff_inference_package">https://catalog.ngc.nvidia.com/orgs/nvidia/teams/modulus/models/corrdiff_inference_package</a></p></li>
+<li><p><a class="reference external" href="https://arxiv.org/abs/2505.06474v1">https://arxiv.org/abs/2505.06474v1</a></p></li>
+<li><p><a class="github reference external" href="https://github.com/NVlabs/cBottle">NVlabs/cBottle</a></p></li>
+<li><p><a class="reference external" href="https://catalog.ngc.nvidia.com/orgs/nvidia/teams/earth-2/models/cbottle">https://catalog.ngc.nvidia.com/orgs/nvidia/teams/earth-2/models/cbottle</a></p></li>
 </ul>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>This model provides the function <code class="xref py py-func docutils literal notranslate"><span class="pre">CBottleTCGuidance.create_guidance_tensor()</span></code>
+as a utility to create the input guidance tensor.</p>
 </div>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>residual_model</strong> (<em>torch.nn.Module</em>) – Core pytorch model</p></li>
-<li><p><strong>regression_model</strong> (<em>torch.nn.Module</em>) – Core pytorch model</p></li>
-<li><p><strong>in_center</strong> (<em>torch.Tensor</em>) – Model input center normalization tensor of size [20,1,1]</p></li>
-<li><p><strong>in_scale</strong> (<em>torch.Tensor</em>) – Model input scale normalization tensor of size [20,1,1]</p></li>
-<li><p><strong>out_center</strong> (<em>torch.Tensor</em>) – Model output center normalization tensor of size [4,1,1]</p></li>
-<li><p><strong>out_scale</strong> (<em>torch.Tensor</em>) – Model output scale normalization tensor of size [4,1,1]</p></li>
-<li><p><strong>out_lat</strong> (<em>torch.Tensor</em>) – Output latitude grid of size [448, 448]</p></li>
-<li><p><strong>out_lon</strong> (<em>torch.Tensor</em>) – Output longitude grid of size [448, 448]</p></li>
-<li><p><strong>number_of_samples</strong> (<em>int</em><em>, </em><em>optional</em>) – Number of high resolution samples to draw from diffusion model.
-Default is 1</p></li>
-<li><p><strong>number_of_steps</strong> (<em>int</em><em>, </em><em>optional</em>) – Number of langevin diffusion steps during sampling algorithm.
-Default is 8</p></li>
-<li><p><strong>solver</strong> (<em>Literal</em><em>[</em><em>'euler'</em><em>, </em><em>'heun'</em><em>]</em>) – Discretization of diffusion process. Only ‘euler’ and ‘heun’
-are supported. Default is ‘euler’</p></li>
+<li><p><strong>core_model</strong> (<em>torch.nn.Module</em>) – Core Pytorch diffusion model</p></li>
+<li><p><strong>classifier_model</strong> (<em>torch.nn.Module</em>) – Pytorch classifier model</p></li>
+<li><p><strong>sst_ds</strong> (<em>xr.Dataset</em>) – Sea surface temperature xarray dataset</p></li>
+<li><p><strong>lat_lon</strong> (<em>bool</em><em>, </em><em>optional</em>) – Lat/lon toggle, if true data source will return output on a 0.25 deg lat/lon
+grid. If false, the native nested HealPix grid will be returned, by default True</p></li>
+<li><p><strong>sampler_steps</strong> (<em>int</em><em>, </em><em>optional</em>) – Number of diffusion steps, by default 18</p></li>
+<li><p><strong>sigma_max</strong> (<em>float</em><em>, </em><em>optional</em>) – Noise amplitude used to generate latent variables, by default 200</p></li>
+<li><p><strong>batch_size</strong> (<em>int</em><em>, </em><em>optional</em>) – Batch size to generate time samples at, consider adjusting based on hardware
+being used, by default 4</p></li>
+<li><p><strong>seed</strong> (<em>int</em><em>, </em><em>optional</em>) – Random generator seed for latent variables, by default 0</p></li>
 </ul>
 </dd>
 </dl>
 <dl class="py method">
-<dt class="sig sig-object py" id="earth2studio.models.dx.CorrDiffTaiwan.__call__">
-<span class="sig-name descname"><span class="pre">__call__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">coords</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/earth2studio/models/dx/corrdiff.html#CorrDiffTaiwan.__call__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.dx.CorrDiffTaiwan.__call__" title="Link to this definition">#</a></dt>
+<dt class="sig sig-object py" id="earth2studio.models.dx.CBottleTCGuidance.__call__">
+<span class="sig-name descname"><span class="pre">__call__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">coords</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/earth2studio/models/dx/cbottle_tc.html#CBottleTCGuidance.__call__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.dx.CBottleTCGuidance.__call__" title="Link to this definition">#</a></dt>
 <dd><p>Forward pass of diagnostic</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -611,9 +614,9 @@ are supported. Default is ‘euler’</p></li>
 </dd></dl>
 
 <dl class="py method">
-<dt class="sig sig-object py" id="earth2studio.models.dx.CorrDiffTaiwan.load_default_package">
-<em class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">load_default_package</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/earth2studio/models/dx/corrdiff.html#CorrDiffTaiwan.load_default_package"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.dx.CorrDiffTaiwan.load_default_package" title="Link to this definition">#</a></dt>
-<dd><p>Default pre-trained corrdiff model package from Nvidia model registry</p>
+<dt class="sig sig-object py" id="earth2studio.models.dx.CBottleTCGuidance.load_default_package">
+<em class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">load_default_package</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/earth2studio/models/dx/cbottle_tc.html#CBottleTCGuidance.load_default_package"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.dx.CBottleTCGuidance.load_default_package" title="Link to this definition">#</a></dt>
+<dd><p>Default pre-trained cBottle model package from Nvidia model registry</p>
 <dl class="field-list simple">
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><a class="reference internal" href="../earth2studio.models.auto.Package.html#earth2studio.models.auto.Package" title="earth2studio.models.auto.package.Package"><em>Package</em></a></p>
@@ -622,28 +625,35 @@ are supported. Default is ‘euler’</p></li>
 </dd></dl>
 
 <dl class="py method">
-<dt class="sig sig-object py" id="earth2studio.models.dx.CorrDiffTaiwan.load_model">
-<em class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">load_model</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">package</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/earth2studio/models/dx/corrdiff.html#CorrDiffTaiwan.load_model"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.dx.CorrDiffTaiwan.load_model" title="Link to this definition">#</a></dt>
-<dd><p>Load diagnostic from package</p>
+<dt class="sig sig-object py" id="earth2studio.models.dx.CBottleTCGuidance.load_model">
+<em class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">load_model</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">package</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">lat_lon</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sampler_steps</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">18</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sigma_max</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">200</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">seed</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/earth2studio/models/dx/cbottle_tc.html#CBottleTCGuidance.load_model"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.dx.CBottleTCGuidance.load_model" title="Link to this definition">#</a></dt>
+<dd><p>Load AI datasource from package</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>package</strong> (<a class="reference internal" href="../earth2studio.models.auto.Package.html#earth2studio.models.auto.Package" title="earth2studio.models.auto.package.Package"><em>Package</em></a>)</p>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>package</strong> (<a class="reference internal" href="../earth2studio.models.auto.Package.html#earth2studio.models.auto.Package" title="earth2studio.models.auto.Package"><em>Package</em></a>) – CBottle AI model package</p></li>
+<li><p><strong>lat_lon</strong> (<em>bool</em><em>, </em><em>optional</em>) – Lat/lon toggle, if true prognostic input/output on a 0.25 deg lat/lon
+grid. If false, the native nested HealPix grid will be returned, by default
+True</p></li>
+<li><p><strong>input_variables</strong> (<em>list</em><em>[</em><em>str</em><em>] </em><em>| </em><em>VariableArray</em>) – List of input variables that will be provided for conditioning the output
+generation, by default [“u10m”, “v10m”]</p></li>
+<li><p><strong>sampler_steps</strong> (<em>int</em><em>, </em><em>optional</em>) – Number of diffusion steps, by default 18</p></li>
+<li><p><strong>sigma_max</strong> (<em>float</em><em>, </em><em>optional</em>) – Noise amplitude used to generate latent variables, by default 80</p></li>
+<li><p><strong>seed</strong> (<em>int</em><em>, </em><em>optional</em>) – Random generator seed for latent variables, by default 0</p></li>
+</ul>
 </dd>
-<dt class="field-even">Return type<span class="colon">:</span></dt>
-<dd class="field-even"><p><em>DiagnosticModel</em></p>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Diagnostic model</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>DiagnosticModel</p>
 </dd>
 </dl>
 </dd></dl>
 
 </dd></dl>
 
-<section id="examples-using-earth2studio-models-dx-corrdifftaiwan">
-<span id="sphx-glr-backref-earth2studio-models-dx-corrdifftaiwan"></span><h2>Examples using <code class="docutils literal notranslate"><span class="pre">earth2studio.models.dx.CorrDiffTaiwan</span></code><a class="headerlink" href="#examples-using-earth2studio-models-dx-corrdifftaiwan" title="Link to this heading">#</a></h2>
-<div class="sphx-glr-thumbnails"><div class="sphx-glr-thumbcontainer" tooltip="Generative downscaling over Taiwan using CorrDiff diffusion model."><img alt="" src="../../../../_images/sphx_glr_04_corrdiff_inference_thumb.png" />
-<p><a class="reference internal" href="../../../../examples/04_corrdiff_inference.html#sphx-glr-examples-04-corrdiff-inference-py"><span class="std std-ref">Generative Downscaling</span></a></p>
-  <div class="sphx-glr-thumbnail-title">Generative Downscaling</div>
-</div></div><div class="clearer"></div></section>
-</section>
+<div class="clearer"></div></section>
 
 
                 </article>
@@ -656,20 +666,20 @@ are supported. Default is ‘euler’</p></li>
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="earth2studio.models.dx.CBottleTCGuidance.html"
+       href="earth2studio.models.dx.CBottleSR.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.dx</span></code>.CBottleTCGuidance</p>
+        <p class="prev-next-title"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.dx</span></code>.CBottleSR</p>
       </div>
     </a>
     <a class="right-next"
-       href="earth2studio.models.dx.ClimateNet.html"
+       href="earth2studio.models.dx.CorrDiffTaiwan.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.dx</span></code>.ClimateNet</p>
+        <p class="prev-next-title"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.dx</span></code>.CorrDiffTaiwan</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
@@ -692,13 +702,12 @@ are supported. Default is ‘euler’</p></li>
   </div>
   <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="visible nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.models.dx.CorrDiffTaiwan"><code class="docutils literal notranslate"><span class="pre">CorrDiffTaiwan</span></code></a><ul class="nav section-nav flex-column">
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.models.dx.CorrDiffTaiwan.__call__"><code class="docutils literal notranslate"><span class="pre">CorrDiffTaiwan.__call__()</span></code></a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.models.dx.CorrDiffTaiwan.load_default_package"><code class="docutils literal notranslate"><span class="pre">CorrDiffTaiwan.load_default_package()</span></code></a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.models.dx.CorrDiffTaiwan.load_model"><code class="docutils literal notranslate"><span class="pre">CorrDiffTaiwan.load_model()</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.models.dx.CBottleTCGuidance"><code class="docutils literal notranslate"><span class="pre">CBottleTCGuidance</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.models.dx.CBottleTCGuidance.__call__"><code class="docutils literal notranslate"><span class="pre">CBottleTCGuidance.__call__()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.models.dx.CBottleTCGuidance.load_default_package"><code class="docutils literal notranslate"><span class="pre">CBottleTCGuidance.load_default_package()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.models.dx.CBottleTCGuidance.load_model"><code class="docutils literal notranslate"><span class="pre">CBottleTCGuidance.load_model()</span></code></a></li>
 </ul>
 </li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#examples-using-earth2studio-models-dx-corrdifftaiwan">Examples using <code class="docutils literal notranslate"><span class="pre">earth2studio.models.dx.CorrDiffTaiwan</span></code></a></li>
 </ul>
   </nav></div>
 
@@ -706,7 +715,7 @@ are supported. Default is ‘euler’</p></li>
   <div role="note" aria-label="source link">
     <h3>This Page</h3>
     <ul class="this-page-menu">
-      <li><a href="../../../../_sources/modules/generated/models/dx/earth2studio.models.dx.CorrDiffTaiwan.rst.txt"
+      <li><a href="../../../../_sources/modules/generated/models/dx/earth2studio.models.dx.CBottleTCGuidance.rst.txt"
             rel="nofollow">Show Source</a></li>
     </ul>
    </div></div>
