@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added CMIP6 data source
 - Added CBottle Tropical Cyclone guidance diagnostic
 - Exposed backend arguments of netcdf/zarr to datasource_to_file signature
+- Added vertical wind speed support in GFS
 
 ### Changed
 
