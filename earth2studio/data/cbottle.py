@@ -18,6 +18,7 @@ import os
 import pathlib
 from datetime import datetime, timedelta
 
+import cftime
 import numpy as np
 import torch
 import xarray as xr
@@ -39,17 +40,15 @@ try:
     from cbottle.checkpointing import Checkpoint
     from cbottle.datasets.base import TimeUnit
     from cbottle.datasets.dataset_2d import encode_sst
-    from cbottle.datasets.dataset_3d import get_batch_info
-    from cbottle.denoiser_factories import DenoiserType, get_denoiser
-    from cbottle.diffusion_samplers import edm_sampler_from_sigma
+    from cbottle.inference import CBottle3d, MixtureOfExpertsDenoiser
 except ImportError:
+    OptionalDependencyFailure("cbottle")
     earth2grid = None
     Checkpoint = None
-    edm_sampler_from_sigma = None
-    get_batch_info = None
     TimeUnit = None
-    get_denoiser = None
-    OptionalDependencyFailure("cbottle")
+    encode_sst = None
+    CBottle3d = None
+    MixtureOfExpertsDenoiser = None
 
 HPX_LEVEL = 6
 
@@ -87,8 +86,9 @@ class CBottle3D(torch.nn.Module, AutoModelMixin):
     batch_size : int, optional
         Batch size to generate time samples at, consider adjusting based on hardware
         being used, by default 4
-    seed : int, optional
-        Random generator seed for latent variables, by default 0
+    seed : int | None, optional
+        If set, will fix the seed of the random generator for latent variables, by
+        default None
     cache : bool, optional
         Does nothing at the moment, by default False
     verbose : bool, optional
@@ -103,21 +103,22 @@ class CBottle3D(torch.nn.Module, AutoModelMixin):
         sst_ds: xr.Dataset,
         lat_lon: bool = True,
         sampler_steps: int = 18,
-        sigma_max: float = 80,
+        sigma_max: float = 200.0,
         batch_size: int = 4,
-        seed: int = 0,
+        seed: int | None = None,
         cache: bool = False,
         verbose: bool = True,
     ):
         super().__init__()
 
-        self.core_model = core_model
         self.sst = sst_ds
         self.lat_lon = lat_lon
         self.sigma_max = sigma_max
         self.sampler_steps = sampler_steps
         self.batch_size = batch_size
-        self.rng = torch.Generator()
+        self.seed = seed
+        self._core_model = core_model  # Needed to move model to device
+        self.core_model = CBottle3d(core_model)
 
         self._cache = cache
         self._verbose = verbose
@@ -140,8 +141,6 @@ class CBottle3D(torch.nn.Module, AutoModelMixin):
 
         # Empty tensor just to make tracking current device easier
         self.register_buffer("device_buffer", torch.empty(0))
-        # Set seed of random generator
-        self.set_seed(seed=seed)
 
     @torch.inference_mode()
     def __call__(
@@ -172,7 +171,6 @@ class CBottle3D(torch.nn.Module, AutoModelMixin):
         self._validate_time(time)
 
         input = self.get_cbottle_input(time)
-        batch_info = get_batch_info(time_step=0, time_unit=TimeUnit.HOUR)
 
         varidx = []
         for var in variable:
@@ -190,7 +188,8 @@ class CBottle3D(torch.nn.Module, AutoModelMixin):
         images = input["target"].to(device)
         second_of_day = input["second_of_day"].to(device)
         day_of_year = input["day_of_year"].to(device)
-        sigma_max = torch.Tensor([self.sigma_max]).to(device)
+        self.core_model.sigma_max = torch.Tensor([self.sigma_max]).to(device)
+        self.core_model.num_steps = self.sampler_steps
 
         # Process in batches with progress bar if verbose is enabled
         batch_size = self.batch_size
@@ -207,48 +206,16 @@ class CBottle3D(torch.nn.Module, AutoModelMixin):
             end_idx = min((i + 1) * batch_size, n_samples)
 
             # Get batch slices
-            batch_images = images[start_idx:end_idx]
-            batch_labels = labels[start_idx:end_idx]
-            batch_condition = condition[start_idx:end_idx]
-            batch_second_of_day = second_of_day[start_idx:end_idx]
-            batch_day_of_year = day_of_year[start_idx:end_idx]
+            batch = {}
+            batch["target"] = images[start_idx:end_idx]
+            batch["labels"] = labels[start_idx:end_idx]
+            batch["condition"] = condition[start_idx:end_idx]
+            batch["second_of_day"] = second_of_day[start_idx:end_idx]
+            batch["day_of_year"] = day_of_year[start_idx:end_idx]
 
-            # Generate latents
-            batch_latents = torch.randn(
-                (
-                    end_idx - start_idx,
-                    self.core_model.img_channels,
-                    self.core_model.time_length,
-                    self.core_model.domain.numel(),
-                ),
-                generator=self.rng,
-            ).to(device)
-            batch_xT = batch_latents * sigma_max
-
-            # Gets appropriate denoiser based on config
-            batch_D = get_denoiser(
-                net=self.core_model,
-                images=batch_images,
-                labels=batch_labels,
-                condition=batch_condition,
-                second_of_day=batch_second_of_day,
-                day_of_year=batch_day_of_year,
-                denoiser_type=DenoiserType.standard,  # 'mask_filling', 'infill', 'standard'
-                sigma_max=sigma_max,
-                labels_when_nan=None,
-            )
-
-            batch_out = edm_sampler_from_sigma(
-                batch_D,
-                batch_xT,
-                num_steps=self.sampler_steps,
-                randn_like=torch.randn_like,
-                sigma_max=int(sigma_max),  # Convert to int for type compatibility
-            )
-
-            batch_x = batch_info.denormalize(batch_out)
-            batch_x = batch_x[:, varidx]
-            outputs.append(batch_x)
+            output, coords = self.core_model.sample(batch, seed=self.seed)
+            output = output[:, varidx]
+            outputs.append(output)
 
         # Concatenate all batches
         x = torch.cat(outputs, dim=0)
@@ -259,9 +226,7 @@ class CBottle3D(torch.nn.Module, AutoModelMixin):
             latlon_grid = earth2grid.latlon.equiangular_lat_lon_grid(
                 nlat, nlon, includes_south_pole=True
             )
-            regridder = earth2grid.get_regridder(
-                self.core_model.domain._grid, latlon_grid
-            ).to(device)
+            regridder = earth2grid.get_regridder(coords.grid, latlon_grid).to(device)
             field_regridded = regridder(x).squeeze(2)
 
             return xr.DataArray(
@@ -270,7 +235,7 @@ class CBottle3D(torch.nn.Module, AutoModelMixin):
                 coords={
                     "time": np.array(time),
                     "variable": np.array(variable),
-                    "lat": np.linspace(90, -90, nlat, endpoint=False),
+                    "lat": np.linspace(90, -90, nlat),
                     "lon": np.linspace(0, 360, nlon, endpoint=False),
                 },
             )
@@ -287,7 +252,7 @@ class CBottle3D(torch.nn.Module, AutoModelMixin):
 
     def get_cbottle_input(
         self,
-        time: list[datetime],
+        times: list[datetime],
         label: int = 1,  # 0 for ICON, 1 for ERA5
     ) -> dict[str, torch.Tensor]:
         """Prepares the CBottle inputs
@@ -295,11 +260,11 @@ class CBottle3D(torch.nn.Module, AutoModelMixin):
         Adopted from:
 
         - https://github.com/NVlabs/cBottle/blob/ed96dfe35d87ecefa4846307807e8241c4b24e71/src/cbottle/datasets/amip_sst_loader.py#L55
-        - https://github.com/NVlabs/cBottle/blob/ed96dfe35d87ecefa4846307807e8241c4b24e71/src/cbottle/datasets/dataset_3d.py#L247
+        - https://github.com/NVlabs/cBottle/blob/4f44c125398896fad1f4c9df3d80dc845758befa/src/cbottle/datasets/dataset_3d.py#L393
 
         Parameters
         ----------
-        time : list[datetime]
+        times : list[datetime]
             List of times for inference
         label : int, optional
             Label ID, by default 1
@@ -309,7 +274,7 @@ class CBottle3D(torch.nn.Module, AutoModelMixin):
         dict[str, torch.Tensor]
             Dictionary of input tensors for CBottle
         """
-        time_arr = np.array(time, dtype="datetime64[ns]")
+        time_arr = np.array(times, dtype="datetime64[ns]")
         sst_data = torch.from_numpy(
             self.sst["tosbcs"].interp(time=time_arr, method="linear").values + 273.15
         ).to(self.device_buffer.device)
@@ -324,20 +289,25 @@ class CBottle3D(torch.nn.Module, AutoModelMixin):
             )
             return torch.permute(x, (2, 0, 1, 3))
 
-        day_start = np.array([t.replace(hour=0, minute=0, second=0) for t in time])
+        times = [
+            cftime.DatetimeGregorian(t.year, t.month, t.day, t.hour, t.minute, t.second)
+            for t in times
+        ]
+        day_start = np.array([t.replace(hour=0, minute=0, second=0) for t in times])
         year_start = np.array([d.replace(month=1, day=1) for d in day_start])
-        second_of_day = (time - day_start) / timedelta(seconds=1)
-        day_of_year = (time - year_start) / timedelta(seconds=86400)
+        second_of_day = (times - day_start) / timedelta(seconds=1)
+        day_of_year = (times - year_start) / timedelta(seconds=86400)
 
         # ["rlut", "rsut", "rsds"]
         nan_channels = [38, 39, 42]
         target = np.zeros(
-            (len(time), self.VARIABLES.shape[0], 1, 4**HPX_LEVEL * 12), dtype=np.float32
+            (len(times), self.VARIABLES.shape[0], 1, 4**HPX_LEVEL * 12),
+            dtype=np.float32,
         )
         target[:, nan_channels, ...] = np.nan
 
         labels = torch.nn.functional.one_hot(torch.tensor(label), num_classes=1024)
-        labels = labels.unsqueeze(0).repeat(len(time), 1)
+        labels = labels.unsqueeze(0).repeat(len(times), 1)
 
         out = {
             "target": torch.tensor(target),
@@ -350,16 +320,6 @@ class CBottle3D(torch.nn.Module, AutoModelMixin):
         }
 
         return out
-
-    def set_seed(self, seed: int) -> None:
-        """Set seed of CBottle latent variable generator
-
-        Parameters
-        ----------
-        seed : int
-            Seed value
-        """
-        self.rng.manual_seed(seed)
 
     @property
     def cache(self) -> str:
@@ -395,7 +355,7 @@ class CBottle3D(torch.nn.Module, AutoModelMixin):
     def load_default_package(cls) -> Package:
         """Default pre-trained CBottle3D model package from Nvidia model registry"""
         return Package(
-            "ngc://models/nvidia/earth-2/cbottle@1.1",
+            "ngc://models/nvidia/earth-2/cbottle@1.2",
             cache_options={
                 "cache_storage": Package.default_cache("cbottle"),
                 "same_names": True,
@@ -409,7 +369,7 @@ class CBottle3D(torch.nn.Module, AutoModelMixin):
         package: Package,
         lat_lon: bool = True,
         batch_size: int = 4,
-        seed: int = 0,
+        seed: int | None = None,
         verbose: bool = True,
     ) -> DataSource:
         """Load AI datasource from package
@@ -425,8 +385,9 @@ class CBottle3D(torch.nn.Module, AutoModelMixin):
         batch_size : int, optional
             Batch size to generate time samples at, consider adjusting based on hardware
             being used, by default 4
-        seed : int, optional
-            Random generator seed for latent variables, by default 0
+        seed : int | None, optional
+            If set, will fix the seed of the random generator for latent variables, by
+            default None
         verbose : bool, optional
             Print generation progress, by default True
 
@@ -436,12 +397,16 @@ class CBottle3D(torch.nn.Module, AutoModelMixin):
             Data source
         """
 
-        with Checkpoint(package.resolve("cBottle-3d.zip")) as checkpoint:
-            core_model = checkpoint.read_model()
+        checkpoints = [
+            package.resolve("cBottle-3d/training-state-000512000.checkpoint"),
+            package.resolve("cBottle-3d/training-state-002048000.checkpoint"),
+            package.resolve("cBottle-3d/training-state-009856000.checkpoint"),
+        ]
 
-        core_model.eval()
-        core_model.requires_grad_(False)
-        core_model.float()
+        # https://github.com/NVlabs/cBottle/blob/4f44c125398896fad1f4c9df3d80dc845758befa/src/cbottle/inference.py#L106
+        core_model = MixtureOfExpertsDenoiser.from_pretrained(
+            checkpoints, (100.0, 10.0)
+        )
 
         # The following code is left here for reference of how to access the AMIP SST
         # data from the original data store. NGC is faster and cleaner so it is also

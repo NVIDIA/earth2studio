@@ -195,13 +195,16 @@ def test_data_array_sources(time, variable, data_source_type):
             data_source = DataArrayPathList(test_files)
 
     # Request data
-    data = data_source(time, variable)
+    data_loaded = data_source(time, variable)
 
     # Cleanup
     shutil.rmtree(base_dir)
 
-    # Verify results
-    assert np.all(data.sel(time=time, variable=variable).values == data.values)
+    target_data = test_data[time.year]
+    assert np.all(
+        target_data.sel(time=np.datetime64(time), variable=variable).values
+        == data_loaded.values
+    )
 
 
 def test_data_array_path_list_exceptions(tmp_path):
