@@ -245,7 +245,6 @@ def test_cbottle_tc_package(device, model_cache_context):
     assert out.shape == torch.Size(
         [
             out_coords["time"].shape[0],
-            1,
             out_coords["lead_time"].shape[0],
             out_coords["variable"].shape[0],
             721,
