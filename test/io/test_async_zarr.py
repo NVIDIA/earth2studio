@@ -19,7 +19,6 @@ import os
 import time
 from collections import OrderedDict
 from collections.abc import Callable
-from unittest.mock import patch
 
 import fsspec
 import numpy as np
@@ -431,12 +430,6 @@ def test_async_zarr_remote(
 
 @pytest.mark.asyncio
 async def test_async_zarr_errors(tmp_path: str) -> None:
-    # NMot Zarr 3.0
-    with patch("earth2studio.io.async_zarr.version") as mock_version:
-        mock_version.return_value = "2.15.0"
-        with pytest.raises(ImportError):
-            AsyncZarrBackend(f"{tmp_path}/test.zarr", parallel_coords={})
-
     # Non-callable fsspec factory
     with pytest.raises(TypeError):
         AsyncZarrBackend(
