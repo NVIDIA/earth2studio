@@ -9,7 +9,7 @@ authors = [
 ]
 description = "Open-source deep-learning framework for exploring, building and deploying AI weather/climate workflows."
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 license = "Apache-2.0"
 dependencies = [
     "cfgrib >= 0.9.10.3",
@@ -28,7 +28,7 @@ dependencies = [
     "torch>=2.5.0",
     "tqdm>=4.65.0",
     "xarray[parallel]>=2023.1.0",
-    "zarr>=2.14.2",
+    "zarr>=3.1.0",
     "numcodecs<0.15.0", # TODO: Remove
 ]
 
@@ -38,7 +38,6 @@ classifiers = [
     "Operating System :: OS Independent",
     'Programming Language :: Python',
     'Programming Language :: Python :: 3',
-    'Programming Language :: Python :: 3.10',
     'Programming Language :: Python :: 3.11',
     'Programming Language :: Python :: 3.12',
     'Programming Language :: Python :: 3.13',
