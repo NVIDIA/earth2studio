@@ -76,7 +76,7 @@ aifs = [
     "anemoi-models==0.3.1",
     "earthkit-regrid==0.4.0",
     "ecmwf-opendata>=0.3.3",
-    "flash-attn>=2.7.3",
+    "flash-attn",
 ]
 aurora = [
     "microsoft-aurora>=1.5.0",
@@ -211,8 +211,8 @@ no-build-isolation-package = ["earth2grid", "flash-attn"]
 override-dependencies = []
 
 [tool.uv.sources]
-cbottle = { git = "https://github.com/NVlabs/cBottle.git", rev = "0b8c6787053dc80f14fbb68a54d6815749c9d0e9" }
-earth2grid = { git = "https://github.com/NVlabs/earth2grid.git", rev = "aefb10793aa372bae7d0951d627a89e2983fd0ca" }
+cbottle = { git = "https://github.com/NickGeneva/cBottle.git", rev = "9b24c2f81096a340444e7e0966fe93223a4d9532" }
+earth2grid = { git = "https://github.com/NVlabs/earth2grid.git", rev = "661445e2c68edc76f52632aa0528af482357f1b8" }
 makani = { git = "https://github.com/NVIDIA/makani.git", rev = "49280812513d8f1daf872a2e9343855a6adb3acf"}
 microsoft-aurora = { git = "https://github.com/NickGeneva/aurora.git", rev = "ab41cf1de67d5dcc723b96fc9a6219e4b548d181" }
 graphcast = { git = "https://github.com/deepmind/graphcast.git", rev = "7077d40a36db6541e3ed72ccaed1c0d202fa6014" }
