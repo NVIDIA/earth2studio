@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Added CMIP6 data source
 - Added CBottle Tropical Cyclone guidance diagnostic
+- Added ModelOutputDatasetSource to to use written model output to start a new model run
 
 ### Changed
 
