@@ -13,6 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added CMIP6 data source
 - Added CBottle Tropical Cyclone guidance diagnostic
 - Added CBottle Video prognostic model
+- Exposed backend arguments of netcdf/zarr to datasource_to_file signature
+- Added vertical wind speed support in GFS
 
 ### Changed
 
@@ -28,6 +30,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Dependencies
 
+- Dropped support for Python 3.10
 - Bumped CBottle (and Earth2Grid) versions
 
 ## [0.9.0] - 2025-08-19

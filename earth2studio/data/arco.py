@@ -20,15 +20,12 @@ import os
 import pathlib
 import shutil
 from datetime import datetime
-from importlib.metadata import version
 
-import fsspec
 import gcsfs
 import nest_asyncio
 import numpy as np
 import xarray as xr
 import zarr
-from fsspec.implementations.cached import WholeFileCacheFileSystem
 from loguru import logger
 from tqdm.asyncio import tqdm
 
@@ -75,49 +72,20 @@ class ARCO:
     def __init__(
         self, cache: bool = True, verbose: bool = True, async_timeout: int = 600
     ):
-        # Check Zarr version and use appropriate method
-        try:
-            zarr_version = version("zarr")
-            self.zarr_major_version = int(zarr_version.split(".")[0])
-        except Exception:
-            # Fallback to older method if version check fails
-            self.zarr_major_version = 2  # Assume older version if we can't determine
 
         self._cache = cache
         self._verbose = verbose
 
-        if self.zarr_major_version >= 3:
-            # Check to see if there is a running loop (initialized in async)
-            try:
-                nest_asyncio.apply()  # Monkey patch asyncio to work in notebooks
-                loop = asyncio.get_running_loop()
-                loop.run_until_complete(self._async_init())
-            except RuntimeError:
-                # Else we assume that async calls will be used which in that case
-                # we will init the group in the call function when we have the loop
-                self.zarr_group = None
-                self.level_coords = None
-        else:
-            fs = gcsfs.GCSFileSystem(
-                cache_timeout=-1,
-                token="anon",  # noqa: S106 # nosec B106
-                access="read_only",
-                block_size=8**20,
-                asynchronous=(self.zarr_major_version == 3),
-            )
-            if self._cache:
-                cache_options = {
-                    "cache_storage": self.cache,
-                    "expiry_time": 31622400,  # 1 year
-                }
-                fs = WholeFileCacheFileSystem(fs=fs, **cache_options)
-            # Legacy method for Zarr < 3.0
-            logger.warning("Using Zarr 2.0 method for ARCO")
-            fs_map = fsspec.FSMap(
-                "gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3", fs
-            )
-            self.zarr_group = zarr.open(fs_map, mode="r")
-            self.level_coords = self.zarr_group["level"][:]
+        # Check to see if there is a running loop (initialized in async)
+        try:
+            nest_asyncio.apply()  # Monkey patch asyncio to work in notebooks
+            loop = asyncio.get_running_loop()
+            loop.run_until_complete(self._async_init())
+        except RuntimeError:
+            # Else we assume that async calls will be used which in that case
+            # we will init the group in the call function when we have the loop
+            self.zarr_group: zarr.core.group.AsyncGroup | None = None
+            self.level_coords = None
 
         self.async_timeout = async_timeout
 
@@ -295,38 +263,23 @@ class ARCO:
             raise e
 
         arco_variable, level = arco_name.split("::")
-        if self.zarr_major_version >= 3:
-            zarr_array = await self.zarr_group.get(arco_variable)
-            shape = zarr_array.shape
-            # Static variables
-            if len(shape) == 2:
-                data = await zarr_array.getitem(slice(None))
-                output = modifier(data)
-            # Surface variable
-            elif len(shape) == 3:
-                data = await zarr_array.getitem(time_index)
-                output = modifier(data)
-            # Atmospheric variable
-            else:
-                # Load levels coordinate system from Zarr store and check
-                level_index = np.searchsorted(self.level_coords, int(level))
-                data = await zarr_array.getitem((time_index, level_index))
-                output = modifier(data)
+
+        zarr_array = await self.zarr_group.get(arco_variable)
+        shape = zarr_array.shape
+        # Static variables
+        if len(shape) == 2:
+            data = await zarr_array.getitem(slice(None))
+            output = modifier(data)
+        # Surface variable
+        elif len(shape) == 3:
+            data = await zarr_array.getitem(time_index)
+            output = modifier(data)
+        # Atmospheric variable
         else:
-            # Zarr 2.0 fall back
-            shape = self.zarr_group[arco_variable].shape
-            # Static variables
-            if len(shape) == 2:
-                output = modifier(self.zarr_group[arco_variable][:])
-            # Surface variable
-            elif len(shape) == 3:
-                output = modifier(self.zarr_group[arco_variable][time_index])
-            # Atmospheric variable
-            else:
-                level_index = np.where(self.level_coords == int(level))[0][0]
-                output = modifier(
-                    self.zarr_group[arco_variable][time_index, level_index]
-                )
+            # Load levels coordinate system from Zarr store and check
+            level_index = np.searchsorted(self.level_coords, int(level))
+            data = await zarr_array.getitem((time_index, level_index))
+            output = modifier(data)
 
         return output
 
@@ -413,23 +366,10 @@ class ARCO:
 
         # TODO: FIX THIS, FOR ZARR 3.0 THIS IS DANGEROUS NON-ASYNC
         gcs = gcsfs.GCSFileSystem(cache_timeout=-1)
-
-        try:
-            zarr_version = version("zarr")
-            zarr_major_version = int(zarr_version.split(".")[0])
-        except Exception:
-            zarr_major_version = 2
-
-        if zarr_major_version >= 3:
-            gcstore = zarr.storage.FsspecStore(
-                gcs,
-                path="/gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3",
-            )
-        else:
-            gcstore = gcsfs.GCSMap(
-                "gs://gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3",
-                gcs=gcs,
-            )
+        gcstore = zarr.storage.FsspecStore(
+            gcs,
+            path="/gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3",
+        )
 
         zarr_group = zarr.open(gcstore, mode="r")
         # Load time coordinate system from Zarr store and check
