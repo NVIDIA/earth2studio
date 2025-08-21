@@ -13,11 +13,11 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 import os
 from datetime import datetime
 from typing import Any
 
+import pandas as pd
 import xarray as xr
 from numpy import ndarray
 from pandas import to_datetime
@@ -58,6 +58,133 @@ class DataArrayFile:
         -------
         xr.DataArray
             Loaded data array
+        """
+        return self.da.sel(time=time, variable=variable)
+
+
+class ModelOutputDatasetSource:
+    """Adapt a model-output ``xarray.Dataset`` into a standardized ``xarray.DataArray``.
+
+    This adapter expects a dataset with an initialization run ``time`` and a
+    forecast ``lead_time`` along with spatial dimensions (``lat``, ``lon``) and
+    one or more data variables. All variables are stacked into a single
+    ``variable`` dimension via ``Dataset.to_array("variable")``. A valid forecast
+    time coordinate is constructed as ``time + lead_time`` and used to replace the
+    original run ``time``; the ``lead_time`` coordinate is then dropped.
+
+    The resulting ``DataArray`` has dimensions in the order
+    ``("time", "variable", "lat", "lon")`` and can be queried by valid forecast
+    time and variable name.
+
+    Parameters
+    ----------
+    file_path : str
+        Path to an xarray-compatible dataset file (e.g., NetCDF/Zarr).
+    filter_dict : dict, optional
+        Dictionary of selections applied before transformation (e.g.,
+        ``{"member": 0}``). Coordinates not in the required
+        dimensions are dropped after selection.
+    **xr_args : Any
+        Additional keyword arguments forwarded to ``xarray.open_dataset``.
+
+    Raises
+    ------
+    ValueError
+        If required input dimensions are missing or if extra dimensions remain
+        after filtering.
+    AssertionError
+        If more than one run initialization ``time`` is present.
+
+    Notes
+    -----
+    - Exactly one initialization ``time`` is required; the valid forecast times
+      are computed as ``pandas.to_datetime(time + lead_time)``.
+    - Variables are stacked into the ``variable`` dimension using
+      ``Dataset.to_array("variable")``.
+    - Output dimensions (after transformation) are ``time``, ``variable``,
+      ``lat``, ``lon``.
+
+    Examples
+    --------
+    >>> src = ModelOutputDatasetSource("/path/to/model_output.nc", filter_dict={"member": 0})
+    >>> da = src(time=["2024-11-01T06:00"], variable=["t2m"])  # select by valid times/variables
+    """
+
+    def __init__(self, file_path: str, filter_dict: dict = None, **xr_args: Any):
+        self.file_path = file_path
+        self.da = xr.open_dataset(self.file_path, **xr_args)
+        self.da = self.da.to_array("variable")
+
+        # The following dimensions and their order is required for the data to be used as a datasource
+        required_dims_start = ["time", "lead_time", "variable", "lat", "lon"]
+        required_dims_end = ["time", "variable", "lat", "lon"]
+
+        # if filter_dict is provided, select the data and drop all coords that are not in the required dimensions
+        if filter_dict:
+            self.da = self.da.sel(filter_dict)
+            # drop all coords that are not in the required dimensions
+            for k in filter_dict.keys():
+                if k not in required_dims_start:
+                    self.da = self.da.reset_coords(k, drop=True)
+
+        # Validate remaining dimensions
+        missing_dims = set(required_dims_start) - set(self.da.dims)
+        extra_dims = set(self.da.dims) - set(required_dims_start)
+        if missing_dims:
+            raise ValueError(f"Dataset missing required dimensions: {missing_dims}")
+        if extra_dims:
+            raise ValueError(
+                f"Dataset has extra dimensions: {extra_dims}. Use filter_dict to select a subset of the data."
+            )
+
+        # Construct new time dimension from the existing time and lead_time dimensions
+        if len(self.da["time"]) > 1:
+            raise ValueError(
+                "Only one time time is supported. Use filter_dict to select a subset of the data."
+            )
+        base_time = self.da[
+            "time"
+        ].values  # the run time of the model output that should be used as input for another model
+        lead_times = self.da["lead_time"].values  # lead times of the model output
+        # valid_time = pd.to_datetime(base_time+lead_times)
+        valid_time = base_time[:, None] + lead_times[None, :]
+        valid_time = pd.to_datetime(valid_time.ravel()).values.reshape(
+            valid_time.shape
+        )  # optional
+
+        # add it as a coordinate to replace the old time and lead_time dimensions
+        self.da = self.da.assign_coords(valid_time=(("time", "lead_time"), valid_time))
+        self.da = self.da.stack(helper_coord=("time", "lead_time"))
+        self.da = self.da.swap_dims({"helper_coord": "valid_time"})
+        self.da = self.da.reset_coords(
+            names="time", drop=True
+        )  # remove old conflicting time coord
+        self.da = self.da.rename({"valid_time": "time"})  # rename the new time coord
+        self.da = self.da.drop_vars(["lead_time"])  # remove old lead_time coord
+        self.da = self.da.drop_vars(["helper_coord"])  # remove helper coord
+
+        # sort the dimensions to the required order
+        self.da = self.da.transpose(*required_dims_end)
+
+    def __call__(
+        self,
+        time: datetime | list[datetime] | TimeArray,
+        variable: str | list[str] | VariableArray,
+    ) -> xr.DataArray:
+        """Retrieve data for specified valid times and variables.
+
+        Parameters
+        ----------
+        time : datetime | list[datetime] | TimeArray
+            One or more valid forecast timestamps (after ``time + lead_time``
+            transformation).
+        variable : str | list[str] | VariableArray
+            One or more variable names to return.
+
+        Returns
+        -------
+        xr.DataArray
+            Data array subset for the requested ``time`` and ``variable``.
         """
         return self.da.sel(time=time, variable=variable)
 
