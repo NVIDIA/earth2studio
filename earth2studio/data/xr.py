@@ -121,11 +121,22 @@ class ModelOutputDatasetSource:
 
         # if filter_dict is provided, select the data and drop all coords that are not in the required dimensions
         if filter_dict:
-            self.da = self.da.sel(filter_dict)
-            # drop all coords that are not in the required dimensions
-            for k in filter_dict.keys():
-                if k not in required_dims_start:
-                    self.da = self.da.reset_coords(k, drop=True)
+            # For required dims, wrap scalars to preserve the dimension (e.g., time)
+            processed_filters: dict[str, Any] = {}
+            for key, value in filter_dict.items():
+                if key in required_dims_start and not isinstance(
+                    value, (list, ndarray)
+                ):
+                    processed_filters[key] = [value]
+                else:
+                    processed_filters[key] = value
+
+            # Apply selections
+            self.da = self.da.sel(processed_filters)
+            # For any non-required dimensions that remain with size 1, drop them
+            for dim in list(self.da.dims):
+                if dim not in required_dims_start and self.da.sizes.get(dim, 0) == 1:
+                    self.da = self.da.isel({dim: 0})
 
         # Validate remaining dimensions
         missing_dims = set(required_dims_start) - set(self.da.dims)
