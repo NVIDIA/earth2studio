@@ -22,13 +22,54 @@ import shutil
 import numpy as np
 import pytest
 import xarray as xr
+from zarr.storage import MemoryStore
 
 from earth2studio.data import (
     DataArrayDirectory,
     DataArrayFile,
     DataArrayPathList,
     DataSetFile,
+    ModelOutputDatasetSource,
 )
+
+
+def build_model_output_dataset(
+    run_times: np.ndarray,
+    lead_times: np.ndarray,
+    lat: np.ndarray,
+    lon: np.ndarray,
+    var_names: list[str],
+    *,
+    num_members: int = 0,
+) -> xr.Dataset:
+    dims = (
+        ["time", "lead_time"]
+        + (["member"] if num_members > 0 else [])
+        + [
+            "lat",
+            "lon",
+        ]
+    )
+    data_vars = {}
+    if num_members > 0:
+        shape = (run_times.size, lead_times.size, num_members, lat.size, lon.size)
+    else:
+        shape = (run_times.size, lead_times.size, lat.size, lon.size)
+
+    for name in var_names:
+        data = np.random.randn(*shape)
+        data_vars[name] = (dims, data)
+
+    coords = {
+        "time": run_times,
+        "lead_time": lead_times,
+        "lat": lat,
+        "lon": lon,
+    }
+    if num_members > 0:
+        coords["member"] = np.arange(num_members)
+
+    return xr.Dataset(data_vars=data_vars, coords=coords)
 
 
 @pytest.fixture
@@ -227,3 +268,200 @@ def test_data_array_path_list_exceptions(tmp_path):
     # Test 2: Non-existent file pattern
     with pytest.raises(OSError):
         DataArrayPathList("nonexistent_pattern*.nc")
+
+
+@pytest.fixture
+def make_model_output_store():
+    def _make(
+        run_times: np.ndarray,
+        lead_times: np.ndarray,
+        lat: np.ndarray,
+        lon: np.ndarray,
+        var_names: list[str],
+        *,
+        num_members: int = 0,
+    ) -> tuple[MemoryStore, xr.Dataset]:
+        ds = build_model_output_dataset(
+            run_times,
+            lead_times,
+            lat,
+            lon,
+            var_names,
+            num_members=num_members,
+        )
+        store = MemoryStore()
+        ds.to_zarr(store, mode="w")
+        return store, ds
+
+    return _make
+
+
+def test_model_output_dataset_source_basic(make_model_output_store):
+    run_times = np.array([np.datetime64("2018-01-01T00:00:00")])
+    lead_times = np.array(
+        [np.timedelta64(0, "h"), np.timedelta64(6, "h"), np.timedelta64(12, "h")]
+    )
+    lat = np.linspace(-10, 10, 4)
+    lon = np.linspace(0, 30, 8)
+    store, ds = make_model_output_store(
+        run_times, lead_times, lat, lon, ["t2m", "u10m"]
+    )
+    src = ModelOutputDatasetSource(store, engine="zarr")
+
+    valid_t = (run_times[0] + np.timedelta64(6, "h")).astype("datetime64[ns]")
+    out = src(time=np.datetime64(valid_t), variable="t2m")
+
+    expected = ds["t2m"].isel(time=0, lead_time=1).values
+    assert out.shape == expected.shape
+    assert np.all(out.values.squeeze() == expected)
+
+
+def test_model_output_dataset_source_filter_and_time_selection(make_model_output_store):
+    # Dataset with an extra member dimension and two initialization times
+    run_times = np.array(
+        [
+            np.datetime64("2018-01-01T00:00:00"),
+            np.datetime64("2018-01-02T00:00:00"),
+        ]
+    )
+    lead_times = np.array([np.timedelta64(0, "h"), np.timedelta64(12, "h")])
+    lat = np.linspace(-5, 5, 2)
+    lon = np.linspace(0, 10, 3)
+
+    store, ds = make_model_output_store(
+        run_times,
+        lead_times,
+        lat,
+        lon,
+        ["t2m"],
+        num_members=10,
+    )
+
+    # Filter member and time to make it valid
+    src = ModelOutputDatasetSource(
+        store,
+        engine="zarr",
+        filter_dict={"member": 0, "time": run_times[0]},
+    )
+
+    valid_t = (run_times[0] + np.timedelta64(12, "h")).astype("datetime64[ns]")
+    out = src(time=np.datetime64(valid_t), variable="t2m")
+
+    expected = ds["t2m"].sel(member=0).isel(time=0, lead_time=1).values
+    assert np.all(out.values.squeeze() == expected)
+
+
+def test_model_output_dataset_source_requires_filter_for_extra_dims(
+    make_model_output_store,
+):
+    # Dataset with an extra member dimension
+    run_times = np.array(
+        [
+            np.datetime64("2018-01-01T00:00:00"),
+        ]
+    )
+    lead_times = np.array([np.timedelta64(0, "h"), np.timedelta64(12, "h")])
+    lat = np.linspace(-5, 5, 2)
+    lon = np.linspace(0, 10, 3)
+
+    store, _ = make_model_output_store(
+        run_times,
+        lead_times,
+        lat,
+        lon,
+        ["t2m"],
+        num_members=3,
+    )
+
+    with pytest.raises(ValueError):
+        ModelOutputDatasetSource(store, engine="zarr")
+
+
+def test_model_output_dataset_source_too_few_variables_raises(make_model_output_store):
+    # Single variable in dataset; requesting an extra variable should fail on selection
+    run_times = np.array([np.datetime64("2018-01-01T00:00:00")])
+    lead_times = np.array(
+        [
+            np.timedelta64(0, "h"),
+            np.timedelta64(6, "h"),
+        ]
+    )
+    lat = np.linspace(-10, 10, 4)
+    lon = np.linspace(0, 30, 8)
+
+    store, _ = make_model_output_store(
+        run_times,
+        lead_times,
+        lat,
+        lon,
+        ["t2m"],
+    )
+
+    src = ModelOutputDatasetSource(store, engine="zarr")
+
+    valid_t = (run_times[0] + np.timedelta64(6, "h")).astype("datetime64[ns]")
+    with pytest.raises(KeyError):
+        _ = src(time=np.datetime64(valid_t), variable=["t2m", "u10m"])  # u10m missing
+
+
+@pytest.mark.parametrize("num_run_times", [1, 2])
+@pytest.mark.parametrize("num_lead_times", [1, 2])
+@pytest.mark.parametrize("num_var_names", [1, 2])
+@pytest.mark.parametrize("num_members", [0, 1, 2])
+def test_model_output_dataset_source_parametrized(
+    make_model_output_store,
+    num_run_times: int,
+    num_lead_times: int,
+    num_var_names: int,
+    num_members: int,
+):
+    # Build inputs
+    base_run = np.datetime64("2018-01-01T00:00:00")
+    run_times = np.array(
+        [base_run + np.timedelta64(d, "D") for d in range(num_run_times)]
+    )
+    lead_times = np.array([np.timedelta64(h, "h") for h in (0, 12)[:num_lead_times]])
+    lat = np.linspace(-5, 5, 2)
+    lon = np.linspace(0, 10, 3)
+    all_vars = ["t2m", "u10m"]
+    var_names = all_vars[:num_var_names]
+
+    # Create dataset/store
+    store, ds = make_model_output_store(
+        run_times,
+        lead_times,
+        lat,
+        lon,
+        var_names,
+        num_members=num_members,
+    )
+
+    # Build filter to satisfy ModelOutputDatasetSource requirements
+    filter_dict: dict = {}
+    if num_run_times > 1:
+        filter_dict["time"] = run_times[0]
+    if num_members > 0:
+        filter_dict["member"] = 0
+
+    # Initialize source
+    src = ModelOutputDatasetSource(
+        store,
+        engine="zarr",
+        filter_dict=filter_dict if filter_dict else None,
+    )
+
+    # Choose a valid selection to verify data mapping
+    lead_idx = 0 if num_lead_times == 1 else 1
+    valid_t = (run_times[0] + lead_times[lead_idx]).astype("datetime64[ns]")
+    var = var_names[0]
+
+    out = src(time=np.datetime64(valid_t), variable=var)
+
+    # Expected from original ds
+    indexer = {"time": 0, "lead_time": lead_idx}
+    if num_members > 0:
+        expected_vals = ds[var].isel(**indexer, member=0).values
+    else:
+        expected_vals = ds[var].isel(**indexer).values
+
+    assert np.all(out.values.squeeze() == expected_vals)
