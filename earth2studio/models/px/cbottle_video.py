@@ -21,6 +21,7 @@ from datetime import datetime
 import numpy as np
 import torch
 import xarray as xr
+from loguru import logger
 
 from earth2studio.lexicon import CBottleLexicon
 from earth2studio.models.auto import Package
@@ -91,14 +92,12 @@ class CBottleVideo(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     sampler_steps : int, optional
         Number of diffusion steps, by default 18
     sigma_max : float, optional
-        Noise amplitude used to generate latent variables, by default 80
+        Maximum supported noise level during sampling, by default 1000
+    sigma_min : float, optional
+        Minimum supported noise level during sampling, by default 0.02
     seed : int | None, optional
         If set, will fix the seed of the random generator for latent variables, by
         default None
-    cache : bool, optional
-        Does nothing at the moment, by default False
-    verbose : bool, optional
-        Print generation progress, by default True
     """
 
     VARIABLES = np.array(list(CBottleLexicon.VOCAB.keys()))
@@ -237,6 +236,8 @@ class CBottleVideo(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             12 forecast steps (initial step including) [time, 12, 45, 721, 1440] if
             lat_lon or [time, 1, 45, 49152] if healpix
         """
+        # Small check to make sure
+
         device = self.device_buffer.device
         self.core_model.sigma_min = self.sigma_min
         self.core_model.sigma_max = self.sigma_max
@@ -284,6 +285,15 @@ class CBottleVideo(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         dict[str, torch.Tensor]
             Input batch dictionary used in the CBottle repo
         """
+        # Known support range for SST
+        for time in times:
+            if time < np.datetime64("1940-01-01") or time >= np.datetime64(
+                "2022-12-12T12:00"
+            ):
+                logger.warning(
+                    f"Requeedst time {time} is outside of the default SST support range"
+                )
+
         time_steps = [i * self._time_step for i in range(self._time_length)]
         times = times[:, None] + np.array(time_steps, dtype=np.timedelta64)[None, :]
 
