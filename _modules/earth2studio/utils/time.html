@@ -457,6 +457,8 @@
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">_unix</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">datetime64</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;s&quot;</span><span class="p">)</span>
     <span class="n">_ds</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">timedelta64</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;s&quot;</span><span class="p">)</span>
+    <span class="c1"># TODO: Update to</span>
+    <span class="c1"># time = [datetime.fromtimestamp((date - _unix) / _ds, UTC) for date in time]</span>
     <span class="n">time</span> <span class="o">=</span> <span class="p">[</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcfromtimestamp</span><span class="p">((</span><span class="n">date</span> <span class="o">-</span> <span class="n">_unix</span><span class="p">)</span> <span class="o">/</span> <span class="n">_ds</span><span class="p">)</span> <span class="k">for</span> <span class="n">date</span> <span class="ow">in</span> <span class="n">time</span><span class="p">]</span>
 
     <span class="k">return</span> <span class="n">time</span></div>
