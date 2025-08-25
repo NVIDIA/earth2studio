@@ -101,6 +101,8 @@ Use the optional install commands to add these dependencies.
 Notes: The AIFS model requires additional dependencies for data processing and
 visualization. This includes the use of [flash-attention](https://github.com/Dao-AILab/flash-attention)
 which can take a long time to build on some systems.
+See the [troubleshooting docs](https://nvidia.github.io/earth2studio/userguide/support/troubleshooting.html)
+for known suggestions/fixes related to this install process.
 
 ::::{tab-set}
 :::{tab-item} pip
@@ -204,8 +206,10 @@ uv add earth2studio --extra fcn
 :::::
 :::::{tab-item} FourCastNet 3
 Notes: Recommended to install [torch-harmonics](https://github.com/NVIDIA/torch-harmonics)
-with CUDA extensions for best performance. [Modulus-Makani](https://github.com/NVIDIA/modulus-makani.git)
-needs to be installed manually.
+with CUDA extensions for best performance which can take a long time to build on some
+systems.
+See the [troubleshooting docs](https://nvidia.github.io/earth2studio/userguide/support/troubleshooting.html)
+for known suggestions/fixes related to this install process.
 
 ::::{tab-set}
 :::{tab-item} pip
@@ -378,8 +382,8 @@ uv add earth2studio --extra interp-modafno
 
 ::::::{tab-set}
 :::::{tab-item} CBottle
-Notes: Additional dependencies needed for CBottle3D data source,
-CBottleInfill diagnostic and CBottleSR diagnostic.
+Notes: Additional dependencies needed for CBottle3D data source, CBottle video
+prognostic, CBottleInfill diagnostic and CBottleSR diagnostic.
 
 ::::{tab-set}
 :::{tab-item} pip
@@ -387,7 +391,7 @@ CBottleInfill diagnostic and CBottleSR diagnostic.
 ```bash
 pip install hatchling
 pip install --no-build-isolation "earth2grid @ git+https://github.com/NVlabs/earth2grid@aefb10793aa372bae7d0951d627a89e2983fd0ca"
-pip install --no-build-isolation "cbottle @ git+https://github.com/NVlabs/cBottle.git@0b8c6787053dc80f14fbb68a54d6815749c9d0e9"
+pip install --no-build-isolation "cbottle @ git+https://github.com/NickGeneva/cBottle.git@9b24c2f81096a340444e7e0966fe93223a4d9532"
 pip install earth2studio[cbottle]
 ```
 
