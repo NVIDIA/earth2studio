@@ -556,7 +556,9 @@ Use the optional install commands to add these dependencies.</p>
 AIFS</label><div class="sd-tab-content docutils">
 <p>Notes: The AIFS model requires additional dependencies for data processing and
 visualization. This includes the use of <a class="reference external" href="https://github.com/Dao-AILab/flash-attention">flash-attention</a>
-which can take a long time to build on some systems.</p>
+which can take a long time to build on some systems.
+See the <a class="reference external" href="https://nvidia.github.io/earth2studio/userguide/support/troubleshooting.html">troubleshooting docs</a>
+for known suggestions/fixes related to this install process.</p>
 <div class="sd-tab-set docutils">
 <input checked="checked" id="sd-tab-item-13" name="sd-tab-set-1" type="radio">
 <label class="sd-tab-label" for="sd-tab-item-13">
@@ -667,8 +669,10 @@ uv</label><div class="sd-tab-content docutils">
 <label class="sd-tab-label" for="sd-tab-item-5">
 FourCastNet 3</label><div class="sd-tab-content docutils">
 <p>Notes: Recommended to install <a class="reference external" href="https://github.com/NVIDIA/torch-harmonics">torch-harmonics</a>
-with CUDA extensions for best performance. <a class="reference external" href="https://github.com/NVIDIA/modulus-makani.git">Modulus-Makani</a>
-needs to be installed manually.</p>
+with CUDA extensions for best performance which can take a long time to build on some
+systems.
+See the <a class="reference external" href="https://nvidia.github.io/earth2studio/userguide/support/troubleshooting.html">troubleshooting docs</a>
+for known suggestions/fixes related to this install process.</p>
 <div class="sd-tab-set docutils">
 <input checked="checked" id="sd-tab-item-23" name="sd-tab-set-6" type="radio">
 <label class="sd-tab-label" for="sd-tab-item-23">
@@ -850,15 +854,15 @@ uv</label><div class="sd-tab-content docutils">
 <input checked="checked" id="sd-tab-item-39" name="sd-tab-set-14" type="radio">
 <label class="sd-tab-label" for="sd-tab-item-39">
 CBottle</label><div class="sd-tab-content docutils">
-<p>Notes: Additional dependencies needed for CBottle3D data source,
-CBottleInfill diagnostic and CBottleSR diagnostic.</p>
+<p>Notes: Additional dependencies needed for CBottle3D data source, CBottle video
+prognostic, CBottleInfill diagnostic and CBottleSR diagnostic.</p>
 <div class="sd-tab-set docutils">
 <input checked="checked" id="sd-tab-item-48" name="sd-tab-set-15" type="radio">
 <label class="sd-tab-label" for="sd-tab-item-48">
 pip</label><div class="sd-tab-content docutils">
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>hatchling
 pip<span class="w"> </span>install<span class="w"> </span>--no-build-isolation<span class="w"> </span><span class="s2">&quot;earth2grid @ git+https://github.com/NVlabs/earth2grid@aefb10793aa372bae7d0951d627a89e2983fd0ca&quot;</span>
-pip<span class="w"> </span>install<span class="w"> </span>--no-build-isolation<span class="w"> </span><span class="s2">&quot;cbottle @ git+https://github.com/NVlabs/cBottle.git@0b8c6787053dc80f14fbb68a54d6815749c9d0e9&quot;</span>
+pip<span class="w"> </span>install<span class="w"> </span>--no-build-isolation<span class="w"> </span><span class="s2">&quot;cbottle @ git+https://github.com/NickGeneva/cBottle.git@9b24c2f81096a340444e7e0966fe93223a4d9532&quot;</span>
 pip<span class="w"> </span>install<span class="w"> </span>earth2studio<span class="o">[</span>cbottle<span class="o">]</span>
 </pre></div>
 </div>
@@ -1203,7 +1207,7 @@ otherwise the install process is the same.</p>
 
 <span class="k">WORKDIR</span><span class="w"> </span><span class="s">/app</span>
 
-<span class="c"># Disable contraint files in the container</span>
+<span class="c"># Disable constraint files in the container</span>
 <span class="k">ENV</span><span class="w"> </span><span class="nv">PIP_CONSTRAINT</span><span class="o">=</span>
 <span class="c"># Install Earth2Studio and dependencies</span>
 <span class="k">RUN</span><span class="w"> </span>uv<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>--system<span class="w"> </span>--break-system-packages<span class="w"> </span><span class="s2">&quot;earth2studio@git+https://github.com/NVIDIA/earth2studio.git@0.9.0&quot;</span>
@@ -1273,7 +1277,7 @@ The recommended hardware for the majority of models supported in Earth2Studio is
 <li><p>B200</p></li>
 </ul>
 <p>We encourage users to experiment on different hardware for their specific needs and
-usecase.</p>
+use case.</p>
 </section>
 </section>
 <section id="configuration">

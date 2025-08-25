@@ -491,12 +491,12 @@ libcublasLt.so.11: cannot open shared object file: No such file or directory.</p
 <p>This is an error from ONNX runtime not being installed correctly.
 If you are using CUDA 12 make sure you manually pip install following the instructions
 on the ONNX <a class="reference external" href="https://onnxruntime.ai/docs/install/#python-installs">documentation</a>.
-You may need to manally link the need libraries, see this
+You may need to manually link the needed libraries, see this
 <a class="reference external" href="https://github.com/microsoft/onnxruntime/issues/19616">Github issue</a> for reference.</p>
 </section>
 <section id="importerror-object-is-not-installed-install-manually-or-using-pip">
 <h2>ImportError: object is not installed, install manually or using pip<a class="headerlink" href="#importerror-object-is-not-installed-install-manually-or-using-pip" title="Link to this heading">#</a></h2>
-<p>This is an error that arrises typically when the proper optional dependencies are not
+<p>This is an error that arises typically when the proper optional dependencies are not
 installed on the system.
 For example:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>&gt;&gt;&gt;<span class="w"> </span>from<span class="w"> </span>earth2studio.data<span class="w"> </span>import<span class="w"> </span>CDS
@@ -594,6 +594,28 @@ can be installed with:</p>
 </pre></div>
 </div>
 </section>
+<section id="torch-harmonics-has-long-build-time-for-fcnv3">
+<h2>Torch Harmonics has long build time for FCNv3<a class="headerlink" href="#torch-harmonics-has-long-build-time-for-fcnv3" title="Link to this heading">#</a></h2>
+<p>This is a known challenge when building torch harmonics with cuda extensions which
+require the compilation of discrete-continuous (DISCO) convolutions.
+One method to speed up the install process is to limit the <a class="reference external" href="https://developer.nvidia.com/cuda-gpus">cuda architectures</a>
+that are built to the specific card being used.
+For example, to compile for just Ada Lovelace and newer architectures, set the
+following environment variables before installing:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">export</span><span class="w"> </span><span class="nv">FORCE_CUDA_EXTENSION</span><span class="o">=</span><span class="m">1</span>
+<span class="nb">export</span><span class="w"> </span><span class="nv">TORCH_CUDA_ARCH_LIST</span><span class="o">=</span><span class="s2">&quot;8.9 9.0 10.0 12.0+PTX&quot;</span>
+</pre></div>
+</div>
+<p>See the <a class="reference external" href="https://github.com/NVIDIA/torch-harmonics">torch harmonics repo</a> for more
+information.
+If torch harmonics is already installed, you may need to force a re-install to build
+the cuda extensions:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>--no-build-isolation<span class="w"> </span>--force-reinstall<span class="w"> </span>--upgrade<span class="w"> </span>--no-deps<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--no-cache<span class="w">  </span>--verbose<span class="w"> </span>torch-harmonics<span class="o">==</span><span class="m">0</span>.8.0
+<span class="c1"># Or respective uv command</span>
+</pre></div>
+</div>
+</section>
 </section>
 
 
@@ -648,6 +670,7 @@ can be installed with:</p>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio-not-authorized-to-download-public-models-from-ngc">Earth2Studio not authorized to download public models from NGC</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#flash-attention-has-long-build-time-for-aifs">Flash Attention has long build time for AIFS</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#failed-to-install-earth2grid-python-h-no-such-file-or-directory">Failed to Install Earth2Grid <code class="docutils literal notranslate"><span class="pre">Python.h:</span> <span class="pre">No</span> <span class="pre">such</span> <span class="pre">file</span> <span class="pre">or</span> <span class="pre">directory</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#torch-harmonics-has-long-build-time-for-fcnv3">Torch Harmonics has long build time for FCNv3</a></li>
 </ul>
   </nav></div>
 
