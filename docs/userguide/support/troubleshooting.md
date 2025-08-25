@@ -137,7 +137,7 @@ This is a known challenge when building torch harmonics with cuda extensions whi
 require the compilation of discrete-continuous (DISCO) convolutions.
 One method to speed up the install process is to limit the [cuda architectures](https://developer.nvidia.com/cuda-gpus)
 that are built to the specific card being used.
-For example, to compile for just Ada Lovelace architecture set the
+For example, to compile for just Ada Lovelace architecture and newer set the
 following environment variables before installing:
 
 ```bash
