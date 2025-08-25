@@ -135,9 +135,9 @@ sudo apt-get install python3-dev
 
 This is a known challenge when building torch harmonics with cuda extensions which
 require the compilation of discrete-continuous (DISCO) convolutions.
-One method to speed up the install process is to limit the [cuda archiectures](https://developer.nvidia.com/cuda-gpus)
+One method to speed up the install process is to limit the [cuda architectures](https://developer.nvidia.com/cuda-gpus)
 that are built to the specific card being used.
-For example, to compile for just compile for Ada Lovelace architecture set the
+For example, to compile for just Ada Lovelace architecture set the
 following environment variables before installing:
 
 ```bash

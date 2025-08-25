@@ -736,7 +736,7 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /app
 
-# Disable contraint files in the container
+# Disable constraint files in the container
 ENV PIP_CONSTRAINT=
 # Install Earth2Studio and dependencies
 RUN uv pip install --system --break-system-packages "earth2studio@git+https://github.com/NVIDIA/earth2studio.git@0.9.0"
@@ -790,7 +790,7 @@ This includes cards such as:
 - B200
 
 We encourage users to experiment on different hardware for their specific needs and
-usecase.
+use case.
 
 (configuration_userguide)=
 
