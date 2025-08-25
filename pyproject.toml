@@ -207,7 +207,7 @@ conflicts = [
 ]
 default-groups = ["dev", "build"]
 # Needed for some packages that build with PEP 518
-no-build-isolation-package = ["earth2grid", "flash-attn"]
+no-build-isolation-package = ["earth2grid", "flash-attn", "torch-harmonics"]
 override-dependencies = []
 
 [tool.uv.sources]
