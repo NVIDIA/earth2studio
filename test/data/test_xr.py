@@ -18,58 +18,71 @@ import datetime
 import os
 import pathlib
 import shutil
+import tempfile
 
 import numpy as np
 import pytest
 import xarray as xr
-from zarr.storage import MemoryStore
 
 from earth2studio.data import (
     DataArrayDirectory,
     DataArrayFile,
     DataArrayPathList,
     DataSetFile,
-    ModelOutputDatasetSource,
+    InferenceOuputSource,
+    Random,
 )
+from earth2studio.io import XarrayBackend
+from earth2studio.models.px import Persistence
+from earth2studio.perturbation import Zero
+from earth2studio.run import deterministic, ensemble
 
 
-def build_model_output_dataset(
+def build_inference_output_source(
+    # Helper for InferenceOuputSource tests
     run_times: np.ndarray,
-    lead_times: np.ndarray,
-    lat: np.ndarray,
-    lon: np.ndarray,
+    nsteps: int,
     var_names: list[str],
     *,
     num_members: int = 0,
-) -> xr.Dataset:
-    dims = (
-        ["time", "lead_time"]
-        + (["member"] if num_members > 0 else [])
-        + [
-            "lat",
-            "lon",
-        ]
-    )
-    data_vars = {}
-    if num_members > 0:
-        shape = (run_times.size, lead_times.size, num_members, lat.size, lon.size)
-    else:
-        shape = (run_times.size, lead_times.size, lat.size, lon.size)
+    num_run_times: int = 1,
+    num_lead_times: int = 1,
+) -> tuple[str, xr.Dataset]:
+    domain_coords = {"lat": np.linspace(-10, 10, 4), "lon": np.linspace(0, 30, 8)}
+    ds = Random(domain_coords=domain_coords)
+    px = Persistence(variable=var_names, domain_coords=domain_coords)
 
-    for name in var_names:
-        data = np.random.randn(*shape)
-        data_vars[name] = (dims, data)
+    ds_list = []
+    for run_time in run_times:
+        io = XarrayBackend(coords=domain_coords)
+        if num_members and num_members > 0:
+            io = ensemble(
+                time=[run_time],
+                nsteps=nsteps,
+                nensemble=num_members,
+                prognostic=px,
+                data=ds,
+                io=io,
+                perturbation=Zero(),
+            )
+        else:
+            io = deterministic(
+                time=[run_time],
+                nsteps=nsteps,
+                prognostic=px,
+                data=ds,
+                io=io,
+            )
+        ds_list.append(io.root)
+    ds = xr.concat(ds_list, dim="time")
+    ds = ds.isel(time=slice(0, num_run_times), lead_time=slice(0, num_lead_times))
 
-    coords = {
-        "time": run_times,
-        "lead_time": lead_times,
-        "lat": lat,
-        "lon": lon,
-    }
-    if num_members > 0:
-        coords["member"] = np.arange(num_members)
+    # use a tmp file to store the dataset
+    tmp_file = tempfile.NamedTemporaryFile(delete=False)
+    ds.to_netcdf(tmp_file.name)
+    store = tmp_file.name
 
-    return xr.Dataset(data_vars=data_vars, coords=coords)
+    return store, ds
 
 
 @pytest.fixture
@@ -274,194 +287,125 @@ def test_data_array_path_list_exceptions(tmp_path):
 def make_model_output_store():
     def _make(
         run_times: np.ndarray,
-        lead_times: np.ndarray,
-        lat: np.ndarray,
-        lon: np.ndarray,
+        nsteps: int,
         var_names: list[str],
         *,
         num_members: int = 0,
-    ) -> tuple[MemoryStore, xr.Dataset]:
-        ds = build_model_output_dataset(
+        num_run_times: int = 1,
+        num_lead_times: int = 1,
+    ) -> tuple[str, xr.Dataset]:
+        store, ds = build_inference_output_source(
             run_times,
-            lead_times,
-            lat,
-            lon,
+            nsteps,
             var_names,
             num_members=num_members,
+            num_run_times=num_run_times,
+            num_lead_times=num_lead_times,
         )
-        store = MemoryStore()
-        ds.to_zarr(store, mode="w")
         return store, ds
 
     return _make
 
 
-def test_model_output_dataset_source_basic(make_model_output_store):
-    run_times = np.array([np.datetime64("2018-01-01T00:00:00")])
-    lead_times = np.array(
-        [np.timedelta64(0, "h"), np.timedelta64(6, "h"), np.timedelta64(12, "h")]
+filter_dict_lt_ensemble = {
+    "lead_time": np.timedelta64(60 * 60 * 36, "s"),
+    "ensemble": 0,
+}
+filter_dict_time_ensemble = {
+    "time": np.datetime64("2018-01-01T00:00:00"),
+    "ensemble": 0,
+}
+base_run_time = np.datetime64("2018-01-01T00:00:00")
+cases = [
+    (base_run_time, filter_dict_lt_ensemble, 3, 10, var_names, num_members)
+    for num_members in [1, 2, 3]
+    for var_names in [["t2m", "d2m"], ["t2m"]]
+] + [
+    (
+        base_run_time,
+        filter_dict_time_ensemble,
+        num_run_times,
+        10,
+        var_names,
+        num_members,
     )
-    lat = np.linspace(-10, 10, 4)
-    lon = np.linspace(0, 30, 8)
-    store, ds = make_model_output_store(
-        run_times, lead_times, lat, lon, ["t2m", "u10m"]
-    )
-    src = ModelOutputDatasetSource(store, engine="zarr")
-
-    valid_t = (run_times[0] + np.timedelta64(6, "h")).astype("datetime64[ns]")
-    out = src(time=np.datetime64(valid_t), variable="t2m")
-
-    expected = ds["t2m"].isel(time=0, lead_time=1).values
-    assert out.shape == expected.shape
-    assert np.all(out.values.squeeze() == expected)
+    for num_members in [1, 2, 3]
+    for var_names in [["t2m", "d2m"], ["t2m"]]
+    for num_run_times in [1, 2, 3]
+]
 
 
-def test_model_output_dataset_source_filter_and_time_selection(make_model_output_store):
-    # Dataset with an extra member dimension and two initialization times
-    run_times = np.array(
-        [
-            np.datetime64("2018-01-01T00:00:00"),
-            np.datetime64("2018-01-02T00:00:00"),
-        ]
-    )
-    lead_times = np.array([np.timedelta64(0, "h"), np.timedelta64(12, "h")])
-    lat = np.linspace(-5, 5, 2)
-    lon = np.linspace(0, 10, 3)
-
-    store, ds = make_model_output_store(
-        run_times,
-        lead_times,
-        lat,
-        lon,
-        ["t2m"],
-        num_members=10,
-    )
-
-    # Filter member and time to make it valid
-    src = ModelOutputDatasetSource(
-        store,
-        engine="zarr",
-        filter_dict={"member": 0, "time": run_times[0]},
+def _case_id(case: tuple) -> str:
+    base_rt, filt, n_runs, n_leads, vars_, n_members = case
+    if "lead_time" in filt:
+        try:
+            hours = int(filt["lead_time"] / np.timedelta64(1, "h"))
+            filt_str = f"lt={hours}h"
+        except Exception:
+            filt_str = f"lt={str(filt['lead_time'])}"
+    elif "time" in filt:
+        filt_str = f"time={str(filt['time']).replace('T',' ')}"
+    else:
+        filt_str = "no-filter"
+    vars_str = "+".join(vars_)
+    return (
+        f"members={n_members}|vars={vars_str}|runs={n_runs}|lead={n_leads}|{filt_str}"
     )
 
-    valid_t = (run_times[0] + np.timedelta64(12, "h")).astype("datetime64[ns]")
-    out = src(time=np.datetime64(valid_t), variable="t2m")
 
-    expected = ds["t2m"].sel(member=0).isel(time=0, lead_time=1).values
-    assert np.all(out.values.squeeze() == expected)
+_CASE_IDS = [_case_id(c) for c in cases]
 
 
-def test_model_output_dataset_source_requires_filter_for_extra_dims(
+@pytest.mark.parametrize(
+    "base_run_time,filter_dict,num_run_times,num_lead_times,var_names,num_members",
+    cases,
+    ids=_CASE_IDS,
+)
+def test_inference_output_source(
     make_model_output_store,
-):
-    # Dataset with an extra member dimension
-    run_times = np.array(
-        [
-            np.datetime64("2018-01-01T00:00:00"),
-        ]
-    )
-    lead_times = np.array([np.timedelta64(0, "h"), np.timedelta64(12, "h")])
-    lat = np.linspace(-5, 5, 2)
-    lon = np.linspace(0, 10, 3)
-
-    store, _ = make_model_output_store(
-        run_times,
-        lead_times,
-        lat,
-        lon,
-        ["t2m"],
-        num_members=3,
-    )
-
-    with pytest.raises(ValueError):
-        ModelOutputDatasetSource(store, engine="zarr")
-
-
-def test_model_output_dataset_source_too_few_variables_raises(make_model_output_store):
-    # Single variable in dataset; requesting an extra variable should fail on selection
-    run_times = np.array([np.datetime64("2018-01-01T00:00:00")])
-    lead_times = np.array(
-        [
-            np.timedelta64(0, "h"),
-            np.timedelta64(6, "h"),
-        ]
-    )
-    lat = np.linspace(-10, 10, 4)
-    lon = np.linspace(0, 30, 8)
-
-    store, _ = make_model_output_store(
-        run_times,
-        lead_times,
-        lat,
-        lon,
-        ["t2m"],
-    )
-
-    src = ModelOutputDatasetSource(store, engine="zarr")
-
-    valid_t = (run_times[0] + np.timedelta64(6, "h")).astype("datetime64[ns]")
-    with pytest.raises(KeyError):
-        _ = src(time=np.datetime64(valid_t), variable=["t2m", "u10m"])  # u10m missing
-
-
-@pytest.mark.parametrize("num_run_times", [1, 2])
-@pytest.mark.parametrize("num_lead_times", [1, 2])
-@pytest.mark.parametrize("num_var_names", [1, 2])
-@pytest.mark.parametrize("num_members", [0, 1, 2])
-def test_model_output_dataset_source_parametrized(
-    make_model_output_store,
+    base_run_time: np.datetime64,
+    filter_dict: dict,
     num_run_times: int,
     num_lead_times: int,
-    num_var_names: int,
+    var_names: list[str],
     num_members: int,
 ):
-    # Build inputs
-    base_run = np.datetime64("2018-01-01T00:00:00")
+    # Build run times
     run_times = np.array(
-        [base_run + np.timedelta64(d, "D") for d in range(num_run_times)]
+        [base_run_time + np.timedelta64(d, "D") for d in range(num_run_times)]
     )
-    lead_times = np.array([np.timedelta64(h, "h") for h in (0, 12)[:num_lead_times]])
-    lat = np.linspace(-5, 5, 2)
-    lon = np.linspace(0, 10, 3)
-    all_vars = ["t2m", "u10m"]
-    var_names = all_vars[:num_var_names]
 
-    # Create dataset/store
+    # Create dataset/store via fixture (NetCDF)
     store, ds = make_model_output_store(
         run_times,
-        lead_times,
-        lat,
-        lon,
+        num_lead_times,
         var_names,
         num_members=num_members,
+        num_run_times=num_run_times,
+        num_lead_times=num_lead_times,
     )
-
-    # Build filter to satisfy ModelOutputDatasetSource requirements
-    filter_dict: dict = {}
-    if num_run_times > 1:
-        filter_dict["time"] = run_times[0]
-    if num_members > 0:
-        filter_dict["member"] = 0
 
     # Initialize source
-    src = ModelOutputDatasetSource(
-        store,
-        engine="zarr",
-        filter_dict=filter_dict if filter_dict else None,
+    src = InferenceOuputSource(
+        store, engine="h5netcdf", filter_dict=filter_dict if filter_dict else None
     )
 
-    # Choose a valid selection to verify data mapping
-    lead_idx = 0 if num_lead_times == 1 else 1
-    valid_t = (run_times[0] + lead_times[lead_idx]).astype("datetime64[ns]")
-    var = var_names[0]
+    # Avoid mutating the shared case filter
+    _filt = dict(filter_dict)
+    _filt.pop("lead_time", None)
+    _filt.pop("time", None)
 
-    out = src(time=np.datetime64(valid_t), variable=var)
+    # Choose a valid selection to verify data mapping
+    run_time = run_times[0]
+    lead_time = np.timedelta64(36, "h")
+    valid_t = (run_time + lead_time).astype("datetime64[ns]")
+
+    out = src(time=np.datetime64(valid_t), variable=var_names)
+    values_from_netcdf = out.values
 
     # Expected from original ds
-    indexer = {"time": 0, "lead_time": lead_idx}
-    if num_members > 0:
-        expected_vals = ds[var].isel(**indexer, member=0).values
-    else:
-        expected_vals = ds[var].isel(**indexer).values
+    indexer = {"time": run_time, "lead_time": lead_time}
+    indexer.update(_filt)
+    values_from_xr = ds[var_names].sel(**indexer).squeeze().to_array().values
 
-    assert np.all(out.values.squeeze() == expected_vals)
+    assert np.all(values_from_netcdf == values_from_xr)

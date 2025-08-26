@@ -26,7 +26,7 @@ from earth2studio.utils.type import TimeArray, VariableArray
 
 
 class DataArrayFile:
-    """A local xarray dataarray file data source. This file should be compatable with
+    """A local xarray dataarray file data source. This file should be compatible with
     xarray. For example, a netCDF file.
 
     Parameters
@@ -62,7 +62,7 @@ class DataArrayFile:
         return self.da.sel(time=time, variable=variable)
 
 
-class ModelOutputDatasetSource:
+class InferenceOuputSource:
     """Adapt a model-output ``xarray.Dataset`` into a standardized ``xarray.DataArray``.
 
     This adapter expects a dataset with an initialization run ``time`` and a
@@ -70,7 +70,7 @@ class ModelOutputDatasetSource:
     one or more data variables. All variables are stacked into a single
     ``variable`` dimension via ``Dataset.to_array("variable")``. A valid forecast
     time coordinate is constructed as ``time + lead_time`` and used to replace the
-    original run ``time``; the ``lead_time`` coordinate is then dropped.
+    original run ``time``.
 
     The resulting ``DataArray`` has dimensions in the order
     ``("time", "variable", "lat", "lon")`` and can be queried by valid forecast
@@ -82,7 +82,7 @@ class ModelOutputDatasetSource:
         Path to an xarray-compatible dataset file (e.g., NetCDF/Zarr).
     filter_dict : dict, optional
         Dictionary of selections applied before transformation (e.g.,
-        ``{"member": 0}``). Coordinates not in the required
+        ``{"ensemble": 0}``). Coordinates not in the required
         dimensions are dropped after selection.
     **xr_args : Any
         Additional keyword arguments forwarded to ``xarray.open_dataset``.
@@ -91,14 +91,12 @@ class ModelOutputDatasetSource:
     ------
     ValueError
         If required input dimensions are missing or if extra dimensions remain
-        after filtering.
-    AssertionError
-        If more than one run initialization ``time`` is present.
+        after filtering. Also raised if, after filtering, both ``time`` and
+        ``lead_time`` have length greater than 1. Use ``filter_dict`` to select a
+        subset such that either ``time`` or ``lead_time`` has length 1.
 
     Notes
     -----
-    - Exactly one initialization ``time`` is required; the valid forecast times
-      are computed as ``pandas.to_datetime(time + lead_time)``.
     - Variables are stacked into the ``variable`` dimension using
       ``Dataset.to_array("variable")``.
     - Output dimensions (after transformation) are ``time``, ``variable``,
@@ -106,7 +104,7 @@ class ModelOutputDatasetSource:
 
     Examples
     --------
-    >>> src = ModelOutputDatasetSource("/path/to/model_output.nc", filter_dict={"member": 0})
+    >>> src = InferenceOuputSource("/path/to/model_output.nc", filter_dict={"ensemble": 0})
     >>> da = src(time=["2024-11-01T06:00"], variable=["t2m"])  # select by valid times/variables
     """
 
@@ -134,9 +132,13 @@ class ModelOutputDatasetSource:
             # Apply selections
             self.da = self.da.sel(processed_filters)
             # For any non-required dimensions that remain with size 1, drop them
-            for dim in list(self.da.dims):
-                if dim not in required_dims_start and self.da.sizes.get(dim, 0) == 1:
-                    self.da = self.da.isel({dim: 0})
+            squeeze_dims: list[str] = [
+                dim
+                for dim in self.da.dims
+                if dim not in required_dims_start and self.da.sizes.get(dim, 0) == 1
+            ]
+            if squeeze_dims:
+                self.da = self.da.squeeze(dim=tuple(squeeze_dims))
 
         # Validate remaining dimensions
         missing_dims = set(required_dims_start) - set(self.da.dims)
@@ -149,19 +151,23 @@ class ModelOutputDatasetSource:
             )
 
         # Construct new time dimension from the existing time and lead_time dimensions
-        if len(self.da["time"]) > 1:
+        if len(self.da["time"]) > 1 and len(self.da["lead_time"]) > 1:
             raise ValueError(
-                "Only one time time is supported. Use filter_dict to select a subset of the data."
+                "Either time or lead_time should have length 1. Length of time: {}, lead_time: {}. Use filter_dict to select a subset of the data. filter_dict: {}".format(
+                    len(self.da["time"]), len(self.da["lead_time"]), filter_dict
+                )
             )
         base_time = self.da[
             "time"
         ].values  # the run time of the model output that should be used as input for another model
         lead_times = self.da["lead_time"].values  # lead times of the model output
-        # valid_time = pd.to_datetime(base_time+lead_times)
-        valid_time = base_time[:, None] + lead_times[None, :]
-        valid_time = pd.to_datetime(valid_time.ravel()).values.reshape(
-            valid_time.shape
-        )  # optional
+        valid_time = base_time + lead_times
+        valid_time = pd.to_datetime(valid_time.ravel()).values.reshape(valid_time.shape)
+
+        if len(self.da["time"]) == 1:
+            valid_time = valid_time[None, :]
+        elif len(self.da["lead_time"]) == 1:
+            valid_time = valid_time[:, None]
 
         # add it as a coordinate to replace the old time and lead_time dimensions
         self.da = self.da.assign_coords(valid_time=(("time", "lead_time"), valid_time))
@@ -201,7 +207,7 @@ class ModelOutputDatasetSource:
 
 
 class DataSetFile:
-    """A local xarray dataset file data source. This file should be compatable with
+    """A local xarray dataset file data source. This file should be compatible with
     xarray. For example, a netCDF file.
 
     Parameters
@@ -239,7 +245,7 @@ class DataSetFile:
 
 
 class DataArrayDirectory:
-    """A local xarray dataarray directory data source. This file should be compatable with
+    """A local xarray dataarray directory data source. This file should be compatible with
     xarray. For example, a netCDF file. the structure of the directory should be like
     path/to/monthly/files
     |___2020
