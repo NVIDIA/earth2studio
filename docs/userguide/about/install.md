@@ -172,7 +172,7 @@ be installed manually.
 :::{tab-item} pip
 
 ```bash
-pip install --no-build-isolation "earth2grid @ git+https://github.com/NVlabs/earth2grid@aefb10793aa372bae7d0951d627a89e2983fd0ca"
+pip install --no-build-isolation "earth2grid @ git+https://github.com/NVlabs/earth2grid@661445e2c68edc76f52632aa0528af482357f1b8"
 pip install earth2studio[dlesym]
 ```
 
@@ -390,7 +390,7 @@ prognostic, CBottleInfill diagnostic and CBottleSR diagnostic.
 
 ```bash
 pip install hatchling
-pip install --no-build-isolation "earth2grid @ git+https://github.com/NVlabs/earth2grid@aefb10793aa372bae7d0951d627a89e2983fd0ca"
+pip install --no-build-isolation "earth2grid @ git+https://github.com/NVlabs/earth2grid@661445e2c68edc76f52632aa0528af482357f1b8"
 pip install --no-build-isolation "cbottle @ git+https://github.com/NickGeneva/cBottle.git@9b24c2f81096a340444e7e0966fe93223a4d9532"
 pip install earth2studio[cbottle]
 ```
