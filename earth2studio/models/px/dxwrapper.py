@@ -186,7 +186,7 @@ class DiagnosticWrapper(torch.nn.Module, PrognosticMixin):
             self.interp_lat1 = lat1
             self.interp_lon1 = lon1
 
-        interp: LatLonInterpolation = self.interp
+        interp: LatLonInterpolation = self.interp  # needed to keep mypy happy
         x = interp(x)
 
         coords = in_coords.copy()
