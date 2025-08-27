@@ -22,6 +22,7 @@ from earth2studio.models.dx.corrdiff import CorrDiff, CorrDiffTaiwan  # noqa
 from earth2studio.models.dx.derived import (
     DerivedRH,
     DerivedRHDewpoint,
+    DerivedSurfacePressure,
     DerivedVPD,
     DerivedWS,
 )
