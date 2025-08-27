@@ -128,6 +128,19 @@ class CDSLexicon(metaclass=LexiconType):
         "q850": "reanalysis-era5-pressure-levels::specific_humidity::850",
         "q925": "reanalysis-era5-pressure-levels::specific_humidity::925",
         "q1000": "reanalysis-era5-pressure-levels::specific_humidity::1000",
+        "w50": "reanalysis-era5-pressure-levels::vertical_velocity::50",
+        "w100": "reanalysis-era5-pressure-levels::vertical_velocity::100",
+        "w150": "reanalysis-era5-pressure-levels::vertical_velocity::150",
+        "w200": "reanalysis-era5-pressure-levels::vertical_velocity::200",
+        "w250": "reanalysis-era5-pressure-levels::vertical_velocity::250",
+        "w300": "reanalysis-era5-pressure-levels::vertical_velocity::300",
+        "w400": "reanalysis-era5-pressure-levels::vertical_velocity::400",
+        "w500": "reanalysis-era5-pressure-levels::vertical_velocity::500",
+        "w600": "reanalysis-era5-pressure-levels::vertical_velocity::600",
+        "w700": "reanalysis-era5-pressure-levels::vertical_velocity::700",
+        "w850": "reanalysis-era5-pressure-levels::vertical_velocity::850",
+        "w925": "reanalysis-era5-pressure-levels::vertical_velocity::925",
+        "w1000": "reanalysis-era5-pressure-levels::vertical_velocity::1000",
     }
 
     @classmethod

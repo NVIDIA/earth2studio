@@ -37,7 +37,7 @@ from earth2studio.data import CDS
         np.array([np.datetime64("2024-01-01T00:00")]),
     ],
 )
-@pytest.mark.parametrize("variable", ["tcwv", ["sp", "u500"]])
+@pytest.mark.parametrize("variable", ["tcwv", ["sp", "w500"]])
 def test_cds_fetch(time, variable):
 
     ds = CDS(cache=False)
@@ -124,7 +124,6 @@ def test_cds_cache(time, variable, cache):
         pass
 
 
-@pytest.mark.xfail
 @pytest.mark.timeout(30)
 @pytest.mark.parametrize(
     "time",
