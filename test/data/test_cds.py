@@ -59,6 +59,31 @@ def test_cds_fetch(time, variable):
 
 
 @pytest.mark.slow
+@pytest.mark.timeout(600)
+@pytest.mark.parametrize(
+    "time",
+    [
+        np.array([np.datetime64("2024-01-01T00:00")]),
+    ],
+)
+def test_cds_tp06_fetch(time):
+
+    ds = CDS(cache=False)
+    data = ds(time, "tp06")
+    shape = data.shape
+
+    if isinstance(time, datetime.datetime):
+        time = [time]
+
+    assert shape[0] == len(time)
+    assert shape[1] == 1
+    assert shape[2] == 721
+    assert shape[3] == 1440
+    assert not np.isnan(data.values).any()
+    assert np.array_equal(data.coords["variable"].values, np.array(["tp06"]))
+
+
+@pytest.mark.slow
 @pytest.mark.xfail
 @pytest.mark.timeout(90)
 @pytest.mark.parametrize(
