@@ -28,6 +28,7 @@ Thus are typically used to generate forecast predictions.
 
    AIFS
    Aurora
+   CBottleVideo
    DiagnosticWrapper
    DLESyM
    DLESyMLatLon
@@ -71,6 +72,7 @@ etc.
 
    CBottleInfill
    CBottleSR
+   CBottleTCGuidance
    CorrDiffTaiwan
    ClimateNet
    DerivedRH
