@@ -108,6 +108,7 @@ for known suggestions/fixes related to this install process.
 :::{tab-item} pip
 
 ```bash
+pip install hatchling
 pip install earth2studio[aifs] --no-build-isolation
 ```
 
