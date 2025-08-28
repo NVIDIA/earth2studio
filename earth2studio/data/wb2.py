@@ -21,7 +21,6 @@ import os
 import pathlib
 import shutil
 from datetime import datetime
-from importlib.metadata import version
 from typing import Literal
 
 import gcsfs
@@ -62,17 +61,6 @@ class _WB2Base:
         self._cache = cache
         self._verbose = verbose
         self.async_timeout = async_timeout
-
-        # Check Zarr version and use appropriate method
-        try:
-            zarr_version = version("zarr")
-            zarr_major_version = int(zarr_version.split(".")[0])
-        except Exception:
-            # Fallback to older method if version check fails
-            zarr_major_version = 2  # Assume older version if we can't determine
-        # Only zarr 3.0 support
-        if zarr_major_version < 3:
-            raise ModuleNotFoundError("Zarr 3.0 and above support only")
 
         # Check to see if there is a running loop (initialized in async)
         try:
@@ -691,3 +679,18 @@ class WB2Climatology(_WB2Base):
         """
         tt = time.timetuple()
         return tt.tm_hour // 6, tt.tm_yday - 1
+
+    @classmethod
+    def _validate_time(cls, times: list[datetime]) -> None:
+        """Verify if date time is valid for WeatherBench 2 climatology.
+
+        Parameters
+        ----------
+        times : list[datetime]
+            list of date times to fetch data
+        """
+        for time in times:
+            if not (time - datetime(1900, 1, 1)).total_seconds() % 21600 == 0:
+                raise ValueError(
+                    f"Requested date time {time} needs to be 6 hour interval for WeatherBench 2 climatology"
+                )

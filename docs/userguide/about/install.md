@@ -29,7 +29,7 @@ and it's recommended that users use an uv project for the best install experienc
 ```bash
 mkdir earth2studio-project && cd earth2studio-project
 uv init --python=3.12
-uv add "earth2studio @ git+https://github.com/NVIDIA/earth2studio.git@0.8.1"
+uv add "earth2studio @ git+https://github.com/NVIDIA/earth2studio.git@0.9.0"
 ```
 
 :::{admonition} uv install
@@ -101,6 +101,8 @@ Use the optional install commands to add these dependencies.
 Notes: The AIFS model requires additional dependencies for data processing and
 visualization. This includes the use of [flash-attention](https://github.com/Dao-AILab/flash-attention)
 which can take a long time to build on some systems.
+See the [troubleshooting docs](https://nvidia.github.io/earth2studio/userguide/support/troubleshooting.html)
+for known suggestions/fixes related to this install process.
 
 ::::{tab-set}
 :::{tab-item} pip
@@ -170,7 +172,7 @@ be installed manually.
 :::{tab-item} pip
 
 ```bash
-pip install --no-build-isolation "earth2grid @ git+https://github.com/NVlabs/earth2grid@aefb10793aa372bae7d0951d627a89e2983fd0ca"
+pip install --no-build-isolation "earth2grid @ git+https://github.com/NVlabs/earth2grid@661445e2c68edc76f52632aa0528af482357f1b8"
 pip install earth2studio[dlesym]
 ```
 
@@ -197,6 +199,35 @@ pip install earth2studio[fcn]
 
 ```bash
 uv add earth2studio --extra fcn
+```
+
+:::
+::::
+:::::
+:::::{tab-item} FourCastNet 3
+Notes: Recommended to install [torch-harmonics](https://github.com/NVIDIA/torch-harmonics)
+with CUDA extensions for best performance which can take a long time to build on some
+systems.
+See the [troubleshooting docs](https://nvidia.github.io/earth2studio/userguide/support/troubleshooting.html)
+for known suggestions/fixes related to this install process.
+
+::::{tab-set}
+:::{tab-item} pip
+
+```bash
+export FORCE_CUDA_EXTENSION=1
+pip install --no-build-isolation torch-harmonics==0.8.0
+pip install "makani @ git+https://github.com/NVIDIA/modulus-makani.git@49280812513d8f1daf872a2e9343855a6adb3acf"
+pip install earth2studio[fcn3]
+```
+
+:::
+:::{tab-item} uv
+
+```bash
+export FORCE_CUDA_EXTENSION=1
+uv add torch-harmonics==0.8.0 --no-build-isolation
+uv add earth2studio --extra fcn3
 ```
 
 :::
@@ -293,7 +324,7 @@ installed manually.
 :::{tab-item} pip
 
 ```bash
-pip install "makani[all] @ git+https://github.com/NickGeneva/modulus-makani.git@3da09f9e52a6393839d73d44262779ac7279bc2f"
+pip install "makani @ git+https://github.com/NVIDIA/modulus-makani.git@49280812513d8f1daf872a2e9343855a6adb3acf"
 pip install earth2studio[sfno]
 ```
 
@@ -351,16 +382,16 @@ uv add earth2studio --extra interp-modafno
 
 ::::::{tab-set}
 :::::{tab-item} CBottle
-Notes: Additional dependencies needed for CBottle3D data source,
-CBottleInfill diagnostic and CBottleSR diagnostic.
+Notes: Additional dependencies needed for CBottle3D data source, CBottle video
+prognostic, CBottleInfill diagnostic and CBottleSR diagnostic.
 
 ::::{tab-set}
 :::{tab-item} pip
 
 ```bash
 pip install hatchling
-pip install --no-build-isolation "earth2grid @ git+https://github.com/NVlabs/earth2grid@aefb10793aa372bae7d0951d627a89e2983fd0ca"
-pip install --no-build-isolation "cbottle @ git+https://github.com/NVlabs/cBottle.git@0b8c6787053dc80f14fbb68a54d6815749c9d0e9"
+pip install --no-build-isolation "earth2grid @ git+https://github.com/NVlabs/earth2grid@661445e2c68edc76f52632aa0528af482357f1b8"
+pip install --no-build-isolation "cbottle @ git+https://github.com/NickGeneva/cBottle.git@9b24c2f81096a340444e7e0966fe93223a4d9532"
 pip install earth2studio[cbottle]
 ```
 
@@ -640,14 +671,14 @@ the following commands:
 ```bash
 mkdir earth2studio-project && cd earth2studio-project
 uv init --python=3.12
-uv add "earth2studio @ git+https://github.com/NVIDIA/earth2studio.git@0.8.1"
+uv add "earth2studio @ git+https://github.com/NVIDIA/earth2studio.git@0.9.0"
 ```
 
 or if you are already inside an existing uv project:
 
 ```bash
 uv venv --python=3.12
-uv add "earth2studio @ git+https://github.com/NVIDIA/earth2studio.git@0.8.1"
+uv add "earth2studio @ git+https://github.com/NVIDIA/earth2studio.git@0.9.0"
 ```
 
 (pytorch_container_environment)=
@@ -667,7 +698,7 @@ docker run -it -t nvcr.io/nvidia/pytorch:25.05-py3
 >>> apt-get update && apt-get install -y git make curl && rm -rf /var/lib/apt/lists/*
 >>> unset PIP_CONSTRAINT
 >>> curl -LsSf https://astral.sh/uv/install.sh | sh && source $HOME/.local/bin/env
->>> uv pip install --system --break-system-packages "earth2studio@git+https://github.com/NVIDIA/earth2studio.git@0.8.1"
+>>> uv pip install --system --break-system-packages "earth2studio@git+https://github.com/NVIDIA/earth2studio.git@0.9.0"
 ```
 
 <!-- markdownlint-disable MD013 -->
@@ -680,7 +711,7 @@ do with pip e.g.
 ```bash
 uv pip install --system \
     --break-system-packages \
-    "earth2studio[all]@git+https://github.com/NVIDIA/earth2studio.git@0.8.1"
+    "earth2studio[all]@git+https://github.com/NVIDIA/earth2studio.git@0.9.0"
 ```
 
 :::
@@ -705,10 +736,10 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /app
 
-# Disable contraint files in the container
+# Disable constraint files in the container
 ENV PIP_CONSTRAINT=
 # Install Earth2Studio and dependencies
-RUN uv pip install --system --break-system-packages "earth2studio@git+https://github.com/NVIDIA/earth2studio.git@0.8.1"
+RUN uv pip install --system --break-system-packages "earth2studio@git+https://github.com/NVIDIA/earth2studio.git@0.9.0"
 ```
 
 ## Conda Environment
@@ -724,7 +755,7 @@ package tooling.
 conda create -n earth2studio python=3.12
 conda activate earth2studio
 
-uv pip install --system --break-system-packages "earth2studio@git+https://github.com/NVIDIA/earth2studio.git@0.8.1"
+uv pip install --system --break-system-packages "earth2studio@git+https://github.com/NVIDIA/earth2studio.git@0.9.0"
 ```
 
 # System Recommendations
@@ -759,7 +790,7 @@ This includes cards such as:
 - B200
 
 We encourage users to experiment on different hardware for their specific needs and
-usecase.
+use case.
 
 (configuration_userguide)=
 

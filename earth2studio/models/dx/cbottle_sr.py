@@ -94,6 +94,7 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
     Note
     ----
     For more information see the following references:
+
     - https://arxiv.org/abs/2505.06474v1
     - https://github.com/NVlabs/cBottle
     - https://catalog.ngc.nvidia.com/orgs/nvidia/teams/earth-2/models/cbottle
@@ -281,7 +282,7 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
     def load_default_package(cls) -> Package:
         """Default pre-trained cBottle model package from Nvidia model registry"""
         return Package(
-            "ngc://models/nvidia/earth-2/cbottle@1.1",
+            "ngc://models/nvidia/earth-2/cbottle@1.2",
             cache_options={
                 "cache_storage": Package.default_cache("cbottle"),
                 "same_names": True,

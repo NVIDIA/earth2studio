@@ -47,3 +47,19 @@ def _broadcast_weights(
             )
         rs = [slice(len(v)) if c in rd else None for c, v in coords.items()]
         return weights[rs]
+
+
+def _spatial_dims_to_end(
+    x: torch.Tensor, coords: CoordSystem, spatial_dimensions: tuple[str, str]
+) -> tuple[torch.Tensor, CoordSystem]:
+    """Permute spatial dimensions to last two dimensions."""
+    coords = coords.copy()
+    dims = list(range(x.ndim))
+    coord_list = list(coords)
+    for dim_name in spatial_dimensions:
+        dim_index = coord_list.index(dim_name)
+        dims.remove(dim_index)
+        dims.append(dim_index)
+        coords.move_to_end(dim_name)
+    x = x.permute(*dims).contiguous()
+    return (x, coords)

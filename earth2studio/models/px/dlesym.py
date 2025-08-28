@@ -679,7 +679,7 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         # Slice along the lead_time dim, average, and stack along the variable dim
         # (different time-averaged quantities are defined as different variables)
-        slices = ocean_coupling.chunk(len(self.ocean_input_times), dim=2)
+        slices = ocean_coupling.chunk(len(self.ocean_output_times), dim=2)
         ocean_coupling = torch.concat(
             [s.mean(dim=2, keepdim=True) for s in slices], dim=3
         )

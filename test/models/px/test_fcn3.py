@@ -22,12 +22,12 @@ import pytest
 import torch
 
 from earth2studio.data import Random, fetch_data
-from earth2studio.models.px import SFNO
+from earth2studio.models.px import FCN3
 from earth2studio.utils import handshake_dim
 
 
-class PhooSFNOModel(torch.nn.Module):
-    def forward(self, x, t, normalized_data=True):
+class PhooFCN3Model(torch.nn.Module):
+    def forward(self, x, t, normalized_data: bool = False, replace_state: bool = False):
         return x
 
 
@@ -44,11 +44,11 @@ class PhooSFNOModel(torch.nn.Module):
     ],
 )
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
-def test_sfno_call(time, device):
+def test_fcn3_call(time, device):
 
     # Spoof model
-    model = PhooSFNOModel()
-    p = SFNO(model).to(device)
+    model = PhooFCN3Model()
+    p = FCN3(model).to(device)
 
     # Create "domain coords"
     dc = {k: p.input_coords()[k] for k in ["lat", "lon"]}
@@ -66,7 +66,7 @@ def test_sfno_call(time, device):
     if not isinstance(time, Iterable):
         time = [time]
 
-    assert out.shape == torch.Size([len(time), 1, 73, 721, 1440])
+    assert out.shape == torch.Size([len(time), 1, 72, 721, 1440])
     assert (out_coords["variable"] == p.output_coords(coords)["variable"]).all()
     assert (out_coords["time"] == time).all()
     handshake_dim(out_coords, "lon", 4)
@@ -81,12 +81,12 @@ def test_sfno_call(time, device):
     [1, 2],
 )
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
-def test_sfno_iter(ensemble, device):
+def test_fcn3_iter(ensemble, device):
 
     time = np.array([np.datetime64("1993-04-05T00:00")])
     # Spoof model
-    model = PhooSFNOModel()
-    p = SFNO(model).to(device)
+    model = PhooFCN3Model()
+    p = FCN3(model).to(device)
 
     # Create "domain coords"
     dc = {k: p.input_coords()[k] for k in ["lat", "lon"]}
@@ -113,7 +113,7 @@ def test_sfno_iter(ensemble, device):
     next(p_iter)  # Skip first which should return the input
     for i, (out, out_coords) in enumerate(p_iter):
         assert len(out.shape) == 6
-        assert out.shape == torch.Size([ensemble, len(time), 1, 73, 721, 1440])
+        assert out.shape == torch.Size([ensemble, len(time), 1, 72, 721, 1440])
         assert (
             out_coords["variable"] == p.output_coords(p.input_coords())["variable"]
         ).all()
@@ -133,11 +133,11 @@ def test_sfno_iter(ensemble, device):
     ],
 )
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
-def test_sfno_exceptions(dc, device):
+def test_fcn3_exceptions(dc, device):
     time = np.array([np.datetime64("1993-04-05T00:00")])
     # Spoof model
-    model = PhooSFNOModel()
-    p = SFNO(model).to(device)
+    model = PhooFCN3Model()
+    p = FCN3(model).to(device)
 
     # Initialize Data Source
     r = Random(dc)
@@ -152,43 +152,54 @@ def test_sfno_exceptions(dc, device):
 
 
 @pytest.fixture(scope="function")
-def model(model_cache_context) -> SFNO:
+def model(model_cache_context) -> FCN3:
     # Test only on cuda device
     with model_cache_context():
-        package = SFNO.load_default_package()
-        p = SFNO.load_model(package)
+        package = FCN3.load_default_package()
+        p = FCN3.load_model(package)
         return p
 
 
 @pytest.mark.ci_cache
 @pytest.mark.timeout(360)
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
-def test_sfno_package(device, model):
+def test_fcn3_load_package(device, model):
     torch.cuda.empty_cache()
-    time = np.array([np.datetime64("1993-04-05T00:00")])
-    # Test the cached model package SFNO
-    p = model.to(device)
+    # Test the cached model package FCN3
+    model.to(device)
 
-    # Create "domain coords"
-    dc = {k: p.input_coords()[k] for k in ["lat", "lon"]}
 
-    # Initialize Data Source
-    r = Random(dc)
+# Will not test while we do not have 80GB GPU cards
+# in CI
+# @pytest.mark.ci_cache
+# @pytest.mark.timeout(360)
+# @pytest.mark.parametrize("device", ["cuda:0"])
+# def test_fcn3_package(device, model):
+#     torch.cuda.empty_cache()
+#     time = np.array([np.datetime64("1993-04-05T00:00")])
+#     # Test the cached model package FCN3
+#     p = model.to(device)
 
-    # Get Data and convert to tensor, coords
-    lead_time = p.input_coords()["lead_time"]
-    variable = p.input_coords()["variable"]
-    x, coords = fetch_data(r, time, variable, lead_time, device=device)
+#     # Create "domain coords"
+#     dc = {k: p.input_coords()[k] for k in ["lat", "lon"]}
 
-    out, out_coords = p(x, coords)
+#     # Initialize Data Source
+#     r = Random(dc)
 
-    if not isinstance(time, Iterable):
-        time = [time]
+#     # Get Data and convert to tensor, coords
+#     lead_time = p.input_coords()["lead_time"]
+#     variable = p.input_coords()["variable"]
+#     x, coords = fetch_data(r, time, variable, lead_time, device=device)
 
-    assert out.shape == torch.Size([len(time), 1, 73, 721, 1440])
-    assert (out_coords["variable"] == p.output_coords(coords)["variable"]).all()
-    handshake_dim(out_coords, "lon", 4)
-    handshake_dim(out_coords, "lat", 3)
-    handshake_dim(out_coords, "variable", 2)
-    handshake_dim(out_coords, "lead_time", 1)
-    handshake_dim(out_coords, "time", 0)
+#     out, out_coords = p(x, coords)
+
+#     if not isinstance(time, Iterable):
+#         time = [time]
+
+#     assert out.shape == torch.Size([len(time), 1, 72, 721, 1440])
+#     assert (out_coords["variable"] == p.output_coords(coords)["variable"]).all()
+#     handshake_dim(out_coords, "lon", 4)
+#     handshake_dim(out_coords, "lat", 3)
+#     handshake_dim(out_coords, "variable", 2)
+#     handshake_dim(out_coords, "lead_time", 1)
+#     handshake_dim(out_coords, "time", 0)

@@ -21,7 +21,6 @@ import threading
 from collections.abc import Callable
 
 # import threading
-from importlib.metadata import version
 from typing import Any
 
 import fsspec
@@ -32,20 +31,8 @@ import zarr
 from fsspec.asyn import AsyncFileSystem
 from fsspec.implementations.local import LocalFileSystem
 from loguru import logger
-
-# Dealing with zarr 3.0 API breaks and type checking
-try:
-    zarr_version = version("zarr")
-    zarr_major_version = int(zarr_version.split(".")[0])
-except Exception:
-    zarr_major_version = 2
-
-if zarr_major_version >= 3:
-    from zarr import AsyncGroup
-    from zarr.core.array import CompressorsLike
-else:
-    AsyncGroup = Any
-    CompressorsLike = Any
+from zarr import AsyncGroup
+from zarr.core.array import CompressorsLike
 
 from earth2studio.utils.type import CoordSystem
 
@@ -132,15 +119,6 @@ class AsyncZarrBackend:
         # May need to trigger warning about this, needed to handle multi-threading!
         # But silent for now since people wont know what this means / get confused by an error message I think
         AsyncFileSystem.cachable = False
-
-        try:
-            zarr_version = version("zarr")
-            zarr_major_version = int(zarr_version.split(".")[0])
-        except Exception:
-            zarr_major_version = 2
-
-        if zarr_major_version < 3:
-            raise ImportError("This IO store only support Zarr 3.0 and above")
 
         if not callable(fs_factory):
             raise TypeError(
@@ -371,27 +349,12 @@ class AsyncZarrBackend:
             Scrubbed coordinate system
         """
         for key, value in coords.items():
-            # Dates types not supported in zarr 3.0 at the moment
-            # https://github.com/zarr-developers/zarr-python/issues/2616
-            # TODO: Remove once fixed
             # Handle some datetime conversions for users
             if np.issubdtype(value.dtype, object):
                 if isinstance(value[0], datetime.datetime):
                     value = value.astype("datetime64[ns]")
                 elif isinstance(value[0], datetime.timedelta):
                     value = value.astype("timedelta64[ns]")
-
-            if np.issubdtype(value.dtype, np.datetime64):
-                logger.warning(
-                    "Datetime64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch"
-                )
-                coords[key] = value.astype("datetime64[ns]").astype("int64")
-
-            if np.issubdtype(value.dtype, np.timedelta64):
-                logger.warning(
-                    "Timedelta64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch"
-                )
-                coords[key] = value.astype("timedelta64[ns]").astype("int64")
 
             if len(coords[key].shape) == 0:
                 raise ValueError(

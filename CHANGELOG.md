@@ -6,16 +6,46 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.9.0a0] - 2025-07-xx
+## [0.10.0] - 2025-09-xx
 
 ### Added
 
-- Added GOES (Geostationary Operational Environmental Satellite) data source
+- Added CMIP6 data source
+- Added CBottle Tropical Cyclone guidance diagnostic
+- Added CBottle Video prognostic model
+- Exposed backend arguments of netcdf/zarr to datasource_to_file signature
+- Added vertical wind speed support in GFS
+
+### Changed
+
+- Updated CBottle data source to mixture of experts models
+
+### Deprecated
+
+### Removed
+
+### Fixed
+
+### Security
+
+### Dependencies
+
+- Dropped support for Python 3.10
+- Bumped CBottle (and Earth2Grid) versions
+
+## [0.9.0] - 2025-08-19
+
+### Added
+
 - Async Zarr IO backend with non-blocking write calls
 - Different compression codec support in the ZarrBackend with `zarr_codecs` parameter
 - IO performance example
 - Unified CorrDiff Wrapper
 - Added UV script dependencies to all examples
+- New metrics: Brier score, fractions skill score, log spectral distance, mean absolute
+  error
+- Option to compute error of ensemble mean in rmse and mae
+- Added FourCastNet 3 model
 
 ### Changed
 
@@ -24,22 +54,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   geopotential at surface)
 - test/models/dx/test_corrdiff.py is now test/models/dx/test_corrdiff_taiwan.py
 - Updated APIs for optional dependency managment utils with improved error messages
-
-### Deprecated
-
-### Removed
+- Allow Zarr backends to user datetime and timedelta arrays for Zarr 3.0
 
 ### Fixed
 
+- Incorrect datetime utc timezone calculation in SFNO wrapper was fixed.
 - DLWP output coords lead_time array to have proper shape
 - Fixed data sources using GCFS throwing error at end of script from aiohttp session
   clean up
-
-### Security
+- Fixed HRRR_FX valid lead time check for date times not on 6 hour interval
+- Removed time limits for WB2 climatology data source
 
 ### Dependencies
 
 - Adding rich to core dependencies
+- Changed torch-harmonics to 0.8.0
+- Changed makani to 0.2.1
 
 ## [0.8.1] - 2025-07-07
 
