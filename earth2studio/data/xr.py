@@ -17,7 +17,7 @@ import os
 from datetime import datetime
 from typing import Any
 
-import pandas as pd
+import numpy as np
 import xarray as xr
 from numpy import ndarray
 from pandas import to_datetime
@@ -63,49 +63,39 @@ class DataArrayFile:
 
 
 class InferenceOuputSource:
-    """Adapt a model-output ``xarray.Dataset`` into a standardized ``xarray.DataArray``.
+    """Adapt a inference output into a data source.
 
-    This adapter expects a dataset with an initialization run ``time`` and a
-    forecast ``lead_time`` along with spatial dimensions (``lat``, ``lon``) and
-    one or more data variables. All variables are stacked into a single
-    ``variable`` dimension via ``Dataset.to_array("variable")``. A valid forecast
-    time coordinate is constructed as ``time + lead_time`` and used to replace the
-    original run ``time``.
+    This data source loads an existing xarray Dataset, such as a NetCDF file or Zarr
+    store from an Earth2Studio forecast inference pipeline, which can then be filtered
+    to provide a data array give a variable and time.
+    Time, lead_time and variable are expected dimensions to be present in the DataSet.
 
-    The resulting ``DataArray`` has dimensions in the order
-    ``("time", "variable", "lat", "lon")`` and can be queried by valid forecast
-    time and variable name.
+    Note
+    ----
+    This data source performs automatic transformation of time coordinates based on the
+    time and lead_time coordinates:
+
+    - **If lead_time has length 1**: The single lead_time value is added to all time
+      coordinates to produce valid forecast times (time + lead_time). The lead_time
+      dimension is then removed.
+    - **If time has length 1**: The single time value is broadcast to match the
+      lead_time dimension, then lead_time values are added to produce valid forecast
+      times. The time dimension is removed and lead_time is renamed to time.
+
+    Either time or lead_time must have length 1 after applying the filter_dict
+    - both cannot have length > 1 simultaneously. The resulting dataset will have a
+    single time dimension containing the computed valid forecast timestamps.
 
     Parameters
     ----------
     file_path : str
         Path to an xarray-compatible dataset file (e.g., NetCDF/Zarr).
     filter_dict : dict, optional
-        Dictionary of selections applied before transformation (e.g.,
+        Dictionary of selections applied before transformation (e.g.
         ``{"ensemble": 0}``). Coordinates not in the required
-        dimensions are dropped after selection.
+        dimensions are dropped after selection, by default None
     **xr_args : Any
         Additional keyword arguments forwarded to ``xarray.open_dataset``.
-
-    Raises
-    ------
-    ValueError
-        If required input dimensions are missing or if extra dimensions remain
-        after filtering. Also raised if, after filtering, both ``time`` and
-        ``lead_time`` have length greater than 1. Use ``filter_dict`` to select a
-        subset such that either ``time`` or ``lead_time`` has length 1.
-
-    Notes
-    -----
-    - Variables are stacked into the ``variable`` dimension using
-      ``Dataset.to_array("variable")``.
-    - Output dimensions (after transformation) are ``time``, ``variable``,
-      ``lat``, ``lon``.
-
-    Examples
-    --------
-    >>> src = InferenceOuputSource("/path/to/model_output.nc", filter_dict={"ensemble": 0})
-    >>> da = src(time=["2024-11-01T06:00"], variable=["t2m"])  # select by valid times/variables
     """
 
     def __init__(self, file_path: str, filter_dict: dict = None, **xr_args: Any):
@@ -114,74 +104,44 @@ class InferenceOuputSource:
         self.da = self.da.to_array("variable")
 
         # The following dimensions and their order is required for the data to be used as a datasource
-        required_dims_start = ["time", "lead_time", "variable", "lat", "lon"]
-        required_dims_end = ["time", "variable", "lat", "lon"]
-
-        # if filter_dict is provided, select the data and drop all coords that are not in the required dimensions
+        required_dims = {"time", "lead_time", "variable"}
         if filter_dict:
-            # For required dims, wrap scalars to preserve the dimension (e.g., time)
-            processed_filters: dict[str, Any] = {}
-            for key, value in filter_dict.items():
-                if key in required_dims_start and not isinstance(
-                    value, (list, ndarray)
+            # Need to keep these dims, so make then a list if scalar value
+            for k in ("time", "lead_time"):
+                if k in filter_dict and not isinstance(
+                    filter_dict[k], (list, tuple, np.ndarray)
                 ):
-                    processed_filters[key] = [value]
-                else:
-                    processed_filters[key] = value
+                    filter_dict[k] = [filter_dict[k]]
 
-            # Apply selections
-            self.da = self.da.sel(processed_filters)
-            # For any non-required dimensions that remain with size 1, drop them
-            squeeze_dims: list[str] = [
-                dim
-                for dim in self.da.dims
-                if dim not in required_dims_start and self.da.sizes.get(dim, 0) == 1
-            ]
-            if squeeze_dims:
-                self.da = self.da.squeeze(dim=tuple(squeeze_dims))
+            self.da = self.da.sel(filter_dict)
 
         # Validate remaining dimensions
-        missing_dims = set(required_dims_start) - set(self.da.dims)
-        extra_dims = set(self.da.dims) - set(required_dims_start)
-        if missing_dims:
-            raise ValueError(f"Dataset missing required dimensions: {missing_dims}")
-        if extra_dims:
+        if not required_dims.issubset(set(self.da.dims)):
             raise ValueError(
-                f"Dataset has extra dimensions: {extra_dims}. Use filter_dict to select a subset of the data."
+                f"Missing required dims. Data array loaded has dims {self.da.dims} but "
+                + "needs {required_dims}. Use filter_dict to select a subset of the data."
             )
-
-        # Construct new time dimension from the existing time and lead_time dimensions
         if len(self.da["time"]) > 1 and len(self.da["lead_time"]) > 1:
             raise ValueError(
-                "Either time or lead_time should have length 1. Length of time: {}, lead_time: {}. Use filter_dict to select a subset of the data. filter_dict: {}".format(
-                    len(self.da["time"]), len(self.da["lead_time"]), filter_dict
-                )
+                "Either time or lead_time should have length of one. "
+                + f"Length of time: {len(self.da['time'])}, lead_time: {len(self.da['lead_time'])}."
+                + "Use filter_dict to select a subset of the data."
             )
-        base_time = self.da[
-            "time"
-        ].values  # the run time of the model output that should be used as input for another model
-        lead_times = self.da["lead_time"].values  # lead times of the model output
-        valid_time = base_time + lead_times
-        valid_time = pd.to_datetime(valid_time.ravel()).values.reshape(valid_time.shape)
 
-        if len(self.da["time"]) == 1:
-            valid_time = valid_time[None, :]
-        elif len(self.da["lead_time"]) == 1:
-            valid_time = valid_time[:, None]
-
-        # add it as a coordinate to replace the old time and lead_time dimensions
-        self.da = self.da.assign_coords(valid_time=(("time", "lead_time"), valid_time))
-        self.da = self.da.stack(helper_coord=("time", "lead_time"))
-        self.da = self.da.swap_dims({"helper_coord": "valid_time"})
-        self.da = self.da.reset_coords(
-            names="time", drop=True
-        )  # remove old conflicting time coord
-        self.da = self.da.rename({"valid_time": "time"})  # rename the new time coord
-        self.da = self.da.drop_vars(["lead_time"])  # remove old lead_time coord
-        self.da = self.da.drop_vars(["helper_coord"])  # remove helper coord
-
-        # sort the dimensions to the required order
-        self.da = self.da.transpose(*required_dims_end)
+        if self.da["lead_time"].shape[0] == 1:
+            time_array = (
+                self.da.coords["time"].values + self.da.coords["lead_time"].values[0]
+            )
+            self.da = self.da.isel(lead_time=0).drop_vars(["lead_time"])
+            self.da = self.da.assign_coords(time=time_array)
+        else:
+            time_array = np.repeat(
+                self.da.coords["time"].values[0], self.da["lead_time"].shape[0]
+            )
+            time_array = time_array + self.da["lead_time"].values
+            self.da = self.da.isel(time=0).drop_vars(["time"])
+            self.da = self.da.rename({"lead_time": "time"})
+            self.da = self.da.assign_coords(time=time_array)
 
     def __call__(
         self,
@@ -203,6 +163,11 @@ class InferenceOuputSource:
         xr.DataArray
             Data array subset for the requested ``time`` and ``variable``.
         """
+        if not (isinstance(time, list) or isinstance(time, ndarray)):
+            time = [time]
+        if not (isinstance(variable, list) or isinstance(variable, ndarray)):
+            variable = [variable]
+
         return self.da.sel(time=time, variable=variable)
 
 
@@ -241,6 +206,11 @@ class DataSetFile:
         xr.DataArray
             Loaded data array
         """
+        if not (isinstance(time, list) or isinstance(time, ndarray)):
+            time = [time]
+        if not (isinstance(variable, list) or isinstance(variable, ndarray)):
+            variable = [variable]
+
         return self.da.sel(time=time, variable=variable)
 
 

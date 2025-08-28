@@ -18,7 +18,6 @@ import datetime
 import os
 import pathlib
 import shutil
-import tempfile
 
 import numpy as np
 import pytest
@@ -35,54 +34,7 @@ from earth2studio.data import (
 from earth2studio.io import XarrayBackend
 from earth2studio.models.px import Persistence
 from earth2studio.perturbation import Zero
-from earth2studio.run import deterministic, ensemble
-
-
-def build_inference_output_source(
-    # Helper for InferenceOuputSource tests
-    run_times: np.ndarray,
-    nsteps: int,
-    var_names: list[str],
-    *,
-    num_members: int = 0,
-    num_run_times: int = 1,
-    num_lead_times: int = 1,
-) -> tuple[str, xr.Dataset]:
-    domain_coords = {"lat": np.linspace(-10, 10, 4), "lon": np.linspace(0, 30, 8)}
-    ds = Random(domain_coords=domain_coords)
-    px = Persistence(variable=var_names, domain_coords=domain_coords)
-
-    ds_list = []
-    for run_time in run_times:
-        io = XarrayBackend(coords=domain_coords)
-        if num_members and num_members > 0:
-            io = ensemble(
-                time=[run_time],
-                nsteps=nsteps,
-                nensemble=num_members,
-                prognostic=px,
-                data=ds,
-                io=io,
-                perturbation=Zero(),
-            )
-        else:
-            io = deterministic(
-                time=[run_time],
-                nsteps=nsteps,
-                prognostic=px,
-                data=ds,
-                io=io,
-            )
-        ds_list.append(io.root)
-    ds = xr.concat(ds_list, dim="time")
-    ds = ds.isel(time=slice(0, num_run_times), lead_time=slice(0, num_lead_times))
-
-    # use a tmp file to store the dataset
-    tmp_file = tempfile.NamedTemporaryFile(delete=False)
-    ds.to_netcdf(tmp_file.name)
-    store = tmp_file.name
-
-    return store, ds
+from earth2studio.run import ensemble
 
 
 @pytest.fixture
@@ -283,129 +235,103 @@ def test_data_array_path_list_exceptions(tmp_path):
         DataArrayPathList("nonexistent_pattern*.nc")
 
 
-@pytest.fixture
-def make_model_output_store():
-    def _make(
+@pytest.mark.parametrize(
+    "time",
+    (
+        np.array([np.datetime64("2018-01-01")]),
+        np.array([np.datetime64("2018-01-01"), np.datetime64("2018-01-02")]),
+    ),
+)
+@pytest.mark.parametrize(
+    "lead_time",
+    (
+        np.array([np.timedelta64(0, "h"), np.timedelta64(1, "h")]),
+        np.array(
+            [np.timedelta64(0, "h"), np.timedelta64(1, "h"), np.timedelta64(2, "h")]
+        ),
+    ),
+)
+@pytest.mark.parametrize(
+    "filter_dict",
+    (
+        {
+            "time": np.datetime64("2018-01-01T00:00:00"),
+            "ensemble": 0,
+        },
+        {
+            "lead_time": np.timedelta64(1, "h"),
+            "ensemble": 0,
+        },
+    ),
+)
+def test_inference_output_source(
+    time: np.ndarray, lead_time: np.ndarray, filter_dict: dict, tmp_path
+):
+    variable = ["u10m", "v10m", "t2m"]
+
+    def mock_inference_pipeline(
         run_times: np.ndarray,
         nsteps: int,
         var_names: list[str],
-        *,
+        domain_coords: dict,
         num_members: int = 0,
-        num_run_times: int = 1,
-        num_lead_times: int = 1,
     ) -> tuple[str, xr.Dataset]:
-        store, ds = build_inference_output_source(
-            run_times,
-            nsteps,
-            var_names,
-            num_members=num_members,
-            num_run_times=num_run_times,
-            num_lead_times=num_lead_times,
+        domain_coords = {"lat": np.linspace(-10, 10, 4), "lon": np.linspace(0, 30, 8)}
+        ds = Random(domain_coords=domain_coords)
+        px = Persistence(
+            variable=var_names, domain_coords=domain_coords, dt=np.timedelta64(1, "h")
         )
-        return store, ds
 
-    return _make
+        output_file = f"{tmp_path}/output.nc"
+        io = XarrayBackend(coords=domain_coords)
+        io = ensemble(
+            time=run_times,
+            nsteps=nsteps,
+            nensemble=num_members,
+            prognostic=px,
+            data=ds,
+            io=io,
+            perturbation=Zero(),
+        )
+        io.root.to_netcdf(output_file)
 
+        return output_file
 
-filter_dict_lt_ensemble = {
-    "lead_time": np.timedelta64(60 * 60 * 36, "s"),
-    "ensemble": 0,
-}
-filter_dict_time_ensemble = {
-    "time": np.datetime64("2018-01-01T00:00:00"),
-    "ensemble": 0,
-}
-base_run_time = np.datetime64("2018-01-01T00:00:00")
-cases = [
-    (base_run_time, filter_dict_lt_ensemble, 3, 10, var_names, num_members)
-    for num_members in [1, 2, 3]
-    for var_names in [["t2m", "d2m"], ["t2m"]]
-] + [
-    (
-        base_run_time,
-        filter_dict_time_ensemble,
-        num_run_times,
-        10,
-        var_names,
-        num_members,
+    output_path = mock_inference_pipeline(
+        time,
+        lead_time.shape[0],
+        variable,
+        {"lat": np.linspace(-10, 10, 4), "lon": np.linspace(0, 30, 8)},
+        num_members=3,
     )
-    for num_members in [1, 2, 3]
-    for var_names in [["t2m", "d2m"], ["t2m"]]
-    for num_run_times in [1, 2, 3]
-]
 
-
-def _case_id(case: tuple) -> str:
-    base_rt, filt, n_runs, n_leads, vars_, n_members = case
-    if "lead_time" in filt:
-        try:
-            hours = int(filt["lead_time"] / np.timedelta64(1, "h"))
-            filt_str = f"lt={hours}h"
-        except Exception:
-            filt_str = f"lt={str(filt['lead_time'])}"
-    elif "time" in filt:
-        filt_str = f"time={str(filt['time']).replace('T',' ')}"
+    ds = InferenceOuputSource(
+        output_path,
+        filter_dict=filter_dict,
+        engine="h5netcdf",
+    )
+    # Check consistency
+    target_da = xr.open_dataset(output_path, engine="h5netcdf")
+    target_da = target_da.to_array("variable")
+    if "time" in filter_dict:
+        for lead_time in target_da.coords["lead_time"].values:
+            time_stamp = filter_dict["time"] + lead_time
+            da = ds(time=time_stamp, variable=["u10m", "v10m"])
+            dat = target_da.sel(
+                ensemble=0,
+                time=filter_dict["time"],
+                lead_time=lead_time,
+                variable=["u10m", "v10m"],
+            )
+            assert np.allclose(da.values, dat.values)
     else:
-        filt_str = "no-filter"
-    vars_str = "+".join(vars_)
-    return (
-        f"members={n_members}|vars={vars_str}|runs={n_runs}|lead={n_leads}|{filt_str}"
-    )
-
-
-_CASE_IDS = [_case_id(c) for c in cases]
-
-
-@pytest.mark.parametrize(
-    "base_run_time,filter_dict,num_run_times,num_lead_times,var_names,num_members",
-    cases,
-    ids=_CASE_IDS,
-)
-def test_inference_output_source(
-    make_model_output_store,
-    base_run_time: np.datetime64,
-    filter_dict: dict,
-    num_run_times: int,
-    num_lead_times: int,
-    var_names: list[str],
-    num_members: int,
-):
-    # Build run times
-    run_times = np.array(
-        [base_run_time + np.timedelta64(d, "D") for d in range(num_run_times)]
-    )
-
-    # Create dataset/store via fixture (NetCDF)
-    store, ds = make_model_output_store(
-        run_times,
-        num_lead_times,
-        var_names,
-        num_members=num_members,
-        num_run_times=num_run_times,
-        num_lead_times=num_lead_times,
-    )
-
-    # Initialize source
-    src = InferenceOuputSource(
-        store, engine="h5netcdf", filter_dict=filter_dict if filter_dict else None
-    )
-
-    # Avoid mutating the shared case filter
-    _filt = dict(filter_dict)
-    _filt.pop("lead_time", None)
-    _filt.pop("time", None)
-
-    # Choose a valid selection to verify data mapping
-    run_time = run_times[0]
-    lead_time = np.timedelta64(36, "h")
-    valid_t = (run_time + lead_time).astype("datetime64[ns]")
-
-    out = src(time=np.datetime64(valid_t), variable=var_names)
-    values_from_netcdf = out.values
-
-    # Expected from original ds
-    indexer = {"time": run_time, "lead_time": lead_time}
-    indexer.update(_filt)
-    values_from_xr = ds[var_names].sel(**indexer).squeeze().to_array().values
-
-    assert np.all(values_from_netcdf == values_from_xr)
+        for time in target_da.coords["time"].values:
+            time_stamp = filter_dict["lead_time"] + time
+            da = ds(time=time_stamp, variable=["u10m", "v10m"])
+            dat = target_da.sel(
+                ensemble=0,
+                time=time,
+                lead_time=filter_dict["lead_time"],
+                variable=["u10m", "v10m"],
+            )
+            assert np.allclose(da.values, dat.values)
