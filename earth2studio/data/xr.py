@@ -93,33 +93,32 @@ class InferenceOuputSource:
     filter_dict : dict, optional
         Dictionary of selections applied before transformation (e.g.
         ``{"ensemble": 0}``). Coordinates not in the required
-        dimensions are dropped after selection, by default None
+        dimensions are dropped after selection, by default {}
     **xr_args : Any
         Additional keyword arguments forwarded to ``xarray.open_dataset``.
     """
 
-    def __init__(self, file_path: str, filter_dict: dict = None, **xr_args: Any):
+    def __init__(self, file_path: str, filter_dict: dict = {}, **xr_args: Any):
         self.file_path = file_path
         self.da = xr.open_dataset(self.file_path, **xr_args)
         self.da = self.da.to_array("variable")
 
         # The following dimensions and their order is required for the data to be used as a datasource
         required_dims = {"time", "lead_time", "variable"}
-        if filter_dict:
-            # Need to keep these dims, so make then a list if scalar value
-            for k in ("time", "lead_time"):
-                if k in filter_dict and not isinstance(
-                    filter_dict[k], (list, tuple, np.ndarray)
-                ):
-                    filter_dict[k] = [filter_dict[k]]
+        # Need to keep these dims, so make then a list if scalar value
+        for k in ("time", "lead_time"):
+            if k in filter_dict and not isinstance(
+                filter_dict[k], (list, tuple, np.ndarray)
+            ):
+                filter_dict[k] = [filter_dict[k]]
 
-            self.da = self.da.sel(filter_dict)
+        self.da = self.da.sel(filter_dict)
 
         # Validate remaining dimensions
         if not required_dims.issubset(set(self.da.dims)):
             raise ValueError(
                 f"Missing required dims. Data array loaded has dims {self.da.dims} but "
-                + "needs {required_dims}. Use filter_dict to select a subset of the data."
+                + f"needs {required_dims}. Use filter_dict to select a subset of the data."
             )
         if len(self.da["time"]) > 1 and len(self.da["lead_time"]) > 1:
             raise ValueError(
