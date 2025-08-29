@@ -28,7 +28,13 @@ from earth2studio.data import (
     DataArrayFile,
     DataArrayPathList,
     DataSetFile,
+    InferenceOuputSource,
+    Random,
 )
+from earth2studio.io import XarrayBackend
+from earth2studio.models.px import Persistence
+from earth2studio.perturbation import Zero
+from earth2studio.run import ensemble
 
 
 @pytest.fixture
@@ -227,3 +233,105 @@ def test_data_array_path_list_exceptions(tmp_path):
     # Test 2: Non-existent file pattern
     with pytest.raises(OSError):
         DataArrayPathList("nonexistent_pattern*.nc")
+
+
+@pytest.mark.parametrize(
+    "time",
+    (
+        np.array([np.datetime64("2018-01-01")]),
+        np.array([np.datetime64("2018-01-01"), np.datetime64("2018-01-02")]),
+    ),
+)
+@pytest.mark.parametrize(
+    "lead_time",
+    (
+        np.array([np.timedelta64(0, "h"), np.timedelta64(1, "h")]),
+        np.array(
+            [np.timedelta64(0, "h"), np.timedelta64(1, "h"), np.timedelta64(2, "h")]
+        ),
+    ),
+)
+@pytest.mark.parametrize(
+    "filter_dict",
+    (
+        {
+            "time": np.datetime64("2018-01-01T00:00:00"),
+            "ensemble": 0,
+        },
+        {
+            "lead_time": np.timedelta64(1, "h"),
+            "ensemble": 0,
+        },
+    ),
+)
+def test_inference_output_source(
+    time: np.ndarray, lead_time: np.ndarray, filter_dict: dict, tmp_path
+):
+    variable = ["u10m", "v10m", "t2m"]
+
+    def mock_inference_pipeline(
+        run_times: np.ndarray,
+        nsteps: int,
+        var_names: list[str],
+        domain_coords: dict,
+        num_members: int = 0,
+    ) -> tuple[str, xr.Dataset]:
+        domain_coords = {"lat": np.linspace(-10, 10, 4), "lon": np.linspace(0, 30, 8)}
+        ds = Random(domain_coords=domain_coords)
+        px = Persistence(
+            variable=var_names, domain_coords=domain_coords, dt=np.timedelta64(1, "h")
+        )
+
+        output_file = f"{tmp_path}/output.nc"
+        io = XarrayBackend(coords=domain_coords)
+        io = ensemble(
+            time=run_times,
+            nsteps=nsteps,
+            nensemble=num_members,
+            prognostic=px,
+            data=ds,
+            io=io,
+            perturbation=Zero(),
+        )
+        io.root.to_netcdf(output_file)
+
+        return output_file
+
+    output_path = mock_inference_pipeline(
+        time,
+        lead_time.shape[0],
+        variable,
+        {"lat": np.linspace(-10, 10, 4), "lon": np.linspace(0, 30, 8)},
+        num_members=3,
+    )
+
+    ds = InferenceOuputSource(
+        output_path,
+        filter_dict=filter_dict,
+        engine="h5netcdf",
+    )
+    # Check consistency
+    target_da = xr.open_dataset(output_path, engine="h5netcdf")
+    target_da = target_da.to_array("variable")
+    if "time" in filter_dict:
+        for lead_time in target_da.coords["lead_time"].values:
+            time_stamp = filter_dict["time"] + lead_time
+            da = ds(time=time_stamp, variable=["u10m", "v10m"])
+            dat = target_da.sel(
+                ensemble=0,
+                time=filter_dict["time"],
+                lead_time=lead_time,
+                variable=["u10m", "v10m"],
+            )
+            assert np.allclose(da.values, dat.values)
+    else:
+        for time in target_da.coords["time"].values:
+            time_stamp = filter_dict["lead_time"] + time
+            da = ds(time=time_stamp, variable=["u10m", "v10m"])
+            dat = target_da.sel(
+                ensemble=0,
+                time=time,
+                lead_time=filter_dict["lead_time"],
+                variable=["u10m", "v10m"],
+            )
+            assert np.allclose(da.values, dat.values)
