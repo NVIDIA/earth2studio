@@ -433,11 +433,11 @@
 <span class="c1"># WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.</span>
 <span class="c1"># See the License for the specific language governing permissions and</span>
 <span class="c1"># limitations under the License.</span>
-
 <span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">datetime</span><span class="w"> </span><span class="kn">import</span> <span class="n">datetime</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span>
 
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">xarray</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">xr</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="kn">import</span> <span class="n">ndarray</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="kn">import</span> <span class="n">to_datetime</span>
@@ -448,7 +448,7 @@
 <div class="viewcode-block" id="DataArrayFile">
 <a class="viewcode-back" href="../../../modules/generated/data/earth2studio.data.DataArrayFile.html#earth2studio.data.DataArrayFile">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">DataArrayFile</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;A local xarray dataarray file data source. This file should be compatable with</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;A local xarray dataarray file data source. This file should be compatible with</span>
 <span class="sd">    xarray. For example, a netCDF file.</span>
 
 <span class="sd">    Parameters</span>
@@ -488,10 +488,118 @@
 
 
 
+<span class="k">class</span><span class="w"> </span><span class="nc">InferenceOuputSource</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Adapt a inference output into a data source.</span>
+
+<span class="sd">    This data source loads an existing xarray Dataset, such as a NetCDF file or Zarr</span>
+<span class="sd">    store from an Earth2Studio forecast inference pipeline, which can then be filtered</span>
+<span class="sd">    to provide a data array give a variable and time.</span>
+<span class="sd">    Time, lead_time and variable are expected dimensions to be present in the DataSet.</span>
+
+<span class="sd">    Note</span>
+<span class="sd">    ----</span>
+<span class="sd">    This data source performs automatic transformation of time coordinates based on the</span>
+<span class="sd">    time and lead_time coordinates:</span>
+
+<span class="sd">    - **If lead_time has length 1**: The single lead_time value is added to all time</span>
+<span class="sd">      coordinates to produce valid forecast times (time + lead_time). The lead_time</span>
+<span class="sd">      dimension is then removed.</span>
+<span class="sd">    - **If time has length 1**: The single time value is broadcast to match the</span>
+<span class="sd">      lead_time dimension, then lead_time values are added to produce valid forecast</span>
+<span class="sd">      times. The time dimension is removed and lead_time is renamed to time.</span>
+
+<span class="sd">    Either time or lead_time must have length 1 after applying the filter_dict</span>
+<span class="sd">    - both cannot have length &gt; 1 simultaneously. The resulting dataset will have a</span>
+<span class="sd">    single time dimension containing the computed valid forecast timestamps.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    file_path : str</span>
+<span class="sd">        Path to an xarray-compatible dataset file (e.g., NetCDF/Zarr).</span>
+<span class="sd">    filter_dict : dict, optional</span>
+<span class="sd">        Dictionary of selections applied before transformation (e.g.</span>
+<span class="sd">        ``{&quot;ensemble&quot;: 0}``). Coordinates not in the required</span>
+<span class="sd">        dimensions are dropped after selection, by default {}</span>
+<span class="sd">    **xr_args : Any</span>
+<span class="sd">        Additional keyword arguments forwarded to ``xarray.open_dataset``.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">file_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">filter_dict</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="p">{},</span> <span class="o">**</span><span class="n">xr_args</span><span class="p">:</span> <span class="n">Any</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">file_path</span> <span class="o">=</span> <span class="n">file_path</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">da</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">open_dataset</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">file_path</span><span class="p">,</span> <span class="o">**</span><span class="n">xr_args</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">da</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">da</span><span class="o">.</span><span class="n">to_array</span><span class="p">(</span><span class="s2">&quot;variable&quot;</span><span class="p">)</span>
+
+        <span class="c1"># The following dimensions and their order is required for the data to be used as a datasource</span>
+        <span class="n">required_dims</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;time&quot;</span><span class="p">,</span> <span class="s2">&quot;lead_time&quot;</span><span class="p">,</span> <span class="s2">&quot;variable&quot;</span><span class="p">}</span>
+        <span class="c1"># Need to keep these dims, so make then a list if scalar value</span>
+        <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;time&quot;</span><span class="p">,</span> <span class="s2">&quot;lead_time&quot;</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">filter_dict</span> <span class="ow">and</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span>
+                <span class="n">filter_dict</span><span class="p">[</span><span class="n">k</span><span class="p">],</span> <span class="p">(</span><span class="nb">list</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span>
+            <span class="p">):</span>
+                <span class="n">filter_dict</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="n">filter_dict</span><span class="p">[</span><span class="n">k</span><span class="p">]]</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">da</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">da</span><span class="o">.</span><span class="n">sel</span><span class="p">(</span><span class="n">filter_dict</span><span class="p">)</span>
+
+        <span class="c1"># Validate remaining dimensions</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">required_dims</span><span class="o">.</span><span class="n">issubset</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">da</span><span class="o">.</span><span class="n">dims</span><span class="p">)):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Missing required dims. Data array loaded has dims </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">da</span><span class="o">.</span><span class="n">dims</span><span class="si">}</span><span class="s2"> but &quot;</span>
+                <span class="o">+</span> <span class="sa">f</span><span class="s2">&quot;needs </span><span class="si">{</span><span class="n">required_dims</span><span class="si">}</span><span class="s2">. Use filter_dict to select a subset of the data.&quot;</span>
+            <span class="p">)</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">da</span><span class="p">[</span><span class="s2">&quot;time&quot;</span><span class="p">])</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">da</span><span class="p">[</span><span class="s2">&quot;lead_time&quot;</span><span class="p">])</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;Either time or lead_time should have length of one. &quot;</span>
+                <span class="o">+</span> <span class="sa">f</span><span class="s2">&quot;Length of time: </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">da</span><span class="p">[</span><span class="s1">&#39;time&#39;</span><span class="p">])</span><span class="si">}</span><span class="s2">, lead_time: </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">da</span><span class="p">[</span><span class="s1">&#39;lead_time&#39;</span><span class="p">])</span><span class="si">}</span><span class="s2">.&quot;</span>
+                <span class="o">+</span> <span class="s2">&quot;Use filter_dict to select a subset of the data.&quot;</span>
+            <span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">da</span><span class="p">[</span><span class="s2">&quot;lead_time&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">time_array</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">da</span><span class="o">.</span><span class="n">coords</span><span class="p">[</span><span class="s2">&quot;time&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">da</span><span class="o">.</span><span class="n">coords</span><span class="p">[</span><span class="s2">&quot;lead_time&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">da</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">da</span><span class="o">.</span><span class="n">isel</span><span class="p">(</span><span class="n">lead_time</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">drop_vars</span><span class="p">([</span><span class="s2">&quot;lead_time&quot;</span><span class="p">])</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">da</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">da</span><span class="o">.</span><span class="n">assign_coords</span><span class="p">(</span><span class="n">time</span><span class="o">=</span><span class="n">time_array</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">time_array</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">repeat</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">da</span><span class="o">.</span><span class="n">coords</span><span class="p">[</span><span class="s2">&quot;time&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">da</span><span class="p">[</span><span class="s2">&quot;lead_time&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="p">)</span>
+            <span class="n">time_array</span> <span class="o">=</span> <span class="n">time_array</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">da</span><span class="p">[</span><span class="s2">&quot;lead_time&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">da</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">da</span><span class="o">.</span><span class="n">isel</span><span class="p">(</span><span class="n">time</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">drop_vars</span><span class="p">([</span><span class="s2">&quot;time&quot;</span><span class="p">])</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">da</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">da</span><span class="o">.</span><span class="n">rename</span><span class="p">({</span><span class="s2">&quot;lead_time&quot;</span><span class="p">:</span> <span class="s2">&quot;time&quot;</span><span class="p">})</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">da</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">da</span><span class="o">.</span><span class="n">assign_coords</span><span class="p">(</span><span class="n">time</span><span class="o">=</span><span class="n">time_array</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__call__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">time</span><span class="p">:</span> <span class="n">datetime</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="n">datetime</span><span class="p">]</span> <span class="o">|</span> <span class="n">TimeArray</span><span class="p">,</span>
+        <span class="n">variable</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="n">VariableArray</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Retrieve data for specified valid times and variables.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        time : datetime | list[datetime] | TimeArray</span>
+<span class="sd">            One or more valid forecast timestamps (after ``time + lead_time``</span>
+<span class="sd">            transformation).</span>
+<span class="sd">        variable : str | list[str] | VariableArray</span>
+<span class="sd">            One or more variable names to return.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        xr.DataArray</span>
+<span class="sd">            Data array subset for the requested ``time`` and ``variable``.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">time</span><span class="p">,</span> <span class="nb">list</span><span class="p">)</span> <span class="ow">or</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">time</span><span class="p">,</span> <span class="n">ndarray</span><span class="p">)):</span>
+            <span class="n">time</span> <span class="o">=</span> <span class="p">[</span><span class="n">time</span><span class="p">]</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">variable</span><span class="p">,</span> <span class="nb">list</span><span class="p">)</span> <span class="ow">or</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">variable</span><span class="p">,</span> <span class="n">ndarray</span><span class="p">)):</span>
+            <span class="n">variable</span> <span class="o">=</span> <span class="p">[</span><span class="n">variable</span><span class="p">]</span>
+
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">da</span><span class="o">.</span><span class="n">sel</span><span class="p">(</span><span class="n">time</span><span class="o">=</span><span class="n">time</span><span class="p">,</span> <span class="n">variable</span><span class="o">=</span><span class="n">variable</span><span class="p">)</span>
+
+
 <div class="viewcode-block" id="DataSetFile">
 <a class="viewcode-back" href="../../../modules/generated/data/earth2studio.data.DataSetFile.html#earth2studio.data.DataSetFile">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">DataSetFile</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;A local xarray dataset file data source. This file should be compatable with</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;A local xarray dataset file data source. This file should be compatible with</span>
 <span class="sd">    xarray. For example, a netCDF file.</span>
 
 <span class="sd">    Parameters</span>
@@ -527,13 +635,18 @@
 <span class="sd">        xr.DataArray</span>
 <span class="sd">            Loaded data array</span>
 <span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">time</span><span class="p">,</span> <span class="nb">list</span><span class="p">)</span> <span class="ow">or</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">time</span><span class="p">,</span> <span class="n">ndarray</span><span class="p">)):</span>
+            <span class="n">time</span> <span class="o">=</span> <span class="p">[</span><span class="n">time</span><span class="p">]</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">variable</span><span class="p">,</span> <span class="nb">list</span><span class="p">)</span> <span class="ow">or</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">variable</span><span class="p">,</span> <span class="n">ndarray</span><span class="p">)):</span>
+            <span class="n">variable</span> <span class="o">=</span> <span class="p">[</span><span class="n">variable</span><span class="p">]</span>
+
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">da</span><span class="o">.</span><span class="n">sel</span><span class="p">(</span><span class="n">time</span><span class="o">=</span><span class="n">time</span><span class="p">,</span> <span class="n">variable</span><span class="o">=</span><span class="n">variable</span><span class="p">)</span></div>
 </div>
 
 
 
 <span class="k">class</span><span class="w"> </span><span class="nc">DataArrayDirectory</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;A local xarray dataarray directory data source. This file should be compatable with</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;A local xarray dataarray directory data source. This file should be compatible with</span>
 <span class="sd">    xarray. For example, a netCDF file. the structure of the directory should be like</span>
 <span class="sd">    path/to/monthly/files</span>
 <span class="sd">    |___2020</span>
