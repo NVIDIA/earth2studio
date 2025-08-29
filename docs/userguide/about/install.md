@@ -32,8 +32,10 @@ uv init --python=3.12
 uv add "earth2studio @ git+https://github.com/NVIDIA/earth2studio.git@0.9.0"
 ```
 
-:::{admonition} uv install
-:class: note
+:::{dropdown} uv Install
+:color: info
+:icon: archive
+ :animate: fade-in
 
 The use of the latest git release tag for the package install with uv is intentional.
 This will allow uv to handle any complicated dependency conditions and automatically
@@ -44,9 +46,10 @@ but makes installing optional packages much easier down the line.
 
 ## Install Main Branch
 
-To install the latest main branch version of Earth2Studio main branch:
+To install the latest main branch version of Earth2Studio:
 
 ```bash
+pip install hatchling # Optional if install process builds the wheel
 pip install "earth2studio @ git+https://github.com/NVIDIA/earth2studio"
 ```
 
@@ -71,8 +74,10 @@ uv run python
 
 ## Optional Dependencies
 
-:::{admonition} uv Package Manager
-:class: tip
+:::{dropdown} uv Package Manager
+:color: info
+:icon: info
+:animate: fade-in
 For developers [uv package manager](https://docs.astral.sh/uv/getting-started/installation/)
 should be used.
 uv is **not required** for just using Earth2Studio thus both pip and uv commands are
@@ -81,8 +86,11 @@ uv commands assume Earth2Studio has already been added to the project using *git
 used in the above sections.
 :::
 
-:::{admonition} uv Package Manager
+:::{admonition} Suggested prerequisites
 :class: warning
+Installing the base package before attempting any optional dependency groups is
+recommended if using pip.
+
 uv commands assume Earth2Studio has already been added to the project with the *git*
 link used in the above sections.
 :::
@@ -664,7 +672,7 @@ For developer environments, please refer to the {ref}`developer_overview`.
 
 ## uv Project
 
-Using uv is the recommend way to set up a local Python environment for Earth2Studio.
+Using uv is the recommended way to set up a local Python environment for Earth2Studio.
 Assuming [uv is installed](https://docs.astral.sh/uv/getting-started/installation/), use
 the following commands:
 
@@ -689,7 +697,7 @@ For a docker environment the [Nvidia PyTorch container](https://catalog.ngc.nvid
 provides a good base with many dependencies already installed and optimized for NVIDIA
 hardware.
 In container instances, using a virtual environment is often [not necessary](https://docs.astral.sh/uv/pip/environments/#using-arbitrary-python-environments).
-It is recommend using the following commands to install using the container's Python
+It is recommended to use the following commands to install using the container's Python
 interpreter:
 
 ```bash
@@ -744,8 +752,8 @@ RUN uv pip install --system --break-system-packages "earth2studio@git+https://gi
 
 ## Conda Environment
 
-It is no longer recommend to use any conda environment manager for Earth2Studio in favor
-of uv if possible.
+It is no longer recommended to use any conda environment manager for Earth2Studio in
+favor of uv if possible.
 This is because the virtual environments set up by uv makes the system-wide conda
 environments not needed unless some system dependencies are required.
 However this demonstrates that in principle Earth2Studio can be installed using standard
@@ -764,7 +772,7 @@ uv pip install --system --break-system-packages "earth2studio@git+https://github
 
 Earth2Studio does not have any specific software version requirements.
 The following are recommended to closely match development and automation environments,
-minimizing the chance for unforeseen incompatibilities:
+minimizing the chance for unexpected incompatibilities:
 
 - OS: Ubuntu 24.04 LTS
 - Python Version: 3.12
