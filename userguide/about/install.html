@@ -497,19 +497,21 @@ uv<span class="w"> </span>init<span class="w"> </span>--python<span class="o">=<
 uv<span class="w"> </span>add<span class="w"> </span><span class="s2">&quot;earth2studio @ git+https://github.com/NVIDIA/earth2studio.git@0.9.0&quot;</span>
 </pre></div>
 </div>
-<div class="note admonition">
-<p class="admonition-title">uv install</p>
-<p>The use of the latest git release tag for the package install with uv is intentional.
+<details class="sd-sphinx-override sd-dropdown sd-card sd-mb-3 sd-fade-in">
+<summary class="sd-summary-title sd-card-header sd-bg-info sd-bg-text-info">
+<span class="sd-summary-icon"><svg version="1.1" width="1.0em" height="1.0em" class="sd-octicon sd-octicon-archive" viewBox="0 0 16 16" aria-hidden="true"><path d="M0 2.75C0 1.784.784 1 1.75 1h12.5c.966 0 1.75.784 1.75 1.75v1.5A1.75 1.75 0 0 1 14.25 6H1.75A1.75 1.75 0 0 1 0 4.25ZM1.75 7a.75.75 0 0 1 .75.75v5.5c0 .138.112.25.25.25h10.5a.25.25 0 0 0 .25-.25v-5.5a.75.75 0 0 1 1.5 0v5.5A1.75 1.75 0 0 1 13.25 15H2.75A1.75 1.75 0 0 1 1 13.25v-5.5A.75.75 0 0 1 1.75 7Zm0-4.5a.25.25 0 0 0-.25.25v1.5c0 .138.112.25.25.25h12.5a.25.25 0 0 0 .25-.25v-1.5a.25.25 0 0 0-.25-.25ZM6.25 8h3.5a.75.75 0 0 1 0 1.5h-3.5a.75.75 0 0 1 0-1.5Z"></path></svg></span><span class="sd-summary-text">uv Install</span><span class="sd-summary-state-marker sd-summary-chevron-right"><svg version="1.1" width="1.5em" height="1.5em" class="sd-octicon sd-octicon-chevron-right" viewBox="0 0 24 24" aria-hidden="true"><path d="M8.72 18.78a.75.75 0 0 1 0-1.06L14.44 12 8.72 6.28a.751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018l6.25 6.25a.75.75 0 0 1 0 1.06l-6.25 6.25a.75.75 0 0 1-1.06 0Z"></path></svg></span></summary><div class="sd-summary-content sd-card-body docutils">
+<p class="sd-card-text">The use of the latest git release tag for the package install with uv is intentional.
 This will allow uv to handle any complicated dependency conditions and automatically
 handle url based dependencies.
 This is not achievable using the <a class="reference external" href="https://docs.astral.sh/uv/pip/compatibility/#transitive-url-dependencies">pypi registry</a>
 but makes installing optional packages much easier down the line.</p>
 </div>
-</section>
+</details></section>
 <section id="install-main-branch">
 <h2>Install Main Branch<a class="headerlink" href="#install-main-branch" title="Link to this heading">#</a></h2>
-<p>To install the latest main branch version of Earth2Studio main branch:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span><span class="s2">&quot;earth2studio @ git+https://github.com/NVIDIA/earth2studio&quot;</span>
+<p>To install the latest main branch version of Earth2Studio:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>hatchling<span class="w"> </span><span class="c1"># Optional if install process builds the wheel</span>
+pip<span class="w"> </span>install<span class="w"> </span><span class="s2">&quot;earth2studio @ git+https://github.com/NVIDIA/earth2studio&quot;</span>
 </pre></div>
 </div>
 <p>or if you are using uv:</p>
@@ -530,17 +532,20 @@ uv<span class="w"> </span>run<span class="w"> </span>python
 </section>
 <section id="optional-dependencies">
 <span id="id1"></span><h2>Optional Dependencies<a class="headerlink" href="#optional-dependencies" title="Link to this heading">#</a></h2>
-<div class="tip admonition">
-<p class="admonition-title">uv Package Manager</p>
-<p>For developers <a class="reference external" href="https://docs.astral.sh/uv/getting-started/installation/">uv package manager</a>
+<details class="sd-sphinx-override sd-dropdown sd-card sd-mb-3 sd-fade-in">
+<summary class="sd-summary-title sd-card-header sd-bg-info sd-bg-text-info">
+<span class="sd-summary-icon"><svg version="1.1" width="1.0em" height="1.0em" class="sd-octicon sd-octicon-info" viewBox="0 0 16 16" aria-hidden="true"><path d="M0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8Zm8-6.5a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13ZM6.5 7.75A.75.75 0 0 1 7.25 7h1a.75.75 0 0 1 .75.75v2.75h.25a.75.75 0 0 1 0 1.5h-2a.75.75 0 0 1 0-1.5h.25v-2h-.25a.75.75 0 0 1-.75-.75ZM8 6a1 1 0 1 1 0-2 1 1 0 0 1 0 2Z"></path></svg></span><span class="sd-summary-text">uv Package Manager</span><span class="sd-summary-state-marker sd-summary-chevron-right"><svg version="1.1" width="1.5em" height="1.5em" class="sd-octicon sd-octicon-chevron-right" viewBox="0 0 24 24" aria-hidden="true"><path d="M8.72 18.78a.75.75 0 0 1 0-1.06L14.44 12 8.72 6.28a.751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018l6.25 6.25a.75.75 0 0 1 0 1.06l-6.25 6.25a.75.75 0 0 1-1.06 0Z"></path></svg></span></summary><div class="sd-summary-content sd-card-body docutils">
+<p class="sd-card-text">For developers <a class="reference external" href="https://docs.astral.sh/uv/getting-started/installation/">uv package manager</a>
 should be used.
 uv is <strong>not required</strong> for just using Earth2Studio thus both pip and uv commands are
 included.
 uv commands assume Earth2Studio has already been added to the project using <em>git source</em>
 used in the above sections.</p>
 </div>
-<div class="warning admonition">
-<p class="admonition-title">uv Package Manager</p>
+</details><div class="warning admonition">
+<p class="admonition-title">Suggested prerequisites</p>
+<p>Installing the base package before attempting any optional dependency groups is
+recommended if using pip.</p>
 <p>uv commands assume Earth2Studio has already been added to the project with the <em>git</em>
 link used in the above sections.</p>
 </div>
@@ -1148,7 +1153,7 @@ Earth2Studio in an isolated environment.
 For developer environments, please refer to the <a class="reference internal" href="../developer/overview.html#developer-overview"><span class="std std-ref">Overview</span></a>.</p>
 <section id="uv-project">
 <h2>uv Project<a class="headerlink" href="#uv-project" title="Link to this heading">#</a></h2>
-<p>Using uv is the recommend way to set up a local Python environment for Earth2Studio.
+<p>Using uv is the recommended way to set up a local Python environment for Earth2Studio.
 Assuming <a class="reference external" href="https://docs.astral.sh/uv/getting-started/installation/">uv is installed</a>, use
 the following commands:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>mkdir<span class="w"> </span>earth2studio-project<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nb">cd</span><span class="w"> </span>earth2studio-project
@@ -1168,7 +1173,7 @@ uv<span class="w"> </span>add<span class="w"> </span><span class="s2">&quot;eart
 provides a good base with many dependencies already installed and optimized for NVIDIA
 hardware.
 In container instances, using a virtual environment is often <a class="reference external" href="https://docs.astral.sh/uv/pip/environments/#using-arbitrary-python-environments">not necessary</a>.
-It is recommend using the following commands to install using the container’s Python
+It is recommended to use the following commands to install using the container’s Python
 interpreter:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>docker<span class="w"> </span>run<span class="w"> </span>-it<span class="w"> </span>-t<span class="w"> </span>nvcr.io/nvidia/pytorch:25.05-py3
 
@@ -1216,8 +1221,8 @@ otherwise the install process is the same.</p>
 </section>
 <section id="conda-environment">
 <h2>Conda Environment<a class="headerlink" href="#conda-environment" title="Link to this heading">#</a></h2>
-<p>It is no longer recommend to use any conda environment manager for Earth2Studio in favor
-of uv if possible.
+<p>It is no longer recommended to use any conda environment manager for Earth2Studio in
+favor of uv if possible.
 This is because the virtual environments set up by uv makes the system-wide conda
 environments not needed unless some system dependencies are required.
 However this demonstrates that in principle Earth2Studio can be installed using standard
@@ -1236,7 +1241,7 @@ uv<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </s
 <h2>Software<a class="headerlink" href="#software" title="Link to this heading">#</a></h2>
 <p>Earth2Studio does not have any specific software version requirements.
 The following are recommended to closely match development and automation environments,
-minimizing the chance for unforeseen incompatibilities:</p>
+minimizing the chance for unexpected incompatibilities:</p>
 <ul class="simple">
 <li><p>OS: Ubuntu 24.04 LTS</p></li>
 <li><p>Python Version: 3.12</p></li>
