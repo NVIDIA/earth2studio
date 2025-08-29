@@ -32,8 +32,10 @@ uv init --python=3.12
 uv add "earth2studio @ git+https://github.com/NVIDIA/earth2studio.git@0.9.0"
 ```
 
-:::{admonition} uv install
-:class: note
+:::{dropdown} uv Install
+:color: info
+:icon: archive
+ :animate: fade-in
 
 The use of the latest git release tag for the package install with uv is intentional.
 This will allow uv to handle any complicated dependency conditions and automatically
@@ -47,6 +49,7 @@ but makes installing optional packages much easier down the line.
 To install the latest main branch version of Earth2Studio main branch:
 
 ```bash
+pip install hatchling # Optional if install process builds the wheel
 pip install "earth2studio @ git+https://github.com/NVIDIA/earth2studio"
 ```
 
@@ -71,8 +74,10 @@ uv run python
 
 ## Optional Dependencies
 
-:::{admonition} uv Package Manager
-:class: tip
+:::{dropdown} uv Package Manager
+:color: info
+:icon: info
+:animate: fade-in
 For developers [uv package manager](https://docs.astral.sh/uv/getting-started/installation/)
 should be used.
 uv is **not required** for just using Earth2Studio thus both pip and uv commands are
@@ -81,8 +86,11 @@ uv commands assume Earth2Studio has already been added to the project using *git
 used in the above sections.
 :::
 
-:::{admonition} uv Package Manager
+:::{admonition} Suggested prerequisites
 :class: warning
+Installing the base package before attempting any optional dependency groups is
+recommended if using pip.
+
 uv commands assume Earth2Studio has already been added to the project with the *git*
 link used in the above sections.
 :::
@@ -108,7 +116,6 @@ for known suggestions/fixes related to this install process.
 :::{tab-item} pip
 
 ```bash
-pip install hatchling
 pip install earth2studio[aifs] --no-build-isolation
 ```
 
