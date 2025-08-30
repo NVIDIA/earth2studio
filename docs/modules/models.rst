@@ -29,6 +29,7 @@ Thus are typically used to generate forecast predictions.
    AIFS
    Aurora
    CBottleVideo
+   DiagnosticWrapper
    DLESyM
    DLESyMLatLon
    DLWP
@@ -78,6 +79,7 @@ etc.
    DerivedRHDewpoint
    DerivedVPD
    DerivedWS
+   DerivedSurfacePressure
    PrecipitationAFNO
    PrecipitationAFNOv2
    SolarRadiationAFNO1H
