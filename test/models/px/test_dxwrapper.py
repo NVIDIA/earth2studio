@@ -15,6 +15,7 @@
 # limitations under the License.
 
 from collections import OrderedDict
+from contextlib import nullcontext
 
 import numpy as np
 import pytest
@@ -25,6 +26,7 @@ from earth2studio.models.dx import (
     CorrDiffTaiwan,
     DerivedSurfacePressure,
     PrecipitationAFNOv2,
+    TCTrackerVitart,
 )
 from earth2studio.models.px import FCN3, DiagnosticWrapper
 from earth2studio.utils.coords import map_coords
@@ -122,7 +124,8 @@ def test_fcn3_precip(device, times):
     ],
 )
 @pytest.mark.parametrize("number_of_samples", [1, 2])
-def test_fcn3_corrdiff(device, times, number_of_samples):
+@pytest.mark.parametrize("keep_px_output", [False, True])
+def test_fcn3_corrdiff(device, times, number_of_samples, keep_px_output):
     # Spoof models
     px_model = FCN3(PhooFCN3Model())
     model = PhooCorrDiff()
@@ -148,7 +151,7 @@ def test_fcn3_corrdiff(device, times, number_of_samples):
     wrapped_model = DiagnosticWrapper(
         px_model=px_model,
         dx_models=corrdiff_model,
-        keep_px_output=False,
+        keep_px_output=keep_px_output,
         interpolate_coords=True,
     ).to(device=device)
 
@@ -163,11 +166,57 @@ def test_fcn3_corrdiff(device, times, number_of_samples):
     )
     (x, coords) = map_coords(x, coords, wrapped_model.input_coords())
 
-    (x, coords) = wrapped_model(x, coords)
+    with pytest.raises(ValueError) if keep_px_output else nullcontext():
+        (x, coords) = wrapped_model(x, coords)
+    if keep_px_output:
+        return
 
     expected_shape = tuple(len(v) for v in coords.values())
     assert x.shape == expected_shape == (len(times), 1, number_of_samples, 4, 448, 448)
     expected_vars = corrdiff_model.output_coords(corrdiff_model.input_coords())[
         "variable"
     ]
+    assert (coords["variable"] == expected_vars).all()
+
+
+@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+@pytest.mark.parametrize(
+    "times",
+    [
+        [np.datetime64("2025-08-21T00:00:00")],
+        [np.datetime64("2025-08-21T00:00:00"), np.datetime64("2025-08-22T00:00:00")],
+    ],
+)
+@pytest.mark.parametrize("keep_px_output", [False, True])
+def test_fcn3_tc_tracker(device, times, keep_px_output):
+    # Spoof models
+    fcn3_model = PhooFCN3Model()
+    px_model = FCN3(fcn3_model)
+
+    tc_tracker = TCTrackerVitart()
+
+    wrapped_model = DiagnosticWrapper(
+        px_model=px_model, dx_models=tc_tracker, keep_px_output=keep_px_output
+    ).to(device=device)
+
+    dc = {k: wrapped_model.input_coords()[k] for k in ["lat", "lon"]}
+    data = Random(dc)
+
+    (x, coords) = fetch_data(
+        data,
+        times,
+        variable=wrapped_model.input_coords()["variable"],
+        device=device,
+    )
+    (x, coords) = map_coords(x, coords, wrapped_model.input_coords())
+
+    with pytest.raises(ValueError) if keep_px_output else nullcontext():
+        (x, coords) = wrapped_model(x, coords)
+    if keep_px_output:
+        return
+
+    expected_shape = tuple(len(v) for v in coords.values())
+    assert x.shape == expected_shape
+    assert all(x.shape[dim] == (len(times), 1, -1, 1, 4)[dim] for dim in (0, 1, 3, 4))
+    expected_vars = tc_tracker.output_coords(tc_tracker.input_coords())["variable"]
     assert (coords["variable"] == expected_vars).all()

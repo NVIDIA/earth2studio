@@ -23,7 +23,7 @@ from earth2studio.models.batch import batch_coords, batch_func
 from earth2studio.models.dx import DiagnosticModel
 from earth2studio.models.px import PrognosticModel
 from earth2studio.models.px.utils import PrognosticMixin
-from earth2studio.utils.coords import map_coords
+from earth2studio.utils.coords import handshake_coords, map_coords
 from earth2studio.utils.interp import LatLonInterpolation
 from earth2studio.utils.type import CoordSystem
 
@@ -204,6 +204,15 @@ class DiagnosticWrapper(torch.nn.Module, PrognosticMixin):
 
         # concatenate prognostic and diagnostic outputs and coordinates
         if self.keep_px_output:
+            try:
+                for dim, dim_name in enumerate(coords):
+                    if dim_name != "variable" and (len(coords[dim_name]) > 0):
+                        handshake_coords(self.dx_model.input_coords(), coords, dim_name)
+            except (KeyError, ValueError) as e:
+                raise ValueError(
+                    f"If keep_px_output==True, the outputs of the diagnostic model must be concatenatable to the inputs. Original error message: '{str(e)}'"
+                )
+
             variable_dim = list(coords).index("variable")
             x = torch.concat([x_px, x], dim=variable_dim)
             variables = np.concatenate([coords_px["variable"], coords["variable"]])
