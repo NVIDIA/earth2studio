@@ -54,7 +54,14 @@ class PhooCorrDiff(torch.nn.Module):
 
 
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
-def test_fcn3_precip(device):
+@pytest.mark.parametrize(
+    "times",
+    [
+        [np.datetime64("2025-08-21T00:00:00")],
+        [np.datetime64("2025-08-21T00:00:00"), np.datetime64("2025-08-22T00:00:00")],
+    ],
+)
+def test_fcn3_precip(device, times):
     # Spoof models
     fcn3_model = PhooFCN3Model()
     px_model = FCN3(fcn3_model)
@@ -87,7 +94,7 @@ def test_fcn3_precip(device):
 
     (x, coords) = fetch_data(
         data,
-        [np.datetime64("2025-08-21T00:00:00")],
+        times,
         variable=wrapped_model.input_coords()["variable"],
         device=device,
     )
@@ -96,7 +103,7 @@ def test_fcn3_precip(device):
     (x, coords) = wrapped_model(x, coords)
 
     expected_shape = tuple(len(v) for v in coords.values())
-    assert x.shape == expected_shape == (1, 1, 74, 720, 1440)
+    assert x.shape == expected_shape == (len(times), 1, 74, 720, 1440)
     expected_vars = np.concatenate(
         [
             model.output_coords(model.input_coords())["variable"]
@@ -107,11 +114,17 @@ def test_fcn3_precip(device):
 
 
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
-def test_fcn3_corrdiff(device):
+@pytest.mark.parametrize(
+    "times",
+    [
+        [np.datetime64("2025-08-21T00:00:00")],
+        [np.datetime64("2025-08-21T00:00:00"), np.datetime64("2025-08-22T00:00:00")],
+    ],
+)
+@pytest.mark.parametrize("number_of_samples", [1, 2])
+def test_fcn3_corrdiff(device, times, number_of_samples):
     # Spoof models
-    fcn3_model = PhooFCN3Model()
-    px_model = FCN3(fcn3_model)
-
+    px_model = FCN3(PhooFCN3Model())
     model = PhooCorrDiff()
     in_center = torch.zeros(12, 1, 1)
     in_scale = torch.ones(12, 1, 1)
@@ -129,6 +142,7 @@ def test_fcn3_corrdiff(device):
         out_scale,
         out_lat,
         out_lon,
+        number_of_samples=number_of_samples,
     ).to(device)
 
     wrapped_model = DiagnosticWrapper(
@@ -143,7 +157,7 @@ def test_fcn3_corrdiff(device):
 
     (x, coords) = fetch_data(
         data,
-        [np.datetime64("2025-08-21T00:00:00")],
+        times,
         variable=px_model.input_coords()["variable"],
         device=device,
     )
@@ -152,7 +166,7 @@ def test_fcn3_corrdiff(device):
     (x, coords) = wrapped_model(x, coords)
 
     expected_shape = tuple(len(v) for v in coords.values())
-    assert x.shape == expected_shape == (1, 1, 1, 4, 448, 448)
+    assert x.shape == expected_shape == (len(times), 1, number_of_samples, 4, 448, 448)
     expected_vars = corrdiff_model.output_coords(corrdiff_model.input_coords())[
         "variable"
     ]
