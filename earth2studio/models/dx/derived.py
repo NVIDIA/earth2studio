@@ -428,7 +428,7 @@ class DerivedSurfacePressure(torch.nn.Module):
 
     def __init__(
         self,
-        p_levels: list[int],
+        p_levels: list[int] | np.ndarray | torch.Tensor,
         surface_geopotential: torch.Tensor,
         surface_geopotential_coords: CoordSystem,
         temperature_correction: bool = True,
@@ -438,15 +438,17 @@ class DerivedSurfacePressure(torch.nn.Module):
         self.temperature_correction = temperature_correction
         self.corr_adjustment = corr_adjustment
 
-        p_levels = sorted(p_levels, reverse=True)
-        self.in_variables = [f"z{level}" for level in p_levels]
+        p_levels = torch.as_tensor(p_levels, dtype=torch.float32)
+        (p_levels, _) = torch.sort(p_levels, descending=True)
+        self.in_variables = [f"z{int(level)}" for level in p_levels]
         if self.temperature_correction:
-            self.in_variables.extend(f"t{level}" for level in p_levels)
-        self.out_variables = ["sp"]
+            self.in_variables.extend(f"t{int(level)}" for level in p_levels)
+        self.in_variables = np.array(self.in_variables)
+        self.out_variables = np.array(["sp"])
 
         self.register_buffer(
             "log_p_levels",
-            torch.log(torch.as_tensor(p_levels, dtype=torch.float32) * 100),
+            torch.log(p_levels * 100),
         )
 
         self.register_buffer("surface_geopotential", surface_geopotential)
@@ -471,7 +473,7 @@ class DerivedSurfacePressure(torch.nn.Module):
         return OrderedDict(
             {
                 "batch": np.empty(0),
-                "variable": np.array(self.in_variables),
+                "variable": self.in_variables,
                 "lat": self.surface_geopotential_coords["lat"],
                 "lon": self.surface_geopotential_coords["lon"],
             }
@@ -499,7 +501,7 @@ class DerivedSurfacePressure(torch.nn.Module):
         handshake_coords(input_coords, target_input_coords, "variable")
 
         output_coords = input_coords.copy()
-        output_coords["variable"] = np.array(self.out_variables)
+        output_coords["variable"] = self.out_variables
         return output_coords
 
     @torch.inference_mode()
@@ -593,6 +595,7 @@ class DerivedSurfacePressure(torch.nn.Module):
         coords: CoordSystem,
     ) -> tuple[torch.Tensor, CoordSystem]:
         """Forward pass of diagnostic"""
+        output_coords = self.output_coords(coords)
         num_levels = len(self.log_p_levels)
 
         # unpack inputs, swap variable dimension to dim 0, flatten batch dims to dim 1
@@ -613,4 +616,4 @@ class DerivedSurfacePressure(torch.nn.Module):
             t_levels=t_levels if self.temperature_correction else None,
         ).reshape(output_shape)
 
-        return sp_pred, self.output_coords(coords)
+        return sp_pred, output_coords

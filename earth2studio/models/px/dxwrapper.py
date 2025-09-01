@@ -52,13 +52,13 @@ class DiagnosticWrapper(torch.nn.Module, PrognosticMixin):
     ----------
     px_model : PrognosticModel
         The prognostic model to use as the base model.
-    dx_models : List[DiagnosticModel]
+    dx_models : DiagnosticModel | Sequence[DiagnosticModel]
         The diagnostic models whose outputs are concatenated to the output of px_model.
     interpolate_coords : bool, default False
         Whether to use bilinear interpolation to map spatial coordinates. If False,
         nearest neighbor interpolation will be used. Must be set to True if any models
         have 2D latitude/longitude coordinates.
-    keep_px_output : bool, default False
+    keep_px_output : bool, default True
         Whether to include output of px_model in the input.
     """
 
