@@ -89,17 +89,6 @@ class DiagnosticWrapper(torch.nn.Module, PrognosticMixin):
                 keep_px_output=keep_px_output,
             )
 
-        # check variable compatibility
-        px_output_vars = self.px_model.output_coords(self.px_model.input_coords())[
-            "variable"
-        ]
-        dx_input_vars = self.dx_model.input_coords()["variable"]
-        missing_vars = list(set(dx_input_vars) - set(px_output_vars))
-        if missing_vars:
-            raise ValueError(
-                f"The following inputs of the diagnostic model are not outputs of the prognostic model: {missing_vars}"
-            )
-
         self.interpolate_coords = interpolate_coords
         if interpolate_coords:
             self.interp: LatLonInterpolation | None = None
