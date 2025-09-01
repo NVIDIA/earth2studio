@@ -33,6 +33,8 @@ from earth2studio.perturbation import Perturbation
 from earth2studio.utils.coords import CoordSystem, map_coords, split_coords
 from earth2studio.utils.time import to_time_array
 
+from physicsnemo.distributed import DistributedManager
+
 from .hens_utilities import TCTracking, cat_coords, get_batchid_from_ensid, save_corrdiff_output
 from .hens_utilities_reproduce import calculate_torch_seed
 
@@ -172,6 +174,11 @@ class EnsembleBase:
         device : torch.device, optional
             PyTorch device. If None, will select cuda if available, by default None
         """
+        self.device = (
+            device
+            if device is not None
+            else torch.device(DistributedManager().device if torch.cuda.is_available() else "cpu")
+        )
         if self.device is not None:
             self.device = (
                 torch.device("cuda" if torch.cuda.is_available() else "cpu")
