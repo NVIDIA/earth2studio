@@ -108,6 +108,29 @@ class DiagnosticWrapper(torch.nn.Module, PrognosticMixin):
         """
         return self.px_model.input_coords()
 
+    def _check_dx_grid(
+        self,
+        lat_px_out: np.ndarray,
+        lon_px_out: np.ndarray,
+        lat_dx_in: np.ndarray,
+        lon_dx_in: np.ndarray,
+    ) -> None:
+        """Check that the diagnostic input lat/lon grids are a subset of the prognostic
+        output lat/lon grids.
+        """
+        print(lat_dx_in.min(), lat_dx_in.max(), lon_dx_in.min(), lon_dx_in.max())
+        print(lat_px_out.min(), lat_px_out.max(), lon_px_out.min(), lon_px_out.max())
+        grids_ok = (
+            (lat_dx_in >= lat_px_out.min()).all()
+            and (lat_dx_in <= lat_px_out.max()).all()
+            and (lon_dx_in >= lon_px_out.min()).all()
+            and (lon_dx_in <= lon_px_out.max()).all()
+        )
+        if not grids_ok:
+            raise ValueError(
+                "Output lon/lon grids must be a subset of the input lon/lon grids."
+            )
+
     @batch_coords()
     def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
         """Output coordinate system of the prognostic model
@@ -130,6 +153,14 @@ class DiagnosticWrapper(torch.nn.Module, PrognosticMixin):
             in_coords_dx["lat"] = out_coords_px["lat"]
             in_coords_dx["lon"] = out_coords_px["lon"]
         out_coords_dx = self.dx_model.output_coords(in_coords_dx)
+
+        # check that diagnostic input grid is contained in the prognostic output grid
+        self._check_dx_grid(
+            out_coords_px["lat"],
+            out_coords_px["lon"],
+            in_coords_dx["lat"],
+            in_coords_dx["lon"],
+        )
 
         if self.keep_px_output:
             variables = np.concatenate(
@@ -197,17 +228,18 @@ class DiagnosticWrapper(torch.nn.Module, PrognosticMixin):
         coords_dx_spatial = in_coords_dx.copy()
         coords_dx_spatial["variable"] = coords_px["variable"]
         map_coords_func = self._interpolate if self.interpolate_coords else map_coords
-        (x_px, coords) = map_coords_func(x_px, coords_px, coords_dx_spatial)
+        (x_px, coords_px) = map_coords_func(x_px, coords_px, coords_dx_spatial)
 
         # select diagnostic input variables and inference diagnostic model
-        (x, coords) = self.dx_model(*map_coords(x_px, coords, in_coords_dx))
+        (x, coords) = self.dx_model(*map_coords(x_px, coords_px, in_coords_dx))
 
         # concatenate prognostic and diagnostic outputs and coordinates
         if self.keep_px_output:
+            print(coords_px.keys(), coords.keys())
             try:
                 for dim, dim_name in enumerate(coords):
                     if dim_name != "variable" and (len(coords[dim_name]) > 0):
-                        handshake_coords(self.dx_model.input_coords(), coords, dim_name)
+                        handshake_coords(coords_px, coords, dim_name)
             except (KeyError, ValueError) as e:
                 raise ValueError(
                     f"If keep_px_output==True, the outputs of the diagnostic model must be concatenatable to the inputs. Original error message: '{str(e)}'"
