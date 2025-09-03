@@ -22,13 +22,16 @@ import pytest
 import torch
 
 from earth2studio.data import Random, fetch_data
+from earth2studio.io import XarrayBackend
 from earth2studio.models.dx import (
     CorrDiffTaiwan,
     DerivedSurfacePressure,
     PrecipitationAFNOv2,
+    SolarRadiationAFNO1H,
     TCTrackerVitart,
 )
 from earth2studio.models.px import FCN3, DiagnosticWrapper
+from earth2studio.run import deterministic
 from earth2studio.utils.coords import map_coords
 
 
@@ -40,6 +43,17 @@ class PhooFCN3Model(torch.nn.Module):
 class PhooAFNOPrecipV2(torch.nn.Module):
     def forward(self, x):
         return x[:, :1, :, :]
+
+
+class PhooAFNOSolarRadiation(torch.nn.Module):
+    """Mock model for testing."""
+
+    def forward(self, x):
+        # x: (batch, variables, lat, lon)
+        # The model expects input shape (batch, variables, lat, lon)
+        # where variables includes the input variables plus sza, sincos_latlon, orography, and landsea_mask
+        # We'll return a tensor of the same shape but with only one variable
+        return torch.zeros_like(x[:, :1, :, :])
 
 
 class PhooCorrDiff(torch.nn.Module):
@@ -56,6 +70,7 @@ class PhooCorrDiff(torch.nn.Module):
 
 
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+@pytest.mark.parametrize("model_type", ["precip", "solar"])
 @pytest.mark.parametrize(
     "times",
     [
@@ -63,20 +78,41 @@ class PhooCorrDiff(torch.nn.Module):
         [np.datetime64("2025-08-21T00:00:00"), np.datetime64("2025-08-22T00:00:00")],
     ],
 )
-def test_fcn3_precip(device, times):
+def test_fcn3_precip(device, model_type, times):
     # Spoof models
     fcn3_model = PhooFCN3Model()
     px_model = FCN3(fcn3_model)
 
-    precipafnov2_model = PhooAFNOPrecipV2()
-    center = torch.zeros(20, 1, 1)
-    scale = torch.ones(20, 1, 1)
-    landsea_mask = torch.zeros(1, 1, 720, 1440)
-    orography = torch.zeros(1, 1, 720, 1440)
+    if model_type == "precip":
+        precipafnov2_model = PhooAFNOPrecipV2()
+        center = torch.zeros(20, 1, 1)
+        scale = torch.ones(20, 1, 1)
+        landsea_mask = torch.zeros(1, 1, 720, 1440)
+        orography = torch.zeros(1, 1, 720, 1440)
 
-    precip_model = PrecipitationAFNOv2(
-        precipafnov2_model, landsea_mask, orography, center, scale
-    ).to(device)
+        dx_model = PrecipitationAFNOv2(
+            precipafnov2_model, landsea_mask, orography, center, scale
+        ).to(device)
+    elif model_type == "solar":
+        era5_mean = torch.zeros(24, 1, 1)
+        era5_std = torch.ones(24, 1, 1)
+        ssrd_mean = torch.zeros(1, 1, 1)
+        ssrd_std = torch.ones(1, 1, 1)
+        orography = torch.zeros(1, 1, 721, 1440)
+        landsea_mask = torch.zeros(1, 1, 721, 1440)
+        sincos_latlon = torch.zeros(1, 4, 721, 1440)
+
+        dx_model = SolarRadiationAFNO1H(
+            core_model=PhooAFNOSolarRadiation(),
+            freq="1h",
+            era5_mean=era5_mean,
+            era5_std=era5_std,
+            ssrd_mean=ssrd_mean,
+            ssrd_std=ssrd_std,
+            orography=orography,
+            landsea_mask=landsea_mask,
+            sincos_latlon=sincos_latlon,
+        ).to(device)
 
     px_out_coords = px_model.output_coords(px_model.input_coords())
     sp_model = DerivedSurfacePressure(
@@ -88,7 +124,7 @@ def test_fcn3_precip(device, times):
     )
 
     wrapped_model = DiagnosticWrapper(
-        px_model=px_model, dx_models=[sp_model, precip_model]
+        px_model=px_model, dx_models=[sp_model, dx_model]
     ).to(device=device)
 
     dc = {k: wrapped_model.input_coords()[k] for k in ["lat", "lon"]}
@@ -105,15 +141,22 @@ def test_fcn3_precip(device, times):
     (x, coords) = wrapped_model(x, coords)
 
     expected_shape = tuple(len(v) for v in coords.values())
-    assert x.shape == expected_shape == (len(times), 1, 74, 720, 1440)
-    assert tuple(coords) == ("time", "lead_time", "variable", "lat", "lon")
     expected_vars = np.concatenate(
         [
             model.output_coords(model.input_coords())["variable"]
-            for model in [px_model, sp_model, precip_model]
+            for model in [px_model, sp_model, dx_model]
         ]
     )
+    assert (
+        x.shape
+        == expected_shape
+        == (len(times), 1, len(expected_vars), *landsea_mask.shape[-2:])
+    )
+    assert tuple(coords) == ("time", "lead_time", "variable", "lat", "lon")
     assert (coords["variable"] == expected_vars).all()
+
+    io = XarrayBackend()
+    deterministic(times, 2, wrapped_model, data, io, device=device)
 
 
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])

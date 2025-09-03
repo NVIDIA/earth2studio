@@ -155,6 +155,7 @@ class DiagnosticWrapper(torch.nn.Module, PrognosticMixin):
             in_coords_dx["lat"] = out_coords_px["lat"]
             in_coords_dx["lon"] = out_coords_px["lon"]
         out_coords_dx = self.dx_model.output_coords(in_coords_dx)
+        out_coords_dx["lead_time"] = out_coords_px["lead_time"]
 
         # check that diagnostic input grid is contained in the prognostic output grid
         self._check_dx_grid(
