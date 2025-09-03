@@ -222,6 +222,9 @@ def test_fcn3_corrdiff(device, times, number_of_samples, keep_px_output):
     ]
     assert (coords["variable"] == expected_vars).all()
 
+    io = XarrayBackend()
+    deterministic(times, 2, wrapped_model, data, io, device=device)
+
 
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
 @pytest.mark.parametrize(
