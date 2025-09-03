@@ -118,8 +118,10 @@ class DiagnosticWrapper(torch.nn.Module, PrognosticMixin):
         """Check that the diagnostic input lat/lon grids are a subset of the prognostic
         output lat/lon grids.
         """
-        print(lat_dx_in.min(), lat_dx_in.max(), lon_dx_in.min(), lon_dx_in.max())
-        print(lat_px_out.min(), lat_px_out.max(), lon_px_out.min(), lon_px_out.max())
+        lat_px_out = torch.as_tensor(lat_px_out)
+        lon_px_out = torch.as_tensor(lon_px_out)
+        lat_dx_in = torch.as_tensor(lat_dx_in)
+        lon_dx_in = torch.as_tensor(lon_dx_in)
         grids_ok = (
             (lat_dx_in >= lat_px_out.min()).all()
             and (lat_dx_in <= lat_px_out.max()).all()
@@ -128,7 +130,7 @@ class DiagnosticWrapper(torch.nn.Module, PrognosticMixin):
         )
         if not grids_ok:
             raise ValueError(
-                "Output lon/lon grids must be a subset of the input lon/lon grids."
+                "Output lat/lon grids must be a subset of the input lat/lon grids."
             )
 
     @batch_coords()
@@ -235,7 +237,6 @@ class DiagnosticWrapper(torch.nn.Module, PrognosticMixin):
 
         # concatenate prognostic and diagnostic outputs and coordinates
         if self.keep_px_output:
-            print(coords_px.keys(), coords.keys())
             try:
                 for dim, dim_name in enumerate(coords):
                     if dim_name != "variable" and (len(coords[dim_name]) > 0):

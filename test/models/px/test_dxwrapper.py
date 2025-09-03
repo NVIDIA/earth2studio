@@ -106,6 +106,7 @@ def test_fcn3_precip(device, times):
 
     expected_shape = tuple(len(v) for v in coords.values())
     assert x.shape == expected_shape == (len(times), 1, 74, 720, 1440)
+    assert tuple(coords) == ("time", "lead_time", "variable", "lat", "lon")
     expected_vars = np.concatenate(
         [
             model.output_coords(model.input_coords())["variable"]
