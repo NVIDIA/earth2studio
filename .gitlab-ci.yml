@@ -25,7 +25,7 @@ gitlab-clone:
   - docker
   extends:
     - .gitlab:pull
-  image: bitnami/git
+  image: $CI_IMAGE
 
 build-ci-env:
   stage: build
