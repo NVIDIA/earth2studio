@@ -10,21 +10,18 @@ This documentation describes the surface pressure interpolation provided by `ear
 
 The following variables are used below:
 
-```{math}
-\begin{tabular}{l l l}
-\textbf{Symbol} & \textbf{Variable} & \textbf{Value (if constant)} \\
-$g$ & Gravitational acceleration & $9.8067$ $\mathrm{m\,s^{-2}}$ \\
-$R_\mathrm{s}$ & Gas constant for dry air & $287.053$ $\mathrm{J\,kg^{-1}\, K^{-1}}$ \\
-$L$ & Average temperature lapse rate & $-6.5 \times 10^{-3}$ $\mathrm{K\,m^{-1}}$ \\
-$p$ & Pressure & \\
-$\rho$ & Density & \\
-$h$ & Height & \\
-$\Phi$ & Geopotential & \\
-$T$ & Temperature & \\
-$L_\Phi$ & Lapse rate w.r.t. geopotential $L/g$ & \\
-$\beta$ & Inverse temperature $T^{-1} & \\
-\end{tabular}
-```
+| **Symbol** | **Variable** | **Value (if constant)** |
+| --- | --- | --- |
+| {math}`g` | Gravitational acceleration | {math}`9.8067\ \mathrm{m\,s^{-2}}` |
+| {math}`R_\mathrm{s}` | Gas constant for dry air | {math}`287.053\ \mathrm{J\,kg^{-1}\, K^{-1}}` |
+| {math}`L` | Average temperature lapse rate | {math}`-6.5 \times 10^{-3}\ \mathrm{K\,m^{-1}}` |
+| {math}`p` | Pressure | |
+| {math}`\rho` | Density | |
+| {math}`h` | Height | |
+| {math}`\Phi` | Geopotential | |
+| {math}`T` | Temperature | |
+| {math}`L_\Phi` | Lapse rate w.r.t. geopotential {math}`L/g` | |
+| {math}`\beta` | Inverse temperature {math}`T^{-1}` | |
 
 ## Physical basis
 
@@ -60,8 +57,8 @@ The relative change of temperature by altitude, when expressed as absolute tempe
 temperature is only {math}`\approx 3.6\%` at {math}`273.15 K = 0~°\mathrm{C}`.
 Therefore, a reasonable first-order approximation is to assume that {math}`T` is
 constant over a short interval and thus, by Eq. {eq}`eq:log_p_deriv`, so is
-{math}`\frac{\mathrm{d}\log p}{\mathrm{d}\Phi}`. Under this approximation, {math}`\log
-p` has constant slope with respect to {math}`\Phi` and the integral
+{math}`\frac{\mathrm{d}\log p}{\mathrm{d}\Phi}`. Under this approximation,
+{math}`\log p` has constant slope with respect to {math}`\Phi` and the integral
 
 ```{math}
 \int_{\Phi_0}^{\Phi}\frac{\mathrm{d}\log p}{\mathrm{d}\Phi} \, \mathrm{d}\Phi
@@ -164,9 +161,9 @@ correction
 ```
 
 where {math}`a` and {math}`b` are chosen empirically to minimize the MSE of the
-approximated surface pressure over one year of ERA5 data. This analysis gives {math}`a =
-3.4257 \times 10^{-5}` and {math}`b = 1.5224`. Equivalently, the value of {math}`b`
-indicates that the optimal assumed lapse rate is {math}`-9.9 \times 10^3 \
-\mathrm{K\,m^{-1}}`$`. This is within the physical range of variability but corresponds
+approximated surface pressure over one year of ERA5 data. This analysis gives
+{math}`a = 3.4257 \times 10^{-5}` and {math}`b = 1.5224`. Equivalently, the value of {math}`b`
+indicates that the optimal assumed lapse rate is
+{math}`-9.9 \times 10^3\ \mathrm{K\,m^{-1}}`. This is within the physical range of variability but corresponds
 to a highly unstable atmosphere. Therefore it seems that the correction also compensates
 some other errors besides that due to varying temperature.
