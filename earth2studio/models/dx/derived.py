@@ -403,12 +403,13 @@ class DerivedSurfacePressure(torch.nn.Module):
 
     Note
     ----
-    TODO: add link here for description of the method
+    A more detailed description of the method is available at
+    https://nvidia.github.io/earth2studio/userguide/notes/surface_pressure.md.
 
     Parameters
     ----------
     p_levels : list[int]
-        Pressure levels (jPa) that are used as input for the surface pressure
+        Pressure levels (hPa) that are used as input for the surface pressure
         interpolation. At least 2 levels are needed. They must be ordered from
         highest to lowest pressure.
     temperature_correction : bool, optional, default True
