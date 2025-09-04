@@ -377,6 +377,7 @@
 <li class="toctree-l2"><a class="reference internal" href="generated/models/px/earth2studio.models.px.AIFS.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.AIFS</a></li>
 <li class="toctree-l2"><a class="reference internal" href="generated/models/px/earth2studio.models.px.Aurora.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.Aurora</a></li>
 <li class="toctree-l2"><a class="reference internal" href="generated/models/px/earth2studio.models.px.CBottleVideo.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.CBottleVideo</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generated/models/px/earth2studio.models.px.DiagnosticWrapper.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.DiagnosticWrapper</a></li>
 <li class="toctree-l2"><a class="reference internal" href="generated/models/px/earth2studio.models.px.DLESyM.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.DLESyM</a></li>
 <li class="toctree-l2"><a class="reference internal" href="generated/models/px/earth2studio.models.px.DLESyMLatLon.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.DLESyMLatLon</a></li>
 <li class="toctree-l2"><a class="reference internal" href="generated/models/px/earth2studio.models.px.DLWP.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.DLWP</a></li>
@@ -402,6 +403,7 @@
 <li class="toctree-l2"><a class="reference internal" href="generated/models/dx/earth2studio.models.dx.DerivedRHDewpoint.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.dx</span></code>.DerivedRHDewpoint</a></li>
 <li class="toctree-l2"><a class="reference internal" href="generated/models/dx/earth2studio.models.dx.DerivedVPD.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.dx</span></code>.DerivedVPD</a></li>
 <li class="toctree-l2"><a class="reference internal" href="generated/models/dx/earth2studio.models.dx.DerivedWS.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.dx</span></code>.DerivedWS</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generated/models/dx/earth2studio.models.dx.DerivedSurfacePressure.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.dx</span></code>.DerivedSurfacePressure</a></li>
 <li class="toctree-l2"><a class="reference internal" href="generated/models/dx/earth2studio.models.dx.PrecipitationAFNO.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.dx</span></code>.PrecipitationAFNO</a></li>
 <li class="toctree-l2"><a class="reference internal" href="generated/models/dx/earth2studio.models.dx.PrecipitationAFNOv2.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.dx</span></code>.PrecipitationAFNOv2</a></li>
 <li class="toctree-l2"><a class="reference internal" href="generated/models/dx/earth2studio.models.dx.SolarRadiationAFNO1H.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.dx</span></code>.SolarRadiationAFNO1H</a></li>
@@ -577,52 +579,55 @@ prior to use.</p>
 <tr class="row-odd"><td><p><a class="reference internal" href="generated/models/px/earth2studio.models.px.CBottleVideo.html#earth2studio.models.px.CBottleVideo" title="earth2studio.models.px.CBottleVideo"><code class="xref py py-obj docutils literal notranslate"><span class="pre">CBottleVideo</span></code></a></p></td>
 <td><p>Climate in a bottle video prognostic Climate in a Bottle (cBottle) is an AI model for emulating global km-scale climate simulations and reanalysis on the equal-area HEALPix grid.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="generated/models/px/earth2studio.models.px.DLESyM.html#earth2studio.models.px.DLESyM" title="earth2studio.models.px.DLESyM"><code class="xref py py-obj docutils literal notranslate"><span class="pre">DLESyM</span></code></a></p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/models/px/earth2studio.models.px.DiagnosticWrapper.html#earth2studio.models.px.DiagnosticWrapper" title="earth2studio.models.px.DiagnosticWrapper"><code class="xref py py-obj docutils literal notranslate"><span class="pre">DiagnosticWrapper</span></code></a></p></td>
+<td><p>Wraps a prognostic model and one or more diagnostic models into a single prognostic model.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/models/px/earth2studio.models.px.DLESyM.html#earth2studio.models.px.DLESyM" title="earth2studio.models.px.DLESyM"><code class="xref py py-obj docutils literal notranslate"><span class="pre">DLESyM</span></code></a></p></td>
 <td><p>DLESyM-V1-ERA5 prognostic model.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="generated/models/px/earth2studio.models.px.DLESyMLatLon.html#earth2studio.models.px.DLESyMLatLon" title="earth2studio.models.px.DLESyMLatLon"><code class="xref py py-obj docutils literal notranslate"><span class="pre">DLESyMLatLon</span></code></a></p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/models/px/earth2studio.models.px.DLESyMLatLon.html#earth2studio.models.px.DLESyMLatLon" title="earth2studio.models.px.DLESyMLatLon"><code class="xref py py-obj docutils literal notranslate"><span class="pre">DLESyMLatLon</span></code></a></p></td>
 <td><p>DLESyM prognostic model supporting lat/lon input and output coordinates.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="generated/models/px/earth2studio.models.px.DLWP.html#earth2studio.models.px.DLWP" title="earth2studio.models.px.DLWP"><code class="xref py py-obj docutils literal notranslate"><span class="pre">DLWP</span></code></a></p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/models/px/earth2studio.models.px.DLWP.html#earth2studio.models.px.DLWP" title="earth2studio.models.px.DLWP"><code class="xref py py-obj docutils literal notranslate"><span class="pre">DLWP</span></code></a></p></td>
 <td><p>Deep learning weather prediction (DLWP)  prognostic model.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="generated/models/px/earth2studio.models.px.FCN.html#earth2studio.models.px.FCN" title="earth2studio.models.px.FCN"><code class="xref py py-obj docutils literal notranslate"><span class="pre">FCN</span></code></a></p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/models/px/earth2studio.models.px.FCN.html#earth2studio.models.px.FCN" title="earth2studio.models.px.FCN"><code class="xref py py-obj docutils literal notranslate"><span class="pre">FCN</span></code></a></p></td>
 <td><p>FourCastNet global prognostic model.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="generated/models/px/earth2studio.models.px.FCN3.html#earth2studio.models.px.FCN3" title="earth2studio.models.px.FCN3"><code class="xref py py-obj docutils literal notranslate"><span class="pre">FCN3</span></code></a></p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/models/px/earth2studio.models.px.FCN3.html#earth2studio.models.px.FCN3" title="earth2studio.models.px.FCN3"><code class="xref py py-obj docutils literal notranslate"><span class="pre">FCN3</span></code></a></p></td>
 <td><p>FourCastNet 3 advances global weather modeling by implementing a scalable, geometric machine learning (ML) approach to probabilistic ensemble forecasting.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="generated/models/px/earth2studio.models.px.FengWu.html#earth2studio.models.px.FengWu" title="earth2studio.models.px.FengWu"><code class="xref py py-obj docutils literal notranslate"><span class="pre">FengWu</span></code></a></p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/models/px/earth2studio.models.px.FengWu.html#earth2studio.models.px.FengWu" title="earth2studio.models.px.FengWu"><code class="xref py py-obj docutils literal notranslate"><span class="pre">FengWu</span></code></a></p></td>
 <td><p>FengWu (operational) weather model consists of single auto-regressive model with a time-step size of 6 hours.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="generated/models/px/earth2studio.models.px.FuXi.html#earth2studio.models.px.FuXi" title="earth2studio.models.px.FuXi"><code class="xref py py-obj docutils literal notranslate"><span class="pre">FuXi</span></code></a></p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/models/px/earth2studio.models.px.FuXi.html#earth2studio.models.px.FuXi" title="earth2studio.models.px.FuXi"><code class="xref py py-obj docutils literal notranslate"><span class="pre">FuXi</span></code></a></p></td>
 <td><p>FuXi weather model consists of three auto-regressive U-net transfomer models with a time-step size of 6 hours.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="generated/models/px/earth2studio.models.px.GraphCastOperational.html#earth2studio.models.px.GraphCastOperational" title="earth2studio.models.px.GraphCastOperational"><code class="xref py py-obj docutils literal notranslate"><span class="pre">GraphCastOperational</span></code></a></p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/models/px/earth2studio.models.px.GraphCastOperational.html#earth2studio.models.px.GraphCastOperational" title="earth2studio.models.px.GraphCastOperational"><code class="xref py py-obj docutils literal notranslate"><span class="pre">GraphCastOperational</span></code></a></p></td>
 <td><p>GraphCast operational model</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="generated/models/px/earth2studio.models.px.GraphCastSmall.html#earth2studio.models.px.GraphCastSmall" title="earth2studio.models.px.GraphCastSmall"><code class="xref py py-obj docutils literal notranslate"><span class="pre">GraphCastSmall</span></code></a></p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/models/px/earth2studio.models.px.GraphCastSmall.html#earth2studio.models.px.GraphCastSmall" title="earth2studio.models.px.GraphCastSmall"><code class="xref py py-obj docutils literal notranslate"><span class="pre">GraphCastSmall</span></code></a></p></td>
 <td><p>GraphCast Small 1.0 degree model</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="generated/models/px/earth2studio.models.px.InterpModAFNO.html#earth2studio.models.px.InterpModAFNO" title="earth2studio.models.px.InterpModAFNO"><code class="xref py py-obj docutils literal notranslate"><span class="pre">InterpModAFNO</span></code></a></p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/models/px/earth2studio.models.px.InterpModAFNO.html#earth2studio.models.px.InterpModAFNO" title="earth2studio.models.px.InterpModAFNO"><code class="xref py py-obj docutils literal notranslate"><span class="pre">InterpModAFNO</span></code></a></p></td>
 <td><p>ModAFNO interpolation for global prognostic models.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="generated/models/px/earth2studio.models.px.Pangu24.html#earth2studio.models.px.Pangu24" title="earth2studio.models.px.Pangu24"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Pangu24</span></code></a></p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/models/px/earth2studio.models.px.Pangu24.html#earth2studio.models.px.Pangu24" title="earth2studio.models.px.Pangu24"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Pangu24</span></code></a></p></td>
 <td><p>Pangu Weather 24 hour model.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="generated/models/px/earth2studio.models.px.Pangu6.html#earth2studio.models.px.Pangu6" title="earth2studio.models.px.Pangu6"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Pangu6</span></code></a></p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/models/px/earth2studio.models.px.Pangu6.html#earth2studio.models.px.Pangu6" title="earth2studio.models.px.Pangu6"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Pangu6</span></code></a></p></td>
 <td><p>Pangu Weather 6 hour model.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="generated/models/px/earth2studio.models.px.Pangu3.html#earth2studio.models.px.Pangu3" title="earth2studio.models.px.Pangu3"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Pangu3</span></code></a></p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/models/px/earth2studio.models.px.Pangu3.html#earth2studio.models.px.Pangu3" title="earth2studio.models.px.Pangu3"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Pangu3</span></code></a></p></td>
 <td><p>Pangu Weather 3 hour model.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="generated/models/px/earth2studio.models.px.Persistence.html#earth2studio.models.px.Persistence" title="earth2studio.models.px.Persistence"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Persistence</span></code></a></p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/models/px/earth2studio.models.px.Persistence.html#earth2studio.models.px.Persistence" title="earth2studio.models.px.Persistence"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Persistence</span></code></a></p></td>
 <td><p>Persistence model that generates a forecast by applying the identity operator on the initial condition and indexing the lead time by 6 hours.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="generated/models/px/earth2studio.models.px.SFNO.html#earth2studio.models.px.SFNO" title="earth2studio.models.px.SFNO"><code class="xref py py-obj docutils literal notranslate"><span class="pre">SFNO</span></code></a></p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/models/px/earth2studio.models.px.SFNO.html#earth2studio.models.px.SFNO" title="earth2studio.models.px.SFNO"><code class="xref py py-obj docutils literal notranslate"><span class="pre">SFNO</span></code></a></p></td>
 <td><p>Spherical Fourier Operator Network global prognostic model.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="generated/models/px/earth2studio.models.px.StormCast.html#earth2studio.models.px.StormCast" title="earth2studio.models.px.StormCast"><code class="xref py py-obj docutils literal notranslate"><span class="pre">StormCast</span></code></a></p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/models/px/earth2studio.models.px.StormCast.html#earth2studio.models.px.StormCast" title="earth2studio.models.px.StormCast"><code class="xref py py-obj docutils literal notranslate"><span class="pre">StormCast</span></code></a></p></td>
 <td><p>StormCast generative convection-allowing model for regional forecasts consists of two core models: a regression and diffusion model.</p></td>
 </tr>
 </tbody>
@@ -670,28 +675,31 @@ prior to use.</p>
 <tr class="row-odd"><td><p><a class="reference internal" href="generated/models/dx/earth2studio.models.dx.DerivedWS.html#earth2studio.models.dx.DerivedWS" title="earth2studio.models.dx.DerivedWS"><code class="xref py py-obj docutils literal notranslate"><span class="pre">DerivedWS</span></code></a></p></td>
 <td><p>Calculates the Wind Speed (WS) magnitude from eastward and northward wind components for specified levels.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="generated/models/dx/earth2studio.models.dx.PrecipitationAFNO.html#earth2studio.models.dx.PrecipitationAFNO" title="earth2studio.models.dx.PrecipitationAFNO"><code class="xref py py-obj docutils literal notranslate"><span class="pre">PrecipitationAFNO</span></code></a></p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/models/dx/earth2studio.models.dx.DerivedSurfacePressure.html#earth2studio.models.dx.DerivedSurfacePressure" title="earth2studio.models.dx.DerivedSurfacePressure"><code class="xref py py-obj docutils literal notranslate"><span class="pre">DerivedSurfacePressure</span></code></a></p></td>
+<td><p>Interpolates the surface pressure in hPa from pressure level geopotential, surface geopotential and optionally temperature.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/models/dx/earth2studio.models.dx.PrecipitationAFNO.html#earth2studio.models.dx.PrecipitationAFNO" title="earth2studio.models.dx.PrecipitationAFNO"><code class="xref py py-obj docutils literal notranslate"><span class="pre">PrecipitationAFNO</span></code></a></p></td>
 <td><p>Precipitation AFNO diagnsotic model.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="generated/models/dx/earth2studio.models.dx.PrecipitationAFNOv2.html#earth2studio.models.dx.PrecipitationAFNOv2" title="earth2studio.models.dx.PrecipitationAFNOv2"><code class="xref py py-obj docutils literal notranslate"><span class="pre">PrecipitationAFNOv2</span></code></a></p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/models/dx/earth2studio.models.dx.PrecipitationAFNOv2.html#earth2studio.models.dx.PrecipitationAFNOv2" title="earth2studio.models.dx.PrecipitationAFNOv2"><code class="xref py py-obj docutils literal notranslate"><span class="pre">PrecipitationAFNOv2</span></code></a></p></td>
 <td><p>Improved Precipitation AFNO diagnostic model.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="generated/models/dx/earth2studio.models.dx.SolarRadiationAFNO1H.html#earth2studio.models.dx.SolarRadiationAFNO1H" title="earth2studio.models.dx.SolarRadiationAFNO1H"><code class="xref py py-obj docutils literal notranslate"><span class="pre">SolarRadiationAFNO1H</span></code></a></p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/models/dx/earth2studio.models.dx.SolarRadiationAFNO1H.html#earth2studio.models.dx.SolarRadiationAFNO1H" title="earth2studio.models.dx.SolarRadiationAFNO1H"><code class="xref py py-obj docutils literal notranslate"><span class="pre">SolarRadiationAFNO1H</span></code></a></p></td>
 <td><p>Solar Radiation AFNO diagnostic model for 1-hour frequency predictions.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="generated/models/dx/earth2studio.models.dx.SolarRadiationAFNO6H.html#earth2studio.models.dx.SolarRadiationAFNO6H" title="earth2studio.models.dx.SolarRadiationAFNO6H"><code class="xref py py-obj docutils literal notranslate"><span class="pre">SolarRadiationAFNO6H</span></code></a></p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/models/dx/earth2studio.models.dx.SolarRadiationAFNO6H.html#earth2studio.models.dx.SolarRadiationAFNO6H" title="earth2studio.models.dx.SolarRadiationAFNO6H"><code class="xref py py-obj docutils literal notranslate"><span class="pre">SolarRadiationAFNO6H</span></code></a></p></td>
 <td><p>Solar Radiation AFNO diagnostic model for 6-hour frequency predictions.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="generated/models/dx/earth2studio.models.dx.TCTrackerWuDuan.html#earth2studio.models.dx.TCTrackerWuDuan" title="earth2studio.models.dx.TCTrackerWuDuan"><code class="xref py py-obj docutils literal notranslate"><span class="pre">TCTrackerWuDuan</span></code></a></p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/models/dx/earth2studio.models.dx.TCTrackerWuDuan.html#earth2studio.models.dx.TCTrackerWuDuan" title="earth2studio.models.dx.TCTrackerWuDuan"><code class="xref py py-obj docutils literal notranslate"><span class="pre">TCTrackerWuDuan</span></code></a></p></td>
 <td><p>Finds a list of tropical cyclone (TC) centers using an adaption of the method described in the conditions in Wu and Duan 2023.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="generated/models/dx/earth2studio.models.dx.TCTrackerVitart.html#earth2studio.models.dx.TCTrackerVitart" title="earth2studio.models.dx.TCTrackerVitart"><code class="xref py py-obj docutils literal notranslate"><span class="pre">TCTrackerVitart</span></code></a></p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/models/dx/earth2studio.models.dx.TCTrackerVitart.html#earth2studio.models.dx.TCTrackerVitart" title="earth2studio.models.dx.TCTrackerVitart"><code class="xref py py-obj docutils literal notranslate"><span class="pre">TCTrackerVitart</span></code></a></p></td>
 <td><p>Finds a list of tropical cyclone centers using the conditions in Vitart 1997</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="generated/models/dx/earth2studio.models.dx.WindgustAFNO.html#earth2studio.models.dx.WindgustAFNO" title="earth2studio.models.dx.WindgustAFNO"><code class="xref py py-obj docutils literal notranslate"><span class="pre">WindgustAFNO</span></code></a></p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/models/dx/earth2studio.models.dx.WindgustAFNO.html#earth2studio.models.dx.WindgustAFNO" title="earth2studio.models.dx.WindgustAFNO"><code class="xref py py-obj docutils literal notranslate"><span class="pre">WindgustAFNO</span></code></a></p></td>
 <td><p>Wind gust AFNO diagnsotic model.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="generated/models/dx/earth2studio.models.dx.Identity.html#earth2studio.models.dx.Identity" title="earth2studio.models.dx.Identity"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Identity</span></code></a></p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/models/dx/earth2studio.models.dx.Identity.html#earth2studio.models.dx.Identity" title="earth2studio.models.dx.Identity"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Identity</span></code></a></p></td>
 <td><p>Identity diagnostic that is coordinate insensitive.</p></td>
 </tr>
 </tbody>

@@ -557,7 +557,7 @@
                 <span class="bp">self</span><span class="o">.</span><span class="n">root</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">(</span>
                     <span class="n">data</span><span class="o">=</span><span class="n">coords</span><span class="p">[</span><span class="n">k</span><span class="p">],</span>
                     <span class="n">dims</span><span class="o">=</span><span class="n">mapping</span><span class="p">[</span><span class="n">k</span><span class="p">],</span>
-                    <span class="n">coords</span><span class="o">=</span><span class="p">{</span><span class="n">adjusted_coords</span><span class="p">[</span><span class="n">ki</span><span class="p">]</span> <span class="k">for</span> <span class="n">ki</span> <span class="ow">in</span> <span class="n">mapping</span><span class="p">[</span><span class="n">k</span><span class="p">]},</span>
+                    <span class="n">coords</span><span class="o">=</span><span class="p">{</span><span class="n">ki</span><span class="p">:</span> <span class="n">adjusted_coords</span><span class="p">[</span><span class="n">ki</span><span class="p">]</span> <span class="k">for</span> <span class="n">ki</span> <span class="ow">in</span> <span class="n">mapping</span><span class="p">[</span><span class="n">k</span><span class="p">]},</span>
                     <span class="o">**</span><span class="n">xr_kwargs</span><span class="p">,</span>
                 <span class="p">)</span>
 
