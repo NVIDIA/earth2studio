@@ -20,7 +20,14 @@ import numpy as np
 import pytest
 import torch
 
-from earth2studio.models.dx import DerivedRH, DerivedRHDewpoint, DerivedVPD, DerivedWS
+from earth2studio.models.dx import (
+    DerivedRH,
+    DerivedRHDewpoint,
+    DerivedSurfacePressure,
+    DerivedVPD,
+    DerivedWS,
+)
+from earth2studio.utils.coords import map_coords
 
 
 @pytest.mark.parametrize(
@@ -372,3 +379,61 @@ def test_derived_vpd_invalid_coords(invalid_coords):
 
     with pytest.raises(ValueError):
         model(x, invalid_coords)
+
+
+@pytest.mark.parametrize(
+    "z_surf_constant,temperature_correction,sp_correct",
+    [
+        (0.0, True, 1000e2),
+        (1000.0, True, 900e2),
+        (500.0, False, np.exp(0.5 * (np.log(1000e2) + np.log(900e2)))),
+    ],
+)
+@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+def test_derived_surface_pressure(
+    device: str, z_surf_constant: float, temperature_correction: bool, sp_correct: float
+) -> None:
+    shape = (8, 16)
+    z_surface = torch.full(shape, z_surf_constant, device=device)
+    z_surf_coords = OrderedDict(
+        lat=np.linspace(40, 50, shape[0]), lon=np.linspace(50, 70, shape[1])
+    )
+
+    sp_model = DerivedSurfacePressure(
+        p_levels=[900, 1000],
+        surface_geopotential=z_surface,
+        surface_geopotential_coords=z_surf_coords,
+        temperature_correction=temperature_correction,
+        corr_adjustment=(0.0, 1.0),  # needed to verify theoretical results
+    )
+    sp_model.to(device)
+
+    z_levels = torch.empty((2, 2, *shape), device=device)
+    z_levels[:, 0, :, :] = 1000
+    z_levels[:, 1, :, :] = 0
+    t_levels = torch.full_like(z_levels, 288.15)
+
+    x_in = torch.concat([z_levels, t_levels], dim=1)
+    coords_in = OrderedDict(
+        batch=np.array([0, 1]),
+        variable=np.array(["z900", "z1000", "t900", "t1000"]),
+        lat=z_surf_coords["lat"],
+        lon=z_surf_coords["lon"],
+    )
+
+    (x_mapped, coords_mapped) = map_coords(x_in, coords_in, sp_model.input_coords())
+    (x_out, coords_out) = sp_model(x_mapped, coords_mapped)
+
+    # check shapes
+    assert x_in.ndim == x_out.ndim
+    for i, dim in enumerate(coords_out):
+        if dim == "variable":
+            continue
+        assert x_in.shape[i] == x_out.shape[i]
+        assert (coords_in[dim] == coords_out[dim]).all()
+    assert (coords_out["variable"] == np.array(["sp"])).all()
+    variable_dim = list(coords_out).index("variable")
+    assert x_out.shape[variable_dim] == 1
+
+    # check that we get analytic solution
+    assert (x_out - sp_correct).abs().max() / sp_correct < 1e-4
