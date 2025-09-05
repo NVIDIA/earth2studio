@@ -132,7 +132,7 @@ VARIABLES = [
     "slor",
     "sp",
     "tcw",
-    "zsl",
+    "z",
     "stl1",
     "stl2",
     "swvl1",
