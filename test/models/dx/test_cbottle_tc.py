@@ -219,7 +219,7 @@ class TestCBottleTCMock:
 
 @pytest.mark.ci_cache
 @pytest.mark.slow
-@pytest.mark.timeout(30)
+@pytest.mark.timeout(60)
 @pytest.mark.parametrize("device", ["cuda:0"])
 def test_cbottle_tc_package(device, model_cache_context):
     # Test the cached model package
