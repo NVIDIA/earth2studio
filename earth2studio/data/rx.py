@@ -206,7 +206,7 @@ class SurfaceGeoPotential(ARCORxBase):
 
     def __init__(self, cache: bool = True, verbose: bool = True):
         super().__init__(
-            id="zsl",
+            id="z",
             arco_id="geopotential_at_surface",
             cache=cache,
             verbose=verbose,
@@ -215,7 +215,7 @@ class SurfaceGeoPotential(ARCORxBase):
     def __call__(
         self,
         time: datetime | list[datetime] | TimeArray,
-        variable: str | list[str] | VariableArray = "zsl",
+        variable: str | list[str] | VariableArray = "z",
     ) -> xr.DataArray:
         """Fetch ARCO orography field
 
@@ -224,7 +224,7 @@ class SurfaceGeoPotential(ARCORxBase):
         time : datetime | list[datetime] | TimeArray
             Preciptive variable will be repeated for each time.
         variable : str | list[str] | VariableArray, optional
-            Not relevant for this data-source, by default "zsl"
+            Not relevant for this data-source, by default "z"
 
         Returns
         -------
