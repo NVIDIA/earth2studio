@@ -38,14 +38,15 @@ from earth2studio.utils.type import TimeArray, VariableArray
 
 
 class JPSS:
-    """JPSS VIIRS SDR (I and M bands) data source for NOAA-20, NOAA-21, and Suomi-NPP.
+    """JPSS VIIRS data source for NOAA-20, NOAA-21, and Suomi-NPP supporting both SDR (L1) and EDR (L2) products.
 
     Parameters
     ----------
     satellite : str, optional
         One of {"noaa-20", "noaa-21", "snpp"}. Default "noaa-20".
     band_type : str, optional
-        Band resolution type: "I" for imagery bands (375m) or "M" for moderate bands (750m). Default "I".
+        Band resolution type: "I" for imagery bands (375m), "M" for moderate bands (750m), 
+        or "L2" for Level 2 EDR products. Default "I".
     max_workers : int, optional
         Maximum concurrent fetch tasks. Default 24.
     cache : bool, optional
@@ -58,14 +59,21 @@ class JPSS:
     Note
     ----
     The returned data automatically includes '_lat' and '_lon' variables containing
-    latitude and longitude coordinates for each pixel. All requested variables must
-    be of the same band type (I or M) to ensure consistent spatial resolution.
+    latitude and longitude coordinates for each pixel. 
     
-    - I-bands: 3200 x 5424 pixels (375m resolution)
+    For SDR products, all requested variables must be of the same band type (I or M) 
+    to ensure consistent spatial resolution:
+    - I-bands: 1536 x 6400 pixels (375m resolution)
     - M-bands: 1600 x 2712 pixels (750m resolution)
     
-    Currently only "Radiance" data is extracted from VIIRS SDR files. Future versions
-    may add support for "Reflectance" data for applicable bands.
+    For EDR (L2) products, spatial resolution varies by product type but is typically
+    at 375m or 750m resolution. L2 products include:
+    - Land Surface Temperature, Surface Albedo, Snow Cover
+    - Surface Reflectance, Active Fire Detection
+    - Cloud properties (mask, phase, height, optical thickness)
+    - Aerosol detection and Volcanic ash products
+    
+    Mixed L1/L2 requests are supported but must have compatible spatial resolutions.
     """
 
     BASE_URL = "s3://{bucket}/{product}/{year:04d}/{month:02d}/{day:02d}/"
@@ -75,13 +83,14 @@ class JPSS:
         "snpp": "noaa-nesdis-snpp-pds",
     }
     VALID_SATELLITES = ["noaa-20", "noaa-21", "snpp"]
-    VALID_BAND_TYPES = ["I", "M"]
+    VALID_BAND_TYPES = ["I", "M", "L2"]
     
     # VIIRS band dimensions (standard granule sizes)
-    # I-bands: 375m resolution, M-bands: 750m resolution
+    # I-bands: 375m resolution, M-bands: 750m resolution, L2: varies by product
     BAND_DIMENSIONS = {
-        "I": (1536, 6400),  # I-bands: ~3200 x 5424 pixels
+        "I": (1536, 6400),  # I-bands: 1536 x 6400 pixels
         "M": (1600, 2712),  # M-bands: ~1600 x 2712 pixels (half resolution)
+        "L2": (1600, 2712),  # L2 EDR products: typically M-band resolution (varies by product)
     }
 
     def __init__(
@@ -184,8 +193,8 @@ class JPSS:
         # Prepare data inputs
         time, variable = prep_data_inputs(time, variable)
 
-        # Validate band types before fetching data
-        self._validate_band_types(variable)
+        # Validate product types before fetching data
+        self._validate_product_types(variable)
 
         # Create cache directory if it doesn't exist
         pathlib.Path(self.cache).mkdir(parents=True, exist_ok=True)
@@ -195,8 +204,13 @@ class JPSS:
 
         session = await self.fs.set_session()
 
-        # Use fixed dimensions based on band type
-        y_size, x_size = self.BAND_DIMENSIONS[self._band_type]
+        # Determine array dimensions
+        if self._band_type in ["I", "M"]:
+            # Use fixed dimensions for SDR products
+            y_size, x_size = self.BAND_DIMENSIONS[self._band_type]
+        else:
+            # For L2 products, determine dimensions dynamically from first file
+            y_size, x_size = await self._get_l2_dimensions(time[0], variable[0])
         
         # Create array with extended variables (original + lat + lon)
         xr_array = xr.DataArray(
@@ -236,7 +250,14 @@ class JPSS:
         data_out = await self.fetch_array(time=e[1], variable=e[2])
         
         # Fetch geolocation data (lat/lon)
-        lat, lon = await self._fetch_geolocation_for_band_type(time=e[1])
+        try:
+            lat, lon = await self._fetch_geolocation_data(time=e[1], variables=e[2])
+        except Exception as ex:
+            logger.warning(f"Could not fetch geolocation data: {ex}, using dummy coordinates")
+            # Create dummy lat/lon arrays matching data dimensions
+            y_size, x_size = data_out.shape[-2:]
+            lat = np.full((y_size, x_size), np.nan, dtype=np.float32)
+            lon = np.full((y_size, x_size), np.nan, dtype=np.float32)
         
         # Combine data and geolocation
         combined_out = np.concatenate([data_out, np.expand_dims(lat, axis=0), np.expand_dims(lon, axis=0)], axis=0)
@@ -284,21 +305,76 @@ class JPSS:
         for _, product_code, dataset_name, modifier in mappings:
             # Find file path on S3 for this time and product
             s3_uri = await self._get_s3_path(time=time, product_code=product_code)
+            logger.debug(f"S3 URI: {s3_uri}")
             local_file = await self._fetch_remote_file(s3_uri)
+            logger.debug(f"Local cached file: {local_file}")
 
-            # Read the dataset from HDF5
-            with h5py.File(local_file, "r") as h5:
-                # Get dataset from HDF5 file
-                ds = self._find_dataset(h5, dataset_name)
-                data = ds[...]
-                
-                # Filter VIIRS fill values BEFORE converting to float32 to preserve original dtype
-                filtered_data = self._filter_fill_values(data, ds)
-                
-                # Apply modifier and convert to float32 for consistency
-                processed_data = np.asarray(modifier(filtered_data), dtype=np.float32)
-                
-                arrays.append(processed_data)
+            # Read the dataset based on file format
+            logger.debug(f"Processing file: {local_file}")
+            # Check the original S3 URI for file extension since local files are cached without extension
+            is_netcdf = s3_uri.endswith('.nc')
+            logger.debug(f"File extension check: S3 URI ends with .nc = {is_netcdf}")
+            if is_netcdf:
+                logger.debug(f"Processing as NetCDF file")
+                # NetCDF file - use xarray
+                try:
+                    with xr.open_dataset(local_file) as ds:
+                        available_vars = list(ds.data_vars.keys())
+                        logger.debug(f"NetCDF variables: {available_vars}")
+                        
+                        # Get dataset from NetCDF file
+                        if dataset_name in ds.data_vars:
+                            data = ds[dataset_name].values
+                            logger.debug(f"Found exact dataset: {dataset_name}")
+                        else:
+                            # Try to find a similar dataset name
+                            logger.warning(f"Dataset {dataset_name} not found in NetCDF file. Available: {available_vars}")
+                            # For LST, try common names
+                            if 'LST' in dataset_name:
+                                possible_names = [v for v in available_vars if 'LST' in v.upper() or 'TEMP' in v.upper()]
+                                if possible_names:
+                                    data = ds[possible_names[0]].values
+                                    logger.info(f"Using {possible_names[0]} instead of {dataset_name}")
+                                else:
+                                    # Try any 2D variable as fallback
+                                    for var_name in available_vars:
+                                        var_data = ds[var_name]
+                                        if len(var_data.shape) == 2:
+                                            data = var_data.values
+                                            logger.info(f"Using 2D variable {var_name} as fallback for {dataset_name}")
+                                            break
+                                    else:
+                                        raise KeyError(f"Could not find any suitable dataset in {available_vars}")
+                            else:
+                                raise KeyError(f"Dataset {dataset_name} not found in NetCDF file")
+                        
+                        # Apply modifier and convert to float32 for consistency
+                        processed_data = np.asarray(modifier(data), dtype=np.float32)
+                        arrays.append(processed_data)
+                except Exception as e:
+                    logger.error(f"Error processing NetCDF file {local_file}: {e}")
+                    raise
+            else:
+                logger.debug(f"Processing as HDF5 file")
+                # HDF5 file - use h5py
+                try:
+                    with h5py.File(local_file, "r") as h5:
+                        # Get dataset from HDF5 file
+                        ds = self._find_dataset(h5, dataset_name)
+                        if ds is None:
+                            raise KeyError(f"Dataset {dataset_name} not found in HDF5 file")
+                        data = ds[...]
+                        
+                        # Filter VIIRS fill values BEFORE converting to float32 to preserve original dtype
+                        filtered_data = self._filter_fill_values(data, ds)
+                        
+                        # Apply modifier and convert to float32 for consistency
+                        processed_data = np.asarray(modifier(filtered_data), dtype=np.float32)
+                        
+                        arrays.append(processed_data)
+                except Exception as e:
+                    logger.error(f"Error processing HDF5 file {local_file}: {e}")
+                    raise
 
         out = np.stack(arrays, axis=0)
         
@@ -387,8 +463,78 @@ class JPSS:
         
         return filtered_data
 
-    def _validate_band_types(self, variables: list[str]) -> None:
-        """Validate that all requested variables match the configured band type.
+    async def _get_l2_dimensions(self, time: datetime, variable: str) -> tuple[int, int]:
+        """Determine dimensions for L2 products by examining the first available file.
+        
+        Parameters
+        ----------
+        time : datetime
+            Time to get data for
+        variable : str
+            Variable name to examine
+            
+        Returns
+        -------
+        tuple[int, int]
+            (y_size, x_size) dimensions
+        """
+        # Get the product information for this variable
+        product_identifier, _ = JPSSLexicon[variable]
+        product_code, dataset_name = product_identifier.split("/")
+        
+        # Get a sample file to determine dimensions
+        try:
+            s3_uri = await self._get_s3_path(time=time, product_code=product_code)
+            local_file = await self._fetch_remote_file(s3_uri)
+            
+            # Check the original S3 URI for file extension since local files are cached without extension
+            if s3_uri.endswith('.nc'):
+                # NetCDF file - use xarray
+                with xr.open_dataset(local_file) as ds:
+                    # Find the dataset and get its dimensions
+                    if dataset_name in ds.data_vars:
+                        data_array = ds[dataset_name]
+                        if len(data_array.shape) >= 2:
+                            return data_array.shape[-2:]  # Return last two dimensions (y, x)
+                    
+                    # Fallback: look for any 2D data variable
+                    for var_name, data_array in ds.data_vars.items():
+                        if len(data_array.shape) == 2:
+                            return data_array.shape
+                    
+                    # If still no dimensions found, use default L2 dimensions
+                    logger.warning(f"Could not determine dimensions for L2 product {product_code}, using default")
+                    return self.BAND_DIMENSIONS["L2"]
+            else:
+                # HDF5 file - use h5py
+                with h5py.File(local_file, "r") as h5:
+                    # Find the dataset and get its dimensions
+                    ds = self._find_dataset(h5, dataset_name)
+                    if ds is not None and hasattr(ds, 'shape') and len(ds.shape) >= 2:
+                        return ds.shape[-2:]  # Return last two dimensions (y, x)
+                    else:
+                        # Fallback: look for any 2D dataset to get dimensions
+                        def find_2d_dataset(name, obj):
+                            if isinstance(obj, h5py.Dataset) and len(obj.shape) == 2:
+                                return obj.shape
+                            return None
+                        
+                        # Search for any 2D dataset
+                        for name, obj in h5.items():
+                            shape = find_2d_dataset(name, obj)
+                            if shape:
+                                return shape
+                        
+                        # If still no dimensions found, use default L2 dimensions
+                        logger.warning(f"Could not determine dimensions for L2 product {product_code}, using default")
+                        return self.BAND_DIMENSIONS["L2"]
+                    
+        except Exception as e:
+            logger.warning(f"Error determining L2 dimensions for {variable}: {e}, using default")
+            return self.BAND_DIMENSIONS["L2"]
+
+    def _validate_product_types(self, variables: list[str]) -> None:
+        """Validate that requested variables are compatible with the configured product type.
         
         Parameters
         ----------
@@ -398,44 +544,146 @@ class JPSS:
         Raises
         ------
         ValueError
-            If any variable doesn't match the configured band type or has invalid format
+            If variables have incompatible product types or invalid format
         """
-        mismatched_vars = []
-        invalid_format_vars = []
+        unknown_vars = []
+        var_types = []
         
         for var in variables:
-            # Extract band type from variable name (viirs1i -> I, viirs5m -> M)
-            if var.startswith("viirs") and var.endswith("i"):
-                var_band_type = "I"
-            elif var.startswith("viirs") and var.endswith("m"):
-                var_band_type = "M"
-            else:
-                invalid_format_vars.append(var)
+            # Check if variable exists in lexicon
+            if var not in JPSSLexicon.VOCAB:
+                unknown_vars.append(var)
                 continue
-            
-            if var_band_type != self._band_type:
-                mismatched_vars.append((var, var_band_type))
+                
+            # Determine variable type
+            if var.startswith("viirs") and var.endswith("i"):
+                var_types.append(("I", var))
+            elif var.startswith("viirs") and var.endswith("m"):
+                var_types.append(("M", var))
+            elif var.startswith("viirs_"):
+                var_types.append(("L2", var))
+            else:
+                # Handle any other patterns that might be added in the future
+                var_types.append(("UNKNOWN", var))
         
-        # Raise descriptive errors
-        if invalid_format_vars:
+        # Raise error for unknown variables
+        if unknown_vars:
             raise ValueError(
-                f"Invalid VIIRS variable format: {invalid_format_vars}. "
-                f"Expected format: 'viirs{{number}}i' for I-bands or 'viirs{{number}}m' for M-bands"
+                f"Unknown VIIRS variables: {unknown_vars}. "
+                f"Please check the JPSS lexicon for available variables."
             )
         
-        if mismatched_vars:
-            var_list = [f"'{var}' ({band_type}-band)" for var, band_type in mismatched_vars]
-            raise ValueError(
-                f"Band type mismatch: {', '.join(var_list)} cannot be used with this JPSS instance "
-                f"configured for {self._band_type}-bands. Create separate instances for I-bands and M-bands "
-                f"due to different spatial resolutions (I-bands: 375m, M-bands: 750m)."
-            )
+        # Group variables by type
+        i_vars = [var for vtype, var in var_types if vtype == "I"]
+        m_vars = [var for vtype, var in var_types if vtype == "M"] 
+        l2_vars = [var for vtype, var in var_types if vtype == "L2"]
+        unknown_type_vars = [var for vtype, var in var_types if vtype == "UNKNOWN"]
+        
+        if unknown_type_vars:
+            raise ValueError(f"Cannot determine product type for variables: {unknown_type_vars}")
+        
+        # Validate based on configured band_type
+        if self._band_type == "I":
+            if m_vars or l2_vars:
+                mixed_vars = m_vars + l2_vars
+                raise ValueError(
+                    f"Instance configured for I-bands but received incompatible variables: {mixed_vars}. "
+                    f"Use band_type='L2' for mixed I/M/L2 requests or create separate instances."
+                )
+        elif self._band_type == "M":
+            if i_vars or l2_vars:
+                mixed_vars = i_vars + l2_vars
+                raise ValueError(
+                    f"Instance configured for M-bands but received incompatible variables: {mixed_vars}. "
+                    f"Use band_type='L2' for mixed I/M/L2 requests or create separate instances."
+                )
+        elif self._band_type == "L2":
+            # L2 mode allows mixing of I, M, and L2 products
+            # Just warn about potential resolution differences
+            if i_vars and m_vars:
+                logger.warning(
+                    f"Mixing I-band variables {i_vars} with M-band variables {m_vars}. "
+                    f"Note that I-bands (375m) and M-bands (750m) have different resolutions."
+                )
+
+    async def _fetch_geolocation_data(self, time: datetime, variables: list[str]) -> tuple[np.ndarray, np.ndarray]:
+        """Fetch geolocation data for the given variables and time.
+        
+        For L2 products, try to get embedded lat/lon first, then fall back to separate geolocation files.
+        For L1 products, use separate geolocation files.
+        """
+        # Check if any variable is L2
+        has_l2_vars = any(var.startswith("viirs_") for var in variables)
+        
+        if has_l2_vars and self._band_type == "L2":
+            # For L2 products, try to get embedded geolocation first
+            try:
+                return await self._fetch_embedded_geolocation(time, variables[0])
+            except Exception:
+                # Fall back to separate geolocation files
+                logger.debug("Could not fetch embedded geolocation, trying separate geolocation files")
+        
+        # Use separate geolocation files
+        return await self._fetch_geolocation_for_band_type(time)
+
+    async def _fetch_embedded_geolocation(self, time: datetime, variable: str) -> tuple[np.ndarray, np.ndarray]:
+        """Try to fetch lat/lon data embedded in the same L2 file."""
+        # Get the product information for this variable
+        product_identifier, _ = JPSSLexicon[variable]
+        product_code, _ = product_identifier.split("/")
+        
+        # Get the L2 file
+        s3_uri = await self._get_s3_path(time=time, product_code=product_code)
+        local_file = await self._fetch_remote_file(s3_uri)
+        
+        # Check the original S3 URI for file extension since local files are cached without extension
+        if s3_uri.endswith('.nc'):
+            # NetCDF file - look for embedded lat/lon
+            with xr.open_dataset(local_file) as ds:
+                lat_vars = [v for v in ds.data_vars.keys() if 'lat' in v.lower()]
+                lon_vars = [v for v in ds.data_vars.keys() if 'lon' in v.lower()]
+                
+                if lat_vars and lon_vars:
+                    lat = ds[lat_vars[0]].values.astype(np.float32)
+                    lon = ds[lon_vars[0]].values.astype(np.float32)
+                    return lat, lon
+                else:
+                    raise ValueError("No lat/lon variables found in NetCDF file")
+        else:
+            # HDF5 file - look for embedded lat/lon
+            with h5py.File(local_file, "r") as h5:
+                # Try to find latitude and longitude datasets
+                lat_ds = None
+                lon_ds = None
+                
+                def find_geo_datasets(name, obj):
+                    nonlocal lat_ds, lon_ds
+                    if isinstance(obj, h5py.Dataset):
+                        if "latitude" in name.lower() and lat_ds is None:
+                            lat_ds = obj
+                        elif "longitude" in name.lower() and lon_ds is None:
+                            lon_ds = obj
+                
+                h5.visititems(find_geo_datasets)
+                
+                if lat_ds is not None and lon_ds is not None:
+                    lat = np.asarray(lat_ds[...], dtype=np.float32)
+                    lon = np.asarray(lon_ds[...], dtype=np.float32)
+                    return lat, lon
+                else:
+                    raise ValueError("No lat/lon datasets found in HDF5 file")
 
     async def _fetch_geolocation_for_band_type(self, time: datetime) -> tuple[np.ndarray, np.ndarray]:
         """Fetch geolocation data from VIIRS geolocation files."""
         # Determine geolocation product based on band type
         # From S3 exploration: VIIRS-IMG-GEO for I-bands, VIIRS-MOD-GEO for M-bands
-        geo_product = "VIIRS-IMG-GEO" if self._band_type == "I" else "VIIRS-MOD-GEO"
+        # For L2 products, try to use M-band geolocation as default (can be overridden later if needed)
+        if self._band_type == "I":
+            geo_product = "VIIRS-IMG-GEO"
+        elif self._band_type == "M":
+            geo_product = "VIIRS-MOD-GEO"
+        else:  # L2 products
+            geo_product = "VIIRS-MOD-GEO"  # Default to M-band resolution for L2 products
         
         bucket = self.SATELLITE_BUCKETS[self._satellite]
         base_url = self.BASE_URL.format(
@@ -555,32 +803,57 @@ class JPSS:
             for gname, grp in h5["All_Data"].items():
                 if isinstance(grp, h5py.Group) and dataset_name in grp:
                     return grp[dataset_name]
-        ## Fallback: exhaustive search
-        #found = None
-        #def visitor(name, obj):
-        #    nonlocal found
-        #    if found is not None:
-        #        return
-        #    if isinstance(obj, h5py.Dataset) and name.endswith("/" + dataset_name):
-        #        found = obj
-        #h5.visititems(visitor)
-        #if found is not None:
-        #    return found
-        #raise KeyError(f"Dataset {dataset_name} not found in file")
+        
+        # Fallback: exhaustive search
+        found = None
+        def visitor(name, obj):
+            nonlocal found
+            if found is not None:
+                return
+            if isinstance(obj, h5py.Dataset):
+                # Check if dataset name matches exactly or ends with the target name
+                if name.split("/")[-1] == dataset_name or name.endswith("/" + dataset_name):
+                    found = obj
+        
+        h5.visititems(visitor)
+        if found is not None:
+            return found
+        
+        # If still not found, try case-insensitive search for common L2 patterns
+        def case_insensitive_visitor(name, obj):
+            nonlocal found
+            if found is not None:
+                return
+            if isinstance(obj, h5py.Dataset):
+                obj_name = name.split("/")[-1].lower()
+                target_name = dataset_name.lower()
+                if obj_name == target_name or target_name in obj_name:
+                    found = obj
+        
+        h5.visititems(case_insensitive_visitor)
+        if found is not None:
+            return found
+            
+        raise KeyError(f"Dataset {dataset_name} not found in file")
 
     async def _get_s3_path(self, time: datetime, product_code: str) -> str:
-        if self.fs is None:
-            raise ValueError("File system is not initialized")
+        """Get the S3 path for a given time and product code."""
 
+        # Get the bucket for the satellite
         bucket = self.SATELLITE_BUCKETS[self._satellite]
-        # Derive folder name from product code
-        band_num = product_code[-2:]
+
+        # Determine folder name based on product type
         if product_code.startswith("SVI"):
+            # SDR I-band products
+            band_num = product_code[-2:]
             folder = f"VIIRS-I{int(band_num)}-SDR"
         elif product_code.startswith("SVM"):
+            # SDR M-band products
+            band_num = product_code[-2:]
             folder = f"VIIRS-M{int(band_num)}-SDR"
         else:
-            raise ValueError(f"Unrecognized VIIRS product code {product_code}")
+            # L2 EDR products - use the product code as the folder name
+            folder = product_code
 
         base_url = self.BASE_URL.format(
             bucket=bucket,
@@ -593,21 +866,66 @@ class JPSS:
         # List files in the directory and choose the closest timestamp file
         files = await self.fs._ls(base_url)
 
-        # VIIRS filenames example:
-        # SVI01_npp_d20230303_t0001080_e0002321_b58787_c20230303004405425469_oeac_ops.h5
-        # we match by product_code and date, selecting nearest start time to requested time
-        matching_files = [f for f in files if f.endswith(".h5") and f"/{product_code}_" in f]
-        if not matching_files:
-            raise FileNotFoundError(f"No VIIRS SDR files found at {base_url} for {product_code}")
+        # Filter for data files - SDR products use .h5, L2 products may use .h5 or .nc
+        if product_code.startswith(("SVI", "SVM")):
+            # SDR products use HDF5 format
+            data_files = [f for f in files if f.endswith(".h5")]
+            if not data_files:
+                raise FileNotFoundError(f"No VIIRS SDR files found at {base_url} for {product_code}")
+            # Match by product code in filename
+            matching_files = [f for f in data_files if f"/{product_code}_" in f]
+            if not matching_files:
+                raise FileNotFoundError(f"No VIIRS SDR files found at {base_url} for {product_code}")
+        else:
+            # L2 EDR products may use HDF5 or NetCDF format
+            data_files = [f for f in files if f.endswith((".h5", ".nc"))]
+            if not data_files:
+                raise FileNotFoundError(f"No VIIRS L2 files found at {base_url} for {product_code}")
+            # For L2 EDR products, all data files in the folder are candidates
+            matching_files = data_files
 
         def parse_start_dt(path: str) -> datetime:
+            """Parse start datetime from filename."""
             fname = path.split("/")[-1]
-            parts = fname.split("_")
-            # parts like: [SVI01, npp, dYYYYMMDD, tHHMMSSs, e..., b..., c..., ...]
-            date_str = next(p[1:] for p in parts if p.startswith("d"))
-            time_str = next(p[1:7] for p in parts if p.startswith("t"))
-            dt = datetime.strptime(date_str + time_str, "%Y%m%d%H%M%S")
-            return dt.replace(tzinfo=timezone.utc)
+            
+            # Handle different filename formats
+            if (fname.startswith("LST_") or fname.startswith("JRR-")) and "_s" in fname:
+                # L2 product formats: 
+                # LST_v2r2_j01_s202501012358307_e202501012359552_c202501020100321.nc
+                # JRR-CloudHeight_v3r2_j01_s202501012357067_e202501012358294_c202501020043237.nc
+                parts = fname.split("_")
+                for part in parts:
+                    if part.startswith("s") and len(part) >= 14:  # s + YYYYMMDDHHMMSSS
+                        datetime_str = part[1:15]  # Extract YYYYMMDDHHMMSSS (14 chars)
+                        try:
+                            dt = datetime.strptime(datetime_str, "%Y%m%d%H%M%S")
+                            return dt.replace(tzinfo=timezone.utc)
+                        except ValueError:
+                            # Try with milliseconds
+                            try:
+                                dt = datetime.strptime(datetime_str[:12], "%Y%m%d%H%M")
+                                return dt.replace(tzinfo=timezone.utc)
+                            except ValueError:
+                                pass
+            else:
+                # Standard VIIRS naming: find dYYYYMMDD and tHHMMSSs parts
+                parts = fname.split("_")
+                date_str = None
+                time_str = None
+                
+                for part in parts:
+                    if part.startswith("d") and len(part) >= 9:
+                        date_str = part[1:9]  # Extract YYYYMMDD
+                    elif part.startswith("t") and len(part) >= 8:
+                        time_str = part[1:7]  # Extract HHMMSS
+                
+                if date_str and time_str:
+                    dt = datetime.strptime(date_str + time_str, "%Y%m%d%H%M%S")
+                    return dt.replace(tzinfo=timezone.utc)
+            
+            # Fallback: use a neutral time if we can't parse the filename
+            logger.warning(f"Could not parse datetime from filename {fname}, using requested time")
+            return time
 
         time_stamps = [parse_start_dt(f) for f in matching_files]
         idx = int(np.argmin(np.abs(np.array(time_stamps, dtype="datetime64[s]") - np.datetime64(time))))
@@ -657,14 +975,19 @@ class JPSS:
             return False
 
         bucket = cls.SATELLITE_BUCKETS[satellite]
-        # Derive folder name from product code
-        band_num = product_code[-2:]
+        
+        # Determine folder name based on product type
         if product_code.startswith("SVI"):
+            # SDR I-band products
+            band_num = product_code[-2:]
             folder = f"VIIRS-I{int(band_num)}-SDR"
         elif product_code.startswith("SVM"):
+            # SDR M-band products
+            band_num = product_code[-2:]
             folder = f"VIIRS-M{int(band_num)}-SDR"
         else:
-            return False
+            # L2 EDR products - use the product code as the folder name
+            folder = product_code
 
         fs = s3fs.S3FileSystem(anon=True)
         base_url = cls.BASE_URL.format(
@@ -679,10 +1002,18 @@ class JPSS:
         except FileNotFoundError:
             return False
 
-        # Filter for product_code files
-        matching_files = [f for f in files if f.endswith(".h5") and f"/{product_code}_" in f]
-        if not matching_files:
-            return False
-        return True
+        # Filter for data files based on product type
+        if product_code.startswith(("SVI", "SVM")):
+            # SDR products use HDF5 format
+            data_files = [f for f in files if f.endswith(".h5")]
+            if not data_files:
+                return False
+            # Match by product code in filename
+            matching_files = [f for f in data_files if f"/{product_code}_" in f]
+            return len(matching_files) > 0
+        else:
+            # L2 EDR products may use HDF5 or NetCDF format
+            data_files = [f for f in files if f.endswith((".h5", ".nc"))]
+            return len(data_files) > 0
 
 

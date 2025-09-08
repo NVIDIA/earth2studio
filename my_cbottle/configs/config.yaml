@@ -1,0 +1,97 @@
+# CBottle Dataset Generation Configuration
+# This file controls all parameters for VIIRS and GFS data collection
+
+# Date range configuration
+dates:
+  start_date: "2024-04-01"
+  end_date: "2025-06-01"
+  temporal_resolution_hours: 6
+
+# Dataset parameters  
+dataset:
+  samples_per_time: 1000
+  patch_size: 128
+  hpx_level: 13
+  gfs_hpx_level: 10
+  max_attempts_multiplier: 10
+  # Separate zarr paths for training and validation
+  # For now, use the same zarr file for both (you can create separate files later)
+  train_zarr_path: "/lustre/fsw/portfolios/coreai/users/ohennigh/dataset/cbottle_dataset_hpx13.zarr"
+  val_zarr_path: "/lustre/fsw/portfolios/coreai/users/ohennigh/dataset/cbottle_dataset_hpx13.zarr"
+  #train_zarr_path: "/home/oliver/datasets/cbottle_dataset_hpx13.zarr"
+  #val_zarr_path: "/home/oliver/datasets/cbottle_dataset_hpx13.zarr"
+
+# VIIRS satellite data configuration
+viirs:
+  variables:
+    - "viirs_cloud_mask"
+    - "viirs_cloud_phase" 
+    - "viirs_cloud_height"
+    - "viirs_cloud_base"
+    - "viirs_cloud_dcomp"
+    - "viirs_cloud_ncomp"
+    - "viirs_cloud_cover"
+  
+  satellites:
+    - "snpp"
+    - "noaa-20"
+    - "noaa-21"
+  
+  # Random sampling configuration
+  random_time_offset:
+    min_hours: 0.0
+    max_hours: 6.0
+
+# GFS data configuration (for generate_gfs_dataset.py)
+gfs:
+  variables_count: 32  # Number of GFS variables to use from CBottleLexicon
+  lead_times_hours: [0, 6]  # Lead times for GFS forecasts
+  
+# Output configuration
+output:
+  zarr_path: "/lustre/fsw/portfolios/coreai/users/ohennigh/dataset/cbottle_dataset_hpx13.zarr"
+  #zarr_path: "/home/oliver/datasets/cbottle_dataset_hpx13.zarr"
+  force_overwrite: false
+  
+# Debug and logging
+debug:
+  save_plots: true
+  max_debug_samples: 5
+  verbose: true
+
+# Processing configuration
+processing:
+  valid_pixel_threshold: 0.5  # Minimum fraction of valid pixels in patch
+
+# Grid configuration
+grid:
+  coordinate_system: "healpix"
+  pixel_order: "NEST"
+
+# Training configuration
+training:
+  output_path: "./cbottle_sr"
+  #output_path: "/home/oliver/models/cbottle_sr"
+  log_freq: 100
+  checkpoint_freq: 10  # Save checkpoint every N log steps (checkpoint every log_freq * checkpoint_freq steps)
+  train_batch_size: 16
+  test_batch_size: 30
+  dataloader_num_workers: 3
+  bf16: false
+  valid_min_samples: 1
+  num_steps: 40000000  # 4e7
+
+# Inference configuration
+inference:
+  state_path: "./cbottle_sr/cBottle-SR-14000.zip"  # Path to model checkpoint (update step number as needed)
+  output_path: "./cbottle_inference"  # Path to output directory
+  #state_path: "/home/oliver/models/cbottle_sr/cBottle-SR-latest.zip"  # Path to model checkpoint
+  #output_path: "/home/oliver/outputs/cbottle_inference"  # Path to output directory
+  plot_sample: true  # Whether to plot sample results
+  single_sample: true  # Process only a single sample
+  sample_index: 10  # Which sample to process (0-based index)
+  max_samples: 10  # Maximum number of samples to process (if single_sample is false)
+  num_steps: 18  # Sampler iteration number
+  sigma_max: 800  # Noise sigma max
+  save_plots: true  # Save individual patch plots
+  save_predictions: true  # Save prediction tensors

@@ -21,9 +21,9 @@ from earth2studio.lexicon.base import LexiconType
 
 
 class JPSSLexicon(metaclass=LexiconType):
-    """JPSS VIIRS SDR lexicon for mapping standardized variable names to VIIRS product codes.
+    """JPSS VIIRS lexicon for mapping standardized variable names to VIIRS product codes.
 
-    This lexicon maps our standardized spectral band names to the actual VIIRS SDR
+    This lexicon maps standardized variable names to VIIRS SDR (Level 1) and EDR (Level 2) 
     product codes and HDF5 datasets used in AWS. It follows the same pattern as the
     GOES lexicon for consistency. For more information on VIIRS bands, see:
     https://ncc.nesdis.noaa.gov/VIIRS/VIIRSChannelWavelengths.php
@@ -31,14 +31,19 @@ class JPSSLexicon(metaclass=LexiconType):
     Parameters
     ----------
     val : str
-        Standardized variable name (e.g., 'viirs1i', 'viirs2i', 'viirs5m', 'viirs15m')
+        Standardized variable name (e.g., 'viirs1i', 'viirs2i', 'viirs5m', 'viirs15m', 'viirs_lst', 'viirs_cloud_mask')
 
     Notes
     -----
+    SDR Products (Level 1):
     - I-bands (375 m): viirs1i-viirs5i (higher spatial resolution imagery bands)  
     - M-bands (750 m): viirs1m-viirs16m (moderate resolution multi-spectral bands)
     - Band numbering follows VIIRS instrument naming (I1-I5, M1-M16)
     - Examples: viirs1i = I1 red (0.64 μm), viirs2i = I2 near-IR (0.86 μm), viirs15m = M15 thermal (10.76 μm)
+    
+    EDR Products (Level 2):
+    - Environmental Data Records at swath resolution
+    - Examples: viirs_lst (Land Surface Temperature), viirs_cloud_mask (Cloud Mask), viirs_active_fire (Active Fire)
     """
 
     # Mapping of VIIRS band numbers to product codes and modifiers
@@ -70,6 +75,42 @@ class JPSSLexicon(metaclass=LexiconType):
         "viirs14m": ("SVM14/Radiance", lambda x: x),  # M14: 8.55 μm (LWIR)
         "viirs15m": ("SVM15/Radiance", lambda x: x),  # M15: 10.76 μm (LWIR)
         "viirs16m": ("SVM16/Radiance", lambda x: x),  # M16: 12.01 μm (LWIR)
+        
+        # L2 EDR Products - Enterprise/JRR Products  
+        "viirs_lst": ("JPSSRR_LST/LST", lambda x: x),  # Land Surface Temperature
+        "viirs_surf_alb": ("JPSSRR_SurfAlb/SurfaceAlbedo", lambda x: x),  # Surface Albedo
+        "viirs_snow_cover": ("JPSSRR_SnowCover/SnowCover", lambda x: x),  # Snow Cover
+        
+        # L2 EDR Products - Surface Reflectance (multiple bands available)
+        "viirs_surf_refl_m1": ("VIIRS_SurfaceReflectance_EDR/SurfRefl_M1", lambda x: x),  # Surface Reflectance M1
+        "viirs_surf_refl_m2": ("VIIRS_SurfaceReflectance_EDR/SurfRefl_M2", lambda x: x),  # Surface Reflectance M2  
+        "viirs_surf_refl_m3": ("VIIRS_SurfaceReflectance_EDR/SurfRefl_M3", lambda x: x),  # Surface Reflectance M3
+        "viirs_surf_refl_m4": ("VIIRS_SurfaceReflectance_EDR/SurfRefl_M4", lambda x: x),  # Surface Reflectance M4
+        "viirs_surf_refl_m5": ("VIIRS_SurfaceReflectance_EDR/SurfRefl_M5", lambda x: x),  # Surface Reflectance M5
+        "viirs_surf_refl_m7": ("VIIRS_SurfaceReflectance_EDR/SurfRefl_M7", lambda x: x),  # Surface Reflectance M7
+        "viirs_surf_refl_m8": ("VIIRS_SurfaceReflectance_EDR/SurfRefl_M8", lambda x: x),  # Surface Reflectance M8
+        "viirs_surf_refl_m10": ("VIIRS_SurfaceReflectance_EDR/SurfRefl_M10", lambda x: x),  # Surface Reflectance M10
+        "viirs_surf_refl_m11": ("VIIRS_SurfaceReflectance_EDR/SurfRefl_M11", lambda x: x),  # Surface Reflectance M11
+        "viirs_surf_refl_i1": ("VIIRS_SurfaceReflectance_EDR/SurfRefl_I1", lambda x: x),  # Surface Reflectance I1
+        "viirs_surf_refl_i2": ("VIIRS_SurfaceReflectance_EDR/SurfRefl_I2", lambda x: x),  # Surface Reflectance I2
+        "viirs_surf_refl_i3": ("VIIRS_SurfaceReflectance_EDR/SurfRefl_I3", lambda x: x),  # Surface Reflectance I3
+        
+        # L2 EDR Products - Active Fire
+        "viirs_active_fire": ("VIIRS_EFIRE_VIIRSI_EDR/Fire", lambda x: x),  # Active Fire Detection
+        "viirs_fire_mask": ("VIIRS_EFIRE_VIIRSI_EDR/FireMask", lambda x: x),  # Fire Mask
+        
+        # L2 EDR Products - Cloud Suite
+        "viirs_cloud_mask": ("VIIRS-JRR-CloudMask/CloudMask", lambda x: x),  # Cloud Mask
+        "viirs_cloud_phase": ("VIIRS-JRR-CloudPhase/CloudPhase", lambda x: x),  # Cloud Phase
+        "viirs_cloud_height": ("VIIRS-JRR-CloudHeight/CldTopHght", lambda x: x),  # Cloud Top Height
+        "viirs_cloud_base": ("VIIRS-JRR-CloudBase/CldBaseHght", lambda x: x),  # Cloud Base Height
+        "viirs_cloud_dcomp": ("VIIRS-JRR-CloudDCOMP/CloudMicroVisOD", lambda x: x),  # Cloud Optical Properties (Day)
+        "viirs_cloud_ncomp": ("VIIRS-JRR-CloudNCOMP/CloudMicroVisOD", lambda x: x),  # Cloud Optical Properties (Night)
+        "viirs_cloud_cover": ("VIIRS-JRR-CloudCoverLayers/Total_Cloud_Fraction", lambda x: x),  # Cloud Cover Layers
+        
+        # L2 EDR Products - Aerosol and Atmospheric
+        "viirs_aerosol": ("VIIRS-JRR-ADP/AerosolOpticalThickness", lambda x: x),  # Aerosol Detection Product
+        "viirs_volcanic_ash": ("VIIRS-JRR-VolcanicAsh/VolcanicAsh", lambda x: x),  # Volcanic Ash Detection
     }
 
     @classmethod
