@@ -20,12 +20,14 @@ import pathlib
 import shutil
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from time import sleep
 from typing import Any
 
+import gcsfs
 import numpy as np
 import xarray as xr
+from cfgrib.xarray_to_grib import to_grib
 from loguru import logger
 from tqdm import tqdm
 
@@ -62,7 +64,7 @@ class CDSRequest:
 
 @check_optional_dependencies()
 class CDS:
-    """The climate data source (CDS) serving ERA5 re-analysis data. This data soure
+    """The climate data source (CDS) serving ERA5 re-analysis data. This data source
     requires users to have a CDS API access key which can be obtained for free on the
     CDS webpage.
 
@@ -143,7 +145,7 @@ class CDS:
         time: datetime,
         variables: list[str],
     ) -> xr.DataArray:
-        """Retrives CDS data array for given date time by fetching variable grib files
+        """Retrieves CDS data array for given date time by fetching variable grib files
         using the cdsapi package and combining grib files into a single data array.
 
         Parameters
@@ -151,7 +153,7 @@ class CDS:
         time : datetime
             Date time to fetch
         variables : list[str]
-            list of atmosphric variables to fetch. Must be supported in CDS lexicon
+            list of atmospheric variables to fetch. Must be supported in CDS lexicon
 
         Returns
         -------
@@ -285,54 +287,137 @@ class CDS:
         if isinstance(level, str):
             level = [level]
 
-        sha = hashlib.sha256(
-            f"{dataset_name}_{variable}_{'_'.join(level)}_{time}".encode()
-        )
+        if dataset_name == "google_cloud_dataset":  # invariant, don't use time in fname
+            sha = hashlib.sha256(
+                f"{dataset_name}_{variable}_{'_'.join(level)}".encode()
+            )
+        else:
+            sha = hashlib.sha256(
+                f"{dataset_name}_{variable}_{'_'.join(level)}_{time}".encode()
+            )
         filename = sha.hexdigest()
 
         cache_path = os.path.join(self.cache, filename)
 
         if not pathlib.Path(cache_path).is_file():
-            # Assemble request
-            rbody = {
-                "variable": variable,
-                "product_type": "reanalysis",
-                # "date": "2017-12-01/2017-12-02", (could do time range)
-                "year": time.year,
-                "month": time.month,
-                "day": time.day,
-                "time": time.strftime("%H:00"),
-                "format": "grib",
-                "download_format": "unarchived",
-            }
-            if dataset_name == "reanalysis-era5-pressure-levels":
-                rbody["pressure_level"] = level
-            r = self.cds_client.retrieve(dataset_name, rbody)
-            # Queue request
-            while True:
-                r.update()
-                reply = r.reply
-                logger.debug(
-                    f"Request ID:{reply['request_id']}, state: {reply['state']}"
+            if variable == "total_precipitation_06":
+                # needs special treatment, see https://github.com/NVIDIA/earth2studio/issues/456
+                self._download_cds_tp06_grib_cached(time, cache_path)
+            elif dataset_name == "google_cloud_dataset":
+                # download from google because only version on CDS API is at 0.1 deg resolution, would need interp
+                # see https://confluence.ecmwf.int/display/CKB/ERA5-Land%3A+data+documentation#heading-Table1surfaceparametersinvariantsintime
+                gcs = gcsfs.GCSFileSystem(cache_timeout=-1)
+                with gcs.open(
+                    "dm_graphcast/graphcast/dataset/source-era5_date-2022-01-01_res-0.25_levels-13_steps-01.nc",
+                    "rb",
+                ) as f:
+                    da = xr.open_dataset(f)[variable].sortby("lat", ascending=False)
+
+                # now we download a template grib file from the CDS to write the actual field into
+                template_da_path = self._download_cds_grib_cached(
+                    datetime.fromisoformat("2020-01-01T00:00:00"),
+                    "reanalysis-era5-single-levels",
+                    "total_precipitation",
+                    level=[""],
                 )
-                if reply["state"] == "completed":
-                    break
-                elif reply["state"] in ("queued", "running"):
-                    logger.debug(f"Request ID: {reply['request_id']}, sleeping")
-                    sleep(5.0)
-                elif reply["state"] in ("failed",):
-                    logger.error(
-                        f"CDS request fail for: {dataset_name} {variable} {level} {time}"
-                    )
-                    logger.error(f"Message: {reply['error'].get('message')}")
-                    logger.error(f"Reason: {reply['error'].get('reason')}")
-                    raise Exception("%s." % (reply["error"].get("message")))
+                template_da = xr.open_dataarray(
+                    template_da_path, engine="cfgrib", backend_kwargs={"indexpath": ""}
+                )
+                template_da.values = da.values
+
+                # only datasets can be written to grib
+                actual_ds = xr.Dataset({variable: template_da})
+
+                # write to cache
+                to_grib(actual_ds, cache_path, no_warn=True, grib_keys={"edition": 1})
+
+                if os.path.exists(cache_path):
+                    logger.info(f"Successfully downloaded {variable} from google cloud")
                 else:
-                    sleep(2.0)
-            # Download when ready
-            r.download(cache_path)
+                    raise RuntimeError(
+                        f"Failed to download {variable} from google cloud"
+                    )
+
+            else:
+                # most of the requests fall in here
+                # Assemble request
+                rbody = {
+                    "variable": variable,
+                    "product_type": "reanalysis",
+                    # "date": "2017-12-01/2017-12-02", (could do time range)
+                    "year": time.year,
+                    "month": time.month,
+                    "day": time.day,
+                    "time": time.strftime("%H:00"),
+                    "format": "grib",
+                    "download_format": "unarchived",
+                }
+                if dataset_name == "reanalysis-era5-pressure-levels":
+                    rbody["pressure_level"] = level
+                r = self.cds_client.retrieve(dataset_name, rbody)
+                # Queue request
+                while True:
+                    r.update()
+                    reply = r.reply
+                    logger.debug(
+                        f"Request ID:{reply['request_id']}, state: {reply['state']}"
+                    )
+                    if reply["state"] == "completed":
+                        break
+                    elif reply["state"] in ("queued", "running"):
+                        logger.debug(f"Request ID: {reply['request_id']}, sleeping")
+                        sleep(5.0)
+                    elif reply["state"] in ("failed",):
+                        logger.error(
+                            f"CDS request fail for: {dataset_name} {variable} {level} {time}"
+                        )
+                        logger.error(f"Message: {reply['error'].get('message')}")
+                        logger.error(f"Reason: {reply['error'].get('reason')}")
+                        raise Exception("%s." % (reply["error"].get("message")))
+                    else:
+                        sleep(2.0)
+                # Download when ready
+                r.download(cache_path)
 
         return cache_path
+
+    def _download_cds_tp06_grib_cached(self, time: datetime, cache_path: str) -> None:
+        """Download total precipitation values for 6 hours preceding time. Combine
+        into single grib file to make 6 hour accumulated precipitation, 'tp06'.
+
+        Parameters
+        ----------
+        time : datetime
+            The time for which to download tp06 data.
+        """
+        # Download the individual 6-hourly files
+        tp_cache_paths = []
+        for i in [5, 4, 3, 2, 1, 0]:
+            dt = time - timedelta(hours=i)
+            tp_cache_path = self._download_cds_grib_cached(
+                dt, "reanalysis-era5-single-levels", "total_precipitation", level=[""]
+            )
+            tp_cache_paths.append(tp_cache_path)
+
+        # using final tp array as base for tp06 since they have same valid_time
+        tp06_data = xr.open_dataarray(
+            tp_cache_paths[-1], engine="cfgrib", backend_kwargs={"indexpath": ""}
+        )
+
+        # read tp files
+        tp_data = [
+            xr.open_dataarray(path, engine="cfgrib", backend_kwargs={"indexpath": ""})
+            for path in tp_cache_paths
+        ]
+
+        # accumulate 6 hour precip
+        tp06_data.values = sum([tp.values for tp in tp_data])
+
+        # only Dataset writes to grib are supported in cfgrib
+        tp06_ds = xr.Dataset({"tp06": tp06_data})
+
+        # write to cache
+        to_grib(tp06_ds, cache_path, no_warn=True, grib_keys={"edition": 1})
 
     @property
     def cache(self) -> str:
