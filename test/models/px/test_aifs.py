@@ -250,6 +250,9 @@ def test_aifs_package(device, model):
     # Test the cached model package AIFS
     p = model.to(device)
 
+    assert len(p.get_input_variables()) == 94
+    assert len(p.get_output_variables()) == 106
+
     # Create "domain coords"
     dc = {k: p.input_coords()[k] for k in ["lat", "lon"]}
 
