@@ -41,7 +41,7 @@ try:
 except ImportError:
     OptionalDependencyFailure("aifs")
 
-VARIABLES = [
+ALL_VARIABLES = [
     "q50",
     "q100",
     "q150",
@@ -150,10 +150,10 @@ VARIABLES = [
     "mcc",
     "ro",
     "sf",
-    "ssrd06",
+    "ssrd",
     "stl1",
     "stl2",
-    "strd06",
+    "strd",
     "swvl1",
     "swvl2",
     "tcc",
@@ -202,11 +202,13 @@ class AIFS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             "inverse_interpolation_matrix", inverse_interpolation_matrix
         )
 
+        self.input_variables = self.get_input_variables()
+        self.output_variables = self.get_output_variables()
+
     def __str__(self) -> str:
         return "aifs-single-1.0"
 
-    @property
-    def input_variables(self) -> list[str]:
+    def get_input_variables(self) -> list[str]:
         indices = torch.cat(
             [
                 self.model.data_indices.data.input.prognostic,
@@ -223,11 +225,10 @@ class AIFS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         # Keep only elements NOT in to_remove
         mask = ~torch.isin(indices, to_remove)
 
-        selected = [VARIABLES[i] for i in indices[mask].tolist()]
+        selected = [ALL_VARIABLES[i] for i in indices[mask].tolist()]
         return selected
 
-    @property
-    def output_variables(self) -> list[str]:
+    def get_output_variables(self) -> list[str]:
         # Input constants + prognostic and diagnostic - generated forcings
         indices = torch.cat(
             [
@@ -245,7 +246,7 @@ class AIFS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         # Keep only elements NOT in to_remove
         mask = ~torch.isin(indices, to_remove)
 
-        selected = [VARIABLES[i] for i in indices[mask].tolist()]
+        selected = [ALL_VARIABLES[i] for i in indices[mask].tolist()]
         return selected
 
     def input_coords(self) -> CoordSystem:
@@ -593,8 +594,6 @@ class AIFS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         """Update time based inputs."""
 
         # Select only inputs
-        # From AnemoiModelInterface.DataIndices
-        # https://anemoi.readthedocs.io/projects/models/en/latest/modules/data_indices.html#usage-information
         x = x[..., self.model.data_indices.data.input.full]
 
         # Get cos, sin of Julian day
@@ -667,7 +666,7 @@ class AIFS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         with torch.autocast(device_type=str(x.device), dtype=torch.float16):
             y = self.model.predict_step(x)
             out = torch.empty(
-                (x.shape[0], x.shape[1], x.shape[2], len(VARIABLES)),
+                (x.shape[0], x.shape[1], x.shape[2], len(ALL_VARIABLES)),
                 device=x.device,
             )
             out[..., 0, :, self.model.data_indices.data.input.full] = x[
@@ -701,64 +700,20 @@ class AIFS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         tuple[torch.Tensor, CoordSystem]
             Output tensor and coordinate system 6 hours in the future
         """
-        _ = self.output_coords(coords)  # NOTE: Quick fix for exception handling
         x = self._prepare_input(x, coords)
         x, coords = self._forward(x, coords)
         x = self._prepare_output(x, coords)
         return x, coords
-
-    def _fill_input(self, x: torch.Tensor, coords: CoordSystem) -> torch.Tensor:
-        out = torch.empty(
-            (
-                x.shape[0],
-                x.shape[1],
-                x.shape[2],
-                len(VARIABLES),
-                x.shape[4],
-                x.shape[5],
-            ),
-            device=x.device,
-        )
-        indices = torch.cat(
-            [
-                self.model.data_indices.data.input.prognostic,
-                self.model.data_indices.data.input.forcing,
-            ]
-        )
-
-        # Sort the concatenated tensor
-        indices = indices.sort().values
-
-        # Create the range of values to remove
-        to_remove = torch.arange(92, 101)  # generated forcings
-
-        # Keep only elements NOT in to_remove
-        mask = ~torch.isin(indices, to_remove)
-
-        out[:, :, 0, indices[mask]] = x[0, 0, 0, ...]
-        out[:, :, 1, indices[mask]] = x[0, 0, 1, ...]
-
-        to_remove = torch.arange(92, 101)
-        out = torch.cat([out[:, :, :, :91, ...], out[:, :, :, 101:, ...]], dim=3)
-        indices = torch.arange(len(VARIABLES))
-        mask = ~torch.isin(indices, to_remove)
-        selected = [VARIABLES[i] for i in indices[mask].tolist()]
-
-        out_coords = coords.copy()
-        out_coords["variable"] = np.array(selected)
-
-        return out, out_coords
 
     @batch_func()
     def _default_generator(
         self, x: torch.Tensor, coords: CoordSystem
     ) -> Generator[tuple[torch.Tensor, CoordSystem], None, None]:
         coords = coords.copy()
-
         self.output_coords(coords)
-        first_out, coords_out = self._fill_input(x, coords)
+        coords_out = coords.copy()
         coords_out["lead_time"] = coords["lead_time"][1:]
-        yield first_out[:, :, 1:], coords_out
+        yield x[:, :, 1:], coords_out
 
         # Prepare input tensor
         x = self._prepare_input(x, coords)
@@ -777,13 +732,10 @@ class AIFS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             output_tensor, coords_out = self.rear_hook(output_tensor, coords_out)
 
             # Yield output tensor
-            yield output_tensor, coords_out.copy()
+            yield output_tensor, coords_out
 
             # Update coordinates
-            coords["lead_time"] = (
-                coords["lead_time"]
-                + self.output_coords(self.input_coords())["lead_time"]
-            )
+            coords["lead_time"] += coords_out["lead_time"][0] - coords["lead_time"][-1]
             # Prepare input tensor
             x = self._update_input(y, coords)
 
