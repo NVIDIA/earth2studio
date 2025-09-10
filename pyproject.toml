@@ -77,6 +77,7 @@ aifs = [
     "earthkit-regrid==0.4.0",
     "ecmwf-opendata>=0.3.3",
     "flash-attn",
+    "attr-dot-dict"
 ]
 aurora = [
     "microsoft-aurora>=1.5.0",

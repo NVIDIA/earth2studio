@@ -342,6 +342,15 @@ wheels = [
 ]
 
 [[package]]
+name = "attr-dot-dict"
+version = "0.1.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/a2/20/5545f37264691945529a069abb646dab6de274dfdd6a327b22dff948cf0a/attr-dot-dict-0.1.0.tar.gz", hash = "sha256:ff95eaa1732844d7f052609a49f7073a25750812b5cd9e8a9220a797733aafca", size = 39402, upload-time = "2023-08-03T00:48:42.398Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/af/ab/3c717181e61cfa97b71e6e01d072725c2d323350b408ab43547d02bc19ad/attr_dot_dict-0.1.0-py3-none-any.whl", hash = "sha256:3403b96e2dd09813dc8e8cb59cfe822c805a1605c3d9a7df4567b70fd6955a28", size = 27162, upload-time = "2023-08-03T00:48:40.656Z" },
+]
+
+[[package]]
 name = "attrs"
 version = "25.3.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1316,6 +1325,7 @@ dependencies = [
 aifs = [
     { name = "anemoi-inference", extra = ["huggingface"] },
     { name = "anemoi-models" },
+    { name = "attr-dot-dict" },
     { name = "earthkit-regrid" },
     { name = "ecmwf-opendata" },
     { name = "flash-attn" },
@@ -1493,6 +1503,7 @@ docs = [
 requires-dist = [
     { name = "anemoi-inference", extras = ["huggingface"], marker = "extra == 'aifs'", specifier = "==0.4.9" },
     { name = "anemoi-models", marker = "extra == 'aifs'", specifier = "==0.3.1" },
+    { name = "attr-dot-dict", marker = "extra == 'aifs'" },
     { name = "cbottle", marker = "python_full_version >= '3.12' and extra == 'all'", git = "https://github.com/NickGeneva/cBottle.git?rev=9b24c2f81096a340444e7e0966fe93223a4d9532" },
     { name = "cbottle", marker = "python_full_version >= '3.12' and extra == 'cbottle'", git = "https://github.com/NickGeneva/cBottle.git?rev=9b24c2f81096a340444e7e0966fe93223a4d9532" },
     { name = "cdsapi", marker = "extra == 'all'", specifier = ">=0.7.5" },
@@ -3539,7 +3550,7 @@ wheels = [
 
 [[package]]
 name = "microsoft-aurora"
-version = "0.1.dev55+gab41cf1de"
+version = "0.1.dev55+gab41cf1"
 source = { git = "https://github.com/NickGeneva/aurora.git?rev=ab41cf1de67d5dcc723b96fc9a6219e4b548d181#ab41cf1de67d5dcc723b96fc9a6219e4b548d181" }
 dependencies = [
     { name = "azure-storage-blob" },
