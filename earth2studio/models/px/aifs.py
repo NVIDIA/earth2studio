@@ -202,13 +202,11 @@ class AIFS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             "inverse_interpolation_matrix", inverse_interpolation_matrix
         )
 
-        self.input_variables = self.get_input_variables()
-        self.output_variables = self.get_output_variables()
-
     def __str__(self) -> str:
         return "aifs-single-1.0"
 
-    def get_input_variables(self) -> list[str]:
+    @property
+    def input_variables(self) -> list[str]:
         indices = torch.cat(
             [
                 self.model.data_indices.data.input.prognostic,
@@ -228,7 +226,8 @@ class AIFS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         selected = [ALL_VARIABLES[i] for i in indices[mask].tolist()]
         return selected
 
-    def get_output_variables(self) -> list[str]:
+    @property
+    def output_variables(self) -> list[str]:
         # Input constants + prognostic and diagnostic - generated forcings
         indices = torch.cat(
             [
