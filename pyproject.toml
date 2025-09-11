@@ -72,9 +72,10 @@ statistics = [
 ]
 # PX Models
 aifs = [
-    "anemoi-inference[huggingface]==0.4.9",
-    "anemoi-models==0.3.1",
-    "earthkit-regrid==0.4.0",
+    "anemoi-inference[huggingface]>=0.6.0",
+    "anemoi-models>=0.6.0",
+    'anemoi-graphs>=0.6.0',
+    "earthkit-regrid>=0.4.0",
     "ecmwf-opendata>=0.3.3",
     "flash-attn",
 ]
