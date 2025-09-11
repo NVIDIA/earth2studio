@@ -41,7 +41,7 @@ try:
 except ImportError:
     OptionalDependencyFailure("aifs")
 
-ALL_VARIABLES = [
+VARIABLES = [
     "q50",
     "q100",
     "q150",
@@ -223,7 +223,7 @@ class AIFS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         # Keep only elements NOT in to_remove
         mask = ~torch.isin(indices, to_remove)
 
-        selected = [ALL_VARIABLES[i] for i in indices[mask].tolist()]
+        selected = [VARIABLES[i] for i in indices[mask].tolist()]
         return selected
 
     @property
@@ -245,7 +245,7 @@ class AIFS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         # Keep only elements NOT in to_remove
         mask = ~torch.isin(indices, to_remove)
 
-        selected = [ALL_VARIABLES[i] for i in indices[mask].tolist()]
+        selected = [VARIABLES[i] for i in indices[mask].tolist()]
         return selected
 
     def input_coords(self) -> CoordSystem:
@@ -667,7 +667,7 @@ class AIFS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         with torch.autocast(device_type=str(x.device), dtype=torch.float16):
             y = self.model.predict_step(x)
             out = torch.empty(
-                (x.shape[0], x.shape[1], x.shape[2], len(ALL_VARIABLES)),
+                (x.shape[0], x.shape[1], x.shape[2], len(VARIABLES)),
                 device=x.device,
             )
             out[..., 0, :, self.model.data_indices.data.input.full] = x[
