@@ -593,6 +593,8 @@ class AIFS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         """Update time based inputs."""
 
         # Select only inputs
+        # From AnemoiModelInterface.DataIndices
+        # https://anemoi.readthedocs.io/projects/models/en/latest/modules/data_indices.html#usage-information
         x = x[..., self.model.data_indices.data.input.full]
 
         # Get cos, sin of Julian day
