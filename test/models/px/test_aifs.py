@@ -23,7 +23,6 @@ import torch
 
 try:
     import anemoi  # noqa: F401
-    from dotdict import DotDict
 except ImportError:
     pytest.skip("anemoi not installed", allow_module_level=True)
 
@@ -43,6 +42,23 @@ def make_two_nnz_per_first_row_csr(n_rows, n_cols, device):
     return torch.sparse_csr_tensor(
         crow, col, val, size=(n_rows, n_cols), dtype=torch.float32
     )
+
+
+class DotDict(dict):
+    """Minimal DotDict replacement with recursive dot-notation access."""
+
+    def __getattr__(self, name):
+        value = self.get(name)
+        if isinstance(value, dict) and not isinstance(value, DotDict):
+            value = DotDict(value)  # recursively wrap dicts
+            self[name] = value
+        return value
+
+    def __setattr__(self, name, value):
+        self[name] = value
+
+    def __delattr__(self, name):
+        del self[name]
 
 
 class PhooAIFSModel(torch.nn.Module):
