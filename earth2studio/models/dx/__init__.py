@@ -38,6 +38,10 @@ from earth2studio.models.dx.tc_tracking import (
     TCTrackerVitart,
     TCTrackerWuDuan,
 )
+from earth2studio.models.dx.tempest_extremes import (
+    TempestExtremes,
+    AsyncTempestExtremes,
+)
 from earth2studio.models.dx.wind_gust import WindgustAFNO  # noqa
 
 __all__ = [
