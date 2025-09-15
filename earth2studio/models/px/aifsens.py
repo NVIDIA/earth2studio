@@ -645,15 +645,60 @@ class AIFSENS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         return out, output_coords
 
+    def _fill_input(self, x: torch.Tensor, coords: CoordSystem) -> torch.Tensor:
+        print(x.shape)
+        out = torch.empty(
+            (
+                x.shape[0],
+                x.shape[1],
+                x.shape[2],
+                len(VARIABLES),
+                x.shape[4],
+                x.shape[5],
+            ),
+            device=x.device,
+        )
+        print(out.shape)
+        indices = torch.cat(
+            [
+                self.model.data_indices.data.input.prognostic,
+                self.model.data_indices.data.input.forcing,
+            ]
+        )
+
+        # Sort the concatenated tensor
+        indices = indices.sort().values
+
+        # Create the range of values to remove
+        to_remove = torch.arange(92, 101)  # generated forcings
+
+        # Keep only elements NOT in to_remove
+        mask = ~torch.isin(indices, to_remove)
+
+        out[:, :, 0, indices[mask]] = x[0, 0, 0, ...]
+        out[:, :, 1, indices[mask]] = x[0, 0, 1, ...]
+
+        to_remove = torch.arange(92, 101)
+        out = torch.cat([out[:, :, :, :91, ...], out[:, :, :, 101:, ...]], dim=3)
+        indices = torch.arange(len(VARIABLES))
+        mask = ~torch.isin(indices, to_remove)
+        selected = [VARIABLES[i] for i in indices[mask].tolist()]
+
+        out_coords = coords.copy()
+        out_coords["variable"] = np.array(selected)
+
+        return out, out_coords
+
     @batch_func()
     def _default_generator(
         self, x: torch.Tensor, coords: CoordSystem
     ) -> Generator[tuple[torch.Tensor, CoordSystem], None, None]:
         coords = coords.copy()
+
         self.output_coords(coords)
-        coords_out = coords.copy()
+        first_out, coords_out = self._fill_input(x, coords)
         coords_out["lead_time"] = coords["lead_time"][1:]
-        yield x[:, :, 1:], coords_out
+        yield first_out[:, :, 1:], coords_out
 
         # Prepare input tensor
         x = self._prepare_input(x, coords)
