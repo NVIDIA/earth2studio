@@ -714,10 +714,13 @@ class AIFSENS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             output_tensor, coords_out = self.rear_hook(output_tensor, coords_out)
 
             # Yield output tensor
-            yield output_tensor, coords_out
+            yield output_tensor, coords_out.copy()
 
             # Update coordinates
-            coords["lead_time"] += coords_out["lead_time"][0] - coords["lead_time"][-1]
+            coords["lead_time"] = (
+                coords["lead_time"]
+                + self.output_coords(self.input_coords())["lead_time"]
+            )
             # Prepare input tensor
             x = self._update_input(y, coords)
             step += 1
