@@ -309,6 +309,102 @@ class AIFSENS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         )
         return output_coords
 
+    @classmethod
+    def load_default_package(cls) -> Package:
+        """Load prognostic package"""
+        package = Package(
+            "hf://ecmwf/aifs-ens-1.0",
+            cache_options={
+                "cache_storage": Package.default_cache("aifs-ens-1.0"),
+                "same_names": True,
+            },
+        )
+        return package
+
+    @classmethod
+    @check_optional_dependencies()
+    def load_model(cls, package: Package) -> PrognosticModel:
+        """Load prognostic from package"""
+
+        # Load model
+        model_path = package.resolve("aifs-ens-crps-1.0.ckpt")
+        model = torch.load(
+            model_path, weights_only=False, map_location=torch.ones(1).device
+        )
+        model.eval()
+
+        # Define the path to the metadata file
+        metadata_path = "inference-anemoi-by_epoch-epoch_001-step_000040_tp_fix_0.05/anemoi-metadata/ai-models.json"
+
+        # Extract metadata and supporting arrays from the zip file
+        with zipfile.ZipFile(model_path, "r") as zipf:  # NOTE: this is totally baffling
+            # Load metadata
+            metadata = json.load(zipf.open(metadata_path))
+
+            # Load supporting arrays
+            supporting_arrays = {}
+            for key, entry in metadata.get("supporting_arrays_paths", {}).items():
+                supporting_arrays[key] = np.frombuffer(
+                    zipf.read(entry["path"]),
+                    dtype=entry["dtype"],
+                ).reshape(entry["shape"])
+
+        # Load interpolation matrix
+        # TODO: Maybe change this to allow for multiple packages?
+        interpolation_package = Package(
+            "https://get.ecmwf.int/repository/earthkit/regrid/db/1/mir_16_linear",
+            cache_options={
+                "cache_storage": Package.default_cache(
+                    "aifs-single-1.0_interpolation_matrix"
+                ),
+                "same_names": True,
+            },
+        )
+        interpolation_matrix_path = interpolation_package.resolve(
+            "9533e90f8433424400ab53c7fafc87ba1a04453093311c0b5bd0b35fedc1fb83.npz"
+        )
+        interpolation_matrix = np.load(interpolation_matrix_path)
+        torch_interpolation_matrix = torch.sparse_csr_tensor(
+            crow_indices=torch.from_numpy(interpolation_matrix["indptr"]),
+            col_indices=torch.from_numpy(interpolation_matrix["indices"]),
+            values=torch.from_numpy(interpolation_matrix["data"]),
+            size=(interpolation_matrix["shape"][0], interpolation_matrix["shape"][1]),
+            dtype=torch.float64,
+        )
+        inverse_interpolation_package = Package(
+            "https://get.ecmwf.int/repository/earthkit/regrid/db/1/mir_16_linear/",
+            cache_options={
+                "cache_storage": Package.default_cache(
+                    "aifs-single-1.0_inverse_interpolation_matrix"
+                ),
+                "same_names": True,
+            },
+        )
+        inverse_interpolation_matrix_path = inverse_interpolation_package.resolve(
+            "7f0be51c7c1f522592c7639e0d3f95bcbff8a044292aa281c1e73b842736d9bf.npz"
+        )
+        inverse_interpolation_matrix = np.load(inverse_interpolation_matrix_path)
+        torch_inverse_interpolation_matrix = torch.sparse_csr_tensor(
+            crow_indices=torch.from_numpy(inverse_interpolation_matrix["indptr"]),
+            col_indices=torch.from_numpy(inverse_interpolation_matrix["indices"]),
+            values=torch.from_numpy(inverse_interpolation_matrix["data"]),
+            size=(
+                inverse_interpolation_matrix["shape"][0],
+                inverse_interpolation_matrix["shape"][1],
+            ),
+            dtype=torch.float64,
+        )
+
+        return cls(
+            model,
+            latitudes=torch.Tensor(supporting_arrays["latitudes"]).reshape(1, 1, -1, 1),
+            longitudes=torch.Tensor(supporting_arrays["longitudes"]).reshape(
+                1, 1, -1, 1
+            ),
+            interpolation_matrix=torch_interpolation_matrix,
+            inverse_interpolation_matrix=torch_inverse_interpolation_matrix,
+        )
+
     def get_cos_sin_julian_day(
         self,
         time_array: np.datetime64,
@@ -522,101 +618,41 @@ class AIFSENS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         return x
 
-    @classmethod
-    def load_default_package(cls) -> Package:
-        """Load prognostic package"""
-        package = Package(
-            "hf://ecmwf/aifs-ens-1.0",
-            cache_options={
-                "cache_storage": Package.default_cache("aifs-ens-1.0"),
-                "same_names": True,
-            },
-        )
-        return package
+    def _prepare_output(
+        self,
+        x: torch.Tensor,
+        coords: CoordSystem,
+    ) -> tuple[torch.Tensor, CoordSystem]:
+        """Prepare input tensor and coordinates for the AIFS model."""
+        # Remove generated forcings
+        all_indices = torch.arange(x.size(-1))
+        keep = torch.isin(all_indices, torch.arange(92, 101), invert=True)
+        x = x[..., keep]
+        shape = x.shape
 
-    @classmethod
-    @check_optional_dependencies()
-    def load_model(cls, package: Package) -> PrognosticModel:
-        """Load prognostic from package"""
-
-        # Load model
-        model_path = package.resolve("aifs-ens-crps-1.0.ckpt")
-        model = torch.load(
-            model_path, weights_only=False, map_location=torch.ones(1).device
+        # Interpolate the model grid to the lat lon grid
+        x = x[:, 1:2]
+        x = x.flatten(end_dim=1)
+        x = torch.swapaxes(x, 0, 1)
+        x = x.flatten(start_dim=1)
+        x = x.to(dtype=torch.float64)
+        x = self.inverse_interpolation_matrix @ x
+        x = x.to(dtype=torch.float32)
+        x = torch.reshape(x, [x.shape[0], shape[0], shape[-1]])
+        x = torch.swapaxes(x, 0, 1)
+        x = torch.swapaxes(x, 1, 2)
+        x = torch.reshape(
+            x,
+            [
+                coords["batch"].shape[0],
+                coords["time"].shape[0],
+                coords["lead_time"].shape[0],
+                coords["variable"].shape[0],
+                coords["lat"].shape[0],
+                coords["lon"].shape[0],
+            ],
         )
-        model.eval()
-
-        # Define the path to the metadata file
-        metadata_path = "inference-anemoi-by_epoch-epoch_001-step_000040_tp_fix_0.05/anemoi-metadata/ai-models.json"
-
-        # Extract metadata and supporting arrays from the zip file
-        with zipfile.ZipFile(model_path, "r") as zipf:  # NOTE: this is totally baffling
-            # Load metadata
-            metadata = json.load(zipf.open(metadata_path))
-
-            # Load supporting arrays
-            supporting_arrays = {}
-            for key, entry in metadata.get("supporting_arrays_paths", {}).items():
-                supporting_arrays[key] = np.frombuffer(
-                    zipf.read(entry["path"]),
-                    dtype=entry["dtype"],
-                ).reshape(entry["shape"])
-
-        # Load interpolation matrix
-        # TODO: Maybe change this to allow for multiple packages?
-        interpolation_package = Package(
-            "https://get.ecmwf.int/repository/earthkit/regrid/db/1/mir_16_linear",
-            cache_options={
-                "cache_storage": Package.default_cache(
-                    "aifs-single-1.0_interpolation_matrix"
-                ),
-                "same_names": True,
-            },
-        )
-        interpolation_matrix_path = interpolation_package.resolve(
-            "9533e90f8433424400ab53c7fafc87ba1a04453093311c0b5bd0b35fedc1fb83.npz"
-        )
-        interpolation_matrix = np.load(interpolation_matrix_path)
-        torch_interpolation_matrix = torch.sparse_csr_tensor(
-            crow_indices=torch.from_numpy(interpolation_matrix["indptr"]),
-            col_indices=torch.from_numpy(interpolation_matrix["indices"]),
-            values=torch.from_numpy(interpolation_matrix["data"]),
-            size=(interpolation_matrix["shape"][0], interpolation_matrix["shape"][1]),
-            dtype=torch.float64,
-        )
-        inverse_interpolation_package = Package(
-            "https://get.ecmwf.int/repository/earthkit/regrid/db/1/mir_16_linear/",
-            cache_options={
-                "cache_storage": Package.default_cache(
-                    "aifs-single-1.0_inverse_interpolation_matrix"
-                ),
-                "same_names": True,
-            },
-        )
-        inverse_interpolation_matrix_path = inverse_interpolation_package.resolve(
-            "7f0be51c7c1f522592c7639e0d3f95bcbff8a044292aa281c1e73b842736d9bf.npz"
-        )
-        inverse_interpolation_matrix = np.load(inverse_interpolation_matrix_path)
-        torch_inverse_interpolation_matrix = torch.sparse_csr_tensor(
-            crow_indices=torch.from_numpy(inverse_interpolation_matrix["indptr"]),
-            col_indices=torch.from_numpy(inverse_interpolation_matrix["indices"]),
-            values=torch.from_numpy(inverse_interpolation_matrix["data"]),
-            size=(
-                inverse_interpolation_matrix["shape"][0],
-                inverse_interpolation_matrix["shape"][1],
-            ),
-            dtype=torch.float64,
-        )
-
-        return cls(
-            model,
-            latitudes=torch.Tensor(supporting_arrays["latitudes"]).reshape(1, 1, -1, 1),
-            longitudes=torch.Tensor(supporting_arrays["longitudes"]).reshape(
-                1, 1, -1, 1
-            ),
-            interpolation_matrix=torch_interpolation_matrix,
-            inverse_interpolation_matrix=torch_inverse_interpolation_matrix,
-        )
+        return x
 
     @torch.inference_mode()
     def _forward(
@@ -642,6 +678,31 @@ class AIFSENS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             ]
 
         return out, output_coords
+
+    @batch_func()
+    def __call__(
+        self,
+        x: torch.Tensor,
+        coords: CoordSystem,
+    ) -> tuple[torch.Tensor, CoordSystem]:
+        """Runs prognostic model 1 step.
+
+        Parameters
+        ----------
+        x : torch.Tensor
+            Input tensor
+        coords : CoordSystem
+            Input coordinate system
+
+        Returns
+        -------
+        tuple[torch.Tensor, CoordSystem]
+            Output tensor and coordinate system 6 hours in the future
+        """
+        x = self._prepare_input(x, coords)
+        x, coords = self._forward(x, coords)
+        x = self._prepare_output(x, coords)
+        return x, coords
 
     def _fill_input(self, x: torch.Tensor, coords: CoordSystem) -> torch.Tensor:
         out = torch.empty(
@@ -724,67 +785,6 @@ class AIFSENS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             # Prepare input tensor
             x = self._update_input(y, coords)
             step += 1
-
-    def _prepare_output(
-        self,
-        x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
-        """Prepare input tensor and coordinates for the AIFS model."""
-        # Remove generated forcings
-        all_indices = torch.arange(x.size(-1))
-        keep = torch.isin(all_indices, torch.arange(92, 101), invert=True)
-        x = x[..., keep]
-        shape = x.shape
-
-        # Interpolate the model grid to the lat lon grid
-        x = x[:, 1:2]
-        x = x.flatten(end_dim=1)
-        x = torch.swapaxes(x, 0, 1)
-        x = x.flatten(start_dim=1)
-        x = x.to(dtype=torch.float64)
-        x = self.inverse_interpolation_matrix @ x
-        x = x.to(dtype=torch.float32)
-        x = torch.reshape(x, [x.shape[0], shape[0], shape[-1]])
-        x = torch.swapaxes(x, 0, 1)
-        x = torch.swapaxes(x, 1, 2)
-        x = torch.reshape(
-            x,
-            [
-                coords["batch"].shape[0],
-                coords["time"].shape[0],
-                coords["lead_time"].shape[0],
-                coords["variable"].shape[0],
-                coords["lat"].shape[0],
-                coords["lon"].shape[0],
-            ],
-        )
-        return x
-
-    @batch_func()
-    def __call__(
-        self,
-        x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
-        """Runs prognostic model 1 step.
-
-        Parameters
-        ----------
-        x : torch.Tensor
-            Input tensor
-        coords : CoordSystem
-            Input coordinate system
-
-        Returns
-        -------
-        tuple[torch.Tensor, CoordSystem]
-            Output tensor and coordinate system 6 hours in the future
-        """
-        x = self._prepare_input(x, coords)
-        x, coords = self._forward(x, coords)
-        x = self._prepare_output(x, coords)
-        return x, coords
 
     def create_iterator(
         self, x: torch.Tensor, coords: CoordSystem
