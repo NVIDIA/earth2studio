@@ -9,7 +9,7 @@ authors = [
 ]
 description = "Open-source deep-learning framework for exploring, building and deploying AI weather/climate workflows."
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = "==3.11.11"
 license = "Apache-2.0"
 dependencies = [
     "cfgrib >= 0.9.10.3",
@@ -79,7 +79,7 @@ aifs = [
     "flash-attn",
 ]
 aifsens = [
-    "anemoi-models>=0.6.0",
+    "anemoi-models==0.5.1",
     'anemoi-graphs==0.6.2',
     "earthkit-regrid==0.4.0",
     "flash-attn",
