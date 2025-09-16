@@ -9,7 +9,7 @@ authors = [
 ]
 description = "Open-source deep-learning framework for exploring, building and deploying AI weather/climate workflows."
 readme = "README.md"
-requires-python = "==3.11.11"
+requires-python = "==3.11.*"
 license = "Apache-2.0"
 dependencies = [
     "cfgrib >= 0.9.10.3",
