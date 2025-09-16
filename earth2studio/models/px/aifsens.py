@@ -37,8 +37,6 @@ try:
     import earthkit.regrid  # noqa: F401
     import ecmwf.opendata  # noqa: F401
     import flash_attn  # noqa: F401
-
-    from earth2studio.models.px.aifs import AIFS
 except ImportError:
     OptionalDependencyFailure("aifsens")
 
@@ -646,7 +644,6 @@ class AIFSENS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         return out, output_coords
 
     def _fill_input(self, x: torch.Tensor, coords: CoordSystem) -> torch.Tensor:
-        print(x.shape)
         out = torch.empty(
             (
                 x.shape[0],
@@ -658,7 +655,6 @@ class AIFSENS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             ),
             device=x.device,
         )
-        print(out.shape)
         indices = torch.cat(
             [
                 self.model.data_indices.data.input.prognostic,
