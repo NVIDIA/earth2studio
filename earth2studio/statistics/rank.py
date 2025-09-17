@@ -46,13 +46,23 @@ class rank_histogram:
     Parameters
     ----------
     ensemble_dimension: str
-        A name corresponding to a dimension to perform the
-        ranking over. Example: 'ensemble'
+        A name corresponding to a dimension to perform the ranking over.
+        Example: 'ensemble'
     reduction_dimensions: list[str]
         A list of dimensions over which to bin the ranks.
     number_of_bins: int
-        The number of bins to discretize the unit interval over.
-        by default, 10
+        The number of bins to discretize the unit interval over. Best set to
+        ensemble_size + 1, which is enforced if balanced == True. By default, 10.
+    balanced: bool
+        Enforces number_of_bins == ensemble_size + 1, which leads to a
+        balanced histogram. If True, a number_of_bins set to any other
+        value will raise an error.
+    randomize_ties: bool
+        If True (default), randomize the rank in cases where multiple ensemble
+        members are exactly equal to the observation. This produces an unbiased
+        distribution of ranks in cases where ties occur frequently. If False, the rank
+        will be computed as if the observation were larger than the tied ensemble
+        members.
     """
 
     def __init__(
@@ -60,6 +70,8 @@ class rank_histogram:
         ensemble_dimension: str,
         reduction_dimensions: list[str],
         number_of_bins: int = 10,
+        balanced: bool = True,
+        randomize_ties: bool = True,
     ):
         if not isinstance(ensemble_dimension, str):
             raise ValueError(
@@ -69,6 +81,8 @@ class rank_histogram:
         self.ensemble_dimension = ensemble_dimension
         self._reduction_dimensions = reduction_dimensions
         self.number_of_bins = number_of_bins
+        self.balanced = balanced
+        self.randomize_ties = randomize_ties
 
     def __str__(self) -> str:
         return "rank_histogram"
@@ -168,7 +182,16 @@ class rank_histogram:
         x = torch.movedim(x, dim, 0)
 
         # Compute the ranks over the ensemble dimension
-        _ranks = torch.mean(1.0 * torch.ge(y, x), dim=0)
+        _ranks = torch.sum(torch.ge(y, x).to(dtype=torch.int32), dim=0)
+
+        if self.randomize_ties:
+            _ranks_gt = torch.sum(torch.gt(y, x).to(dtype=torch.int32), dim=0)
+            rank_diff = _ranks - _ranks_gt
+            ties = rank_diff > 0
+            _ranks[ties] -= (
+                torch.rand_like(_ranks[ties], dtype=torch.float32)
+                * (rank_diff[ties] + 1)
+            ).to(dtype=torch.int32)
 
         # Reshape ranks using reduction dimensions
         dims = [list(y_coords).index(rd) for rd in self._reduction_dimensions]
@@ -179,7 +202,16 @@ class rank_histogram:
             end_dim=new_dims[-1],
         )
 
+        # Normalize ranks to [0, 1]
+        _ranks = _ranks / x.shape[0]
+
         # Compute histogram
+        if self.balanced:
+            if self.number_of_bins != (x.shape[0] + 1):
+                raise ValueError(
+                    "If balanced == True, number_of_bins must be ensemble_size + 1."
+                )
+        # note: this version of linspace returns self.number_of_bins + 1 bin edges
         _bin_edges = linspace(
             torch.zeros_like(_ranks[0]), torch.ones_like(_ranks[0]), self.number_of_bins
         )
