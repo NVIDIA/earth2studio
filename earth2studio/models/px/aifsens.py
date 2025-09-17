@@ -736,7 +736,7 @@ class AIFSENS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         out[:, :, 1, indices[mask]] = x[0, 0, 1, ...]
 
         to_remove = torch.arange(92, 101)
-        out = torch.cat([out[:, :, :, :91, ...], out[:, :, :, 101:, ...]], dim=3)
+        out = torch.cat([out[:, :, :, :92, ...], out[:, :, :, 101:, ...]], dim=3)
         indices = torch.arange(len(VARIABLES))
         mask = ~torch.isin(indices, to_remove)
         selected = [VARIABLES[i] for i in indices[mask].tolist()]
