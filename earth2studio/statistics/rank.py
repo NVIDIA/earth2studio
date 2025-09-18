@@ -50,13 +50,9 @@ class rank_histogram:
         Example: 'ensemble'
     reduction_dimensions: list[str]
         A list of dimensions over which to bin the ranks.
-    number_of_bins: int
+    number_of_bins: int | None
         The number of bins to discretize the unit interval over. Best set to
-        ensemble_size + 1, which is enforced if balanced == True. By default, 10.
-    balanced: bool
-        Enforces number_of_bins == ensemble_size + 1, which leads to a
-        balanced histogram. If True, a number_of_bins set to any other
-        value will raise an error.
+        ensemble_size + 1, which is set automatically if None (default).
     randomize_ties: bool
         If True (default), randomize the rank in cases where multiple ensemble
         members are exactly equal to the observation. This produces an unbiased
@@ -69,8 +65,7 @@ class rank_histogram:
         self,
         ensemble_dimension: str,
         reduction_dimensions: list[str],
-        number_of_bins: int = 10,
-        balanced: bool = True,
+        number_of_bins: int | None = None,
         randomize_ties: bool = True,
     ):
         if not isinstance(ensemble_dimension, str):
@@ -81,7 +76,6 @@ class rank_histogram:
         self.ensemble_dimension = ensemble_dimension
         self._reduction_dimensions = reduction_dimensions
         self.number_of_bins = number_of_bins
-        self.balanced = balanced
         self.randomize_ties = randomize_ties
 
     def __str__(self) -> str:
@@ -90,6 +84,12 @@ class rank_histogram:
     @property
     def reduction_dimensions(self) -> list[str]:
         return [self.ensemble_dimension] + self._reduction_dimensions
+
+    def _get_number_of_bins(self, input_coords: CoordSystem) -> int:
+        if self.number_of_bins is None:
+            return len(input_coords[self.ensemble_dimension]) + 1
+        else:
+            return self.number_of_bins
 
     def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
         """Output coordinate system of the computed statistic, corresponding to the given input coordinates
@@ -105,6 +105,7 @@ class rank_histogram:
             Coordinate system dictionary
         """
         output_coords = input_coords.copy()
+        number_of_bins = self._get_number_of_bins(input_coords)
         for dimension in self.reduction_dimensions:
             handshake_dim(input_coords, dimension)
             output_coords.pop(dimension)
@@ -113,7 +114,7 @@ class rank_histogram:
             OrderedDict(
                 {
                     "histogram_data": np.array(["bin_centers", "bin_counts"]),
-                    "bin": np.arange(self.number_of_bins),
+                    "bin": np.arange(number_of_bins),
                 }
             )
             | output_coords
@@ -175,6 +176,8 @@ class rank_histogram:
                 handshake_coords(y_coords, x_coords, c)
                 coord_count += 1
 
+        number_of_bins = self._get_number_of_bins(x_coords)
+
         # Get the dimension index of the ensemble dimension
         dim = list(x_coords).index(self.ensemble_dimension)
 
@@ -206,14 +209,9 @@ class rank_histogram:
         _ranks = _ranks / x.shape[0]
 
         # Compute histogram
-        if self.balanced:
-            if self.number_of_bins != (x.shape[0] + 1):
-                raise ValueError(
-                    "If balanced == True, number_of_bins must be ensemble_size + 1."
-                )
         # note: this version of linspace returns self.number_of_bins + 1 bin edges
         _bin_edges = linspace(
-            torch.zeros_like(_ranks[0]), torch.ones_like(_ranks[0]), self.number_of_bins
+            torch.zeros_like(_ranks[0]), torch.ones_like(_ranks[0]), number_of_bins
         )
         _rank_histogram = _count_bins(_ranks, _bin_edges)
 
@@ -227,7 +225,7 @@ class rank_histogram:
             OrderedDict(
                 {
                     "histogram_data": np.array(["bin_centers", "bin_counts"]),
-                    "bin": np.arange(self.number_of_bins),
+                    "bin": np.arange(number_of_bins),
                 }
             )
             | out_coords

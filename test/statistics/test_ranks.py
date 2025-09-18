@@ -32,14 +32,17 @@ from earth2studio.utils.coords import handshake_coords, handshake_dim
         "time",
     ],
 )
+@pytest.mark.parametrize("number_of_bins", [5, None])
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
-def test_rank_histogram(ensemble_dimension: str, device: str) -> None:
+def test_rank_histogram(
+    ensemble_dimension: str, number_of_bins: int | None, device: str
+) -> None:
 
-    x = torch.randn((9, 1, 2, 361, 720), device=device)
+    x = torch.randn((10, 1, 2, 361, 720), device=device)
 
     x_coords = OrderedDict(
         {
-            "ensemble": np.arange(9),
+            "ensemble": np.arange(10),
             "time": np.array([np.datetime64("1993-04-05T00:00")]),
             "variable": np.array(["t2m", "tcwv"]),
             "lat": np.linspace(-90.0, 90.0, 361),
@@ -54,9 +57,7 @@ def test_rank_histogram(ensemble_dimension: str, device: str) -> None:
 
     reduction_dimensions = ["lat", "lon"]
     RH = rank_histogram(
-        ensemble_dimension,
-        reduction_dimensions,
-        balanced=(ensemble_dimension == "ensemble"),
+        ensemble_dimension, reduction_dimensions, number_of_bins=number_of_bins
     )
 
     z, c = RH(x, x_coords, y, y_coords)
@@ -70,15 +71,16 @@ def test_rank_histogram(ensemble_dimension: str, device: str) -> None:
         handshake_coords(out_test_coords, c, ci)
 
 
+@pytest.mark.parametrize("number_of_bins", [5, None])
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
-def test_rank_histogram_broadcasting(device: str) -> None:
-    x = torch.randn((1, 2, 9, 361, 720), device=device)
+def test_rank_histogram_broadcasting(number_of_bins: int | None, device: str) -> None:
+    x = torch.randn((1, 2, 10, 361, 720), device=device)
 
     x_coords = OrderedDict(
         {
             "time": np.array([np.datetime64("1993-04-05T00:00")]),
             "variable": np.array(["t2m", "tcwv"]),
-            "ensemble": np.arange(9),
+            "ensemble": np.arange(10),
             "lat": np.linspace(-90.0, 90.0, 361),
             "lon": np.linspace(0.0, 360.0, 720, endpoint=False),
         }
@@ -89,19 +91,23 @@ def test_rank_histogram_broadcasting(device: str) -> None:
     y_shape = [len(y_coords[c]) for c in y_coords]
     y = torch.randn(y_shape, device=device)
 
-    RH = rank_histogram("ensemble", ["lat", "lon"])
+    RH = rank_histogram("ensemble", ["lat", "lon"], number_of_bins=number_of_bins)
     z, c = RH(x, x_coords, y, y_coords)
-    assert z.shape == (2, 10, 1, 2)
+    expected_bins = (
+        len(x_coords["ensemble"]) + 1 if number_of_bins is None else number_of_bins
+    )
+    assert len(c["bin"]) == expected_bins
+    assert z.shape == (2, expected_bins, 1, 2)
 
 
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
 def test_rank_histogram_failures(device: str) -> None:
     reduction_dimension = "ensemble"
-    x = torch.randn((9, 1, 2, 361, 720), device=device)
+    x = torch.randn((10, 1, 2, 361, 720), device=device)
 
     x_coords = OrderedDict(
         {
-            "ensemble": np.arange(9),
+            "ensemble": np.arange(10),
             "time": np.array([np.datetime64("1993-04-05T00:00")]),
             "variable": ["t2m", "tcwv"],
             "lat": np.linspace(-90.0, 90.0, 361),
@@ -146,15 +152,6 @@ def test_rank_histogram_failures(device: str) -> None:
         x_coords.pop("ensemble")
         z, c = RH(x, x_coords, y, y_coords)
 
-    # Test error when balanced == True and wrong size ensemble
-    with pytest.raises(ValueError):
-        x = torch.randn((6, 1, 2, 361, 720), device=device)
-        x_coords["ensemble"] = np.arange(6)
-        y_coords = copy.deepcopy(x_coords)
-        y_shape = [len(y_coords[c]) for c in y_coords]
-        y = torch.randn(y_shape, device=device)
-        z, c = RH(x, x_coords, y, y_coords)
-
 
 @pytest.mark.parametrize("reduction_dimension", [20, 50, 80])
 @pytest.mark.parametrize("number_of_bins", [3, 5, 8])
@@ -186,9 +183,7 @@ def test_rank_histogram_accuracy(
         y = torch.zeros(*y_shape, device=device)
 
     reduction_dimensions = ["lat", "lon"]
-    RH = rank_histogram(
-        "ensemble", reduction_dimensions, number_of_bins=number_of_bins, balanced=False
-    )
+    RH = rank_histogram("ensemble", reduction_dimensions, number_of_bins=number_of_bins)
 
     z, _ = RH(x, x_coords, y, y_coords)
 
