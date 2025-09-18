@@ -705,44 +705,44 @@ class AIFSENS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         return x, coords
 
     def _fill_input(self, x: torch.Tensor, coords: CoordSystem) -> torch.Tensor:
+        """
+        Fill the model input tensor by selecting prognostic + forcing variables,
+        while removing generated forcings (indices 92–100).
+        """
+        batch, time, lead, _, height, width = x.shape
+
+        # Prepare empty output tensor with VARIABLE dimension
         out = torch.empty(
-            (
-                x.shape[0],
-                x.shape[1],
-                x.shape[2],
-                len(VARIABLES),
-                x.shape[4],
-                x.shape[5],
-            ),
+            (batch, time, lead, len(VARIABLES), height, width),
             device=x.device,
         )
-        indices = torch.cat(
-            [
-                self.model.data_indices.data.input.prognostic,
-                self.model.data_indices.data.input.forcing,
-            ]
-        )
 
-        # Sort the concatenated tensor
-        indices = indices.sort().values
+        # Collect relevant indices from model (prognostic + forcing)
+        indices = torch.cat([
+            self.model.data_indices.data.input.prognostic,
+            self.model.data_indices.data.input.forcing,
+        ]).sort().values
 
-        # Create the range of values to remove
-        to_remove = torch.arange(92, 101)  # generated forcings
+        # Define unwanted indices (generated forcings)
+        generated_forcing_range = torch.arange(92, 101)
 
-        # Keep only elements NOT in to_remove
-        mask = ~torch.isin(indices, to_remove)
+        # Keep only valid indices (exclude generated forcings)
+        valid_mask = ~torch.isin(indices, generated_forcing_range)
 
-        out[:, :, 0, indices[mask]] = x[0, 0, 0, ...]
-        out[:, :, 1, indices[mask]] = x[0, 0, 1, ...]
+        # Fill tensor: copy input slices into selected variable slots
+        out[:, :, 0, indices[valid_mask]] = x[0, 0, 0, ...]
+        out[:, :, 1, indices[valid_mask]] = x[0, 0, 1, ...]
 
-        to_remove = torch.arange(92, 101)
+        # Drop generated forcing dimension range from output
         out = torch.cat([out[:, :, :, :92, ...], out[:, :, :, 101:, ...]], dim=3)
-        indices = torch.arange(len(VARIABLES))
-        mask = ~torch.isin(indices, to_remove)
-        selected = [VARIABLES[i] for i in indices[mask].tolist()]
+
+        # Update coordinates with remaining variable names
+        all_indices = torch.arange(len(VARIABLES))
+        variable_mask = ~torch.isin(all_indices, generated_forcing_range)
+        selected_variables = [VARIABLES[i] for i in all_indices[variable_mask].tolist()]
 
         out_coords = coords.copy()
-        out_coords["variable"] = np.array(selected)
+        out_coords["variable"] = np.array(selected_variables)
 
         return out, out_coords
 
