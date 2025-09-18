@@ -49,16 +49,16 @@ class rank_histogram:
         A name corresponding to a dimension to perform the ranking over.
         Example: 'ensemble'
     reduction_dimensions: list[str]
-        A list of dimensions over which to bin the ranks.
-    number_of_bins: int | None
+        A list of dimensions over which to bin the ranks
+    number_of_bins: int | None, optional
         The number of bins to discretize the unit interval over. Best set to
-        ensemble_size + 1, which is set automatically if None (default).
-    randomize_ties: bool
-        If True (default), randomize the rank in cases where multiple ensemble
+        ensemble_size + 1, which is set automatically when None, by default None
+    randomize_ties: bool, optional
+        When True randomize the rank in cases where multiple ensemble
         members are exactly equal to the observation. This produces an unbiased
         distribution of ranks in cases where ties occur frequently. If False, the rank
         will be computed as if the observation were larger than the tied ensemble
-        members.
+        members, by default True
     """
 
     def __init__(
