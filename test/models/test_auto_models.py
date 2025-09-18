@@ -174,16 +174,9 @@ def test_package(url, file, cache_folder, model_cache_context):
 def test_package_caching_behavior(
     url, file, should_cache, tmp_path_factory, model_cache_context
 ):
-    """Test Package caching behavior for local vs remote files.
-
-    Local files should not be cached (copied to cache folder).
-    Remote files should be cached (copied to cache folder).
-    """
-    # Create separate temp directories for source and cache
     source_folder = tmp_path_factory.mktemp("source")
     cache_folder = tmp_path_factory.mktemp("cache")
 
-    # Create a local test file
     local_test_file = source_folder / "local_test_file.txt"
     local_test_file.write_text("test content for caching")
 
@@ -196,12 +189,9 @@ def test_package_caching_behavior(
         EARTH2STUDIO_PACKAGE_TIMEOUT="30",
     ):
         package = Package(str(url))
-
-        # Get initial cache folder contents
         initial_cache_contents = list(cache_folder.rglob("*"))
-        initial_cache_files = [f for f in initial_cache_contents if f.is_file()]
 
-        # Resolve the file through the package
+        initial_cache_files = [f for f in initial_cache_contents if f.is_file()]
         file_path = package.resolve(file)
         assert Path(file_path).is_file()
 
@@ -213,23 +203,13 @@ def test_package_caching_behavior(
         cache_files_added = len(final_cache_files) - len(initial_cache_files)
 
         if should_cache:
-            # Remote files should add files to cache
             assert (
                 cache_files_added > 0
             ), f"Expected remote file {file} to be cached, but no new cache files found"
-            # For remote files, resolved path should be within cache folder
-            assert str(cache_folder) in str(
-                file_path
-            ), f"Expected cached file path {file_path} to be within cache folder {cache_folder}"
+            assert str(cache_folder) in str(file_path)
         else:
-            # Local files should not add files to cache
-            assert (
-                cache_files_added == 0
-            ), f"Expected local file {file} NOT to be cached, but {cache_files_added} cache files were added"
-            # For local files, resolved path should be the original file path
-            assert str(cache_folder) not in str(
-                file_path
-            ), f"Expected local file path {file_path} NOT to be within cache folder {cache_folder}"
+            assert cache_files_added == 0
+            assert str(cache_folder) not in str(file_path)
 
 
 @pytest.mark.parametrize(
