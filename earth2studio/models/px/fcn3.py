@@ -37,11 +37,12 @@ from earth2studio.utils.type import CoordSystem
 
 try:
     from makani.models.model_package import load_model_package
+    from torch_harmonics.disco import cuda_kernels_is_available
 except ImportError:
     OptionalDependencyFailure("fcn3")
     load_model_package = None
 
-_cuda_extension_available = importlib.util.find_spec("disco_cuda_extension") is not None
+_cuda_extension_available = cuda_kernels_is_available()
 
 VARIABLES = [
     "u10m",
