@@ -112,7 +112,7 @@ fuxi = [
 graphcast = [
     "graphcast",
     "dm-haiku>=0.0.14",
-    "jax[cuda12]>=0.4.26",
+    "jax[cuda12]>=0.4.26,<0.7.2", # TODO: Remove cap with PyT container support numpy 2.0
     "flax>=0.10.6",
 ]
 interp-modafno = [
