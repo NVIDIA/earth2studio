@@ -173,7 +173,6 @@ class FCN3(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         super().__init__()
         self.model = core_model
         self.variables = variables
-        self.seed = seed
         if "2d" in self.variables:
             self.variables[self.variables == "2d"] = "d2m"
 
