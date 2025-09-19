@@ -23,6 +23,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Updated CBottle data source to mixture of experts models
 - Fixed duplicate geo-potential at surface ids in AIFS, IFS data source and orography
   source, orography is denoted by lower case `z`
+- Updated package caching default to None, which will default to true for remote
+  packages and false for local packages
 
 ### Deprecated
 
@@ -36,6 +38,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Dropped support for Python 3.10
 - Bumped CBottle (and Earth2Grid) versions
+- Capped JAX version, due to numpy 2.0 requirement conflicting with NV PyTorch containers
 
 ## [0.9.0] - 2025-08-19
 

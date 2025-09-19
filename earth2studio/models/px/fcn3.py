@@ -145,6 +145,8 @@ class FCN3(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         Core PyTorch model with loaded weights
     variables : np.array, optional
         Variables associated with model, by default 72 variable model.
+    seed : int, optional
+        Seed of the underlying FCN3 model's random generators, by default 333
 
     Warning
     -------
