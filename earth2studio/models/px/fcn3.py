@@ -155,15 +155,22 @@ class FCN3(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self,
         core_model: torch.nn.Module,
         variables: np.array = np.array(VARIABLES),
+        seed: int = 333,
     ):
         super().__init__()
         self.model = core_model
         self.variables = variables
+        self.seed = seed
         if "2d" in self.variables:
             self.variables[self.variables == "2d"] = "d2m"
 
+        self.set_rng(reset = True, seed=self.seed)
+
     def __str__(self) -> str:
         return "fcn3"
+    
+    def set_rng(self, seed: int = 333, reset: bool = True) -> None:
+        self.model.set_rng(reset=reset, seed=seed)
 
     def input_coords(self) -> CoordSystem:
         """Input coordinate system of the prognostic model
