@@ -160,6 +160,59 @@ def test_package(url, file, cache_folder, model_cache_context):
 
 
 @pytest.mark.parametrize(
+    "url,file,should_cache",
+    [
+        (None, "local_test_file.txt", False),  # Local file should NOT cache
+        ("hf://NickGeneva/earth_ai", "README.md", True),  # Remote file should cache
+        (
+            "s3://noaa-swpc-pds",
+            "text/3-day-geomag-forecast.txt",
+            True,
+        ),  # Remote file should cache
+    ],
+)
+def test_package_caching_behavior(
+    url, file, should_cache, tmp_path_factory, model_cache_context
+):
+    source_folder = tmp_path_factory.mktemp("source")
+    cache_folder = tmp_path_factory.mktemp("cache")
+
+    local_test_file = source_folder / "local_test_file.txt"
+    local_test_file.write_text("test content for caching")
+
+    # Convert local path case to file:// URL
+    if url is None:
+        url = f"file://{source_folder}"
+
+    with model_cache_context(
+        EARTH2STUDIO_CACHE=str(cache_folder.resolve()),
+        EARTH2STUDIO_PACKAGE_TIMEOUT="30",
+    ):
+        package = Package(str(url))
+        initial_cache_contents = list(cache_folder.rglob("*"))
+
+        initial_cache_files = [f for f in initial_cache_contents if f.is_file()]
+        file_path = package.resolve(file)
+        assert Path(file_path).is_file()
+
+        # Get cache folder contents after file resolution
+        final_cache_contents = list(cache_folder.rglob("*"))
+        final_cache_files = [f for f in final_cache_contents if f.is_file()]
+
+        # Check caching behavior
+        cache_files_added = len(final_cache_files) - len(initial_cache_files)
+
+        if should_cache:
+            assert (
+                cache_files_added > 0
+            ), f"Expected remote file {file} to be cached, but no new cache files found"
+            assert str(cache_folder) in str(file_path)
+        else:
+            assert cache_files_added == 0
+            assert str(cache_folder) not in str(file_path)
+
+
+@pytest.mark.parametrize(
     "url,file,api_key",
     [
         (
@@ -347,6 +400,7 @@ def test_whole_file_cache(tmp_path, same_names):
     package = Package(
         tmp_path,
         fs=fs,
+        cache=True,
         cache_options={
             "cache_storage": str(cache_path),
             "same_names": same_names,
