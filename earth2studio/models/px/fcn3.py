@@ -166,12 +166,14 @@ class FCN3(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         self.set_rng(reset = True, seed=self.seed)
 
+        self._internal_noise_states = []
+
     def __str__(self) -> str:
         return "fcn3"
     
     def set_rng(self, seed: int = 333, reset: bool = True) -> None:
         self.model.set_rng(reset=reset, seed=seed)
-
+    
     def input_coords(self) -> CoordSystem:
         """Input coordinate system of the prognostic model
         Returns
@@ -299,6 +301,15 @@ class FCN3(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         # See `load_model` for more details.
         for j, _ in enumerate(coords["batch"]):
             for i, t in enumerate(coords["time"]):
+                # Get the noise state for the batch index
+                noise_state = self._internal_noise_states[j][i]
+                if noise_state is None:
+                    self.model.model.preprocessor.update_internal_state(replace_state=True)
+                    noise_state = self.model.model.preprocessor.get_internal_state(tensor=True)
+                    self._internal_noise_states[j][i] = noise_state
+                else:
+                    self.model.model.preprocessor.set_internal_state(noise_state)
+
                 # https://github.com/NVIDIA/modulus-makani/blob/933b17d5a1ebfdb0e16e2ebbd7ee78cfccfda9e1/makani/third_party/climt/zenith_angle.py#L197
                 # Requires time zone data
                 t = [
@@ -312,8 +323,9 @@ class FCN3(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                     ),
                 ):
                     x[j, i : i + 1] = self.model(
-                        x[j, i : i + 1], t, normalized_data=False, replace_state=True
+                        x[j, i : i + 1], t, normalized_data=False, replace_state=False
                     )
+                self._internal_noise_states[j][i] = self.model.model.preprocessor.get_internal_state(tensor=True)
         x = x.unsqueeze(2)
         return x, output_coords
 
@@ -337,7 +349,12 @@ class FCN3(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         tuple[torch.Tensor, CoordSystem]
             Output tensor and coordinate system
         """
-        return self._forward(x, coords)
+        # Initialize the internal noise states
+        # for each batch index, we will have a list of noise states for each separate time
+        self._internal_noise_states = [[None for _ in range(x.shape[1])] for _ in range(x.shape[0])]
+        output, coords = self._forward(x, coords)
+        self._internal_noise_states = [[None for _ in range(x.shape[1])] for _ in range(x.shape[0])]
+        return output, coords
 
     @batch_func()
     def _default_generator(
@@ -345,6 +362,12 @@ class FCN3(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     ) -> Generator[tuple[torch.Tensor, CoordSystem], None, None]:
         coords = coords.copy()
         self.output_coords(coords)
+
+        # Initialize the internal noise states
+        # for each batch index, we will have a list of noise states for each separate time
+        self._internal_noise_states = [[None for _ in range(x.shape[1])] for _ in range(x.shape[0])]
+
+        # Yield the initial condition
         yield x, coords
         while True:
             # Front hook
