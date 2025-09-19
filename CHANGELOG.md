@@ -14,6 +14,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added general PlanetaryComputerData source for pulling Planetary Computer STAC assets
 - Added ECMWF AIFSENS ensemble prognostic model wrapper
 - Added MRMS data source
+- Added CMIP6 data source
+- Added CBottle Tropical Cyclone guidance diagnostic
+- Added CBottle Video prognostic model
+- Exposed backend arguments of netcdf/zarr to datasource_to_file signature
+- Added vertical wind speed support in GFS
+- Added ModelOutputDatasetSource to use written model output to start a new model run
+- Added FCN3 noise handling routines.
 
 ### Changed
 
