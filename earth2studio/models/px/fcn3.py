@@ -179,8 +179,6 @@ class FCN3(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         self.set_rng(reset=True, seed=seed)
 
-        self._internal_noise_states = []
-
     def __str__(self) -> str:
         return "fcn3"
 
