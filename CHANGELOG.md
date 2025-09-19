@@ -22,6 +22,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Updated CBottle data source to mixture of experts models
 - Fixed duplicate geo-potential at surface ids in AIFS, IFS data source and orography
   source, orography is denoted by lower case `z`
+- Updated package caching default to None, which will default to true for remote
+  packages and false for local packages
 
 ### Deprecated
 
