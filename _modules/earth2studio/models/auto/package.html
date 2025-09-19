@@ -567,9 +567,10 @@
 <span class="sd">        will get initialized based on the protocal of the root url, by default None</span>
 <span class="sd">    fs_options : dict, optional</span>
 <span class="sd">        Filesystem object keyword arguments to use, by default {}</span>
-<span class="sd">    cache : bool, optional</span>
+<span class="sd">    cache : bool | None, optional</span>
 <span class="sd">        Toggle local caching, typically you want this to be true unless the package is</span>
-<span class="sd">        a local file system, by default True</span>
+<span class="sd">        a local file system. If None, will only use caching for remote packages, by</span>
+<span class="sd">        default None</span>
 <span class="sd">    cache_options : dict, optional</span>
 <span class="sd">        Caching options provided to Fsspec. See CachingFileSystem in fsspec for</span>
 <span class="sd">        valid options https://filesystem-spec.readthedocs.io/en/latest/api.html#fsspec.implementations.cached.CachingFileSystem,</span>
@@ -581,7 +582,7 @@
         <span class="n">root</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
         <span class="n">fs</span><span class="p">:</span> <span class="n">AbstractFileSystem</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">fs_options</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="p">{},</span>
-        <span class="n">cache</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="n">cache</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">cache_options</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="p">{},</span>
     <span class="p">):</span>
 
@@ -633,6 +634,12 @@
         <span class="k">else</span><span class="p">:</span>
             <span class="n">protocol</span> <span class="o">=</span> <span class="n">split_protocol</span><span class="p">(</span><span class="n">root</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">fs</span> <span class="o">=</span> <span class="n">fsspec</span><span class="o">.</span><span class="n">filesystem</span><span class="p">(</span><span class="n">protocol</span><span class="p">,</span> <span class="o">**</span><span class="n">fs_options</span><span class="p">)</span>
+
+        <span class="c1"># If remote file system, cache</span>
+        <span class="k">if</span> <span class="n">cache</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">fs</span><span class="p">,</span> <span class="n">fsspec</span><span class="o">.</span><span class="n">implementations</span><span class="o">.</span><span class="n">local</span><span class="o">.</span><span class="n">LocalFileSystem</span>
+        <span class="p">):</span>
+            <span class="n">cache</span> <span class="o">=</span> <span class="kc">True</span>
 
         <span class="k">if</span> <span class="n">cache</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">fs</span> <span class="o">=</span> <span class="n">CallbackWholeFileCacheFileSystem</span><span class="p">(</span><span class="n">fs</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">fs</span><span class="p">,</span> <span class="o">**</span><span class="bp">self</span><span class="o">.</span><span class="n">cache_options</span><span class="p">)</span>
