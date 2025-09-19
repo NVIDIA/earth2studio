@@ -160,11 +160,10 @@ class FCN3(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         super().__init__()
         self.model = core_model
         self.variables = variables
-        self.seed = seed
         if "2d" in self.variables:
             self.variables[self.variables == "2d"] = "d2m"
 
-        self.set_rng(reset=True, seed=self.seed)
+        self.set_rng(reset=True, seed=seed)
 
     def __str__(self) -> str:
         return "fcn3"
@@ -179,6 +178,7 @@ class FCN3(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         reset : bool, optional
             Whether to reset the state of the RNG, by default True
         """
+        self.seed = seed
         self.model.set_rng(reset=reset, seed=seed)
 
     def input_coords(self) -> CoordSystem:
