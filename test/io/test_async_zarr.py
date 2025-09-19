@@ -19,8 +19,6 @@ import os
 import time
 from collections import OrderedDict
 from collections.abc import Callable
-from importlib.metadata import version
-from unittest.mock import patch
 
 import fsspec
 import numpy as np
@@ -32,18 +30,11 @@ import zarr
 from fsspec.implementations.local import LocalFileSystem
 from fsspec.implementations.memory import MemoryFileSystem
 
-try:
-    zarr_version = version("zarr")
-    zarr_major_version = int(zarr_version.split(".")[0])
-except Exception:
-    zarr_major_version = 2
-if zarr_major_version < 3:
-    pytest.skip("Zarr version 2 not supported")
-
 from earth2studio.io import AsyncZarrBackend
 from earth2studio.utils.coords import split_coords
 
 
+@pytest.mark.asyncio
 @pytest.mark.parametrize(
     "time",
     [
@@ -439,12 +430,6 @@ def test_async_zarr_remote(
 
 @pytest.mark.asyncio
 async def test_async_zarr_errors(tmp_path: str) -> None:
-    # NMot Zarr 3.0
-    with patch("earth2studio.io.async_zarr.version") as mock_version:
-        mock_version.return_value = "2.15.0"
-        with pytest.raises(ImportError):
-            AsyncZarrBackend(f"{tmp_path}/test.zarr", parallel_coords={})
-
     # Non-callable fsspec factory
     with pytest.raises(TypeError):
         AsyncZarrBackend(

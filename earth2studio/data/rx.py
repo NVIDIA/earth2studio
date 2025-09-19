@@ -18,9 +18,7 @@ import os
 import pathlib
 import shutil
 from datetime import datetime, timezone
-from importlib.metadata import version
 
-import fsspec
 import gcsfs
 import numpy as np
 import xarray as xr
@@ -76,29 +74,11 @@ class ARCORxBase:
             }
             fs = WholeFileCacheFileSystem(fs=fs, **cache_options)
 
-        # Check Zarr version and use appropriate method
-        try:
-            zarr_version = version("zarr")
-            zarr_major_version = int(zarr_version.split(".")[0])
-        except Exception:
-            # Fallback to older method if version check fails
-            zarr_major_version = 2  # Assume older version if we can't determine
-
-        if zarr_major_version >= 3:
-            # Zarr 3.0+ method
-            zstore = zarr.storage.FsspecStore(
-                fs,
-                path="/gcp-public-data-arco-era5/ar/1959-2022-full_37-1h-0p25deg-chunk-1.zarr-v2",
-            )
-            self.zarr_group = zarr.open(zstore, mode="r")
-        else:
-            # Legacy method for Zarr < 3.0
-            # Use ARCO v2 over v3 if possible for faster loading (I think chunking is better in v2)
-            fs_map = fsspec.FSMap(
-                "gcp-public-data-arco-era5/ar/1959-2022-full_37-1h-0p25deg-chunk-1.zarr-v2",
-                fs,
-            )
-            self.zarr_group = zarr.open(fs_map, mode="r")
+        zstore = zarr.storage.FsspecStore(
+            fs,
+            path="/gcp-public-data-arco-era5/ar/1959-2022-full_37-1h-0p25deg-chunk-1.zarr-v2",
+        )
+        self.zarr_group = zarr.open(zstore, mode="r")
 
     def __call__(
         self,
@@ -226,7 +206,7 @@ class SurfaceGeoPotential(ARCORxBase):
 
     def __init__(self, cache: bool = True, verbose: bool = True):
         super().__init__(
-            id="zsl",
+            id="z",
             arco_id="geopotential_at_surface",
             cache=cache,
             verbose=verbose,
@@ -235,7 +215,7 @@ class SurfaceGeoPotential(ARCORxBase):
     def __call__(
         self,
         time: datetime | list[datetime] | TimeArray,
-        variable: str | list[str] | VariableArray = "zsl",
+        variable: str | list[str] | VariableArray = "z",
     ) -> xr.DataArray:
         """Fetch ARCO orography field
 
@@ -244,7 +224,7 @@ class SurfaceGeoPotential(ARCORxBase):
         time : datetime | list[datetime] | TimeArray
             Preciptive variable will be repeated for each time.
         variable : str | list[str] | VariableArray, optional
-            Not relevant for this data-source, by default "zsl"
+            Not relevant for this data-source, by default "z"
 
         Returns
         -------

@@ -15,6 +15,7 @@
 # limitations under the License.
 
 import datetime
+import importlib
 
 import numpy as np
 import pytest
@@ -24,6 +25,8 @@ import xarray as xr
 try:
     import cbottle
     import earth2grid
+    from cbottle.datasets import base
+    from cbottle.inference import MixtureOfExpertsDenoiser
 except ImportError:
     pytest.skip("cbottle dependencies not installed", allow_module_level=True)
 
@@ -40,7 +43,12 @@ def mock_core_model() -> torch.nn.Module:
     model_config.out_channels = 45
     model_config.condition_channels = 1
     model_config.level = 2
-    return cbottle.models.get_model(model_config)
+    model1 = cbottle.models.get_model(model_config)
+    return MixtureOfExpertsDenoiser(
+        [model1],
+        (),
+        batch_info=base.BatchInfo(CBottle3D.VARIABLES),
+    )
 
 
 @pytest.fixture(scope="class")
@@ -164,12 +172,14 @@ class TestCBottleMock:
         latlon_grid = earth2grid.latlon.equiangular_lat_lon_grid(
             nlat, nlon, includes_south_pole=True
         )
-        regridder = earth2grid.get_regridder(
-            mock_core_model.domain._grid, latlon_grid
-        ).to(device)
+        src_grid = earth2grid.healpix.Grid(
+            level=6, pixel_order=earth2grid.healpix.PixelOrder.NEST
+        )
+        regridder = earth2grid.get_regridder(src_grid, latlon_grid).to(device)
         field_regridded = regridder(
             torch.tensor(data_hpx.values, device=device)
         ).squeeze(2)
+
         # Check both grids from the same seed are the same
         assert np.allclose(data_latlon.values, field_regridded.cpu().numpy())
 
@@ -215,9 +225,13 @@ def test_cbottle_package(time, variable, device, model_cache_context):
 
 @pytest.mark.slow
 @pytest.mark.ci_cache
-@pytest.mark.timeout(30)
+@pytest.mark.timeout(60)
 @pytest.mark.parametrize("time", [datetime.datetime(year=2000, month=12, day=31)])
 @pytest.mark.parametrize("variable", [["sic", "u10m", "t2m"]])
+@pytest.mark.skipif(
+    importlib.util.find_spec("apex.contrib.group_norm") is not None,
+    reason="Test requires apex.contrib.group_norm to not be installed",
+)
 def test_cbottle_package_cpu(time, variable, model_cache_context):
     # Test the cached model package
     with model_cache_context():

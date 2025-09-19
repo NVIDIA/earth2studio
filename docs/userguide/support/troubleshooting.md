@@ -16,12 +16,12 @@ or
 This is an error from ONNX runtime not being installed correctly.
 If you are using CUDA 12 make sure you manually pip install following the instructions
 on the ONNX [documentation](https://onnxruntime.ai/docs/install/#python-installs).
-You may need to manally link the need libraries, see this
+You may need to manually link the needed libraries, see this
 [Github issue](https://github.com/microsoft/onnxruntime/issues/19616) for reference.
 
 ## ImportError: object is not installed, install manually or using pip
 
-This is an error that arrises typically when the proper optional dependencies are not
+This is an error that arises typically when the proper optional dependencies are not
 installed on the system.
 For example:
 
@@ -129,4 +129,29 @@ can be installed with:
 
 ```bash
 sudo apt-get install python3-dev
+```
+
+## Torch Harmonics has long build time for FCNv3
+
+This is a known challenge when building torch harmonics with cuda extensions which
+require the compilation of discrete-continuous (DISCO) convolutions.
+One method to speed up the install process is to limit the [cuda architectures](https://developer.nvidia.com/cuda-gpus)
+that are built to the specific card being used.
+For example, to compile for just Ada Lovelace and newer architectures, set the
+following environment variables before installing:
+
+```bash
+export FORCE_CUDA_EXTENSION=1
+export TORCH_CUDA_ARCH_LIST="8.9 9.0 10.0 12.0+PTX"
+```
+
+See the [torch harmonics repo](https://github.com/NVIDIA/torch-harmonics) for more
+information.
+If torch harmonics is already installed, you may need to force a re-install to build
+the cuda extensions:
+
+```bash
+pip install --no-build-isolation --force-reinstall --upgrade --no-deps \
+  --no-cache  --verbose torch-harmonics==0.8.0
+# Or respective uv command
 ```

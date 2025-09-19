@@ -52,7 +52,7 @@ class IFSLexicon(metaclass=LexiconType):
             "slor": "slor::sfc::",
             "sdor": "sdor::sfc::",
             "lsm": "lsm::sfc::",
-            "zsl": "z::sfc::",
+            "z": "z::sfc::",
         }
         soil_variables = {
             "swvl1": "vsw::sl::1",
