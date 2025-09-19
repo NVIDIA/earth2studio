@@ -35,9 +35,45 @@ from earth2studio.run import deterministic
 from earth2studio.utils.coords import map_coords
 
 
+class PhooFCN3Preprocessor(torch.nn.Module):
+
+    def __init__(
+        self,
+    ):
+        super().__init__()
+        self.register_buffer(
+            "state",
+            torch.randn(
+                10,
+            ),
+        )
+
+    def set_internal_state(self, state: torch.Tensor):
+        self.state = state.to(self.state.device)
+
+    def get_internal_state(self, tensor=True):
+        return self.state
+
+    def update_internal_state(self, replace_state=True):
+        self.state = torch.randn((10,), device=self.state.device)
+
+
 class PhooFCN3Model(torch.nn.Module):
+    def __init__(self, preprocessor):
+        super().__init__()
+        self.preprocessor = preprocessor
+
+
+class PhooFCN3ModelWrapper(torch.nn.Module):
+    def __init__(self, model):
+        super().__init__()
+        self.model = model
+
     def forward(self, x, t, normalized_data: bool = False, replace_state: bool = False):
         return x
+
+    def set_rng(self, reset: bool = True, seed: int = 333):
+        return
 
 
 class PhooAFNOPrecipV2(torch.nn.Module):
@@ -80,7 +116,7 @@ class PhooCorrDiff(torch.nn.Module):
 )
 def test_fcn3_precip(device, model_type, times):
     # Spoof models
-    fcn3_model = PhooFCN3Model()
+    fcn3_model = PhooFCN3ModelWrapper(PhooFCN3Model(PhooFCN3Preprocessor()))
     px_model = FCN3(fcn3_model)
 
     if model_type == "precip":
@@ -171,7 +207,7 @@ def test_fcn3_precip(device, model_type, times):
 @pytest.mark.parametrize("keep_px_output", [False, True])
 def test_fcn3_corrdiff(device, times, number_of_samples, keep_px_output):
     # Spoof models
-    px_model = FCN3(PhooFCN3Model())
+    px_model = FCN3(PhooFCN3ModelWrapper(PhooFCN3Model(PhooFCN3Preprocessor())))
     model = PhooCorrDiff()
     in_center = torch.zeros(12, 1, 1)
     in_scale = torch.ones(12, 1, 1)
@@ -237,7 +273,7 @@ def test_fcn3_corrdiff(device, times, number_of_samples, keep_px_output):
 @pytest.mark.parametrize("keep_px_output", [False, True])
 def test_fcn3_tc_tracker(device, times, keep_px_output):
     # Spoof models
-    fcn3_model = PhooFCN3Model()
+    fcn3_model = PhooFCN3ModelWrapper(PhooFCN3Model(PhooFCN3Preprocessor()))
     px_model = FCN3(fcn3_model)
 
     tc_tracker = TCTrackerVitart()

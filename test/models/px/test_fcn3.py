@@ -26,9 +26,52 @@ from earth2studio.models.px import FCN3
 from earth2studio.utils import handshake_dim
 
 
+class PhooFCN3Preprocessor(torch.nn.Module):
+
+    def __init__(
+        self,
+    ):
+        super().__init__()
+        self.register_buffer(
+            "state",
+            torch.randn(
+                10,
+            ),
+        )
+
+    def set_internal_state(self, state: torch.Tensor):
+        self.state = state.to(self.state.device)
+
+    def get_internal_state(self, tensor=True):
+        return self.state
+
+    def update_internal_state(self, replace_state=True):
+        self.state = torch.randn((10,), device=self.state.device)
+
+
 class PhooFCN3Model(torch.nn.Module):
+    def __init__(self, preprocessor):
+        super().__init__()
+        self.preprocessor = preprocessor
+
+
+class PhooFCN3ModelWrapper(torch.nn.Module):
+    def __init__(self, model):
+        super().__init__()
+        self.model = model
+
     def forward(self, x, t, normalized_data: bool = False, replace_state: bool = False):
         return x
+
+    def set_rng(self, reset: bool = True, seed: int = 333):
+        return
+
+
+@pytest.fixture(scope="function")
+def dummy_model():
+    preprocessor = PhooFCN3Preprocessor()
+    model = PhooFCN3Model(preprocessor)
+    return model
 
 
 @pytest.mark.parametrize(
@@ -44,10 +87,10 @@ class PhooFCN3Model(torch.nn.Module):
     ],
 )
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
-def test_fcn3_call(time, device):
+def test_fcn3_call(time, device, dummy_model):
 
     # Spoof model
-    model = PhooFCN3Model()
+    model = PhooFCN3ModelWrapper(dummy_model)
     p = FCN3(model).to(device)
 
     # Create "domain coords"
@@ -81,11 +124,11 @@ def test_fcn3_call(time, device):
     [1, 2],
 )
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
-def test_fcn3_iter(ensemble, device):
+def test_fcn3_iter(ensemble, device, dummy_model):
 
     time = np.array([np.datetime64("1993-04-05T00:00")])
     # Spoof model
-    model = PhooFCN3Model()
+    model = PhooFCN3ModelWrapper(dummy_model)
     p = FCN3(model).to(device)
 
     # Create "domain coords"
@@ -133,10 +176,10 @@ def test_fcn3_iter(ensemble, device):
     ],
 )
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
-def test_fcn3_exceptions(dc, device):
+def test_fcn3_exceptions(dc, device, dummy_model):
     time = np.array([np.datetime64("1993-04-05T00:00")])
     # Spoof model
-    model = PhooFCN3Model()
+    model = PhooFCN3ModelWrapper(dummy_model)
     p = FCN3(model).to(device)
 
     # Initialize Data Source
