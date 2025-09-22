@@ -145,6 +145,8 @@ class FCN3(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         Core PyTorch model with loaded weights
     variables : np.array, optional
         Variables associated with model, by default 72 variable model.
+    seed : int, optional
+        Seed of the underlying FCN3 model's random generators, by default 333
 
     Warning
     -------
@@ -155,6 +157,7 @@ class FCN3(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self,
         core_model: torch.nn.Module,
         variables: np.array = np.array(VARIABLES),
+        seed: int = 333,
     ):
         super().__init__()
         self.model = core_model
@@ -162,8 +165,23 @@ class FCN3(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         if "2d" in self.variables:
             self.variables[self.variables == "2d"] = "d2m"
 
+        self.set_rng(reset=True, seed=seed)
+
     def __str__(self) -> str:
         return "fcn3"
+
+    def set_rng(self, seed: int = 333, reset: bool = True) -> None:
+        """Set the underlying FCN3 model's RNG
+
+        Parameters
+        ----------
+        seed : int, optional
+            Seed for the RNG, by default 333
+        reset : bool, optional
+            Whether to reset the state of the RNG, by default True
+        """
+        self.seed = seed
+        self.model.set_rng(reset=reset, seed=seed)
 
     def input_coords(self) -> CoordSystem:
         """Input coordinate system of the prognostic model
@@ -278,6 +296,54 @@ class FCN3(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         return cls(model, variables=variables)
 
+    def _get_internal_state(self, ensemble_index: int, time_index: int) -> torch.Tensor:
+        """Get the internal RNG state for the given ensemble and time index
+
+        Parameters
+        ----------
+        ensemble_index : int
+            Ensemble index
+        time_index : int
+            Time index
+        """
+        return self._internal_noise_states[ensemble_index][time_index]
+
+    def _set_internal_state(self, ensemble_index: int, time_index: int) -> None:
+        """Set the internal RNG state for the given ensemble and time index
+
+        Parameters
+        ----------
+        ensemble_index : int
+            Ensemble index
+        time_index : int
+            Time index
+        """
+        self._internal_noise_states[ensemble_index][time_index] = (
+            self.model.model.preprocessor.get_internal_state(tensor=True)
+        )
+        return
+
+    def _reset_internal_state(self, num_ensemble: int, num_time: int) -> None:
+        """Reset the internal RNG state for the given number of ensembles and time steps
+
+        Parameters
+        ----------
+        num_ensemble : int
+            Number of ensembles
+        num_time : int
+            Number of time steps
+        """
+        _internal_noise_states = [
+            [None for _ in range(num_time)] for _ in range(num_ensemble)
+        ]
+        for i in range(num_ensemble):
+            for j in range(num_time):
+                self.model.model.preprocessor.update_internal_state(replace_state=True)
+                _internal_noise_states[i][j] = (
+                    self.model.model.preprocessor.get_internal_state(tensor=True)
+                )
+        self._internal_noise_states = _internal_noise_states
+
     @torch.inference_mode()
     def _forward(
         self,
@@ -292,6 +358,10 @@ class FCN3(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         # See `load_model` for more details.
         for j, _ in enumerate(coords["batch"]):
             for i, t in enumerate(coords["time"]):
+                # Get the noise state for the batch index
+                noise_state = self._get_internal_state(j, i)
+                self.model.model.preprocessor.set_internal_state(noise_state)
+
                 # https://github.com/NVIDIA/modulus-makani/blob/933b17d5a1ebfdb0e16e2ebbd7ee78cfccfda9e1/makani/third_party/climt/zenith_angle.py#L197
                 # Requires time zone data
                 t = [
@@ -305,8 +375,10 @@ class FCN3(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                     ),
                 ):
                     x[j, i : i + 1] = self.model(
-                        x[j, i : i + 1], t, normalized_data=False, replace_state=True
+                        x[j, i : i + 1], t, normalized_data=False, replace_state=False
                     )
+                self._set_internal_state(j, i)
+
         x = x.unsqueeze(2)
         return x, output_coords
 
@@ -330,7 +402,11 @@ class FCN3(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         tuple[torch.Tensor, CoordSystem]
             Output tensor and coordinate system
         """
-        return self._forward(x, coords)
+        # Initialize the internal noise states
+        # for each batch index, we will have a list of noise states for each separate time
+        self._reset_internal_state(len(coords["batch"]), len(coords["time"]))
+        output, coords = self._forward(x, coords)
+        return output, coords
 
     @batch_func()
     def _default_generator(
@@ -338,6 +414,11 @@ class FCN3(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     ) -> Generator[tuple[torch.Tensor, CoordSystem], None, None]:
         coords = coords.copy()
         self.output_coords(coords)
+
+        # Initialize the internal noise states
+        self._reset_internal_state(len(coords["batch"]), len(coords["time"]))
+
+        # Yield the initial condition
         yield x, coords
         while True:
             # Front hook
