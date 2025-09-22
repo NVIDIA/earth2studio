@@ -279,6 +279,7 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
             core_model,
             classifier_model,
             sst_ds,
+            lat_lon=lat_lon,
             sampler_steps=sampler_steps,
             sigma_max=sigma_max,
             seed=seed,
