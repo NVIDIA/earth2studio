@@ -10,12 +10,7 @@ tensors or coordinates.
 
 Analysis models are designed for terminal operations in inference pipelines, such as:
 
-- Complex validation and scoring functions
-- Data export to downstream processing systems
-- Statistical analysis and metric computation
-- Model evaluation and performance assessment
-- Data archival and storage operations
-- Custom inference utilities and hooks
+- Connections to downstream analysis tools / processes
 
 These models differ fundamentally from diagnostic and prognostic models as they do not
 produce data for further pipeline stages, instead serving as endpoints that process,
