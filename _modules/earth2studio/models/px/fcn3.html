@@ -567,6 +567,8 @@
 <span class="sd">        Core PyTorch model with loaded weights</span>
 <span class="sd">    variables : np.array, optional</span>
 <span class="sd">        Variables associated with model, by default 72 variable model.</span>
+<span class="sd">    seed : int, optional</span>
+<span class="sd">        Seed of the underlying FCN3 model&#39;s random generators, by default 333</span>
 
 <span class="sd">    Warning</span>
 <span class="sd">    -------</span>
@@ -577,6 +579,7 @@
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">core_model</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">,</span>
         <span class="n">variables</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">VARIABLES</span><span class="p">),</span>
+        <span class="n">seed</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">333</span><span class="p">,</span>
     <span class="p">):</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">model</span> <span class="o">=</span> <span class="n">core_model</span>
@@ -584,8 +587,23 @@
         <span class="k">if</span> <span class="s2">&quot;2d&quot;</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">variables</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">variables</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">variables</span> <span class="o">==</span> <span class="s2">&quot;2d&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;d2m&quot;</span>
 
+        <span class="bp">self</span><span class="o">.</span><span class="n">set_rng</span><span class="p">(</span><span class="n">reset</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="n">seed</span><span class="p">)</span>
+
     <span class="k">def</span><span class="w"> </span><span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
         <span class="k">return</span> <span class="s2">&quot;fcn3&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">set_rng</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">seed</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">333</span><span class="p">,</span> <span class="n">reset</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Set the underlying FCN3 model&#39;s RNG</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        seed : int, optional</span>
+<span class="sd">            Seed for the RNG, by default 333</span>
+<span class="sd">        reset : bool, optional</span>
+<span class="sd">            Whether to reset the state of the RNG, by default True</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">seed</span> <span class="o">=</span> <span class="n">seed</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">set_rng</span><span class="p">(</span><span class="n">reset</span><span class="o">=</span><span class="n">reset</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="n">seed</span><span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">input_coords</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">CoordSystem</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Input coordinate system of the prognostic model</span>
@@ -706,6 +724,54 @@
         <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">variables</span><span class="o">=</span><span class="n">variables</span><span class="p">)</span></div>
 
 
+    <span class="k">def</span><span class="w"> </span><span class="nf">_get_internal_state</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ensemble_index</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">time_index</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the internal RNG state for the given ensemble and time index</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        ensemble_index : int</span>
+<span class="sd">            Ensemble index</span>
+<span class="sd">        time_index : int</span>
+<span class="sd">            Time index</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_internal_noise_states</span><span class="p">[</span><span class="n">ensemble_index</span><span class="p">][</span><span class="n">time_index</span><span class="p">]</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_set_internal_state</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ensemble_index</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">time_index</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Set the internal RNG state for the given ensemble and time index</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        ensemble_index : int</span>
+<span class="sd">            Ensemble index</span>
+<span class="sd">        time_index : int</span>
+<span class="sd">            Time index</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_internal_noise_states</span><span class="p">[</span><span class="n">ensemble_index</span><span class="p">][</span><span class="n">time_index</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">preprocessor</span><span class="o">.</span><span class="n">get_internal_state</span><span class="p">(</span><span class="n">tensor</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="p">)</span>
+        <span class="k">return</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_reset_internal_state</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">num_ensemble</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">num_time</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Reset the internal RNG state for the given number of ensembles and time steps</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        num_ensemble : int</span>
+<span class="sd">            Number of ensembles</span>
+<span class="sd">        num_time : int</span>
+<span class="sd">            Number of time steps</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">_internal_noise_states</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="p">[</span><span class="kc">None</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_time</span><span class="p">)]</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_ensemble</span><span class="p">)</span>
+        <span class="p">]</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_ensemble</span><span class="p">):</span>
+            <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_time</span><span class="p">):</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">preprocessor</span><span class="o">.</span><span class="n">update_internal_state</span><span class="p">(</span><span class="n">replace_state</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+                <span class="n">_internal_noise_states</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">preprocessor</span><span class="o">.</span><span class="n">get_internal_state</span><span class="p">(</span><span class="n">tensor</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+                <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_internal_noise_states</span> <span class="o">=</span> <span class="n">_internal_noise_states</span>
+
     <span class="nd">@torch</span><span class="o">.</span><span class="n">inference_mode</span><span class="p">()</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">_forward</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
@@ -720,6 +786,10 @@
         <span class="c1"># See `load_model` for more details.</span>
         <span class="k">for</span> <span class="n">j</span><span class="p">,</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">coords</span><span class="p">[</span><span class="s2">&quot;batch&quot;</span><span class="p">]):</span>
             <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">t</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">coords</span><span class="p">[</span><span class="s2">&quot;time&quot;</span><span class="p">]):</span>
+                <span class="c1"># Get the noise state for the batch index</span>
+                <span class="n">noise_state</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_internal_state</span><span class="p">(</span><span class="n">j</span><span class="p">,</span> <span class="n">i</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">preprocessor</span><span class="o">.</span><span class="n">set_internal_state</span><span class="p">(</span><span class="n">noise_state</span><span class="p">)</span>
+
                 <span class="c1"># https://github.com/NVIDIA/modulus-makani/blob/933b17d5a1ebfdb0e16e2ebbd7ee78cfccfda9e1/makani/third_party/climt/zenith_angle.py#L197</span>
                 <span class="c1"># Requires time zone data</span>
                 <span class="n">t</span> <span class="o">=</span> <span class="p">[</span>
@@ -733,8 +803,10 @@
                     <span class="p">),</span>
                 <span class="p">):</span>
                     <span class="n">x</span><span class="p">[</span><span class="n">j</span><span class="p">,</span> <span class="n">i</span> <span class="p">:</span> <span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">(</span>
-                        <span class="n">x</span><span class="p">[</span><span class="n">j</span><span class="p">,</span> <span class="n">i</span> <span class="p">:</span> <span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">],</span> <span class="n">t</span><span class="p">,</span> <span class="n">normalized_data</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">replace_state</span><span class="o">=</span><span class="kc">True</span>
+                        <span class="n">x</span><span class="p">[</span><span class="n">j</span><span class="p">,</span> <span class="n">i</span> <span class="p">:</span> <span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">],</span> <span class="n">t</span><span class="p">,</span> <span class="n">normalized_data</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">replace_state</span><span class="o">=</span><span class="kc">False</span>
                     <span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_set_internal_state</span><span class="p">(</span><span class="n">j</span><span class="p">,</span> <span class="n">i</span><span class="p">)</span>
+
         <span class="n">x</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">x</span><span class="p">,</span> <span class="n">output_coords</span>
 
@@ -760,7 +832,11 @@
 <span class="sd">        tuple[torch.Tensor, CoordSystem]</span>
 <span class="sd">            Output tensor and coordinate system</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_forward</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="p">)</span></div>
+        <span class="c1"># Initialize the internal noise states</span>
+        <span class="c1"># for each batch index, we will have a list of noise states for each separate time</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_reset_internal_state</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">coords</span><span class="p">[</span><span class="s2">&quot;batch&quot;</span><span class="p">]),</span> <span class="nb">len</span><span class="p">(</span><span class="n">coords</span><span class="p">[</span><span class="s2">&quot;time&quot;</span><span class="p">]))</span>
+        <span class="n">output</span><span class="p">,</span> <span class="n">coords</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_forward</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">output</span><span class="p">,</span> <span class="n">coords</span></div>
 
 
     <span class="nd">@batch_func</span><span class="p">()</span>
@@ -769,6 +845,11 @@
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Generator</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">CoordSystem</span><span class="p">],</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">]:</span>
         <span class="n">coords</span> <span class="o">=</span> <span class="n">coords</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">output_coords</span><span class="p">(</span><span class="n">coords</span><span class="p">)</span>
+
+        <span class="c1"># Initialize the internal noise states</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_reset_internal_state</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">coords</span><span class="p">[</span><span class="s2">&quot;batch&quot;</span><span class="p">]),</span> <span class="nb">len</span><span class="p">(</span><span class="n">coords</span><span class="p">[</span><span class="s2">&quot;time&quot;</span><span class="p">]))</span>
+
+        <span class="c1"># Yield the initial condition</span>
         <span class="k">yield</span> <span class="n">x</span><span class="p">,</span> <span class="n">coords</span>
         <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
             <span class="c1"># Front hook</span>
