@@ -3418,7 +3418,7 @@ wheels = [
 
 [[package]]
 name = "microsoft-aurora"
-version = "0.1.dev55+gab41cf1de"
+version = "0.1.dev55+gab41cf1"
 source = { git = "https://github.com/NickGeneva/aurora.git?rev=ab41cf1de67d5dcc723b96fc9a6219e4b548d181#ab41cf1de67d5dcc723b96fc9a6219e4b548d181" }
 dependencies = [
     { name = "azure-storage-blob" },
