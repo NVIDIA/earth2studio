@@ -443,8 +443,8 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
         # Run denoiser
         if self.seed is not None:
             generator = torch.Generator(device=x.device).manual_seed(self.seed)
-            latents = torch.randn_like(
-                lr_hpx, device=x.device, dtype=torch.float64, generator=generator
+            latents = torch.randn(
+                lr_hpx.shape, device=x.device, dtype=torch.float64, generator=generator
             )
         else:
             latents = torch.randn_like(lr_hpx, device=x.device, dtype=torch.float64)
