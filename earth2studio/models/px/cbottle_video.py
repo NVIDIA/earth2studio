@@ -35,7 +35,7 @@ from earth2studio.utils.imports import (
     check_optional_dependencies,
 )
 from earth2studio.utils.type import CoordSystem, TimeArray
-
+import nvtx
 try:
     import earth2grid
     from cbottle.checkpointing import Checkpoint
@@ -237,6 +237,7 @@ class CBottleVideo(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             lat_lon or [time, 1, 45, 49152] if healpix
         """
         # Small check to make sure
+        
 
         device = self.device_buffer.device
         self.core_model.sigma_min = self.sigma_min
@@ -247,14 +248,18 @@ class CBottleVideo(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             x = self.condition_regridder(x.double())
 
         # CBottle video expects [time, vars, time-step, hpx]
-        x = x.transpose(1, 2)
-        input_batch = self.get_cbottle_input(x, times, device=device)
-        out, _ = self.core_model.sample(input_batch, seed=self.seed)
+        with nvtx.annotate("transpose", color="green"):
+            x = x.transpose(1, 2)
+        with nvtx.annotate("get input", color="purple"):
+            input_batch = self.get_cbottle_input(x, times, device=device)
+        with nvtx.annotate("cBottle-Video inference", color="blue"):
+            out, _ = self.core_model.sample(input_batch, seed=self.seed)
         # Regrid if needed
         if self.lat_lon:
             out = self.output_regridder(out.double())
         # [time, vars, lead, ...] -> [time, lead, vars, ...]
-        out = out.transpose(1, 2)
+        with nvtx.annotate("transpose", color="green"):
+            out = out.transpose(1, 2)
 
         return out
 
