@@ -127,8 +127,7 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
     def __init__(
         self,
         core_model: torch.nn.Module,
-        input_type: str = "latlon",
-        output_type: str = "latlon",
+        lat_lon: bool = True,
         output_resolution: tuple[int, int] = (2161, 4320),
         super_resolution_window: None | tuple[int, int, int, int] = None,
         sampler_steps: int = 18,
@@ -137,20 +136,13 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
     ):
         super().__init__()
 
-        # Validate input and output types
-        valid_types = ["latlon", "healpix"]
-        if input_type not in valid_types:
-            raise ValueError(
-                f"input_type must be one of {valid_types}, got {input_type}"
-            )
-        if output_type not in valid_types:
-            raise ValueError(
-                f"output_type must be one of {valid_types}, got {output_type}"
-            )
-
         # Store grid types
-        self.input_type = input_type
-        self.output_type = output_type
+        if lat_lon:
+            self.input_type = "latlon"
+            self.output_type = "latlon"
+        else:
+            self.input_type = "healpix"
+            self.output_type = "healpix"
 
         # Model
         self.core_model = core_model
@@ -237,7 +229,7 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
         self.regrid_input_to_hpx_high_res.double()
 
         # High-res HEALPix to output (only needed if output is not healpix)
-        if output_type == "latlon":
+        if self.output_type == "latlon":
             self.regrid_hpx_high_res_to_output = earth2grid.get_regridder(
                 self.hpx_high_res_grid, self.output_grid
             )
@@ -385,8 +377,7 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
     def load_model(
         cls,
         package: Package,
-        input_type: str = "latlon",
-        output_type: str = "latlon",
+        lat_lon: bool = True,
         output_resolution: tuple[int, int] = (2161, 4320),
         super_resolution_window: None | tuple[int, int, int, int] = None,
         sampler_steps: int = 18,
@@ -399,10 +390,10 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
         ----------
         package : Package
             CBottle AI model package
-        input_type : str, optional
-            Input grid type. Options: "latlon" or "healpix", by default "latlon"
-        output_type : str, optional
-            Output grid type. Options: "latlon" or "healpix", by default "latlon"
+        lat_lon : bool, optional
+            Lat/lon toggle, if true the model will expect a lat/lon grid as input and output a lat/lon
+            grid. If false, the native nested HealPix grid will be used for input and output.
+            Input HEALPix is level 6 and output HEALPix is level 10 with NEST pixel ordering.
         output_resolution : tuple[int, int], optional
             High-resolution output dimensions for lat/lon output, by default (2161, 4320)
         super_resolution_window : None | tuple[int, int, int, int], optional
@@ -429,8 +420,7 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
 
         return cls(
             core_model,
-            input_type=input_type,
-            output_type=output_type,
+            lat_lon=lat_lon,
             output_resolution=output_resolution,
             super_resolution_window=super_resolution_window,
             sampler_steps=sampler_steps,
