@@ -81,12 +81,13 @@ class TestCBottleSRMock:
             ("cuda:0", (0, -120, 50, -40)),
         ],  # Skipping CPU tests, should work be too slow
     )
-    def test_cbottle_sr_latlon_to_latlon(
+    def test_cbottle_sr_latlon(
         self, x, device, output_resolution, window, mock_cbottle_core_model
     ):
         # Create CBottleSR model with mock core model
         dx = CBottleSR(
             mock_cbottle_core_model,
+            lat_lon=True,
             output_resolution=output_resolution,
             super_resolution_window=window,
             sampler_steps=1,  # Reduced for testing speed
@@ -138,13 +139,12 @@ class TestCBottleSRMock:
         ],
     )
     @pytest.mark.parametrize("device", ["cuda:0"])
-    def test_cbottle_sr_healpix_to_healpix(self, x, device, mock_cbottle_core_model):
+    def test_cbottle_sr_healpix(self, x, device, mock_cbottle_core_model):
         """Test HEALPix input to HEALPix output (native grids)"""
         # Create CBottleSR model with HEALPix input and output
         dx = CBottleSR(
             mock_cbottle_core_model,
-            input_type="healpix",
-            output_type="healpix",
+            lat_lon=False,
             sampler_steps=1,
             sigma_max=800,
         ).to(device)
@@ -193,14 +193,6 @@ class TestCBottleSRMock:
     def test_cbottle_sr_exceptions(self, x, device, mock_cbottle_core_model):
         """Test CBottleSR exception handling"""
 
-        # Test wrong input type
-        with pytest.raises(ValueError, match="input_type must be one of"):
-            CBottleSR(mock_cbottle_core_model, input_type="invalid")
-
-        # Test wrong output type
-        with pytest.raises(ValueError, match="output_type must be one of"):
-            CBottleSR(mock_cbottle_core_model, output_type="invalid")
-
         dx = CBottleSR(mock_cbottle_core_model).to(device)
         x = x.to(device)
 
@@ -243,39 +235,6 @@ class TestCBottleSRMock:
         with pytest.raises(ValueError):
             dx(x, wrong_coords)
 
-    def test_cbottle_sr_input_output_combinations(self, mock_cbottle_core_model):
-        """Test all valid input/output type combinations"""
-
-        # All valid combinations should instantiate without error
-        combinations = [
-            ("latlon", "latlon"),
-            ("latlon", "healpix"),
-            ("healpix", "latlon"),
-            ("healpix", "healpix"),
-        ]
-
-        for input_type, output_type in combinations:
-            # Should not raise any exceptions
-            dx = CBottleSR(
-                mock_cbottle_core_model,
-                input_type=input_type,
-                output_type=output_type,
-                sampler_steps=1,
-            )
-
-            # Check that the input/output types are stored correctly
-            assert dx.input_type == input_type
-            assert dx.output_type == output_type
-
-            # Check coordinate systems are consistent
-            input_coords = dx.input_coords()
-            if input_type == "latlon":
-                assert "lat" in input_coords and "lon" in input_coords
-                assert "hpx" not in input_coords
-            else:  # healpix
-                assert "hpx" in input_coords
-                assert "lat" not in input_coords and "lon" not in input_coords
-
 
 @pytest.mark.ci_cache
 @pytest.mark.timeout(60)
@@ -287,8 +246,10 @@ def test_cbottle_sr_package(device, model_cache_context):
         package = CBottleSR.load_default_package()
         dx = CBottleSR.load_model(
             package,
+            lat_lon=True,
             sampler_steps=1,  # Reduced for testing
             output_resolution=(721, 1440),  # Reduced for testing
+            seed=42,  # Set seed for reproducibility
         ).to(device)
 
     x = torch.randn(1, 12, 721, 1440).to(device)
