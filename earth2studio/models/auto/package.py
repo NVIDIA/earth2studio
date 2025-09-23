@@ -145,9 +145,10 @@ class Package:
         will get initialized based on the protocal of the root url, by default None
     fs_options : dict, optional
         Filesystem object keyword arguments to use, by default {}
-    cache : bool, optional
+    cache : bool | None, optional
         Toggle local caching, typically you want this to be true unless the package is
-        a local file system, by default True
+        a local file system. If None, will only use caching for remote packages, by
+        default None
     cache_options : dict, optional
         Caching options provided to Fsspec. See CachingFileSystem in fsspec for
         valid options https://filesystem-spec.readthedocs.io/en/latest/api.html#fsspec.implementations.cached.CachingFileSystem,
@@ -159,7 +160,7 @@ class Package:
         root: str,
         fs: AbstractFileSystem | None = None,
         fs_options: dict = {},
-        cache: bool = True,
+        cache: bool | None = None,
         cache_options: dict = {},
     ):
 
@@ -211,6 +212,12 @@ class Package:
         else:
             protocol = split_protocol(root)[0]
             self.fs = fsspec.filesystem(protocol, **fs_options)
+
+        # If remote file system, cache
+        if cache is None and not isinstance(
+            self.fs, fsspec.implementations.local.LocalFileSystem
+        ):
+            cache = True
 
         if cache:
             self.fs = CallbackWholeFileCacheFileSystem(fs=self.fs, **self.cache_options)
