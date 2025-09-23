@@ -44,9 +44,70 @@ def make_two_nnz_per_first_row_csr(n_rows, n_cols, device):
     )
 
 
+class DotDict(dict):
+    """Minimal DotDict replacement with recursive dot-notation access."""
+
+    def __getattr__(self, name):
+        value = self.get(name)
+        if isinstance(value, dict) and not isinstance(value, DotDict):
+            value = DotDict(value)  # recursively wrap dicts
+            self[name] = value
+        return value
+
+    def __setattr__(self, name, value):
+        self[name] = value
+
+    def __delattr__(self, name):
+        del self[name]
+
+
 class PhooAIFSModel(torch.nn.Module):
+    def __init__(self):
+        super().__init__()
+
+        # Mock data indices, annoying
+        data_indices = DotDict()
+        data_indices.data = DotDict()
+        data_indices.data.input = DotDict()
+        data_indices.data.output = DotDict()
+
+        all = torch.arange(0, 116)
+
+        data_indices = DotDict()
+        data_indices.data = DotDict()
+        data_indices.data.input = DotDict()
+        data_indices.data.output = DotDict()
+
+        data_indices.data.input.prognostic = torch.cat(
+            [
+                all[0:82],
+                all[[83, 85, 87, 88, 109, 110, 112, 113]],
+            ]
+        )
+
+        data_indices.data.input.forcing = torch.cat(
+            [all[[82, 84, 86, 89]], all[92:101]]
+        )
+
+        data_indices.data.output.full = torch.cat(
+            [all[0:82], all[[83, 85, 87, 88, 90, 91]], all[101:115]]
+        )
+
+        data_indices.data.input.full = torch.cat(
+            [all[0:90], all[92:101], all[[109, 110, 112, 113]]]
+        )
+
+        # Model indices
+        data_indices.model = DotDict()
+        data_indices.model.input = DotDict()
+        data_indices.model.input.forcing = torch.cat(
+            [all[[82, 84, 86, 89]], all[90:99]]
+        )
+
+        self.data_indices = data_indices
+
     def predict_step(self, x):
-        return torch.ones(x.shape[0], x.shape[2], 101, device=x.device)
+        return torch.ones(x.shape[0], x.shape[2], 102, device=x.device)
 
 
 @pytest.mark.parametrize(
@@ -63,7 +124,6 @@ class PhooAIFSModel(torch.nn.Module):
 )
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
 def test_aifs_call(time, device):
-
     # Spoof model
     model = PhooAIFSModel()
 
@@ -107,7 +167,7 @@ def test_aifs_call(time, device):
     if not isinstance(time, Iterable):
         time = [time]
 
-    assert out.shape == torch.Size([len(time), 1, 94, 721, 1440])
+    assert out.shape == torch.Size([len(time), 1, 106, 721, 1440])
     assert (out_coords["variable"] == p.output_coords(coords)["variable"]).all()
     assert (out_coords["time"] == time).all()
     handshake_dim(out_coords, "lon", 4)
@@ -123,7 +183,6 @@ def test_aifs_call(time, device):
 )
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
 def test_aifs_iter(ensemble, device):
-
     time = np.array([np.datetime64("1993-04-05T00:00")])
     # Spoof model
     model = PhooAIFSModel()
@@ -174,7 +233,7 @@ def test_aifs_iter(ensemble, device):
     next(p_iter)  # Skip first which should return the input
     for i, (out, out_coords) in enumerate(p_iter):
         assert len(out.shape) == 6
-        assert out.shape == torch.Size([ensemble, len(time), 1, 94, 721, 1440])
+        assert out.shape == torch.Size([ensemble, len(time), 1, 106, 721, 1440])
         assert (
             out_coords["variable"] == p.output_coords(p.input_coords())["variable"]
         ).all()
@@ -250,6 +309,9 @@ def test_aifs_package(device, model):
     # Test the cached model package AIFS
     p = model.to(device)
 
+    assert len(p.input_variables) == 94
+    assert len(p.output_variables) == 106
+
     # Create "domain coords"
     dc = {k: p.input_coords()[k] for k in ["lat", "lon"]}
 
@@ -266,7 +328,7 @@ def test_aifs_package(device, model):
     if not isinstance(time, Iterable):
         time = [time]
 
-    assert out.shape == torch.Size([len(time), 1, 94, 721, 1440])
+    assert out.shape == torch.Size([len(time), 1, 106, 721, 1440])
     assert (out_coords["variable"] == p.output_coords(coords)["variable"]).all()
     handshake_dim(out_coords, "lon", 4)
     handshake_dim(out_coords, "lat", 3)
