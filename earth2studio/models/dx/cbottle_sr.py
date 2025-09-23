@@ -85,33 +85,10 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
     low- and high-resolution climate data with high fidelity. This model generates
     results at 5km resolution on a healpix grid with 10 levels of resolution (1024x1024).
     The results can be output in either HEALPix format or regridded to a lat/lon grid.
-
-    The model supports multiple input/output grid configurations:
-
-    **Input Grid Options:**
-
-    - **"latlon"** (default): 721x1440 equiangular lat/lon grid (0.25° resolution)
-    - **"healpix"**: HEALPix level 6 grid (49,152 pixels) with NEST pixel ordering
-
-    **Output Grid Options:**
-
-    - **"latlon"** (default): Regridded to specified lat/lon dimensions
-        - Suggested dimensions: (2161, 4320) for ~10km equatorial resolution
-        - Suggested dimensions: (4321, 8640) for ~5km equatorial resolution
-    - **"healpix"**: Native HEALPix level 10 grid (12,582,912 pixels) with NEST ordering
-
-    **Super-Resolution Windows:**
-
-    When using lat/lon output, the model can generate results for a smaller region
-    of the globe by specifying a super-resolution window. This is often desirable
-    as full global results are computationally expensive.
-
-    **HEALPix Grid Details:**
-
-    - **Input HEALPix**: Level 6, 49,152 pixels, ~110km mean pixel spacing
-    - **Output HEALPix**: Level 10, 12,582,912 pixels, ~6.9km mean pixel spacing
-    - **Pixel Ordering**: NEST (Nested) ordering for both input and output
-    - **Coordinate System**: Equatorial coordinates (longitude, latitude)
+    If lat/lon is used for output, the results will be regridded to the specified output resolution.
+    Suggested output resolutions are (2161, 4320) for ~10km equatorial resolution and (4321, 8640) for ~5km equatorial resolution.
+    The model can also be used to generate results for a smaller region of the globe by specifying a super-resolution window.
+    This is often desirable as full global results are computationally expensive.
 
     Note
     ----
@@ -126,24 +103,25 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
     ----------
     core_model : torch.nn.Module
         Core pytorch model implementing the diffusion-based super-resolution
-    input_type : str, optional
-        Input grid type. Options: "latlon" (721x1440 equiangular) or "healpix"
-        (level 6 NEST), by default "latlon"
-    output_type : str, optional
-        Output grid type. Options: "latlon" (regridded to output_resolution) or
-        "healpix" (level 10 NEST), by default "latlon"
+    lat_lon : bool, optional
+        Lat/lon toggle, if true the model will expect a lat/lon grid as input and output a lat/lon
+        grid. If false, the native nested HealPix grid will be used for input and output.
+        Input HEALPix is level 6 and output HEALPix is level 10 with NEST pixel ordering.
     output_resolution : Tuple[int, int], optional
         High-resolution output dimensions for lat/lon output. Only used when
-        output_type="latlon", by default (2161, 4320)
+        lat_lon=True, by default (2161, 4320)
     super_resolution_window : Union[None, Tuple[int, int, int, int]], optional
-        Super-resolution window for lat/lon output. If None, super-resolution is done
+        Super-resolution window. If None, super-resolution is done
         on the entire global grid. If provided, the super-resolution window is a tuple
-        of (lat_south, lon_west, lat_north, lon_east) and will return results for the
-        specified window. Only applicable when output_type="latlon", by default None
+        of (lat_south, lon_west, lat_north, lon_east) and will only apply super-resolution
+        to the specified window. For lat/lon output, the result will just be returned for
+        the specified window with the specified output resolution.
     sampler_steps : int, optional
         Number of diffusion steps, by default 18
     sigma_max : int, optional
         Maximum noise level for diffusion process, by default 800
+    seed : int, optional
+        Random generator seed for latent variables, by default None
     """
 
     def __init__(
@@ -155,6 +133,7 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
         super_resolution_window: None | tuple[int, int, int, int] = None,
         sampler_steps: int = 18,
         sigma_max: int = 800,
+        seed: int | None = None,
     ):
         super().__init__()
 
@@ -176,6 +155,9 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
         # Model
         self.core_model = core_model
 
+        # Store seed
+        self.seed = seed
+
         # Output shape (only used for latlon output)
         self.output_resolution = output_resolution
 
@@ -187,7 +169,7 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
         self.super_resolution_window = super_resolution_window
 
         # Setup output coordinates based on output type
-        if output_type == "latlon":
+        if self.output_type == "latlon":
             if super_resolution_window is not None:
                 self.output_lat = np.linspace(
                     super_resolution_window[0],
@@ -218,7 +200,7 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
 
         # Setup grids and regridders based on input/output types
         # Input grids
-        if input_type == "latlon":
+        if self.input_type == "latlon":
             self.input_grid = earth2grid.latlon.equiangular_lat_lon_grid(
                 721, 1440, includes_south_pole=False
             )
@@ -233,7 +215,7 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
         )
 
         # Output grids
-        if output_type == "latlon":
+        if self.output_type == "latlon":
             if super_resolution_window is not None:
                 self.output_grid = earth2grid.latlon.LatLonGrid(
                     self.output_lat, self.output_lon
@@ -409,6 +391,7 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
         super_resolution_window: None | tuple[int, int, int, int] = None,
         sampler_steps: int = 18,
         sigma_max: int = 800,
+        seed: int | None = None,
     ) -> DiagnosticModel:
         """Load AI datasource from package
 
@@ -428,6 +411,8 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
             Number of diffusion steps, by default 18
         sigma_max : float, optional
             Noise amplitude used to generate latent variables, by default 800
+        seed : int, optional
+            Random generator seed for latent variables, by default None
 
         Returns
         -------
@@ -450,6 +435,7 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
             super_resolution_window=super_resolution_window,
             sampler_steps=sampler_steps,
             sigma_max=sigma_max,
+            seed=seed,
         )
 
     @torch.inference_mode()
@@ -465,7 +451,13 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
         global_lr = self.regrid_to_latlon(lr_hpx)
 
         # Run denoiser
-        latents = torch.randn_like(lr_hpx, device=x.device, dtype=torch.float64)
+        if self.seed is not None:
+            generator = torch.Generator(device=x.device).manual_seed(self.seed)
+            latents = torch.randn_like(
+                lr_hpx, device=x.device, dtype=torch.float64, generator=generator
+            )
+        else:
+            latents = torch.randn_like(lr_hpx, device=x.device, dtype=torch.float64)
 
         # Add 1 batch dimension
         latents = latents[None,].float()

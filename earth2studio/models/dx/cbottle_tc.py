@@ -82,7 +82,7 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
     sst_ds : xr.Dataset
         Sea surface temperature xarray dataset
     lat_lon : bool, optional
-        Lat/lon toggle, if true data source will return output on a 0.25 deg lat/lon
+        Lat/lon toggle, if true the model will return output on a 0.25 deg lat/lon
         grid. If false, the native nested HealPix grid will be returned, by default True
     sampler_steps : int, optional
         Number of diffusion steps, by default 18
