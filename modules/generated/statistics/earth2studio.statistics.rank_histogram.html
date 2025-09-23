@@ -563,18 +563,23 @@
 <h1><a class="reference internal" href="../../statistics.html#module-earth2studio.statistics" title="earth2studio.statistics"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code></a>.rank_histogram<a class="headerlink" href="#earth2studio-statistics-rank-histogram" title="Link to this heading">#</a></h1>
 <dl class="py class">
 <dt class="sig sig-object py" id="earth2studio.statistics.rank_histogram">
-<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">earth2studio.statistics.</span></span><span class="sig-name descname"><span class="pre">rank_histogram</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ensemble_dimension</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reduction_dimensions</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">number_of_bins</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">10</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/earth2studio/statistics/rank.html#rank_histogram"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.statistics.rank_histogram" title="Link to this definition">#</a></dt>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">earth2studio.statistics.</span></span><span class="sig-name descname"><span class="pre">rank_histogram</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ensemble_dimension</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reduction_dimensions</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">number_of_bins</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">randomize_ties</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/earth2studio/statistics/rank.html#rank_histogram"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.statistics.rank_histogram" title="Link to this definition">#</a></dt>
 <dd><p>Compute the Rank Histogram for a given set of ensemble forecasts.</p>
 <p>This statistic reduces over a single dimension, where the presumed ensemble dimension
 does not appear in the truth/observation tensor.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>ensemble_dimension</strong> (<em>str</em>) – A name corresponding to a dimension to perform the
-ranking over. Example: ‘ensemble’</p></li>
-<li><p><strong>reduction_dimensions</strong> (<em>list</em><em>[</em><em>str</em><em>]</em>) – A list of dimensions over which to bin the ranks.</p></li>
-<li><p><strong>number_of_bins</strong> (<em>int</em>) – The number of bins to discretize the unit interval over.
-by default, 10</p></li>
+<li><p><strong>ensemble_dimension</strong> (<em>str</em>) – A name corresponding to a dimension to perform the ranking over.
+Example: ‘ensemble’</p></li>
+<li><p><strong>reduction_dimensions</strong> (<em>list</em><em>[</em><em>str</em><em>]</em>) – A list of dimensions over which to bin the ranks</p></li>
+<li><p><strong>number_of_bins</strong> (<em>int</em><em> | </em><em>None</em><em>, </em><em>optional</em>) – The number of bins to discretize the unit interval over. Best set to
+ensemble_size + 1, which is set automatically when None, by default None</p></li>
+<li><p><strong>randomize_ties</strong> (<em>bool</em><em>, </em><em>optional</em>) – When True randomize the rank in cases where multiple ensemble
+members are exactly equal to the observation. This produces an unbiased
+distribution of ranks in cases where ties occur frequently. If False, the rank
+will be computed as if the observation were larger than the tied ensemble
+members, by default True</p></li>
 </ul>
 </dd>
 </dl>

@@ -468,20 +468,27 @@
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
 <span class="sd">    ensemble_dimension: str</span>
-<span class="sd">        A name corresponding to a dimension to perform the</span>
-<span class="sd">        ranking over. Example: &#39;ensemble&#39;</span>
+<span class="sd">        A name corresponding to a dimension to perform the ranking over.</span>
+<span class="sd">        Example: &#39;ensemble&#39;</span>
 <span class="sd">    reduction_dimensions: list[str]</span>
-<span class="sd">        A list of dimensions over which to bin the ranks.</span>
-<span class="sd">    number_of_bins: int</span>
-<span class="sd">        The number of bins to discretize the unit interval over.</span>
-<span class="sd">        by default, 10</span>
+<span class="sd">        A list of dimensions over which to bin the ranks</span>
+<span class="sd">    number_of_bins: int | None, optional</span>
+<span class="sd">        The number of bins to discretize the unit interval over. Best set to</span>
+<span class="sd">        ensemble_size + 1, which is set automatically when None, by default None</span>
+<span class="sd">    randomize_ties: bool, optional</span>
+<span class="sd">        When True randomize the rank in cases where multiple ensemble</span>
+<span class="sd">        members are exactly equal to the observation. This produces an unbiased</span>
+<span class="sd">        distribution of ranks in cases where ties occur frequently. If False, the rank</span>
+<span class="sd">        will be computed as if the observation were larger than the tied ensemble</span>
+<span class="sd">        members, by default True</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">ensemble_dimension</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
         <span class="n">reduction_dimensions</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
-        <span class="n">number_of_bins</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">10</span><span class="p">,</span>
+        <span class="n">number_of_bins</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">randomize_ties</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
     <span class="p">):</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">ensemble_dimension</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
@@ -491,6 +498,7 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">ensemble_dimension</span> <span class="o">=</span> <span class="n">ensemble_dimension</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_reduction_dimensions</span> <span class="o">=</span> <span class="n">reduction_dimensions</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">number_of_bins</span> <span class="o">=</span> <span class="n">number_of_bins</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">randomize_ties</span> <span class="o">=</span> <span class="n">randomize_ties</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
         <span class="k">return</span> <span class="s2">&quot;rank_histogram&quot;</span>
@@ -498,6 +506,12 @@
     <span class="nd">@property</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">reduction_dimensions</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
         <span class="k">return</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">ensemble_dimension</span><span class="p">]</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">_reduction_dimensions</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_get_number_of_bins</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_coords</span><span class="p">:</span> <span class="n">CoordSystem</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">number_of_bins</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="n">input_coords</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">ensemble_dimension</span><span class="p">])</span> <span class="o">+</span> <span class="mi">1</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">number_of_bins</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">output_coords</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_coords</span><span class="p">:</span> <span class="n">CoordSystem</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">CoordSystem</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Output coordinate system of the computed statistic, corresponding to the given input coordinates</span>
@@ -513,6 +527,7 @@
 <span class="sd">            Coordinate system dictionary</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">output_coords</span> <span class="o">=</span> <span class="n">input_coords</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="n">number_of_bins</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_number_of_bins</span><span class="p">(</span><span class="n">input_coords</span><span class="p">)</span>
         <span class="k">for</span> <span class="n">dimension</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">reduction_dimensions</span><span class="p">:</span>
             <span class="n">handshake_dim</span><span class="p">(</span><span class="n">input_coords</span><span class="p">,</span> <span class="n">dimension</span><span class="p">)</span>
             <span class="n">output_coords</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">dimension</span><span class="p">)</span>
@@ -521,7 +536,7 @@
             <span class="n">OrderedDict</span><span class="p">(</span>
                 <span class="p">{</span>
                     <span class="s2">&quot;histogram_data&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="s2">&quot;bin_centers&quot;</span><span class="p">,</span> <span class="s2">&quot;bin_counts&quot;</span><span class="p">]),</span>
-                    <span class="s2">&quot;bin&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">number_of_bins</span><span class="p">),</span>
+                    <span class="s2">&quot;bin&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">number_of_bins</span><span class="p">),</span>
                 <span class="p">}</span>
             <span class="p">)</span>
             <span class="o">|</span> <span class="n">output_coords</span>
@@ -585,6 +600,8 @@
                 <span class="n">handshake_coords</span><span class="p">(</span><span class="n">y_coords</span><span class="p">,</span> <span class="n">x_coords</span><span class="p">,</span> <span class="n">c</span><span class="p">)</span>
                 <span class="n">coord_count</span> <span class="o">+=</span> <span class="mi">1</span>
 
+        <span class="n">number_of_bins</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_number_of_bins</span><span class="p">(</span><span class="n">x_coords</span><span class="p">)</span>
+
         <span class="c1"># Get the dimension index of the ensemble dimension</span>
         <span class="n">dim</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">x_coords</span><span class="p">)</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ensemble_dimension</span><span class="p">)</span>
 
@@ -592,7 +609,16 @@
         <span class="n">x</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">movedim</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">dim</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
 
         <span class="c1"># Compute the ranks over the ensemble dimension</span>
-        <span class="n">_ranks</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="mf">1.0</span> <span class="o">*</span> <span class="n">torch</span><span class="o">.</span><span class="n">ge</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="n">x</span><span class="p">),</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+        <span class="n">_ranks</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">ge</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">int32</span><span class="p">),</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">randomize_ties</span><span class="p">:</span>
+            <span class="n">_ranks_gt</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">gt</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">int32</span><span class="p">),</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+            <span class="n">rank_diff</span> <span class="o">=</span> <span class="n">_ranks</span> <span class="o">-</span> <span class="n">_ranks_gt</span>
+            <span class="n">ties</span> <span class="o">=</span> <span class="n">rank_diff</span> <span class="o">&gt;</span> <span class="mi">0</span>
+            <span class="n">_ranks</span><span class="p">[</span><span class="n">ties</span><span class="p">]</span> <span class="o">-=</span> <span class="p">(</span>
+                <span class="n">torch</span><span class="o">.</span><span class="n">rand_like</span><span class="p">(</span><span class="n">_ranks</span><span class="p">[</span><span class="n">ties</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+                <span class="o">*</span> <span class="p">(</span><span class="n">rank_diff</span><span class="p">[</span><span class="n">ties</span><span class="p">]</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+            <span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span>
 
         <span class="c1"># Reshape ranks using reduction dimensions</span>
         <span class="n">dims</span> <span class="o">=</span> <span class="p">[</span><span class="nb">list</span><span class="p">(</span><span class="n">y_coords</span><span class="p">)</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">rd</span><span class="p">)</span> <span class="k">for</span> <span class="n">rd</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_reduction_dimensions</span><span class="p">]</span>
@@ -603,9 +629,13 @@
             <span class="n">end_dim</span><span class="o">=</span><span class="n">new_dims</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span>
         <span class="p">)</span>
 
+        <span class="c1"># Normalize ranks to [0, 1]</span>
+        <span class="n">_ranks</span> <span class="o">=</span> <span class="n">_ranks</span> <span class="o">/</span> <span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
         <span class="c1"># Compute histogram</span>
+        <span class="c1"># note: this version of linspace returns self.number_of_bins + 1 bin edges</span>
         <span class="n">_bin_edges</span> <span class="o">=</span> <span class="n">linspace</span><span class="p">(</span>
-            <span class="n">torch</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">_ranks</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span> <span class="n">torch</span><span class="o">.</span><span class="n">ones_like</span><span class="p">(</span><span class="n">_ranks</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span> <span class="bp">self</span><span class="o">.</span><span class="n">number_of_bins</span>
+            <span class="n">torch</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">_ranks</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span> <span class="n">torch</span><span class="o">.</span><span class="n">ones_like</span><span class="p">(</span><span class="n">_ranks</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span> <span class="n">number_of_bins</span>
         <span class="p">)</span>
         <span class="n">_rank_histogram</span> <span class="o">=</span> <span class="n">_count_bins</span><span class="p">(</span><span class="n">_ranks</span><span class="p">,</span> <span class="n">_bin_edges</span><span class="p">)</span>
 
@@ -619,7 +649,7 @@
             <span class="n">OrderedDict</span><span class="p">(</span>
                 <span class="p">{</span>
                     <span class="s2">&quot;histogram_data&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="s2">&quot;bin_centers&quot;</span><span class="p">,</span> <span class="s2">&quot;bin_counts&quot;</span><span class="p">]),</span>
-                    <span class="s2">&quot;bin&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">number_of_bins</span><span class="p">),</span>
+                    <span class="s2">&quot;bin&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">number_of_bins</span><span class="p">),</span>
                 <span class="p">}</span>
             <span class="p">)</span>
             <span class="o">|</span> <span class="n">out_coords</span>
