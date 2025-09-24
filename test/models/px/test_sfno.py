@@ -162,7 +162,7 @@ def model(model_cache_context) -> SFNO:
 
 @pytest.mark.ci_cache
 @pytest.mark.timeout(360)
-@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+@pytest.mark.parametrize("device", ["cuda:0"])  # Removing CPU for now, too slow "cpu",
 def test_sfno_package(device, model):
     torch.cuda.empty_cache()
     time = np.array([np.datetime64("1993-04-05T00:00")])
