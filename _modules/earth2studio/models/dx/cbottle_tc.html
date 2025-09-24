@@ -492,7 +492,7 @@
 
 <span class="sd">    Note</span>
 <span class="sd">    ----</span>
-<span class="sd">    This model provides the function :py:func:`CBottleTCGuidance.create_guidance_tensor`</span>
+<span class="sd">    This model provides the function :py:func:`model.create_guidance_tensor`</span>
 <span class="sd">    as a utility to create the input guidance tensor.</span>
 
 <span class="sd">    Parameters</span>
@@ -706,17 +706,19 @@
             <span class="n">core_model</span><span class="p">,</span>
             <span class="n">classifier_model</span><span class="p">,</span>
             <span class="n">sst_ds</span><span class="p">,</span>
+            <span class="n">lat_lon</span><span class="o">=</span><span class="n">lat_lon</span><span class="p">,</span>
             <span class="n">sampler_steps</span><span class="o">=</span><span class="n">sampler_steps</span><span class="p">,</span>
             <span class="n">sigma_max</span><span class="o">=</span><span class="n">sigma_max</span><span class="p">,</span>
             <span class="n">seed</span><span class="o">=</span><span class="n">seed</span><span class="p">,</span>
         <span class="p">)</span></div>
 
 
-    <span class="nd">@staticmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">create_guidance_tensor</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
         <span class="n">lat_coords</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
         <span class="n">lon_coords</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
         <span class="n">times</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">datetime</span><span class="p">]</span> <span class="o">|</span> <span class="n">TimeArray</span><span class="p">,</span>
+        <span class="n">lat_lon</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">OrderedDict</span><span class="p">]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Creates a TC guidance tensor from lat/lon coordinates.</span>
 
@@ -734,41 +736,69 @@
 <span class="sd">        -------</span>
 <span class="sd">        tuple[torch.Tensor, OrderedDict]</span>
 <span class="sd">            Tuple containing:</span>
-<span class="sd">            - Guidance tensor with shape (1,n,1,721,1440) where values are 1 at the</span>
-<span class="sd">                specified coordinates</span>
+<span class="sd">            - Guidance tensor with shape (n,1,721,1440) or (n,1,hpx) where values are 1</span>
+<span class="sd">                at the specified coordinates</span>
 <span class="sd">            - OrderedDict with coordinate dimensions and values</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">times</span> <span class="o">=</span> <span class="n">to_time_array</span><span class="p">(</span><span class="n">times</span><span class="p">)</span>
-        <span class="c1"># Convert any longitudes in -180 to 180 range to 0 to 360 range</span>
-        <span class="n">lon_coords</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">lon_coords</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">,</span> <span class="n">lon_coords</span> <span class="o">+</span> <span class="mi">360</span><span class="p">,</span> <span class="n">lon_coords</span><span class="p">)</span>
+        <span class="n">device</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">device_buffer</span><span class="o">.</span><span class="n">device</span>
+        <span class="n">guidance</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">lat_lon</span><span class="p">:</span>
+            <span class="c1"># Convert any longitudes in -180 to 180 range to 0 to 360 range</span>
+            <span class="n">lon_coords</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">lon_coords</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">,</span> <span class="n">lon_coords</span> <span class="o">+</span> <span class="mi">360</span><span class="p">,</span> <span class="n">lon_coords</span><span class="p">)</span>
 
-        <span class="n">lat_grid</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">90</span><span class="p">,</span> <span class="o">-</span><span class="mi">90</span><span class="p">,</span> <span class="mi">721</span><span class="p">)</span>
-        <span class="n">lon_grid</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">360</span><span class="p">,</span> <span class="mi">1440</span><span class="p">,</span> <span class="n">endpoint</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
-        <span class="n">guidance</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">full</span><span class="p">((</span><span class="n">times</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">721</span><span class="p">,</span> <span class="mi">1440</span><span class="p">),</span> <span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">float</span><span class="p">()</span>
+            <span class="n">lat_grid</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">90</span><span class="p">,</span> <span class="o">-</span><span class="mi">90</span><span class="p">,</span> <span class="mi">721</span><span class="p">)</span>
+            <span class="n">lon_grid</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">360</span><span class="p">,</span> <span class="mi">1440</span><span class="p">,</span> <span class="n">endpoint</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+            <span class="n">guidance</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">full</span><span class="p">(</span>
+                <span class="p">(</span><span class="n">times</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">721</span><span class="p">,</span> <span class="mi">1440</span><span class="p">),</span> <span class="n">torch</span><span class="o">.</span><span class="n">nan</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span>
+            <span class="p">)</span><span class="o">.</span><span class="n">float</span><span class="p">()</span>
 
-        <span class="n">lat_idx</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">searchsorted</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">from_numpy</span><span class="p">(</span><span class="o">-</span><span class="n">lat_grid</span><span class="p">),</span> <span class="o">-</span><span class="n">lat_coords</span><span class="p">)</span>
-        <span class="n">lon_idx</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">searchsorted</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">from_numpy</span><span class="p">(</span><span class="n">lon_grid</span><span class="p">),</span> <span class="n">lon_coords</span><span class="p">)</span>
-        <span class="n">guidance</span><span class="p">[:,</span> <span class="p">:,</span> <span class="p">:,</span> <span class="n">lat_idx</span><span class="p">,</span> <span class="n">lon_idx</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1</span>
+            <span class="n">lat_idx</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">searchsorted</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">from_numpy</span><span class="p">(</span><span class="o">-</span><span class="n">lat_grid</span><span class="p">),</span> <span class="o">-</span><span class="n">lat_coords</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span>
+                <span class="n">device</span>
+            <span class="p">)</span>
+            <span class="n">lon_idx</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">searchsorted</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">from_numpy</span><span class="p">(</span><span class="n">lon_grid</span><span class="p">),</span> <span class="n">lon_coords</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span>
+                <span class="n">device</span>
+            <span class="p">)</span>
+            <span class="n">guidance</span><span class="p">[:,</span> <span class="p">:,</span> <span class="p">:,</span> <span class="n">lat_idx</span><span class="p">,</span> <span class="n">lon_idx</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1</span>
 
-        <span class="n">coords</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">(</span>
-            <span class="p">{</span>
-                <span class="s2">&quot;time&quot;</span><span class="p">:</span> <span class="n">times</span><span class="p">,</span>
-                <span class="s2">&quot;lead_time&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">np</span><span class="o">.</span><span class="n">timedelta64</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;h&quot;</span><span class="p">)]),</span>
-                <span class="s2">&quot;variable&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="s2">&quot;tc_guidance&quot;</span><span class="p">]),</span>
-                <span class="s2">&quot;lat&quot;</span><span class="p">:</span> <span class="n">lat_grid</span><span class="p">,</span>
-                <span class="s2">&quot;lon&quot;</span><span class="p">:</span> <span class="n">lon_grid</span><span class="p">,</span>
-            <span class="p">}</span>
-        <span class="p">)</span>
+            <span class="n">coords</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">(</span>
+                <span class="p">{</span>
+                    <span class="s2">&quot;time&quot;</span><span class="p">:</span> <span class="n">times</span><span class="p">,</span>
+                    <span class="s2">&quot;lead_time&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">np</span><span class="o">.</span><span class="n">timedelta64</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;h&quot;</span><span class="p">)]),</span>
+                    <span class="s2">&quot;variable&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="s2">&quot;tc_guidance&quot;</span><span class="p">]),</span>
+                    <span class="s2">&quot;lat&quot;</span><span class="p">:</span> <span class="n">lat_grid</span><span class="p">,</span>
+                    <span class="s2">&quot;lon&quot;</span><span class="p">:</span> <span class="n">lon_grid</span><span class="p">,</span>
+                <span class="p">}</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">guidance</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">full</span><span class="p">(</span>
+                <span class="p">(</span><span class="n">times</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">core_model</span><span class="o">.</span><span class="n">classifier_grid</span><span class="o">.</span><span class="n">shape</span><span class="p">),</span>
+                <span class="n">torch</span><span class="o">.</span><span class="n">nan</span><span class="p">,</span>
+                <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="n">idx</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">core_model</span><span class="o">.</span><span class="n">classifier_grid</span><span class="o">.</span><span class="n">ang2pix</span><span class="p">(</span>
+                <span class="n">lon_coords</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">),</span> <span class="n">lat_coords</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
+            <span class="p">)</span>
+            <span class="n">guidance</span><span class="p">[:,</span> <span class="p">:,</span> <span class="p">:,</span> <span class="n">idx</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1</span>
+            <span class="n">coords</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">(</span>
+                <span class="p">{</span>
+                    <span class="s2">&quot;time&quot;</span><span class="p">:</span> <span class="n">times</span><span class="p">,</span>
+                    <span class="s2">&quot;lead_time&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">np</span><span class="o">.</span><span class="n">timedelta64</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;h&quot;</span><span class="p">)]),</span>
+                    <span class="s2">&quot;variable&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="s2">&quot;tc_guidance&quot;</span><span class="p">]),</span>
+                    <span class="s2">&quot;hpx&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">guidance</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]),</span>
+                <span class="p">}</span>
+            <span class="p">)</span>
 
         <span class="k">return</span> <span class="n">guidance</span><span class="p">,</span> <span class="n">coords</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">_latlon_guidance_to_hpx</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Calculates HPX guidance pixel IDs if model has lat/lon grid inputs</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_prepare_guidance_tensor</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Preparies HPX guidance tensor for model. If inputs are lat lon, will convert</span>
+<span class="sd">        to HPX, otherwise just expanded required dims for model inference</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
 <span class="sd">        x : torch.Tensor</span>
-<span class="sd">            Input lat/lon array of tc guidance, where non-zero indicates a region to</span>
+<span class="sd">            Input lat/lon array of tc guidance, where non-nan indicates a region to</span>
 <span class="sd">            guide a topical cyclone. Dimensions [batch, 1, lat, lon] or [batch, 1, hpx]</span>
 
 <span class="sd">        Returns</span>
@@ -786,7 +816,7 @@
         <span class="p">)</span>
 
         <span class="k">for</span> <span class="n">batch</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]):</span>
-            <span class="n">idx</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">nonzero</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="n">batch</span><span class="p">,</span> <span class="mi">0</span><span class="p">])</span>
+            <span class="n">idx</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">nonzero</span><span class="p">(</span><span class="o">~</span><span class="n">torch</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="n">batch</span><span class="p">,</span> <span class="mi">0</span><span class="p">]))</span>
             <span class="n">idx</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">core_model</span><span class="o">.</span><span class="n">classifier_grid</span><span class="o">.</span><span class="n">ang2pix</span><span class="p">(</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">lon_grid</span><span class="p">[</span><span class="n">idx</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]],</span> <span class="bp">self</span><span class="o">.</span><span class="n">lat_grid</span><span class="p">[</span><span class="n">idx</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]]</span>
             <span class="p">)</span>
@@ -841,7 +871,7 @@
             <span class="n">batch</span><span class="p">[</span><span class="s2">&quot;second_of_day&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">second_of_day</span><span class="p">[</span><span class="n">start_idx</span><span class="p">:</span><span class="n">end_idx</span><span class="p">]</span>
             <span class="n">batch</span><span class="p">[</span><span class="s2">&quot;day_of_year&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">day_of_year</span><span class="p">[</span><span class="n">start_idx</span><span class="p">:</span><span class="n">end_idx</span><span class="p">]</span>
 
-            <span class="n">indices_where_tc</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_latlon_guidance_to_hpx</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="n">start_idx</span><span class="p">:</span><span class="n">end_idx</span><span class="p">])</span>
+            <span class="n">indices_where_tc</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_prepare_guidance_tensor</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="n">start_idx</span><span class="p">:</span><span class="n">end_idx</span><span class="p">])</span>
             <span class="n">output</span><span class="p">,</span> <span class="n">cb_coords</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">core_model</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span>
                 <span class="n">batch</span><span class="p">,</span> <span class="n">guidance_pixels</span><span class="o">=</span><span class="n">indices_where_tc</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">seed</span>
             <span class="p">)</span>
