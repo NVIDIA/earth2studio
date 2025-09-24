@@ -228,7 +228,7 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
         sigma_max: float = 200,
         seed: int | None = None,
     ) -> DiagnosticModel:
-        """Load AI datasource from package
+        """Load diagnostic from package
 
         Parameters
         ----------

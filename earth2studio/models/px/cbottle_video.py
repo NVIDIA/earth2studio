@@ -406,7 +406,7 @@ class CBottleVideo(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         sigma_max: float = 1000,
         seed: int | None = None,
     ) -> PrognosticModel:
-        """Load AI datasource from package
+        """Load prognostic from package
 
         Parameters
         ----------
