@@ -20,7 +20,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Updated CBottle data source to mixture of experts models
+- Updated CBottle data source to mixture of experts models, added additional parameters
+  to load_model to align with other cBottle models
 - Fixed duplicate geo-potential at surface ids in AIFS, IFS data source and orography
   source, orography is denoted by lower case `z`
 - Updated package caching default to None, which will default to true for remote
