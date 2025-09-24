@@ -506,12 +506,11 @@
 <span class="sd">    CBottleSR is a diffusion-based super-resolution model that learns mappings between</span>
 <span class="sd">    low- and high-resolution climate data with high fidelity. This model generates</span>
 <span class="sd">    results at 5km resolution on a healpix grid with 10 levels of resolution (1024x1024).</span>
-<span class="sd">    The results are then regridded to a lat/lon grid. Suggested output dimensions are</span>
-<span class="sd">    (2161, 4320) which corresponds to 10km resolution at the equator or (4321, 8640)</span>
-<span class="sd">    which corresponds to 5km resolution at the equator. The model can also be used</span>
-<span class="sd">    to generate results on a smaller region of the globe by specifying a super-resolution</span>
-<span class="sd">    window. This can often be desirable as full global results are extremely</span>
-<span class="sd">    expensive to generate.</span>
+<span class="sd">    The results can be output in either HEALPix format or regridded to a lat/lon grid.</span>
+<span class="sd">    If lat/lon is used for output, the results will be regridded to the specified output resolution.</span>
+<span class="sd">    Suggested output resolutions are (2161, 4320) for ~10km equatorial resolution and (4321, 8640) for ~5km equatorial resolution.</span>
+<span class="sd">    The model can also be used to generate results for a smaller region of the globe by specifying a super-resolution window.</span>
+<span class="sd">    This is often desirable as full global results are computationally expensive.</span>
 
 <span class="sd">    Note</span>
 <span class="sd">    ----</span>
@@ -520,38 +519,60 @@
 <span class="sd">    - https://arxiv.org/abs/2505.06474v1</span>
 <span class="sd">    - https://github.com/NVlabs/cBottle</span>
 <span class="sd">    - https://catalog.ngc.nvidia.com/orgs/nvidia/teams/earth-2/models/cbottle</span>
+<span class="sd">    - HEALPix: https://healpix.sourceforge.io/</span>
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
 <span class="sd">    core_model : torch.nn.Module</span>
 <span class="sd">        Core pytorch model implementing the diffusion-based super-resolution</span>
+<span class="sd">    lat_lon : bool, optional, by default True</span>
+<span class="sd">        Lat/lon toggle, if true the model will expect a lat/lon grid as input and output a lat/lon</span>
+<span class="sd">        grid. If false, the native nested HealPix grid will be used for input and output.</span>
+<span class="sd">        Input HEALPix is level 6 and output HEALPix is level 10 with NEST pixel ordering.</span>
 <span class="sd">    output_resolution : Tuple[int, int], optional</span>
-<span class="sd">        High-resolution output dimensions, by default (2161, 4320).</span>
+<span class="sd">        High-resolution output dimensions for lat/lon output. Only used when</span>
+<span class="sd">        lat_lon=True, by default (2161, 4320)</span>
 <span class="sd">    super_resolution_window : Union[None, Tuple[int, int, int, int]], optional</span>
 <span class="sd">        Super-resolution window. If None, super-resolution is done</span>
 <span class="sd">        on the entire global grid. If provided, the super-resolution window is a tuple</span>
-<span class="sd">        of (lat south, lon west, lat north, lon east) and will return results for the</span>
-<span class="sd">        specified window, by default None</span>
+<span class="sd">        of (lat_south, lon_west, lat_north, lon_east) and will only apply super-resolution</span>
+<span class="sd">        to the specified window. For lat/lon output, the result will just be returned for</span>
+<span class="sd">        the specified window with the specified output resolution.</span>
 <span class="sd">    sampler_steps : int, optional</span>
 <span class="sd">        Number of diffusion steps, by default 18</span>
 <span class="sd">    sigma_max : int, optional</span>
 <span class="sd">        Maximum noise level for diffusion process, by default 800</span>
+<span class="sd">    seed : int, optional</span>
+<span class="sd">        Random generator seed for latent variables, by default None</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">core_model</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">,</span>
+        <span class="n">lat_lon</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
         <span class="n">output_resolution</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="mi">2161</span><span class="p">,</span> <span class="mi">4320</span><span class="p">),</span>
         <span class="n">super_resolution_window</span><span class="p">:</span> <span class="kc">None</span> <span class="o">|</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">sampler_steps</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">18</span><span class="p">,</span>
         <span class="n">sigma_max</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">800</span><span class="p">,</span>
+        <span class="n">seed</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">):</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+
+        <span class="c1"># Store grid types</span>
+        <span class="k">if</span> <span class="n">lat_lon</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">input_type</span> <span class="o">=</span> <span class="s2">&quot;latlon&quot;</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">output_type</span> <span class="o">=</span> <span class="s2">&quot;latlon&quot;</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">input_type</span> <span class="o">=</span> <span class="s2">&quot;healpix&quot;</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">output_type</span> <span class="o">=</span> <span class="s2">&quot;healpix&quot;</span>
 
         <span class="c1"># Model</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">core_model</span> <span class="o">=</span> <span class="n">core_model</span>
 
-        <span class="c1"># Output shape</span>
+        <span class="c1"># Store seed</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">seed</span> <span class="o">=</span> <span class="n">seed</span>
+
+        <span class="c1"># Output shape (only used for latlon output)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">output_resolution</span> <span class="o">=</span> <span class="n">output_resolution</span>
 
         <span class="c1"># Sampler</span>
@@ -560,52 +581,83 @@
 
         <span class="c1"># Super resolution window</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">super_resolution_window</span> <span class="o">=</span> <span class="n">super_resolution_window</span>
+
+        <span class="c1"># Setup output coordinates based on output type</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">output_type</span> <span class="o">==</span> <span class="s2">&quot;latlon&quot;</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">super_resolution_window</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">output_lat</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span>
+                    <span class="n">super_resolution_window</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
+                    <span class="n">super_resolution_window</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">output_resolution</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
+                <span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">output_lon</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span>
+                    <span class="n">super_resolution_window</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span>
+                    <span class="n">super_resolution_window</span><span class="p">[</span><span class="mi">3</span><span class="p">],</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">output_resolution</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span>
+                <span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">output_lat</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">90</span><span class="p">,</span> <span class="o">-</span><span class="mi">90</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">output_resolution</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">output_lon</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span>
+                    <span class="mi">0</span><span class="p">,</span> <span class="mi">360</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">output_resolution</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">endpoint</span><span class="o">=</span><span class="kc">False</span>
+                <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>  <span class="c1"># healpix output</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">output_lat</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">output_lon</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="c1"># Make inbox patch index</span>
         <span class="k">if</span> <span class="n">super_resolution_window</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">output_lat</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span>
-                <span class="n">super_resolution_window</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
-                <span class="n">super_resolution_window</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">output_resolution</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
-            <span class="p">)</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">output_lon</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span>
-                <span class="n">super_resolution_window</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span>
-                <span class="n">super_resolution_window</span><span class="p">[</span><span class="mi">3</span><span class="p">],</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">output_resolution</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span>
-            <span class="p">)</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">inbox_patch_index</span> <span class="o">=</span> <span class="n">patchify</span><span class="o">.</span><span class="n">patch_index_from_bounding_box</span><span class="p">(</span>
                 <span class="n">HPX_LEVEL_HR</span><span class="p">,</span> <span class="n">super_resolution_window</span><span class="p">,</span> <span class="mi">128</span><span class="p">,</span> <span class="mi">32</span><span class="p">,</span> <span class="s2">&quot;cpu&quot;</span>
             <span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">output_lat</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">90</span><span class="p">,</span> <span class="o">-</span><span class="mi">90</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">output_resolution</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">output_lon</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span>
-                <span class="mi">0</span><span class="p">,</span> <span class="mi">360</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">output_resolution</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">endpoint</span><span class="o">=</span><span class="kc">False</span>
-            <span class="p">)</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">inbox_patch_index</span> <span class="o">=</span> <span class="kc">None</span>
 
-        <span class="c1"># Make in and out regridders</span>
-        <span class="n">lat_lon_low_res_grid</span> <span class="o">=</span> <span class="n">earth2grid</span><span class="o">.</span><span class="n">latlon</span><span class="o">.</span><span class="n">equiangular_lat_lon_grid</span><span class="p">(</span>
-            <span class="mi">721</span><span class="p">,</span> <span class="mi">1440</span><span class="p">,</span> <span class="n">includes_south_pole</span><span class="o">=</span><span class="kc">False</span>
-        <span class="p">)</span>
+        <span class="c1"># Setup grids and regridders based on input/output types</span>
+        <span class="c1"># Input grids</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">input_type</span> <span class="o">==</span> <span class="s2">&quot;latlon&quot;</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">input_grid</span> <span class="o">=</span> <span class="n">earth2grid</span><span class="o">.</span><span class="n">latlon</span><span class="o">.</span><span class="n">equiangular_lat_lon_grid</span><span class="p">(</span>
+                <span class="mi">721</span><span class="p">,</span> <span class="mi">1440</span><span class="p">,</span> <span class="n">includes_south_pole</span><span class="o">=</span><span class="kc">False</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>  <span class="c1"># healpix</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">input_grid</span> <span class="o">=</span> <span class="n">healpix</span><span class="o">.</span><span class="n">Grid</span><span class="p">(</span>
+                <span class="n">level</span><span class="o">=</span><span class="n">HPX_LEVEL_LR</span><span class="p">,</span> <span class="n">pixel_order</span><span class="o">=</span><span class="n">healpix</span><span class="o">.</span><span class="n">PixelOrder</span><span class="o">.</span><span class="n">NEST</span>
+            <span class="p">)</span>
+
+        <span class="c1"># High-resolution HEALPix grid (internal processing)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">hpx_high_res_grid</span> <span class="o">=</span> <span class="n">healpix</span><span class="o">.</span><span class="n">Grid</span><span class="p">(</span>
             <span class="n">level</span><span class="o">=</span><span class="n">HPX_LEVEL_HR</span><span class="p">,</span> <span class="n">pixel_order</span><span class="o">=</span><span class="n">healpix</span><span class="o">.</span><span class="n">PixelOrder</span><span class="o">.</span><span class="n">NEST</span>
         <span class="p">)</span>
-        <span class="k">if</span> <span class="n">super_resolution_window</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">lat_lon_high_res_grid</span> <span class="o">=</span> <span class="n">earth2grid</span><span class="o">.</span><span class="n">latlon</span><span class="o">.</span><span class="n">LatLonGrid</span><span class="p">(</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">output_lat</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">output_lon</span>
+
+        <span class="c1"># Output grids</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">output_type</span> <span class="o">==</span> <span class="s2">&quot;latlon&quot;</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">super_resolution_window</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">output_grid</span> <span class="o">=</span> <span class="n">earth2grid</span><span class="o">.</span><span class="n">latlon</span><span class="o">.</span><span class="n">LatLonGrid</span><span class="p">(</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">output_lat</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">output_lon</span>
+                <span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">output_grid</span> <span class="o">=</span> <span class="n">earth2grid</span><span class="o">.</span><span class="n">latlon</span><span class="o">.</span><span class="n">equiangular_lat_lon_grid</span><span class="p">(</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">output_resolution</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">output_resolution</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span>
+                    <span class="n">includes_south_pole</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>  <span class="c1"># healpix</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">output_grid</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">hpx_high_res_grid</span>
+
+        <span class="c1"># Create regridders</span>
+        <span class="c1"># Input to high-res HEALPix (for internal processing)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">regrid_input_to_hpx_high_res</span> <span class="o">=</span> <span class="n">earth2grid</span><span class="o">.</span><span class="n">get_regridder</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">input_grid</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">hpx_high_res_grid</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">regrid_input_to_hpx_high_res</span><span class="o">.</span><span class="n">double</span><span class="p">()</span>
+
+        <span class="c1"># High-res HEALPix to output (only needed if output is not healpix)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">output_type</span> <span class="o">==</span> <span class="s2">&quot;latlon&quot;</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">regrid_hpx_high_res_to_output</span> <span class="o">=</span> <span class="n">earth2grid</span><span class="o">.</span><span class="n">get_regridder</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">hpx_high_res_grid</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">output_grid</span>
             <span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">regrid_hpx_high_res_to_output</span><span class="o">.</span><span class="n">double</span><span class="p">()</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="n">lat_lon_high_res_grid</span> <span class="o">=</span> <span class="n">earth2grid</span><span class="o">.</span><span class="n">latlon</span><span class="o">.</span><span class="n">equiangular_lat_lon_grid</span><span class="p">(</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">output_resolution</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">output_resolution</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span>
-                <span class="n">includes_south_pole</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
-            <span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">regrid_latlon_low_res_to_hpx_high_res</span> <span class="o">=</span> <span class="n">earth2grid</span><span class="o">.</span><span class="n">get_regridder</span><span class="p">(</span>
-            <span class="n">lat_lon_low_res_grid</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">hpx_high_res_grid</span>
-        <span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">regrid_latlon_low_res_to_hpx_high_res</span><span class="o">.</span><span class="n">double</span><span class="p">()</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">regrid_hpx_high_res_to_latlon_high_res</span> <span class="o">=</span> <span class="n">earth2grid</span><span class="o">.</span><span class="n">get_regridder</span><span class="p">(</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">hpx_high_res_grid</span><span class="p">,</span> <span class="n">lat_lon_high_res_grid</span>
-        <span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">regrid_hpx_high_res_to_latlon_high_res</span><span class="o">.</span><span class="n">double</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">regrid_hpx_high_res_to_output</span> <span class="o">=</span> <span class="kc">None</span>
 
         <span class="c1"># Make global lat lon regridder</span>
         <span class="n">lat</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="o">-</span><span class="mi">90</span><span class="p">,</span> <span class="mi">90</span><span class="p">,</span> <span class="mi">128</span><span class="p">)[:,</span> <span class="kc">None</span><span class="p">]</span><span class="o">.</span><span class="n">double</span><span class="p">()</span>
@@ -655,14 +707,26 @@
 
     <span class="k">def</span><span class="w"> </span><span class="nf">input_coords</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">CoordSystem</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Input coordinate system&quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="n">OrderedDict</span><span class="p">(</span>
-            <span class="p">{</span>
-                <span class="s2">&quot;batch&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span>
-                <span class="s2">&quot;variable&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">VARIABLES</span><span class="p">),</span>
-                <span class="s2">&quot;lat&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">90</span><span class="p">,</span> <span class="o">-</span><span class="mi">90</span><span class="p">,</span> <span class="mi">721</span><span class="p">),</span>
-                <span class="s2">&quot;lon&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">360</span><span class="p">,</span> <span class="mi">1440</span><span class="p">,</span> <span class="n">endpoint</span><span class="o">=</span><span class="kc">False</span><span class="p">),</span>
-            <span class="p">}</span>
-        <span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">input_type</span> <span class="o">==</span> <span class="s2">&quot;latlon&quot;</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">OrderedDict</span><span class="p">(</span>
+                <span class="p">{</span>
+                    <span class="s2">&quot;batch&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span>
+                    <span class="s2">&quot;variable&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">VARIABLES</span><span class="p">),</span>
+                    <span class="s2">&quot;lat&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">90</span><span class="p">,</span> <span class="o">-</span><span class="mi">90</span><span class="p">,</span> <span class="mi">721</span><span class="p">),</span>
+                    <span class="s2">&quot;lon&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">360</span><span class="p">,</span> <span class="mi">1440</span><span class="p">,</span> <span class="n">endpoint</span><span class="o">=</span><span class="kc">False</span><span class="p">),</span>
+                <span class="p">}</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>  <span class="c1"># healpix</span>
+            <span class="c1"># HEALPix level 6: nside = 2^6 = 64, npix = 64^2 * 12 = 49,152 pixels</span>
+            <span class="n">nside</span> <span class="o">=</span> <span class="mi">2</span><span class="o">**</span><span class="n">HPX_LEVEL_LR</span>
+            <span class="n">npix</span> <span class="o">=</span> <span class="n">nside</span><span class="o">**</span><span class="mi">2</span> <span class="o">*</span> <span class="mi">12</span>
+            <span class="k">return</span> <span class="n">OrderedDict</span><span class="p">(</span>
+                <span class="p">{</span>
+                    <span class="s2">&quot;batch&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span>
+                    <span class="s2">&quot;variable&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">VARIABLES</span><span class="p">),</span>
+                    <span class="s2">&quot;hpx&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">npix</span><span class="p">),</span>
+                <span class="p">}</span>
+            <span class="p">)</span>
 
     <span class="nd">@batch_coords</span><span class="p">()</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">output_coords</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_coords</span><span class="p">:</span> <span class="n">CoordSystem</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">CoordSystem</span><span class="p">:</span>
@@ -680,22 +744,41 @@
 <span class="sd">            Coordinate system dictionary</span>
 <span class="sd">        &quot;&quot;&quot;</span>
 
-        <span class="n">output_coords</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">(</span>
-            <span class="p">{</span>
-                <span class="s2">&quot;batch&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span>
-                <span class="s2">&quot;variable&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">VARIABLES</span><span class="p">),</span>
-                <span class="s2">&quot;lat&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">output_lat</span><span class="p">,</span>
-                <span class="s2">&quot;lon&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">output_lon</span><span class="p">,</span>
-            <span class="p">}</span>
-        <span class="p">)</span>
-
+        <span class="c1"># Validate input coordinates against expected input coords</span>
         <span class="n">target_input_coords</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">input_coords</span><span class="p">()</span>
-        <span class="n">handshake_dim</span><span class="p">(</span><span class="n">input_coords</span><span class="p">,</span> <span class="s2">&quot;lon&quot;</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span>
-        <span class="n">handshake_dim</span><span class="p">(</span><span class="n">input_coords</span><span class="p">,</span> <span class="s2">&quot;lat&quot;</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
         <span class="n">handshake_dim</span><span class="p">(</span><span class="n">input_coords</span><span class="p">,</span> <span class="s2">&quot;variable&quot;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
-        <span class="n">handshake_coords</span><span class="p">(</span><span class="n">input_coords</span><span class="p">,</span> <span class="n">target_input_coords</span><span class="p">,</span> <span class="s2">&quot;lon&quot;</span><span class="p">)</span>
-        <span class="n">handshake_coords</span><span class="p">(</span><span class="n">input_coords</span><span class="p">,</span> <span class="n">target_input_coords</span><span class="p">,</span> <span class="s2">&quot;lat&quot;</span><span class="p">)</span>
         <span class="n">handshake_coords</span><span class="p">(</span><span class="n">input_coords</span><span class="p">,</span> <span class="n">target_input_coords</span><span class="p">,</span> <span class="s2">&quot;variable&quot;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">input_type</span> <span class="o">==</span> <span class="s2">&quot;latlon&quot;</span><span class="p">:</span>
+            <span class="n">handshake_dim</span><span class="p">(</span><span class="n">input_coords</span><span class="p">,</span> <span class="s2">&quot;lon&quot;</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span>
+            <span class="n">handshake_dim</span><span class="p">(</span><span class="n">input_coords</span><span class="p">,</span> <span class="s2">&quot;lat&quot;</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+            <span class="n">handshake_coords</span><span class="p">(</span><span class="n">input_coords</span><span class="p">,</span> <span class="n">target_input_coords</span><span class="p">,</span> <span class="s2">&quot;lon&quot;</span><span class="p">)</span>
+            <span class="n">handshake_coords</span><span class="p">(</span><span class="n">input_coords</span><span class="p">,</span> <span class="n">target_input_coords</span><span class="p">,</span> <span class="s2">&quot;lat&quot;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>  <span class="c1"># healpix input</span>
+            <span class="n">handshake_dim</span><span class="p">(</span><span class="n">input_coords</span><span class="p">,</span> <span class="s2">&quot;hpx&quot;</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+            <span class="n">handshake_coords</span><span class="p">(</span><span class="n">input_coords</span><span class="p">,</span> <span class="n">target_input_coords</span><span class="p">,</span> <span class="s2">&quot;hpx&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Build output coordinate system based on output type</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">output_type</span> <span class="o">==</span> <span class="s2">&quot;latlon&quot;</span><span class="p">:</span>
+            <span class="n">output_coords</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">(</span>
+                <span class="p">{</span>
+                    <span class="s2">&quot;batch&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span>
+                    <span class="s2">&quot;variable&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">VARIABLES</span><span class="p">),</span>
+                    <span class="s2">&quot;lat&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">output_lat</span><span class="p">,</span>
+                    <span class="s2">&quot;lon&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">output_lon</span><span class="p">,</span>
+                <span class="p">}</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>  <span class="c1"># healpix output</span>
+            <span class="c1"># HEALPix level 10: nside = 2^10 = 1024, npix = 1024^2 * 12 = 12,582,912 pixels</span>
+            <span class="n">nside</span> <span class="o">=</span> <span class="mi">2</span><span class="o">**</span><span class="n">HPX_LEVEL_HR</span>
+            <span class="n">npix</span> <span class="o">=</span> <span class="n">nside</span><span class="o">**</span><span class="mi">2</span> <span class="o">*</span> <span class="mi">12</span>
+            <span class="n">output_coords</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">(</span>
+                <span class="p">{</span>
+                    <span class="s2">&quot;batch&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span>
+                    <span class="s2">&quot;variable&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">VARIABLES</span><span class="p">),</span>
+                    <span class="s2">&quot;hpx&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">npix</span><span class="p">),</span>
+                <span class="p">}</span>
+            <span class="p">)</span>
 
         <span class="n">output_coords</span><span class="p">[</span><span class="s2">&quot;batch&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">input_coords</span><span class="p">[</span><span class="s2">&quot;batch&quot;</span><span class="p">]</span>
         <span class="k">return</span> <span class="n">output_coords</span>
@@ -721,25 +804,33 @@
     <span class="k">def</span><span class="w"> </span><span class="nf">load_model</span><span class="p">(</span>
         <span class="bp">cls</span><span class="p">,</span>
         <span class="n">package</span><span class="p">:</span> <span class="n">Package</span><span class="p">,</span>
+        <span class="n">lat_lon</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
         <span class="n">output_resolution</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="mi">2161</span><span class="p">,</span> <span class="mi">4320</span><span class="p">),</span>
         <span class="n">super_resolution_window</span><span class="p">:</span> <span class="kc">None</span> <span class="o">|</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">sampler_steps</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">18</span><span class="p">,</span>
         <span class="n">sigma_max</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">800</span><span class="p">,</span>
+        <span class="n">seed</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">DiagnosticModel</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Load AI datasource from package</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Load diagnostic model from package</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
 <span class="sd">        package : Package</span>
 <span class="sd">            CBottle AI model package</span>
+<span class="sd">        lat_lon : bool, optional, by default True</span>
+<span class="sd">            Lat/lon toggle, if true the model will expect a lat/lon grid as input and output a lat/lon</span>
+<span class="sd">            grid. If false, the native nested HealPix grid will be used for input and output.</span>
+<span class="sd">            Input HEALPix is level 6 and output HEALPix is level 10 with NEST pixel ordering.</span>
 <span class="sd">        output_resolution : tuple[int, int], optional</span>
-<span class="sd">            High-resolution output dimensions, by default (2161, 4320)</span>
+<span class="sd">            High-resolution output dimensions for lat/lon output, by default (2161, 4320)</span>
 <span class="sd">        super_resolution_window : None | tuple[int, int, int, int], optional</span>
-<span class="sd">            Super-resolution window, by default None</span>
+<span class="sd">            Super-resolution window for lat/lon output, by default None</span>
 <span class="sd">        sampler_steps : int, optional</span>
 <span class="sd">            Number of diffusion steps, by default 18</span>
 <span class="sd">        sigma_max : float, optional</span>
 <span class="sd">            Noise amplitude used to generate latent variables, by default 800</span>
+<span class="sd">        seed : int, optional</span>
+<span class="sd">            Random generator seed for latent variables, by default None</span>
 
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
@@ -756,27 +847,35 @@
 
         <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span>
             <span class="n">core_model</span><span class="p">,</span>
+            <span class="n">lat_lon</span><span class="o">=</span><span class="n">lat_lon</span><span class="p">,</span>
             <span class="n">output_resolution</span><span class="o">=</span><span class="n">output_resolution</span><span class="p">,</span>
             <span class="n">super_resolution_window</span><span class="o">=</span><span class="n">super_resolution_window</span><span class="p">,</span>
             <span class="n">sampler_steps</span><span class="o">=</span><span class="n">sampler_steps</span><span class="p">,</span>
             <span class="n">sigma_max</span><span class="o">=</span><span class="n">sigma_max</span><span class="p">,</span>
+            <span class="n">seed</span><span class="o">=</span><span class="n">seed</span><span class="p">,</span>
         <span class="p">)</span></div>
 
 
     <span class="nd">@torch</span><span class="o">.</span><span class="n">inference_mode</span><span class="p">()</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">_forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
 
-        <span class="c1"># Get high res</span>
-        <span class="n">lr_hpx</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">regrid_latlon_low_res_to_hpx_high_res</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">double</span><span class="p">())</span>
+        <span class="c1"># Regrid input to high-resolution HEALPix (internal processing grid)</span>
+        <span class="n">lr_hpx</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">regrid_input_to_hpx_high_res</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">double</span><span class="p">())</span>
 
         <span class="c1"># Normalize</span>
         <span class="n">lr_hpx</span> <span class="o">=</span> <span class="p">(</span><span class="n">lr_hpx</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">center</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">device</span><span class="p">))</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">scale</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
 
-        <span class="c1"># Get global lat lon</span>
+        <span class="c1"># Get global lat lon (for the denoiser conditioning)</span>
         <span class="n">global_lr</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">regrid_to_latlon</span><span class="p">(</span><span class="n">lr_hpx</span><span class="p">)</span>
 
         <span class="c1"># Run denoiser</span>
-        <span class="n">latents</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn_like</span><span class="p">(</span><span class="n">lr_hpx</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">x</span><span class="o">.</span><span class="n">device</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">seed</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">generator</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">Generator</span><span class="p">(</span><span class="n">device</span><span class="o">=</span><span class="n">x</span><span class="o">.</span><span class="n">device</span><span class="p">)</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">seed</span><span class="p">)</span>
+            <span class="n">latents</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span>
+                <span class="n">lr_hpx</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">x</span><span class="o">.</span><span class="n">device</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float64</span><span class="p">,</span> <span class="n">generator</span><span class="o">=</span><span class="n">generator</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">latents</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn_like</span><span class="p">(</span><span class="n">lr_hpx</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">x</span><span class="o">.</span><span class="n">device</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
 
         <span class="c1"># Add 1 batch dimension</span>
         <span class="n">latents</span> <span class="o">=</span> <span class="n">latents</span><span class="p">[</span><span class="kc">None</span><span class="p">,]</span><span class="o">.</span><span class="n">float</span><span class="p">()</span>
@@ -822,20 +921,25 @@
         <span class="c1"># Unnormalize</span>
         <span class="n">pred</span> <span class="o">=</span> <span class="n">pred</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">scale</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">device</span><span class="p">)</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">center</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
 
-        <span class="c1"># Get lat lon high res</span>
-        <span class="n">output</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span>
-            <span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">output_lat</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">output_lon</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
-            <span class="n">device</span><span class="o">=</span><span class="n">x</span><span class="o">.</span><span class="n">device</span><span class="p">,</span>
-            <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">,</span>
-        <span class="p">)</span>
-        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]):</span>
-            <span class="n">output</span><span class="p">[</span><span class="n">i</span> <span class="p">:</span> <span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">regrid_hpx_high_res_to_latlon_high_res</span><span class="p">(</span>
-                <span class="n">pred</span><span class="p">[</span><span class="n">i</span> <span class="p">:</span> <span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span>
-            <span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+        <span class="c1"># Convert to output format</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">output_type</span> <span class="o">==</span> <span class="s2">&quot;healpix&quot;</span><span class="p">:</span>
+            <span class="c1"># Return HEALPix output directly</span>
+            <span class="k">return</span> <span class="n">pred</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># Regrid to lat/lon output</span>
+            <span class="n">output</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span>
+                <span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">output_lat</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">output_lon</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
+                <span class="n">device</span><span class="o">=</span><span class="n">x</span><span class="o">.</span><span class="n">device</span><span class="p">,</span>
+                <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]):</span>
+                <span class="n">output</span><span class="p">[</span><span class="n">i</span> <span class="p">:</span> <span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">regrid_hpx_high_res_to_output</span><span class="p">(</span>
+                    <span class="n">pred</span><span class="p">[</span><span class="n">i</span> <span class="p">:</span> <span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span>
+                <span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
 
-        <span class="k">return</span> <span class="n">output</span>
+            <span class="k">return</span> <span class="n">output</span>
 
 <div class="viewcode-block" id="CBottleSR.__call__">
 <a class="viewcode-back" href="../../../../modules/generated/models/dx/earth2studio.models.dx.CBottleSR.html#earth2studio.models.dx.CBottleSR.__call__">[docs]</a>
