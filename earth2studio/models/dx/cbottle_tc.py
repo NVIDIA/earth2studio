@@ -92,7 +92,8 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
         Batch size to generate time samples at, consider adjusting based on hardware
         being used, by default 4
     seed : int, optional
-        Random generator seed for latent variables, by default 0
+        Random generator seed for latent variables. If None will use no seed, by default
+        None
     """
 
     output_variables = VARIABLES
@@ -225,7 +226,7 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
         lat_lon: bool = True,
         sampler_steps: int = 18,
         sigma_max: float = 200,
-        seed: int = 0,
+        seed: int | None = 0,
     ) -> DiagnosticModel:
         """Load AI datasource from package
 
@@ -245,7 +246,8 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
         sigma_max : float, optional
             Noise amplitude used to generate latent variables, by default 80
         seed : int, optional
-            Random generator seed for latent variables, by default 0
+            Random generator seed for latent variables. If None, no seed will be used,
+            by default 0
 
         Returns
         -------
