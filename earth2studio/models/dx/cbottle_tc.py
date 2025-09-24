@@ -290,7 +290,6 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
         lat_coords: torch.Tensor,
         lon_coords: torch.Tensor,
         times: list[datetime] | TimeArray,
-        lat_lon: bool = True,
     ) -> tuple[torch.Tensor, OrderedDict]:
         """Creates a TC guidance tensor from lat/lon coordinates.
 
