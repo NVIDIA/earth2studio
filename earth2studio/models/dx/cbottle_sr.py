@@ -103,7 +103,7 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
     ----------
     core_model : torch.nn.Module
         Core pytorch model implementing the diffusion-based super-resolution
-    lat_lon : bool, optional
+    lat_lon : bool, optional, by default True
         Lat/lon toggle, if true the model will expect a lat/lon grid as input and output a lat/lon
         grid. If false, the native nested HealPix grid will be used for input and output.
         Input HEALPix is level 6 and output HEALPix is level 10 with NEST pixel ordering.
@@ -384,13 +384,13 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
         sigma_max: int = 800,
         seed: int | None = None,
     ) -> DiagnosticModel:
-        """Load AI datasource from package
+        """Load diagnostic model from package
 
         Parameters
         ----------
         package : Package
             CBottle AI model package
-        lat_lon : bool, optional
+        lat_lon : bool, optional, by default True
             Lat/lon toggle, if true the model will expect a lat/lon grid as input and output a lat/lon
             grid. If false, the native nested HealPix grid will be used for input and output.
             Input HEALPix is level 6 and output HEALPix is level 10 with NEST pixel ordering.
