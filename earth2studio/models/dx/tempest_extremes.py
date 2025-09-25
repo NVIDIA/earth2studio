@@ -6,6 +6,7 @@ import numpy as np
 import atexit
 import threading
 import torch
+
 from collections import OrderedDict
 from subprocess import run
 from concurrent.futures import ThreadPoolExecutor, Future
@@ -14,6 +15,11 @@ from typing import Optional, Tuple, Dict, List, Any, Union
 from physicsnemo.distributed import DistributedManager
 from earth2studio.io import KVBackend
 from earth2studio.utils.coords import CoordSystem, map_coords, split_coords
+
+from earth2studio.utils.imports import (
+    OptionalDependencyFailure,
+    check_optional_dependencies,
+)
 
 
 def tile_xx_to_yy(xx: torch.Tensor,
@@ -185,7 +191,7 @@ class TempestExtremes:
                  **kwargs): # leave kwars to make call robust to switching between this and async version
 
         self.rank = DistributedManager().rank
-        self.capture_output = not print_te_output
+        self.print_te_output = print_te_output
         self.keep_raw = keep_raw_data
         self.static_vars = static_vars
         self.static_coords = static_coords
@@ -203,6 +209,8 @@ class TempestExtremes:
                              " currently, only one of them is provided")
 
         self.format_tempestextremes_commands(detect_cmd, stitch_cmd)
+
+        self.check_tempest_extremes_availability()
 
         self.initialise_store_coords()
 
@@ -229,6 +237,18 @@ class TempestExtremes:
 
         self.detect_cmd = self.remove_arguments(self.detect_cmd, ['--in_data_list', '--out_file_list'])
         self.stitch_cmd = self.remove_arguments(self.stitch_cmd, ['--in', '--out'])
+
+        return
+
+
+    def check_tempest_extremes_availability(self):
+        for cmd in (self.detect_cmd[0], self.stitch_cmd[0]):
+            try:
+                run(cmd, capture_output=True)
+            except:
+                # raise ChildProcessError(f'{cmd} not working')
+                print('what?!')
+                OptionalDependencyFailure("fcn3")
 
         return
 
@@ -459,6 +479,24 @@ class TempestExtremes:
         return
 
 
+    @staticmethod
+    def run_te(command, print_output):
+        # detect nodes
+        out = run(command, capture_output=True)
+
+        # Print output to terminal if requested
+        if print_output:
+            print(out.stdout.decode('utf-8'))
+
+        # unfortunately, TE does not fail with proper returncode
+        if 'EXCEPTION' in out.stdout.decode('utf-8'):
+            print(out.stdout.decode('utf-8'))
+            raise ChildProcessError(f'\nERROR: {command[0]} failed, see output above from TempestExtremes for details.')
+
+        return
+
+
+    @check_optional_dependencies
     def track_cyclones(self) -> None:
         """Execute cyclone tracking using TempestExtremes.
 
@@ -476,22 +514,12 @@ class TempestExtremes:
         ins, outs, node_file, self.track_file = self.setup_files()
 
         # detect nodes
-        out = run(self.detect_cmd + ['--in_data_list', ins, '--out_file_list', outs],
-            capture_output=self.capture_output)
+        self.run_te(command=self.detect_cmd + ['--in_data_list', ins, '--out_file_list', outs],
+                    print_output=self.print_te_output)
 
-        # unfortunately, TE does not fail with proper returncode
-        if 'EXCEPTION' in out.stdout.decode('utf-8'):
-            print(out.stdout.decode('utf-8'))
-            raise ChildProcessError('\nERROR: detect nodes failed, see output above from TempestExtremes for details.')
-
-        # stitch nodes
-        out = run(self.stitch_cmd + ['--in', node_file, '--out', self.track_file],
-            capture_output=self.capture_output)
-
-        # unfortunately, TE does not fail with proper returncode
-        if 'EXCEPTION' in out.stdout.decode('utf-8'):
-            print(out.stdout.decode('utf-8'))
-            raise ChildProcessError('\nERROR: stitch nodes failed, see output above from TempestExtremes for details.')
+        # stitch them together
+        self.run_te(command=self.stitch_cmd + ['--in', node_file, '--out', self.track_file],
+                    print_output=self.print_te_output)
 
         # remove helper files
         self.tidy_up(ins, outs)
@@ -720,7 +748,6 @@ class AsyncTempestExtremes(TempestExtremes):
                     except Exception as e:
                         self._has_failed = True
                         raise e  # Re-raise other exceptions too
-
 
     def track_cyclones_async(self) -> Future:
         """Submit cyclone tracking to background thread pool.
