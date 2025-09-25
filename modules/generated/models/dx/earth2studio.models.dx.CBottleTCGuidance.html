@@ -595,7 +595,8 @@ grid. If false, the native nested HealPix grid will be returned, by default True
 <li><p><strong>sigma_max</strong> (<em>float</em><em>, </em><em>optional</em>) – Noise amplitude used to generate latent variables, by default 200</p></li>
 <li><p><strong>batch_size</strong> (<em>int</em><em>, </em><em>optional</em>) – Batch size to generate time samples at, consider adjusting based on hardware
 being used, by default 4</p></li>
-<li><p><strong>seed</strong> (<em>int</em><em>, </em><em>optional</em>) – Random generator seed for latent variables, by default 0</p></li>
+<li><p><strong>seed</strong> (<em>int</em><em>, </em><em>optional</em>) – Random generator seed for latent variables. If None will use no seed, by default
+None</p></li>
 </ul>
 </dd>
 </dl>
@@ -629,8 +630,8 @@ being used, by default 4</p></li>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="earth2studio.models.dx.CBottleTCGuidance.load_model">
-<em class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">load_model</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">package</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">lat_lon</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sampler_steps</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">18</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sigma_max</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">200</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">seed</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/earth2studio/models/dx/cbottle_tc.html#CBottleTCGuidance.load_model"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.dx.CBottleTCGuidance.load_model" title="Link to this definition">#</a></dt>
-<dd><p>Load AI datasource from package</p>
+<em class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">load_model</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">package</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">lat_lon</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sampler_steps</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">18</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sigma_max</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">200</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">seed</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/earth2studio/models/dx/cbottle_tc.html#CBottleTCGuidance.load_model"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.dx.CBottleTCGuidance.load_model" title="Link to this definition">#</a></dt>
+<dd><p>Load diagnostic from package</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
@@ -638,11 +639,10 @@ being used, by default 4</p></li>
 <li><p><strong>lat_lon</strong> (<em>bool</em><em>, </em><em>optional</em>) – Lat/lon toggle, if true prognostic input/output on a 0.25 deg lat/lon
 grid. If false, the native nested HealPix grid will be returned, by default
 True</p></li>
-<li><p><strong>input_variables</strong> (<em>list</em><em>[</em><em>str</em><em>] </em><em>| </em><em>VariableArray</em>) – List of input variables that will be provided for conditioning the output
-generation, by default [“u10m”, “v10m”]</p></li>
 <li><p><strong>sampler_steps</strong> (<em>int</em><em>, </em><em>optional</em>) – Number of diffusion steps, by default 18</p></li>
 <li><p><strong>sigma_max</strong> (<em>float</em><em>, </em><em>optional</em>) – Noise amplitude used to generate latent variables, by default 80</p></li>
-<li><p><strong>seed</strong> (<em>int</em><em>, </em><em>optional</em>) – Random generator seed for latent variables, by default 0</p></li>
+<li><p><strong>seed</strong> (<em>int</em><em>, </em><em>optional</em>) – Random generator seed for latent variables. If None, no seed will be used,
+by default None</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>

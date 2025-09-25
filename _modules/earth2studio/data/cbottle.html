@@ -798,8 +798,10 @@
         <span class="bp">cls</span><span class="p">,</span>
         <span class="n">package</span><span class="p">:</span> <span class="n">Package</span><span class="p">,</span>
         <span class="n">lat_lon</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
-        <span class="n">batch_size</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">4</span><span class="p">,</span>
+        <span class="n">sampler_steps</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">18</span><span class="p">,</span>
+        <span class="n">sigma_max</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mi">200</span><span class="p">,</span>
         <span class="n">seed</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">batch_size</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">4</span><span class="p">,</span>
         <span class="n">verbose</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">DataSource</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Load AI datasource from package</span>
@@ -809,15 +811,19 @@
 <span class="sd">        package : Package</span>
 <span class="sd">            CBottle AI model package</span>
 <span class="sd">        lat_lon : bool, optional</span>
-<span class="sd">            Lat/lon toggle, if true data source will return output on a 0.25 deg lat/lon</span>
+<span class="sd">            Lat/lon toggle, if true prognostic input/output on a 0.25 deg lat/lon</span>
 <span class="sd">            grid. If false, the native nested HealPix grid will be returned, by default</span>
 <span class="sd">            True</span>
+<span class="sd">        sampler_steps : int, optional</span>
+<span class="sd">            Number of diffusion steps, by default 18</span>
+<span class="sd">        sigma_max : float, optional</span>
+<span class="sd">            Noise amplitude used to generate latent variables, by default 200</span>
+<span class="sd">        seed : int, optional</span>
+<span class="sd">            Random generator seed for latent variables. If None, no seed will be used,</span>
+<span class="sd">            by default None</span>
 <span class="sd">        batch_size : int, optional</span>
 <span class="sd">            Batch size to generate time samples at, consider adjusting based on hardware</span>
 <span class="sd">            being used, by default 4</span>
-<span class="sd">        seed : int | None, optional</span>
-<span class="sd">            If set, will fix the seed of the random generator for latent variables, by</span>
-<span class="sd">            default None</span>
 <span class="sd">        verbose : bool, optional</span>
 <span class="sd">            Print generation progress, by default True</span>
 
@@ -861,8 +867,10 @@
             <span class="n">core_model</span><span class="p">,</span>
             <span class="n">sst_ds</span><span class="p">,</span>
             <span class="n">lat_lon</span><span class="o">=</span><span class="n">lat_lon</span><span class="p">,</span>
-            <span class="n">batch_size</span><span class="o">=</span><span class="n">batch_size</span><span class="p">,</span>
+            <span class="n">sampler_steps</span><span class="o">=</span><span class="n">sampler_steps</span><span class="p">,</span>
+            <span class="n">sigma_max</span><span class="o">=</span><span class="n">sigma_max</span><span class="p">,</span>
             <span class="n">seed</span><span class="o">=</span><span class="n">seed</span><span class="p">,</span>
+            <span class="n">batch_size</span><span class="o">=</span><span class="n">batch_size</span><span class="p">,</span>
             <span class="n">verbose</span><span class="o">=</span><span class="n">verbose</span><span class="p">,</span>
         <span class="p">)</span></div>
 </div>

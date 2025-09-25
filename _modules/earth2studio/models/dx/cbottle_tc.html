@@ -514,7 +514,8 @@
 <span class="sd">        Batch size to generate time samples at, consider adjusting based on hardware</span>
 <span class="sd">        being used, by default 4</span>
 <span class="sd">    seed : int, optional</span>
-<span class="sd">        Random generator seed for latent variables, by default 0</span>
+<span class="sd">        Random generator seed for latent variables. If None will use no seed, by default</span>
+<span class="sd">        None</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="n">output_variables</span> <span class="o">=</span> <span class="n">VARIABLES</span>
@@ -652,9 +653,9 @@
         <span class="n">lat_lon</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
         <span class="n">sampler_steps</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">18</span><span class="p">,</span>
         <span class="n">sigma_max</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mi">200</span><span class="p">,</span>
-        <span class="n">seed</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span>
+        <span class="n">seed</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">DiagnosticModel</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Load AI datasource from package</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Load diagnostic from package</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
@@ -664,15 +665,13 @@
 <span class="sd">            Lat/lon toggle, if true prognostic input/output on a 0.25 deg lat/lon</span>
 <span class="sd">            grid. If false, the native nested HealPix grid will be returned, by default</span>
 <span class="sd">            True</span>
-<span class="sd">        input_variables: list[str] | VariableArray</span>
-<span class="sd">            List of input variables that will be provided for conditioning the output</span>
-<span class="sd">            generation, by default [&quot;u10m&quot;, &quot;v10m&quot;]</span>
 <span class="sd">        sampler_steps : int, optional</span>
 <span class="sd">            Number of diffusion steps, by default 18</span>
 <span class="sd">        sigma_max : float, optional</span>
 <span class="sd">            Noise amplitude used to generate latent variables, by default 80</span>
 <span class="sd">        seed : int, optional</span>
-<span class="sd">            Random generator seed for latent variables, by default 0</span>
+<span class="sd">            Random generator seed for latent variables. If None, no seed will be used,</span>
+<span class="sd">            by default None</span>
 
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
@@ -718,7 +717,6 @@
         <span class="n">lat_coords</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
         <span class="n">lon_coords</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
         <span class="n">times</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">datetime</span><span class="p">]</span> <span class="o">|</span> <span class="n">TimeArray</span><span class="p">,</span>
-        <span class="n">lat_lon</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">OrderedDict</span><span class="p">]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Creates a TC guidance tensor from lat/lon coordinates.</span>
 
