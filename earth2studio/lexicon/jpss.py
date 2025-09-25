@@ -50,60 +50,60 @@ class JPSSLexicon(metaclass=LexiconType):
         # === SDR Level 1 Products: Calibrated Radiances ===
         # I-bands (375m resolution) - High spatial resolution imagery bands
         # Used for: Land/water discrimination, cloud detection, fire detection
-        "viirs01i": ("SVI01/Radiance", lambda x: x),   # I1: 0.64 μm (Red) - Land/vegetation, cloud optical depth
-        "viirs02i": ("SVI02/Radiance", lambda x: x),   # I2: 0.864 μm (Near-IR) - Vegetation index, cloud particle size
-        "viirs03i": ("SVI03/Radiance", lambda x: x),   # I3: 1.58 μm (SWIR) - Snow/ice discrimination, fire detection
-        "viirs04i": ("SVI04/Radiance", lambda x: x),   # I4: 3.74 μm (MWIR) - Fire detection, cloud phase discrimination  
-        "viirs05i": ("SVI05/Radiance", lambda x: x),   # I5: 11.45 μm (LWIR) - Sea surface temp, land surface temp, cloud top temp
+        "viirs01i": ("SVI01/Radiance", lambda x: x, "I"),   # I1: 0.64 μm (Red) - Land/vegetation, cloud optical depth
+        "viirs02i": ("SVI02/Radiance", lambda x: x, "I"),   # I2: 0.864 μm (Near-IR) - Vegetation index, cloud particle size
+        "viirs03i": ("SVI03/Radiance", lambda x: x, "I"),   # I3: 1.58 μm (SWIR) - Snow/ice discrimination, fire detection
+        "viirs04i": ("SVI04/Radiance", lambda x: x, "I"),   # I4: 3.74 μm (MWIR) - Fire detection, cloud phase discrimination  
+        "viirs05i": ("SVI05/Radiance", lambda x: x, "I"),   # I5: 11.45 μm (LWIR) - Sea surface temp, land surface temp, cloud top temp
         
         # M-bands (750m resolution) - Moderate resolution multispectral bands
         # Reflective Solar Bands (RSB): Solar illumination dependent, daytime only
-        "viirs01m": ("SVM01/Radiance", lambda x: x),   # M1: 0.412 μm (Violet) - Ocean color, aerosol over ocean
-        "viirs02m": ("SVM02/Radiance", lambda x: x),   # M2: 0.445 μm (Blue) - Ocean color, atmospheric correction
-        "viirs03m": ("SVM03/Radiance", lambda x: x),   # M3: 0.488 μm (Blue-Green) - Ocean color, true color imagery
-        "viirs04m": ("SVM04/Radiance", lambda x: x),   # M4: 0.555 μm (Green) - Ocean color, vegetation monitoring
-        "viirs05m": ("SVM05/Radiance", lambda x: x),   # M5: 0.672 μm (Red) - Ocean color, vegetation health (chlorophyll absorption)
-        "viirs06m": ("SVM06/Radiance", lambda x: x),   # M6: 0.746 μm (Red Edge) - Vegetation stress, atmospheric correction
-        "viirs07m": ("SVM07/Radiance", lambda x: x),   # M7: 0.865 μm (Near-IR) - Vegetation index, land/water boundaries
-        "viirs08m": ("SVM08/Radiance", lambda x: x),   # M8: 1.24 μm (Near-IR) - Cloud particle size, cirrus detection
-        "viirs09m": ("SVM09/Radiance", lambda x: x),   # M9: 1.378 μm (Cirrus) - Thin cirrus detection over land/ocean
-        "viirs10m": ("SVM10/Radiance", lambda x: x),  # M10: 1.61 μm (SWIR) - Snow/cloud discrimination, fire detection
-        "viirs11m": ("SVM11/Radiance", lambda x: x),  # M11: 2.25 μm (SWIR) - Cloud effective radius, drought monitoring
+        "viirs01m": ("SVM01/Radiance", lambda x: x, "M"),   # M1: 0.412 μm (Violet) - Ocean color, aerosol over ocean
+        "viirs02m": ("SVM02/Radiance", lambda x: x, "M"),   # M2: 0.445 μm (Blue) - Ocean color, atmospheric correction
+        "viirs03m": ("SVM03/Radiance", lambda x: x, "M"),   # M3: 0.488 μm (Blue-Green) - Ocean color, true color imagery
+        "viirs04m": ("SVM04/Radiance", lambda x: x, "M"),   # M4: 0.555 μm (Green) - Ocean color, vegetation monitoring
+        "viirs05m": ("SVM05/Radiance", lambda x: x, "M"),   # M5: 0.672 μm (Red) - Ocean color, vegetation health (chlorophyll absorption)
+        "viirs06m": ("SVM06/Radiance", lambda x: x, "M"),   # M6: 0.746 μm (Red Edge) - Vegetation stress, atmospheric correction
+        "viirs07m": ("SVM07/Radiance", lambda x: x, "M"),   # M7: 0.865 μm (Near-IR) - Vegetation index, land/water boundaries
+        "viirs08m": ("SVM08/Radiance", lambda x: x, "M"),   # M8: 1.24 μm (Near-IR) - Cloud particle size, cirrus detection
+        "viirs09m": ("SVM09/Radiance", lambda x: x, "M"),   # M9: 1.378 μm (Cirrus) - Thin cirrus detection over land/ocean
+        "viirs10m": ("SVM10/Radiance", lambda x: x, "M"),  # M10: 1.61 μm (SWIR) - Snow/cloud discrimination, fire detection
+        "viirs11m": ("SVM11/Radiance", lambda x: x, "M"),  # M11: 2.25 μm (SWIR) - Cloud effective radius, drought monitoring
         
         # Thermal Emissive Bands (TEB): Thermal emission, day/night capable
-        "viirs12m": ("SVM12/Radiance", lambda x: x),  # M12: 3.7 μm (MWIR) - Sea surface temp, fire detection, cloud properties
-        "viirs13m": ("SVM13/Radiance", lambda x: x),  # M13: 4.05 μm (MWIR) - Volcanic ash, fire detection, cloud top temp
-        "viirs14m": ("SVM14/Radiance", lambda x: x),  # M14: 8.55 μm (LWIR) - Cloud top properties, atmospheric profile
-        "viirs15m": ("SVM15/Radiance", lambda x: x),  # M15: 10.76 μm (LWIR) - Sea/land surface temp, cloud properties
-        "viirs16m": ("SVM16/Radiance", lambda x: x),  # M16: 12.01 μm (LWIR) - Cloud properties, atmospheric water vapor
+        "viirs12m": ("SVM12/Radiance", lambda x: x, "M"),  # M12: 3.7 μm (MWIR) - Sea surface temp, fire detection, cloud properties
+        "viirs13m": ("SVM13/Radiance", lambda x: x, "M"),  # M13: 4.05 μm (MWIR) - Volcanic ash, fire detection, cloud top temp
+        "viirs14m": ("SVM14/Radiance", lambda x: x, "M"),  # M14: 8.55 μm (LWIR) - Cloud top properties, atmospheric profile
+        "viirs15m": ("SVM15/Radiance", lambda x: x, "M"),  # M15: 10.76 μm (LWIR) - Sea/land surface temp, cloud properties
+        "viirs16m": ("SVM16/Radiance", lambda x: x, "M"),  # M16: 12.01 μm (LWIR) - Cloud properties, atmospheric water vapor
         
         # === EDR Level 2 Products: Environmental Data Records ===
         
         # Surface/Land Products (JPSS RR - Rapid Refresh algorithms)
         # Resolution: 750m at nadir, accuracy: ±2-3K for LST, ±0.02 for albedo
-        "lst": ("JPSSRR_LST/LST", lambda x: x),  # Land Surface Temperature from split-window algorithm (M15/M16)
-        "salb": ("JPSSRR_SurfAlb/SurfaceAlbedo", lambda x: x),  # Surface Albedo from BRDF model using visible/NIR bands
-        "snc": ("JPSSRR_SnowCover/SnowCover", lambda x: x),  # Snow Cover fraction using NDSI from M3/M10 bands
+        "lst": ("JPSSRR_LST/LST", lambda x: x, "L2"),  # Land Surface Temperature from split-window algorithm (M15/M16)
+        "salb": ("JPSSRR_SurfAlb/SurfaceAlbedo", lambda x: x, "L2"),  # Surface Albedo from BRDF model using visible/NIR bands
+        "snc": ("JPSSRR_SnowCover/SnowCover", lambda x: x, "L2"),  # Snow Cover fraction using NDSI from M3/M10 bands
         
         # Active Fire Products (Enterprise algorithm)
         # Resolution: 375m (I-band), detection sensitivity: ~4K temperature anomaly
-        "afire": ("VIIRS_EFIRE_VIIRSI_EDR/Fire", lambda x: x),  # Active Fire Detection using contextual algorithm (I4/I5 thermal anomaly)
-        "fmask": ("VIIRS_EFIRE_VIIRSI_EDR/FireMask", lambda x: x),  # Fire Mask with confidence levels (low/nominal/high/water/cloud)
+        "afire": ("VIIRS_EFIRE_VIIRSI_EDR/Fire", lambda x: x, "L2"),  # Active Fire Detection using contextual algorithm (I4/I5 thermal anomaly)
+        "fmask": ("VIIRS_EFIRE_VIIRSI_EDR/FireMask", lambda x: x, "L2"),  # Fire Mask with confidence levels (low/nominal/high/water/cloud)
         
         # Cloud Products (JRR - Joint Radio and Radar algorithms)
         # Resolution: 750m, temporal: every orbit (~100 minutes global coverage)
-        "cmask": ("VIIRS-JRR-CloudMask/CloudMask", lambda x: x),  # Cloud Mask using multispectral tests (clear/probably_clear/probably_cloudy/cloudy)
-        "cphase": ("VIIRS-JRR-CloudPhase/CloudPhase", lambda x: x),  # Cloud Phase from IR split-window (ice/water/mixed/unknown)
-        "cth": ("VIIRS-JRR-CloudHeight/CldTopHght", lambda x: x),  # Cloud Top Height from CO2 slicing method using M13/M16
-        "cbh": ("VIIRS-JRR-CloudBase/CldBaseHght", lambda x: x),  # Cloud Base Height from atmospheric profiles and adiabatic assumptions
-        "cdcomp": ("VIIRS-JRR-CloudDCOMP/CloudMicroVisOD", lambda x: x),  # Cloud Optical Depth from visible reflectance (day only)
-        "cncomp": ("VIIRS-JRR-CloudNCOMP/CloudMicroVisOD", lambda x: x),  # Cloud Optical Properties from thermal IR (night/day)
-        "ccl": ("VIIRS-JRR-CloudCoverLayers/Total_Cloud_Fraction", lambda x: x),  # Cloud Cover by pressure layers (low/mid/high)
+        "cmask": ("VIIRS-JRR-CloudMask/CloudMask", lambda x: x, "L2"),  # Cloud Mask using multispectral tests (clear/probably_clear/probably_cloudy/cloudy)
+        "cphase": ("VIIRS-JRR-CloudPhase/CloudPhase", lambda x: x, "L2"),  # Cloud Phase from IR split-window (ice/water/mixed/unknown)
+        "cth": ("VIIRS-JRR-CloudHeight/CldTopHght", lambda x: x, "L2"),  # Cloud Top Height from CO2 slicing method using M13/M16
+        "cbh": ("VIIRS-JRR-CloudBase/CldBaseHght", lambda x: x, "L2"),  # Cloud Base Height from atmospheric profiles and adiabatic assumptions
+        "cdcomp": ("VIIRS-JRR-CloudDCOMP/CloudMicroVisOD", lambda x: x, "L2"),  # Cloud Optical Depth from visible reflectance (day only)
+        "cncomp": ("VIIRS-JRR-CloudNCOMP/CloudMicroVisOD", lambda x: x, "L2"),  # Cloud Optical Properties from thermal IR (night/day)
+        "ccl": ("VIIRS-JRR-CloudCoverLayers/Total_Cloud_Fraction", lambda x: x, "L2"),  # Cloud Cover by pressure layers (low/mid/high)
         
         # Atmospheric Products
         # Resolution: 750m for aerosol, volcanic ash detection
-        "aod": ("VIIRS-JRR-ADP/AerosolOpticalThickness", lambda x: x),  # Aerosol Optical Depth at 550nm using Dark Target/Deep Blue algorithms
-        "vash": ("VIIRS-JRR-VolcanicAsh/VolcanicAsh", lambda x: x),  # Volcanic Ash detection using BTD algorithm (M14-M15/M15-M16)
+        "aod": ("VIIRS-JRR-ADP/AerosolOpticalThickness", lambda x: x, "L2"),  # Aerosol Optical Depth at 550nm using Dark Target/Deep Blue algorithms
+        "vash": ("VIIRS-JRR-VolcanicAsh/VolcanicAsh", lambda x: x, "L2"),  # Volcanic Ash detection using BTD algorithm (M14-M15/M15-M16)
     }
 
     @classmethod
