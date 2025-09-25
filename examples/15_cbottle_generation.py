@@ -72,7 +72,7 @@ from earth2studio.models.dx import CBottleInfill
 
 # Load the default model package which downloads the check point from NGC
 package = CBottle3D.load_default_package()
-cbottle_ds = CBottle3D.load_model(package)
+cbottle_ds = CBottle3D.load_model(package, seed=0)
 # This is an AI data source, so also move it to device
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 cbottle_ds = cbottle_ds.to(device)

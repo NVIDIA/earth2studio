@@ -368,8 +368,10 @@ class CBottle3D(torch.nn.Module, AutoModelMixin):
         cls,
         package: Package,
         lat_lon: bool = True,
-        batch_size: int = 4,
+        sampler_steps: int = 18,
+        sigma_max: float = 200,
         seed: int | None = None,
+        batch_size: int = 4,
         verbose: bool = True,
     ) -> DataSource:
         """Load AI datasource from package
@@ -379,15 +381,19 @@ class CBottle3D(torch.nn.Module, AutoModelMixin):
         package : Package
             CBottle AI model package
         lat_lon : bool, optional
-            Lat/lon toggle, if true data source will return output on a 0.25 deg lat/lon
+            Lat/lon toggle, if true prognostic input/output on a 0.25 deg lat/lon
             grid. If false, the native nested HealPix grid will be returned, by default
             True
+        sampler_steps : int, optional
+            Number of diffusion steps, by default 18
+        sigma_max : float, optional
+            Noise amplitude used to generate latent variables, by default 200
+        seed : int, optional
+            Random generator seed for latent variables. If None, no seed will be used,
+            by default None
         batch_size : int, optional
             Batch size to generate time samples at, consider adjusting based on hardware
             being used, by default 4
-        seed : int | None, optional
-            If set, will fix the seed of the random generator for latent variables, by
-            default None
         verbose : bool, optional
             Print generation progress, by default True
 
@@ -431,7 +437,9 @@ class CBottle3D(torch.nn.Module, AutoModelMixin):
             core_model,
             sst_ds,
             lat_lon=lat_lon,
-            batch_size=batch_size,
+            sampler_steps=sampler_steps,
+            sigma_max=sigma_max,
             seed=seed,
+            batch_size=batch_size,
             verbose=verbose,
         )
