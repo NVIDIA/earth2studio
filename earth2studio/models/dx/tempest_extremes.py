@@ -399,7 +399,7 @@ class TempestExtremes:
             self.store.dims[var]=['time', 'lat', 'lon']
 
         # write file to ram
-        raw_dat = f"{np.datetime_as_string(ic, unit='s')}_mems{mem:04d}.nc"#.replace(':', '.')
+        raw_dat = f"{np.datetime_as_string(ic, unit='s')}_mem_{mem:04d}.nc"
         raw_dat = os.path.join(self.ram_dir, raw_dat)
         kw_args = {"path": raw_dat, "format": "NETCDF4", "mode": "w"}
 
@@ -439,7 +439,7 @@ class TempestExtremes:
 
         track_file = os.path.join(self.store_dir, 'tracks_' + base_name + '.csv')
 
-        return ins, outs, node_file, track_file
+        return [ins], [outs], [node_file], [track_file]
 
 
     def record_state(self, xx: torch.Tensor, coords: CoordSystem) -> None:
@@ -508,18 +508,19 @@ class TempestExtremes:
         then = time.time()
 
         # set up TE helper files
-        ins, outs, node_file, self.track_file = self.setup_files()
+        insies, outsies, node_files, self.track_files = self.setup_files()
 
-        # detect nodes
-        self.run_te(command=self.detect_cmd + ['--in_data_list', ins, '--out_file_list', outs],
-                    print_output=self.print_te_output)
+        for ins, outs, node_file, track_file in zip(insies, outsies, node_files, self.track_files):
+            # detect nodes
+            self.run_te(command=self.detect_cmd + ['--in_data_list', ins, '--out_file_list', outs],
+                        print_output=self.print_te_output)
 
-        # stitch them together
-        self.run_te(command=self.stitch_cmd + ['--in', node_file, '--out', self.track_file],
-                    print_output=self.print_te_output)
+            # stitch them together
+            self.run_te(command=self.stitch_cmd + ['--in', node_file, '--out', track_file],
+                        print_output=self.print_te_output)
 
         # remove helper files
-        self.tidy_up(ins, outs)
+        self.tidy_up(insies, outsies)
 
         print(f'took {(time.time() - then):.1f}s to track cyclones')
 
@@ -537,7 +538,7 @@ class TempestExtremes:
         return self.track_cyclones()
 
 
-    def tidy_up(self, ins: str, outs: str) -> None:
+    def tidy_up(self, insies: str, outsies: str) -> None:
         """Clean up temporary files after processing.
 
         Handles raw data files based on keep_raw_data setting and
@@ -550,28 +551,28 @@ class TempestExtremes:
         outs : str
             Path to output file list
         """
+        for ins, outs in zip(insies, outsies):
+            with open(ins, 'r') as fl:
+                raw_dat = fl.read().strip()
 
-        with open(ins, 'r') as fl:
-            raw_dat = fl.read().strip()
+            if self.keep_raw: # move field data to disk
+                out_path = os.path.join(self.store_dir, 'raw_data')
+                raw_dest = os.path.join(out_path, os.path.basename(raw_dat))
+                if raw_dat != raw_dest: # nothing to do if use_ram=False
+                    if os.path.exists(raw_dest):
+                        os.remove(raw_dest)
+                    shutil.move(raw_dat, out_path)
+            else:             # delete field data
+                os.remove(raw_dat)
 
-        if self.keep_raw: # move field data to disk
-            out_path = os.path.join(self.store_dir, 'raw_data')
-            raw_dest = os.path.join(out_path, os.path.basename(raw_dat))
-            if raw_dat != raw_dest: # nothing to do if use_ram=False
-                if os.path.exists(raw_dest):
-                    os.remove(raw_dest)
-                shutil.move(raw_dat, out_path)
-        else:             # delete field data
-            os.remove(raw_dat)
+            # delete TE helper files
+            files = [ins, outs]
+            with open(outs, 'r') as fl:
+                for line in fl:
+                    files.append(line.strip())
 
-        # delete TE helper files
-        files = [ins, outs]
-        with open(outs, 'r') as fl:
-            for line in fl:
-                files.append(line.strip())
-
-        for file in files:
-            os.remove(file)
+            for file in files:
+                os.remove(file)
 
         return
 
