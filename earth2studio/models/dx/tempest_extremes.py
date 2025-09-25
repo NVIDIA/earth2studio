@@ -388,28 +388,31 @@ class TempestExtremes:
             Path to the created NetCDF file
         """
         ic = self.store.coords['time'][0]
-        mem = self.store.coords.pop('ensemble')[0]
+        mems = self.store.coords['ensemble']
 
         # morph store to tempes extremes-compatible [time, lat, lon] structure
         lead_times = self.store.coords.pop('lead_time')
         self.store.coords['time'] = [ic + lt for lt in lead_times]
 
         for var in self.store.root.keys():
-            self.store.root[var] = self.store.root[var].squeeze((0,1))
-            self.store.dims[var]=['time', 'lat', 'lon']
+            self.store.root[var] = self.store.root[var].squeeze((1))
+            self.store.dims[var]=['ensemble', 'time', 'lat', 'lon']
 
         # write file to ram
-        raw_dat = f"{np.datetime_as_string(ic, unit='s')}_mem_{mem:04d}.nc"
-        raw_dat = os.path.join(self.ram_dir, raw_dat)
-        kw_args = {"path": raw_dat, "format": "NETCDF4", "mode": "w"}
+        raw_files = []
+        for mem in mems:
+            raw_dat = f"{np.datetime_as_string(ic, unit='s')}_mem_{mem:04d}.nc"
+            raw_dat = os.path.join(self.ram_dir, raw_dat)
+            raw_files.append(raw_dat)
+            kw_args = {"path": raw_dat, "format": "NETCDF4", "mode": "w"}
 
-        _store = self.store.to_xarray()
-        _store.to_netcdf(**kw_args)
+            _store = self.store.to_xarray()
+            _store.sel(ensemble=mem).drop_vars('ensemble').to_netcdf(**kw_args)
 
         # new clean store
         self.initialise_te_kvstore()
 
-        return raw_dat
+        return raw_files, mems
 
 
     def setup_files(self) -> Tuple[str, str, str, str]:
@@ -423,23 +426,30 @@ class TempestExtremes:
             Tuple containing (input_file_list, output_file_list, node_file, track_file)
         """
         # write store to in-memory file
-        raw_dat = self.dump_raw_data()
+        raw_files, mems = self.dump_raw_data()
 
-        # in_files to file
-        ins = os.path.join(self.ram_dir, f'input_files_{self.rank:04d}.txt')
-        with open(ins, 'w') as fl:
-            fl.write(raw_dat + '\n')
+        ins, outs, node_files, track_files = [], [], [], []
+        for mem, raw_dat in zip(mems, raw_files):
+            # in_files to file
+            _ins = os.path.join(self.ram_dir, f'input_files_{self.rank:04d}_mem_{mem:05d}.txt')
+            with open(_ins, 'w') as fl:
+                fl.write(raw_dat + '\n')
 
-        outs = os.path.join(self.ram_dir, f'output_files_{self.rank:04d}.txt')
-        base_name = os.path.basename(raw_dat)
-        base_name = base_name.rsplit('.',1)[0]
-        node_file = os.path.join(self.ram_dir, base_name + '_tc_centres.txt')
-        with open(outs, 'w') as fl:
-            fl.write(node_file + '\n')
+            _outs = os.path.join(self.ram_dir, f'output_files_{self.rank:04d}_mem_{mem:05d}.txt')
+            base_name = os.path.basename(raw_dat)
+            base_name = base_name.rsplit('.',1)[0]
+            node_file = os.path.join(self.ram_dir, base_name + f'_mem_{mem:05d}_tc_centres.txt')
+            with open(_outs, 'w') as fl:
+                fl.write(node_file + '\n')
 
-        track_file = os.path.join(self.store_dir, 'tracks_' + base_name + '.csv')
+            track_file = os.path.join(self.store_dir, 'tracks_' + base_name + '.csv')
 
-        return [ins], [outs], [node_file], [track_file]
+            ins.append(_ins)
+            outs.append(_outs)
+            node_files.append(node_file)
+            track_files.append(track_file)
+
+        return ins, outs, node_files, track_files
 
 
     def record_state(self, xx: torch.Tensor, coords: CoordSystem) -> None:
