@@ -402,9 +402,11 @@ class CBottleVideo(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         cls,
         package: Package,
         lat_lon: bool = True,
+        sampler_steps: int = 18,
+        sigma_max: float = 1000,
         seed: int | None = None,
     ) -> PrognosticModel:
-        """Load AI datasource from package
+        """Load prognostic from package
 
         Parameters
         ----------
@@ -414,9 +416,13 @@ class CBottleVideo(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             Lat/lon toggle, if true prognostic input/output on a 0.25 deg lat/lon
             grid. If false, the native nested HealPix grid will be returned, by default
             True
-        seed : int | None, optional
-            If set, will fix the seed of the random generator for latent variables, by
-            default None
+        sampler_steps : int, optional
+            Number of diffusion steps, by default 18
+        sigma_max : float, optional
+            Noise amplitude used to generate latent variables, by default 200
+        seed : int, optional
+            Random generator seed for latent variables. If None, no seed will be used,
+            by default None
 
         Returns
         -------
@@ -449,6 +455,8 @@ class CBottleVideo(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             core_model,
             sst_ds,
             lat_lon=lat_lon,
+            sampler_steps=sampler_steps,
+            sigma_max=sigma_max,
             seed=seed,
         )
 

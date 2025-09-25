@@ -194,7 +194,7 @@ def test_cbottle_package(time, variable, device, model_cache_context):
     # Test the cached model package
     with model_cache_context():
         package = CBottle3D.load_default_package()
-        ds = CBottle3D.load_model(package).to(device)
+        ds = CBottle3D.load_model(package, seed=0).to(device)
 
     data = ds(time, variable)
     shape = data.shape

@@ -92,7 +92,8 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
         Batch size to generate time samples at, consider adjusting based on hardware
         being used, by default 4
     seed : int, optional
-        Random generator seed for latent variables, by default 0
+        Random generator seed for latent variables. If None will use no seed, by default
+        None
     """
 
     output_variables = VARIABLES
@@ -225,9 +226,9 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
         lat_lon: bool = True,
         sampler_steps: int = 18,
         sigma_max: float = 200,
-        seed: int = 0,
+        seed: int | None = None,
     ) -> DiagnosticModel:
-        """Load AI datasource from package
+        """Load diagnostic from package
 
         Parameters
         ----------
@@ -237,15 +238,13 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
             Lat/lon toggle, if true prognostic input/output on a 0.25 deg lat/lon
             grid. If false, the native nested HealPix grid will be returned, by default
             True
-        input_variables: list[str] | VariableArray
-            List of input variables that will be provided for conditioning the output
-            generation, by default ["u10m", "v10m"]
         sampler_steps : int, optional
             Number of diffusion steps, by default 18
         sigma_max : float, optional
             Noise amplitude used to generate latent variables, by default 80
         seed : int, optional
-            Random generator seed for latent variables, by default 0
+            Random generator seed for latent variables. If None, no seed will be used,
+            by default None
 
         Returns
         -------
@@ -290,7 +289,6 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
         lat_coords: torch.Tensor,
         lon_coords: torch.Tensor,
         times: list[datetime] | TimeArray,
-        lat_lon: bool = True,
     ) -> tuple[torch.Tensor, OrderedDict]:
         """Creates a TC guidance tensor from lat/lon coordinates.
 
