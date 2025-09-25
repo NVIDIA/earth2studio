@@ -16,10 +16,7 @@ from physicsnemo.distributed import DistributedManager
 from earth2studio.io import KVBackend
 from earth2studio.utils.coords import CoordSystem, map_coords, split_coords
 
-from earth2studio.utils.imports import (
-    OptionalDependencyFailure,
-    check_optional_dependencies,
-)
+from earth2studio.utils.imports import OptionalDependencyFailure, check_optional_dependencies
 
 
 def tile_xx_to_yy(xx: torch.Tensor,
@@ -246,9 +243,8 @@ class TempestExtremes:
             try:
                 run(cmd, capture_output=True)
             except:
-                # raise ChildProcessError(f'{cmd} not working')
-                print('what?!')
-                OptionalDependencyFailure("fcn3")
+                # TODO discuss implementation of below before merging
+                OptionalDependencyFailure("tempest_extremes")
 
         return
 
@@ -312,6 +308,7 @@ class TempestExtremes:
         return
 
 
+    @check_optional_dependencies()
     def initialise_store_coords(self) -> None:
         """Initialize coordinate system for data storage.
 
@@ -496,7 +493,7 @@ class TempestExtremes:
         return
 
 
-    @check_optional_dependencies
+    @check_optional_dependencies()
     def track_cyclones(self) -> None:
         """Execute cyclone tracking using TempestExtremes.
 
