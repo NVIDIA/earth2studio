@@ -130,7 +130,9 @@ class TempestExtremes:
 
     The result will be a TE-genereated track file, stored in a user-defined location
 
-    NOTE: currently works on batch size 1 only
+    NOTE:
+        - currently works on batch size 1 only (currently worked on)
+        - length of time direction in input coords must be 1 (add test)
 
     Tip: To iterate on the TE command without having to always run a model, set
     keep_raw_data to True and work with TE directly on the netcdf file that the
@@ -175,6 +177,7 @@ class TempestExtremes:
                  detect_cmd: str,
                  stitch_cmd: str,
                  input_vars: List[str],
+                 batch_size: int,
                  n_steps: int,
                  time_step: np.ndarray | List[np.timedelta64] | np.timedelta64,
                  lats: np.ndarray | torch.Tensor,
@@ -194,6 +197,7 @@ class TempestExtremes:
         self.static_coords = static_coords
         self.time_step = time_step
         self.input_vars = input_vars
+        self.batch_size = batch_size
         self.n_steps = n_steps
         self.lats = lats
         self.lons = lons
@@ -367,7 +371,7 @@ class TempestExtremes:
         out_vars = oco.pop("variable")
 
         oco["time"] = np.array([None])
-        oco["ensemble"] = np.array([None])
+        oco["ensemble"] = np.array([None]*self.batch_size)
         oco.move_to_end("time", last=False)
         oco.move_to_end("ensemble", last=False)
 
@@ -387,6 +391,9 @@ class TempestExtremes:
         str
             Path to the created NetCDF file
         """
+        if len(self.store.coords['time']) > 1:
+            raise ValueError('Currently, TempestExtremes interface only works for single IC per evaluation cycle.')
+
         ic = self.store.coords['time'][0]
         mems = self.store.coords['ensemble']
 
@@ -398,16 +405,21 @@ class TempestExtremes:
             self.store.root[var] = self.store.root[var].squeeze((1))
             self.store.dims[var]=['ensemble', 'time', 'lat', 'lon']
 
-        # write file to ram
+        # for each member, write te compatible nc file
         raw_files = []
+
+        # in case last batch has less ensemble members than batch size, expand coords of store so to_xarray() does not fail
+        if len(mems) < self.batch_size:
+            self.store.coords['ensemble'] = list(self.store.coords['ensemble']) + [None]*(self.batch_size - len(mems))
+
         for mem in mems:
             raw_dat = f"{np.datetime_as_string(ic, unit='s')}_mem_{mem:04d}.nc"
             raw_dat = os.path.join(self.ram_dir, raw_dat)
             raw_files.append(raw_dat)
             kw_args = {"path": raw_dat, "format": "NETCDF4", "mode": "w"}
 
-            _store = self.store.to_xarray()
-            _store.sel(ensemble=mem).drop_vars('ensemble').to_netcdf(**kw_args)
+            _store = self.store.to_xarray().sel(ensemble=mem).drop_vars('ensemble')
+            _store.to_netcdf(**kw_args)
 
         # new clean store
         self.initialise_te_kvstore()
@@ -467,7 +479,7 @@ class TempestExtremes:
         """
         # update store mem and time
         for dim in ['time', 'ensemble']:
-            if self.store.coords[dim] != coords[dim]:
+            if not (self.store.coords[dim] == coords[dim]).all():
                 self.store.coords[dim] = coords[dim]
 
         # concatenate static data
