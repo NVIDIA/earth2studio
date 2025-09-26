@@ -60,6 +60,10 @@ class DiagnosticWrapper(torch.nn.Module, PrognosticMixin):
         have 2D latitude/longitude coordinates.
     keep_px_output : bool, default True
         Whether to include output of px_model in the input.
+    check_bounds : bool, default True
+        Whether to require that the latitude/longitude coordinates of the diagnostic
+        model are a subset of the coordinates of the prognostic model. Set to False
+        if the data can be extrapolated for the diagnostic model.
     """
 
     def __init__(
@@ -68,6 +72,7 @@ class DiagnosticWrapper(torch.nn.Module, PrognosticMixin):
         dx_models: DiagnosticModel | Sequence[DiagnosticModel],
         interpolate_coords: bool = False,
         keep_px_output: bool = True,
+        check_bounds: bool = True,
     ):
         super().__init__()
 
@@ -87,6 +92,7 @@ class DiagnosticWrapper(torch.nn.Module, PrognosticMixin):
                 dx_models[:-1],
                 interpolate_coords=interpolate_coords,
                 keep_px_output=keep_px_output,
+                check_bounds=check_bounds,
             )
 
         self.interpolate_coords = interpolate_coords
@@ -97,6 +103,7 @@ class DiagnosticWrapper(torch.nn.Module, PrognosticMixin):
             self.interp_lat1: np.ndarray | None = None
             self.interp_lon1: np.ndarray | None = None
         self.keep_px_output = keep_px_output or (len(dx_models) > 1)
+        self.check_bounds = check_bounds
 
     def input_coords(self) -> CoordSystem:
         """Input coordinate system of the prognostic model
@@ -158,12 +165,13 @@ class DiagnosticWrapper(torch.nn.Module, PrognosticMixin):
         out_coords_dx["lead_time"] = out_coords_px["lead_time"]
 
         # check that diagnostic input grid is contained in the prognostic output grid
-        self._check_dx_grid(
-            out_coords_px["lat"],
-            out_coords_px["lon"],
-            in_coords_dx["lat"],
-            in_coords_dx["lon"],
-        )
+        if self.check_bounds:
+            self._check_dx_grid(
+                out_coords_px["lat"],
+                out_coords_px["lon"],
+                in_coords_dx["lat"],
+                in_coords_dx["lon"],
+            )
 
         if self.keep_px_output:
             variables = np.concatenate(
