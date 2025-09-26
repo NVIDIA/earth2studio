@@ -17,6 +17,7 @@
 import os
 import pathlib
 from datetime import datetime, timedelta
+from typing import Literal
 
 import cftime
 import numpy as np
@@ -89,6 +90,8 @@ class CBottle3D(torch.nn.Module, AutoModelMixin):
     seed : int | None, optional
         If set, will fix the seed of the random generator for latent variables, by
         default None
+    dataset_modality: Literal["icon", "era5"], optional
+        Dataset modality to use when sampling, by default "era5"
     cache : bool, optional
         Does nothing at the moment, by default False
     verbose : bool, optional
@@ -106,6 +109,7 @@ class CBottle3D(torch.nn.Module, AutoModelMixin):
         sigma_max: float = 200.0,
         batch_size: int = 4,
         seed: int | None = None,
+        dataset_modality: Literal["icon", "era5"] = "era5",
         cache: bool = False,
         verbose: bool = True,
     ):
@@ -117,6 +121,7 @@ class CBottle3D(torch.nn.Module, AutoModelMixin):
         self.sampler_steps = sampler_steps
         self.batch_size = batch_size
         self.seed = seed
+        self.dataset_modality = dataset_modality
         self._core_model = core_model  # Needed to move model to device
         self.core_model = CBottle3d(core_model)
 
@@ -170,7 +175,12 @@ class CBottle3D(torch.nn.Module, AutoModelMixin):
         # Make sure input time is valid
         self._validate_time(time)
 
-        input = self.get_cbottle_input(time)
+        if self.dataset_modality == "era5":
+            input = self.get_cbottle_input(time)
+        elif self.dataset_modality == "icom":
+            input = self.get_cbottle_input(time, label=0)
+        else:
+            raise ValueError(f"Dataset modality {self.dataset_modality} not supported")
 
         varidx = []
         for var in variable:
