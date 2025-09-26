@@ -180,7 +180,7 @@ class TestCBottleTCMock:
         self, x, time, device, mock_core_model, mock_classifier_model, mock_sst_ds
     ):
         dx = CBottleTCGuidance(
-            mock_core_model, mock_classifier_model, mock_sst_ds, lat_lon=False
+            mock_core_model, mock_classifier_model, mock_sst_ds, lat_lon=False, seed=0
         ).to(device)
         dx.sampler_steps = 2  # Speed up sampler
         dx.batch_size = 2
@@ -233,7 +233,7 @@ def test_cbottle_tc_package(device, model_cache_context):
     # Only cuda used here to speed things up, but CPU also works
     with model_cache_context():
         package = CBottleTCGuidance.load_default_package()
-        dx = CBottleTCGuidance.load_model(package).to(device)
+        dx = CBottleTCGuidance.load_model(package, seed=0).to(device)
 
     # Guidance over florida
     lat = 27
