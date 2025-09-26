@@ -21,15 +21,13 @@ import hashlib
 import os
 import pathlib
 import shutil
-from datetime import datetime, timezone
-
+from datetime import datetime, timedelta, timezone
 
 import h5py  # type: ignore
 import nest_asyncio
 import numpy as np
 import s3fs
 import xarray as xr
-from loguru import logger
 from tqdm.asyncio import tqdm
 
 from earth2studio.data.utils import datasource_cache_root, prep_data_inputs
@@ -44,8 +42,8 @@ class JPSS:
     ----------
     satellite : str, optional
         One of {"noaa-20", "noaa-21", "snpp"}. Default "noaa-20".
-    band_type : str, optional
-        Band resolution type: "I" for imagery bands (375m), "M" for moderate bands (750m), 
+    product_type : str, optional
+        Product type: "I" for imagery bands (375m), "M" for moderate bands (750m),
         or "L2" for Level 2 EDR products (750m). Default "I".
     max_workers : int, optional
         Maximum concurrent fetch tasks. Default 24.
@@ -55,13 +53,13 @@ class JPSS:
         Show progress bars. Default True.
     async_timeout : int, optional
         Timeout for async operations in seconds. Default 600.
-    
+
     Note
     ----
     The returned data automatically includes '_lat' and '_lon' variables containing
     latitude and longitude coordinates for each pixel. These are appended to the last
     two dimensions of the data arrays variables as '_lat' and '_lon' variables.
-    
+
     For EDR (L2) products, not all products are available but generally include:
     - Land Surface Temperature, Surface Albedo, Snow Cover
     - Surface Reflectance, Active Fire Detection
@@ -82,15 +80,10 @@ class JPSS:
         "M": (768, 3200),  # M-bands: 768 x 3200 pixels (750m resolution)
         "L2": (768, 3200),  # L2 EDR products: 768 x 3200 pixels (750m resolution)
     }
-    PRODUCT_FOLDER = {
-        "I": "VIIRS-I{band_num}-SDR",
-        "M": "VIIRS-M{band_num}-SDR",
-        "L2": "VIIRS-MOD-L2",
-    }
-    GEOLOCATION_NAME = {
-        "I": "VIIRS-IMG-GEO",
-        "M": "VIIRS-MOD-GEO",
-        "L2": "VIIRS-MOD-GEO",
+    GEOLOCATION_NAME = {  # Use terrain corrected geolocation files (TC)
+        "I": "VIIRS-IMG-GEO-TC",
+        "M": "VIIRS-MOD-GEO-TC",
+        "L2": "VIIRS-MOD-GEO-TC",
     }
 
     def __init__(
@@ -102,17 +95,15 @@ class JPSS:
         verbose: bool = True,
         async_timeout: int = 600,
     ) -> None:
-        if satellite not in self.VALID_SATELLITES:
-            raise ValueError(f"Invalid satellite {satellite}. Must be one of {self.VALID_SATELLITES}")
-        if product_type not in self.VALID_PRODUCT_TYPES:
-            raise ValueError(f"Invalid product_type {product_type}. Must be one of {self.VALID_PRODUCT_TYPES}")
+
+        self._validate_satellite_and_product_type(satellite, product_type)
 
         self._satellite: str = satellite
         self._product_type: str = product_type
-        self._max_workers = max_workers
-        self._cache = cache
-        self._verbose = verbose
-        self._async_timeout = async_timeout
+        self._max_workers: int = max_workers
+        self._cache: bool = cache
+        self._verbose: bool = verbose
+        self._async_timeout: int = async_timeout
 
         try:
             loop = asyncio.get_running_loop()
@@ -169,7 +160,7 @@ class JPSS:
         variable: str | list[str] | VariableArray,
     ) -> xr.DataArray:
         """Async function to get data
-        
+
         Parameters
         ----------
         time : datetime | list[datetime] | TimeArray
@@ -191,8 +182,8 @@ class JPSS:
         # Prepare data inputs
         time, variable = prep_data_inputs(time, variable)
 
-        # Validate product types
-        self._validate_product_types(variable)
+        # Validate variables
+        JPSS._validate_variables(variable, self._product_type)
 
         # Create cache directory if it doesn't exist
         pathlib.Path(self.cache).mkdir(parents=True, exist_ok=True)
@@ -204,10 +195,12 @@ class JPSS:
 
         # Determine array dimensions
         y_size, x_size = self.PRODUCT_DIMENSIONS[self._product_type]
-        
+
         # Create array with extended variables (original + lat + lon)
         xr_array = xr.DataArray(
-            data=np.zeros((len(time), len(extended_variables), y_size, x_size), dtype=np.float32),
+            data=np.zeros(
+                (len(time), len(extended_variables), y_size, x_size), dtype=np.float32
+            ),
             dims=["time", "variable", "y", "x"],
             coords={
                 "time": time,
@@ -215,12 +208,23 @@ class JPSS:
                 "y": np.arange(y_size),
                 "x": np.arange(x_size),
             },
+            attrs={
+                "time_data": {},  # Will store {time_index: actual_timestamp}
+                "time_geo": {},  # Will store {time_index: actual_timestamp}
+                "file_data": {},  # Will store {time_index: filename}
+                "file_geo": {},  # Will store {time_index: filename}
+            },
         )
 
         # Fetch data
-        async_tasks = [(i, t, j, v) for i, t in enumerate(time) for j, v in enumerate(variable)]
+        async_tasks = [
+            (i, t, j, v) for i, t in enumerate(time) for j, v in enumerate(variable)
+        ]
         await tqdm.gather(
-            *map(lambda args: self.fetch_data_wrapper(args, xr_array=xr_array), async_tasks),
+            *map(
+                lambda args: self.fetch_data_wrapper(args, xr_array=xr_array),
+                async_tasks,
+            ),
             desc="Fetching VIIRS data",
             disable=(not self._verbose),
         )
@@ -228,10 +232,25 @@ class JPSS:
         # Fetch geolocation data
         async_tasks = [(i, t) for i, t in enumerate(time)]
         await tqdm.gather(
-            *map(lambda args: self.fetch_geolocation_wrapper(args, xr_array=xr_array), async_tasks),
+            *map(
+                lambda args: self.fetch_geolocation_wrapper(args, xr_array=xr_array),
+                async_tasks,
+            ),
             desc="Fetching VIIRS geolocation data",
             disable=(not self._verbose),
         )
+
+        # Validate that data and geolocation timestamps match are within 1 second
+        # NOTE: This should never happen but I will feel better leaving the check here.
+        # Leaving file names in xarray attrs for any future debugging purposes
+        for i in range(len(time)):
+            time_diff = abs(
+                xr_array.attrs["time_data"][i] - xr_array.attrs["time_geo"][i]
+            )
+            if time_diff > timedelta(seconds=1):
+                raise ValueError(
+                    f"Data and geolocation timestamps do not match. Something is going wrong with this request! {time_diff}"
+                )
 
         if session:
             await session.close()
@@ -249,14 +268,16 @@ class JPSS:
     ) -> None:
         """Small wrapper to pack arrays into the DataArray"""
         # Fetch data variables
-        data_out = await self.fetch_data(time=e[1], variable=e[3])
+        data_out, timestamp, filename = await self.fetch_data(time=e[1], variable=e[3])
         xr_array[e[0], e[2]] = data_out
+        xr_array.attrs["time_data"][e[0]] = timestamp
+        xr_array.attrs["file_data"][e[0]] = filename
 
     async def fetch_data(
         self,
         time: datetime,
         variable: str,
-    ) -> np.ndarray:
+    ) -> tuple[np.ndarray, datetime, str]:
         """Fetch VIIRS data array
 
         Parameters
@@ -268,16 +289,20 @@ class JPSS:
 
         Returns
         -------
-        np.ndarray
-            VIIRS data array
+        tuple[np.ndarray, datetime, str]
+            VIIRS data array, timestamp, and filename
         """
 
-        # Map standardized variables to (product_code, dataset, modifier)
-        product_identifier, modifier, _ = JPSSLexicon[variable]
-        product_code, dataset_name = product_identifier.split("/")
+        # Map standardized variables to (product_type, folder, dataset, modifier)
+        product_type, folder, dataset_name, modifier = JPSSLexicon.get_item(variable)
 
         # Find file path on S3 for this time and product
-        s3_uri = await self._get_s3_path(time=time, product_code=product_code)
+        s3_uri, timestamp = await self._get_s3_path(
+            time=time, variable=variable, geolocation=False
+        )
+
+        # Extract filename from S3 URI
+        filename = s3_uri.split("/")[-1]
 
         # Fetch the file from S3
         local_file = await self._fetch_remote_file(s3_uri)
@@ -286,9 +311,7 @@ class JPSS:
         with h5py.File(local_file, "r") as h5:
             # Get dataset from HDF5 file
             if self._product_type in ["I", "M"]:
-                for _, grp in h5["All_Data"].items():
-                    if isinstance(grp, h5py.Group) and dataset_name in grp:
-                        ds = grp[dataset_name]
+                ds = h5["All_Data"][folder + "_All"][dataset_name]
             else:
                 ds = h5[dataset_name]
 
@@ -301,7 +324,7 @@ class JPSS:
             # Apply modifier
             processed_data = modifier(filtered_data)
 
-        return processed_data
+        return processed_data, timestamp, filename
 
     async def fetch_geolocation_wrapper(
         self,
@@ -309,109 +332,56 @@ class JPSS:
         xr_array: xr.DataArray,
     ) -> None:
         """Small wrapper to pack arrays into the DataArray"""
-        geolocation_out = await self.fetch_geolocation(time=e[1])
-        xr_array[e[0], -2:] = geolocation_out
+        lat, lon, timestamp, filename = await self.fetch_geolocation(time=e[1])
+        xr_array[e[0], -2] = lat
+        xr_array[e[0], -1] = lon
+        xr_array.attrs["time_geo"][e[0]] = timestamp
+        xr_array.attrs["file_geo"][e[0]] = filename
 
-    async def fetch_geolocation(self, time: datetime) -> tuple[np.ndarray, np.ndarray]:
+    async def fetch_geolocation(
+        self, time: datetime
+    ) -> tuple[np.ndarray, np.ndarray, datetime, str]:
         """Fetch geolocation data from VIIRS geolocation files."""
 
         # Determine geolocation product based on product type
         geo_product = self.GEOLOCATION_NAME[self._product_type]
 
         # Find file path on S3 for this time and product
-        s3_uri = await self._get_s3_path(time=time, product_code=geo_product, geolocation=True)
+        s3_uri, timestamp = await self._get_s3_path(
+            time=time, variable=geo_product, geolocation=True
+        )
+
+        # Extract filename from S3 URI
+        filename = s3_uri.split("/")[-1]
 
         # Fetch the file from S3
         local_file = await self._fetch_remote_file(s3_uri)
 
-        # Download and read the geolocation file
-        local_geo_file = await self._fetch_remote_file(local_file)
-        
-        with h5py.File(local_geo_file, "r") as h5:
-            # Try to find latitude and longitude datasets within the file
-            # They're often in geolocation groups or alongside the data
-            lat_ds = None
-            lon_ds = None
-
-            #
-            
-            # Common locations for geolocation in VIIRS SDR files
-            geo_search_patterns = [
-                "Latitude",
-                "Longitude", 
-                "Navigation/Latitude",
-                "Navigation/Longitude",
-                "Geolocation/Latitude",
-                "Geolocation/Longitude"
-            ]
-            
-            # Search for lat/lon datasets
-            for pattern in geo_search_patterns:
-                try:
-                    if pattern == "Latitude":
-                        lat_ds = self._find_dataset(h5, "Latitude")
-                    elif pattern == "Longitude":
-                        lon_ds = self._find_dataset(h5, "Longitude")
-                    else:
-                        # Try path-based access
-                        if pattern in h5:
-                            if "Latitude" in pattern:
-                                lat_ds = h5[pattern]
-                            else:
-                                lon_ds = h5[pattern]
-                except (KeyError, ValueError):
-                    continue
-            
-            # If not found in common locations, do exhaustive search
-            if lat_ds is None or lon_ds is None:
-                def find_geo_datasets(name, obj):
-                    nonlocal lat_ds, lon_ds
-                    if isinstance(obj, h5py.Dataset):
-                        if "latitude" in name.lower() and lat_ds is None:
-                            lat_ds = obj
-                        elif "longitude" in name.lower() and lon_ds is None:
-                            lon_ds = obj
-                
-                h5.visititems(find_geo_datasets)
-            
-            if lat_ds is None or lon_ds is None:
-                # Fallback: create dummy coordinates based on array indices
-                logger.warning("Could not find geolocation data in SDR file, creating dummy coordinates")
-                # Get data shape from any dataset in the file
-                data_shape = None
-                def find_data_shape(name, obj):
-                    nonlocal data_shape
-                    if isinstance(obj, h5py.Dataset) and len(obj.shape) == 2 and data_shape is None:
-                        data_shape = obj.shape
-                
-                h5.visititems(find_data_shape)
-                
-                if data_shape is None:
-                    raise ValueError("Could not determine data dimensions from SDR file")
-                
-                # Create dummy lat/lon grids
-                lat = np.full(data_shape, np.nan, dtype=np.float32)
-                lon = np.full(data_shape, np.nan, dtype=np.float32)
-                return lat, lon
-            
+        with h5py.File(local_file, "r") as h5:
+            lat_ds = h5["All_Data"][list(h5["All_Data"].keys())[0]][
+                "Latitude"
+            ]  # Kind of a hacky way to get the lat/lon data
+            lon_ds = h5["All_Data"][list(h5["All_Data"].keys())[0]]["Longitude"]
             lat = np.asarray(lat_ds[...], dtype=np.float32)
             lon = np.asarray(lon_ds[...], dtype=np.float32)
-            
-            return lat, lon
 
-    def _filter_fill_values(self, data: np.ndarray, dataset: h5py.Dataset) -> np.ndarray:
+        return lat, lon, timestamp, filename
+
+    def _filter_fill_values(
+        self, data: np.ndarray, dataset: h5py.Dataset
+    ) -> np.ndarray:
         """Filter VIIRS fill values and convert them to NaN.
-        
+
         VIIRS uses fill values instead of NaN for invalid pixels (bow-tie effect, etc).
         This method identifies and converts these to NaN for proper handling.
-        
+
         Parameters
         ----------
         data : np.ndarray
             The data array to filter
         dataset : h5py.Dataset
             The HDF5 dataset (used to check for fill value attributes)
-            
+
         Returns
         -------
         np.ndarray
@@ -420,26 +390,54 @@ class JPSS:
 
         # Make a copy and convert to float to allow NaN assignment
         filtered_data = data.astype(np.float32)
-        
-        # Determine fill value
+
+        # Filter fill values
         if self._product_type in ["I", "M"]:
-            fill_value = 65535
+            filter_threshold = 65529
+            filtered_data[filtered_data >= filter_threshold] = np.nan
+            filtered_data[filtered_data < 0] = np.nan  # Issue with data
         elif self._product_type == "L2":
-            fill_value = dataset.attrs['_FillValue'].item()
-        
-        # Apply explicit fill value
-        filtered_data[filtered_data == fill_value] = np.nan
-        
+            fill_value = dataset.attrs["_FillValue"].item()
+            filtered_data[filtered_data == fill_value] = np.nan
+
         return filtered_data
 
-    def _validate_product_types(self, variables: list[str]) -> None:
+    @staticmethod
+    def _validate_satellite_and_product_type(satellite: str, product_type: str) -> None:
+        """Validate that requested satellite and product type are valid
+
+        Parameters
+        ----------
+        satellite : str
+            Satellite name to validate
+        product_type : str
+            Product type to validate
+
+        Raises
+        ------
+        ValueError
+            If satellite or product type is invalid
+        """
+        if satellite not in JPSS.VALID_SATELLITES:
+            raise ValueError(
+                f"Invalid satellite {satellite}. Must be one of {JPSS.VALID_SATELLITES}"
+            )
+        if product_type not in JPSS.VALID_PRODUCT_TYPES:
+            raise ValueError(
+                f"Invalid product_type {product_type}. Must be one of {JPSS.VALID_PRODUCT_TYPES}"
+            )
+
+    @staticmethod
+    def _validate_variables(variables: list[str], product_type: str = None) -> None:
         """Validate that requested variables are compatible with the configured product type.
-        
+
         Parameters
         ----------
         variables : list[str]
             List of variable names to validate
-            
+        product_type : str, optional
+            Product type to validate against. If None, only checks if variables exist.
+
         Raises
         ------
         ValueError
@@ -447,15 +445,18 @@ class JPSS:
         """
         unknown_vars = []
         non_product_vars = []
-        
+
         for var in variables:
             # Check if variable exists in lexicon
             if var not in JPSSLexicon.VOCAB:
                 unknown_vars.append(var)
                 continue
-                
-            # Determine variable type
-            if JPSSLexicon.get_item(var)[2] != self._product_type:
+
+            # Determine variable type if product_type is provided
+            if (
+                product_type is not None
+                and JPSSLexicon.get_item(var)[0] != product_type
+            ):
                 non_product_vars.append(var)
 
         # Raise error for unknown variables
@@ -467,28 +468,29 @@ class JPSS:
 
         # Raise error for non-product variables
         if non_product_vars:
-            raise ValueError(f"Variables {non_product_vars} are incompatible with the configured product type {self._product_type}")
+            raise ValueError(
+                f"Variables {non_product_vars} are incompatible with the configured product type {product_type}"
+            )
 
-    async def _get_s3_path(self, time: datetime, product_code: str, geolocation: bool = False) -> str:
-        """Get the S3 path for a given time and product code."""
+    async def _get_s3_path(
+        self, time: datetime, variable: str, geolocation: bool = False
+    ) -> tuple[str, datetime]:
+        """Get the S3 path for a given time and product code.
+
+        Returns
+        -------
+        tuple[str, datetime]
+            S3 file path and actual file timestamp
+        """
 
         # Get the bucket for the satellite
         bucket = self.SATELLITE_BUCKETS[self._satellite]
 
-        # Determine folder name based on product type
-        if self._product_type == "I":
-            # SDR I-band products
-            band_num = product_code[-2:]
-            folder = f"VIIRS-I{int(band_num)}-SDR" if not geolocation else product_code
-        elif self._product_type == "M":
-            # SDR M-band products
-            band_num = product_code[-2:]
-            folder = f"VIIRS-M{int(band_num)}-SDR" if not geolocation else product_code
-        elif self._product_type == "L2":
-            # L2 EDR products - use the product code as the folder name
-            folder = product_code
+        # Determine folder
+        if not geolocation:
+            _, folder, _, _ = JPSSLexicon.get_item(variable)
         else:
-            raise ValueError(f"Invalid product type {self._product_type}")
+            folder = self.GEOLOCATION_NAME[self._product_type]
 
         # Get the base URL
         base_url = self.BASE_URL.format(
@@ -500,33 +502,63 @@ class JPSS:
         )
 
         # List files in the directory and choose the closest timestamp file
+        if self.fs is None:  # type: ignore
+            raise ValueError("File system is not initialized")  # type: ignore
         files = await self.fs._ls(base_url)
 
         # Filter for data files
         data_files = [f for f in files if f.endswith((".h5", ".nc"))]
 
-        # Match by product code in filename
-        matching_files = [f for f in data_files if f"/{product_code}_" in f]
-
         # Raise error if no matching files are found
-        if not matching_files:
-            raise FileNotFoundError(f"No VIIRS {self._product_type} files found at {base_url} for {product_code}, desired time {time}")
+        if not data_files:
+            raise FileNotFoundError(
+                f"No VIIRS {self._product_type} files found at {base_url} for {variable}, desired time {time}"
+            )
 
         # Get time stamp from filename
         def get_time(path: str) -> datetime:
-            """Get time stamp from filename."""
+            """Get observation start time from filename."""
+            filename = path.split("/")[-1]
+            parts = filename.split("_")
+
+            # Yup, L1 and L2 have completely different filename formats
+            # Find the start time part (starts with 't' for L1 products)
+            for part in parts:
+                if part.startswith("t") and len(part) >= 8:
+                    time_str = part[
+                        1:8
+                    ]  # Remove 't' and take first 7 digits (HHMMSS + fractional)
+                    # Convert to HHMMSS format
+                    hours = time_str[:2]
+                    minutes = time_str[2:4]
+                    seconds = time_str[4:6]
+
+                    # Get date from 'd' part
+                    date_part = None
+                    for p in parts:
+                        if p.startswith("d") and len(p) >= 9:
+                            date_part = p[1:9]  # Remove 'd' and get YYYYMMDD
+                            break
+
+                    if date_part:
+                        datetime_str = f"{date_part}{hours}{minutes}{seconds}"
+                        return datetime.strptime(datetime_str, "%Y%m%d%H%M%S")
+
+            # Fallback to old method if parsing fails (L2 products)
             start_str = path.split("/")[-1].split("_")[-3][1:]
-            trimmed = start_str[:14] # Trim any fractional seconds beyond the first 14 characters
+            trimmed = start_str[:14]
             return datetime.strptime(trimmed, "%Y%m%d%H%M%S")
-        time_stamps = [get_time(f) for f in matching_files]
+
+        time_stamps = [get_time(f) for f in data_files]
 
         # Get the index of the file that is the closest to the requested time
         idx = int(np.argmin(np.abs(np.array(time_stamps) - time)))
 
         # Get the file name
-        return matching_files[idx]
+        return data_files[idx], time_stamps[idx]
 
     async def _fetch_remote_file(self, path: str) -> str:
+        """Fetch remote file into cache"""
         if self.fs is None:
             raise ValueError("File system is not initialized")
         sha = hashlib.sha256(path.encode()).hexdigest()
@@ -542,6 +574,7 @@ class JPSS:
 
     @property
     def cache(self) -> str:
+        """Get the cache location"""
         cache_location = os.path.join(datasource_cache_root(), "jpss")
         if not self._cache:
             cache_location = os.path.join(cache_location, "tmp_jpss")
@@ -551,40 +584,48 @@ class JPSS:
     def available(
         cls,
         time: datetime | np.datetime64,
+        variable: str,
         satellite: str = "noaa-20",
         product_type: str = "I",
-        variable: str = "viirs1i",
     ) -> bool:
+        """Checks if given date time is avaliable in JPSS
+
+        Parameters
+        ----------
+        time : datetime | np.datetime64
+            Date time to access
+        variable : str
+            Variable to check
+        satellite : str, optional
+            Satellite to check
+        product_type : str, optional
+            Product type to check
+
+        Returns
+        -------
+        bool
+            If date time is avaiable
+        """
+        # Convert np.datetime64 to datetime
         if isinstance(time, np.datetime64):
             _unix = np.datetime64(0, "s")
             _ds = np.timedelta64(1, "s")
             time = datetime.fromtimestamp((time - _unix) / _ds, timezone.utc)
 
-        if satellite not in cls.VALID_SATELLITES:
-            raise ValueError(f"Invalid satellite {satellite}. Must be one of {cls.VALID_SATELLITES}")
+        # Validate satellite and product type
+        cls._validate_satellite_and_product_type(satellite, product_type)
 
-        try:
-            product_identifier, _ = JPSSLexicon[variable]
-            product_code = product_identifier.split("/")[0]
-        except (KeyError, ValueError):
-            return False
+        # Validate variable
+        JPSS._validate_variables([variable], product_type)
 
+        # Get the bucket for the satellite
         bucket = cls.SATELLITE_BUCKETS[satellite]
-        
-        # Determine folder name based on product type
-        if product_code.startswith("SVI"):
-            # SDR I-band products
-            band_num = product_code[-2:]
-            folder = f"VIIRS-I{int(band_num)}-SDR"
-        elif product_code.startswith("SVM"):
-            # SDR M-band products
-            band_num = product_code[-2:]
-            folder = f"VIIRS-M{int(band_num)}-SDR"
-        else:
-            # L2 EDR products - use the product code as the folder name
-            folder = product_code
 
-        fs = s3fs.S3FileSystem(anon=True)
+        # Determine folder
+        _, folder, _, _ = JPSSLexicon.get_item(variable)
+        geolocation_folder = cls.GEOLOCATION_NAME[product_type]
+
+        # Get the base URL
         base_url = cls.BASE_URL.format(
             bucket=bucket,
             product=folder,
@@ -592,23 +633,20 @@ class JPSS:
             month=time.month,
             day=time.day,
         )
+        geolocation_base_url = cls.BASE_URL.format(
+            bucket=bucket,
+            product=geolocation_folder,
+            year=time.year,
+            month=time.month,
+            day=time.day,
+        )
+
+        # List files in the directory and choose the closest timestamp file
         try:
-            files = fs.ls(base_url)
+            fs = s3fs.S3FileSystem(anon=True)
+            _ = fs.ls(base_url)
+            _ = fs.ls(geolocation_base_url)
         except FileNotFoundError:
             return False
 
-        # Filter for data files based on product type
-        if product_code.startswith(("SVI", "SVM")):
-            # SDR products use HDF5 format
-            data_files = [f for f in files if f.endswith(".h5")]
-            if not data_files:
-                return False
-            # Match by product code in filename
-            matching_files = [f for f in data_files if f"/{product_code}_" in f]
-            return len(matching_files) > 0
-        else:
-            # L2 EDR products may use HDF5 or NetCDF format
-            data_files = [f for f in files if f.endswith((".h5", ".nc"))]
-            return len(data_files) > 0
-
-
+        return True
