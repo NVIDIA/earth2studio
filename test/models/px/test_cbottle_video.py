@@ -74,11 +74,12 @@ def mock_core_model() -> torch.nn.Module:
 class TestCBottleVideoMock:
 
     @pytest.mark.parametrize(
-        "x,time",
+        "x,time,dataset_modality",
         [
             (
                 torch.zeros(1, 1, 1, 45, 721, 1440),
                 np.array([datetime(2020, 1, 1)], dtype=np.datetime64),
+                1,
             ),
             (
                 torch.full((1, 2, 1, 45, 721, 1440), fill_value=torch.nan),
@@ -86,6 +87,7 @@ class TestCBottleVideoMock:
                     [datetime(2000, 1, 2, 3, 4, 5), datetime(1980, 8, 1)],
                     dtype=np.datetime64,
                 ),
+                0,
             ),
             (
                 torch.zeros(2, 2, 1, 45, 721, 1440),
@@ -93,14 +95,18 @@ class TestCBottleVideoMock:
                     [datetime(2000, 1, 2, 3, 4, 5), datetime(1980, 8, 1)],
                     dtype=np.datetime64,
                 ),
+                0,
             ),
         ],
     )
+    @pytest.mark.parametrize("dataset_modality", [0, 1])
     @pytest.mark.parametrize(
         "device", ["cuda:0"]
     )  # , "cpu" takes too long, it should work but skipping
-    def test_cbottle_video_forward(self, x, time, device, mock_core_model, mock_sst_ds):
-        px = CBottleVideo(mock_core_model, mock_sst_ds).to(device)
+    def test_cbottle_video_forward(
+        self, x, time, dataset_modality, device, mock_core_model, mock_sst_ds
+    ):
+        px = CBottleVideo(mock_core_model, mock_sst_ds, dataset_modality).to(device)
         px.sampler_steps = 2  # Speed up sampler
 
         coords = px.input_coords()

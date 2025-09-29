@@ -17,6 +17,7 @@
 from collections import OrderedDict
 from collections.abc import Generator, Iterator
 from datetime import datetime
+from typing import Literal
 
 import numpy as np
 import torch
@@ -98,6 +99,8 @@ class CBottleVideo(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     seed : int | None, optional
         If set, will fix the seed of the random generator for latent variables, by
         default None
+    dataset_modality: Literal[0, 1], optional
+        Dataset modality label to use when sampling (0=icon, 1=era5), by default 1
     """
 
     VARIABLES = np.array(list(CBottleLexicon.VOCAB.keys()))
@@ -111,6 +114,7 @@ class CBottleVideo(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         sigma_max: float = 1000.0,
         sigma_min: float = 0.02,
         seed: int | None = None,
+        dataset_modality: Literal[0, 1] = 1,
     ):
         super().__init__()
 
@@ -120,6 +124,7 @@ class CBottleVideo(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self.sigma_min = sigma_min
         self.sampler_steps = sampler_steps
         self.seed = seed
+        self.dataset_modality = dataset_modality
         self._mixture_model = core_model
         self.core_model = CBottle3d(core_model)
 
@@ -248,7 +253,9 @@ class CBottleVideo(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         # CBottle video expects [time, vars, time-step, hpx]
         x = x.transpose(1, 2)
-        input_batch = self.get_cbottle_input(x, times, device=device)
+        input_batch = self.get_cbottle_input(
+            x, times, label=self.dataset_modality, device=device
+        )
         out, _ = self.core_model.sample(input_batch, seed=self.seed)
         # Regrid if needed
         if self.lat_lon:

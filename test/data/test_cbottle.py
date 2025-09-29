@@ -81,12 +81,14 @@ class TestCBottleMock:
         ],
     )
     @pytest.mark.parametrize("variable", ["tcwv", ["u500", "u200"]])
-    @pytest.mark.parametrize("dataset", ["era5", "icon"])
-    def test_cbottle_fetch(self, time, dataset, variable, mock_core_model, mock_sst_ds):
+    @pytest.mark.parametrize("dataset_modality", [0, 1])
+    def test_cbottle_fetch(
+        self, time, dataset_modality, variable, mock_core_model, mock_sst_ds
+    ):
 
         device = "cuda" if torch.cuda.is_available() else "cpu"
         ds = CBottle3D(mock_core_model, mock_sst_ds).to(device)
-        ds.dataset = dataset
+        ds.dataset_modality = dataset_modality
         ds.sampler_steps = 4  # Speed up sampler
         data = ds(time, variable)
         shape = data.shape

@@ -90,8 +90,8 @@ class CBottle3D(torch.nn.Module, AutoModelMixin):
     seed : int | None, optional
         If set, will fix the seed of the random generator for latent variables, by
         default None
-    dataset_modality: Literal["icon", "era5"], optional
-        Dataset modality to use when sampling, by default "era5"
+    dataset_modality: Literal[0, 1], optional
+        Dataset modality label to use when sampling (0=icon, 1=era5), by default 1
     cache : bool, optional
         Does nothing at the moment, by default False
     verbose : bool, optional
@@ -109,7 +109,7 @@ class CBottle3D(torch.nn.Module, AutoModelMixin):
         sigma_max: float = 200.0,
         batch_size: int = 4,
         seed: int | None = None,
-        dataset_modality: Literal["icon", "era5"] = "era5",
+        dataset_modality: Literal[0, 1] = 1,
         cache: bool = False,
         verbose: bool = True,
     ):
@@ -174,13 +174,7 @@ class CBottle3D(torch.nn.Module, AutoModelMixin):
 
         # Make sure input time is valid
         self._validate_time(time)
-
-        if self.dataset_modality == "era5":
-            input = self.get_cbottle_input(time)
-        elif self.dataset_modality == "icom":
-            input = self.get_cbottle_input(time, label=0)
-        else:
-            raise ValueError(f"Dataset modality {self.dataset_modality} not supported")
+        input = self.get_cbottle_input(time, label=self.dataset_modality)
 
         varidx = []
         for var in variable:
