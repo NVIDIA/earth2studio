@@ -29,6 +29,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Deprecated
 
+- Added depricated warning for IMERG data source. This will be removed in the next
+  release.
+
 ### Removed
 
 ### Fixed
