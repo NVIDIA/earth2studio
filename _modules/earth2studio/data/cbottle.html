@@ -437,6 +437,7 @@
 <span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">pathlib</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">datetime</span><span class="w"> </span><span class="kn">import</span> <span class="n">datetime</span><span class="p">,</span> <span class="n">timedelta</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">enum</span><span class="w"> </span><span class="kn">import</span> <span class="n">IntEnum</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">cftime</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
@@ -471,6 +472,13 @@
     <span class="n">MixtureOfExpertsDenoiser</span> <span class="o">=</span> <span class="kc">None</span>
 
 <span class="n">HPX_LEVEL</span> <span class="o">=</span> <span class="mi">6</span>
+
+
+<span class="k">class</span><span class="w"> </span><span class="nc">DatasetModality</span><span class="p">(</span><span class="n">IntEnum</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Dataset label&quot;&quot;&quot;</span>
+
+    <span class="n">ICON</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">ERA5</span> <span class="o">=</span> <span class="mi">1</span>
 
 
 <div class="viewcode-block" id="CBottle3D">
@@ -511,6 +519,9 @@
 <span class="sd">    seed : int | None, optional</span>
 <span class="sd">        If set, will fix the seed of the random generator for latent variables, by</span>
 <span class="sd">        default None</span>
+<span class="sd">    dataset_modality: DatasetModality, optional</span>
+<span class="sd">        Dataset modality label to use when sampling (0=ICON, 1=ERA5), by default</span>
+<span class="sd">        DatasetModality.ERA5</span>
 <span class="sd">    cache : bool, optional</span>
 <span class="sd">        Does nothing at the moment, by default False</span>
 <span class="sd">    verbose : bool, optional</span>
@@ -528,6 +539,7 @@
         <span class="n">sigma_max</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">200.0</span><span class="p">,</span>
         <span class="n">batch_size</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">4</span><span class="p">,</span>
         <span class="n">seed</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">dataset_modality</span><span class="p">:</span> <span class="n">DatasetModality</span> <span class="o">=</span> <span class="n">DatasetModality</span><span class="o">.</span><span class="n">ERA5</span><span class="p">,</span>
         <span class="n">cache</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
         <span class="n">verbose</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
     <span class="p">):</span>
@@ -539,6 +551,7 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">sampler_steps</span> <span class="o">=</span> <span class="n">sampler_steps</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">batch_size</span> <span class="o">=</span> <span class="n">batch_size</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">seed</span> <span class="o">=</span> <span class="n">seed</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dataset_modality</span> <span class="o">=</span> <span class="n">DatasetModality</span><span class="p">(</span><span class="n">dataset_modality</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_core_model</span> <span class="o">=</span> <span class="n">core_model</span>  <span class="c1"># Needed to move model to device</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">core_model</span> <span class="o">=</span> <span class="n">CBottle3d</span><span class="p">(</span><span class="n">core_model</span><span class="p">)</span>
 
@@ -593,8 +606,7 @@
 
         <span class="c1"># Make sure input time is valid</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_validate_time</span><span class="p">(</span><span class="n">time</span><span class="p">)</span>
-
-        <span class="nb">input</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_cbottle_input</span><span class="p">(</span><span class="n">time</span><span class="p">)</span>
+        <span class="nb">input</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_cbottle_input</span><span class="p">(</span><span class="n">time</span><span class="p">,</span> <span class="n">dataset_modality</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">dataset_modality</span><span class="p">)</span>
 
         <span class="n">varidx</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="k">for</span> <span class="n">var</span> <span class="ow">in</span> <span class="n">variable</span><span class="p">:</span>
@@ -678,7 +690,7 @@
     <span class="k">def</span><span class="w"> </span><span class="nf">get_cbottle_input</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">times</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">datetime</span><span class="p">],</span>
-        <span class="n">label</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>  <span class="c1"># 0 for ICON, 1 for ERA5</span>
+        <span class="n">dataset_modality</span><span class="p">:</span> <span class="n">DatasetModality</span> <span class="o">=</span> <span class="n">DatasetModality</span><span class="o">.</span><span class="n">ERA5</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Prepares the CBottle inputs</span>
 
@@ -691,8 +703,8 @@
 <span class="sd">        ----------</span>
 <span class="sd">        times : list[datetime]</span>
 <span class="sd">            List of times for inference</span>
-<span class="sd">        label : int, optional</span>
-<span class="sd">            Label ID, by default 1</span>
+<span class="sd">        dataset_modality : DatasetModality, optional</span>
+<span class="sd">            Dataset modality label, by default DatasetModality.ERA5</span>
 
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
@@ -731,7 +743,10 @@
         <span class="p">)</span>
         <span class="n">target</span><span class="p">[:,</span> <span class="n">nan_channels</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span>
 
-        <span class="n">labels</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">functional</span><span class="o">.</span><span class="n">one_hot</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">label</span><span class="p">),</span> <span class="n">num_classes</span><span class="o">=</span><span class="mi">1024</span><span class="p">)</span>
+        <span class="n">dataset_modality</span> <span class="o">=</span> <span class="n">DatasetModality</span><span class="p">(</span><span class="n">dataset_modality</span><span class="p">)</span>
+        <span class="n">labels</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">functional</span><span class="o">.</span><span class="n">one_hot</span><span class="p">(</span>
+            <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">dataset_modality</span><span class="o">.</span><span class="n">value</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">long</span><span class="p">),</span> <span class="n">num_classes</span><span class="o">=</span><span class="mi">1024</span>
+        <span class="p">)</span>
         <span class="n">labels</span> <span class="o">=</span> <span class="n">labels</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">repeat</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">times</span><span class="p">),</span> <span class="mi">1</span><span class="p">)</span>
 
         <span class="n">out</span> <span class="o">=</span> <span class="p">{</span>
