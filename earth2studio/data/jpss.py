@@ -372,8 +372,15 @@ class JPSS:
     ) -> np.ndarray:
         """Filter VIIRS fill values and convert them to NaN.
 
-        VIIRS uses fill values instead of NaN for invalid pixels (bow-tie effect, etc).
-        This method identifies and converts these to NaN for proper handling.
+        VIIRS uses integer fill values instead of NaN for invalid pixels (bow-tie deletions,
+        truncated scans, quality failures, etc.). This method converts those sentinel values to
+        NaN for downstream processing.
+
+        References
+        ----------
+        - NOAA NESDIS. (2023). *JPSS Algorithm Specification, Volume II: Data Dictionary
+          for the VIIRS RDR/SDR* (474-00448-02-06, Rev. L). Retrieved September 29, 2025,
+          from https://www.nesdis.noaa.gov/s3/2024-01/474-00448-02-06_JPSS-VIIRS-SDR-DD-Part-6_L.pdf
 
         Parameters
         ----------

@@ -25,8 +25,7 @@ class JPSSLexicon(metaclass=LexiconType):
 
     This lexicon maps standardized variable names to VIIRS SDR (Level 1) and EDR (Level 2)
     product codes and HDF5 datasets used in AWS. It includes both raw radiance data and
-    derived environmental products. For more information on VIIRS, see:
-    https://ncc.nesdis.noaa.gov/VIIRS/VIIRSChannelWavelengths.php
+    derived environmental products.
 
     Notes
     -----
@@ -42,6 +41,14 @@ class JPSSLexicon(metaclass=LexiconType):
     - Cloud Suite: cmask (cloud mask), cphase (cloud phase), cth (cloud top height), etc.
     - Atmospheric: aod (aerosol optical depth), vash (volcanic ash detection)
     - Resolution: 375m-750m depending on input bands, global coverage every ~100 minutes
+
+    References
+    ----------
+    - NOAA STAR. (n.d.). VIIRS instrument specifications and band characteristics.
+      Retrieved September 29, 2025, from https://www.star.nesdis.noaa.gov/jpss/VIIRS.php
+    - NOAA STAR. (n.d.). VIIRS Sensor Data Record (SDR) Algorithm Theoretical Basis
+      Document. Retrieved September 29, 2025, from
+      https://www.star.nesdis.noaa.gov/jpss/documents/ATBD/D0001-M01-S01-003_JPSS_ATBD_VIIRS-SDR_E.pdf
     """
 
     # Mapping of VIIRS band numbers to product codes and modifiers
