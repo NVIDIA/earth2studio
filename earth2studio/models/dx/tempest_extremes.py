@@ -427,7 +427,7 @@ class TempestExtremes:
         return raw_files, mems
 
 
-    def setup_files(self) -> Tuple[str, str, str, str]:
+    def setup_files(self, out_file_names=None) -> Tuple[str, str, str, str]:
         """Set up input and output files for TE processing.
 
         Creates necessary file lists and paths for TE detect and stitch operations.
@@ -440,8 +440,13 @@ class TempestExtremes:
         # write store to in-memory file
         raw_files, mems = self.dump_raw_data()
 
+        # make sure if file names are passed that there's one per member
+        if out_file_names:
+            if len(out_file_names) != len(mems):
+                raise ValueError(f'{len(out_file_names)} passed for {len(mems)} ensemble members')
+
         ins, outs, node_files, track_files = [], [], [], []
-        for mem, raw_dat in zip(mems, raw_files):
+        for ii, (mem, raw_dat) in enumerate(zip(mems, raw_files)):
             # in_files to file
             _ins = os.path.join(self.ram_dir, f'input_files_{self.rank:04d}_mem_{mem:05d}.txt')
             with open(_ins, 'w') as fl:
@@ -454,7 +459,8 @@ class TempestExtremes:
             with open(_outs, 'w') as fl:
                 fl.write(node_file + '\n')
 
-            track_file = os.path.join(self.store_dir, 'tracks_' + base_name + '.csv')
+            track_file = out_file_names[ii] if out_file_names else 'tracks_' + base_name + '.csv'
+            track_file = os.path.join(self.store_dir, track_file)
 
             ins.append(_ins)
             outs.append(_outs)
@@ -516,7 +522,7 @@ class TempestExtremes:
 
 
     @check_optional_dependencies()
-    def track_cyclones(self) -> None:
+    def track_cyclones(self, out_file_names=None) -> None:
         """Execute cyclone tracking using TempestExtremes.
 
         Runs the complete tracking pipeline including node detection
@@ -530,7 +536,7 @@ class TempestExtremes:
         then = time.time()
 
         # set up TE helper files
-        insies, outsies, node_files, self.track_files = self.setup_files()
+        insies, outsies, node_files, self.track_files = self.setup_files(out_file_names)
 
         for ins, outs, node_file, track_file in zip(insies, outsies, node_files, self.track_files):
             # detect nodes
@@ -549,7 +555,7 @@ class TempestExtremes:
         return
 
 
-    def __call__(self) -> None:
+    def __call__(self, out_file_names=None) -> None:
         """Make the class callable to execute cyclone tracking.
 
         Returns
@@ -557,7 +563,7 @@ class TempestExtremes:
         None
             Calls track_cyclones method
         """
-        return self.track_cyclones()
+        return self.track_cyclones(out_file_names)
 
 
     def tidy_up(self, insies: str, outsies: str) -> None:
@@ -769,7 +775,7 @@ class AsyncTempestExtremes(TempestExtremes):
                         self._has_failed = True
                         raise e  # Re-raise other exceptions too
 
-    def track_cyclones_async(self) -> Future:
+    def track_cyclones_async(self, out_file_names: str=None) -> Future:
         """Submit cyclone tracking to background thread pool.
 
         This method submits cyclone tracking operations to a background thread pool
@@ -805,7 +811,7 @@ class AsyncTempestExtremes(TempestExtremes):
 
         # Submit the task
         executor = get_tempest_executor()
-        future = executor.submit(self.track_cyclones)
+        future = executor.submit(self.track_cyclones, out_file_names)
 
         # Add to both global and instance task lists
         with _tempest_executor_lock:
@@ -961,7 +967,7 @@ class AsyncTempestExtremes(TempestExtremes):
             print(f"Error in AsyncTempestExtremes destructor: {e}")
 
 
-    def __call__(self) -> Future:
+    def __call__(self, out_file_names=None) -> Future:
         """Override call method to use async version by default.
 
         This method makes the class callable and uses the asynchronous
@@ -979,4 +985,4 @@ class AsyncTempestExtremes(TempestExtremes):
         """
         # Check if any previous task failed and raise error immediately
         self._check_for_failures()
-        return self.track_cyclones_async()
+        return self.track_cyclones_async(out_file_names)
