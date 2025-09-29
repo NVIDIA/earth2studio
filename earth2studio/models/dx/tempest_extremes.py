@@ -485,7 +485,7 @@ class TempestExtremes:
         """
         # update store mem and time
         for dim in ['time', 'ensemble']:
-            if not (self.store.coords[dim] == coords[dim]).all():
+            if not np.array_equal(self.store.coords[dim], coords[dim]):
                 self.store.coords[dim] = coords[dim]
 
         # concatenate static data
@@ -774,6 +774,7 @@ class AsyncTempestExtremes(TempestExtremes):
                     except Exception as e:
                         self._has_failed = True
                         raise e  # Re-raise other exceptions too
+
 
     def track_cyclones_async(self, out_file_names: str=None) -> Future:
         """Submit cyclone tracking to background thread pool.
