@@ -14,9 +14,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import warnings
 from collections.abc import Callable
 
 import numpy as np
+from loguru import logger
 
 from .base import LexiconType
 
@@ -33,6 +35,18 @@ class IMERGLexicon(metaclass=LexiconType):
     @classmethod
     def get_item(cls, val: str) -> tuple[str, Callable]:
         """Return name in IMERG vocabulary."""
+
+        warnings.warn(
+            "The IMERG data source is deprecated and will be removed in release 0.11.0. "
+            "Access to IMERG data remains too throttled for a data source in this package.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        logger.warning(
+            "The IMERG data source is deprecated and scheduled for removal in the 0.11.0 "
+            "release due to persistent access throttling."
+        )
+
         imerg_key = cls.VOCAB[val]
         if val == "tp":
             # IMERG is mm/hr by default, convert to meters to match ECMWF

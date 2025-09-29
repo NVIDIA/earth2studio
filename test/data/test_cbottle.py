@@ -15,7 +15,7 @@
 # limitations under the License.
 
 import datetime
-import importlib
+import importlib.util
 
 import numpy as np
 import pytest
@@ -81,10 +81,14 @@ class TestCBottleMock:
         ],
     )
     @pytest.mark.parametrize("variable", ["tcwv", ["u500", "u200"]])
-    def test_cbottle_fetch(self, time, variable, mock_core_model, mock_sst_ds):
+    @pytest.mark.parametrize("dataset_modality", [0, 1])
+    def test_cbottle_fetch(
+        self, time, dataset_modality, variable, mock_core_model, mock_sst_ds
+    ):
 
         device = "cuda" if torch.cuda.is_available() else "cpu"
         ds = CBottle3D(mock_core_model, mock_sst_ds).to(device)
+        ds.dataset_modality = dataset_modality
         ds.sampler_steps = 4  # Speed up sampler
         data = ds(time, variable)
         shape = data.shape
@@ -229,7 +233,7 @@ def test_cbottle_package(time, variable, device, model_cache_context):
 @pytest.mark.parametrize("time", [datetime.datetime(year=2000, month=12, day=31)])
 @pytest.mark.parametrize("variable", [["sic", "u10m", "t2m"]])
 @pytest.mark.skipif(
-    importlib.util.find_spec("apex.contrib.group_norm") is not None,
+    importlib.util.find_spec("apex") is not None,
     reason="Test requires apex.contrib.group_norm to not be installed",
 )
 def test_cbottle_package_cpu(time, variable, model_cache_context):
