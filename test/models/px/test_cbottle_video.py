@@ -105,7 +105,9 @@ class TestCBottleVideoMock:
     def test_cbottle_video_forward(
         self, x, time, dataset_modality, device, mock_core_model, mock_sst_ds
     ):
-        px = CBottleVideo(mock_core_model, mock_sst_ds, dataset_modality).to(device)
+        px = CBottleVideo(
+            mock_core_model, mock_sst_ds, dataset_modality=dataset_modality
+        ).to(device)
         px.sampler_steps = 2  # Speed up sampler
 
         coords = px.input_coords()
@@ -210,7 +212,7 @@ class TestCBottleVideoMock:
         ],
     )
     @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
-    def test_aurora_exceptions(self, dc, device, mock_core_model, mock_sst_ds):
+    def test_cbottle_video_exceptions(self, dc, device, mock_core_model, mock_sst_ds):
         time = np.array([np.datetime64("1993-04-05T00:00")])
         px = CBottleVideo(mock_core_model, mock_sst_ds).to(device)
 
@@ -235,10 +237,10 @@ def model(model_cache_context) -> CBottleVideo:
         return p
 
 
-@pytest.mark.ci_cache
+# @pytest.mark.ci_cache
 @pytest.mark.timeout(360)
 @pytest.mark.parametrize("device", ["cuda:0"])
-def test_aurora_package(model, device):
+def test_cbottle_video_package(model, device):
     torch.cuda.empty_cache()
     time = np.array([np.datetime64("1993-04-05T00:00")])
     # Test the cached model package FCN
