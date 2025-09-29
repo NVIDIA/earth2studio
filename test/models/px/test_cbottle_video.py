@@ -74,11 +74,12 @@ def mock_core_model() -> torch.nn.Module:
 class TestCBottleVideoMock:
 
     @pytest.mark.parametrize(
-        "x,time",
+        "x,time,dataset_modality",
         [
             (
                 torch.zeros(1, 1, 1, 45, 721, 1440),
                 np.array([datetime(2020, 1, 1)], dtype=np.datetime64),
+                1,
             ),
             (
                 torch.full((1, 2, 1, 45, 721, 1440), fill_value=torch.nan),
@@ -86,6 +87,7 @@ class TestCBottleVideoMock:
                     [datetime(2000, 1, 2, 3, 4, 5), datetime(1980, 8, 1)],
                     dtype=np.datetime64,
                 ),
+                0,
             ),
             (
                 torch.zeros(2, 2, 1, 45, 721, 1440),
@@ -93,14 +95,19 @@ class TestCBottleVideoMock:
                     [datetime(2000, 1, 2, 3, 4, 5), datetime(1980, 8, 1)],
                     dtype=np.datetime64,
                 ),
+                0,
             ),
         ],
     )
     @pytest.mark.parametrize(
         "device", ["cuda:0"]
     )  # , "cpu" takes too long, it should work but skipping
-    def test_cbottle_video_forward(self, x, time, device, mock_core_model, mock_sst_ds):
-        px = CBottleVideo(mock_core_model, mock_sst_ds).to(device)
+    def test_cbottle_video_forward(
+        self, x, time, dataset_modality, device, mock_core_model, mock_sst_ds
+    ):
+        px = CBottleVideo(
+            mock_core_model, mock_sst_ds, dataset_modality=dataset_modality
+        ).to(device)
         px.sampler_steps = 2  # Speed up sampler
 
         coords = px.input_coords()
@@ -205,7 +212,7 @@ class TestCBottleVideoMock:
         ],
     )
     @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
-    def test_aurora_exceptions(self, dc, device, mock_core_model, mock_sst_ds):
+    def test_cbottle_video_exceptions(self, dc, device, mock_core_model, mock_sst_ds):
         time = np.array([np.datetime64("1993-04-05T00:00")])
         px = CBottleVideo(mock_core_model, mock_sst_ds).to(device)
 
@@ -233,7 +240,7 @@ def model(model_cache_context) -> CBottleVideo:
 @pytest.mark.ci_cache
 @pytest.mark.timeout(360)
 @pytest.mark.parametrize("device", ["cuda:0"])
-def test_aurora_package(model, device):
+def test_cbottle_video_package(model, device):
     torch.cuda.empty_cache()
     time = np.array([np.datetime64("1993-04-05T00:00")])
     # Test the cached model package FCN
