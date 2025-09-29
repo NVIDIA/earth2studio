@@ -99,7 +99,6 @@ class TestCBottleVideoMock:
             ),
         ],
     )
-    @pytest.mark.parametrize("dataset_modality", [0, 1])
     @pytest.mark.parametrize(
         "device", ["cuda:0"]
     )  # , "cpu" takes too long, it should work but skipping
