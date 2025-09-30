@@ -17,6 +17,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added vertical wind speed support in GFS
 - Added ModelOutputDatasetSource to use written model output to start a new model run
 - Added FCN3 noise handling routines.
+- Added NOAA OISST sea surface temperature data source backed by the Microsoft Planetary Computer dataset
+- Added general PlanetaryComputerData source for pulling Planetary Computer STAC assets
+- Added PlanetaryComputerOISST convenience wrapper around the Planetary Computer OISST collection
+- Added PlanetaryComputerSentinel3AOD and PlanetaryComputerMODISFire wrappers for the Sentinel-3 aerosol and MODIS fire products
 
 ### Changed
 

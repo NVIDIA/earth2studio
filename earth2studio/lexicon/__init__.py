@@ -26,4 +26,7 @@ from .ifs import IFSLexicon
 from .imerg import IMERGLexicon
 from .jpss import JPSSLexicon
 from .ncar import NCAR_ERA5Lexicon
+from .oisst import OISSTLexicon
+from .sentinel3_aod import Sentinel3AODLexicon
+from .modis_fire import MODISFireLexicon
 from .wb2 import WB2ClimatetologyLexicon, WB2Lexicon
