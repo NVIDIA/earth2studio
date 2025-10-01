@@ -111,7 +111,7 @@ def test_ifs_cache(time, variable, cache):
     "time",
     [
         now6h() - timedelta(days=1, minutes=1),
-        now6h() - timedelta(days=5),
+        now6h() + timedelta(days=5),
         datetime(year=1993, month=4, day=5),
     ],
 )
