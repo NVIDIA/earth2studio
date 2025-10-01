@@ -208,9 +208,9 @@ class IFS:
                     f"Requested date time {time} needs to be 6 hour interval for IFS"
                 )
 
-            if (datetime.now() - time).days > 4:
+            if time < datetime(2024, 3, 1):
                 raise ValueError(
-                    f"Requested date time {time} needs to be within the past 4 days for IFS"
+                    f"Requested date time {time} needs to be after 2024-03-01 for IFS"
                 )
 
             # if not self.available(time):
