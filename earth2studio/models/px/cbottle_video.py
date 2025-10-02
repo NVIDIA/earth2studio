@@ -132,7 +132,7 @@ class CBottleVideo(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self.sigma_min = sigma_min
         self.sampler_steps = sampler_steps
         self.seed = seed
-        self.dataset_modality = DatasetModality(dataset_modality)
+        self.dataset_modality = dataset_modality
         self._mixture_model = core_model
         self.core_model = CBottle3d(core_model)
 
@@ -386,6 +386,7 @@ class CBottleVideo(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         target = torch.empty(1, device=device)
 
         # Label tensor
+        dataset_modality = DatasetModality(dataset_modality)
         labels = torch.nn.functional.one_hot(
             torch.tensor(dataset_modality.value, device=device), num_classes=1024
         )
