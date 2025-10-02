@@ -70,7 +70,7 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
 
     Note
     ----
-    This model provides the function :py:func:`CBottleTCGuidance.create_guidance_tensor`
+    This model provides the function :py:func:`model.create_guidance_tensor`
     as a utility to create the input guidance tensor.
 
     Parameters
@@ -82,7 +82,7 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
     sst_ds : xr.Dataset
         Sea surface temperature xarray dataset
     lat_lon : bool, optional
-        Lat/lon toggle, if true data source will return output on a 0.25 deg lat/lon
+        Lat/lon toggle, if true the model will return output on a 0.25 deg lat/lon
         grid. If false, the native nested HealPix grid will be returned, by default True
     sampler_steps : int, optional
         Number of diffusion steps, by default 18
@@ -92,7 +92,8 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
         Batch size to generate time samples at, consider adjusting based on hardware
         being used, by default 4
     seed : int, optional
-        Random generator seed for latent variables, by default 0
+        Random generator seed for latent variables. If None will use no seed, by default
+        None
     """
 
     output_variables = VARIABLES
@@ -225,9 +226,9 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
         lat_lon: bool = True,
         sampler_steps: int = 18,
         sigma_max: float = 200,
-        seed: int = 0,
+        seed: int | None = None,
     ) -> DiagnosticModel:
-        """Load AI datasource from package
+        """Load diagnostic from package
 
         Parameters
         ----------
@@ -237,15 +238,13 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
             Lat/lon toggle, if true prognostic input/output on a 0.25 deg lat/lon
             grid. If false, the native nested HealPix grid will be returned, by default
             True
-        input_variables: list[str] | VariableArray
-            List of input variables that will be provided for conditioning the output
-            generation, by default ["u10m", "v10m"]
         sampler_steps : int, optional
             Number of diffusion steps, by default 18
         sigma_max : float, optional
             Noise amplitude used to generate latent variables, by default 80
         seed : int, optional
-            Random generator seed for latent variables, by default 0
+            Random generator seed for latent variables. If None, no seed will be used,
+            by default None
 
         Returns
         -------
@@ -279,13 +278,14 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
             core_model,
             classifier_model,
             sst_ds,
+            lat_lon=lat_lon,
             sampler_steps=sampler_steps,
             sigma_max=sigma_max,
             seed=seed,
         )
 
-    @staticmethod
     def create_guidance_tensor(
+        self,
         lat_coords: torch.Tensor,
         lon_coords: torch.Tensor,
         times: list[datetime] | TimeArray,
@@ -306,41 +306,69 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
         -------
         tuple[torch.Tensor, OrderedDict]
             Tuple containing:
-            - Guidance tensor with shape (1,n,1,721,1440) where values are 1 at the
-                specified coordinates
+            - Guidance tensor with shape (n,1,721,1440) or (n,1,hpx) where values are 1
+                at the specified coordinates
             - OrderedDict with coordinate dimensions and values
         """
         times = to_time_array(times)
-        # Convert any longitudes in -180 to 180 range to 0 to 360 range
-        lon_coords = torch.where(lon_coords < 0, lon_coords + 360, lon_coords)
+        device = self.device_buffer.device
+        guidance = None
+        if self.lat_lon:
+            # Convert any longitudes in -180 to 180 range to 0 to 360 range
+            lon_coords = torch.where(lon_coords < 0, lon_coords + 360, lon_coords)
 
-        lat_grid = np.linspace(90, -90, 721)
-        lon_grid = np.linspace(0, 360, 1440, endpoint=False)
-        guidance = torch.full((times.shape[0], 1, 1, 721, 1440), 0).float()
+            lat_grid = np.linspace(90, -90, 721)
+            lon_grid = np.linspace(0, 360, 1440, endpoint=False)
+            guidance = torch.full(
+                (times.shape[0], 1, 1, 721, 1440), torch.nan, device=device
+            ).float()
 
-        lat_idx = torch.searchsorted(torch.from_numpy(-lat_grid), -lat_coords)
-        lon_idx = torch.searchsorted(torch.from_numpy(lon_grid), lon_coords)
-        guidance[:, :, :, lat_idx, lon_idx] = 1
+            lat_idx = torch.searchsorted(torch.from_numpy(-lat_grid), -lat_coords).to(
+                device
+            )
+            lon_idx = torch.searchsorted(torch.from_numpy(lon_grid), lon_coords).to(
+                device
+            )
+            guidance[:, :, :, lat_idx, lon_idx] = 1
 
-        coords = OrderedDict(
-            {
-                "time": times,
-                "lead_time": np.array([np.timedelta64(0, "h")]),
-                "variable": np.array(["tc_guidance"]),
-                "lat": lat_grid,
-                "lon": lon_grid,
-            }
-        )
+            coords = OrderedDict(
+                {
+                    "time": times,
+                    "lead_time": np.array([np.timedelta64(0, "h")]),
+                    "variable": np.array(["tc_guidance"]),
+                    "lat": lat_grid,
+                    "lon": lon_grid,
+                }
+            )
+        else:
+            guidance = torch.full(
+                (times.shape[0], 1, 1, *self.core_model.classifier_grid.shape),
+                torch.nan,
+                device=device,
+            )
+            idx = self.core_model.classifier_grid.ang2pix(
+                lon_coords.to(device), lat_coords.to(device)
+            )
+            guidance[:, :, :, idx] = 1
+            coords = OrderedDict(
+                {
+                    "time": times,
+                    "lead_time": np.array([np.timedelta64(0, "h")]),
+                    "variable": np.array(["tc_guidance"]),
+                    "hpx": np.arange(guidance.shape[-1]),
+                }
+            )
 
         return guidance, coords
 
-    def _latlon_guidance_to_hpx(self, x: torch.Tensor) -> torch.Tensor:
-        """Calculates HPX guidance pixel IDs if model has lat/lon grid inputs
+    def _prepare_guidance_tensor(self, x: torch.Tensor) -> torch.Tensor:
+        """Preparies HPX guidance tensor for model. If inputs are lat lon, will convert
+        to HPX, otherwise just expanded required dims for model inference
 
         Parameters
         ----------
         x : torch.Tensor
-            Input lat/lon array of tc guidance, where non-zero indicates a region to
+            Input lat/lon array of tc guidance, where non-nan indicates a region to
             guide a topical cyclone. Dimensions [batch, 1, lat, lon] or [batch, 1, hpx]
 
         Returns
@@ -358,7 +386,7 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
         )
 
         for batch in range(x.shape[0]):
-            idx = torch.nonzero(x[batch, 0])
+            idx = torch.nonzero(~torch.isnan(x[batch, 0]))
             idx = self.core_model.classifier_grid.ang2pix(
                 self.lon_grid[idx[:, 1]], self.lat_grid[idx[:, 0]]
             )
@@ -411,7 +439,7 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
             batch["second_of_day"] = second_of_day[start_idx:end_idx]
             batch["day_of_year"] = day_of_year[start_idx:end_idx]
 
-            indices_where_tc = self._latlon_guidance_to_hpx(x[start_idx:end_idx])
+            indices_where_tc = self._prepare_guidance_tensor(x[start_idx:end_idx])
             output, cb_coords = self.core_model.sample(
                 batch, guidance_pixels=indices_where_tc, seed=self.seed
             )

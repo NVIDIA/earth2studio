@@ -81,12 +81,13 @@ class TestCBottleSRMock:
             ("cuda:0", (0, -120, 50, -40)),
         ],  # Skipping CPU tests, should work be too slow
     )
-    def test_cbottle_sr(
+    def test_cbottle_sr_latlon(
         self, x, device, output_resolution, window, mock_cbottle_core_model
     ):
         # Create CBottleSR model with mock core model
         dx = CBottleSR(
             mock_cbottle_core_model,
+            lat_lon=True,
             output_resolution=output_resolution,
             super_resolution_window=window,
             sampler_steps=1,  # Reduced for testing speed
@@ -129,6 +130,57 @@ class TestCBottleSRMock:
         # Check coordinate values
         assert len(out_coords["lat"]) == output_resolution[0]
         assert len(out_coords["lon"]) == output_resolution[1]
+
+    @pytest.mark.parametrize(
+        "x",
+        [
+            torch.randn(1, 12, 49152),  # HEALPix level 6
+            torch.randn(2, 12, 49152),
+        ],
+    )
+    @pytest.mark.parametrize("device", ["cuda:0"])
+    def test_cbottle_sr_healpix(self, x, device, mock_cbottle_core_model):
+        """Test HEALPix input to HEALPix output (native grids)"""
+        # Create CBottleSR model with HEALPix input and output
+        dx = CBottleSR(
+            mock_cbottle_core_model,
+            lat_lon=False,
+            sampler_steps=1,
+            sigma_max=800,
+        ).to(device)
+
+        x = x.to(device)
+
+        # Create HEALPix input coordinates
+        coords = OrderedDict(
+            {
+                "batch": np.ones(x.shape[0]),
+                "variable": dx.input_coords()["variable"],
+                "hpx": dx.input_coords()["hpx"],
+            }
+        )
+
+        # Forward pass
+        out, out_coords = dx(x, coords)
+
+        # Check output shape - HEALPix level 10: 1024^2 * 12 = 12,582,912
+        expected_shape = torch.Size(
+            [
+                x.shape[0],
+                len(dx.input_coords()["variable"]),
+                12582912,  # HEALPix level 10 pixels
+            ]
+        )
+        assert out.shape == expected_shape
+
+        # Check output coordinates are HEALPix
+        assert all(out_coords["variable"] == dx.output_coords(coords)["variable"])
+        handshake_dim(out_coords, "hpx", 2)
+        handshake_dim(out_coords, "variable", 1)
+        handshake_dim(out_coords, "batch", 0)
+
+        # Check HEALPix coordinate values
+        assert len(out_coords["hpx"]) == 12582912  # Level 10 HEALPix
 
     @pytest.mark.parametrize(
         "x",
@@ -194,8 +246,10 @@ def test_cbottle_sr_package(device, model_cache_context):
         package = CBottleSR.load_default_package()
         dx = CBottleSR.load_model(
             package,
+            lat_lon=True,
             sampler_steps=1,  # Reduced for testing
             output_resolution=(721, 1440),  # Reduced for testing
+            seed=42,  # Set seed for reproducibility
         ).to(device)
 
     x = torch.randn(1, 12, 721, 1440).to(device)

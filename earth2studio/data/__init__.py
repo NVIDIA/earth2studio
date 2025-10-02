@@ -26,6 +26,7 @@ from .goes import GOES
 from .hrrr import HRRR, HRRR_FX
 from .ifs import IFS
 from .imerg import IMERG
+from .jpss import JPSS
 from .ncar import NCAR_ERA5
 from .rand import Random, Random_FX
 from .rx import CosineSolarZenith, LandSeaMask, SurfaceGeoPotential

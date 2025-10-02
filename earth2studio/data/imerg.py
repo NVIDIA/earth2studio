@@ -14,9 +14,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# pragma: no cover
+
 import os
 import pathlib
 import shutil
+import warnings
 from datetime import datetime, timedelta
 
 import aiohttp
@@ -88,6 +91,17 @@ class IMERG:
     ):
         self._cache = cache
         self._verbose = verbose
+
+        warnings.warn(
+            "The IMERG data source is deprecated and will be removed in release 0.11.0. "
+            "Access to IMERG data remains too throttled for a data source in this package.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        logger.warning(
+            "The IMERG data source is deprecated and scheduled for removal in the 0.11.0 "
+            "release due to persistent access throttling."
+        )
 
         cache_options: dict[str, str | int] = {}
         cache_options["cache_storage"] = self.cache

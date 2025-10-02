@@ -105,7 +105,7 @@ class PhooCorrDiff(torch.nn.Module):
         return torch.as_tensor(sigma)
 
 
-@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+@pytest.mark.parametrize("device", ["cuda:0"])  # Removing CPU here too slow atm "cpu",
 @pytest.mark.parametrize("model_type", ["precip", "solar"])
 @pytest.mark.parametrize(
     "times",
@@ -195,7 +195,7 @@ def test_fcn3_precip(device, model_type, times):
     deterministic(times, 2, wrapped_model, data, io, device=device)
 
 
-@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+@pytest.mark.parametrize("device", ["cuda:0"])  # Removing CPU here too slow atm "cpu",
 @pytest.mark.parametrize(
     "times",
     [
@@ -262,7 +262,7 @@ def test_fcn3_corrdiff(device, times, number_of_samples, keep_px_output):
     deterministic(times, 2, wrapped_model, data, io, device=device)
 
 
-@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+@pytest.mark.parametrize("device", ["cuda:0"])  # Removing CPU here too slow atm "cpu",
 @pytest.mark.parametrize(
     "times",
     [

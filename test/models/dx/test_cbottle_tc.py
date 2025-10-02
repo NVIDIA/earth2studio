@@ -95,15 +95,22 @@ class TestCBottleTCMock:
     @pytest.mark.parametrize(
         "times", [[datetime(1990, 1, 1)], [datetime(1990, 1, 1), datetime(1990, 1, 2)]]
     )
-    def test_create_guidance_tensor(self, lat_coords, lon_coords, times):
+    def test_create_guidance_tensor(
+        self,
+        lat_coords,
+        lon_coords,
+        times,
+        mock_core_model,
+        mock_classifier_model,
+        mock_sst_ds,
+    ):
         """Test guidance tensor creation with different coordinate combinations"""
-        guidance, coords = CBottleTCGuidance.create_guidance_tensor(
-            lat_coords, lon_coords, times
-        )
+        dx = CBottleTCGuidance(mock_core_model, mock_classifier_model, mock_sst_ds)
+        guidance, coords = dx.create_guidance_tensor(lat_coords, lon_coords, times)
 
         assert guidance.shape == (len(times), 1, 1, 721, 1440)
         assert guidance.dtype == torch.float32
-        assert torch.sum(guidance) == len(times) * len(
+        assert torch.sum(torch.nan_to_num(guidance, nan=0.0)) == len(times) * len(
             lat_coords
         )  # One point per coordinate pair
 
@@ -173,7 +180,7 @@ class TestCBottleTCMock:
         self, x, time, device, mock_core_model, mock_classifier_model, mock_sst_ds
     ):
         dx = CBottleTCGuidance(
-            mock_core_model, mock_classifier_model, mock_sst_ds, lat_lon=False
+            mock_core_model, mock_classifier_model, mock_sst_ds, lat_lon=False, seed=0
         ).to(device)
         dx.sampler_steps = 2  # Speed up sampler
         dx.batch_size = 2
@@ -226,7 +233,7 @@ def test_cbottle_tc_package(device, model_cache_context):
     # Only cuda used here to speed things up, but CPU also works
     with model_cache_context():
         package = CBottleTCGuidance.load_default_package()
-        dx = CBottleTCGuidance.load_model(package).to(device)
+        dx = CBottleTCGuidance.load_model(package, seed=0).to(device)
 
     # Guidance over florida
     lat = 27
@@ -234,7 +241,7 @@ def test_cbottle_tc_package(device, model_cache_context):
     time = np.array(
         [datetime(2000, 8, 9, 10), datetime(2005, 10, 11, 12)], dtype=np.datetime64
     )
-    guidance, coords = CBottleTCGuidance.create_guidance_tensor(
+    guidance, coords = dx.create_guidance_tensor(
         torch.tensor([lat]),
         torch.tensor([lon]),
         time,

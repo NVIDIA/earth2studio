@@ -41,7 +41,6 @@ try:
 except ImportError:
     OptionalDependencyFailure("aifs")
 
-
 VARIABLES = [
     "q50",
     "q100",
@@ -133,11 +132,32 @@ VARIABLES = [
     "sp",
     "tcw",
     "z",
+    "cp06",
+    "tp06",
+    "cos_latitude",
+    "cos_longitude",
+    "sin_latitude",
+    "sin_longitude",
+    "cos_julian_day",
+    "cos_local_time",
+    "sin_julian_day",
+    "sin_local_time",
+    "insolation",
+    "u100m",
+    "v100m",
+    "hcc",
+    "lcc",
+    "mcc",
+    "ro",
+    "sf",
+    "ssrd06",
     "stl1",
     "stl2",
+    "strd06",
     "swvl1",
     "swvl2",
-]
+    "tcc",
+]  # from config.json >> dataset.variables
 
 
 @check_optional_dependencies()
@@ -163,10 +183,6 @@ class AIFS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     We encourage users to familiarize themselves with the license restrictions of this
     model's checkpoints.
 
-    Parameters
-    ----------
-    variables : np.array, optional
-        Variables associated with model, by default 73 variable model.
     """
 
     def __init__(
@@ -176,11 +192,9 @@ class AIFS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         longitudes: torch.Tensor,
         interpolation_matrix: torch.Tensor,
         inverse_interpolation_matrix: torch.Tensor,
-        variables: np.array = np.array(VARIABLES),
     ) -> None:
         super().__init__()
         self.model = model
-        self.variables = variables
         self.register_buffer("latitudes", latitudes)
         self.register_buffer("longitudes", longitudes)
         self.register_buffer("interpolation_matrix", interpolation_matrix)
@@ -188,194 +202,51 @@ class AIFS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             "inverse_interpolation_matrix", inverse_interpolation_matrix
         )
 
-        # Mask indices
-        self.prognostic_output_mask = [
-            0,
-            1,
-            2,
-            3,
-            4,
-            5,
-            6,
-            7,
-            8,
-            9,
-            10,
-            11,
-            12,
-            13,
-            14,
-            15,
-            16,
-            17,
-            18,
-            19,
-            20,
-            21,
-            22,
-            23,
-            24,
-            25,
-            26,
-            27,
-            28,
-            29,
-            30,
-            31,
-            32,
-            33,
-            34,
-            35,
-            36,
-            37,
-            38,
-            39,
-            40,
-            41,
-            42,
-            43,
-            44,
-            45,
-            46,
-            47,
-            48,
-            49,
-            50,
-            51,
-            52,
-            53,
-            54,
-            55,
-            56,
-            57,
-            58,
-            59,
-            60,
-            61,
-            62,
-            63,
-            64,
-            65,
-            66,
-            67,
-            68,
-            69,
-            70,
-            71,
-            72,
-            73,
-            74,
-            75,
-            76,
-            77,
-            78,
-            79,
-            80,
-            81,
-            82,
-            83,
-            84,
-            85,
-            96,
-            97,
-            99,
-            100,
-        ]
-        self.prognostic_input_mask = [
-            0,
-            1,
-            2,
-            3,
-            4,
-            5,
-            6,
-            7,
-            8,
-            9,
-            10,
-            11,
-            12,
-            13,
-            14,
-            15,
-            16,
-            17,
-            18,
-            19,
-            20,
-            21,
-            22,
-            23,
-            24,
-            25,
-            26,
-            27,
-            28,
-            29,
-            30,
-            31,
-            32,
-            33,
-            34,
-            35,
-            36,
-            37,
-            38,
-            39,
-            40,
-            41,
-            42,
-            43,
-            44,
-            45,
-            46,
-            47,
-            48,
-            49,
-            50,
-            51,
-            52,
-            53,
-            54,
-            55,
-            56,
-            57,
-            58,
-            59,
-            60,
-            61,
-            62,
-            63,
-            64,
-            65,
-            66,
-            67,
-            68,
-            69,
-            70,
-            71,
-            72,
-            73,
-            74,
-            75,
-            76,
-            77,
-            78,
-            79,
-            80,
-            81,
-            83,
-            85,
-            87,
-            88,
-            99,
-            100,
-            101,
-            102,
-        ]
-
     def __str__(self) -> str:
         return "aifs-single-1.0"
+
+    @property
+    def input_variables(self) -> list[str]:
+        indices = torch.cat(
+            [
+                self.model.data_indices.data.input.prognostic,
+                self.model.data_indices.data.input.forcing,
+            ]
+        )
+
+        # Sort the concatenated tensor
+        indices = indices.sort().values
+
+        # Create the range of values to remove
+        to_remove = torch.arange(92, 101)  # generated forcings
+
+        # Keep only elements NOT in to_remove
+        mask = ~torch.isin(indices, to_remove)
+
+        selected = [VARIABLES[i] for i in indices[mask].tolist()]
+        return selected
+
+    @property
+    def output_variables(self) -> list[str]:
+        # Input constants + prognostic and diagnostic - generated forcings
+        indices = torch.cat(
+            [
+                self.model.data_indices.data.input.forcing,
+                self.model.data_indices.data.output.full,
+            ]
+        )
+
+        # Sort the concatenated tensor
+        indices = torch.unique(indices.sort().values)
+
+        # Create the range of values to remove
+        to_remove = torch.arange(92, 101)  # generated forcings
+
+        # Keep only elements NOT in to_remove
+        mask = ~torch.isin(indices, to_remove)
+
+        selected = [VARIABLES[i] for i in indices[mask].tolist()]
+        return selected
 
     def input_coords(self) -> CoordSystem:
         """Input coordinate system of the prognostic model
@@ -391,7 +262,7 @@ class AIFS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 "lead_time": np.array(
                     [np.timedelta64(-6, "h"), np.timedelta64(0, "h")]
                 ),
-                "variable": np.array(self.variables),
+                "variable": np.array(self.input_variables),
                 "lat": np.linspace(90.0, -90.0, 721),
                 "lon": np.linspace(0, 360, 1440, endpoint=False),
             }
@@ -415,7 +286,7 @@ class AIFS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 "batch": np.empty(0),
                 "time": np.empty(0),
                 "lead_time": np.array([np.timedelta64(6, "h")]),
-                "variable": np.array(self.variables),
+                "variable": np.array(self.output_variables),
                 "lat": np.linspace(90.0, -90.0, 721),
                 "lon": np.linspace(0, 360, 1440, endpoint=False),
             }
@@ -535,7 +406,6 @@ class AIFS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             ),
             interpolation_matrix=torch_interpolation_matrix,
             inverse_interpolation_matrix=torch_inverse_interpolation_matrix,
-            variables=VARIABLES,
         )
 
     def get_cos_sin_julian_day(
@@ -642,7 +512,6 @@ class AIFS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         coords: CoordSystem,
     ) -> tuple[torch.Tensor, CoordSystem]:
         """Prepare input tensor and coordinates for the AIFS model."""
-
         # Interpolate the input tensor to the model grid
         shape = x.shape
         x = x.flatten(start_dim=4)
@@ -716,17 +585,17 @@ class AIFS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         return x
 
-    def _copy_output_to_input(
+    def _update_input(
         self,
         x: torch.Tensor,
-        y: torch.Tensor,
         coords: CoordSystem,
     ) -> torch.Tensor:
-        """Copy output tensor to input tensor following the AIFS model."""
+        """Update time based inputs."""
 
-        # Copy prognostic field output to the input tensor
-        x = x.roll(-1, dims=1)
-        x[:, -1, :, self.prognostic_input_mask] = y[..., self.prognostic_output_mask]
+        # Select only inputs
+        # From AnemoiModelInterface.DataIndices
+        # https://anemoi.readthedocs.io/projects/models/en/latest/modules/data_indices.html#usage-information
+        x = x[..., self.model.data_indices.data.input.full]
 
         # Get cos, sin of Julian day
         cos_julian_day, sin_julian_day = self.get_cos_sin_julian_day(
@@ -758,9 +627,13 @@ class AIFS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         coords: CoordSystem,
     ) -> tuple[torch.Tensor, CoordSystem]:
         """Prepare input tensor and coordinates for the AIFS model."""
+        # Remove generated forcings
+        all_indices = torch.arange(x.size(-1))
+        keep = torch.isin(all_indices, torch.arange(92, 101), invert=True)
+        x = x[..., keep]
+        shape = x.shape
 
         # Interpolate the model grid to the lat lon grid
-        shape = x.shape
         x = x[:, 1:2]
         x = x.flatten(end_dim=1)
         x = torch.swapaxes(x, 0, 1)
@@ -777,12 +650,11 @@ class AIFS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 coords["batch"].shape[0],
                 coords["time"].shape[0],
                 coords["lead_time"].shape[0],
-                coords["variable"].shape[0] + 9,
+                coords["variable"].shape[0],
                 coords["lat"].shape[0],
                 coords["lon"].shape[0],
             ],
         )
-        x = torch.cat([x[:, :, :, :90], x[:, :, :, 99:]], dim=3)
         return x
 
     @torch.inference_mode()
@@ -794,7 +666,20 @@ class AIFS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         output_coords = self.output_coords(coords)
         with torch.autocast(device_type=str(x.device), dtype=torch.float16):
             y = self.model.predict_step(x)
-        return y, output_coords
+            out = torch.empty(
+                (x.shape[0], x.shape[1], x.shape[2], len(VARIABLES)),
+                device=x.device,
+            )
+            out[..., 0, :, self.model.data_indices.data.input.full] = x[
+                :,
+                1,
+            ]
+            out[..., 1, :, self.model.data_indices.data.output.full] = y
+            out[..., 1, :, self.model.data_indices.data.input.forcing] = x[
+                :, 1, :, self.model.data_indices.model.input.forcing
+            ]
+
+        return out, output_coords
 
     @batch_func()
     def __call__(
@@ -818,21 +703,62 @@ class AIFS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         """
         _ = self.output_coords(coords)  # NOTE: Quick fix for exception handling
         x = self._prepare_input(x, coords)
-        y, coords = self._forward(x, coords)
-        x = self._copy_output_to_input(x, y, coords)
+        x, coords = self._forward(x, coords)
         x = self._prepare_output(x, coords)
         return x, coords
+
+    def _fill_input(self, x: torch.Tensor, coords: CoordSystem) -> torch.Tensor:
+        out = torch.empty(
+            (
+                x.shape[0],
+                x.shape[1],
+                x.shape[2],
+                len(VARIABLES),
+                x.shape[4],
+                x.shape[5],
+            ),
+            device=x.device,
+        )
+        indices = torch.cat(
+            [
+                self.model.data_indices.data.input.prognostic,
+                self.model.data_indices.data.input.forcing,
+            ]
+        )
+
+        # Sort the concatenated tensor
+        indices = indices.sort().values
+
+        # Create the range of values to remove
+        to_remove = torch.arange(92, 101)  # generated forcings
+
+        # Keep only elements NOT in to_remove
+        mask = ~torch.isin(indices, to_remove)
+
+        out[:, :, 0, indices[mask]] = x[0, 0, 0, ...]
+        out[:, :, 1, indices[mask]] = x[0, 0, 1, ...]
+
+        to_remove = torch.arange(92, 101)
+        out = torch.cat([out[:, :, :, :91, ...], out[:, :, :, 101:, ...]], dim=3)
+        indices = torch.arange(len(VARIABLES))
+        mask = ~torch.isin(indices, to_remove)
+        selected = [VARIABLES[i] for i in indices[mask].tolist()]
+
+        out_coords = coords.copy()
+        out_coords["variable"] = np.array(selected)
+
+        return out, out_coords
 
     @batch_func()
     def _default_generator(
         self, x: torch.Tensor, coords: CoordSystem
     ) -> Generator[tuple[torch.Tensor, CoordSystem], None, None]:
-
         coords = coords.copy()
+
         self.output_coords(coords)
-        coords_out = coords.copy()
+        first_out, coords_out = self._fill_input(x, coords)
         coords_out["lead_time"] = coords["lead_time"][1:]
-        yield x[:, :, 1:], coords_out
+        yield first_out[:, :, 1:], coords_out
 
         # Prepare input tensor
         x = self._prepare_input(x, coords)
@@ -844,20 +770,22 @@ class AIFS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             # Forward is identity operator
             y, coords_out = self._forward(x, coords)
 
-            # Copy output to input
-            x = self._copy_output_to_input(x, y, coords_out)
-
             # Prepare output tensor
-            output_tensor = self._prepare_output(x, coords_out)
+            output_tensor = self._prepare_output(y, coords_out)
 
             # Rear hook
             output_tensor, coords_out = self.rear_hook(output_tensor, coords_out)
 
             # Yield output tensor
-            yield output_tensor, coords_out
+            yield output_tensor, coords_out.copy()
 
             # Update coordinates
-            coords["lead_time"] += coords_out["lead_time"][0] - coords["lead_time"][-1]
+            coords["lead_time"] = (
+                coords["lead_time"]
+                + self.output_coords(self.input_coords())["lead_time"]
+            )
+            # Prepare input tensor
+            x = self._update_input(y, coords)
 
     def create_iterator(
         self, x: torch.Tensor, coords: CoordSystem

@@ -17,23 +17,25 @@
 import pytest
 import torch
 
-from earth2studio.lexicon import GOESLexicon
+from earth2studio.lexicon import JPSSLexicon
 
 
 @pytest.mark.parametrize(
     "variable",
-    [["abi01c"], ["abi02c", "abi03c"], ["abi13c", "abi14c", "abi15c"], ["foo"]],
+    [["viirs01i"], ["viirs02m", "viirs03m"], ["lst", "aod", "cmask"], ["foo"]],
 )
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
-def test_goes_lexicon(variable, device):
+def test_jpss_lexicon(variable, device):
     input = torch.randn(len(variable), 100, 100).to(device)
     for v in variable:
         if v != "foo":
-            label, modifier = GOESLexicon[v]
+            product_type, folder, dataset, modifier = JPSSLexicon[v]
             output = modifier(input)
-            assert isinstance(label, str)
+            assert isinstance(product_type, str)
+            assert isinstance(folder, str)
+            assert isinstance(dataset, str)
             assert input.shape == output.shape
             assert input.device == output.device
         else:
             with pytest.raises(KeyError):
-                label, modifier = GOESLexicon[v]
+                product_type, folder, dataset, modifier = JPSSLexicon[v]

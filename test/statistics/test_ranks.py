@@ -32,8 +32,11 @@ from earth2studio.utils.coords import handshake_coords, handshake_dim
         "time",
     ],
 )
+@pytest.mark.parametrize("number_of_bins", [5, None])
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
-def test_rank_histogram(ensemble_dimension: str, device: str) -> None:
+def test_rank_histogram(
+    ensemble_dimension: str, number_of_bins: int | None, device: str
+) -> None:
 
     x = torch.randn((10, 1, 2, 361, 720), device=device)
 
@@ -53,7 +56,9 @@ def test_rank_histogram(ensemble_dimension: str, device: str) -> None:
     y = torch.randn(y_shape, device=device)
 
     reduction_dimensions = ["lat", "lon"]
-    RH = rank_histogram(ensemble_dimension, reduction_dimensions)
+    RH = rank_histogram(
+        ensemble_dimension, reduction_dimensions, number_of_bins=number_of_bins
+    )
 
     z, c = RH(x, x_coords, y, y_coords)
     for di in [ensemble_dimension] + reduction_dimensions:
@@ -66,8 +71,9 @@ def test_rank_histogram(ensemble_dimension: str, device: str) -> None:
         handshake_coords(out_test_coords, c, ci)
 
 
+@pytest.mark.parametrize("number_of_bins", [5, None])
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
-def test_rank_histogram_broadcasting(device: str) -> None:
+def test_rank_histogram_broadcasting(number_of_bins: int | None, device: str) -> None:
     x = torch.randn((1, 2, 10, 361, 720), device=device)
 
     x_coords = OrderedDict(
@@ -85,9 +91,13 @@ def test_rank_histogram_broadcasting(device: str) -> None:
     y_shape = [len(y_coords[c]) for c in y_coords]
     y = torch.randn(y_shape, device=device)
 
-    RH = rank_histogram("ensemble", ["lat", "lon"])
+    RH = rank_histogram("ensemble", ["lat", "lon"], number_of_bins=number_of_bins)
     z, c = RH(x, x_coords, y, y_coords)
-    assert z.shape == (2, 10, 1, 2)
+    expected_bins = (
+        len(x_coords["ensemble"]) + 1 if number_of_bins is None else number_of_bins
+    )
+    assert len(c["bin"]) == expected_bins
+    assert z.shape == (2, expected_bins, 1, 2)
 
 
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
@@ -145,16 +155,16 @@ def test_rank_histogram_failures(device: str) -> None:
 
 @pytest.mark.parametrize("reduction_dimension", [20, 50, 80])
 @pytest.mark.parametrize("number_of_bins", [3, 5, 8])
+@pytest.mark.parametrize("distribution", ["random", "zeros"])
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
 def test_rank_histogram_accuracy(
-    reduction_dimension: int, number_of_bins: int, device: str
+    reduction_dimension: int, number_of_bins: int, distribution: str, device: str
 ) -> None:
-
-    x = (
-        1.0
-        + torch.randn((1000, reduction_dimension, reduction_dimension), device=device)
-        ** 2
-    )
+    x_shape = (1000, reduction_dimension, reduction_dimension)
+    if distribution == "random":
+        x = 1.0 + torch.randn(x_shape, device=device) ** 2
+    elif distribution == "zeros":
+        x = torch.zeros(*x_shape, device=device)
 
     x_coords = OrderedDict(
         {
@@ -167,7 +177,10 @@ def test_rank_histogram_accuracy(
     y_coords = copy.deepcopy(x_coords)
     y_coords.pop("ensemble")
     y_shape = [len(y_coords[c]) for c in y_coords]
-    y = 1.0 + torch.randn(y_shape, device=device) ** 2
+    if distribution == "random":
+        y = 1.0 + torch.randn(y_shape, device=device) ** 2
+    elif distribution == "zeros":
+        y = torch.zeros(*y_shape, device=device)
 
     reduction_dimensions = ["lat", "lon"]
     RH = rank_histogram("ensemble", reduction_dimensions, number_of_bins=number_of_bins)

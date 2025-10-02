@@ -84,12 +84,11 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
     CBottleSR is a diffusion-based super-resolution model that learns mappings between
     low- and high-resolution climate data with high fidelity. This model generates
     results at 5km resolution on a healpix grid with 10 levels of resolution (1024x1024).
-    The results are then regridded to a lat/lon grid. Suggested output dimensions are
-    (2161, 4320) which corresponds to 10km resolution at the equator or (4321, 8640)
-    which corresponds to 5km resolution at the equator. The model can also be used
-    to generate results on a smaller region of the globe by specifying a super-resolution
-    window. This can often be desirable as full global results are extremely
-    expensive to generate.
+    The results can be output in either HEALPix format or regridded to a lat/lon grid.
+    If lat/lon is used for output, the results will be regridded to the specified output resolution.
+    Suggested output resolutions are (2161, 4320) for ~10km equatorial resolution and (4321, 8640) for ~5km equatorial resolution.
+    The model can also be used to generate results for a smaller region of the globe by specifying a super-resolution window.
+    This is often desirable as full global results are computationally expensive.
 
     Note
     ----
@@ -98,38 +97,60 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
     - https://arxiv.org/abs/2505.06474v1
     - https://github.com/NVlabs/cBottle
     - https://catalog.ngc.nvidia.com/orgs/nvidia/teams/earth-2/models/cbottle
+    - HEALPix: https://healpix.sourceforge.io/
 
     Parameters
     ----------
     core_model : torch.nn.Module
         Core pytorch model implementing the diffusion-based super-resolution
+    lat_lon : bool, optional, by default True
+        Lat/lon toggle, if true the model will expect a lat/lon grid as input and output a lat/lon
+        grid. If false, the native nested HealPix grid will be used for input and output.
+        Input HEALPix is level 6 and output HEALPix is level 10 with NEST pixel ordering.
     output_resolution : Tuple[int, int], optional
-        High-resolution output dimensions, by default (2161, 4320).
+        High-resolution output dimensions for lat/lon output. Only used when
+        lat_lon=True, by default (2161, 4320)
     super_resolution_window : Union[None, Tuple[int, int, int, int]], optional
         Super-resolution window. If None, super-resolution is done
         on the entire global grid. If provided, the super-resolution window is a tuple
-        of (lat south, lon west, lat north, lon east) and will return results for the
-        specified window, by default None
+        of (lat_south, lon_west, lat_north, lon_east) and will only apply super-resolution
+        to the specified window. For lat/lon output, the result will just be returned for
+        the specified window with the specified output resolution.
     sampler_steps : int, optional
         Number of diffusion steps, by default 18
     sigma_max : int, optional
         Maximum noise level for diffusion process, by default 800
+    seed : int, optional
+        Random generator seed for latent variables, by default None
     """
 
     def __init__(
         self,
         core_model: torch.nn.Module,
+        lat_lon: bool = True,
         output_resolution: tuple[int, int] = (2161, 4320),
         super_resolution_window: None | tuple[int, int, int, int] = None,
         sampler_steps: int = 18,
         sigma_max: int = 800,
+        seed: int | None = None,
     ):
         super().__init__()
+
+        # Store grid types
+        if lat_lon:
+            self.input_type = "latlon"
+            self.output_type = "latlon"
+        else:
+            self.input_type = "healpix"
+            self.output_type = "healpix"
 
         # Model
         self.core_model = core_model
 
-        # Output shape
+        # Store seed
+        self.seed = seed
+
+        # Output shape (only used for latlon output)
         self.output_resolution = output_resolution
 
         # Sampler
@@ -138,52 +159,83 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
 
         # Super resolution window
         self.super_resolution_window = super_resolution_window
+
+        # Setup output coordinates based on output type
+        if self.output_type == "latlon":
+            if super_resolution_window is not None:
+                self.output_lat = np.linspace(
+                    super_resolution_window[0],
+                    super_resolution_window[2],
+                    self.output_resolution[0],
+                )
+                self.output_lon = np.linspace(
+                    super_resolution_window[1],
+                    super_resolution_window[3],
+                    self.output_resolution[1],
+                )
+            else:
+                self.output_lat = np.linspace(90, -90, self.output_resolution[0])
+                self.output_lon = np.linspace(
+                    0, 360, self.output_resolution[1], endpoint=False
+                )
+        else:  # healpix output
+            self.output_lat = None
+            self.output_lon = None
+
+        # Make inbox patch index
         if super_resolution_window is not None:
-            self.output_lat = np.linspace(
-                super_resolution_window[0],
-                super_resolution_window[2],
-                self.output_resolution[0],
-            )
-            self.output_lon = np.linspace(
-                super_resolution_window[1],
-                super_resolution_window[3],
-                self.output_resolution[1],
-            )
             self.inbox_patch_index = patchify.patch_index_from_bounding_box(
                 HPX_LEVEL_HR, super_resolution_window, 128, 32, "cpu"
             )
         else:
-            self.output_lat = np.linspace(90, -90, self.output_resolution[0])
-            self.output_lon = np.linspace(
-                0, 360, self.output_resolution[1], endpoint=False
-            )
             self.inbox_patch_index = None
 
-        # Make in and out regridders
-        lat_lon_low_res_grid = earth2grid.latlon.equiangular_lat_lon_grid(
-            721, 1440, includes_south_pole=False
-        )
+        # Setup grids and regridders based on input/output types
+        # Input grids
+        if self.input_type == "latlon":
+            self.input_grid = earth2grid.latlon.equiangular_lat_lon_grid(
+                721, 1440, includes_south_pole=False
+            )
+        else:  # healpix
+            self.input_grid = healpix.Grid(
+                level=HPX_LEVEL_LR, pixel_order=healpix.PixelOrder.NEST
+            )
+
+        # High-resolution HEALPix grid (internal processing)
         self.hpx_high_res_grid = healpix.Grid(
             level=HPX_LEVEL_HR, pixel_order=healpix.PixelOrder.NEST
         )
-        if super_resolution_window is not None:
-            lat_lon_high_res_grid = earth2grid.latlon.LatLonGrid(
-                self.output_lat, self.output_lon
+
+        # Output grids
+        if self.output_type == "latlon":
+            if super_resolution_window is not None:
+                self.output_grid = earth2grid.latlon.LatLonGrid(
+                    self.output_lat, self.output_lon
+                )
+            else:
+                self.output_grid = earth2grid.latlon.equiangular_lat_lon_grid(
+                    self.output_resolution[0],
+                    self.output_resolution[1],
+                    includes_south_pole=False,
+                )
+        else:  # healpix
+            self.output_grid = self.hpx_high_res_grid
+
+        # Create regridders
+        # Input to high-res HEALPix (for internal processing)
+        self.regrid_input_to_hpx_high_res = earth2grid.get_regridder(
+            self.input_grid, self.hpx_high_res_grid
+        )
+        self.regrid_input_to_hpx_high_res.double()
+
+        # High-res HEALPix to output (only needed if output is not healpix)
+        if self.output_type == "latlon":
+            self.regrid_hpx_high_res_to_output = earth2grid.get_regridder(
+                self.hpx_high_res_grid, self.output_grid
             )
+            self.regrid_hpx_high_res_to_output.double()
         else:
-            lat_lon_high_res_grid = earth2grid.latlon.equiangular_lat_lon_grid(
-                self.output_resolution[0],
-                self.output_resolution[1],
-                includes_south_pole=False,
-            )
-        self.regrid_latlon_low_res_to_hpx_high_res = earth2grid.get_regridder(
-            lat_lon_low_res_grid, self.hpx_high_res_grid
-        )
-        self.regrid_latlon_low_res_to_hpx_high_res.double()
-        self.regrid_hpx_high_res_to_latlon_high_res = earth2grid.get_regridder(
-            self.hpx_high_res_grid, lat_lon_high_res_grid
-        )
-        self.regrid_hpx_high_res_to_latlon_high_res.double()
+            self.regrid_hpx_high_res_to_output = None
 
         # Make global lat lon regridder
         lat = torch.linspace(-90, 90, 128)[:, None].double()
@@ -233,14 +285,26 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
 
     def input_coords(self) -> CoordSystem:
         """Input coordinate system"""
-        return OrderedDict(
-            {
-                "batch": np.empty(0),
-                "variable": np.array(VARIABLES),
-                "lat": np.linspace(90, -90, 721),
-                "lon": np.linspace(0, 360, 1440, endpoint=False),
-            }
-        )
+        if self.input_type == "latlon":
+            return OrderedDict(
+                {
+                    "batch": np.empty(0),
+                    "variable": np.array(VARIABLES),
+                    "lat": np.linspace(90, -90, 721),
+                    "lon": np.linspace(0, 360, 1440, endpoint=False),
+                }
+            )
+        else:  # healpix
+            # HEALPix level 6: nside = 2^6 = 64, npix = 64^2 * 12 = 49,152 pixels
+            nside = 2**HPX_LEVEL_LR
+            npix = nside**2 * 12
+            return OrderedDict(
+                {
+                    "batch": np.empty(0),
+                    "variable": np.array(VARIABLES),
+                    "hpx": np.arange(npix),
+                }
+            )
 
     @batch_coords()
     def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
@@ -258,22 +322,41 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
             Coordinate system dictionary
         """
 
-        output_coords = OrderedDict(
-            {
-                "batch": np.empty(0),
-                "variable": np.array(VARIABLES),
-                "lat": self.output_lat,
-                "lon": self.output_lon,
-            }
-        )
-
+        # Validate input coordinates against expected input coords
         target_input_coords = self.input_coords()
-        handshake_dim(input_coords, "lon", 3)
-        handshake_dim(input_coords, "lat", 2)
         handshake_dim(input_coords, "variable", 1)
-        handshake_coords(input_coords, target_input_coords, "lon")
-        handshake_coords(input_coords, target_input_coords, "lat")
         handshake_coords(input_coords, target_input_coords, "variable")
+
+        if self.input_type == "latlon":
+            handshake_dim(input_coords, "lon", 3)
+            handshake_dim(input_coords, "lat", 2)
+            handshake_coords(input_coords, target_input_coords, "lon")
+            handshake_coords(input_coords, target_input_coords, "lat")
+        else:  # healpix input
+            handshake_dim(input_coords, "hpx", 2)
+            handshake_coords(input_coords, target_input_coords, "hpx")
+
+        # Build output coordinate system based on output type
+        if self.output_type == "latlon":
+            output_coords = OrderedDict(
+                {
+                    "batch": np.empty(0),
+                    "variable": np.array(VARIABLES),
+                    "lat": self.output_lat,
+                    "lon": self.output_lon,
+                }
+            )
+        else:  # healpix output
+            # HEALPix level 10: nside = 2^10 = 1024, npix = 1024^2 * 12 = 12,582,912 pixels
+            nside = 2**HPX_LEVEL_HR
+            npix = nside**2 * 12
+            output_coords = OrderedDict(
+                {
+                    "batch": np.empty(0),
+                    "variable": np.array(VARIABLES),
+                    "hpx": np.arange(npix),
+                }
+            )
 
         output_coords["batch"] = input_coords["batch"]
         return output_coords
@@ -294,25 +377,33 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
     def load_model(
         cls,
         package: Package,
+        lat_lon: bool = True,
         output_resolution: tuple[int, int] = (2161, 4320),
         super_resolution_window: None | tuple[int, int, int, int] = None,
         sampler_steps: int = 18,
         sigma_max: int = 800,
+        seed: int | None = None,
     ) -> DiagnosticModel:
-        """Load AI datasource from package
+        """Load diagnostic model from package
 
         Parameters
         ----------
         package : Package
             CBottle AI model package
+        lat_lon : bool, optional, by default True
+            Lat/lon toggle, if true the model will expect a lat/lon grid as input and output a lat/lon
+            grid. If false, the native nested HealPix grid will be used for input and output.
+            Input HEALPix is level 6 and output HEALPix is level 10 with NEST pixel ordering.
         output_resolution : tuple[int, int], optional
-            High-resolution output dimensions, by default (2161, 4320)
+            High-resolution output dimensions for lat/lon output, by default (2161, 4320)
         super_resolution_window : None | tuple[int, int, int, int], optional
-            Super-resolution window, by default None
+            Super-resolution window for lat/lon output, by default None
         sampler_steps : int, optional
             Number of diffusion steps, by default 18
         sigma_max : float, optional
             Noise amplitude used to generate latent variables, by default 800
+        seed : int, optional
+            Random generator seed for latent variables, by default None
 
         Returns
         -------
@@ -329,26 +420,34 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
 
         return cls(
             core_model,
+            lat_lon=lat_lon,
             output_resolution=output_resolution,
             super_resolution_window=super_resolution_window,
             sampler_steps=sampler_steps,
             sigma_max=sigma_max,
+            seed=seed,
         )
 
     @torch.inference_mode()
     def _forward(self, x: torch.Tensor) -> torch.Tensor:
 
-        # Get high res
-        lr_hpx = self.regrid_latlon_low_res_to_hpx_high_res(x.double())
+        # Regrid input to high-resolution HEALPix (internal processing grid)
+        lr_hpx = self.regrid_input_to_hpx_high_res(x.double())
 
         # Normalize
         lr_hpx = (lr_hpx - self.center.to(x.device)) / self.scale.to(x.device)
 
-        # Get global lat lon
+        # Get global lat lon (for the denoiser conditioning)
         global_lr = self.regrid_to_latlon(lr_hpx)
 
         # Run denoiser
-        latents = torch.randn_like(lr_hpx, device=x.device, dtype=torch.float64)
+        if self.seed is not None:
+            generator = torch.Generator(device=x.device).manual_seed(self.seed)
+            latents = torch.randn(
+                lr_hpx.shape, device=x.device, dtype=torch.float64, generator=generator
+            )
+        else:
+            latents = torch.randn_like(lr_hpx, device=x.device, dtype=torch.float64)
 
         # Add 1 batch dimension
         latents = latents[None,].float()
@@ -394,20 +493,25 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
         # Unnormalize
         pred = pred[0] * self.scale.to(x.device) + self.center.to(x.device)
 
-        # Get lat lon high res
-        output = torch.zeros(
-            x.shape[0],
-            self.output_lat.shape[0],
-            self.output_lon.shape[0],
-            device=x.device,
-            dtype=torch.float32,
-        )
-        for i in range(x.shape[0]):
-            output[i : i + 1] = self.regrid_hpx_high_res_to_latlon_high_res(
-                pred[i : i + 1]
-            ).to(torch.float32)
+        # Convert to output format
+        if self.output_type == "healpix":
+            # Return HEALPix output directly
+            return pred.to(torch.float32)
+        else:
+            # Regrid to lat/lon output
+            output = torch.zeros(
+                x.shape[0],
+                self.output_lat.shape[0],
+                self.output_lon.shape[0],
+                device=x.device,
+                dtype=torch.float32,
+            )
+            for i in range(x.shape[0]):
+                output[i : i + 1] = self.regrid_hpx_high_res_to_output(
+                    pred[i : i + 1]
+                ).to(torch.float32)
 
-        return output
+            return output
 
     @batch_func()
     def __call__(
