@@ -211,7 +211,7 @@ no-build-isolation-package = ["earth2grid", "flash-attn", "torch-harmonics"]
 override-dependencies = []
 
 [tool.uv.sources]
-cbottle = { git = "https://github.com/NickGeneva/cBottle.git", rev = "44e572521aca965cffadf840ec536c5b44d0ecae" }
+cbottle = { git = "https://github.com/NickGeneva/cBottle.git", rev = "d29ded60d5f6539c74d27d2fd8b5b165bd4aed14" }
 earth2grid = { git = "https://github.com/NVlabs/earth2grid.git", rev = "661445e2c68edc76f52632aa0528af482357f1b8" }
 makani = { git = "https://github.com/NVIDIA/makani.git", rev = "28f38e3e929ed1303476518552c64673bbd6f722"}
 microsoft-aurora = { git = "https://github.com/NickGeneva/aurora.git", rev = "ab41cf1de67d5dcc723b96fc9a6219e4b548d181" }
