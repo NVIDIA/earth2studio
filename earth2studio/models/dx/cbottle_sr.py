@@ -238,8 +238,8 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
             self.regrid_hpx_high_res_to_output = None
 
         # Make global lat lon regridder
-        lat = torch.linspace(-90, 90, 128)[:, None].double()
-        lon = torch.linspace(0, 360, 128)[None, :].double()
+        lat = np.linspace(-90, 90, 128)[:, None]
+        lon = np.linspace(0, 360, 128)[None, :]
         self.regrid_to_latlon = self.hpx_high_res_grid.get_bilinear_regridder_to(
             lat, lon
         ).to(torch.float64)
