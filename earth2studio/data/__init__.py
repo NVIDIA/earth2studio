@@ -18,6 +18,7 @@ from .arco import ARCO
 from .base import DataSource, ForecastSource
 from .cbottle import CBottle3D
 from .cds import CDS
+from .cmip6 import CMIP6
 from .const import Constant, Constant_FX
 from .gefs import GEFS_FX, GEFS_FX_721x1440
 from .gfs import GFS, GFS_FX
@@ -25,9 +26,16 @@ from .goes import GOES
 from .hrrr import HRRR, HRRR_FX
 from .ifs import IFS
 from .imerg import IMERG
+from .jpss import JPSS
 from .ncar import NCAR_ERA5
 from .rand import Random, Random_FX
 from .rx import CosineSolarZenith, LandSeaMask, SurfaceGeoPotential
 from .utils import datasource_to_file, fetch_data, prep_data_array
 from .wb2 import WB2ERA5, WB2Climatology, WB2ERA5_32x64, WB2ERA5_121x240
-from .xr import DataArrayDirectory, DataArrayFile, DataArrayPathList, DataSetFile
+from .xr import (
+    DataArrayDirectory,
+    DataArrayFile,
+    DataArrayPathList,
+    DataSetFile,
+    InferenceOuputSource,
+)

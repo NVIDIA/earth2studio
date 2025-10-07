@@ -274,7 +274,7 @@ class TestCBottleMock:
 @pytest.mark.timeout(30)
 @pytest.mark.parametrize("device", ["cuda:0"])
 def test_cbottle_package(device, model_cache_context):
-    # Test the cached model package AFNO precip
+    # Test the cached model package
     # Only cuda supported
     input_variables = np.array(["tpf"])
     with model_cache_context():

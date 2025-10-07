@@ -35,6 +35,8 @@ def timearray_to_datetime(time: TimeArray) -> list[datetime]:
     """
     _unix = np.datetime64(0, "s")
     _ds = np.timedelta64(1, "s")
+    # TODO: Update to
+    # time = [datetime.fromtimestamp((date - _unix) / _ds, UTC) for date in time]
     time = [datetime.utcfromtimestamp((date - _unix) / _ds) for date in time]
 
     return time

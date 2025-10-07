@@ -14,16 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-__version__ = "0.9.0a0"
+__version__ = "0.10.0a0"
 
 # Deprecation warnings
-import sys
-import warnings
-
-if sys.version_info[:2] == (3, 10):
-    warnings.warn(
-        "Python 3.10 support will be dropped in Earth2Studio versions after 0.9.0 "
-        "in accordance with NEP 29/SPEC 0. Please upgrade to Python 3.11 or newer.",
-        DeprecationWarning,
-        stacklevel=2,
-    )
+# import sys
+# import warnings

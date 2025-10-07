@@ -6,7 +6,45 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.9.0a0] - 2025-07-xx
+## [0.10.0] - 2025-09-xx
+
+### Added
+
+- Added CMIP6 data source
+- Added CBottle Tropical Cyclone guidance diagnostic
+- Added CBottle Video prognostic model
+- Exposed backend arguments of netcdf/zarr to datasource_to_file signature
+- Added vertical wind speed support in GFS
+- Added ModelOutputDatasetSource to use written model output to start a new model run
+- Added FCN3 noise handling routines.
+
+### Changed
+
+- Updated CBottle data source to mixture of experts models, added additional parameters
+  to load_model to align with other cBottle models.
+- Fixed duplicate geo-potential at surface ids in AIFS, IFS data source and orography
+  source, orography is denoted by lower case `z`
+- Updated package caching default to None, which will default to true for remote
+  packages and false for local packages
+
+### Deprecated
+
+- Added depricated warning for IMERG data source. This will be removed in the next
+  release.
+
+### Removed
+
+### Fixed
+
+### Security
+
+### Dependencies
+
+- Dropped support for Python 3.10
+- Bumped CBottle (and Earth2Grid) versions
+- Capped JAX version, due to numpy 2.0 requirement conflicting with NV PyTorch containers
+
+## [0.9.0] - 2025-08-19
 
 ### Added
 
@@ -15,9 +53,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - IO performance example
 - Unified CorrDiff Wrapper
 - Added UV script dependencies to all examples
-- New metrics: Brier score, fractions skill score, log spectral distance, mean absolute error.
-- Option to compute error of ensemble mean in rmse and mae.
-- Added FourCastNet 3 model.
+- New metrics: Brier score, fractions skill score, log spectral distance, mean absolute
+  error
+- Option to compute error of ensemble mean in rmse and mae
+- Added FourCastNet 3 model
 
 ### Changed
 
@@ -28,10 +67,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Updated APIs for optional dependency managment utils with improved error messages
 - Allow Zarr backends to user datetime and timedelta arrays for Zarr 3.0
 
-### Deprecated
-
-### Removed
-
 ### Fixed
 
 - Incorrect datetime utc timezone calculation in SFNO wrapper was fixed.
@@ -40,8 +75,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   clean up
 - Fixed HRRR_FX valid lead time check for date times not on 6 hour interval
 - Removed time limits for WB2 climatology data source
-
-### Security
 
 ### Dependencies
 

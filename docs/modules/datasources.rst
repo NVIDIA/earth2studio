@@ -25,11 +25,12 @@ Used for fetching initial conditions for inference and validation data for scori
 
    data.ARCO
    data.CDS
+   data.CMIP6
    data.GFS
    data.GOES
    data.HRRR
    data.IFS
-   data.IMERG
+   data.JPSS
    data.NCAR_ERA5
    data.Random
    data.WB2ERA5

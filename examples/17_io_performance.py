@@ -322,8 +322,10 @@ print(f"\nIn memory zarr store inference time: {zarr_memory_clock}s")
 # %%
 
 parallel_coords = {
-    "time": np.asarray(times),
-    "lead_time": np.asarray([timedelta(hours=6 * i) for i in range(nsteps + 1)]),
+    "time": np.array(times, dtype=np.datetime64),
+    "lead_time": np.array(
+        [timedelta(hours=6 * i) for i in range(nsteps + 1)], dtype=np.timedelta64
+    ),
 }
 io = AsyncZarrBackend(
     "outputs/17_io_async.zarr",
