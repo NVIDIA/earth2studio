@@ -15,6 +15,29 @@
 # limitations under the License.
 
 # %%
+"""
+CorrDiff on HENS Ensemble
+=========================
+
+This example shows how to run CorrDiff on a HENS ensemble.
+
+In this example you will learn:
+
+- How to run CorrDiff on a HENS ensemble
+- How to save the output to a Zarr backend
+- How to post process the output
+
+"""
+# /// script
+# dependencies = [
+#     "earth2studio[sfno] @ git+https://github.com/NVIDIA/earth2studio.git",
+#     "earth2studio[corrdiff] @ git+https://github.com/NVIDIA/earth2studio.git",
+#     "cartopy",
+#     "matplotlib",
+# ]
+# ///
+
+# %%
 # Imports and utility functions
 import os
 from collections import OrderedDict
@@ -41,6 +64,8 @@ from earth2studio.utils.time import to_time_array
 
 
 # %%
+# Helper function to write data to the Zarr backend with the correct coordinates.
+# Handles both sampled (CorrDiff) and non-sampled (HENS) variables.
 def write_to_zarr(
     io,
     coords_for_io,
@@ -72,6 +97,7 @@ def write_to_zarr(
 
 
 # %%
+# Main function to run CorrDiff on a HENS ensemble
 def corrdiff_on_hens_ensemble(
     time: list[str] | list[datetime] | list[np.datetime64],
     nsteps: int,
