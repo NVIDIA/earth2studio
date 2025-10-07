@@ -3,14 +3,13 @@
 import os
 import tempfile
 from collections import OrderedDict
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import patch
 
 import numpy as np
 import pytest
 import torch
 from physicsnemo.distributed import DistributedManager
 
-from earth2studio.io import KVBackend
 from earth2studio.models.dx import AsyncTempestExtremes, TempestExtremes
 
 
@@ -373,12 +372,15 @@ def test_dump_raw_data_creates_netcdf(mock_check):
 def test_setup_files(mock_dump, mock_check):
     """Test that setup_files creates correct file structure"""
     mock_check.return_value = None
-    mock_dump.return_value = (
-        ["/tmp/data_mem_0000.nc", "/tmp/data_mem_0001.nc"],
-        np.array([0, 1]),
-    )
 
     with tempfile.TemporaryDirectory() as tmpdir:
+        mock_dump.return_value = (
+            [
+                os.path.join(tmpdir, "data_mem_0000.nc"),
+                os.path.join(tmpdir, "data_mem_0001.nc"),
+            ],
+            np.array([0, 1]),
+        )
         te = TempestExtremes(
             detect_cmd="DetectNodes",
             stitch_cmd="StitchNodes",
@@ -631,9 +633,12 @@ def test_cat_coords():
 def test_setup_files_mismatched_file_names_raises_error(mock_dump, mock_check):
     """Test that providing wrong number of output file names raises error"""
     mock_check.return_value = None
-    mock_dump.return_value = (["/tmp/data1.nc", "/tmp/data2.nc"], np.array([0, 1]))
 
     with tempfile.TemporaryDirectory() as tmpdir:
+        mock_dump.return_value = (
+            [os.path.join(tmpdir, "data1.nc"), os.path.join(tmpdir, "data2.nc")],
+            np.array([0, 1]),
+        )
         te = TempestExtremes(
             detect_cmd="DetectNodes",
             stitch_cmd="StitchNodes",
