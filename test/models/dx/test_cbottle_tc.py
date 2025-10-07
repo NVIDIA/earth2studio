@@ -122,28 +122,38 @@ class TestCBottleTCMock:
         assert coords["variable"] == ["tc_guidance"]
 
     @pytest.mark.parametrize(
-        "x,time",
+        "x,time,dataset_modality",
         [
-            (torch.zeros(1, 1, 1, 1, 721, 1440), np.array([datetime(2020, 1, 1)])),
+            (torch.zeros(1, 1, 1, 1, 721, 1440), np.array([datetime(2020, 1, 1)]), 1),
             (
                 torch.zeros(1, 2, 1, 1, 721, 1440),
                 np.array([datetime(2000, 1, 2, 3, 4, 5), datetime(1980, 8, 1)]),
+                1,
             ),
             (
                 torch.zeros(2, 2, 1, 1, 721, 1440),
                 np.array([datetime(2000, 1, 2, 3, 4, 5), datetime(1980, 8, 1)]),
+                0,
             ),
         ],
     )
     @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
     def test_cbottle_tc_forward(
-        self, x, time, device, mock_core_model, mock_classifier_model, mock_sst_ds
+        self,
+        x,
+        time,
+        dataset_modality,
+        device,
+        mock_core_model,
+        mock_classifier_model,
+        mock_sst_ds,
     ):
         dx = CBottleTCGuidance(mock_core_model, mock_classifier_model, mock_sst_ds).to(
             device
         )
         dx.sampler_steps = 2  # Speed up sampler
         dx.batch_size = 2
+        dx.dataset_modality = dataset_modality
 
         coords = OrderedDict(
             {
