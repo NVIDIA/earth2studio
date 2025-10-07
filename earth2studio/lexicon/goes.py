@@ -23,7 +23,7 @@ from earth2studio.lexicon.base import LexiconType
 class GOESLexicon(metaclass=LexiconType):
     """GOES ABI lexicon for mapping standardized variable names to GOES ABI NetCDF variable names.
 
-    This lexicon maps our standardized spectral band names (e.g., 'vis047') to the actual
+    This lexicon maps our standardized spectral band names (e.g., 'abi01c') to the actual
     variable names used in GOES ABI NetCDF files on AWS. It also includes any necessary
     data transformations or modifiers for each band. For more information on the GOES ABI
     data, see the GOES Beginners Guide or the GOES ABI data documentation:
@@ -33,7 +33,7 @@ class GOESLexicon(metaclass=LexiconType):
     Parameters
     ----------
     val : str
-        Standardized variable name (e.g., 'vis047')
+        Standardized variable name (e.g., 'abi01c')
 
     """
 
@@ -41,25 +41,25 @@ class GOESLexicon(metaclass=LexiconType):
     # Format: "standardized_name": ("goes_variable_name", modifier_function)
     # The modifier function can be used to transform the data if needed
     VOCAB: dict[str, tuple[str, Callable[[Any], Any]]] = {
-        # Visible bands (0.5 km resolution)
-        "vis047": ("CMI_C01", lambda x: x),  # Blue
-        "vis064": ("CMI_C02", lambda x: x),  # Red
-        # Near-IR bands (1.0 km resolution)
-        "nir086": ("CMI_C03", lambda x: x),  # Vegetation
-        "nir137": ("CMI_C04", lambda x: x),  # Cirrus
-        "nir161": ("CMI_C05", lambda x: x),  # Snow/Ice
-        "nir224": ("CMI_C06", lambda x: x),  # Cloud Particle Size
-        # IR bands (2.0 km resolution)
-        "ir390": ("CMI_C07", lambda x: x),  # Shortwave Window
-        "ir619": ("CMI_C08", lambda x: x),  # Upper-level Water Vapor
-        "ir695": ("CMI_C09", lambda x: x),  # Mid-level Water Vapor
-        "ir734": ("CMI_C10", lambda x: x),  # Lower-level Water Vapor
-        "ir850": ("CMI_C11", lambda x: x),  # Cloud-top Phase
-        "ir961": ("CMI_C12", lambda x: x),  # Ozone
-        "ir1035": ("CMI_C13", lambda x: x),  # Clean IR Longwave Window
-        "ir1120": ("CMI_C14", lambda x: x),  # IR Longwave Window
-        "ir1230": ("CMI_C15", lambda x: x),  # Dirty IR Longwave Window
-        "ir1330": ("CMI_C16", lambda x: x),  # CO2 Longwave IR
+        # ABI Channel 1-2: Visible bands (0.5 km resolution)
+        "abi01c": ("CMI_C01", lambda x: x),  # Blue (0.47 μm)
+        "abi02c": ("CMI_C02", lambda x: x),  # Red (0.64 μm)
+        # ABI Channel 3-6: Near-IR bands (1.0 km resolution)
+        "abi03c": ("CMI_C03", lambda x: x),  # Vegetation (0.86 μm)
+        "abi04c": ("CMI_C04", lambda x: x),  # Cirrus (1.37 μm)
+        "abi05c": ("CMI_C05", lambda x: x),  # Snow/Ice (1.61 μm)
+        "abi06c": ("CMI_C06", lambda x: x),  # Cloud Particle Size (2.24 μm)
+        # ABI Channel 7-16: IR bands (2.0 km resolution)
+        "abi07c": ("CMI_C07", lambda x: x),  # Shortwave Window (3.90 μm)
+        "abi08c": ("CMI_C08", lambda x: x),  # Upper-level Water Vapor (6.19 μm)
+        "abi09c": ("CMI_C09", lambda x: x),  # Mid-level Water Vapor (6.95 μm)
+        "abi10c": ("CMI_C10", lambda x: x),  # Lower-level Water Vapor (7.34 μm)
+        "abi11c": ("CMI_C11", lambda x: x),  # Cloud-top Phase (8.50 μm)
+        "abi12c": ("CMI_C12", lambda x: x),  # Ozone (9.61 μm)
+        "abi13c": ("CMI_C13", lambda x: x),  # Clean IR Longwave Window (10.35 μm)
+        "abi14c": ("CMI_C14", lambda x: x),  # IR Longwave Window (11.20 μm)
+        "abi15c": ("CMI_C15", lambda x: x),  # Dirty IR Longwave Window (12.30 μm)
+        "abi16c": ("CMI_C16", lambda x: x),  # CO2 Longwave IR (13.30 μm)
     }
 
     @classmethod
@@ -69,7 +69,7 @@ class GOESLexicon(metaclass=LexiconType):
         Parameters
         ----------
         val : str
-            Standardized variable name (e.g., 'vis047')
+            Standardized variable name (e.g., 'abi01c')
 
         Returns
         -------
