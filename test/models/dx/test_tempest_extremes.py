@@ -2,15 +2,16 @@
 
 import os
 import tempfile
-from unittest.mock import Mock, patch, MagicMock
+from collections import OrderedDict
+from unittest.mock import MagicMock, Mock, patch
+
 import numpy as np
 import pytest
 import torch
-from collections import OrderedDict
-
-from earth2studio.models.dx import TempestExtremes, AsyncTempestExtremes
-from earth2studio.io import KVBackend
 from physicsnemo.distributed import DistributedManager
+
+from earth2studio.io import KVBackend
+from earth2studio.models.dx import AsyncTempestExtremes, TempestExtremes
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -27,6 +28,7 @@ def initialize_distributed_manager():
 # 1. INITIALIZATION AND SETUP TESTS
 # ============================================================================
 
+
 def test_tempest_extremes_initialization():
     """Test basic initialization with required parameters"""
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -36,7 +38,7 @@ def test_tempest_extremes_initialization():
             input_vars=["u10m", "v10m", "msl"],
             batch_size=2,
             n_steps=10,
-            time_step=np.timedelta64(6, 'h'),
+            time_step=np.timedelta64(6, "h"),
             lats=np.linspace(90, -90, 721),
             lons=np.linspace(0, 360, 1440),
             store_dir=tmpdir,
@@ -53,11 +55,13 @@ def test_initialization_with_static_vars():
     """Test initialization with static variables"""
     with tempfile.TemporaryDirectory() as tmpdir:
         static_vars = torch.randn(2, 721, 1440)
-        static_coords = OrderedDict({
-            "variable": np.array(["z", "lsm"]),
-            "lat": np.linspace(90, -90, 721),
-            "lon": np.linspace(0, 360, 1440),
-        })
+        static_coords = OrderedDict(
+            {
+                "variable": np.array(["z", "lsm"]),
+                "lat": np.linspace(90, -90, 721),
+                "lon": np.linspace(0, 360, 1440),
+            }
+        )
 
         te = TempestExtremes(
             detect_cmd="DetectNodes",
@@ -65,7 +69,7 @@ def test_initialization_with_static_vars():
             input_vars=["u10m", "v10m", "msl"],
             batch_size=1,
             n_steps=5,
-            time_step=np.timedelta64(6, 'h'),
+            time_step=np.timedelta64(6, "h"),
             lats=np.linspace(90, -90, 721),
             lons=np.linspace(0, 360, 1440),
             store_dir=tmpdir,
@@ -88,7 +92,7 @@ def test_initialization_missing_static_coords_raises_error():
                 input_vars=["u10m"],
                 batch_size=1,
                 n_steps=5,
-                time_step=np.timedelta64(6, 'h'),
+                time_step=np.timedelta64(6, "h"),
                 lats=np.linspace(90, -90, 721),
                 lons=np.linspace(0, 360, 1440),
                 store_dir=tmpdir,
@@ -101,6 +105,7 @@ def test_initialization_missing_static_coords_raises_error():
 # ============================================================================
 # 2. COMMAND FORMATTING TESTS
 # ============================================================================
+
 
 def test_remove_arguments():
     """Test that specified arguments are correctly removed from commands"""
@@ -125,7 +130,7 @@ def test_format_tempestextremes_commands():
             input_vars=["u10m"],
             batch_size=1,
             n_steps=5,
-            time_step=np.timedelta64(6, 'h'),
+            time_step=np.timedelta64(6, "h"),
             lats=np.linspace(90, -90, 721),
             lons=np.linspace(0, 360, 1440),
             store_dir=tmpdir,
@@ -143,6 +148,7 @@ def test_format_tempestextremes_commands():
 # 3. COORDINATE SYSTEM TESTS
 # ============================================================================
 
+
 def test_input_coords():
     """Test that input_coords returns correct coordinate system"""
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -156,7 +162,7 @@ def test_input_coords():
             input_vars=input_vars,
             batch_size=1,
             n_steps=10,
-            time_step=np.timedelta64(6, 'h'),
+            time_step=np.timedelta64(6, "h"),
             lats=lats,
             lons=lons,
             store_dir=tmpdir,
@@ -178,11 +184,13 @@ def test_store_coords_with_static_vars():
     """Test that store coords include static variables"""
     with tempfile.TemporaryDirectory() as tmpdir:
         static_vars = torch.randn(1, 721, 1440)
-        static_coords = OrderedDict({
-            "variable": np.array(["z"]),
-            "lat": np.linspace(90, -90, 721),
-            "lon": np.linspace(0, 360, 1440),
-        })
+        static_coords = OrderedDict(
+            {
+                "variable": np.array(["z"]),
+                "lat": np.linspace(90, -90, 721),
+                "lon": np.linspace(0, 360, 1440),
+            }
+        )
 
         te = TempestExtremes(
             detect_cmd="DetectNodes",
@@ -190,7 +198,7 @@ def test_store_coords_with_static_vars():
             input_vars=["u10m", "v10m"],
             batch_size=1,
             n_steps=5,
-            time_step=np.timedelta64(6, 'h'),
+            time_step=np.timedelta64(6, "h"),
             lats=np.linspace(90, -90, 721),
             lons=np.linspace(0, 360, 1440),
             store_dir=tmpdir,
@@ -207,6 +215,7 @@ def test_store_coords_with_static_vars():
 # 4. DATA RECORDING TESTS
 # ============================================================================
 
+
 def test_record_state_basic():
     """Test that record_state correctly stores data"""
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -216,7 +225,7 @@ def test_record_state_basic():
             input_vars=["u10m", "v10m", "msl"],
             batch_size=1,
             n_steps=2,
-            time_step=np.timedelta64(6, 'h'),
+            time_step=np.timedelta64(6, "h"),
             lats=np.linspace(90, -90, 721),
             lons=np.linspace(0, 360, 1440),
             store_dir=tmpdir,
@@ -224,17 +233,19 @@ def test_record_state_basic():
         )
 
         # Create test data
-        time = np.datetime64('2024-01-01T00:00:00')
-        lead_time = np.timedelta64(0, 'h')
+        time = np.datetime64("2024-01-01T00:00:00")
+        lead_time = np.timedelta64(0, "h")
         x = torch.randn(1, 1, 1, 3, 721, 1440)
-        coords = OrderedDict({
-            "ensemble": np.array([0]),
-            "time": np.array([time]),
-            "lead_time": np.array([lead_time]),
-            "variable": np.array(["u10m", "v10m", "msl"]),
-            "lat": np.linspace(90, -90, 721),
-            "lon": np.linspace(0, 360, 1440),
-        })
+        coords = OrderedDict(
+            {
+                "ensemble": np.array([0]),
+                "time": np.array([time]),
+                "lead_time": np.array([lead_time]),
+                "variable": np.array(["u10m", "v10m", "msl"]),
+                "lat": np.linspace(90, -90, 721),
+                "lon": np.linspace(0, 360, 1440),
+            }
+        )
 
         # Record state
         te.record_state(x, coords)
@@ -244,18 +255,22 @@ def test_record_state_basic():
         assert len(te.store.coords["ensemble"]) == 1
 
 
-@patch('earth2studio.models.dx.tempest_extremes.TempestExtremes.check_tempest_extremes_availability')
+@patch(
+    "earth2studio.models.dx.tempest_extremes.TempestExtremes.check_tempest_extremes_availability"
+)
 def test_record_state_with_static_vars(mock_check):
     """Test record_state correctly concatenates static variables"""
     mock_check.return_value = None
 
     with tempfile.TemporaryDirectory() as tmpdir:
         static_vars = torch.ones(2, 721, 1440) * 0.5
-        static_coords = OrderedDict({
-            "variable": np.array(["z", "lsm"]),
-            "lat": np.linspace(90, -90, 721),
-            "lon": np.linspace(0, 360, 1440),
-        })
+        static_coords = OrderedDict(
+            {
+                "variable": np.array(["z", "lsm"]),
+                "lat": np.linspace(90, -90, 721),
+                "lon": np.linspace(0, 360, 1440),
+            }
+        )
 
         te = TempestExtremes(
             detect_cmd="DetectNodes",
@@ -263,7 +278,7 @@ def test_record_state_with_static_vars(mock_check):
             input_vars=["u10m", "v10m"],
             batch_size=1,
             n_steps=2,
-            time_step=np.timedelta64(6, 'h'),
+            time_step=np.timedelta64(6, "h"),
             lats=np.linspace(90, -90, 721),
             lons=np.linspace(0, 360, 1440),
             store_dir=tmpdir,
@@ -273,16 +288,18 @@ def test_record_state_with_static_vars(mock_check):
         )
 
         # Create test data (without static vars)
-        time = np.datetime64('2024-01-01T00:00:00')
+        time = np.datetime64("2024-01-01T00:00:00")
         x = torch.randn(1, 1, 1, 2, 721, 1440)
-        coords = OrderedDict({
-            "ensemble": np.array([0]),
-            "time": np.array([time]),
-            "lead_time": np.array([np.timedelta64(0, 'h')]),
-            "variable": np.array(["u10m", "v10m"]),
-            "lat": np.linspace(90, -90, 721),
-            "lon": np.linspace(0, 360, 1440),
-        })
+        coords = OrderedDict(
+            {
+                "ensemble": np.array([0]),
+                "time": np.array([time]),
+                "lead_time": np.array([np.timedelta64(0, "h")]),
+                "variable": np.array(["u10m", "v10m"]),
+                "lat": np.linspace(90, -90, 721),
+                "lon": np.linspace(0, 360, 1440),
+            }
+        )
 
         te.record_state(x, coords)
 
@@ -295,7 +312,10 @@ def test_record_state_with_static_vars(mock_check):
 # 5. DATA DUMPING TESTS
 # ============================================================================
 
-@patch('earth2studio.models.dx.tempest_extremes.TempestExtremes.check_tempest_extremes_availability')
+
+@patch(
+    "earth2studio.models.dx.tempest_extremes.TempestExtremes.check_tempest_extremes_availability"
+)
 def test_dump_raw_data_creates_netcdf(mock_check):
     """Test that dump_raw_data creates NetCDF files with correct structure"""
     mock_check.return_value = None
@@ -307,7 +327,7 @@ def test_dump_raw_data_creates_netcdf(mock_check):
             input_vars=["u10m", "v10m", "msl"],
             batch_size=2,
             n_steps=3,
-            time_step=np.timedelta64(6, 'h'),
+            time_step=np.timedelta64(6, "h"),
             lats=np.linspace(90, -90, 721),
             lons=np.linspace(0, 360, 1440),
             store_dir=tmpdir,
@@ -315,17 +335,19 @@ def test_dump_raw_data_creates_netcdf(mock_check):
         )
 
         # Record some data
-        time = np.datetime64('2024-01-01T00:00:00')
+        time = np.datetime64("2024-01-01T00:00:00")
         for lt in range(4):  # n_steps + 1
             x = torch.randn(2, 1, 1, 3, 721, 1440)
-            coords = OrderedDict({
-                "ensemble": np.array([0, 1]),
-                "time": np.array([time]),
-                "lead_time": np.array([np.timedelta64(lt * 6, 'h')]),
-                "variable": np.array(["u10m", "v10m", "msl"]),
-                "lat": np.linspace(90, -90, 721),
-                "lon": np.linspace(0, 360, 1440),
-            })
+            coords = OrderedDict(
+                {
+                    "ensemble": np.array([0, 1]),
+                    "time": np.array([time]),
+                    "lead_time": np.array([np.timedelta64(lt * 6, "h")]),
+                    "variable": np.array(["u10m", "v10m", "msl"]),
+                    "lat": np.linspace(90, -90, 721),
+                    "lon": np.linspace(0, 360, 1440),
+                }
+            )
             te.record_state(x, coords)
 
         # Dump data
@@ -336,21 +358,24 @@ def test_dump_raw_data_creates_netcdf(mock_check):
         assert len(mems) == 2
         for f in raw_files:
             assert os.path.exists(f)
-            assert f.endswith('.nc')
+            assert f.endswith(".nc")
 
 
 # ============================================================================
 # 6. FILE SETUP TESTS
 # ============================================================================
 
-@patch('earth2studio.models.dx.tempest_extremes.TempestExtremes.check_tempest_extremes_availability')
-@patch('earth2studio.models.dx.tempest_extremes.TempestExtremes.dump_raw_data')
+
+@patch(
+    "earth2studio.models.dx.tempest_extremes.TempestExtremes.check_tempest_extremes_availability"
+)
+@patch("earth2studio.models.dx.tempest_extremes.TempestExtremes.dump_raw_data")
 def test_setup_files(mock_dump, mock_check):
     """Test that setup_files creates correct file structure"""
     mock_check.return_value = None
     mock_dump.return_value = (
         ["/tmp/data_mem_0000.nc", "/tmp/data_mem_0001.nc"],
-        np.array([0, 1])
+        np.array([0, 1]),
     )
 
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -360,7 +385,7 @@ def test_setup_files(mock_dump, mock_check):
             input_vars=["u10m"],
             batch_size=2,
             n_steps=5,
-            time_step=np.timedelta64(6, 'h'),
+            time_step=np.timedelta64(6, "h"),
             lats=np.linspace(90, -90, 721),
             lons=np.linspace(0, 360, 1440),
             store_dir=tmpdir,
@@ -378,7 +403,7 @@ def test_setup_files(mock_dump, mock_check):
         # Check that input/output lists exist and contain expected content
         for i, in_file in enumerate(ins):
             assert os.path.exists(in_file)
-            with open(in_file, 'r') as f:
+            with open(in_file) as f:
                 content = f.read()
                 assert "mem_000" in content
 
@@ -393,7 +418,10 @@ def test_setup_files_with_custom_names():
 # 7. ASYNC FUNCTIONALITY TESTS
 # ============================================================================
 
-@patch('earth2studio.models.dx.tempest_extremes.TempestExtremes.check_tempest_extremes_availability')
+
+@patch(
+    "earth2studio.models.dx.tempest_extremes.TempestExtremes.check_tempest_extremes_availability"
+)
 def test_async_initialization(mock_check):
     """Test AsyncTempestExtremes initialization"""
     mock_check.return_value = None
@@ -405,7 +433,7 @@ def test_async_initialization(mock_check):
             input_vars=["u10m"],
             batch_size=1,
             n_steps=5,
-            time_step=np.timedelta64(6, 'h'),
+            time_step=np.timedelta64(6, "h"),
             lats=np.linspace(90, -90, 721),
             lons=np.linspace(0, 360, 1440),
             store_dir=tmpdir,
@@ -416,11 +444,13 @@ def test_async_initialization(mock_check):
 
         assert ate.timeout == 120
         assert ate.max_workers == 2
-        assert hasattr(ate, '_instance_tasks')
-        assert hasattr(ate, '_dump_in_progress')
+        assert hasattr(ate, "_instance_tasks")
+        assert hasattr(ate, "_dump_in_progress")
 
 
-@patch('earth2studio.models.dx.tempest_extremes.TempestExtremes.check_tempest_extremes_availability')
+@patch(
+    "earth2studio.models.dx.tempest_extremes.TempestExtremes.check_tempest_extremes_availability"
+)
 def test_async_task_status(mock_check):
     """Test getting task status from AsyncTempestExtremes"""
     mock_check.return_value = None
@@ -432,7 +462,7 @@ def test_async_task_status(mock_check):
             input_vars=["u10m"],
             batch_size=1,
             n_steps=5,
-            time_step=np.timedelta64(6, 'h'),
+            time_step=np.timedelta64(6, "h"),
             lats=np.linspace(90, -90, 721),
             lons=np.linspace(0, 360, 1440),
             store_dir=tmpdir,
@@ -449,7 +479,9 @@ def test_async_task_status(mock_check):
         assert status["total"] == 0  # No tasks submitted yet
 
 
-@patch('earth2studio.models.dx.tempest_extremes.TempestExtremes.check_tempest_extremes_availability')
+@patch(
+    "earth2studio.models.dx.tempest_extremes.TempestExtremes.check_tempest_extremes_availability"
+)
 def test_async_record_state_waits_for_dump(mock_check):
     """Test that async record_state waits for ongoing dumps"""
     mock_check.return_value = None
@@ -461,7 +493,7 @@ def test_async_record_state_waits_for_dump(mock_check):
             input_vars=["u10m"],
             batch_size=1,
             n_steps=5,
-            time_step=np.timedelta64(6, 'h'),
+            time_step=np.timedelta64(6, "h"),
             lats=np.linspace(90, -90, 721),
             lons=np.linspace(0, 360, 1440),
             store_dir=tmpdir,
@@ -473,21 +505,24 @@ def test_async_record_state_waits_for_dump(mock_check):
 
         # Start recording in a thread (would block)
         import threading
+
         record_started = threading.Event()
         record_completed = threading.Event()
 
         def record():
             record_started.set()
-            time = np.datetime64('2024-01-01T00:00:00')
+            time = np.datetime64("2024-01-01T00:00:00")
             x = torch.randn(1, 1, 1, 1, 721, 1440)
-            coords = OrderedDict({
-                "ensemble": np.array([0]),
-                "time": np.array([time]),
-                "lead_time": np.array([np.timedelta64(0, 'h')]),
-                "variable": np.array(["u10m"]),
-                "lat": np.linspace(90, -90, 721),
-                "lon": np.linspace(0, 360, 1440),
-            })
+            coords = OrderedDict(
+                {
+                    "ensemble": np.array([0]),
+                    "time": np.array([time]),
+                    "lead_time": np.array([np.timedelta64(0, "h")]),
+                    "variable": np.array(["u10m"]),
+                    "lat": np.linspace(90, -90, 721),
+                    "lon": np.linspace(0, 360, 1440),
+                }
+            )
             ate.record_state(x, coords)
             record_completed.set()
 
@@ -497,6 +532,7 @@ def test_async_record_state_waits_for_dump(mock_check):
         # Wait a bit and verify record hasn't completed
         record_started.wait(timeout=1)
         import time
+
         time.sleep(0.1)
         assert not record_completed.is_set()
 
@@ -512,26 +548,32 @@ def test_async_record_state_waits_for_dump(mock_check):
 # 8. UTILITY FUNCTION TESTS
 # ============================================================================
 
+
 def test_tile_xx_to_yy():
     """Test tiling function for expanding dimensions"""
-    from earth2studio.models.dx.tempest_extremes import tile_xx_to_yy
     from collections import OrderedDict
 
+    from earth2studio.models.dx.tempest_extremes import tile_xx_to_yy
+
     xx = torch.randn(2, 721, 1440)
-    xx_coords = OrderedDict({
-        "variable": np.array(["z", "lsm"]),
-        "lat": np.linspace(90, -90, 721),
-        "lon": np.linspace(0, 360, 1440),
-    })
+    xx_coords = OrderedDict(
+        {
+            "variable": np.array(["z", "lsm"]),
+            "lat": np.linspace(90, -90, 721),
+            "lon": np.linspace(0, 360, 1440),
+        }
+    )
 
     yy = torch.randn(3, 4, 5, 721, 1440)
-    yy_coords = OrderedDict({
-        "ensemble": np.array([0, 1, 2]),
-        "time": np.array([1, 2, 3, 4]),
-        "lead_time": np.array([0, 1, 2, 3, 4]),
-        "lat": np.linspace(90, -90, 721),
-        "lon": np.linspace(0, 360, 1440),
-    })
+    yy_coords = OrderedDict(
+        {
+            "ensemble": np.array([0, 1, 2]),
+            "time": np.array([1, 2, 3, 4]),
+            "lead_time": np.array([0, 1, 2, 3, 4]),
+            "lat": np.linspace(90, -90, 721),
+            "lon": np.linspace(0, 360, 1440),
+        }
+    )
 
     result, result_coords = tile_xx_to_yy(xx, xx_coords, yy, yy_coords)
 
@@ -546,24 +588,29 @@ def test_tile_xx_to_yy():
 
 def test_cat_coords():
     """Test coordinate concatenation"""
-    from earth2studio.models.dx.tempest_extremes import cat_coords
     from collections import OrderedDict
 
+    from earth2studio.models.dx.tempest_extremes import cat_coords
+
     xx = torch.randn(1, 2, 721, 1440)
-    cox = OrderedDict({
-        "time": np.array([0]),
-        "variable": np.array(["u10m", "v10m"]),
-        "lat": np.linspace(90, -90, 721),
-        "lon": np.linspace(0, 360, 1440),
-    })
+    cox = OrderedDict(
+        {
+            "time": np.array([0]),
+            "variable": np.array(["u10m", "v10m"]),
+            "lat": np.linspace(90, -90, 721),
+            "lon": np.linspace(0, 360, 1440),
+        }
+    )
 
     yy = torch.randn(1, 1, 721, 1440)
-    coy = OrderedDict({
-        "time": np.array([0]),
-        "variable": np.array(["msl"]),
-        "lat": np.linspace(90, -90, 721),
-        "lon": np.linspace(0, 360, 1440),
-    })
+    coy = OrderedDict(
+        {
+            "time": np.array([0]),
+            "variable": np.array(["msl"]),
+            "lat": np.linspace(90, -90, 721),
+            "lon": np.linspace(0, 360, 1440),
+        }
+    )
 
     result, result_coords = cat_coords(xx, cox, yy, coy, dim="variable")
 
@@ -576,8 +623,11 @@ def test_cat_coords():
 # 9. ERROR HANDLING TESTS
 # ============================================================================
 
-@patch('earth2studio.models.dx.tempest_extremes.TempestExtremes.check_tempest_extremes_availability')
-@patch('earth2studio.models.dx.tempest_extremes.TempestExtremes.dump_raw_data')
+
+@patch(
+    "earth2studio.models.dx.tempest_extremes.TempestExtremes.check_tempest_extremes_availability"
+)
+@patch("earth2studio.models.dx.tempest_extremes.TempestExtremes.dump_raw_data")
 def test_setup_files_mismatched_file_names_raises_error(mock_dump, mock_check):
     """Test that providing wrong number of output file names raises error"""
     mock_check.return_value = None
@@ -590,7 +640,7 @@ def test_setup_files_mismatched_file_names_raises_error(mock_dump, mock_check):
             input_vars=["u10m"],
             batch_size=2,
             n_steps=5,
-            time_step=np.timedelta64(6, 'h'),
+            time_step=np.timedelta64(6, "h"),
             lats=np.linspace(90, -90, 721),
             lons=np.linspace(0, 360, 1440),
             store_dir=tmpdir,
@@ -611,7 +661,7 @@ def test_multiple_ics_raises_error():
                 input_vars=["u10m"],
                 batch_size=1,
                 n_steps=5,
-                time_step=[np.timedelta64(6, 'h'), np.timedelta64(12, 'h')],
+                time_step=[np.timedelta64(6, "h"), np.timedelta64(12, "h")],
                 lats=np.linspace(90, -90, 721),
                 lons=np.linspace(0, 360, 1440),
                 store_dir=tmpdir,
@@ -619,7 +669,9 @@ def test_multiple_ics_raises_error():
             )
 
 
-@patch('earth2studio.models.dx.tempest_extremes.TempestExtremes.check_tempest_extremes_availability')
+@patch(
+    "earth2studio.models.dx.tempest_extremes.TempestExtremes.check_tempest_extremes_availability"
+)
 def test_async_check_for_failures_raises(mock_check):
     """Test that async tracker raises error if previous task failed"""
     mock_check.return_value = None
@@ -631,7 +683,7 @@ def test_async_check_for_failures_raises(mock_check):
             input_vars=["u10m"],
             batch_size=1,
             n_steps=5,
-            time_step=np.timedelta64(6, 'h'),
+            time_step=np.timedelta64(6, "h"),
             lats=np.linspace(90, -90, 721),
             lons=np.linspace(0, 360, 1440),
             store_dir=tmpdir,
@@ -650,8 +702,11 @@ def test_async_check_for_failures_raises(mock_check):
 # 10. CLEANUP TESTS
 # ============================================================================
 
-@patch('earth2studio.models.dx.tempest_extremes.TempestExtremes.check_tempest_extremes_availability')
-@patch('earth2studio.models.dx.tempest_extremes.run')
+
+@patch(
+    "earth2studio.models.dx.tempest_extremes.TempestExtremes.check_tempest_extremes_availability"
+)
+@patch("earth2studio.models.dx.tempest_extremes.run")
 def test_tidy_up_keeps_raw_data(mock_run, mock_check):
     """Test that tidy_up keeps raw data when keep_raw=True"""
     mock_check.return_value = None
@@ -663,7 +718,7 @@ def test_tidy_up_keeps_raw_data(mock_run, mock_check):
             input_vars=["u10m"],
             batch_size=1,
             n_steps=5,
-            time_step=np.timedelta64(6, 'h'),
+            time_step=np.timedelta64(6, "h"),
             lats=np.linspace(90, -90, 721),
             lons=np.linspace(0, 360, 1440),
             store_dir=tmpdir,
@@ -674,18 +729,18 @@ def test_tidy_up_keeps_raw_data(mock_run, mock_check):
         # Create dummy files
         raw_file = os.path.join(tmpdir, "raw_data", "test_data.nc")
         os.makedirs(os.path.dirname(raw_file), exist_ok=True)
-        with open(raw_file, 'w') as f:
+        with open(raw_file, "w") as f:
             f.write("dummy")
 
         in_list = os.path.join(tmpdir, "raw_data", "input_list.txt")
-        with open(in_list, 'w') as f:
+        with open(in_list, "w") as f:
             f.write(raw_file)
 
         out_list = os.path.join(tmpdir, "raw_data", "output_list.txt")
         node_file = os.path.join(tmpdir, "raw_data", "nodes.txt")
-        with open(out_list, 'w') as f:
+        with open(out_list, "w") as f:
             f.write(node_file)
-        with open(node_file, 'w') as f:
+        with open(node_file, "w") as f:
             f.write("dummy")
 
         # Run cleanup
@@ -695,7 +750,9 @@ def test_tidy_up_keeps_raw_data(mock_run, mock_check):
         assert os.path.exists(os.path.join(te.store_dir, "raw_data"))
 
 
-@patch('earth2studio.models.dx.tempest_extremes.TempestExtremes.check_tempest_extremes_availability')
+@patch(
+    "earth2studio.models.dx.tempest_extremes.TempestExtremes.check_tempest_extremes_availability"
+)
 def test_async_cleanup(mock_check):
     """Test that async cleanup waits for all tasks"""
     mock_check.return_value = None
@@ -707,7 +764,7 @@ def test_async_cleanup(mock_check):
             input_vars=["u10m"],
             batch_size=1,
             n_steps=5,
-            time_step=np.timedelta64(6, 'h'),
+            time_step=np.timedelta64(6, "h"),
             lats=np.linspace(90, -90, 721),
             lons=np.linspace(0, 360, 1440),
             store_dir=tmpdir,
