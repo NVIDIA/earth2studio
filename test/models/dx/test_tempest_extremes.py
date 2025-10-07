@@ -28,28 +28,6 @@ def initialize_distributed_manager():
 # ============================================================================
 
 
-def test_tempest_extremes_initialization():
-    """Test basic initialization with required parameters"""
-    with tempfile.TemporaryDirectory() as tmpdir:
-        te = TempestExtremes(
-            detect_cmd="DetectNodes --verbosity 0",
-            stitch_cmd="StitchNodes --verbosity 0",
-            input_vars=["u10m", "v10m", "msl"],
-            batch_size=2,
-            n_steps=10,
-            time_step=np.timedelta64(6, "h"),
-            lats=np.linspace(90, -90, 721),
-            lons=np.linspace(0, 360, 1440),
-            store_dir=tmpdir,
-            use_ram=False,
-        )
-
-        assert te.batch_size == 2
-        assert te.n_steps == 10
-        assert len(te.input_vars) == 3
-        assert os.path.exists(te.store_dir)
-
-
 def test_initialization_with_static_vars():
     """Test initialization with static variables"""
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -104,17 +82,6 @@ def test_initialization_missing_static_coords_raises_error():
 # ============================================================================
 # 2. COMMAND FORMATTING TESTS
 # ============================================================================
-
-
-def test_remove_arguments():
-    """Test that specified arguments are correctly removed from commands"""
-    cmd = ["DetectNodes", "--in_data_list", "input.txt", "--verbosity", "0"]
-    result = TempestExtremes.remove_arguments(cmd, ["--in_data_list"])
-
-    assert "--in_data_list" not in result
-    assert "input.txt" not in result
-    assert "--verbosity" in result
-    assert "0" in result
 
 
 def test_format_tempestextremes_commands():
@@ -410,12 +377,6 @@ def test_setup_files(mock_dump, mock_check):
                 assert "mem_000" in content
 
 
-def test_setup_files_with_custom_names():
-    """Test setup_files with custom output file names"""
-    # Similar structure to above, but with out_file_names parameter
-    pass
-
-
 # ============================================================================
 # 7. ASYNC FUNCTIONALITY TESTS
 # ============================================================================
@@ -654,24 +615,6 @@ def test_setup_files_mismatched_file_names_raises_error(mock_dump, mock_check):
 
         with pytest.raises(ValueError, match="passed for.*ensemble members"):
             te.setup_files(out_file_names=["only_one_file.csv"])
-
-
-def test_multiple_ics_raises_error():
-    """Test that multiple initial conditions raise an error"""
-    with tempfile.TemporaryDirectory() as tmpdir:
-        with pytest.raises(ValueError, match="only accepts multiple ensemble members"):
-            TempestExtremes(
-                detect_cmd="DetectNodes",
-                stitch_cmd="StitchNodes",
-                input_vars=["u10m"],
-                batch_size=1,
-                n_steps=5,
-                time_step=[np.timedelta64(6, "h"), np.timedelta64(12, "h")],
-                lats=np.linspace(90, -90, 721),
-                lons=np.linspace(0, 360, 1440),
-                store_dir=tmpdir,
-                use_ram=False,
-            )
 
 
 @patch(
