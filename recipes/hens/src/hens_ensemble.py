@@ -13,29 +13,35 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+# type: ignore
 import os
+from collections import OrderedDict
 from collections.abc import Iterator
 from datetime import datetime
 from math import ceil
+from typing import Any
 
 import numpy as np
 import torch
 import xarray as xr
 from loguru import logger
+from physicsnemo.distributed import DistributedManager
 from tqdm import tqdm
 
 from earth2studio.data import DataSource, fetch_data
 from earth2studio.io import IOBackend
-from earth2studio.models.dx import DiagnosticModel, CorrDiff
+from earth2studio.models.dx import DiagnosticModel
 from earth2studio.models.px import PrognosticModel
 from earth2studio.perturbation import Perturbation
 from earth2studio.utils.coords import CoordSystem, map_coords, split_coords
 from earth2studio.utils.time import to_time_array
 
-from physicsnemo.distributed import DistributedManager
-
-from .hens_utilities import TCTracking, cat_coords, get_batchid_from_ensid, save_corrdiff_output
+from .hens_utilities import (
+    TCTracking,
+    cat_coords,
+    get_batchid_from_ensid,
+    save_corrdiff_output,
+)
 from .hens_utilities_reproduce import calculate_torch_seed
 
 logger.remove()
@@ -84,6 +90,7 @@ class EnsembleBase:
     pkg : str
         Model package name, used for naming the output files for cyclone tracking.
     """
+
     def __init__(
         self,
         time: list[str] | list[datetime] | list[np.datetime64],
@@ -115,16 +122,15 @@ class EnsembleBase:
         self.perturbation = perturbation
         self.base_seed_string = base_seed_string
         self.pkg = pkg.split("/")[-1].split("seed")[-1]
-        self.device = device
         self.cd_model_dict = cd_model_dict
         self.prognostic = prognostic
         self.prognositc_ic = None
         self.dx_model_dict = dx_model_dict
-        self.dx_ic_dict = {}
-        self.cd_ic_dict = {}
+        self.dx_ic_dict: dict[str, OrderedDict[str, Any]] = {}
+        self.cd_ic_dict: dict[str, OrderedDict[str, Any]] = {}
         self.cyclone_tracking = cyclone_tracking
         self.cyclone_tracking_ic = None
-        
+
         # Build the output path dict for CorrDiff models from the wrappers
         if self.cd_model_dict:
             self.corrdiff_out_path_dict = {
@@ -145,7 +151,7 @@ class EnsembleBase:
         self.ic = time[0]
 
         # Load model onto the device
-        self.move_models_to_device()
+        self.move_models_to_device(device=device)
 
         # Fetch data from data source and load onto device
         self.fetch_ics(data=data, time=time)
@@ -160,6 +166,7 @@ class EnsembleBase:
 
     def move_models_to_device(
         self,
+        device: torch.device | None = None,
     ) -> None:
         """Moves model dictionary to device
 
@@ -177,15 +184,14 @@ class EnsembleBase:
         self.device = (
             device
             if device is not None
-            else torch.device(DistributedManager().device if torch.cuda.is_available() else "cpu")
-        )
-        if self.device is not None:
-            self.device = (
-                torch.device("cuda" if torch.cuda.is_available() else "cpu")
+            else torch.device(
+                DistributedManager().device if torch.cuda.is_available() else "cpu"
             )
+        )
+
         logger.info(f"Inference device: {self.device}")
         self.prognostic.to(self.device)
-        self.prognositc_ic = self.prognostic.input_coords()
+        self.prognositc_ic: OrderedDict[str, Any] = self.prognostic.input_coords()
 
         for k, dx_model in self.dx_model_dict.items():
             dx_model.to(self.device)
@@ -366,7 +372,10 @@ class EnsembleBase:
                 self.cyclone_tracking.reset_path_buffer()
 
             if self.cd_model_dict:
-                cd_output_dict = {cd_name: {"coords":None, "output":[]} for cd_name in self.cd_model_dict}
+                cd_output_dict = {
+                    cd_name: {"coords": None, "output": []}
+                    for cd_name in self.cd_model_dict
+                }
 
             with tqdm(
                 total=self.nsteps + 1,
@@ -389,19 +398,26 @@ class EnsembleBase:
                     for cd_name, cd_model in self.cd_model_dict.items():
                         yy, codia = map_coords(xx, coords, self.cd_ic_dict[cd_name])
                         yy, codib = cd_model(yy, codia)
-                        
+
                         # Online concat for output (along lead_time axis=2)
                         cd_output_dict[cd_name]["output"].append(yy)
-                        
+
                         # Online concat for coords: only 'lead_time' is concatenated, others are kept from first step
                         if cd_output_dict[cd_name]["coords"] is None:
-                            cd_output_dict[cd_name]["coords"] = {k: v for k, v in codib.items()}
+                            cd_output_dict[cd_name]["coords"] = {
+                                k: v for k, v in codib.items()
+                            }
                         else:
                             # Only concatenate 'lead_time'
-                            cd_output_dict[cd_name]["coords"]["lead_time"] = np.concatenate([
-                                cd_output_dict[cd_name]["coords"]["lead_time"], codib["lead_time"]
-                            ])
-                        
+                            cd_output_dict[cd_name]["coords"]["lead_time"] = (
+                                np.concatenate(
+                                    [
+                                        cd_output_dict[cd_name]["coords"]["lead_time"],
+                                        codib["lead_time"],
+                                    ]
+                                )
+                            )
+
                     if self.cyclone_tracking:
                         # Delete lead_time, no need for it in the tc tracks since
                         # steps are present in the tracks
@@ -437,12 +453,14 @@ class EnsembleBase:
                 tracks_da.to_netcdf(
                     os.path.join(self.cyclone_tracking_out_path, file_name)
                 )
-            
+
             # After batch loop, save CorrDiff outputs
             if self.cd_model_dict:
                 ic_str = np.datetime_as_string(self.ic, unit="s")
                 for cd_name, cd_data in cd_output_dict.items():
-                    out_path = self.corrdiff_out_path_dict.get(cd_name, "./corrdiff_outputs")
+                    out_path = self.corrdiff_out_path_dict.get(
+                        cd_name, "./corrdiff_outputs"
+                    )
                     os.makedirs(out_path, exist_ok=True)
                     # Add project name to the filename
                     file_name = f"corrdiff_{cd_name}_pkg_{self.pkg}_{ic_str}_batch_{batch_id}.nc"

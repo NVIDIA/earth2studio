@@ -13,7 +13,7 @@ forecast_model:
     max_num_checkpoints: 2 # max number of checkpoints which will be used
 
 corrdiff_models:
-    wind: 
+    wind:
         architecture: earth2studio.models.dx.CorrDiff
         package: mini_package
         path: /output/

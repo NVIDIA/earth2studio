@@ -31,8 +31,8 @@ from physicsnemo.distributed import DistributedManager
 from earth2studio.data import DataSource
 from earth2studio.io import IOBackend, KVBackend, XarrayBackend
 from earth2studio.models.auto import Package
-from earth2studio.models.px import PrognosticModel
 from earth2studio.models.dx import CorrDiff
+from earth2studio.models.px import PrognosticModel
 from earth2studio.perturbation import Perturbation
 from earth2studio.utils.coords import CoordSystem, map_coords
 from earth2studio.utils.time import to_time_array
@@ -346,6 +346,7 @@ class TCTracking:
         self.tracker = hydra.utils.instantiate(tracking_cfg.tracker)
         self.out_path = os.path.abspath(os.path.join(tracking_cfg.path, "cyclones"))
 
+
 class Downscaling:
     """Class that stores the CorrDiff downscaling model and the output location.
 
@@ -354,14 +355,17 @@ class Downscaling:
     corrdiff : CorrDiff
     path: str
     """
+
     def __init__(self, corrdiff: CorrDiff, path: str) -> None:
         self.corrdiff = corrdiff
         self.out_path = os.path.abspath(path)
+
 
 def initialise(
     cfg: DictConfig,
 ) -> tuple[
     list[Any],
+    dict[Any, Any],
     dict[Any, Any],
     dict[Any, Any],
     TCTracking | None,
@@ -519,6 +523,7 @@ def initialize_diagnostic_models(cfg: DictConfig) -> dict:
             dx_model_dict[k] = dx_model
     return dx_model_dict
 
+
 def initialize_corrdiff_models(cfg: DictConfig) -> dict:
     """Initialize corrdiff models based on the provided configuration.
 
@@ -540,7 +545,7 @@ def initialize_corrdiff_models(cfg: DictConfig) -> dict:
                 cd_model = hydra.utils.get_class(cfg_cd_model.architecture)
                 if "package" in cfg_cd_model:
                     if cfg_cd_model.package == "default":
-                        package = dx_model.load_default_package()
+                        package = cd_model.load_default_package()
                     else:
                         package = Package(cfg_cd_model.package)
                 else:
@@ -1067,10 +1072,8 @@ def cat_coords(
 
     return zz, coords
 
-def save_corrdiff_output(
-    cd_output_dict: dict,
-    save_path: str
-) -> None:
+
+def save_corrdiff_output(cd_output_dict: dict, save_path: str) -> None:
     """
     Save CorrDiff model output to a NetCDF file as a Dataset with one variable per CorrDiff output.
 
@@ -1084,27 +1087,27 @@ def save_corrdiff_output(
     cd_coords = cd_output_dict["coords"]
     cd_tensor = torch.cat(cd_output_dict["output"], dim=2).cpu().numpy()
 
-    lat = cd_coords['lat']
-    lon = cd_coords['lon']
+    lat = cd_coords["lat"]
+    lon = cd_coords["lon"]
 
     # Use lead_time from coords if present, else fallback to range
-    lead_time = cd_coords.get('lead_time', np.arange(cd_tensor.shape[2]))
+    lead_time = cd_coords.get("lead_time", np.arange(cd_tensor.shape[2]))
 
     # Handle both 1D and 2D lat/lon
     if lat.ndim == 2 and lon.ndim == 2:
-        spatial_dims = ('y', 'x')
-        lat_coord = (spatial_dims, lat)
-        lon_coord = (spatial_dims, lon)
-        dims = ['ensemble','time','lead_time','sample','y','x']
+        spatial_dims = ("y", "x")
+        lat_coord = (spatial_dims, lat)  # type: ignore
+        lon_coord = (spatial_dims, lon)  # type: ignore
+        dims = ["ensemble", "time", "lead_time", "sample", "y", "x"]
     elif lat.ndim == 1 and lon.ndim == 1:
-        lat_coord = ('y', lat)
-        lon_coord = ('x', lon)
-        dims = ['ensemble','time','lead_time','sample','y','x']
+        lat_coord = ("y", lat)  # type: ignore
+        lon_coord = ("x", lon)  # type: ignore
+        dims = ["ensemble", "time", "lead_time", "sample", "y", "x"]
     else:
         raise ValueError("lat/lon must both be 1D or both be 2D arrays.")
 
     # Remove the variable dimension and create a Dataset with one variable per CorrDiff output
-    variables = cd_coords['variable']
+    variables = cd_coords["variable"]
     dataset_vars = {}
     for i, var in enumerate(variables):
         # Select only the i-th variable from the variable dimension (axis 4)
@@ -1113,17 +1116,14 @@ def save_corrdiff_output(
 
     # Build coordinates dict (excluding 'variable')
     coords = {
-        'ensemble': ('ensemble',  cd_coords['ensemble']),
-        'time':     ('time',      cd_coords['time']),
-        'lead_time':('lead_time', lead_time),
-        'sample':   ('sample',    cd_coords['sample']),
-        'lat': lat_coord,
-        'lon': lon_coord
+        "ensemble": ("ensemble", cd_coords["ensemble"]),
+        "time": ("time", cd_coords["time"]),
+        "lead_time": ("lead_time", lead_time),
+        "sample": ("sample", cd_coords["sample"]),
+        "lat": lat_coord,
+        "lon": lon_coord,
     }
 
-    ds = xr.Dataset(
-        data_vars=dataset_vars,
-        coords=coords
-    )
+    ds = xr.Dataset(data_vars=dataset_vars, coords=coords)
 
     ds.to_netcdf(save_path)

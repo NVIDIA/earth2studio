@@ -21,7 +21,6 @@ from omegaconf import DictConfig
 
 from earth2studio.data.base import DataSource
 from earth2studio.models.dx.base import DiagnosticModel
-from earth2studio.models.dx.corrdiff import CorrDiff
 from src.hens_ensemble import EnsembleBase
 from src.hens_perturbation import HENSPerturbation
 from src.hens_utilities import (
