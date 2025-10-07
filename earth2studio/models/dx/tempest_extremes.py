@@ -693,6 +693,7 @@ class AsyncTempestExtremes(TempestExtremes):
         self._dump_in_progress = threading.Event()
         self._dump_in_progress.set()  # Initially no dump in progress
         self._has_failed = False  # Track if any previous task failed
+        self._cleanup_done = False  # Track if cleanup has been performed
 
 
     def record_state(self, xx: torch.Tensor, coords: CoordSystem) -> None:
@@ -937,16 +938,126 @@ class AsyncTempestExtremes(TempestExtremes):
             print("No background tasks to wait for.")
 
 
-    def __del__(self) -> None:
-        """Destructor that ensures all processes have finished before the class gets destroyed.
+    def _process_single_member(self, ins: str, outs: str, node_file: str, track_file: str) -> None:
+        """Process a single ensemble member (detect + stitch).
 
-        This method performs cleanup operations when the object is being destroyed,
-        ensuring all background tasks complete and resources are properly released.
+        This method is designed to run in a separate thread for parallel processing
+        of ensemble members.
+
+        Parameters
+        ----------
+        ins : str
+            Path to input file list for this member
+        outs : str
+            Path to output file list for this member
+        node_file : str
+            Path to node file for this member
+        track_file : str
+            Path to track file for this member
+
+        Raises
+        ------
+        ChildProcessError
+            If TempestExtremes detect or stitch operations fail
         """
+        then = time.time()
+
+        # detect nodes
+        self.run_te(command=self.detect_cmd + ['--in_data_list', ins, '--out_file_list', outs],
+                    print_output=self.print_te_output)
+
+        # stitch them together
+        self.run_te(command=self.stitch_cmd + ['--in', node_file, '--out', track_file],
+                    print_output=self.print_te_output)
+
+        if self.print_te_output:
+            print(f'took {(time.time() - then):.1f}s to track cyclones for one member')
+
+
+    def track_cyclones(self, out_file_names=None) -> None:
+        """Execute cyclone tracking with parallel processing per ensemble member.
+
+        This override of the parent method dumps data synchronously (within this thread),
+        then spawns separate threads for each ensemble member's processing. This allows
+        multiple ensemble members to be processed in parallel while avoiding race
+        conditions during data dumping.
+
+        Uses a dedicated local thread pool for member processing to avoid conflicts
+        with the global executor during shutdown.
+
+        Parameters
+        ----------
+        out_file_names : list of str, optional
+            Custom output file names for each ensemble member
+
+        Raises
+        ------
+        ChildProcessError
+            If TempestExtremes detect or stitch operations fail for any member
+        """
+        then = time.time()
+
+        # Dump data and setup files (synchronous within this thread to avoid race conditions)
+        insies, outsies, node_files, self.track_files = self.setup_files(out_file_names)
+
+        # Create a dedicated local thread pool for member processing
+        # This avoids conflicts with the global executor during shutdown
+        n_members = len(insies)
+        max_workers = min(n_members, os.cpu_count() or 1)
+
+        with ThreadPoolExecutor(max_workers=max_workers, thread_name_prefix="te_members") as executor:
+            # Submit one task per member to process in parallel
+            member_futures = []
+
+            for ins, outs, node_file, track_file in zip(insies, outsies, node_files, self.track_files):
+                future = executor.submit(self._process_single_member, ins, outs, node_file, track_file)
+                member_futures.append(future)
+
+            # Wait for all members to complete
+            exceptions = []
+            for i, future in enumerate(member_futures):
+                try:
+                    future.result()  # This will raise if the task failed
+                except Exception as e:
+                    print(f"Member {i+1} processing failed: {e}")
+                    exceptions.append((i, e))
+
+        # Raise if any failed
+        if exceptions:
+            error_msg = f"Processing failed for {len(exceptions)} member(s): {exceptions}"
+            raise ChildProcessError(error_msg)
+
+        # Clean up after all are done
+        self.tidy_up(insies, outsies)
+
+        print(f'took {(time.time() - then):.1f}s to track cyclones for all {len(member_futures)} members')
+
+
+    def cleanup(self, timeout_per_task: int = 360) -> None:
+        """Explicitly clean up and wait for all background tasks to complete.
+
+        This method should be called before the object is destroyed or the program exits
+        to ensure all cyclone tracking tasks complete successfully.
+
+        Parameters
+        ----------
+        timeout_per_task : int, optional
+            Timeout in seconds for each task, by default 360
+
+        Raises
+        ------
+        ChildProcessError
+            If any background task failed
+        Exception
+            If any task failed with other exceptions
+        """
+        if self._cleanup_done:
+            return
+
         try:
             # Wait for any ongoing dump to complete
             if hasattr(self, '_dump_in_progress'):
-                self._dump_in_progress.wait(timeout=60)  # Max 1 minute wait
+                self._dump_in_progress.wait(timeout=60)
 
             # Wait for all instance tasks to complete
             if hasattr(self, '_instance_tasks') and hasattr(self, '_instance_lock'):
@@ -954,18 +1065,42 @@ class AsyncTempestExtremes(TempestExtremes):
                     tasks_to_wait = list(self._instance_tasks)
 
                 if tasks_to_wait:
-                    print(f"AsyncTempestExtremes is waiting for {len(tasks_to_wait)} tasks to complete...")
+                    print(f"AsyncTempestExtremes: waiting for {len(tasks_to_wait)} background tasks to complete...")
 
-                    for future in tasks_to_wait:
+                    for i, future in enumerate(tasks_to_wait):
                         try:
-                            future.result(timeout=30)  # Shorter timeout in destructor
+                            print(f"  Waiting for task {i+1}/{len(tasks_to_wait)}...")
+                            future.result(timeout=timeout_per_task)
+                            print(f"  Task {i+1}/{len(tasks_to_wait)} completed successfully")
                         except ChildProcessError as e:
-                            print(f"Task failed during cleanup with ChildProcessError: {e}")
-                            # Note: In destructor, we log but don't re-raise to avoid issues
+                            print(f"  Task {i+1}/{len(tasks_to_wait)} failed with ChildProcessError: {e}")
+                            raise  # Re-raise to propagate the error
                         except Exception as e:
-                            print(f"Task failed during cleanup: {e}")
+                            print(f"  Task {i+1}/{len(tasks_to_wait)} failed: {e}")
+                            raise  # Re-raise to propagate the error
+
+                    print(f"All {len(tasks_to_wait)} background tasks completed successfully")
+
+            self._cleanup_done = True
+
+        except Exception as e:
+            self._cleanup_done = True  # Mark as done even on failure to avoid retry
+            raise
+
+
+    def __del__(self) -> None:
+        """Destructor that ensures all processes have finished before the class gets destroyed.
+
+        This method performs cleanup operations when the object is being destroyed,
+        ensuring all background tasks complete and resources are properly released.
+        """
+        try:
+            if not self._cleanup_done:
+                print("AsyncTempestExtremes: Destructor called - cleaning up background tasks...")
+                self.cleanup(timeout_per_task=30)  # Shorter timeout in destructor
         except Exception as e:
             print(f"Error in AsyncTempestExtremes destructor: {e}")
+            # Note: In destructor, we log but don't re-raise to avoid issues during interpreter shutdown
 
 
     def __call__(self, out_file_names=None) -> Future:
