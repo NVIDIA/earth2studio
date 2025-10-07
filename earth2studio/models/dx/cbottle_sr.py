@@ -43,6 +43,7 @@ try:
         StackedRandomGenerator,
         edm_sampler,
         edm_sampler_from_sigma,
+        few_step_sampler,
     )
     from earth2grid import healpix
 except ImportError:
@@ -120,6 +121,9 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
         Number of diffusion steps, by default 18
     sigma_max : int, optional
         Maximum noise level for diffusion process, by default 800
+    distilled_model : bool, optional
+        Whether to use the distilled model, by default False. If True, the model will use the distilled model
+        that is trained to generate with fewer sampler steps. This will change the underlying sampler used for generation.
     seed : int, optional
         Random generator seed for latent variables, by default None
     """
@@ -132,6 +136,7 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
         super_resolution_window: None | tuple[int, int, int, int] = None,
         sampler_steps: int = 18,
         sigma_max: int = 800,
+        distilled_model: bool = False,
         seed: int | None = None,
     ):
         super().__init__()
@@ -159,6 +164,9 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
 
         # Super resolution window
         self.super_resolution_window = super_resolution_window
+
+        # Distilled model
+        self.distilled_model = distilled_model
 
         # Setup output coordinates based on output type
         if self.output_type == "latlon":
@@ -382,6 +390,7 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
         super_resolution_window: None | tuple[int, int, int, int] = None,
         sampler_steps: int = 18,
         sigma_max: int = 800,
+        distilled_model: bool = False,
         seed: int | None = None,
     ) -> DiagnosticModel:
         """Load diagnostic model from package
@@ -402,6 +411,9 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
             Number of diffusion steps, by default 18
         sigma_max : float, optional
             Noise amplitude used to generate latent variables, by default 800
+        distilled_model : bool, optional
+            Whether to use the distilled model, by default False. If True, the model will use the distilled model
+            that is trained to generate with fewer sampler steps. This will change the underlying sampler used for generation.
         seed : int, optional
             Random generator seed for latent variables, by default None
 
@@ -411,7 +423,13 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
             Diagnostic model
         """
 
-        with Checkpoint(package.resolve("cBottle-SR.zip")) as checkpoint:
+        if not distilled_model:
+            checkpoint_name = "cBottle-SR.zip"
+        else:
+            checkpoint_name = "cBottle-SR-Distill.zip"
+
+        with Checkpoint(package.resolve(checkpoint_name)) as checkpoint:
+            print(checkpoint)
             core_model = checkpoint.read_model()
 
         core_model.eval()
@@ -483,12 +501,21 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
             denoiser.sigma_min = self.core_model.sigma_min  # type: ignore[attr-defined]
             denoiser.round_sigma = self.core_model.round_sigma  # type: ignore[attr-defined]
 
-            pred = edm_sampler(
-                denoiser,
-                latents,
-                num_steps=self.sampler_steps,
-                sigma_max=self.sigma_max,
-            )
+            if not self.distilled_model:
+                pred = edm_sampler(
+                    denoiser,
+                    latents,
+                    num_steps=self.sampler_steps,
+                    sigma_max=self.sigma_max,
+                )
+            else:
+                pred = few_step_sampler(
+                    denoiser,
+                    latents,
+                    num_steps=self.sampler_steps,
+                    sigma_max=self.sigma_max,
+                    sigma_mid=[self.sigma_max / 80 * 1.5],
+                )
 
         # Unnormalize
         pred = pred[0] * self.scale.to(x.device) + self.center.to(x.device)
