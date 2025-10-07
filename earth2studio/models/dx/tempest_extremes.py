@@ -1,28 +1,29 @@
+import atexit
+import copy
 import os
 import shutil
-import time
-import copy
-import numpy as np
-import atexit
 import threading
-import torch
-
+import time
 from collections import OrderedDict
+from concurrent.futures import Future, ThreadPoolExecutor
 from subprocess import run
-from concurrent.futures import ThreadPoolExecutor, Future
-from typing import Optional, Tuple, Dict, List, Any, Union
+from typing import Any
 
+import numpy as np
+import torch
 from physicsnemo.distributed import DistributedManager
+
 from earth2studio.io import KVBackend
 from earth2studio.utils.coords import CoordSystem, map_coords, split_coords
+from earth2studio.utils.imports import (
+    OptionalDependencyFailure,
+    check_optional_dependencies,
+)
 
-from earth2studio.utils.imports import OptionalDependencyFailure, check_optional_dependencies
 
-
-def tile_xx_to_yy(xx: torch.Tensor,
-                  xx_coords: CoordSystem,
-                  yy: torch.Tensor,
-                  yy_coords: CoordSystem) -> Tuple[torch.Tensor, CoordSystem]:
+def tile_xx_to_yy(
+    xx: torch.Tensor, xx_coords: CoordSystem, yy: torch.Tensor, yy_coords: CoordSystem
+) -> tuple[torch.Tensor, CoordSystem]:
     """Tile tensor xx to match the leading dimensions of tensor yy.
 
     Parameters
@@ -173,22 +174,24 @@ class TempestExtremes:
         Additional keyword arguments for robustness
     """
 
-    def __init__(self,
-                 detect_cmd: str,
-                 stitch_cmd: str,
-                 input_vars: List[str],
-                 batch_size: int,
-                 n_steps: int,
-                 time_step: np.ndarray | List[np.timedelta64] | np.timedelta64,
-                 lats: np.ndarray | torch.Tensor,
-                 lons: np.ndarray | torch.Tensor,
-                 static_vars: Optional[torch.Tensor] = None,
-                 static_coords: Optional[Dict] = None,
-                 store_dir: Optional[str] = None,
-                 keep_raw_data: bool = False,
-                 print_te_output: bool = False,
-                 use_ram: bool = True,
-                 **kwargs): # leave kwars to make call robust to switching between this and async version
+    def __init__(
+        self,
+        detect_cmd: str,
+        stitch_cmd: str,
+        input_vars: list[str],
+        batch_size: int,
+        n_steps: int,
+        time_step: np.ndarray | list[np.timedelta64] | np.timedelta64,
+        lats: np.ndarray | torch.Tensor,
+        lons: np.ndarray | torch.Tensor,
+        store_dir: str,
+        static_vars: torch.Tensor | None = None,
+        static_coords: dict | None = None,
+        keep_raw_data: bool = False,
+        print_te_output: bool = False,
+        use_ram: bool = True,
+        **kwargs: Any,
+    ):  # leave kwars to make call robust to switching between this and async version
 
         self.rank = DistributedManager().rank
         self.print_te_output = print_te_output
@@ -203,11 +206,16 @@ class TempestExtremes:
         self.lons = lons
 
         if isinstance(self.time_step, np.ndarray) or isinstance(self.time_step, list):
-            assert(len(self.time_step)==1)
+            if not len(self.time_step) == 1:
+                raise ValueError(
+                    "TempestExtremes connector currently only accepts multiple ensemble members from a single ICs."
+                )
             self.time_step = self.time_step[0]
-        if (static_vars==None) != (static_coords==None):
-            raise ValueError("provide both values and coords for static fields or don't." +
-                             " currently, only one of them is provided")
+        if (static_vars is None) != (static_coords is None):
+            raise ValueError(
+                "provide both values and coords for static fields or don't."
+                + " currently, only one of them is provided"
+            )
 
         self.format_tempestextremes_commands(detect_cmd, stitch_cmd)
 
@@ -220,7 +228,6 @@ class TempestExtremes:
         self.setup_output_directories(use_ram, store_dir)
 
         return
-
 
     def format_tempestextremes_commands(self, detect_cmd: str, stitch_cmd: str) -> None:
         """Format TempestExtremes commands by removing input/output file arguments.
@@ -236,25 +243,35 @@ class TempestExtremes:
         self.detect_cmd = detect_cmd.split(" ")
         self.stitch_cmd = stitch_cmd.split(" ")
 
-        self.detect_cmd = self.remove_arguments(self.detect_cmd, ['--in_data_list', '--out_file_list'])
-        self.stitch_cmd = self.remove_arguments(self.stitch_cmd, ['--in', '--out'])
+        self.detect_cmd = self.remove_arguments(
+            self.detect_cmd, ["--in_data_list", "--out_file_list"]
+        )
+        self.stitch_cmd = self.remove_arguments(self.stitch_cmd, ["--in", "--out"])
 
         return
 
+    def check_tempest_extremes_availability(self) -> None:
+        """Check if TempestExtremes executables are available on the system.
 
-    def check_tempest_extremes_availability(self):
+        Verifies that both detect and stitch commands can be executed by attempting
+        to run them. If either command fails, raises an OptionalDependencyFailure.
+
+        Raises
+        ------
+        OptionalDependencyFailure
+            If TempestExtremes executables are not available or cannot be executed
+        """
         for cmd in (self.detect_cmd[0], self.stitch_cmd[0]):
             try:
-                run(cmd, capture_output=True)
-            except:
+                run(cmd, capture_output=True)  # noqa: S603
+            except Exception as _:
                 # TODO discuss implementation of below before merging
                 OptionalDependencyFailure("tempest_extremes")
 
         return
 
-
     @staticmethod
-    def remove_arguments(cmd: List[str], args: List[str]) -> List[str]:
+    def remove_arguments(cmd: list[str], args: list[str]) -> list[str]:
         """Remove specified arguments from command list.
 
         Parameters
@@ -272,17 +289,14 @@ class TempestExtremes:
         for arg in args:
             if arg in cmd:
                 remove = [cmd.index(arg)]
-                if len(cmd) > remove[0]+1:
-                    if not cmd[remove[0]+1].startswith('--'):
-                        remove.append(remove[0]+1)
+                if len(cmd) > remove[0] + 1:
+                    if not cmd[remove[0] + 1].startswith("--"):
+                        remove.append(remove[0] + 1)
                 cmd = [_arg for ii, _arg in enumerate(cmd) if ii not in remove]
 
         return cmd
 
-
-    def setup_output_directories(self,
-                                 use_ram: bool,
-                                 store_dir: Optional[str]) -> None:
+    def setup_output_directories(self, use_ram: bool, store_dir: str) -> None:
         """Set up output directories for final data storage and for storing
         auxiliary files.
 
@@ -293,24 +307,29 @@ class TempestExtremes:
         store_dir : Optional[str]
             Base storage directory path
         """
-        self.store_dir = os.path.abspath(os.path.join(store_dir, 'cyclone_tracks_te'))
+        self.store_dir = os.path.abspath(os.path.join(store_dir, "cyclone_tracks_te"))
 
-        if self.rank==0:
-            os.makedirs(self.store_dir, exist_ok=True) # output for track data
+        if self.rank == 0:
+            os.makedirs(self.store_dir, exist_ok=True)  # output for track data
             if self.keep_raw:
-                os.makedirs(os.path.join(self.store_dir, 'raw_data'), exist_ok=True) # output for raw data
+                os.makedirs(
+                    os.path.join(self.store_dir, "raw_data"), exist_ok=True
+                )  # output for raw data
 
         if use_ram:
-            self.ram_dir = os.path.join('/dev/shm', 'cyclone_tracking')
-            if DistributedManager().local_rank==0:
-                os.makedirs(self.ram_dir, exist_ok=True) # RAM location for processing fields
+            self.ram_dir = os.path.join("/dev/shm", "cyclone_tracking")  # noqa: S108
+            if DistributedManager().local_rank == 0:
+                os.makedirs(
+                    self.ram_dir, exist_ok=True
+                )  # RAM location for processing fields
         else:
-            self.ram_dir = os.path.join(self.store_dir, 'raw_data')
-            if self.rank==0:
-                os.makedirs(self.ram_dir, exist_ok=True) # disk location for processing fields
+            self.ram_dir = os.path.join(self.store_dir, "raw_data")
+            if self.rank == 0:
+                os.makedirs(
+                    self.ram_dir, exist_ok=True
+                )  # disk location for processing fields
 
         return
-
 
     @check_optional_dependencies()
     def initialise_store_coords(self) -> None:
@@ -322,21 +341,22 @@ class TempestExtremes:
         # extract time step in case it's passed as list or array
         _input_vars = self.input_vars
         if self.static_coords:
-            _input_vars = np.array(list(self.input_vars) + list(self.static_coords['variable']))
+            _input_vars = np.array(
+                list(self.input_vars) + list(self.static_coords["variable"])
+            )
 
         self._store_coords = OrderedDict(
             {
-                'lead_time': np.asarray(
-                                    [self.time_step * i for i in range(self.n_steps + 1)]
-                                ).flatten(),
-                'variable': np.array(_input_vars),
-                'lat': np.array(self.lats),
-                'lon': np.array(self.lons),
+                "lead_time": np.asarray(
+                    [self.time_step * i for i in range(self.n_steps + 1)]
+                ).flatten(),
+                "variable": np.array(_input_vars),
+                "lat": np.array(self.lats),
+                "lon": np.array(self.lons),
             }
         )
 
         return
-
 
     @property
     def input_coords(self) -> OrderedDict:
@@ -348,21 +368,19 @@ class TempestExtremes:
             Coordinate system for input data
         """
         return OrderedDict(
-                            {
-                                'time': np.empty(0),
-                                'lead_time': np.asarray(
-                                                    [self.time_step * i for i in range(self.n_steps + 1)]
-                                                ).flatten(),
-                                'variable': np.array(self.input_vars),
-                                'lat': np.array(self.lats),
-                                'lon': np.array(self.lons),
-                            }
-                          )
-
+            {
+                "time": np.empty(0),
+                "lead_time": np.asarray(
+                    [self.time_step * i for i in range(self.n_steps + 1)]
+                ).flatten(),
+                "variable": np.array(self.input_vars),
+                "lat": np.array(self.lats),
+                "lon": np.array(self.lons),
+            }
+        )
 
     def initialise_te_kvstore(self) -> None:
-        """Initialize the KV store that stores model output in TE compatible format.
-        """
+        """Initialize the KV store that stores model output in TE compatible format."""
         # create store
         self.store = KVBackend()
 
@@ -371,7 +389,7 @@ class TempestExtremes:
         out_vars = oco.pop("variable")
 
         oco["time"] = np.array([None])
-        oco["ensemble"] = np.array([None]*self.batch_size)
+        oco["ensemble"] = np.array([None] * self.batch_size)
         oco.move_to_end("time", last=False)
         oco.move_to_end("ensemble", last=False)
 
@@ -379,8 +397,7 @@ class TempestExtremes:
 
         return
 
-
-    def dump_raw_data(self) -> str:
+    def dump_raw_data(self) -> tuple[list[str], np.ndarray]:
         """Dump raw data from store to NetCDF file.
 
         Morphs the store to TempestExtremes-compatible [time, lat, lon] structure
@@ -391,26 +408,30 @@ class TempestExtremes:
         str
             Path to the created NetCDF file
         """
-        if len(self.store.coords['time']) > 1:
-            raise ValueError('Currently, TempestExtremes interface only works for single IC per evaluation cycle.')
+        if len(self.store.coords["time"]) > 1:
+            raise ValueError(
+                "Currently, TempestExtremes interface only works for single IC per evaluation cycle."
+            )
 
-        ic = self.store.coords['time'][0]
-        mems = self.store.coords['ensemble']
+        ic = self.store.coords["time"][0]
+        mems = self.store.coords["ensemble"]
 
         # morph store to tempes extremes-compatible [time, lat, lon] structure
-        lead_times = self.store.coords.pop('lead_time')
-        self.store.coords['time'] = [ic + lt for lt in lead_times]
+        lead_times = self.store.coords.pop("lead_time")
+        self.store.coords["time"] = [ic + lt for lt in lead_times]
 
         for var in self.store.root.keys():
-            self.store.root[var] = self.store.root[var].squeeze((1))
-            self.store.dims[var]=['ensemble', 'time', 'lat', 'lon']
+            self.store.root[var] = self.store.root[var].squeeze(1)
+            self.store.dims[var] = ["ensemble", "time", "lat", "lon"]
 
         # for each member, write te compatible nc file
         raw_files = []
 
         # in case last batch has less ensemble members than batch size, expand coords of store so to_xarray() does not fail
         if len(mems) < self.batch_size:
-            self.store.coords['ensemble'] = list(self.store.coords['ensemble']) + [None]*(self.batch_size - len(mems))
+            self.store.coords["ensemble"] = list(self.store.coords["ensemble"]) + [
+                None
+            ] * (self.batch_size - len(mems))
 
         for mem in mems:
             raw_dat = f"{np.datetime_as_string(ic, unit='s')}_mem_{mem:04d}.nc"
@@ -418,7 +439,7 @@ class TempestExtremes:
             raw_files.append(raw_dat)
             kw_args = {"path": raw_dat, "format": "NETCDF4", "mode": "w"}
 
-            _store = self.store.to_xarray().sel(ensemble=mem).drop_vars('ensemble')
+            _store = self.store.to_xarray().sel(ensemble=mem).drop_vars("ensemble")
             _store.to_netcdf(**kw_args)
 
         # new clean store
@@ -426,40 +447,51 @@ class TempestExtremes:
 
         return raw_files, mems
 
-
-    def setup_files(self, out_file_names=None) -> Tuple[str, str, str, str]:
+    def setup_files(
+        self, out_file_names: list[str] | None = None
+    ) -> tuple[list[str], list[str], list[str], list[str]]:
         """Set up input and output files for TE processing.
 
         Creates necessary file lists and paths for TE detect and stitch operations.
 
         Returns
         -------
-        Tuple[str, str, str, str]
+        tuple[list[str], list[str], list[str], list[str]]
             Tuple containing (input_file_list, output_file_list, node_file, track_file)
         """
         # write store to in-memory file
         raw_files, mems = self.dump_raw_data()
 
         # make sure if file names are passed that there's one per member
-        if out_file_names:
+        if out_file_names is not None:
             if len(out_file_names) != len(mems):
-                raise ValueError(f'{len(out_file_names)} passed for {len(mems)} ensemble members')
+                raise ValueError(
+                    f"{len(out_file_names)} passed for {len(mems)} ensemble members"
+                )
 
         ins, outs, node_files, track_files = [], [], [], []
         for ii, (mem, raw_dat) in enumerate(zip(mems, raw_files)):
             # in_files to file
-            _ins = os.path.join(self.ram_dir, f'input_files_{self.rank:04d}_mem_{mem:05d}.txt')
-            with open(_ins, 'w') as fl:
-                fl.write(raw_dat + '\n')
+            _ins = os.path.join(
+                self.ram_dir, f"input_files_{self.rank:04d}_mem_{mem:05d}.txt"
+            )
+            with open(_ins, "w") as fl:
+                fl.write(raw_dat + "\n")
 
-            _outs = os.path.join(self.ram_dir, f'output_files_{self.rank:04d}_mem_{mem:05d}.txt')
+            _outs = os.path.join(
+                self.ram_dir, f"output_files_{self.rank:04d}_mem_{mem:05d}.txt"
+            )
             base_name = os.path.basename(raw_dat)
-            base_name = base_name.rsplit('.',1)[0]
-            node_file = os.path.join(self.ram_dir, base_name + f'_mem_{mem:05d}_tc_centres.txt')
-            with open(_outs, 'w') as fl:
-                fl.write(node_file + '\n')
+            base_name = base_name.rsplit(".", 1)[0]
+            node_file = os.path.join(
+                self.ram_dir, base_name + f"_mem_{mem:05d}_tc_centres.txt"
+            )
+            with open(_outs, "w") as fl:
+                fl.write(node_file + "\n")
 
-            track_file = out_file_names[ii] if out_file_names else 'tracks_' + base_name + '.csv'
+            track_file = (
+                out_file_names[ii] if out_file_names else "tracks_" + base_name + ".csv"
+            )
             track_file = os.path.join(self.store_dir, track_file)
 
             ins.append(_ins)
@@ -468,7 +500,6 @@ class TempestExtremes:
             track_files.append(track_file)
 
         return ins, outs, node_files, track_files
-
 
     def record_state(self, xx: torch.Tensor, coords: CoordSystem) -> None:
         """Record state data to the internal store.
@@ -484,15 +515,17 @@ class TempestExtremes:
             Coordinate system for the input data
         """
         # update store mem and time
-        for dim in ['time', 'ensemble']:
+        for dim in ["time", "ensemble"]:
             if not np.array_equal(self.store.coords[dim], coords[dim]):
                 self.store.coords[dim] = coords[dim]
 
         # concatenate static data
-        if self.static_coords:
+        if self.static_vars is not None:
             self.static_vars = self.static_vars.to(xx.device)
             if len(xx.shape) > len(self.static_vars.shape):
-                _static_vars, _static_coords = tile_xx_to_yy(self.static_vars, self.static_coords, xx, coords)
+                _static_vars, _static_coords = tile_xx_to_yy(
+                    self.static_vars, self.static_coords, xx, coords
+                )
             else:
                 _static_vars, _static_coords = self.static_vars, self.static_coords
             xx, coords = cat_coords(xx, coords, _static_vars, _static_coords)
@@ -503,26 +536,40 @@ class TempestExtremes:
 
         return
 
-
     @staticmethod
-    def run_te(command, print_output):
+    def run_te(command: list[str], print_output: bool) -> None:
+        """Run TempestExtremes command and handle output.
+
+        Parameters
+        ----------
+        command : list[str]
+            Command to execute as list of strings
+        print_output : bool
+            Whether to print command output to terminal
+
+        Raises
+        ------
+        ChildProcessError
+            If TempestExtremes command fails (detected by "EXCEPTION" in output)
+        """
         # detect nodes
-        out = run(command, capture_output=True)
+        out = run(command, capture_output=True)  # noqa: S603
 
         # Print output to terminal if requested
         if print_output:
-            print(out.stdout.decode('utf-8'))
+            print(out.stdout.decode("utf-8"))
 
         # unfortunately, TE does not fail with proper returncode
-        if 'EXCEPTION' in out.stdout.decode('utf-8'):
-            print(out.stdout.decode('utf-8'))
-            raise ChildProcessError(f'\nERROR: {command[0]} failed, see output above from TempestExtremes for details.')
+        if "EXCEPTION" in out.stdout.decode("utf-8"):
+            print(out.stdout.decode("utf-8"))
+            raise ChildProcessError(
+                f"\nERROR: {command[0]} failed, see output above from TempestExtremes for details."
+            )
 
         return
 
-
     @check_optional_dependencies()
-    def track_cyclones(self, out_file_names=None) -> None:
+    def track_cyclones(self, out_file_names: list[str] | None = None) -> None:
         """Execute cyclone tracking using TempestExtremes.
 
         Runs the complete tracking pipeline including node detection
@@ -538,24 +585,30 @@ class TempestExtremes:
         # set up TE helper files
         insies, outsies, node_files, self.track_files = self.setup_files(out_file_names)
 
-        for ins, outs, node_file, track_file in zip(insies, outsies, node_files, self.track_files):
+        for ins, outs, node_file, track_file in zip(
+            insies, outsies, node_files, self.track_files
+        ):
             # detect nodes
-            self.run_te(command=self.detect_cmd + ['--in_data_list', ins, '--out_file_list', outs],
-                        print_output=self.print_te_output)
+            self.run_te(
+                command=self.detect_cmd
+                + ["--in_data_list", ins, "--out_file_list", outs],
+                print_output=self.print_te_output,
+            )
 
             # stitch them together
-            self.run_te(command=self.stitch_cmd + ['--in', node_file, '--out', track_file],
-                        print_output=self.print_te_output)
+            self.run_te(
+                command=self.stitch_cmd + ["--in", node_file, "--out", track_file],
+                print_output=self.print_te_output,
+            )
 
         # remove helper files
         self.tidy_up(insies, outsies)
 
-        print(f'took {(time.time() - then):.1f}s to track cyclones')
+        print(f"took {(time.time() - then):.1f}s to track cyclones")
 
         return
 
-
-    def __call__(self, out_file_names=None) -> None:
+    def __call__(self, out_file_names: list[str] | None = None) -> None:
         """Make the class callable to execute cyclone tracking.
 
         Returns
@@ -565,8 +618,7 @@ class TempestExtremes:
         """
         return self.track_cyclones(out_file_names)
 
-
-    def tidy_up(self, insies: str, outsies: str) -> None:
+    def tidy_up(self, insies: list[str], outsies: list[str]) -> None:
         """Clean up temporary files after processing.
 
         Handles raw data files based on keep_raw_data setting and
@@ -580,24 +632,24 @@ class TempestExtremes:
             Path to output file list
         """
         for ins, outs in zip(insies, outsies):
-            with open(ins, 'r') as fl:
+            with open(ins) as fl:
                 raw_dat = fl.read().strip()
 
-            if self.keep_raw: # move field data to disk
-                out_path = os.path.join(self.store_dir, 'raw_data')
+            if self.keep_raw:  # move field data to disk
+                out_path = os.path.join(self.store_dir, "raw_data")
                 raw_dest = os.path.join(out_path, os.path.basename(raw_dat))
-                if raw_dat != raw_dest: # nothing to do if use_ram=False
+                if raw_dat != raw_dest:  # nothing to do if use_ram=False
                     if os.path.exists(raw_dest):
                         os.remove(raw_dest)
                     shutil.move(raw_dat, out_path)
-            else:             # delete field data
+            else:  # delete field data
                 os.remove(raw_dat)
 
             # delete TE helper files
             files = [ins, outs]
-            with open(outs, 'r') as fl:
-                for line in fl:
-                    files.append(line.strip())
+            with open(outs) as fl:
+                _files = [line.strip() for line in fl]
+            files.extend(_files)
 
             for file in files:
                 os.remove(file)
@@ -606,9 +658,9 @@ class TempestExtremes:
 
 
 # Global thread pool for background TempestExtremes processing
-_tempest_executor = None
-_tempest_background_tasks = []
-_tempest_executor_lock = threading.Lock()
+_tempest_executor: ThreadPoolExecutor | None = None
+_tempest_background_tasks: list[Future] = []
+_tempest_executor_lock: threading.Lock = threading.Lock()
 
 
 def get_tempest_executor() -> ThreadPoolExecutor:
@@ -618,7 +670,9 @@ def get_tempest_executor() -> ThreadPoolExecutor:
         if _tempest_executor is None:
             # Reduced worker count for long-running tasks to avoid resource exhaustion
             max_workers = min(4, os.cpu_count() or 1)
-            _tempest_executor = ThreadPoolExecutor(max_workers=max_workers, thread_name_prefix="tempest_extremes")
+            _tempest_executor = ThreadPoolExecutor(
+                max_workers=max_workers, thread_name_prefix="tempest_extremes"
+            )
             # Ensure cleanup on exit
             atexit.register(cleanup_tempest_executor)
     return _tempest_executor
@@ -645,9 +699,13 @@ def cleanup_tempest_executor(timeout_per_task: int = 360) -> None:
             child_process_errors = []
             for i, future in enumerate(_tempest_background_tasks):
                 try:
-                    future.result(timeout=timeout_per_task)  # Configurable timeout per task
+                    future.result(
+                        timeout=timeout_per_task
+                    )  # Configurable timeout per task
                 except ChildProcessError as e:
-                    print(f"Background TempestExtremes task {i+1} failed with ChildProcessError: {e}")
+                    print(
+                        f"Background TempestExtremes task {i+1} failed with ChildProcessError: {e}"
+                    )
                     child_process_errors.append(e)
                 except Exception as e:
                     print(f"Background TempestExtremes task {i+1} failed: {e}")
@@ -657,7 +715,9 @@ def cleanup_tempest_executor(timeout_per_task: int = 360) -> None:
 
             # Re-raise ChildProcessError if any occurred
             if child_process_errors:
-                raise ChildProcessError(f"One or more background TempestExtremes tasks failed: {child_process_errors}")
+                raise ChildProcessError(
+                    f"One or more background TempestExtremes tasks failed: {child_process_errors}"
+                )
 
 
 class AsyncTempestExtremes(TempestExtremes):
@@ -684,22 +744,21 @@ class AsyncTempestExtremes(TempestExtremes):
             the number of workers to this value, by default None
     """
 
-    def __init__(self, *args, **kwargs) -> None:
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         # Extract async-specific parameters with default values
-        self.timeout = kwargs.pop('timeout', 60)
-        self.max_workers = kwargs.pop('max_workers', None)
+        self.timeout = kwargs.pop("timeout", 60)
+        self.max_workers = kwargs.pop("max_workers", None)
 
         # Initialize the parent class
         super().__init__(*args, **kwargs)
 
         # Track background tasks for this instance
-        self._instance_tasks = []
+        self._instance_tasks: list[Future] = []
         self._instance_lock = threading.Lock()
         self._dump_in_progress = threading.Event()
         self._dump_in_progress.set()  # Initially no dump in progress
         self._has_failed = False  # Track if any previous task failed
         self._cleanup_done = False  # Track if cleanup has been performed
-
 
     def record_state(self, xx: torch.Tensor, coords: CoordSystem) -> None:
         """Record state but ensure dump_raw_data has finished successfully before proceeding.
@@ -728,8 +787,7 @@ class AsyncTempestExtremes(TempestExtremes):
         # Call parent's record_state method
         super().record_state(xx, coords)
 
-
-    def dump_raw_data(self) -> str:
+    def dump_raw_data(self) -> tuple[list[str], np.ndarray]:
         """Dump raw data with synchronization to prevent concurrent access.
 
         Uses threading events to ensure only one dump operation occurs at a time
@@ -737,8 +795,8 @@ class AsyncTempestExtremes(TempestExtremes):
 
         Returns
         -------
-        str
-            Path to the created NetCDF file
+        tuple[list[str], np.ndarray]
+            Tuple containing list of raw file paths and array of member indices
         """
         # Signal that dump is in progress
         self._dump_in_progress.clear()
@@ -750,7 +808,6 @@ class AsyncTempestExtremes(TempestExtremes):
         finally:
             # Signal that dump is complete
             self._dump_in_progress.set()
-
 
     def _check_for_failures(self) -> None:
         """Check if any previous tasks failed with ChildProcessError and raise immediately.
@@ -766,7 +823,9 @@ class AsyncTempestExtremes(TempestExtremes):
             If any task failed with a different exception type
         """
         if self._has_failed:
-            raise ChildProcessError("Previous cyclone tracking task failed - stopping execution")
+            raise ChildProcessError(
+                "Previous cyclone tracking task failed - stopping execution"
+            )
 
         # Check completed tasks for failures
         with self._instance_lock:
@@ -781,8 +840,7 @@ class AsyncTempestExtremes(TempestExtremes):
                         self._has_failed = True
                         raise e  # Re-raise other exceptions too
 
-
-    def track_cyclones_async(self, out_file_names: str=None) -> Future:
+    def track_cyclones_async(self, out_file_names: list[str] | None = None) -> Future:
         """Submit cyclone tracking to background thread pool.
 
         This method submits cyclone tracking operations to a background thread pool
@@ -805,7 +863,9 @@ class AsyncTempestExtremes(TempestExtremes):
 
         # Clean up completed tasks to avoid memory buildup
         with _tempest_executor_lock:
-            _tempest_background_tasks = [f for f in _tempest_background_tasks if not f.done()]
+            _tempest_background_tasks = [
+                f for f in _tempest_background_tasks if not f.done()
+            ]
 
         with self._instance_lock:
             self._instance_tasks = [f for f in self._instance_tasks if not f.done()]
@@ -814,7 +874,9 @@ class AsyncTempestExtremes(TempestExtremes):
         with _tempest_executor_lock:
             running_tasks = len(_tempest_background_tasks)
             if running_tasks >= 3:  # Conservative limit for long-running tasks
-                print(f"Warning: {running_tasks} TempestExtremes tasks already running. Consider waiting for some to complete.")
+                print(
+                    f"Warning: {running_tasks} TempestExtremes tasks already running. Consider waiting for some to complete."
+                )
 
         # Submit the task
         executor = get_tempest_executor()
@@ -829,8 +891,7 @@ class AsyncTempestExtremes(TempestExtremes):
 
         return future
 
-
-    def get_task_status(self) -> Dict[str, int]:
+    def get_task_status(self) -> dict[str, int]:
         """Get status of background tasks for this instance.
 
         Returns
@@ -845,20 +906,27 @@ class AsyncTempestExtremes(TempestExtremes):
         """
         with self._instance_lock:
             running = sum(1 for f in self._instance_tasks if f.running())
-            pending = sum(1 for f in self._instance_tasks if not f.done() and not f.running())
+            pending = sum(
+                1 for f in self._instance_tasks if not f.done() and not f.running()
+            )
             completed = sum(1 for f in self._instance_tasks if f.done())
-            failed = sum(1 for f in self._instance_tasks if f.done() and f.exception() is not None)
+            failed = sum(
+                1
+                for f in self._instance_tasks
+                if f.done() and f.exception() is not None
+            )
 
             return {
                 "running": running,
                 "pending": pending,
                 "completed": completed,
                 "failed": failed,
-                "total": len(self._instance_tasks)
+                "total": len(self._instance_tasks),
             }
 
-
-    def get_task_results(self, raise_on_error: bool = True) -> Union[Dict[str, Any], Tuple[List, List]]:
+    def get_task_results(
+        self, raise_on_error: bool = True
+    ) -> dict[str, Any] | tuple[list[Any], list[tuple[str, Exception]]]:
         """Get results from all completed tasks.
 
         Parameters
@@ -869,7 +937,7 @@ class AsyncTempestExtremes(TempestExtremes):
 
         Returns
         -------
-        Union[Dict[str, Any], Tuple[List, List]]
+        Union[Dict[str, Any], tuple[list[Any], list[tuple[str, Exception]]]]
             If raise_on_error=True: dict with successful results
             If raise_on_error=False: tuple of (results, exceptions)
 
@@ -884,7 +952,7 @@ class AsyncTempestExtremes(TempestExtremes):
             tasks_to_check = list(self._instance_tasks)
 
         results = []
-        exceptions = []
+        exceptions: list[tuple[str, Exception]] = []
 
         for i, future in enumerate(tasks_to_check):
             if future.done():
@@ -894,17 +962,16 @@ class AsyncTempestExtremes(TempestExtremes):
                 except ChildProcessError as e:
                     if raise_on_error:
                         raise  # Re-raise ChildProcessError immediately
-                    exceptions.append(('ChildProcessError', e))
+                    exceptions.append(("ChildProcessError", e))
                 except Exception as e:
                     if raise_on_error:
                         raise  # Re-raise any other exceptions
-                    exceptions.append(('Exception', e))
+                    exceptions.append(("Exception", e))
 
         if raise_on_error:
             return {"results": results, "task_count": len(tasks_to_check)}
         else:
             return results, exceptions
-
 
     def wait_for_completion(self, timeout_per_task: int = 360) -> None:
         """Wait for all background tasks associated with this instance to complete.
@@ -927,7 +994,9 @@ class AsyncTempestExtremes(TempestExtremes):
             tasks_to_wait = list(self._instance_tasks)
 
         if tasks_to_wait:
-            print(f"Waiting for {len(tasks_to_wait)} TempestExtremes tasks to complete...")
+            print(
+                f"Waiting for {len(tasks_to_wait)} TempestExtremes tasks to complete..."
+            )
 
             for i, future in enumerate(tasks_to_wait):
                 try:
@@ -942,8 +1011,9 @@ class AsyncTempestExtremes(TempestExtremes):
         else:
             print("No background tasks to wait for.")
 
-
-    def _process_single_member(self, ins: str, outs: str, node_file: str, track_file: str) -> None:
+    def _process_single_member(
+        self, ins: str, outs: str, node_file: str, track_file: str
+    ) -> None:
         """Process a single ensemble member (detect + stitch).
 
         This method is designed to run in a separate thread for parallel processing
@@ -968,18 +1038,21 @@ class AsyncTempestExtremes(TempestExtremes):
         then = time.time()
 
         # detect nodes
-        self.run_te(command=self.detect_cmd + ['--in_data_list', ins, '--out_file_list', outs],
-                    print_output=self.print_te_output)
+        self.run_te(
+            command=self.detect_cmd + ["--in_data_list", ins, "--out_file_list", outs],
+            print_output=self.print_te_output,
+        )
 
         # stitch them together
-        self.run_te(command=self.stitch_cmd + ['--in', node_file, '--out', track_file],
-                    print_output=self.print_te_output)
+        self.run_te(
+            command=self.stitch_cmd + ["--in", node_file, "--out", track_file],
+            print_output=self.print_te_output,
+        )
 
         if self.print_te_output:
-            print(f'took {(time.time() - then):.1f}s to track cyclones for one member')
+            print(f"took {(time.time() - then):.1f}s to track cyclones for one member")
 
-
-    def track_cyclones(self, out_file_names=None) -> None:
+    def track_cyclones(self, out_file_names: list[str] | None = None) -> None:
         """Execute cyclone tracking with parallel processing per ensemble member.
 
         This override of the parent method dumps data synchronously (within this thread),
@@ -1012,12 +1085,18 @@ class AsyncTempestExtremes(TempestExtremes):
         if self.max_workers is not None:
             max_workers = min(self.max_workers, max_workers)
 
-        with ThreadPoolExecutor(max_workers=max_workers, thread_name_prefix="te_members") as executor:
+        with ThreadPoolExecutor(
+            max_workers=max_workers, thread_name_prefix="te_members"
+        ) as executor:
             # Submit one task per member to process in parallel
             member_futures = []
 
-            for ins, outs, node_file, track_file in zip(insies, outsies, node_files, self.track_files):
-                future = executor.submit(self._process_single_member, ins, outs, node_file, track_file)
+            for ins, outs, node_file, track_file in zip(
+                insies, outsies, node_files, self.track_files
+            ):
+                future = executor.submit(
+                    self._process_single_member, ins, outs, node_file, track_file
+                )
                 member_futures.append(future)
 
             # Wait for all members to complete
@@ -1031,14 +1110,17 @@ class AsyncTempestExtremes(TempestExtremes):
 
         # Raise if any failed
         if exceptions:
-            error_msg = f"Processing failed for {len(exceptions)} member(s): {exceptions}"
+            error_msg = (
+                f"Processing failed for {len(exceptions)} member(s): {exceptions}"
+            )
             raise ChildProcessError(error_msg)
 
         # Clean up after all are done
         self.tidy_up(insies, outsies)
 
-        print(f'took {(time.time() - then):.1f}s to track cyclones for all {len(member_futures)} members')
-
+        print(
+            f"took {(time.time() - then):.1f}s to track cyclones for all {len(member_futures)} members"
+        )
 
     def cleanup(self, timeout_per_task: int = 360) -> None:
         """Explicitly clean up and wait for all background tasks to complete.
@@ -1063,37 +1145,44 @@ class AsyncTempestExtremes(TempestExtremes):
 
         try:
             # Wait for any ongoing dump to complete
-            if hasattr(self, '_dump_in_progress'):
+            if hasattr(self, "_dump_in_progress"):
                 self._dump_in_progress.wait(timeout=60)
 
             # Wait for all instance tasks to complete
-            if hasattr(self, '_instance_tasks') and hasattr(self, '_instance_lock'):
+            if hasattr(self, "_instance_tasks") and hasattr(self, "_instance_lock"):
                 with self._instance_lock:
                     tasks_to_wait = list(self._instance_tasks)
 
                 if tasks_to_wait:
-                    print(f"AsyncTempestExtremes: waiting for {len(tasks_to_wait)} background tasks to complete...")
+                    print(
+                        f"AsyncTempestExtremes: waiting for {len(tasks_to_wait)} background tasks to complete..."
+                    )
 
                     for i, future in enumerate(tasks_to_wait):
                         try:
                             print(f"  Waiting for task {i+1}/{len(tasks_to_wait)}...")
                             future.result(timeout=timeout_per_task)
-                            print(f"  Task {i+1}/{len(tasks_to_wait)} completed successfully")
+                            print(
+                                f"  Task {i+1}/{len(tasks_to_wait)} completed successfully"
+                            )
                         except ChildProcessError as e:
-                            print(f"  Task {i+1}/{len(tasks_to_wait)} failed with ChildProcessError: {e}")
+                            print(
+                                f"  Task {i+1}/{len(tasks_to_wait)} failed with ChildProcessError: {e}"
+                            )
                             raise  # Re-raise to propagate the error
                         except Exception as e:
                             print(f"  Task {i+1}/{len(tasks_to_wait)} failed: {e}")
                             raise  # Re-raise to propagate the error
 
-                    print(f"All {len(tasks_to_wait)} background tasks completed successfully")
+                    print(
+                        f"All {len(tasks_to_wait)} background tasks completed successfully"
+                    )
 
             self._cleanup_done = True
 
-        except Exception as e:
+        except Exception as _:
             self._cleanup_done = True  # Mark as done even on failure to avoid retry
             raise
-
 
     def __del__(self) -> None:
         """Destructor that ensures all processes have finished before the class gets destroyed.
@@ -1103,14 +1192,15 @@ class AsyncTempestExtremes(TempestExtremes):
         """
         try:
             if not self._cleanup_done:
-                print("AsyncTempestExtremes: Destructor called - cleaning up background tasks...")
+                print(
+                    "AsyncTempestExtremes: Destructor called - cleaning up background tasks..."
+                )
                 self.cleanup(timeout_per_task=30)  # Shorter timeout in destructor
         except Exception as e:
             print(f"Error in AsyncTempestExtremes destructor: {e}")
             # Note: In destructor, we log but don't re-raise to avoid issues during interpreter shutdown
 
-
-    def __call__(self, out_file_names=None) -> Future:
+    def __call__(self, out_file_names: list[str] | None = None) -> Future[None]:  # type: ignore[override]
         """Override call method to use async version by default.
 
         This method makes the class callable and uses the asynchronous
@@ -1118,7 +1208,7 @@ class AsyncTempestExtremes(TempestExtremes):
 
         Returns
         -------
-        Future
+        Future[None]
             A Future object for the submitted cyclone tracking task
 
         Raises
