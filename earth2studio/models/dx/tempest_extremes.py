@@ -678,11 +678,16 @@ class AsyncTempestExtremes(TempestExtremes):
         Special parameters:
         - timeout : int, optional
             Timeout in seconds for operations, by default 60
+        - max_workers : int, optional
+            Maximum number of worker threads for parallel ensemble member processing.
+            If None (default), uses min(n_members, cpu_count). If provided, caps
+            the number of workers to this value, by default None
     """
 
     def __init__(self, *args, **kwargs) -> None:
-        # Extract timeout parameter with default value
+        # Extract async-specific parameters with default values
         self.timeout = kwargs.pop('timeout', 60)
+        self.max_workers = kwargs.pop('max_workers', None)
 
         # Initialize the parent class
         super().__init__(*args, **kwargs)
@@ -1004,6 +1009,8 @@ class AsyncTempestExtremes(TempestExtremes):
         # This avoids conflicts with the global executor during shutdown
         n_members = len(insies)
         max_workers = min(n_members, os.cpu_count() or 1)
+        if self.max_workers is not None:
+            max_workers = min(self.max_workers, max_workers)
 
         with ThreadPoolExecutor(max_workers=max_workers, thread_name_prefix="te_members") as executor:
             # Submit one task per member to process in parallel
