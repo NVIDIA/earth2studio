@@ -460,7 +460,7 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
                 output = self.core_model._normalize(output)
                 output = self.core_model._reorder(output)
                 batch["target"] = output
-                output, _ = self.translate(batch, dataset="icon")
+                output, _ = self.core_model.translate(batch, dataset="icon")
 
             outputs.append(output)
 
