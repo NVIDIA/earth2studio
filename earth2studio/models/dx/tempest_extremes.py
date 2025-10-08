@@ -144,9 +144,11 @@ class TempestExtremes:
     detect_cmd : str
         TempestExtremes DetectNodes command with arguments
         Note that --in_data_list and --out_file_list will be ignored if provdied
+        example: "/path/to/DetectNodes --mergedist 6 --closedcontourcmd _DIFF(z300,z500),-58.8,6.5,0;msl,200.,5.5,0 --searchbymin msl --outputcmd msl,min,0;_VECMAG(u10m,v10m),max,5;height,min,0"
     stitch_cmd : str
         TempestExtremes StitchNodes command with arguments
         Note that --in and --out will be ignored if provdied
+        example: "/path/to/StitchNodes --in_fmt lon,lat,msl,wind_speed,height --range 8.0 --mintime 54h --maxgap 4 --out_file_format csv --threshold wind_speed,>=,10.,10;lat,<=,50.,10;lat,>=,-50.,10;height,<=,150.,10"
     input_vars :
         List of variables which are required for the tracking algorithm
     n_steps :
