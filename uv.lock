@@ -522,7 +522,7 @@ wheels = [
 [[package]]
 name = "cbottle"
 version = "2025.5.1"
-source = { git = "https://github.com/NickGeneva/cBottle.git?rev=48f612f4fb5896f2ace7cb75b99e0e14596a7d01#48f612f4fb5896f2ace7cb75b99e0e14596a7d01" }
+source = { git = "https://github.com/NickGeneva/cBottle.git?rev=80b741cbb0ad8c1b382757fdaf3434622ea35abc#80b741cbb0ad8c1b382757fdaf3434622ea35abc" }
 dependencies = [
     { name = "cartopy", marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-aurora-fork') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-corrdiff') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-dlwp') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-fcn') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-precip-afno') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-sfno') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-stormcast')" },
     { name = "cftime", marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-aurora-fork') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-corrdiff') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-dlwp') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-fcn') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-precip-afno') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-sfno') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-stormcast')" },
@@ -1530,8 +1530,8 @@ docs = [
 requires-dist = [
     { name = "anemoi-inference", extras = ["huggingface"], marker = "extra == 'aifs'", specifier = "==0.4.9" },
     { name = "anemoi-models", marker = "extra == 'aifs'", specifier = "==0.3.1" },
-    { name = "cbottle", marker = "python_full_version >= '3.12' and extra == 'all'", git = "https://github.com/NickGeneva/cBottle.git?rev=48f612f4fb5896f2ace7cb75b99e0e14596a7d01" },
-    { name = "cbottle", marker = "python_full_version >= '3.12' and extra == 'cbottle'", git = "https://github.com/NickGeneva/cBottle.git?rev=48f612f4fb5896f2ace7cb75b99e0e14596a7d01" },
+    { name = "cbottle", marker = "python_full_version >= '3.12' and extra == 'all'", git = "https://github.com/NickGeneva/cBottle.git?rev=80b741cbb0ad8c1b382757fdaf3434622ea35abc" },
+    { name = "cbottle", marker = "python_full_version >= '3.12' and extra == 'cbottle'", git = "https://github.com/NickGeneva/cBottle.git?rev=80b741cbb0ad8c1b382757fdaf3434622ea35abc" },
     { name = "cdsapi", marker = "extra == 'all'", specifier = ">=0.7.5" },
     { name = "cdsapi", marker = "extra == 'data'", specifier = ">=0.7.5" },
     { name = "cfgrib", specifier = ">=0.9.10.3" },

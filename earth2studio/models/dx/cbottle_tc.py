@@ -457,8 +457,10 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
 
             # If ICON, translate
             if DatasetModality(self.dataset_modality) == DatasetModality.ICON:
+                output = self.core_model._normalize(output)
+                output = self.core_model._reorder(output)
                 batch["target"] = output
-                output, cb_coords = self.core_model.translate(batch, "icon")
+                output, _ = self.translate(batch, dataset="icon")
 
             outputs.append(output)
 
