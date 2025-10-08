@@ -15,6 +15,7 @@
 # limitations under the License.
 
 from collections import OrderedDict
+from copy import deepcopy
 from typing import Literal
 
 import numpy as np
@@ -429,3 +430,93 @@ def convert_multidim_to_singledim(
             i += j + 1
 
     return CoordSystem(adjusted_coords), mapping
+
+
+def tile_xx_to_yy(
+    xx: torch.Tensor, xx_coords: CoordSystem, yy: torch.Tensor, yy_coords: CoordSystem
+) -> tuple[torch.Tensor, CoordSystem]:
+    """Tile tensor xx to match the leading dimensions of tensor yy and update coords accordingly.
+       eg if xx has shape (4, 721, 1440) and yy has shape (8, 2, 35, 721, 1440),
+       xx will be tiled to shape (8, 2, 4, 721, 1440), which is useful for concatenation
+
+    Parameters
+    ----------
+    xx : torch.Tensor
+        Source tensor to be tiled
+    xx_coords : CoordSystem
+        Coordinate system for xx tensor
+    yy : torch.Tensor
+        Target tensor whose shape determines tiling
+    yy_coords : CoordSystem
+        Coordinate system for yy tensor
+
+    Returns
+    -------
+    Tuple[torch.Tensor, CoordSystem]
+        Tuple containing the tiled tensor and updated coordinate system
+
+    Raises
+    ------
+    ValueError
+        If xx has more dimensions than yy
+    """
+    n_lead = len(yy.shape) - len(xx.shape)
+
+    if n_lead < 0:
+        raise ValueError("xx must have fewer dimensions than yy.")
+
+    out_shape = yy.shape[:n_lead] + tuple([-1 for _ in range(len(xx.shape))])
+    out_coords = deepcopy(yy_coords)
+    for key, val in xx_coords.items():
+        out_coords[key] = val
+
+    return xx.expand(out_shape), out_coords
+
+
+def cat_coords(
+    xx: torch.Tensor,
+    cox: CoordSystem,
+    yy: torch.Tensor,
+    coy: CoordSystem,
+    dim: str = "variable",
+) -> tuple[torch.Tensor, CoordSystem]:
+    """
+    concatenate data along coordinate dimension.
+
+    Parameters
+    ----------
+    xx : torch.Tensor
+        First input tensor which to concatenate
+    cox : CoordSystem
+        Ordered dict representing coordinate system that describes xx
+    yy : torch.Tensor
+        Second input tensor which to concatenate
+    coy : CoordSystem
+        Ordered dict representing coordinate system that describes yy
+    dim : str
+        name of dimension along which to concatenate
+
+    Returns
+    -------
+    tuple[torch.Tensor, CoordSystem]
+        Tuple containing output tensor and coordinate OrderedDict from
+        concatenated data.
+    """
+
+    if dim not in cox:
+        raise ValueError(f"dim {dim} is not in coords: {list(cox)}.")
+    if dim not in coy:
+        raise ValueError(f"dim {dim} is not in coords: {list(coy)}.")
+
+    # fix difference in latitude
+    _cox = cox.copy()
+    _cox["lat"] = coy["lat"]
+    xx, cox = map_coords(xx, cox, _cox)
+
+    coords = cox.copy()
+    dim_index = list(coords).index(dim)
+
+    zz = torch.cat((xx, yy), dim=dim_index)
+    coords[dim] = np.append(cox[dim], coy[dim])
+
+    return zz, coords
