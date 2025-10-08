@@ -7,18 +7,18 @@ import time
 from collections import OrderedDict
 from concurrent.futures import Future, ThreadPoolExecutor
 from subprocess import run
+from types import TracebackType
 from typing import Any
 
 import numpy as np
 import torch
 from physicsnemo.distributed import DistributedManager
+from rich.console import Console
+from rich.table import Table
+from rich.traceback import Traceback
 
 from earth2studio.io import KVBackend
 from earth2studio.utils.coords import CoordSystem, map_coords, split_coords
-from earth2studio.utils.imports import (
-    OptionalDependencyFailure,
-    check_optional_dependencies,
-)
 
 
 def tile_xx_to_yy(
@@ -266,11 +266,64 @@ class TempestExtremes:
         for cmd in (self.detect_cmd[0], self.stitch_cmd[0]):
             try:
                 run(cmd, capture_output=True)  # noqa: S603
-            except Exception as _:
+            except Exception as e:
                 # TODO discuss implementation of below before merging
-                OptionalDependencyFailure("tempest_extremes")
+                self.dependency_failure(e.__traceback__, e)
 
         return
+
+    def dependency_failure(
+        self, error_traceback: TracebackType | None, error_value: BaseException
+    ) -> None:
+        """Display a formatted error message for TempestExtremes dependency failures.
+
+        This method creates and prints information about TempestExtremes dependency
+        errors and raises a RuntimeError to halt execution.
+
+        Parameters
+        ----------
+        error_traceback : TracebackType | None
+            The traceback object from the exception (typically from exception.__traceback__)
+        error_value : BaseException
+            The exception object that was raised
+
+        Raises
+        ------
+        RuntimeError
+            Always raised after displaying the error message to halt execution
+        """
+        doc_url = "https://nvidia.github.io/earth2studio/userguide/about/install.html#optional-dependencies"
+
+        console = Console()
+        table = Table(show_header=False, show_lines=True)
+        table.add_row(
+            "[blue]Earth2Studio Extra Dependency Error\n"
+            + "This error typically indicates an extra dependency group is needed.\n"
+            + "Don't panic, this is usually an easy fix.[/blue]"
+        )
+        table.add_row(
+            "[yellow]The TempestExtremes class is marked needing optional dependencies'.\n\n"
+            + "unlike other dependencies, TempestExtremes has to be installed to the system by the user`\n\n"
+            + "For more information, visit the install documentation: \n"
+            + f"{doc_url}[/yellow]"
+        )
+        if error_value:
+            table.add_row(
+                Traceback(
+                    Traceback.extract(
+                        type(error_value),
+                        error_value,
+                        error_traceback,
+                        show_locals=False,
+                    )
+                )
+            )
+        console.print(table)
+
+        raise RuntimeError(
+            "TempestExtremes dependency not available. "
+            f"Please install TempestExtremes. See {doc_url}"
+        )
 
     @staticmethod
     def remove_arguments(cmd: list[str], args: list[str]) -> list[str]:
@@ -333,7 +386,6 @@ class TempestExtremes:
 
         return
 
-    @check_optional_dependencies()
     def initialise_store_coords(self) -> None:
         """Initialize coordinate system for data storage.
 
@@ -570,7 +622,6 @@ class TempestExtremes:
 
         return
 
-    @check_optional_dependencies()
     def track_cyclones(self, out_file_names: list[str] | None = None) -> None:
         """Execute cyclone tracking using TempestExtremes.
 
@@ -1193,11 +1244,16 @@ class AsyncTempestExtremes(TempestExtremes):
         ensuring all background tasks complete and resources are properly released.
         """
         try:
-            if not self._cleanup_done:
+            # Use getattr to handle case where initialization failed before _cleanup_done was set
+            if not getattr(self, "_cleanup_done", True):
                 self.cleanup(timeout_per_task=30)  # Shorter timeout in destructor
         except Exception as e:
-            print("\033[95mError in AsyncTempestExtremes destructor: had no time to cleanup.\033[0m")
-            print("\033[95mplease call self.cleanup() from script before class goes out of scope.\033[0m")
+            print(
+                "\033[95mError in AsyncTempestExtremes destructor: had no time to cleanup.\033[0m"
+            )
+            print(
+                "\033[95mplease call self.cleanup() from script before class goes out of scope.\033[0m"
+            )
             print(f"\033[95mThis is resulting in the following error: {e}\033[0m")
             # Note: In destructor, we log but don't re-raise to avoid issues during interpreter shutdown
 
