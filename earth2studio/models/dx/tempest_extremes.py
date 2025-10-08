@@ -1194,12 +1194,11 @@ class AsyncTempestExtremes(TempestExtremes):
         """
         try:
             if not self._cleanup_done:
-                print(
-                    "AsyncTempestExtremes: Destructor called - cleaning up background tasks..."
-                )
                 self.cleanup(timeout_per_task=30)  # Shorter timeout in destructor
         except Exception as e:
-            print(f"Error in AsyncTempestExtremes destructor: {e}")
+            print("\033[95mError in AsyncTempestExtremes destructor: had no time to cleanup.\033[0m")
+            print("\033[95mplease call self.cleanup() from script before class goes out of scope.\033[0m")
+            print(f"\033[95mThis is resulting in the following error: {e}\033[0m")
             # Note: In destructor, we log but don't re-raise to avoid issues during interpreter shutdown
 
     def __call__(self, out_file_names: list[str] | None = None) -> Future[None]:  # type: ignore[override]
