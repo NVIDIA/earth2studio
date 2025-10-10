@@ -28,11 +28,11 @@ from earth2studio.utils.time import timearray_to_datetime
 from earth2studio.utils.type import CoordSystem
 
 units_map = {
-    "h": "hour",
-    "D": "day",
-    "s": "second",
-    "m": "minute",
-    "Y": "year",
+    "h": "hours",
+    "D": "days",
+    "s": "seconds",
+    "m": "minutes",
+    "Y": "years",
 }
 rev_units_map = {v: k for k, v in units_map.items()}
 
