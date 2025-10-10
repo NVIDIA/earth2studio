@@ -334,16 +334,16 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
             # Convert any longitudes in -180 to 180 range to 0 to 360 range
             lon_coords = torch.where(lon_coords < 0, lon_coords + 360, lon_coords)
 
-            lat_grid = torch.tensor(np.linspace(90, -90, 721)).to(device)
-            lon_grid = torch.tensor(np.linspace(0, 360, 1440, endpoint=False)).to(
-                device
-            )
+            lat_grid = np.linspace(90, -90, 721)
+            lon_grid = np.linspace(0, 360, 1440, endpoint=False)
             guidance = torch.full(
                 (times.shape[0], 1, 1, 721, 1440), torch.nan, device=device
             ).float()
 
-            lat_idx = torch.searchsorted(-lat_grid, -lat_coords)
-            lon_idx = torch.searchsorted(lon_grid, lon_coords)
+            lat_idx = torch.searchsorted(
+                -torch.tensor(lat_grid).to(device), -lat_coords
+            )
+            lon_idx = torch.searchsorted(torch.tensor(lon_grid).to(device), lon_coords)
             guidance[:, :, :, lat_idx, lon_idx] = 1
 
             coords = OrderedDict(
