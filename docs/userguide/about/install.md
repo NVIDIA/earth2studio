@@ -225,7 +225,7 @@ for known suggestions/fixes related to this install process.
 ```bash
 export FORCE_CUDA_EXTENSION=1
 pip install --no-build-isolation torch-harmonics==0.8.0
-pip install "makani @ git+https://github.com/NVIDIA/modulus-makani.git@49280812513d8f1daf872a2e9343855a6adb3acf"
+pip install "makani @ git+https://github.com/NVIDIA/modulus-makani.git@28f38e3e929ed1303476518552c64673bbd6f722"
 pip install earth2studio[fcn3]
 ```
 
@@ -332,7 +332,7 @@ installed manually.
 :::{tab-item} pip
 
 ```bash
-pip install "makani @ git+https://github.com/NVIDIA/modulus-makani.git@49280812513d8f1daf872a2e9343855a6adb3acf"
+pip install "makani @ git+https://github.com/NVIDIA/modulus-makani.git@28f38e3e929ed1303476518552c64673bbd6f722"
 pip install earth2studio[sfno]
 ```
 
