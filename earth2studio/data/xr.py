@@ -88,8 +88,9 @@ class InferenceOutputSource:
 
     Parameters
     ----------
-    file_path : str
-        Path to an xarray-compatible dataset file (e.g., NetCDF/Zarr).
+    inference_output : str | xarray.Dataset
+        An Xarray dataset or a path to an xarray-compatible dataset file
+        (e.g., NetCDF/Zarr).
     filter_dict : dict, optional
         Dictionary of selections applied before transformation (e.g.
         ``{"ensemble": 0}``). Coordinates not in the required
