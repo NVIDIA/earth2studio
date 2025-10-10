@@ -129,7 +129,7 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
         core_model: torch.nn.Module,
         lat_lon: bool = True,
         output_resolution: tuple[int, int] = (2161, 4320),
-        super_resolution_window: None | tuple[int, int, int, int] = None,
+        super_resolution_window: tuple[int, int, int, int] | None = None,
         sampler_steps: int = 18,
         sigma_max: int = 800,
         seed: int | None = None,
@@ -150,45 +150,17 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
         # Store seed
         self.seed = seed
 
-        # Output shape (only used for latlon output)
-        self.output_resolution = output_resolution
-
         # Sampler
         self.sampler_steps = sampler_steps
         self.sigma_max = sigma_max
 
-        # Super resolution window
-        self.super_resolution_window = super_resolution_window
+        # High-resolution HEALPix grid (internal processing)
+        self.hpx_high_res_grid = healpix.Grid(
+            level=HPX_LEVEL_HR, pixel_order=healpix.PixelOrder.NEST
+        )
 
-        # Setup output coordinates based on output type
-        if self.output_type == "latlon":
-            if super_resolution_window is not None:
-                self.output_lat = np.linspace(
-                    super_resolution_window[0],
-                    super_resolution_window[2],
-                    self.output_resolution[0],
-                )
-                self.output_lon = np.linspace(
-                    super_resolution_window[1],
-                    super_resolution_window[3],
-                    self.output_resolution[1],
-                )
-            else:
-                self.output_lat = np.linspace(90, -90, self.output_resolution[0])
-                self.output_lon = np.linspace(
-                    0, 360, self.output_resolution[1], endpoint=False
-                )
-        else:  # healpix output
-            self.output_lat = None
-            self.output_lon = None
-
-        # Make inbox patch index
-        if super_resolution_window is not None:
-            self.inbox_patch_index = patchify.patch_index_from_bounding_box(
-                HPX_LEVEL_HR, super_resolution_window, 128, 32, "cpu"
-            )
-        else:
-            self.inbox_patch_index = None
+        # Set super resolution window (this will initialize output coords and patch index)
+        self.set_super_resolution_window(super_resolution_window, output_resolution)
 
         # Setup grids and regridders based on input/output types
         # Input grids
@@ -201,26 +173,6 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
                 level=HPX_LEVEL_LR, pixel_order=healpix.PixelOrder.NEST
             )
 
-        # High-resolution HEALPix grid (internal processing)
-        self.hpx_high_res_grid = healpix.Grid(
-            level=HPX_LEVEL_HR, pixel_order=healpix.PixelOrder.NEST
-        )
-
-        # Output grids
-        if self.output_type == "latlon":
-            if super_resolution_window is not None:
-                self.output_grid = earth2grid.latlon.LatLonGrid(
-                    self.output_lat, self.output_lon
-                )
-            else:
-                self.output_grid = earth2grid.latlon.equiangular_lat_lon_grid(
-                    self.output_resolution[0],
-                    self.output_resolution[1],
-                    includes_south_pole=False,
-                )
-        else:  # healpix
-            self.output_grid = self.hpx_high_res_grid
-
         # Create regridders
         # Input to high-res HEALPix (for internal processing)
         self.regrid_input_to_hpx_high_res = earth2grid.get_regridder(
@@ -228,18 +180,9 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
         )
         self.regrid_input_to_hpx_high_res.double()
 
-        # High-res HEALPix to output (only needed if output is not healpix)
-        if self.output_type == "latlon":
-            self.regrid_hpx_high_res_to_output = earth2grid.get_regridder(
-                self.hpx_high_res_grid, self.output_grid
-            )
-            self.regrid_hpx_high_res_to_output.double()
-        else:
-            self.regrid_hpx_high_res_to_output = None
-
         # Make global lat lon regridder
-        lat = torch.linspace(-90, 90, 128)[:, None].double()
-        lon = torch.linspace(0, 360, 128)[None, :].double()
+        lat = np.linspace(-90, 90, 128)[:, None]
+        lon = np.linspace(0, 360, 128)[None, :]
         self.regrid_to_latlon = self.hpx_high_res_grid.get_bilinear_regridder_to(
             lat, lon
         ).to(torch.float64)
@@ -282,6 +225,74 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
 
         self.register_buffer("scale", scale)
         self.register_buffer("center", center)
+
+    def set_super_resolution_window(
+        self,
+        super_resolution_window: tuple[int, int, int, int] | None = None,
+        output_resolution: tuple[int, int] = (2161, 4320),
+    ) -> None:
+        """Set or update the super-resolution window
+
+        Parameters
+        ----------
+        super_resolution_window : None | tuple[int, int, int, int], optional
+            Super-resolution window. If None, super-resolution is done
+            on the entire global grid. If provided, the super-resolution window is a tuple
+            of (lat_south, lon_west, lat_north, lon_east) and will only apply super-resolution
+            to the specified window. By default None.
+        output_resolution : tuple[int, int] | None, optional
+            High-resolution output dimensions for lat/lon output. Only used when
+        lat_lon=True, by default (2161, 4320)
+        """
+        # Update super resolution window
+        self.super_resolution_window = super_resolution_window
+
+        # Update inbox patch index
+        if super_resolution_window is not None:
+            self.inbox_patch_index = patchify.patch_index_from_bounding_box(
+                HPX_LEVEL_HR, super_resolution_window, 128, 32, "cpu"
+            )
+        else:
+            self.inbox_patch_index = None
+
+        # Update output coordinates and grids based on output type
+        if self.output_type == "latlon":
+            if super_resolution_window is not None:
+                self.output_lat = np.linspace(
+                    super_resolution_window[0],
+                    super_resolution_window[2],
+                    output_resolution[0],
+                )
+                self.output_lon = np.linspace(
+                    super_resolution_window[1],
+                    super_resolution_window[3],
+                    output_resolution[1],
+                )
+                # Update output grid
+                self.output_grid = earth2grid.latlon.LatLonGrid(
+                    self.output_lat, self.output_lon
+                )
+            else:
+                self.output_lat = np.linspace(90, -90, output_resolution[0])
+                self.output_lon = np.linspace(
+                    0, 360, output_resolution[1], endpoint=False
+                )
+                # Update output grid
+                self.output_grid = earth2grid.latlon.equiangular_lat_lon_grid(
+                    output_resolution[0],
+                    output_resolution[1],
+                    includes_south_pole=False,
+                )
+
+            # Update regridder for high-res HEALPix to output
+            self.regrid_hpx_high_res_to_output = earth2grid.get_regridder(
+                self.hpx_high_res_grid, self.output_grid
+            )
+            self.regrid_hpx_high_res_to_output.double()
+        else:  # healpix output
+            # For healpix output, the output grid is always the high-res healpix grid
+            self.output_grid = self.hpx_high_res_grid
+            self.regrid_hpx_high_res_to_output = None
 
     def input_coords(self) -> CoordSystem:
         """Input coordinate system"""
