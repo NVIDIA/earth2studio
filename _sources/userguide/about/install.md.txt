@@ -399,7 +399,7 @@ prognostic, CBottleInfill diagnostic and CBottleSR diagnostic.
 ```bash
 pip install hatchling
 pip install --no-build-isolation "earth2grid @ git+https://github.com/NVlabs/earth2grid@661445e2c68edc76f52632aa0528af482357f1b8"
-pip install --no-build-isolation "cbottle @ git+https://github.com/NickGeneva/cBottle.git@9b24c2f81096a340444e7e0966fe93223a4d9532"
+pip install --no-build-isolation "cbottle @ git+https://github.com/NVlabs/cBottle.git@12c65ba471a24cc163f769ec83efbfe028bd72eb"
 pip install earth2studio[cbottle]
 ```
 

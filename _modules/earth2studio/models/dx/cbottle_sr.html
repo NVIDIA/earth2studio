@@ -551,7 +551,7 @@
         <span class="n">core_model</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">,</span>
         <span class="n">lat_lon</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
         <span class="n">output_resolution</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="mi">2161</span><span class="p">,</span> <span class="mi">4320</span><span class="p">),</span>
-        <span class="n">super_resolution_window</span><span class="p">:</span> <span class="kc">None</span> <span class="o">|</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">super_resolution_window</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">sampler_steps</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">18</span><span class="p">,</span>
         <span class="n">sigma_max</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">800</span><span class="p">,</span>
         <span class="n">seed</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -572,45 +572,17 @@
         <span class="c1"># Store seed</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">seed</span> <span class="o">=</span> <span class="n">seed</span>
 
-        <span class="c1"># Output shape (only used for latlon output)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">output_resolution</span> <span class="o">=</span> <span class="n">output_resolution</span>
-
         <span class="c1"># Sampler</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">sampler_steps</span> <span class="o">=</span> <span class="n">sampler_steps</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">sigma_max</span> <span class="o">=</span> <span class="n">sigma_max</span>
 
-        <span class="c1"># Super resolution window</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">super_resolution_window</span> <span class="o">=</span> <span class="n">super_resolution_window</span>
+        <span class="c1"># High-resolution HEALPix grid (internal processing)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">hpx_high_res_grid</span> <span class="o">=</span> <span class="n">healpix</span><span class="o">.</span><span class="n">Grid</span><span class="p">(</span>
+            <span class="n">level</span><span class="o">=</span><span class="n">HPX_LEVEL_HR</span><span class="p">,</span> <span class="n">pixel_order</span><span class="o">=</span><span class="n">healpix</span><span class="o">.</span><span class="n">PixelOrder</span><span class="o">.</span><span class="n">NEST</span>
+        <span class="p">)</span>
 
-        <span class="c1"># Setup output coordinates based on output type</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">output_type</span> <span class="o">==</span> <span class="s2">&quot;latlon&quot;</span><span class="p">:</span>
-            <span class="k">if</span> <span class="n">super_resolution_window</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">output_lat</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span>
-                    <span class="n">super_resolution_window</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
-                    <span class="n">super_resolution_window</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span>
-                    <span class="bp">self</span><span class="o">.</span><span class="n">output_resolution</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
-                <span class="p">)</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">output_lon</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span>
-                    <span class="n">super_resolution_window</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span>
-                    <span class="n">super_resolution_window</span><span class="p">[</span><span class="mi">3</span><span class="p">],</span>
-                    <span class="bp">self</span><span class="o">.</span><span class="n">output_resolution</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span>
-                <span class="p">)</span>
-            <span class="k">else</span><span class="p">:</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">output_lat</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">90</span><span class="p">,</span> <span class="o">-</span><span class="mi">90</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">output_resolution</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">output_lon</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span>
-                    <span class="mi">0</span><span class="p">,</span> <span class="mi">360</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">output_resolution</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">endpoint</span><span class="o">=</span><span class="kc">False</span>
-                <span class="p">)</span>
-        <span class="k">else</span><span class="p">:</span>  <span class="c1"># healpix output</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">output_lat</span> <span class="o">=</span> <span class="kc">None</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">output_lon</span> <span class="o">=</span> <span class="kc">None</span>
-
-        <span class="c1"># Make inbox patch index</span>
-        <span class="k">if</span> <span class="n">super_resolution_window</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">inbox_patch_index</span> <span class="o">=</span> <span class="n">patchify</span><span class="o">.</span><span class="n">patch_index_from_bounding_box</span><span class="p">(</span>
-                <span class="n">HPX_LEVEL_HR</span><span class="p">,</span> <span class="n">super_resolution_window</span><span class="p">,</span> <span class="mi">128</span><span class="p">,</span> <span class="mi">32</span><span class="p">,</span> <span class="s2">&quot;cpu&quot;</span>
-            <span class="p">)</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">inbox_patch_index</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="c1"># Set super resolution window (this will initialize output coords and patch index)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">set_super_resolution_window</span><span class="p">(</span><span class="n">super_resolution_window</span><span class="p">,</span> <span class="n">output_resolution</span><span class="p">)</span>
 
         <span class="c1"># Setup grids and regridders based on input/output types</span>
         <span class="c1"># Input grids</span>
@@ -623,26 +595,6 @@
                 <span class="n">level</span><span class="o">=</span><span class="n">HPX_LEVEL_LR</span><span class="p">,</span> <span class="n">pixel_order</span><span class="o">=</span><span class="n">healpix</span><span class="o">.</span><span class="n">PixelOrder</span><span class="o">.</span><span class="n">NEST</span>
             <span class="p">)</span>
 
-        <span class="c1"># High-resolution HEALPix grid (internal processing)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">hpx_high_res_grid</span> <span class="o">=</span> <span class="n">healpix</span><span class="o">.</span><span class="n">Grid</span><span class="p">(</span>
-            <span class="n">level</span><span class="o">=</span><span class="n">HPX_LEVEL_HR</span><span class="p">,</span> <span class="n">pixel_order</span><span class="o">=</span><span class="n">healpix</span><span class="o">.</span><span class="n">PixelOrder</span><span class="o">.</span><span class="n">NEST</span>
-        <span class="p">)</span>
-
-        <span class="c1"># Output grids</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">output_type</span> <span class="o">==</span> <span class="s2">&quot;latlon&quot;</span><span class="p">:</span>
-            <span class="k">if</span> <span class="n">super_resolution_window</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">output_grid</span> <span class="o">=</span> <span class="n">earth2grid</span><span class="o">.</span><span class="n">latlon</span><span class="o">.</span><span class="n">LatLonGrid</span><span class="p">(</span>
-                    <span class="bp">self</span><span class="o">.</span><span class="n">output_lat</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">output_lon</span>
-                <span class="p">)</span>
-            <span class="k">else</span><span class="p">:</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">output_grid</span> <span class="o">=</span> <span class="n">earth2grid</span><span class="o">.</span><span class="n">latlon</span><span class="o">.</span><span class="n">equiangular_lat_lon_grid</span><span class="p">(</span>
-                    <span class="bp">self</span><span class="o">.</span><span class="n">output_resolution</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
-                    <span class="bp">self</span><span class="o">.</span><span class="n">output_resolution</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span>
-                    <span class="n">includes_south_pole</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
-                <span class="p">)</span>
-        <span class="k">else</span><span class="p">:</span>  <span class="c1"># healpix</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">output_grid</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">hpx_high_res_grid</span>
-
         <span class="c1"># Create regridders</span>
         <span class="c1"># Input to high-res HEALPix (for internal processing)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">regrid_input_to_hpx_high_res</span> <span class="o">=</span> <span class="n">earth2grid</span><span class="o">.</span><span class="n">get_regridder</span><span class="p">(</span>
@@ -650,18 +602,9 @@
         <span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">regrid_input_to_hpx_high_res</span><span class="o">.</span><span class="n">double</span><span class="p">()</span>
 
-        <span class="c1"># High-res HEALPix to output (only needed if output is not healpix)</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">output_type</span> <span class="o">==</span> <span class="s2">&quot;latlon&quot;</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">regrid_hpx_high_res_to_output</span> <span class="o">=</span> <span class="n">earth2grid</span><span class="o">.</span><span class="n">get_regridder</span><span class="p">(</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">hpx_high_res_grid</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">output_grid</span>
-            <span class="p">)</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">regrid_hpx_high_res_to_output</span><span class="o">.</span><span class="n">double</span><span class="p">()</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">regrid_hpx_high_res_to_output</span> <span class="o">=</span> <span class="kc">None</span>
-
         <span class="c1"># Make global lat lon regridder</span>
-        <span class="n">lat</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="o">-</span><span class="mi">90</span><span class="p">,</span> <span class="mi">90</span><span class="p">,</span> <span class="mi">128</span><span class="p">)[:,</span> <span class="kc">None</span><span class="p">]</span><span class="o">.</span><span class="n">double</span><span class="p">()</span>
-        <span class="n">lon</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">360</span><span class="p">,</span> <span class="mi">128</span><span class="p">)[</span><span class="kc">None</span><span class="p">,</span> <span class="p">:]</span><span class="o">.</span><span class="n">double</span><span class="p">()</span>
+        <span class="n">lat</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="o">-</span><span class="mi">90</span><span class="p">,</span> <span class="mi">90</span><span class="p">,</span> <span class="mi">128</span><span class="p">)[:,</span> <span class="kc">None</span><span class="p">]</span>
+        <span class="n">lon</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">360</span><span class="p">,</span> <span class="mi">128</span><span class="p">)[</span><span class="kc">None</span><span class="p">,</span> <span class="p">:]</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">regrid_to_latlon</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">hpx_high_res_grid</span><span class="o">.</span><span class="n">get_bilinear_regridder_to</span><span class="p">(</span>
             <span class="n">lat</span><span class="p">,</span> <span class="n">lon</span>
         <span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
@@ -704,6 +647,74 @@
 
         <span class="bp">self</span><span class="o">.</span><span class="n">register_buffer</span><span class="p">(</span><span class="s2">&quot;scale&quot;</span><span class="p">,</span> <span class="n">scale</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">register_buffer</span><span class="p">(</span><span class="s2">&quot;center&quot;</span><span class="p">,</span> <span class="n">center</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">set_super_resolution_window</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">super_resolution_window</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">output_resolution</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="mi">2161</span><span class="p">,</span> <span class="mi">4320</span><span class="p">),</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Set or update the super-resolution window</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        super_resolution_window : None | tuple[int, int, int, int], optional</span>
+<span class="sd">            Super-resolution window. If None, super-resolution is done</span>
+<span class="sd">            on the entire global grid. If provided, the super-resolution window is a tuple</span>
+<span class="sd">            of (lat_south, lon_west, lat_north, lon_east) and will only apply super-resolution</span>
+<span class="sd">            to the specified window. By default None.</span>
+<span class="sd">        output_resolution : tuple[int, int] | None, optional</span>
+<span class="sd">            High-resolution output dimensions for lat/lon output. Only used when</span>
+<span class="sd">        lat_lon=True, by default (2161, 4320)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Update super resolution window</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">super_resolution_window</span> <span class="o">=</span> <span class="n">super_resolution_window</span>
+
+        <span class="c1"># Update inbox patch index</span>
+        <span class="k">if</span> <span class="n">super_resolution_window</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">inbox_patch_index</span> <span class="o">=</span> <span class="n">patchify</span><span class="o">.</span><span class="n">patch_index_from_bounding_box</span><span class="p">(</span>
+                <span class="n">HPX_LEVEL_HR</span><span class="p">,</span> <span class="n">super_resolution_window</span><span class="p">,</span> <span class="mi">128</span><span class="p">,</span> <span class="mi">32</span><span class="p">,</span> <span class="s2">&quot;cpu&quot;</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">inbox_patch_index</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="c1"># Update output coordinates and grids based on output type</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">output_type</span> <span class="o">==</span> <span class="s2">&quot;latlon&quot;</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">super_resolution_window</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">output_lat</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span>
+                    <span class="n">super_resolution_window</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
+                    <span class="n">super_resolution_window</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span>
+                    <span class="n">output_resolution</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
+                <span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">output_lon</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span>
+                    <span class="n">super_resolution_window</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span>
+                    <span class="n">super_resolution_window</span><span class="p">[</span><span class="mi">3</span><span class="p">],</span>
+                    <span class="n">output_resolution</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span>
+                <span class="p">)</span>
+                <span class="c1"># Update output grid</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">output_grid</span> <span class="o">=</span> <span class="n">earth2grid</span><span class="o">.</span><span class="n">latlon</span><span class="o">.</span><span class="n">LatLonGrid</span><span class="p">(</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">output_lat</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">output_lon</span>
+                <span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">output_lat</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">90</span><span class="p">,</span> <span class="o">-</span><span class="mi">90</span><span class="p">,</span> <span class="n">output_resolution</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">output_lon</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span>
+                    <span class="mi">0</span><span class="p">,</span> <span class="mi">360</span><span class="p">,</span> <span class="n">output_resolution</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">endpoint</span><span class="o">=</span><span class="kc">False</span>
+                <span class="p">)</span>
+                <span class="c1"># Update output grid</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">output_grid</span> <span class="o">=</span> <span class="n">earth2grid</span><span class="o">.</span><span class="n">latlon</span><span class="o">.</span><span class="n">equiangular_lat_lon_grid</span><span class="p">(</span>
+                    <span class="n">output_resolution</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
+                    <span class="n">output_resolution</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span>
+                    <span class="n">includes_south_pole</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                <span class="p">)</span>
+
+            <span class="c1"># Update regridder for high-res HEALPix to output</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">regrid_hpx_high_res_to_output</span> <span class="o">=</span> <span class="n">earth2grid</span><span class="o">.</span><span class="n">get_regridder</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">hpx_high_res_grid</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">output_grid</span>
+            <span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">regrid_hpx_high_res_to_output</span><span class="o">.</span><span class="n">double</span><span class="p">()</span>
+        <span class="k">else</span><span class="p">:</span>  <span class="c1"># healpix output</span>
+            <span class="c1"># For healpix output, the output grid is always the high-res healpix grid</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">output_grid</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">hpx_high_res_grid</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">regrid_hpx_high_res_to_output</span> <span class="o">=</span> <span class="kc">None</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">input_coords</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">CoordSystem</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Input coordinate system&quot;&quot;&quot;</span>
