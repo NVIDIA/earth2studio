@@ -1,0 +1,38 @@
+project: 'helene'
+mode: 'generate_ensemble'
+model: 'aifs-ens' # 'aifs-ens' 'fcn3' 'sfno'
+random_seed: 7777
+
+# ic_block_start: "2024-09-23 00:00:00" # first IC
+# ic_block_end: "2024-09-27 00:00:00" # upper boundary for ICs
+# ic_block_step: 24            # number of hours between individual ICs
+ics: ["2024-09-29 00:00:00"] #, "2024-09-24 06:00:00"] #, "2024-09-24 12:00:00"]
+
+n_steps: 15
+ensemble_size: 4
+batch_size: 2
+model_package: "/fcn3_cyclones/checkpoints/fcn2_sc2_edim45_layers10_finetune_2013-2016_8step_centered_4member/flexible_5epochs"
+orography_path: '/fcn3_cyclones/checkpoints/fcn2_sc2_edim45_layers10_finetune_2013-2016_8step_centered_4member/flexible_5epochs/orography.nc'
+
+data_source:
+    # _target_: src.data.localh5.LocalArchiveHDF5
+    # dirs: "/lustre/fsw/coreai_climate_earth2/tkurth/73varQ-hourly/out_of_sample"
+    # metadata_file: "/lustre/fsw/coreai_climate_earth2/tkurth/73varQ-hourly/metadata/data.json"
+    # _target_: earth2studio.data.NCAR_ERA5
+    # _target_: earth2studio.data.GFS
+    # _target_: earth2studio.data.IFS
+    _target_: earth2studio.data.CDS
+
+store_type: "netcdf"
+store_dir: "./outputs"
+out_vars: ['msl', 'z300', 'z500', 'u10m', 'v10m']
+
+# cyclone_tracking:
+#     asynchronous: True
+#     vars: ['msl', 'u10m', 'v10m', 'z300', 'z500']
+#     detect_cmd: 'DetectNodes --verbosity 0 --mergedist 6 --closedcontourcmd _DIFF(z300,z500),-58.8,6.5,0;msl,200.,5.5,0 --searchbymin msl --outputcmd msl,min,0;_VECMAG(u10m,v10m),max,5;height,min,0'
+#     stitch_cmd: 'StitchNodes --in_fmt lon,lat,msl,wind_speed,height --range 8.0 --mintime 54h --maxgap 4 --out_file_format csv --threshold wind_speed,>=,10.,10;lat,<=,50.,10;lat,>=,-50.,10;height,<=,150.,10'
+#     keep_raw_data: False
+#     use_ram: True
+#     task_timeout_seconds: 120
+#     print_te_output: False

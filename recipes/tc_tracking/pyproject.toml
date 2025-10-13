@@ -1,0 +1,40 @@
+[project]
+name = "fcn3-tcs"
+version = "0.1.0"
+description = "no, i won't"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "anemoi-graphs==0.6.2",
+    "anemoi-models==0.5.1",
+    "cartopy>=0.24.1",
+    "earth2studio[data]>=0.10.0",
+    "earthkit-regrid==0.4.0",
+    "hydra-core>=1.3.2",
+    "importlib-metadata>=8.7.0",
+    "ipykernel>=6.30.1",
+    "makani>=0.2.0",
+    "matplotlib>=3.10.3",
+    "more-itertools>=10.7.0",
+    "moviepy>=2.2.1",
+    "ninja>=1.13.0",
+    "omegaconf>=2.3.0",
+    "ruamel-yaml>=0.18.14",
+    "scipy>=1.16.0",
+    "setuptools>=80.9.0",
+    "torch-harmonics>=0.8.1",
+    "tqdm>=4.67.1",
+    "tropycal>=1.4",
+    "zarrdump>=0.6.0",
+]
+
+[tool.uv.sources]
+makani = { git = "https://github.com/NVIDIA/makani" }
+torch-harmonics = { git = "https://github.com/NVIDIA/torch-harmonics.git" }
+earth2studio = { git = "https://github.com/mariusaurus/earth2studio.git", branch = "mkoch/tc_tracking" }
+
+[tool.uv]
+no-build-isolation-package = ["torch-harmonics"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
