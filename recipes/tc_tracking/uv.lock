@@ -1,5 +1,5 @@
 version = 1
-revision = 2
+revision = 3
 requires-python = ">=3.12"
 resolution-markers = [
     "python_full_version >= '3.14' and platform_python_implementation != 'PyPy' and sys_platform == 'linux'",
@@ -129,8 +129,8 @@ dependencies = [
     { name = "numpy" },
     { name = "plotly" },
     { name = "scikit-learn" },
-    { name = "torch", version = "2.7.1", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "sys_platform == 'darwin'" },
-    { name = "torch", version = "2.7.1+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "sys_platform != 'darwin' and sys_platform != 'linux'" },
+    { name = "torch", version = "2.7.1", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "(python_full_version < '3.14' and platform_python_implementation != 'PyPy' and sys_platform == 'darwin') or (python_full_version < '3.13' and platform_python_implementation == 'PyPy' and sys_platform == 'darwin')" },
+    { name = "torch", version = "2.7.1+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "(python_full_version >= '3.14' and platform_python_implementation != 'PyPy' and sys_platform == 'darwin') or (python_full_version >= '3.13' and platform_python_implementation == 'PyPy' and sys_platform == 'darwin') or (sys_platform != 'darwin' and sys_platform != 'linux')" },
     { name = "torch", version = "2.7.1+cu128", source = { registry = "https://download.pytorch.org/whl/cu128" }, marker = "sys_platform == 'linux'" },
     { name = "torch-geometric" },
     { name = "typeguard" },
@@ -148,8 +148,8 @@ dependencies = [
     { name = "anemoi-utils" },
     { name = "einops" },
     { name = "hydra-core" },
-    { name = "torch", version = "2.7.1", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "sys_platform == 'darwin'" },
-    { name = "torch", version = "2.7.1+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "sys_platform != 'darwin' and sys_platform != 'linux'" },
+    { name = "torch", version = "2.7.1", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "(python_full_version < '3.14' and platform_python_implementation != 'PyPy' and sys_platform == 'darwin') or (python_full_version < '3.13' and platform_python_implementation == 'PyPy' and sys_platform == 'darwin')" },
+    { name = "torch", version = "2.7.1+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "(python_full_version >= '3.14' and platform_python_implementation != 'PyPy' and sys_platform == 'darwin') or (python_full_version >= '3.13' and platform_python_implementation == 'PyPy' and sys_platform == 'darwin') or (sys_platform != 'darwin' and sys_platform != 'linux')" },
     { name = "torch", version = "2.7.1+cu128", source = { registry = "https://download.pytorch.org/whl/cu128" }, marker = "sys_platform == 'linux'" },
     { name = "torch-geometric" },
 ]
@@ -785,7 +785,7 @@ wheels = [
 [[package]]
 name = "earth2studio"
 version = "0.10.0a0"
-source = { git = "https://github.com/mariusaurus/earth2studio.git?branch=mkoch%2Fte-aifs-ens#fc9e8da2c2dcd1392b51970604961186e5938e68" }
+source = { git = "https://github.com/mariusaurus/earth2studio.git?branch=mkoch%2Ftc_tracking#a4d59708fba9884b79e08a76819d5e9fef84396d" }
 dependencies = [
     { name = "cfgrib" },
     { name = "cftime" },
@@ -801,8 +801,8 @@ dependencies = [
     { name = "python-dotenv" },
     { name = "rich" },
     { name = "s3fs" },
-    { name = "torch", version = "2.7.1", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "sys_platform == 'darwin'" },
-    { name = "torch", version = "2.7.1+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "sys_platform != 'darwin' and sys_platform != 'linux'" },
+    { name = "torch", version = "2.7.1", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "(python_full_version < '3.14' and platform_python_implementation != 'PyPy' and sys_platform == 'darwin') or (python_full_version < '3.13' and platform_python_implementation == 'PyPy' and sys_platform == 'darwin')" },
+    { name = "torch", version = "2.7.1+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "(python_full_version >= '3.14' and platform_python_implementation != 'PyPy' and sys_platform == 'darwin') or (python_full_version >= '3.13' and platform_python_implementation == 'PyPy' and sys_platform == 'darwin') or (sys_platform != 'darwin' and sys_platform != 'linux')" },
     { name = "torch", version = "2.7.1+cu128", source = { registry = "https://download.pytorch.org/whl/cu128" }, marker = "sys_platform == 'linux'" },
     { name = "tqdm" },
     { name = "xarray", extra = ["parallel"] },
@@ -952,7 +952,7 @@ requires-dist = [
     { name = "anemoi-graphs", specifier = "==0.6.2" },
     { name = "anemoi-models", specifier = "==0.5.1" },
     { name = "cartopy", specifier = ">=0.24.1" },
-    { name = "earth2studio", extras = ["data"], git = "https://github.com/mariusaurus/earth2studio.git?branch=mkoch%2Fte-aifs-ens" },
+    { name = "earth2studio", extras = ["data"], git = "https://github.com/mariusaurus/earth2studio.git?branch=mkoch%2Ftc_tracking" },
     { name = "earthkit-regrid", specifier = "==0.4.0" },
     { name = "hydra-core", specifier = ">=1.3.2" },
     { name = "importlib-metadata", specifier = ">=8.7.0" },
@@ -1706,8 +1706,8 @@ dependencies = [
     { name = "numpy" },
     { name = "nvidia-physicsnemo" },
     { name = "pynvml" },
-    { name = "torch", version = "2.7.1", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "sys_platform == 'darwin'" },
-    { name = "torch", version = "2.7.1+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "sys_platform != 'darwin' and sys_platform != 'linux'" },
+    { name = "torch", version = "2.7.1", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "(python_full_version < '3.14' and platform_python_implementation != 'PyPy' and sys_platform == 'darwin') or (python_full_version < '3.13' and platform_python_implementation == 'PyPy' and sys_platform == 'darwin')" },
+    { name = "torch", version = "2.7.1+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "(python_full_version >= '3.14' and platform_python_implementation != 'PyPy' and sys_platform == 'darwin') or (python_full_version >= '3.13' and platform_python_implementation == 'PyPy' and sys_platform == 'darwin') or (sys_platform != 'darwin' and sys_platform != 'linux')" },
     { name = "torch", version = "2.7.1+cu128", source = { registry = "https://download.pytorch.org/whl/cu128" }, marker = "sys_platform == 'linux'" },
     { name = "torch-harmonics" },
     { name = "tqdm" },
@@ -2250,8 +2250,8 @@ dependencies = [
     { name = "s3fs" },
     { name = "setuptools" },
     { name = "timm" },
-    { name = "torch", version = "2.7.1", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "sys_platform == 'darwin'" },
-    { name = "torch", version = "2.7.1+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "sys_platform != 'darwin' and sys_platform != 'linux'" },
+    { name = "torch", version = "2.7.1", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "(python_full_version < '3.14' and platform_python_implementation != 'PyPy' and sys_platform == 'darwin') or (python_full_version < '3.13' and platform_python_implementation == 'PyPy' and sys_platform == 'darwin')" },
+    { name = "torch", version = "2.7.1+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "(python_full_version >= '3.14' and platform_python_implementation != 'PyPy' and sys_platform == 'darwin') or (python_full_version >= '3.13' and platform_python_implementation == 'PyPy' and sys_platform == 'darwin') or (sys_platform != 'darwin' and sys_platform != 'linux')" },
     { name = "torch", version = "2.7.1+cu128", source = { registry = "https://download.pytorch.org/whl/cu128" }, marker = "sys_platform == 'linux'" },
     { name = "tqdm" },
     { name = "treelib" },
@@ -3412,8 +3412,8 @@ dependencies = [
     { name = "huggingface-hub" },
     { name = "pyyaml" },
     { name = "safetensors" },
-    { name = "torch", version = "2.7.1", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "sys_platform == 'darwin'" },
-    { name = "torch", version = "2.7.1+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "sys_platform != 'darwin' and sys_platform != 'linux'" },
+    { name = "torch", version = "2.7.1", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "(python_full_version < '3.14' and platform_python_implementation != 'PyPy' and sys_platform == 'darwin') or (python_full_version < '3.13' and platform_python_implementation == 'PyPy' and sys_platform == 'darwin')" },
+    { name = "torch", version = "2.7.1+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "(python_full_version >= '3.14' and platform_python_implementation != 'PyPy' and sys_platform == 'darwin') or (python_full_version >= '3.13' and platform_python_implementation == 'PyPy' and sys_platform == 'darwin') or (sys_platform != 'darwin' and sys_platform != 'linux')" },
     { name = "torch", version = "2.7.1+cu128", source = { registry = "https://download.pytorch.org/whl/cu128" }, marker = "sys_platform == 'linux'" },
     { name = "torchvision" },
 ]
@@ -3436,19 +3436,17 @@ name = "torch"
 version = "2.7.1"
 source = { registry = "https://download.pytorch.org/whl/cpu" }
 resolution-markers = [
-    "python_full_version >= '3.14' and platform_python_implementation != 'PyPy' and sys_platform == 'darwin'",
     "python_full_version == '3.13.*' and platform_python_implementation != 'PyPy' and sys_platform == 'darwin'",
-    "python_full_version >= '3.13' and platform_python_implementation == 'PyPy' and sys_platform == 'darwin'",
     "python_full_version < '3.13' and sys_platform == 'darwin'",
 ]
 dependencies = [
-    { name = "filelock", marker = "sys_platform == 'darwin'" },
-    { name = "fsspec", marker = "sys_platform == 'darwin'" },
-    { name = "jinja2", marker = "sys_platform == 'darwin'" },
-    { name = "networkx", marker = "sys_platform == 'darwin'" },
-    { name = "setuptools", marker = "sys_platform == 'darwin'" },
-    { name = "sympy", marker = "sys_platform == 'darwin'" },
-    { name = "typing-extensions", marker = "sys_platform == 'darwin'" },
+    { name = "filelock", marker = "(python_full_version < '3.14' and platform_python_implementation != 'PyPy' and sys_platform == 'darwin') or (python_full_version < '3.13' and platform_python_implementation == 'PyPy' and sys_platform == 'darwin')" },
+    { name = "fsspec", marker = "(python_full_version < '3.14' and platform_python_implementation != 'PyPy' and sys_platform == 'darwin') or (python_full_version < '3.13' and platform_python_implementation == 'PyPy' and sys_platform == 'darwin')" },
+    { name = "jinja2", marker = "(python_full_version < '3.14' and platform_python_implementation != 'PyPy' and sys_platform == 'darwin') or (python_full_version < '3.13' and platform_python_implementation == 'PyPy' and sys_platform == 'darwin')" },
+    { name = "networkx", marker = "(python_full_version < '3.14' and platform_python_implementation != 'PyPy' and sys_platform == 'darwin') or (python_full_version < '3.13' and platform_python_implementation == 'PyPy' and sys_platform == 'darwin')" },
+    { name = "setuptools", marker = "(python_full_version < '3.14' and platform_python_implementation != 'PyPy' and sys_platform == 'darwin') or (python_full_version < '3.13' and platform_python_implementation == 'PyPy' and sys_platform == 'darwin')" },
+    { name = "sympy", marker = "(python_full_version < '3.14' and platform_python_implementation != 'PyPy' and sys_platform == 'darwin') or (python_full_version < '3.13' and platform_python_implementation == 'PyPy' and sys_platform == 'darwin')" },
+    { name = "typing-extensions", marker = "(python_full_version < '3.14' and platform_python_implementation != 'PyPy' and sys_platform == 'darwin') or (python_full_version < '3.13' and platform_python_implementation == 'PyPy' and sys_platform == 'darwin')" },
 ]
 wheels = [
     { url = "https://download.pytorch.org/whl/cpu/torch-2.7.1-cp312-none-macosx_11_0_arm64.whl", hash = "sha256:7b4f8b2b83bd08f7d399025a9a7b323bdbb53d20566f1e0d584689bb92d82f9a" },
@@ -3465,15 +3463,17 @@ resolution-markers = [
     "python_full_version == '3.13.*' and platform_python_implementation != 'PyPy' and sys_platform != 'darwin' and sys_platform != 'linux'",
     "python_full_version >= '3.13' and platform_python_implementation == 'PyPy' and sys_platform != 'darwin' and sys_platform != 'linux'",
     "python_full_version < '3.13' and sys_platform != 'darwin' and sys_platform != 'linux'",
+    "python_full_version >= '3.14' and platform_python_implementation != 'PyPy' and sys_platform == 'darwin'",
+    "python_full_version >= '3.13' and platform_python_implementation == 'PyPy' and sys_platform == 'darwin'",
 ]
 dependencies = [
-    { name = "filelock", marker = "sys_platform != 'darwin' and sys_platform != 'linux'" },
-    { name = "fsspec", marker = "sys_platform != 'darwin' and sys_platform != 'linux'" },
-    { name = "jinja2", marker = "sys_platform != 'darwin' and sys_platform != 'linux'" },
-    { name = "networkx", marker = "sys_platform != 'darwin' and sys_platform != 'linux'" },
-    { name = "setuptools", marker = "sys_platform != 'darwin' and sys_platform != 'linux'" },
-    { name = "sympy", marker = "sys_platform != 'darwin' and sys_platform != 'linux'" },
-    { name = "typing-extensions", marker = "sys_platform != 'darwin' and sys_platform != 'linux'" },
+    { name = "filelock", marker = "(python_full_version >= '3.14' and platform_python_implementation != 'PyPy' and sys_platform == 'darwin') or (python_full_version >= '3.13' and platform_python_implementation == 'PyPy' and sys_platform == 'darwin') or (sys_platform != 'darwin' and sys_platform != 'linux')" },
+    { name = "fsspec", marker = "(python_full_version >= '3.14' and platform_python_implementation != 'PyPy' and sys_platform == 'darwin') or (python_full_version >= '3.13' and platform_python_implementation == 'PyPy' and sys_platform == 'darwin') or (sys_platform != 'darwin' and sys_platform != 'linux')" },
+    { name = "jinja2", marker = "(python_full_version >= '3.14' and platform_python_implementation != 'PyPy' and sys_platform == 'darwin') or (python_full_version >= '3.13' and platform_python_implementation == 'PyPy' and sys_platform == 'darwin') or (sys_platform != 'darwin' and sys_platform != 'linux')" },
+    { name = "networkx", marker = "(python_full_version >= '3.14' and platform_python_implementation != 'PyPy' and sys_platform == 'darwin') or (python_full_version >= '3.13' and platform_python_implementation == 'PyPy' and sys_platform == 'darwin') or (sys_platform != 'darwin' and sys_platform != 'linux')" },
+    { name = "setuptools", marker = "(python_full_version >= '3.14' and platform_python_implementation != 'PyPy' and sys_platform == 'darwin') or (python_full_version >= '3.13' and platform_python_implementation == 'PyPy' and sys_platform == 'darwin') or (sys_platform != 'darwin' and sys_platform != 'linux')" },
+    { name = "sympy", marker = "(python_full_version >= '3.14' and platform_python_implementation != 'PyPy' and sys_platform == 'darwin') or (python_full_version >= '3.13' and platform_python_implementation == 'PyPy' and sys_platform == 'darwin') or (sys_platform != 'darwin' and sys_platform != 'linux')" },
+    { name = "typing-extensions", marker = "(python_full_version >= '3.14' and platform_python_implementation != 'PyPy' and sys_platform == 'darwin') or (python_full_version >= '3.13' and platform_python_implementation == 'PyPy' and sys_platform == 'darwin') or (sys_platform != 'darwin' and sys_platform != 'linux')" },
 ]
 wheels = [
     { url = "https://download.pytorch.org/whl/cpu/torch-2.7.1%2Bcpu-cp312-cp312-win_amd64.whl", hash = "sha256:0bc887068772233f532b51a3e8c8cfc682ae62bef74bf4e0c53526c8b9e4138f" },
@@ -3550,8 +3550,8 @@ version = "0.8.1"
 source = { git = "https://github.com/NVIDIA/torch-harmonics.git#6b8301cc6e9d04af114f5d87debd184b7810a33d" }
 dependencies = [
     { name = "numpy" },
-    { name = "torch", version = "2.7.1", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "sys_platform == 'darwin'" },
-    { name = "torch", version = "2.7.1+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "sys_platform != 'darwin' and sys_platform != 'linux'" },
+    { name = "torch", version = "2.7.1", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "(python_full_version < '3.14' and platform_python_implementation != 'PyPy' and sys_platform == 'darwin') or (python_full_version < '3.13' and platform_python_implementation == 'PyPy' and sys_platform == 'darwin')" },
+    { name = "torch", version = "2.7.1+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "(python_full_version >= '3.14' and platform_python_implementation != 'PyPy' and sys_platform == 'darwin') or (python_full_version >= '3.13' and platform_python_implementation == 'PyPy' and sys_platform == 'darwin') or (sys_platform != 'darwin' and sys_platform != 'linux')" },
     { name = "torch", version = "2.7.1+cu128", source = { registry = "https://download.pytorch.org/whl/cu128" }, marker = "sys_platform == 'linux'" },
 ]
 
@@ -3562,8 +3562,8 @@ source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "numpy" },
     { name = "pillow" },
-    { name = "torch", version = "2.7.1", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "sys_platform == 'darwin'" },
-    { name = "torch", version = "2.7.1+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "sys_platform != 'darwin' and sys_platform != 'linux'" },
+    { name = "torch", version = "2.7.1", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "(python_full_version < '3.14' and platform_python_implementation != 'PyPy' and sys_platform == 'darwin') or (python_full_version < '3.13' and platform_python_implementation == 'PyPy' and sys_platform == 'darwin')" },
+    { name = "torch", version = "2.7.1+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "(python_full_version >= '3.14' and platform_python_implementation != 'PyPy' and sys_platform == 'darwin') or (python_full_version >= '3.13' and platform_python_implementation == 'PyPy' and sys_platform == 'darwin') or (sys_platform != 'darwin' and sys_platform != 'linux')" },
     { name = "torch", version = "2.7.1+cu128", source = { registry = "https://download.pytorch.org/whl/cu128" }, marker = "sys_platform == 'linux'" },
 ]
 wheels = [
