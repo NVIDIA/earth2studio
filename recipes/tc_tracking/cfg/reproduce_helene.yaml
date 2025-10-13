@@ -1,6 +1,6 @@
 project: 'helene'
 mode: 'reproduce_members'
-model: 'sfno'
+model: 'fcn3'
 random_seed: 7552
 
 reproduce_members: [
@@ -16,9 +16,6 @@ model_package: "/fcn3_cyclones/checkpoints/fcn2_sc2_edim45_layers10_finetune_201
 orography_path: '/fcn3_cyclones/checkpoints/fcn2_sc2_edim45_layers10_finetune_2013-2016_8step_centered_4member/flexible_5epochs/orography.nc'
 
 data_source:
-    # _target_: src.data.localh5.LocalArchiveHDF5
-    # dirs: "/lustre/fsw/coreai_climate_earth2/tkurth/73varQ-hourly/out_of_sample"
-    # metadata_file: "/lustre/fsw/coreai_climate_earth2/tkurth/73varQ-hourly/metadata/data.json"
     _target_: earth2studio.data.NCAR_ERA5
     # _target_: earth2studio.data.GFS
 
