@@ -1,16 +1,15 @@
-from datetime import datetime, timedelta
 import glob
 import json
 import os
-from typing import Iterable, Tuple
+from collections.abc import Iterable
+from datetime import datetime, timedelta
+from typing import Tuple
 
 import h5py
 import numpy as np
 import xarray as xr
 
-
 from earth2studio.utils.type import TimeArray, VariableArray
-
 
 DIMS = ["time", "variable", "lat", "lon"]
 
@@ -20,7 +19,7 @@ class LocalArchiveHDF5:
         self,
         dirs: str | Iterable,
         metadata_file: str,
-        latlon_box: Tuple[Tuple[float, float], Tuple[float, int]] | None = None,
+        latlon_box: tuple[tuple[float, float], tuple[float, int]] | None = None,
     ):
         if isinstance(dirs, str):
             dirs = [dirs]
@@ -31,7 +30,7 @@ class LocalArchiveHDF5:
                 year = int(os.path.basename(path).split(".")[0])
                 self.files_by_year[year] = path
 
-        with open(metadata_file, 'r') as f:
+        with open(metadata_file) as f:
             metadata = json.load(f)
         self.lat = np.array(metadata["coords"]["lat"])
         self.lon = np.array(metadata["coords"]["lon"])
@@ -62,17 +61,19 @@ class LocalArchiveHDF5:
 
         x = np.zeros((len(time), len(variable)) + self.field_shape, dtype=np.float32)
 
-        for (k, t) in enumerate(time):
+        for k, t in enumerate(time):
             time_idx = int((t - datetime(t.year, 1, 1)) / self.dt)
-            with h5py.File(self.files_by_year[t.year], 'r') as ds:
-                for (i, var_idx) in enumerate(var_indices):
-                    x[k, i, :, :] = ds["fields"][time_idx, var_idx, self.lat_slice, self.lon_slice]
+            with h5py.File(self.files_by_year[t.year], "r") as ds:
+                for i, var_idx in enumerate(var_indices):
+                    x[k, i, :, :] = ds["fields"][
+                        time_idx, var_idx, self.lat_slice, self.lon_slice
+                    ]
 
         coords = {
             "time": np.array(time, copy=False),
             "variable": np.array(variable, copy=False),
             "lat": self.lat,
-            "lon": self.lon
+            "lon": self.lon,
         }
 
         return xr.DataArray(data=x, coords=coords, dims=DIMS)

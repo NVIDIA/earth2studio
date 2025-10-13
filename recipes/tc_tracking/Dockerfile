@@ -36,4 +36,3 @@ WORKDIR /fcn3_tcs
 ENV FORCE_CUDA_EXTENSION 1
 ENV TORCH_CUDA_ARCH_LIST "8.0 8.6 9.0 10.0 12.0+PTX"
 RUN uv pip install --system --break-system-packages --no-cache-dir .
-
