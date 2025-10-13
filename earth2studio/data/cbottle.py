@@ -17,6 +17,7 @@
 import os
 import pathlib
 from datetime import datetime, timedelta
+from enum import IntEnum
 
 import cftime
 import numpy as np
@@ -51,6 +52,13 @@ except ImportError:
     MixtureOfExpertsDenoiser = None
 
 HPX_LEVEL = 6
+
+
+class DatasetModality(IntEnum):
+    """Dataset label"""
+
+    ICON = 0
+    ERA5 = 1
 
 
 @check_optional_dependencies()
@@ -89,6 +97,9 @@ class CBottle3D(torch.nn.Module, AutoModelMixin):
     seed : int | None, optional
         If set, will fix the seed of the random generator for latent variables, by
         default None
+    dataset_modality: DatasetModality, optional
+        Dataset modality label to use when sampling (0=ICON, 1=ERA5), by default
+        DatasetModality.ERA5
     cache : bool, optional
         Does nothing at the moment, by default False
     verbose : bool, optional
@@ -106,6 +117,7 @@ class CBottle3D(torch.nn.Module, AutoModelMixin):
         sigma_max: float = 200.0,
         batch_size: int = 4,
         seed: int | None = None,
+        dataset_modality: DatasetModality = DatasetModality.ERA5,
         cache: bool = False,
         verbose: bool = True,
     ):
@@ -117,6 +129,7 @@ class CBottle3D(torch.nn.Module, AutoModelMixin):
         self.sampler_steps = sampler_steps
         self.batch_size = batch_size
         self.seed = seed
+        self.dataset_modality = DatasetModality(dataset_modality)
         self._core_model = core_model  # Needed to move model to device
         self.core_model = CBottle3d(core_model)
 
@@ -169,8 +182,7 @@ class CBottle3D(torch.nn.Module, AutoModelMixin):
 
         # Make sure input time is valid
         self._validate_time(time)
-
-        input = self.get_cbottle_input(time)
+        input = self.get_cbottle_input(time, dataset_modality=self.dataset_modality)
 
         varidx = []
         for var in variable:
@@ -253,7 +265,7 @@ class CBottle3D(torch.nn.Module, AutoModelMixin):
     def get_cbottle_input(
         self,
         times: list[datetime],
-        label: int = 1,  # 0 for ICON, 1 for ERA5
+        dataset_modality: DatasetModality = DatasetModality.ERA5,
     ) -> dict[str, torch.Tensor]:
         """Prepares the CBottle inputs
 
@@ -266,8 +278,8 @@ class CBottle3D(torch.nn.Module, AutoModelMixin):
         ----------
         times : list[datetime]
             List of times for inference
-        label : int, optional
-            Label ID, by default 1
+        dataset_modality : DatasetModality, optional
+            Dataset modality label, by default DatasetModality.ERA5
 
         Returns
         -------
@@ -306,7 +318,10 @@ class CBottle3D(torch.nn.Module, AutoModelMixin):
         )
         target[:, nan_channels, ...] = np.nan
 
-        labels = torch.nn.functional.one_hot(torch.tensor(label), num_classes=1024)
+        dataset_modality = DatasetModality(dataset_modality)
+        labels = torch.nn.functional.one_hot(
+            torch.tensor(dataset_modality.value, dtype=torch.long), num_classes=1024
+        )
         labels = labels.unsqueeze(0).repeat(len(times), 1)
 
         out = {
@@ -368,8 +383,10 @@ class CBottle3D(torch.nn.Module, AutoModelMixin):
         cls,
         package: Package,
         lat_lon: bool = True,
-        batch_size: int = 4,
+        sampler_steps: int = 18,
+        sigma_max: float = 200,
         seed: int | None = None,
+        batch_size: int = 4,
         verbose: bool = True,
     ) -> DataSource:
         """Load AI datasource from package
@@ -379,15 +396,19 @@ class CBottle3D(torch.nn.Module, AutoModelMixin):
         package : Package
             CBottle AI model package
         lat_lon : bool, optional
-            Lat/lon toggle, if true data source will return output on a 0.25 deg lat/lon
+            Lat/lon toggle, if true prognostic input/output on a 0.25 deg lat/lon
             grid. If false, the native nested HealPix grid will be returned, by default
             True
+        sampler_steps : int, optional
+            Number of diffusion steps, by default 18
+        sigma_max : float, optional
+            Noise amplitude used to generate latent variables, by default 200
+        seed : int, optional
+            Random generator seed for latent variables. If None, no seed will be used,
+            by default None
         batch_size : int, optional
             Batch size to generate time samples at, consider adjusting based on hardware
             being used, by default 4
-        seed : int | None, optional
-            If set, will fix the seed of the random generator for latent variables, by
-            default None
         verbose : bool, optional
             Print generation progress, by default True
 
@@ -431,7 +452,9 @@ class CBottle3D(torch.nn.Module, AutoModelMixin):
             core_model,
             sst_ds,
             lat_lon=lat_lon,
-            batch_size=batch_size,
+            sampler_steps=sampler_steps,
+            sigma_max=sigma_max,
             seed=seed,
+            batch_size=batch_size,
             verbose=verbose,
         )
