@@ -55,6 +55,7 @@ class HRRRLexicon(metaclass=LexiconType):
             "cicep": "wrfsfc::CICEP::surface::anl",
             "cfrzr": "wrfsfc::CFRZR::surface::anl",
             "crain": "wrfsfc::CRAIN::surface::anl",
+            "fg10m": "wrfsfc::GUST::surface::anl",
         }
         prs_levels = [
             50,
