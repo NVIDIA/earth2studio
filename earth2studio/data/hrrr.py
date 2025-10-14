@@ -112,8 +112,8 @@ class HRRR:
     HRRR_BUCKET_NAME = "noaa-hrrr-bdp-pds"
     MAX_BYTE_SIZE = 5000000
 
-    HRRR_X = np.arange(1799)
-    HRRR_Y = np.arange(1059)
+    HRRR_X = np.linspace(-2697520.1425219304, 2696479.8574780696, 1799, endpoint=True)
+    HRRR_Y = np.linspace(-1587306.1525566636, 1586693.8474433364, 1059, endpoint=True)
 
     def __init__(
         self,
@@ -319,6 +319,8 @@ class HRRR:
                 "lon": (("hrrr_y", "hrrr_x"), lon),
             },
         )
+        xr_array["hrrr_y"].attrs = {"standard_name": "latitude", "axis": "Y"}
+        xr_array["hrrr_x"].attrs = {"standard_name": "longitude", "axis": "X"}
 
         async_tasks = []
         async_tasks = await self._create_tasks(time, [timedelta(hours=0)], variable)
