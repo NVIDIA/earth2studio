@@ -17,7 +17,7 @@
 from collections import OrderedDict
 from collections.abc import Generator, Iterator
 from datetime import datetime
-from enum import IntEnum
+from enum import IntEnum, StrEnum
 
 import numpy as np
 import torch
@@ -59,6 +59,13 @@ class DatasetModality(IntEnum):
 
     ICON = 0
     ERA5 = 1
+
+
+class SamplerFunction(StrEnum):
+    """Supported sampler functions"""
+
+    HEUN = "heun"
+    EULER = "euler"
 
 
 @check_optional_dependencies()
@@ -109,6 +116,8 @@ class CBottleVideo(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     dataset_modality: DatasetModality, optional
         Dataset modality label to use when sampling (0=ICON, 1=ERA5), by default
         DatasetModality.ERA5
+    sampler_fn : SamplerFunction, optional
+        Sampler function used to denoise, by default SamplerFunction.HEUN
     """
 
     VARIABLES = np.array(list(CBottleLexicon.VOCAB.keys()))
@@ -118,12 +127,12 @@ class CBottleVideo(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         core_model: torch.nn.Module,
         sst_ds: xr.Dataset,
         lat_lon: bool = True,
-        sampler_fn: str = "heun",
         sampler_steps: int = 18,
         sigma_max: float = 1000.0,
         sigma_min: float = 0.02,
         seed: int | None = None,
         dataset_modality: DatasetModality = DatasetModality.ERA5,
+        sampler_fn: SamplerFunction = SamplerFunction.HEUN,
     ):
         super().__init__()
 
@@ -132,9 +141,9 @@ class CBottleVideo(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self.sigma_max = sigma_max
         self.sigma_min = sigma_min
         self.sampler_steps = sampler_steps
-        self.sampler_fn = sampler_fn
         self.seed = seed
         self.dataset_modality = dataset_modality
+        self.sampler_fn = sampler_fn
         self._mixture_model = core_model
         self.core_model = CBottle3d(core_model)
 
@@ -257,7 +266,7 @@ class CBottleVideo(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self.core_model.sigma_min = self.sigma_min
         self.core_model.sigma_max = self.sigma_max
         self.core_model.num_steps = self.sampler_steps
-        self.core_model.sampler_fn = self.sampler_fn
+        self.core_model.sampler_fn = SamplerFunction(self.sampler_fn).value
 
         if self.lat_lon:
             x = self.condition_regridder(x.double())
