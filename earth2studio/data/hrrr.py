@@ -851,6 +851,8 @@ class HRRR_FX(HRRR):
                 "hrrr_y": self.HRRR_Y,
             },
         )
+        xr_array["hrrr_y"].attrs = {"standard_name": "latitude", "axis": "Y"}
+        xr_array["hrrr_x"].attrs = {"standard_name": "longitude", "axis": "X"}
 
         async_tasks = []
         async_tasks = await self._create_tasks(time, lead_time, variable)
