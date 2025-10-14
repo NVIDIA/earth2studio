@@ -21,7 +21,7 @@ from datetime import datetime, timedelta
 import numpy as np
 import pytest
 
-from earth2studio.data import IFS
+from earth2studio.data import ECMWFOpenData
 
 
 def now6h():
@@ -44,24 +44,37 @@ def now6h():
         ],
     ],
 )
+@pytest.mark.parametrize(
+    "lead_time",
+    [
+        timedelta(hours=0),
+        [
+            timedelta(hours=3),
+            timedelta(hours=6),
+        ],
+    ],
+)
 @pytest.mark.parametrize("variable", ["tcwv", ["sp"]])
-def test_ifs_fetch(time, variable):
-    ds = IFS(cache=False)
-    data = ds(time, variable)
+def test_ifs_fetch(time, lead_time, variable):
+    ds = ECMWFOpenData(cache=False)
+    data = ds(time, lead_time, variable)
     shape = data.shape
 
     if isinstance(variable, str):
         variable = [variable]
 
+    if isinstance(lead_time, timedelta):
+        lead_time = [lead_time]
+
     if isinstance(time, datetime):
         time = [time]
 
     assert shape[0] == len(time)
-    assert shape[1] == len(variable)
-    assert shape[2] == 721
-    assert shape[3] == 1440
+    assert shape[1] == len(lead_time)
+    assert shape[2] == len(variable)
+    assert shape[3] == 721
+    assert shape[4] == 1440
     assert not np.isnan(data.values).any()
-    assert IFS.available(time[0])
     assert np.array_equal(data.coords["variable"].values, np.array(variable))
 
 
@@ -74,30 +87,32 @@ def test_ifs_fetch(time, variable):
         np.array([now6h() - timedelta(days=2)], dtype="datetime64"),
     ],
 )
+@pytest.mark.parametrize("lead_time", [timedelta(hours=0)])
 @pytest.mark.parametrize("variable", [["u10m", "tcwv"]])
 @pytest.mark.parametrize("cache", [True, False])
-def test_ifs_cache(time, variable, cache):
-
-    ds = IFS(cache=cache)
-    data = ds(time, variable)
-    shape = data.shape
-
-    assert shape[0] == 1
-    assert shape[1] == len(variable)
-    assert shape[2] == 721
-    assert shape[3] == 1440
-    assert not np.isnan(data.values).any()
-    # Cahce should be present
-    assert pathlib.Path(ds.cache).is_dir() == cache
-
-    # Load from cach or refetch
-    data = ds(time, variable[0])
+def test_ifs_cache(time, lead_time, variable, cache):
+    ds = ECMWFOpenData(cache=cache)
+    data = ds(time, lead_time, variable)
     shape = data.shape
 
     assert shape[0] == 1
     assert shape[1] == 1
-    assert shape[2] == 721
-    assert shape[3] == 1440
+    assert shape[2] == len(variable)
+    assert shape[3] == 721
+    assert shape[4] == 1440
+    assert not np.isnan(data.values).any()
+    # Cache should be present
+    assert pathlib.Path(ds.cache).is_dir() == cache
+
+    # Load from cache or refetch
+    data = ds(time, lead_time, variable[0])
+    shape = data.shape
+
+    assert shape[0] == 1
+    assert shape[1] == 1
+    assert shape[2] == 1
+    assert shape[3] == 721
+    assert shape[4] == 1440
     assert not np.isnan(data.values).any()
 
     try:
@@ -115,9 +130,27 @@ def test_ifs_cache(time, variable, cache):
         datetime(year=1993, month=4, day=5),
     ],
 )
+@pytest.mark.parametrize("lead_time", [timedelta(hours=0)])
 @pytest.mark.parametrize("variable", ["msl"])
-def test_ifs_available(time, variable):
-    assert not IFS.available(time)
+def test_ifs_time_available(time, lead_time, variable):
     with pytest.raises(ValueError):
-        ds = IFS()
-        ds(time, variable)
+        ds = ECMWFOpenData(source="ecmwf")
+        ds(time, lead_time, variable)
+
+
+@pytest.mark.timeout(30)
+@pytest.mark.parametrize("time", [now6h() - timedelta(days=2)])
+@pytest.mark.parametrize("lead_time", [timedelta(hours=0)])
+@pytest.mark.parametrize(
+    "lead_time",
+    [
+        timedelta(hours=1),
+        timedelta(hours=147),
+        timedelta(hours=366),
+    ],
+)
+@pytest.mark.parametrize("variable", ["msl"])
+def test_ifs_leadtime_available(time, lead_time, variable):
+    with pytest.raises(ValueError):
+        ds = ECMWFOpenData()
+        ds(time, lead_time, variable)

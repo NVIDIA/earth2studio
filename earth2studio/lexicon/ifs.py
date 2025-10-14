@@ -35,7 +35,7 @@ class IFSLexicon(metaclass=LexiconType):
 
     @staticmethod
     def build_vocab() -> dict[str, str]:
-        """Create HRRR vocab dictionary"""
+        """Create IFS vocab dictionary."""
         sfc_variables = {
             "u10m": "10u::sfc::",
             "v10m": "10v::sfc::",
@@ -45,7 +45,7 @@ class IFSLexicon(metaclass=LexiconType):
             "d2m": "2d::sfc::",
             "sp": "sp::sfc::",
             "msl": "msl::sfc::",
-            "tcw": "tcw::sfc::",  #
+            "tcw": "tcw::sfc::",
             "tcwv": "tcwv::sfc::",
             "tp": "tp::sfc::",
             "skt": "skt::sfc::",
@@ -53,12 +53,43 @@ class IFSLexicon(metaclass=LexiconType):
             "sdor": "sdor::sfc::",
             "lsm": "lsm::sfc::",
             "z": "z::sfc::",
+            "10fg": "10fg::sfc::",
+            "asn": "asn::sfc::",
+            "ewss": "ewss::sfc::",
+            "mn2t3": "mn2t3::sfc::",
+            "mucape": "mucape::sfc::",
+            "mx2t3": "mx2t3::sfc::",
+            "nsss": "nsss::sfc::",
+            "ptype": "ptype::sfc::",
+            "ro": "ro::sfc::",
+            "sithick": "sithick::sfc::",
+            "ssr": "ssr::sfc::",
+            "ssrd": "ssrd::sfc::",
+            "str": "str::sfc::",
+            "strd": "strd::sfc::",
+            "sve": "sve::sfc::",
+            "svn": "svn::sfc::",
+            "tprate": "tprate::sfc::",
+            "ttr": "ttr::sfc::",
+            "zos": "zos::sfc::",
+            # Below are specific to AIFS
+            "cp": "cp::sfc::",
+            "hcc": "hcc::sfc::",
+            "lcc": "lcc::sfc::",
+            "mcc": "mcc::sfc::",
+            "rowe": "rowe::sfc::",
+            "sf": "sf::sfc::",
+            "tcc": "tcc::sfc::",
         }
         soil_variables = {
             "swvl1": "vsw::sl::1",
             "swvl2": "vsw::sl::2",
+            "swvl3": "vsw::sl::3",
+            "swvl4": "vsw::sl::4",
             "stl1": "sot::sl::1",
             "stl2": "sot::sl::2",
+            "stl3": "sot::sl::3",
+            "stl4": "sot::sl::4",
         }
         prs_levels = [
             50,
@@ -75,8 +106,8 @@ class IFSLexicon(metaclass=LexiconType):
             925,
             1000,
         ]
-        prs_names = ["u", "v", "w", "gh", "t", "r", "q"]
-        e2s_id = ["u", "v", "w", "z", "t", "r", "q"]
+        prs_names = ["u", "v", "w", "gh", "t", "r", "q", "d", "vo"]
+        e2s_id = ["u", "v", "w", "z", "t", "r", "q", "d", "vo"]
         prs_variables = {}
         for id, variable in zip(e2s_id, prs_names):
             for level in prs_levels:
