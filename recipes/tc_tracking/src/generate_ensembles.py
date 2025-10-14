@@ -38,21 +38,23 @@ def load_model(cfg):
     if 'model' in cfg:
         model = cfg.model
 
+    # select model
     if model == 'fcn3':
         from earth2studio.models.px import FCN3
-        package = Package(cfg.model_package)
-        model = FCN3.load_model(package)
+        model = FCN3
     elif model == 'sfno':
         from earth2studio.models.px import SFNO
-        package = Package('/lustre/fsw/coreai_climate_earth2/mkoch/hens/hens_checkpoints/sfno_linear_74chq_sc2_layers8_edim620_wstgl2-epoch70_seed72')
-        model = SFNO.load_model(package)
-    elif model == 'aifs-ens':
-        from earth2studio.models.px import AIFSENS
-        model = AIFSENS.load_model(AIFSENS.load_default_package())
+        model = SFNO
     else:
         raise ValueError(f'model {model} not supported')
 
-    return model.to(DistributedManager().device)
+    # load weights
+    pkg = Package(cfg.model_package) if 'model_package' in cfg else model.load_default_package()
+
+    # load full model
+    model = model.load_model(pkg).to(DistributedManager().device)
+
+    return model
 
 
 def run_inference(model, cfg, store, out_coords, ic_mems):

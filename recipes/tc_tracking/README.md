@@ -1,4 +1,4 @@
-# FCN# cyclone tracking
+# cyclone tracking
 
 Baseline to acheive this is an ensembling setup. Due to the inherently stochastic nature of the model, initial condition perturbation is not required.
 

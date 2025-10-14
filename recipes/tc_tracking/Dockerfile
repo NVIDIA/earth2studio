@@ -27,11 +27,9 @@ RUN cmake .. && \
 
 
 # copy source into the container.
-RUN mkdir -p /fcn3_tcs
-COPY . /fcn3_tcs/
-
-# fcn3_tc
-WORKDIR /fcn3_tcs
+RUN mkdir -p /tc_tracking
+COPY . /tc_tracking
+WORKDIR /tc_tracking
 
 ENV FORCE_CUDA_EXTENSION 1
 ENV TORCH_CUDA_ARCH_LIST "8.0 8.6 9.0 10.0 12.0+PTX"

@@ -12,7 +12,6 @@ reproduce_members: [
 n_steps: 15
 ensemble_size: 15
 batch_size: 2
-model_package: "/fcn3_cyclones/checkpoints/fcn2_sc2_edim45_layers10_finetune_2013-2016_8step_centered_4member/flexible_5epochs"
 orography_path: '/fcn3_cyclones/checkpoints/fcn2_sc2_edim45_layers10_finetune_2013-2016_8step_centered_4member/flexible_5epochs/orography.nc'
 
 data_source:
