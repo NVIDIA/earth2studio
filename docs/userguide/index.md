@@ -92,6 +92,7 @@ about/data
 
 components/prognostic
 components/diagnostic
+components/analysis
 components/datasources
 components/perturbation
 components/io
