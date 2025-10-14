@@ -60,10 +60,6 @@ class DiagnosticWrapper(torch.nn.Module, PrognosticMixin):
         have 2D latitude/longitude coordinates.
     keep_px_output : bool, default True
         Whether to include output of px_model in the input.
-    check_bounds : bool, default True
-        Whether to require that the latitude/longitude coordinates of the diagnostic
-        model are a subset of the coordinates of the prognostic model. Set to False
-        if the data can be extrapolated for the diagnostic model.
     """
 
     def __init__(
@@ -72,7 +68,6 @@ class DiagnosticWrapper(torch.nn.Module, PrognosticMixin):
         dx_models: DiagnosticModel | Sequence[DiagnosticModel],
         interpolate_coords: bool = False,
         keep_px_output: bool = True,
-        check_bounds: bool = True,
     ):
         super().__init__()
 
@@ -92,7 +87,6 @@ class DiagnosticWrapper(torch.nn.Module, PrognosticMixin):
                 dx_models[:-1],
                 interpolate_coords=interpolate_coords,
                 keep_px_output=keep_px_output,
-                check_bounds=check_bounds,
             )
 
         self.interpolate_coords = interpolate_coords
@@ -103,7 +97,6 @@ class DiagnosticWrapper(torch.nn.Module, PrognosticMixin):
             self.interp_lat1: np.ndarray | None = None
             self.interp_lon1: np.ndarray | None = None
         self.keep_px_output = keep_px_output or (len(dx_models) > 1)
-        self.check_bounds = check_bounds
 
     def input_coords(self) -> CoordSystem:
         """Input coordinate system of the prognostic model
@@ -114,31 +107,6 @@ class DiagnosticWrapper(torch.nn.Module, PrognosticMixin):
             Coordinate system dictionary
         """
         return self.px_model.input_coords()
-
-    def _check_dx_grid(
-        self,
-        lat_px_out: np.ndarray,
-        lon_px_out: np.ndarray,
-        lat_dx_in: np.ndarray,
-        lon_dx_in: np.ndarray,
-    ) -> None:
-        """Check that the diagnostic input lat/lon grids are a subset of the prognostic
-        output lat/lon grids.
-        """
-        lat_px_out = torch.as_tensor(lat_px_out)
-        lon_px_out = torch.as_tensor(lon_px_out)
-        lat_dx_in = torch.as_tensor(lat_dx_in)
-        lon_dx_in = torch.as_tensor(lon_dx_in)
-        grids_ok = (
-            (lat_dx_in >= lat_px_out.min()).all()
-            and (lat_dx_in <= lat_px_out.max()).all()
-            and (lon_dx_in >= lon_px_out.min()).all()
-            and (lon_dx_in <= lon_px_out.max()).all()
-        )
-        if not grids_ok:
-            raise ValueError(
-                "Output lat/lon grids must be a subset of the input lat/lon grids."
-            )
 
     @batch_coords()
     def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
@@ -163,15 +131,6 @@ class DiagnosticWrapper(torch.nn.Module, PrognosticMixin):
             in_coords_dx["lon"] = out_coords_px["lon"]
         out_coords_dx = self.dx_model.output_coords(in_coords_dx)
         out_coords_dx["lead_time"] = out_coords_px["lead_time"]
-
-        # check that diagnostic input grid is contained in the prognostic output grid
-        if self.check_bounds:
-            self._check_dx_grid(
-                out_coords_px["lat"],
-                out_coords_px["lon"],
-                in_coords_dx["lat"],
-                in_coords_dx["lon"],
-            )
 
         if self.keep_px_output:
             variables = np.concatenate(
