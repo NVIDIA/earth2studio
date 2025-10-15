@@ -82,14 +82,6 @@ HPX_LEVEL_LR = 6
 HPX_LEVEL_HR = 10
 
 
-def _as_torch_device(device: str | torch.device) -> torch.device:
-    return device if isinstance(device, torch.device) else torch.device(device)
-
-
-def _make_index_tensor(indices: Iterable[int], device: torch.device) -> torch.Tensor:
-    return torch.tensor(list(indices), dtype=torch.long, device=device)
-
-
 @check_optional_dependencies()
 class CBottleSR(torch.nn.Module, AutoModelMixin):
     """Climate in a Bottle Super-Resolution (CBottleSR) model.
@@ -146,8 +138,6 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
         self.seed = seed
         self._sample_index = 0
 
-        self.distilled_model = isinstance(sr_model, DistilledSuperResolutionModel)
-
         # Configure grid types
         if lat_lon:
             self.input_type = "latlon"
@@ -156,7 +146,7 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
             self.input_type = "healpix"
             self.output_type = "healpix"
 
-        self.device = _as_torch_device(getattr(sr_model, "device", "cpu"))
+        self.device = self._as_torch_device(getattr(sr_model, "device", "cpu"))
 
         # Validate batch info and create channel reorder indices
         sr_channels = list(self.sr_model.batch_info.channels)
@@ -167,11 +157,11 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
                 + ", ".join(missing)
             )
 
-        self._to_sr_index = _make_index_tensor(
+        self._to_sr_index = self._make_index_tensor(
             [VARIABLES.index(CHANNEL_TO_VARIABLE[ch]) for ch in sr_channels],
             self.device,
         )
-        self._from_sr_index = _make_index_tensor(
+        self._from_sr_index = self._make_index_tensor(
             [sr_channels.index(VARIABLE_TO_CHANNEL[var]) for var in VARIABLES],
             self.device,
         )
@@ -390,7 +380,7 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
         """
         if device is None:
             device = "cuda:0" if torch.cuda.is_available() else "cpu"
-        torch_device = _as_torch_device(device)
+        torch_device = cls._as_torch_device(device)
 
         checkpoint_name = (
             "cBottle-SR-Distill.zip" if distilled_model else "cBottle-SR.zip"
@@ -422,6 +412,16 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
             super_resolution_window=super_resolution_window,
             seed=seed,
         )
+
+    @staticmethod
+    def _as_torch_device(device: str | torch.device) -> torch.device:
+        """Convert device to torch.device if needed."""
+        return device if isinstance(device, torch.device) else torch.device(device)
+
+    @staticmethod
+    def _make_index_tensor(indices: Iterable[int], device: torch.device) -> torch.Tensor:
+        """Create a tensor of indices on the specified device."""
+        return torch.tensor(list(indices), dtype=torch.long, device=device)
 
     def _reorder_to_sr_channels(self, x: torch.Tensor) -> torch.Tensor:
         return x.index_select(0, self._to_sr_index)
