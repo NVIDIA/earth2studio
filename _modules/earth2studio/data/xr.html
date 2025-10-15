@@ -488,7 +488,7 @@
 
 
 
-<span class="k">class</span><span class="w"> </span><span class="nc">InferenceOuputSource</span><span class="p">:</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">InferenceOutputSource</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Adapt a inference output into a data source.</span>
 
 <span class="sd">    This data source loads an existing xarray Dataset, such as a NetCDF file or Zarr</span>
@@ -514,8 +514,9 @@
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
-<span class="sd">    file_path : str</span>
-<span class="sd">        Path to an xarray-compatible dataset file (e.g., NetCDF/Zarr).</span>
+<span class="sd">    inference_output : str | xarray.Dataset</span>
+<span class="sd">        An Xarray dataset or a path to an xarray-compatible dataset file</span>
+<span class="sd">        (e.g., NetCDF/Zarr).</span>
 <span class="sd">    filter_dict : dict, optional</span>
 <span class="sd">        Dictionary of selections applied before transformation (e.g.</span>
 <span class="sd">        ``{&quot;ensemble&quot;: 0}``). Coordinates not in the required</span>
@@ -524,13 +525,19 @@
 <span class="sd">        Additional keyword arguments forwarded to ``xarray.open_dataset``.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">file_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">filter_dict</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="p">{},</span> <span class="o">**</span><span class="n">xr_args</span><span class="p">:</span> <span class="n">Any</span><span class="p">):</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">file_path</span> <span class="o">=</span> <span class="n">file_path</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">da</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">open_dataset</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">file_path</span><span class="p">,</span> <span class="o">**</span><span class="n">xr_args</span><span class="p">)</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">inference_output</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">xr</span><span class="o">.</span><span class="n">Dataset</span><span class="p">,</span> <span class="n">filter_dict</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="p">{},</span> <span class="o">**</span><span class="n">xr_args</span><span class="p">:</span> <span class="n">Any</span>
+    <span class="p">):</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">inference_output</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">da</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">open_dataset</span><span class="p">(</span><span class="n">inference_output</span><span class="p">,</span> <span class="o">**</span><span class="n">xr_args</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">inference_output</span><span class="p">,</span> <span class="n">xr</span><span class="o">.</span><span class="n">Dataset</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">da</span> <span class="o">=</span> <span class="n">inference_output</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Expected `inference_output` to be a string or xarray.Dataset, not </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">inference_output</span><span class="p">)</span><span class="si">}</span><span class="s2">.&quot;</span>
+            <span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">da</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">da</span><span class="o">.</span><span class="n">to_array</span><span class="p">(</span><span class="s2">&quot;variable&quot;</span><span class="p">)</span>
 
-        <span class="c1"># The following dimensions and their order is required for the data to be used as a datasource</span>
-        <span class="n">required_dims</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;time&quot;</span><span class="p">,</span> <span class="s2">&quot;lead_time&quot;</span><span class="p">,</span> <span class="s2">&quot;variable&quot;</span><span class="p">}</span>
         <span class="c1"># Need to keep these dims, so make then a list if scalar value</span>
         <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;time&quot;</span><span class="p">,</span> <span class="s2">&quot;lead_time&quot;</span><span class="p">):</span>
             <span class="k">if</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">filter_dict</span> <span class="ow">and</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span>
@@ -540,8 +547,10 @@
 
         <span class="bp">self</span><span class="o">.</span><span class="n">da</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">da</span><span class="o">.</span><span class="n">sel</span><span class="p">(</span><span class="n">filter_dict</span><span class="p">)</span>
 
+        <span class="c1"># The following dimensions and their order is required for the data to be used as a datasource</span>
+        <span class="n">required_dims</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;time&quot;</span><span class="p">,</span> <span class="s2">&quot;lead_time&quot;</span><span class="p">,</span> <span class="s2">&quot;variable&quot;</span><span class="p">]</span>
         <span class="c1"># Validate remaining dimensions</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">required_dims</span><span class="o">.</span><span class="n">issubset</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">da</span><span class="o">.</span><span class="n">dims</span><span class="p">)):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">set</span><span class="p">(</span><span class="n">required_dims</span><span class="p">)</span><span class="o">.</span><span class="n">issubset</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">da</span><span class="o">.</span><span class="n">dims</span><span class="p">)):</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
                 <span class="sa">f</span><span class="s2">&quot;Missing required dims. Data array loaded has dims </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">da</span><span class="o">.</span><span class="n">dims</span><span class="si">}</span><span class="s2"> but &quot;</span>
                 <span class="o">+</span> <span class="sa">f</span><span class="s2">&quot;needs </span><span class="si">{</span><span class="n">required_dims</span><span class="si">}</span><span class="s2">. Use filter_dict to select a subset of the data.&quot;</span>
@@ -553,6 +562,15 @@
                 <span class="o">+</span> <span class="s2">&quot;Use filter_dict to select a subset of the data.&quot;</span>
             <span class="p">)</span>
 
+        <span class="c1"># ensure [&quot;time&quot;, &quot;lead_time&quot;, &quot;variable&quot;] ordering of required_dims (other dims unaffected)</span>
+        <span class="n">dims</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">da</span><span class="o">.</span><span class="n">dims</span><span class="p">)</span>
+        <span class="n">required_dims_ind</span> <span class="o">=</span> <span class="p">[</span><span class="n">dims</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">dim</span><span class="p">)</span> <span class="k">for</span> <span class="n">dim</span> <span class="ow">in</span> <span class="n">required_dims</span><span class="p">]</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">ind</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span><span class="n">required_dims_ind</span><span class="p">)):</span>
+            <span class="n">dims</span><span class="p">[</span><span class="n">ind</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">da</span><span class="o">.</span><span class="n">dims</span><span class="p">[</span><span class="n">required_dims_ind</span><span class="p">[</span><span class="n">i</span><span class="p">]]</span>
+        <span class="k">if</span> <span class="n">dims</span> <span class="o">!=</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">da</span><span class="o">.</span><span class="n">dims</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">da</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">da</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="o">*</span><span class="n">dims</span><span class="p">)</span>
+
+        <span class="c1"># add &quot;time&quot; and &quot;lead_time&quot; so that only &quot;time&quot; remains</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">da</span><span class="p">[</span><span class="s2">&quot;lead_time&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
             <span class="n">time_array</span> <span class="o">=</span> <span class="p">(</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">da</span><span class="o">.</span><span class="n">coords</span><span class="p">[</span><span class="s2">&quot;time&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">da</span><span class="o">.</span><span class="n">coords</span><span class="p">[</span><span class="s2">&quot;lead_time&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
