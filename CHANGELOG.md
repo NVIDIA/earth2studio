@@ -26,6 +26,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   source, orography is denoted by lower case `z`
 - Updated package caching default to None, which will default to true for remote
   packages and false for local packages
+- Changed the HRRR_X and HRRR_Y coordinates of the HRRR data source to match the native
+  LCC coordinates.
 
 ### Deprecated
 

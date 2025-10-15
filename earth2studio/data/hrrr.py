@@ -112,6 +112,9 @@ class HRRR:
     HRRR_BUCKET_NAME = "noaa-hrrr-bdp-pds"
     MAX_BYTE_SIZE = 5000000
 
+    # Native LCC coordinates from the HRRR Zarr archive managed by the University of Utah
+    # https://registry.opendata.aws/noaa-hrrr-pds/
+    # https://mesowest.utah.edu/html/hrrr/zarr_documentation/html/python_data_loading.html
     HRRR_X = np.linspace(-2697520.1425219304, 2696479.8574780696, 1799, endpoint=True)
     HRRR_Y = np.linspace(-1587306.1525566636, 1586693.8474433364, 1059, endpoint=True)
 
