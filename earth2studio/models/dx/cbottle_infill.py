@@ -295,7 +295,6 @@ class CBottleInfill(torch.nn.Module, AutoModelMixin):
         sst_ds = xr.open_dataset(
             package.resolve("amip_midmonth_sst.nc"),
             engine="netcdf4",
-            storage_options=None,
             cache=False,
         ).load()
 
