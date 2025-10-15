@@ -17,7 +17,8 @@
 from collections import OrderedDict
 from collections.abc import Generator, Iterator
 from datetime import datetime
-from enum import IntEnum, StrEnum
+from enum import IntEnum
+from typing import Literal
 
 import numpy as np
 import torch
@@ -127,6 +128,7 @@ class CBottleVideo(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         core_model: torch.nn.Module,
         sst_ds: xr.Dataset,
         lat_lon: bool = True,
+        time_stepper: Literal["heun", "euler"] = "heun",
         sampler_steps: int = 18,
         sigma_max: float = 1000.0,
         sigma_min: float = 0.02,
@@ -141,6 +143,7 @@ class CBottleVideo(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self.sigma_max = sigma_max
         self.sigma_min = sigma_min
         self.sampler_steps = sampler_steps
+        self.time_stepper = time_stepper
         self.seed = seed
         self.dataset_modality = dataset_modality
         self.sampler_fn = sampler_fn
@@ -266,7 +269,7 @@ class CBottleVideo(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self.core_model.sigma_min = self.sigma_min
         self.core_model.sigma_max = self.sigma_max
         self.core_model.num_steps = self.sampler_steps
-        self.core_model.sampler_fn = SamplerFunction(self.sampler_fn).value
+        self.core_model.time_stepper = self.time_stepper
 
         if self.lat_lon:
             x = self.condition_regridder(x.double())
