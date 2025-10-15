@@ -14,11 +14,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from __future__ import annotations
-
 from collections import OrderedDict
+from collections.abc import Iterable
 from dataclasses import replace
-from typing import Iterable
 
 import numpy as np
 import torch
@@ -33,15 +31,15 @@ from earth2studio.utils.imports import (
 )
 from earth2studio.utils.type import CoordSystem
 
-try:  # pragma: no cover - optional dependency guard
+try:
     import earth2grid
-    from earth2grid import healpix
     from cbottle.inference import (
+        Coords,
         DistilledSuperResolutionModel,
         SuperResolutionModel,
-        Coords,
     )
-except ImportError:  # pragma: no cover - optional dependency guard
+    from earth2grid import healpix
+except ImportError:
     OptionalDependencyFailure("cbottle")
     earth2grid = None
     healpix = None
@@ -216,7 +214,11 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
             Output resolution for lat/lon output. When omitted, the currently stored
             resolution is reused.
         """
-        resolution = output_resolution if output_resolution is not None else self.output_resolution
+        resolution = (
+            output_resolution
+            if output_resolution is not None
+            else self.output_resolution
+        )
         self.output_resolution = resolution
         self.super_resolution_window = super_resolution_window
         self.super_resolution_extents = None
@@ -390,8 +392,12 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
             device = "cuda:0" if torch.cuda.is_available() else "cpu"
         torch_device = _as_torch_device(device)
 
-        checkpoint_name = "cBottle-SR-Distill.zip" if distilled_model else "cBottle-SR.zip"
-        model_cls = DistilledSuperResolutionModel if distilled_model else SuperResolutionModel
+        checkpoint_name = (
+            "cBottle-SR-Distill.zip" if distilled_model else "cBottle-SR.zip"
+        )
+        model_cls = (
+            DistilledSuperResolutionModel if distilled_model else SuperResolutionModel
+        )
 
         state_path = package.resolve(checkpoint_name)
 
