@@ -149,6 +149,7 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
         self.device = self._as_torch_device(getattr(sr_model, "device", "cpu"))
 
         # Validate batch info and create channel reorder indices
+        # NOTE: This should never fail but keep it here for safety
         sr_channels = list(self.sr_model.batch_info.channels)
         missing = [ch for ch in sr_channels if ch not in CHANNEL_TO_VARIABLE]
         if missing:
@@ -170,6 +171,8 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
         self.hpx_low_res_grid = self.sr_model.low_res_grid
         self.hpx_high_res_grid = self.sr_model.high_res_grid
 
+        # Setup grids and regridders based on input/output types
+        # Input grids
         if self.input_type == "latlon":
             self.input_grid = earth2grid.latlon.equiangular_lat_lon_grid(
                 721, 1440, includes_south_pole=False
@@ -184,6 +187,8 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
             self.regrid_input_to_hpx_low_res = None
 
         self.output_resolution = output_resolution
+
+        # Setup super resolution window (this will initialize output coords and patch index)
         self.set_super_resolution_window(super_resolution_window, output_resolution)
 
         self._coords = Coords(self.sr_model.batch_info, self.hpx_low_res_grid)
@@ -191,18 +196,20 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
     def set_super_resolution_window(
         self,
         super_resolution_window: tuple[int, int, int, int] | None = None,
-        output_resolution: tuple[int, int] | None = None,
+        output_resolution: tuple[int, int] = (2161, 4320),
     ) -> None:
-        """Set or update the super-resolution window configuration.
+        """Set or update the super-resolution window
 
         Parameters
         ----------
-        super_resolution_window : tuple[int, int, int, int] | None, optional
-            Bounding box (lat_south, lon_west, lat_north, lon_east) specifying the
-            region to super resolve. Uses the full globe when None.
+        super_resolution_window : None | tuple[int, int, int, int], optional
+            Super-resolution window. If None, super-resolution is done
+            on the entire global grid. If provided, the super-resolution window is a tuple
+            of (lat_south, lon_west, lat_north, lon_east) and will only apply super-resolution
+            to the specified window. By default None.
         output_resolution : tuple[int, int] | None, optional
-            Output resolution for lat/lon output. When omitted, the currently stored
-            resolution is reused.
+            High-resolution output dimensions for lat/lon output. Only used when
+            lat_lon=True, by default (2161, 4320)
         """
         resolution = (
             output_resolution
@@ -424,12 +431,15 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
         return torch.tensor(list(indices), dtype=torch.long, device=device)
 
     def _reorder_to_sr_channels(self, x: torch.Tensor) -> torch.Tensor:
+        """Reorder channels to the super resolution model."""
         return x.index_select(0, self._to_sr_index)
 
     def _reorder_from_sr_channels(self, x: torch.Tensor) -> torch.Tensor:
+        """Reorder channels from the super resolution model."""
         return x.index_select(0, self._from_sr_index)
 
     def _super_resolve(self, x: torch.Tensor) -> torch.Tensor:
+        """Super resolve the input tensor."""
         original_device = x.device
         x = x.to(self.device)
 
