@@ -161,13 +161,19 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
                 + ", ".join(missing)
             )
 
-        self._to_sr_index = self._make_index_tensor(
-            [VARIABLES.index(CHANNEL_TO_VARIABLE[ch]) for ch in sr_channels],
-            self.device,
+        self.register_buffer(
+            "_to_sr_index",
+            self._make_index_tensor(
+                [VARIABLES.index(CHANNEL_TO_VARIABLE[ch]) for ch in sr_channels],
+                self.device,
+            ),
         )
-        self._from_sr_index = self._make_index_tensor(
-            [sr_channels.index(VARIABLE_TO_CHANNEL[var]) for var in VARIABLES],
-            self.device,
+        self.register_buffer(
+            "_from_sr_index",
+            self._make_index_tensor(
+                [sr_channels.index(VARIABLE_TO_CHANNEL[var]) for var in VARIABLES],
+                self.device,
+            ),
         )
 
         # Setup grids and regridders
