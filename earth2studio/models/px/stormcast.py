@@ -33,6 +33,7 @@ from earth2studio.utils import (
     handshake_coords,
     handshake_dim,
 )
+from earth2studio.utils.coords import map_coords
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
@@ -407,6 +408,16 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             device=x.device,
             interp_to=coords | {"_lat": self.lat, "_lon": self.lon},
             interp_method="linear",
+        )
+        # ensure data dimensions in the expected order
+        conditioning_coords_ordered = OrderedDict(
+            {
+                k: conditioning_coords[k]
+                for k in ["time", "lead_time", "variable", "lat", "lon"]
+            }
+        )
+        conditioning, conditioning_coords = map_coords(
+            conditioning, conditioning_coords, conditioning_coords_ordered
         )
 
         # Add a batch dim
