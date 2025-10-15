@@ -26,6 +26,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   source, orography is denoted by lower case `z`
 - Updated package caching default to None, which will default to true for remote
   packages and false for local packages
+- InferenceOutputSource can now accept an Xarray Dataset directly as an argument
+- InferenceOutputSource returns data consistently in `("time", "lead_time", "variable")`
+  order
 
 ### Deprecated
 
@@ -36,6 +39,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Fixed typo: InferenceOuputSource renamed to InferenceOutputSource
+- StormCast ensures that conditioning variables are in the correct order
+- NetCDFBackend unit change to ensure timedeltas are correctly decoded by xarray
+
 ### Security
 
 ### Dependencies
@@ -43,6 +50,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Dropped support for Python 3.10
 - Bumped CBottle (and Earth2Grid) versions
 - Capped JAX version, due to numpy 2.0 requirement conflicting with NV PyTorch containers
+- Temp limit globus-sdk for intake-esgf
 
 ## [0.9.0] - 2025-08-19
 

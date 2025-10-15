@@ -28,7 +28,7 @@ from earth2studio.data import (
     DataArrayFile,
     DataArrayPathList,
     DataSetFile,
-    InferenceOuputSource,
+    InferenceOutputSource,
     Random,
 )
 from earth2studio.io import XarrayBackend
@@ -305,14 +305,16 @@ def test_inference_output_source(
         num_members=3,
     )
 
-    ds = InferenceOuputSource(
+    ds = InferenceOutputSource(
         output_path,
         filter_dict=filter_dict,
-        engine="h5netcdf",
+        engine="netcdf4",
     )
     # Check consistency
-    target_da = xr.open_dataset(output_path, engine="h5netcdf")
-    target_da = target_da.to_array("variable")
+    target_da = xr.open_dataset(output_path, engine="netcdf4")
+    target_da = target_da.to_array("variable").transpose(
+        "ensemble", "time", "lead_time", "variable", "lat", "lon"
+    )
     if "time" in filter_dict:
         for lead_time in target_da.coords["lead_time"].values:
             time_stamp = filter_dict["time"] + lead_time
@@ -335,3 +337,6 @@ def test_inference_output_source(
                 variable=["u10m", "v10m"],
             )
             assert np.allclose(da.values, dat.values)
+
+    dims = list(ds.da.dims)
+    assert dims.index("variable") > dims.index("time")
