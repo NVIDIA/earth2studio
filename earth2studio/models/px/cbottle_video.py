@@ -17,7 +17,7 @@
 from collections import OrderedDict
 from collections.abc import Generator, Iterator
 from datetime import datetime
-from enum import IntEnum
+from enum import IntEnum, StrEnum
 from typing import Literal
 
 import numpy as np
@@ -119,6 +119,8 @@ class CBottleVideo(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         DatasetModality.ERA5
     sampler_fn : SamplerFunction, optional
         Sampler function used to denoise, by default SamplerFunction.HEUN
+    torch_compile: bool, optional
+        Whether to compile the model with torch.compile, by default False
     """
 
     VARIABLES = np.array(list(CBottleLexicon.VOCAB.keys()))
@@ -135,6 +137,7 @@ class CBottleVideo(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         seed: int | None = None,
         dataset_modality: DatasetModality = DatasetModality.ERA5,
         sampler_fn: SamplerFunction = SamplerFunction.HEUN,
+        torch_compile: bool = False,
     ):
         super().__init__()
 
@@ -148,7 +151,7 @@ class CBottleVideo(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self.dataset_modality = dataset_modality
         self.sampler_fn = sampler_fn
         self._mixture_model = core_model
-        self.core_model = CBottle3d(core_model)
+        self.core_model = CBottle3d(core_model, torch_compile=torch_compile)
 
         self._time_length = 12
         self._time_step = np.timedelta64(6, "h")
@@ -436,6 +439,7 @@ class CBottleVideo(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         sampler_steps: int = 18,
         sigma_max: float = 1000,
         seed: int | None = None,
+        torch_compile: bool = False,
     ) -> PrognosticModel:
         """Load prognostic from package
 
@@ -454,6 +458,8 @@ class CBottleVideo(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         seed : int, optional
             Random generator seed for latent variables. If None, no seed will be used,
             by default None
+        torch_compile: bool, optional
+            Whether to compile the model with torch.compile, by default False
 
         Returns
         -------
@@ -489,6 +495,7 @@ class CBottleVideo(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             sampler_steps=sampler_steps,
             sigma_max=sigma_max,
             seed=seed,
+            torch_compile=torch_compile,
         )
 
     @batch_func()
