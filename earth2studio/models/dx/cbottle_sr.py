@@ -180,11 +180,13 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
             self.input_grid = earth2grid.latlon.equiangular_lat_lon_grid(
                 721, 1440, includes_south_pole=False
             )
-            self.regrid_input_to_hpx_low_res = (
-                earth2grid.get_regridder(self.input_grid, self.hpx_low_res_grid)
-                .to(self.device)
-                .double()
+            self.regrid_input_to_hpx_low_res = earth2grid.get_regridder(
+                self.input_grid, self.hpx_low_res_grid
             )
+            if hasattr(self.regrid_input_to_hpx_low_res, "to"):
+                self.regrid_input_to_hpx_low_res = (
+                    self.regrid_input_to_hpx_low_res.to(self.device).double()
+                )
         else:
             self.input_grid = self.hpx_low_res_grid
             self.regrid_input_to_hpx_low_res = None
@@ -254,9 +256,10 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
             self.regrid_hpx_high_res_to_output = earth2grid.get_regridder(
                 self.hpx_high_res_grid, self.output_grid
             )
-            self.regrid_hpx_high_res_to_output = (
-                self.regrid_hpx_high_res_to_output.to(self.device).double()
-            )
+            if hasattr(self.regrid_hpx_high_res_to_output, "to"):
+                self.regrid_hpx_high_res_to_output = (
+                    self.regrid_hpx_high_res_to_output.to(self.device).double()
+                )
         else:  # healpix output
             # For healpix output, the output grid is always the high-res healpix grid
             self.output_grid = self.hpx_high_res_grid
@@ -273,8 +276,7 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
                     "lon": np.linspace(0, 360, 1440, endpoint=False),
                 }
             )
-
-        else:
+        else:  # healpix
             # HEALPix level 6: nside = 2^6 = 64, npix = 64^2 * 12 = 49,152 pixels
             nside = 2**HPX_LEVEL_LR
             npix = nside**2 * 12
@@ -294,6 +296,7 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
         ----------
         input_coords : CoordSystem
             Input coordinate system to transform into output_coords
+            by default None, will use self.input_coords.
 
         Returns
         -------
@@ -325,6 +328,7 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
                 }
             )
         else:  # healpix output
+            # HEALPix level 10: nside = 2^10 = 1024, npix = 1024^2 * 12 = 12,582,912 pixels
             nside = 2**HPX_LEVEL_HR
             npix = nside**2 * 12
             output_coords = OrderedDict(
