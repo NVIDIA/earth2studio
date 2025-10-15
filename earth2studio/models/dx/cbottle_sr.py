@@ -554,5 +554,4 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
 
         for i in range(out.shape[0]):
             out[i] = self._forward(x[i])
-
         return out, output_coords
