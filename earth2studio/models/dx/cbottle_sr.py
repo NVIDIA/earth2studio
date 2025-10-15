@@ -444,7 +444,8 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
         """Reorder channels from the super resolution model"""
         return x.index_select(0, self._from_sr_index)
 
-    def _super_resolve(self, x: torch.Tensor) -> torch.Tensor:
+    @torch.inference_mode()
+    def _forward(self, x: torch.Tensor) -> torch.Tensor:
         """Super resolve the input tensor"""
         original_device = x.device
         x = x.to(self.device)
@@ -509,6 +510,14 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
         )
 
         for i in range(out.shape[0]):
-            out[i] = self._super_resolve(x[i])
+            out[i] = self._forward(x[i])
 
         return out, output_coords
+
+    def forward(
+        self,
+        x: torch.Tensor,
+        coords: CoordSystem,
+    ) -> tuple[torch.Tensor, CoordSystem]:
+        """Torch forward wrapper"""
+        return self.__call__(x, coords)
