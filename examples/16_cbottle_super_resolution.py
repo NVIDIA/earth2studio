@@ -94,6 +94,7 @@ cbottle_sr = CBottleSR.load_model(
     output_resolution=(1024, 1024),
     super_resolution_window=super_resolution_window,
 )
+cbottle_sr = cbottle_sr.to(device)
 
 # Load the infill model
 input_variables = ["u10m", "v10m"]
