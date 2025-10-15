@@ -24,7 +24,10 @@ import torch
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_coords, batch_func
 from earth2studio.models.dx.base import DiagnosticModel
-from earth2studio.utils import handshake_coords, handshake_dim
+from earth2studio.utils import (
+    handshake_coords,
+    handshake_dim,
+)
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
@@ -88,10 +91,10 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
 
     CBottleSR is a diffusion-based super-resolution model that learns mappings between
     low- and high-resolution climate data with high fidelity. This model generates
-    results at 5 km resolution on a HEALPix grid with 10 levels of resolution (1024x1024).
+    results at 5km resolution on a healpix grid with 10 levels of resolution (1024x1024).
     The results can be output in either HEALPix format or regridded to a lat/lon grid.
     If lat/lon is used for output, the results will be regridded to the specified output resolution.
-    Suggested output resolutions are (2161, 4320) for ~10 km equatorial resolution and (4321, 8640) for ~5 km equatorial resolution.
+    Suggested output resolutions are (2161, 4320) for ~10km equatorial resolution and (4321, 8640) for ~5km equatorial resolution.
     The model can also be used to generate results for a smaller region of the globe by specifying a super-resolution window.
     This is often desirable as full global results are computationally expensive.
 
@@ -107,16 +110,16 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
     Parameters
     ----------
     sr_model : SuperResolutionModel
-        Core cBottle super-resolution helper implementing the diffusion process.
+        Core cBottle super-resolution helper implementing the diffusion process
     lat_lon : bool, optional, by default True
         Lat/lon toggle, if true the model will expect a lat/lon grid as input and output a lat/lon
-        grid. If false, the native nested HEALPix grid will be used for input and output.
-        Input HEALPix is level 6 and output HEALPix is level 10 with NEST pixel ordering.
-    output_resolution : tuple[int, int], optional
+        grid. If false, the native nested HealPix grid will be used for input and output.
+        Input HEALPix is level 6 and output HEALPix is level 10 with NEST pixel ordering
+    output_resolution : Tuple[int, int], optional
         High-resolution output dimensions for lat/lon output. Only used when
         lat_lon=True, by default (2161, 4320)
-    super_resolution_window : tuple[int, int, int, int] | None, optional
-        Super-resolution window. If None, super-resolution is done on the entire global grid.
+    super_resolution_window : Tuple[int, int, int, int] | None, optional
+        Super-resolution window. If None, super-resolution is done on the entire global grid
         If provided, the super-resolution window is a tuple of (lat_south, lon_west, lat_north, lon_east)
         and will only apply super-resolution to the specified window. For lat/lon output, the result will
         just be returned for the specified window with the specified output resolution.
@@ -149,7 +152,6 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
         self.device = self._as_torch_device(getattr(sr_model, "device", "cpu"))
 
         # Validate batch info and create channel reorder indices
-        # NOTE: This should never fail but keep it here for safety
         sr_channels = list(self.sr_model.batch_info.channels)
         missing = [ch for ch in sr_channels if ch not in CHANNEL_TO_VARIABLE]
         if missing:
@@ -252,7 +254,7 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
             self.regrid_hpx_high_res_to_output = None
 
     def input_coords(self) -> CoordSystem:
-        """Input coordinate system."""
+        """Input coordinate system"""
         if self.input_type == "latlon":
             return OrderedDict(
                 {
@@ -263,30 +265,33 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
                 }
             )
 
-        nside = 2**HPX_LEVEL_LR
-        npix = nside**2 * 12
-        return OrderedDict(
-            {
-                "batch": np.empty(0),
-                "variable": np.array(VARIABLES),
-                "hpx": np.arange(npix),
-            }
-        )
+        else:
+            # HEALPix level 6: nside = 2^6 = 64, npix = 64^2 * 12 = 49,152 pixels
+            nside = 2**HPX_LEVEL_LR
+            npix = nside**2 * 12
+            return OrderedDict(
+                {
+                    "batch": np.empty(0),
+                    "variable": np.array(VARIABLES),
+                    "hpx": np.arange(npix),
+                }
+            )
 
     @batch_coords()
     def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
-        """Output coordinate system of diagnostic model.
+        """Output coordinate system of diagnostic model
 
         Parameters
         ----------
         input_coords : CoordSystem
-            Input coordinate system to transform into output_coords.
+            Input coordinate system to transform into output_coords
 
         Returns
         -------
         CoordSystem
-            Coordinate system dictionary.
+            Coordinate system dictionary
         """
+        # Validate input coordinates against expected input coords
         target_input_coords = self.input_coords()
         handshake_dim(input_coords, "variable", 1)
         handshake_coords(input_coords, target_input_coords, "variable")
@@ -296,12 +301,13 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
             handshake_dim(input_coords, "lat", 2)
             handshake_coords(input_coords, target_input_coords, "lon")
             handshake_coords(input_coords, target_input_coords, "lat")
-        else:
+        else:  # healpix input
             handshake_dim(input_coords, "hpx", 2)
             handshake_coords(input_coords, target_input_coords, "hpx")
 
+        # Build output coordinate system based on output type
         if self.output_type == "latlon":
-            coords = OrderedDict(
+            output_coords = OrderedDict(
                 {
                     "batch": np.empty(0),
                     "variable": np.array(VARIABLES),
@@ -309,10 +315,10 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
                     "lon": self.output_lon,
                 }
             )
-        else:
+        else:  # healpix output
             nside = 2**HPX_LEVEL_HR
             npix = nside**2 * 12
-            coords = OrderedDict(
+            output_coords = OrderedDict(
                 {
                     "batch": np.empty(0),
                     "variable": np.array(VARIABLES),
@@ -320,12 +326,12 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
                 }
             )
 
-        coords["batch"] = input_coords["batch"]
-        return coords
+        output_coords["batch"] = input_coords["batch"]
+        return output_coords
 
     @classmethod
     def load_default_package(cls) -> Package:
-        """Default pre-trained cBottle model package from Nvidia model registry."""
+        """Default pre-trained cBottle model package from Nvidia model registry"""
         return Package(
             "ngc://models/nvidia/earth-2/cbottle@1.2",
             cache_options={
@@ -350,40 +356,40 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
         seed: int | None = None,
         device: str | torch.device | None = None,
     ) -> DiagnosticModel:
-        """Load diagnostic model from package.
+        """Load diagnostic model from package
 
         Parameters
         ----------
         package : Package
-            CBottle AI model package.
+            CBottle AI model package
         lat_lon : bool, optional, by default True
             Lat/lon toggle, if true the model will expect a lat/lon grid as input and output a lat/lon
-            grid. If false, the native nested HEALPix grid will be used for input and output.
-            Input HEALPix is level 6 and output HEALPix is level 10 with NEST pixel ordering.
+            grid. If false, the native nested HEALPix grid will be used for input and output
+            Input HEALPix is level 6 and output HEALPix is level 10 with NEST pixel ordering
         output_resolution : tuple[int, int], optional
-            High-resolution output dimensions for lat/lon output, by default (2161, 4320).
+            High-resolution output dimensions for lat/lon output, by default (2161, 4320)
         super_resolution_window : tuple[int, int, int, int] | None, optional
-            Super-resolution window for lat/lon output, by default None.
+            Super-resolution window for lat/lon output, by default None
         sampler_steps : int, optional
-            Number of diffusion steps, by default 18.
+            Number of diffusion steps, by default 18
         sigma_max : float, optional
-            Noise amplitude used to generate latent variables, by default 800.
+            Noise amplitude used to generate latent variables, by default 800
         distilled_model : bool, optional
             Whether to use the distilled model, by default False. If True, the distilled helper is used,
-            enabling generation with fewer sampler steps.
+            enabling generation with fewer sampler steps
         window_function : str, optional
-            Window smoothing function to apply when combining multidiffusion patches.
+            Window smoothing function to apply when combining multidiffusion patches
         window_alpha : float, optional
-            Window parameter (e.g. alpha for KBD windows).
+            Window parameter (e.g. alpha for KBD windows)
         seed : int, optional
-            Random generator seed for latent variables, by default None.
+            Random generator seed for latent variables, by default None
         device : str | torch.device, optional
-            Device on which to instantiate the underlying cBottle model, by default CUDA when available.
+            Device on which to instantiate the underlying cBottle model, by default CUDA when available
 
         Returns
         -------
         DiagnosticModel
-            Diagnostic model.
+            Diagnostic model
         """
         if device is None:
             device = "cuda:0" if torch.cuda.is_available() else "cpu"
@@ -422,24 +428,24 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
 
     @staticmethod
     def _as_torch_device(device: str | torch.device) -> torch.device:
-        """Convert device to torch.device if needed."""
+        """Convert device to torch.device if needed"""
         return device if isinstance(device, torch.device) else torch.device(device)
 
     @staticmethod
     def _make_index_tensor(indices: Iterable[int], device: torch.device) -> torch.Tensor:
-        """Create a tensor of indices on the specified device."""
+        """Create a tensor of indices on the specified device"""
         return torch.tensor(list(indices), dtype=torch.long, device=device)
 
     def _reorder_to_sr_channels(self, x: torch.Tensor) -> torch.Tensor:
-        """Reorder channels to the super resolution model."""
+        """Reorder channels to the super resolution model"""
         return x.index_select(0, self._to_sr_index)
 
     def _reorder_from_sr_channels(self, x: torch.Tensor) -> torch.Tensor:
-        """Reorder channels from the super resolution model."""
+        """Reorder channels from the super resolution model"""
         return x.index_select(0, self._from_sr_index)
 
     def _super_resolve(self, x: torch.Tensor) -> torch.Tensor:
-        """Super resolve the input tensor."""
+        """Super resolve the input tensor"""
         original_device = x.device
         x = x.to(self.device)
 
@@ -493,7 +499,7 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
         x: torch.Tensor,
         coords: CoordSystem,
     ) -> tuple[torch.Tensor, CoordSystem]:
-        """Forward pass of diagnostic."""
+        """Forward pass of diagnostic"""
         output_coords = self.output_coords(coords)
 
         out = torch.zeros(
@@ -502,7 +508,7 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
             dtype=torch.float32,
         )
 
-        for batch_idx in range(out.shape[0]):
-            out[batch_idx] = self._super_resolve(x[batch_idx])
+        for i in range(out.shape[0]):
+            out[i] = self._super_resolve(x[i])
 
         return out, output_coords
