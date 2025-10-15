@@ -78,6 +78,20 @@ class HRRR:
     model). This data source is provided on a Lambert conformal 3km grid at 1-hour
     intervals. The spatial dimensionality of HRRR data is [1059, 1799].
 
+    The `HRRR_X` and `HRRR_Y` coordinates of the resulting `DataArray` are the native
+    coordinates of the HRRR model. The corresponding CRS can be set up with cartopy:
+
+    .. code-block:: python
+
+        import cartopy.crs as ccrs
+
+        proj_hrrr = ccrs.LambertConformal(
+            central_longitude=262.5,
+            central_latitude=38.5,
+            standard_parallels=(38.5, 38.5),
+            globe=ccrs.Globe(semimajor_axis=6371229, semiminor_axis=6371229),
+        )
+
     Parameters
     ----------
     source : str, optional
