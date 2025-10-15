@@ -308,10 +308,10 @@ def test_inference_output_source(
     ds = InferenceOutputSource(
         output_path,
         filter_dict=filter_dict,
-        engine="h5netcdf",
+        engine="netcdf4",
     )
     # Check consistency
-    target_da = xr.open_dataset(output_path, engine="h5netcdf")
+    target_da = xr.open_dataset(output_path, engine="netcdf4")
     target_da = target_da.to_array("variable").transpose(
         "ensemble", "time", "lead_time", "variable", "lat", "lon"
     )
