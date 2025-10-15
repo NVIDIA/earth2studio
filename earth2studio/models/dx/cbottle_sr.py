@@ -17,6 +17,7 @@
 from collections import OrderedDict
 from collections.abc import Iterable
 from dataclasses import replace
+import warnings
 
 import numpy as np
 import torch
@@ -213,44 +214,52 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
             High-resolution output dimensions for lat/lon output. Only used when
             lat_lon=True, by default (2161, 4320)
         """
-        resolution = (
-            output_resolution
-            if output_resolution is not None
-            else self.output_resolution
-        )
-        self.output_resolution = resolution
+        # Update super resolution window
         self.super_resolution_window = super_resolution_window
         self.super_resolution_extents = None
         if super_resolution_window is not None:
             lat_south, lon_west, lat_north, lon_east = super_resolution_window
             self.super_resolution_extents = (lon_west, lon_east, lat_south, lat_north)
 
+        # Update output coordinates and grids based on output type
         if self.output_type == "latlon":
             if super_resolution_window is not None:
-                lat_south, lon_west, lat_north, lon_east = super_resolution_window
-                self.output_lat = np.linspace(lat_south, lat_north, resolution[0])
-                self.output_lon = np.linspace(lon_west, lon_east, resolution[1])
+                self.output_lat = np.linspace(
+                    super_resolution_window[0],
+                    super_resolution_window[2],
+                    output_resolution[0],
+                )
+                self.output_lon = np.linspace(
+                    super_resolution_window[1],
+                    super_resolution_window[3],
+                    output_resolution[1],
+                )
+                # Update output grid
                 self.output_grid = earth2grid.latlon.LatLonGrid(
                     self.output_lat, self.output_lon
                 )
             else:
+                self.output_lat = np.linspace(90, -90, output_resolution[0])
+                self.output_lon = np.linspace(
+                    0, 360, output_resolution[1], endpoint=False
+                )
+                # Update output grid
                 self.output_grid = earth2grid.latlon.equiangular_lat_lon_grid(
-                    resolution[0],
-                    resolution[1],
+                    output_resolution[0],
+                    output_resolution[1],
                     includes_south_pole=False,
                 )
-                self.output_lat = np.linspace(90, -90, resolution[0])
-                self.output_lon = np.linspace(0, 360, resolution[1], endpoint=False)
 
-            self.regrid_hpx_high_res_to_output = (
-                earth2grid.get_regridder(self.hpx_high_res_grid, self.output_grid)
-                .to(self.device)
-                .double()
+            # Update regridder for high-res HEALPix to output
+            self.regrid_hpx_high_res_to_output = earth2grid.get_regridder(
+                self.hpx_high_res_grid, self.output_grid
             )
-        else:
+            self.regrid_hpx_high_res_to_output = (
+                self.regrid_hpx_high_res_to_output.to(self.device).double()
+            )
+        else:  # healpix output
+            # For healpix output, the output grid is always the high-res healpix grid
             self.output_grid = self.hpx_high_res_grid
-            self.output_lat = None
-            self.output_lon = None
             self.regrid_hpx_high_res_to_output = None
 
     def input_coords(self) -> CoordSystem:
@@ -379,8 +388,10 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
             enabling generation with fewer sampler steps
         window_function : str, optional
             Window smoothing function to apply when combining multidiffusion patches
+            Only supported when distilled_model is True
         window_alpha : float, optional
             Window parameter (e.g. alpha for KBD windows)
+            Only supported when distilled_model is True
         seed : int, optional
             Random generator seed for latent variables, by default None
         device : str | torch.device, optional
@@ -404,18 +415,30 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
 
         state_path = package.resolve(checkpoint_name)
 
-        if window_function is None:
-            window_function = "uniform"
-        if window_alpha is None:
-            window_alpha = 1.0
+        load_kwargs = {
+            "num_steps": sampler_steps,
+            "sigma_max": sigma_max,
+            "device": str(torch_device),
+        }
+
+        if distilled_model:
+            if window_function is None:
+                window_function = "uniform"
+            if window_alpha is None:
+                window_alpha = 1.0
+            load_kwargs["window_function"] = window_function
+            load_kwargs["window_alpha"] = window_alpha
+        else:
+            if window_function is not None or window_alpha is not None:
+                warnings.warn(
+                    "window_function and window_alpha are only supported when distilled_model=True; ignoring provided values",
+                    RuntimeWarning,
+                    stacklevel=2,
+                )
 
         sr_model = model_cls.from_pretrained(
             state_path,
-            num_steps=sampler_steps,
-            sigma_max=sigma_max,
-            device=str(torch_device),
-            window_function=window_function,
-            window_alpha=window_alpha,
+            **load_kwargs,
         )
 
         return cls(
@@ -513,11 +536,3 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
             out[i] = self._forward(x[i])
 
         return out, output_coords
-
-    def forward(
-        self,
-        x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
-        """Torch forward wrapper"""
-        return self.__call__(x, coords)
