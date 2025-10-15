@@ -153,6 +153,7 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
         self.device = self._as_torch_device(getattr(sr_model, "device", "cpu"))
 
         # Validate batch info and create channel reorder indices
+        # NOTE: This should never fail but keep it here for safety
         sr_channels = list(self.sr_model.batch_info.channels)
         missing = [ch for ch in sr_channels if ch not in CHANNEL_TO_VARIABLE]
         if missing:
