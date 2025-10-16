@@ -16,7 +16,6 @@
 
 from collections import OrderedDict
 from dataclasses import replace
-import warnings
 
 import numpy as np
 import torch
@@ -109,7 +108,7 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
 
     Parameters
     ----------
-    sr_model : SuperResolutionModel
+    sr_model : torch.nn.Module
         Core cBottle super-resolution helper implementing the diffusion process
     lat_lon : bool, optional, by default True
         Lat/lon toggle, if true the model will expect a lat/lon grid as input and output a lat/lon
@@ -122,23 +121,32 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
         Super-resolution window. If None, super-resolution is done on the entire global grid
         If provided, the super-resolution window is a tuple of (lat_south, lon_west, lat_north, lon_east)
         and will only apply super-resolution to the specified window. For lat/lon output, the result will
-        just be returned for the specified window with the specified output resolution.
+        just be returned for the specified window with the specified output resolution,
+        by default None
+    sampler_steps : int, optional
+        Number of diffusion steps, by default 18
+    sigma_max : int, optional
+        Maximum noise level for diffusion process, by default 800
     seed : int, optional
         Random generator seed for latent variables, by default None
     """
 
     def __init__(
         self,
-        sr_model: SuperResolutionModel,
+        sr_model: torch.nn.Module,
         lat_lon: bool = True,
         output_resolution: tuple[int, int] = (2161, 4320),
         super_resolution_window: tuple[int, int, int, int] | None = None,
+        sampler_steps: int = 18,
+        sigma_max: int = 800,
         seed: int | None = None,
     ) -> None:
         super().__init__()
 
         self.sr_model = sr_model
         self.seed = seed
+        self.sampler_steps = sampler_steps
+        self.sigma_max = sigma_max
         self._sample_index = 0
 
         model_device_attr = getattr(sr_model, "device", None)
@@ -202,9 +210,9 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
                 self.input_grid, self.hpx_low_res_grid
             )
             if hasattr(self.regrid_input_to_hpx_low_res, "to"):
-                self.regrid_input_to_hpx_low_res = (
-                    self.regrid_input_to_hpx_low_res.to(self.device).double()
-                )
+                self.regrid_input_to_hpx_low_res = self.regrid_input_to_hpx_low_res.to(
+                    self.device
+                ).double()
         else:
             self.input_grid = self.hpx_low_res_grid
             self.regrid_input_to_hpx_low_res = None
@@ -386,11 +394,9 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
         super_resolution_window: tuple[int, int, int, int] | None = None,
         sampler_steps: int = 18,
         sigma_max: int = 800,
-        distilled_model: bool = False,
-        window_function: str | None = None,
-        window_alpha: float | None = None,
         seed: int | None = None,
-        device: str | torch.device | None = None,
+        distilled_model: bool = False,
+        device: str = "cpu",
     ) -> DiagnosticModel:
         """Load diagnostic model from package
 
@@ -410,72 +416,41 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
             Number of diffusion steps, by default 18
         sigma_max : float, optional
             Noise amplitude used to generate latent variables, by default 800
-        distilled_model : bool, optional
-            Whether to use the distilled model, by default False. If True, the distilled helper is used,
-            enabling generation with fewer sampler steps
-        window_function : str, optional
-            Window smoothing function to apply when combining multidiffusion patches
-            Only supported when distilled_model is True
-        window_alpha : float, optional
-            Window parameter (e.g. alpha for KBD windows)
-            Only supported when distilled_model is True
         seed : int, optional
             Random generator seed for latent variables, by default None
-        device : str | torch.device, optional
-            Device on which to instantiate the underlying cBottle model, by default CUDA when available
+        distilled_model : bool, optional
+            Whether to use the distilled model, If True, the distilled helper is used,
+            enabling generation with fewer sampler steps, by default False
+        device : str
+            Device to load model onto, by default cpu
 
         Returns
         -------
         DiagnosticModel
             Diagnostic model
         """
-        if device is None:
-            torch_device = torch.device(
-                "cuda:0" if torch.cuda.is_available() else "cpu"
-            )
-        else:
-            torch_device = torch.device(device)
-
         checkpoint_name = (
             "cBottle-SR-Distill.zip" if distilled_model else "cBottle-SR.zip"
         )
         model_cls = (
             DistilledSuperResolutionModel if distilled_model else SuperResolutionModel
         )
-
         state_path = package.resolve(checkpoint_name)
 
-        load_kwargs = {
-            "num_steps": sampler_steps,
-            "sigma_max": sigma_max,
-            "device": str(torch_device),
-        }
-
         if distilled_model:
-            if window_function is None:
-                window_function = "uniform"
-            if window_alpha is None:
-                window_alpha = 1.0
-            load_kwargs["window_function"] = window_function
-            load_kwargs["window_alpha"] = window_alpha
+            sr_model = model_cls.from_pretrained(
+                state_path, window_function="uniform", window_alpha=1.0, device=device
+            )
         else:
-            if window_function is not None or window_alpha is not None:
-                warnings.warn(
-                    "window_function and window_alpha are only supported when distilled_model=True; ignoring provided values",
-                    RuntimeWarning,
-                    stacklevel=2,
-                )
-
-        sr_model = model_cls.from_pretrained(
-            state_path,
-            **load_kwargs,
-        )
+            sr_model = model_cls.from_pretrained(state_path, device=device)
 
         return cls(
             sr_model,
             lat_lon=lat_lon,
             output_resolution=output_resolution,
             super_resolution_window=super_resolution_window,
+            sampler_steps=sampler_steps,
+            sigma_max=sigma_max,
             seed=seed,
         )
 
@@ -490,15 +465,15 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
     @torch.inference_mode()
     def _forward(self, x: torch.Tensor) -> torch.Tensor:
         """Super resolve the input tensor"""
-        original_device = x.device
-        x = x.to(self.device)
-
         x = self._reorder_to_sr_channels(x)
 
         if self.input_type == "latlon":
             x = self.regrid_input_to_hpx_low_res(x.double()).to(torch.float32)
         else:
             x = x.to(torch.float32)
+
+        self.sr_model.num_steps = self.sampler_steps
+        self.sr_model.sigma_max = self.sigma_max
 
         x = x.unsqueeze(0).unsqueeze(2)
 
@@ -526,16 +501,13 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
 
         self._sample_index += 1
 
-        out = out[0, :, 0]
-        out = out.to(self.device)
-        out = self._reorder_from_sr_channels(out)
-
+        out = self._reorder_from_sr_channels(out[0, :, 0])
         if self.output_type == "healpix":
-            return out.to(original_device, dtype=torch.float32)
+            return out.to(torch.float32)
 
         out = out[None,].double()
         out = self.regrid_hpx_high_res_to_output(out).to(torch.float32)
-        return out[0].to(original_device)
+        return out[0]
 
     @batch_func()
     def __call__(
