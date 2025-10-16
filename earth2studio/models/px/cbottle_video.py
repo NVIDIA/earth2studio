@@ -146,7 +146,7 @@ class CBottleVideo(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self.seed = seed
         self.dataset_modality = dataset_modality
         self._mixture_model = core_model
-        self.core_model = CBottle3d(core_model, torch_compile=self.torch_compile)
+        self.core_model = CBottle3d(core_model)
 
         self._time_length = 12
         self._time_step = np.timedelta64(6, "h")
