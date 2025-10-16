@@ -267,7 +267,7 @@ class CBottleVideo(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         out, _ = self.core_model.sample(input_batch, seed=self.seed)
         # Regrid if needed
         if self.lat_lon:
-            out = self.output_regridder(out.double())
+            out = self.output_regridder(out.contiguous().double())
         # [time, vars, lead, ...] -> [time, lead, vars, ...]
         out = out.transpose(1, 2)
 
