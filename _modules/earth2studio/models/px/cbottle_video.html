@@ -437,7 +437,7 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">collections</span><span class="w"> </span><span class="kn">import</span> <span class="n">OrderedDict</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Generator</span><span class="p">,</span> <span class="n">Iterator</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">datetime</span><span class="w"> </span><span class="kn">import</span> <span class="n">datetime</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">enum</span><span class="w"> </span><span class="kn">import</span> <span class="n">IntEnum</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">enum</span><span class="w"> </span><span class="kn">import</span> <span class="n">IntEnum</span><span class="p">,</span> <span class="n">StrEnum</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
@@ -479,6 +479,13 @@
 
     <span class="n">ICON</span> <span class="o">=</span> <span class="mi">0</span>
     <span class="n">ERA5</span> <span class="o">=</span> <span class="mi">1</span>
+
+
+<span class="k">class</span><span class="w"> </span><span class="nc">TimeStepperFunction</span><span class="p">(</span><span class="n">StrEnum</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Supported time-stepper functions&quot;&quot;&quot;</span>
+
+    <span class="n">HEUN</span> <span class="o">=</span> <span class="s2">&quot;heun&quot;</span>
+    <span class="n">EULER</span> <span class="o">=</span> <span class="s2">&quot;euler&quot;</span>
 
 
 <div class="viewcode-block" id="CBottleVideo">
@@ -531,9 +538,12 @@
 <span class="sd">    dataset_modality: DatasetModality, optional</span>
 <span class="sd">        Dataset modality label to use when sampling (0=ICON, 1=ERA5), by default</span>
 <span class="sd">        DatasetModality.ERA5</span>
+<span class="sd">    time_stepper : TimeStepperFunction, optional</span>
+<span class="sd">        Sampler function used to denoise, by default TimeStepperFunction.HEUN</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="n">VARIABLES</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">CBottleLexicon</span><span class="o">.</span><span class="n">VOCAB</span><span class="o">.</span><span class="n">keys</span><span class="p">()))</span>
+    <span class="n">torch_compile</span> <span class="o">=</span> <span class="kc">False</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
@@ -545,6 +555,7 @@
         <span class="n">sigma_min</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.02</span><span class="p">,</span>
         <span class="n">seed</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">dataset_modality</span><span class="p">:</span> <span class="n">DatasetModality</span> <span class="o">=</span> <span class="n">DatasetModality</span><span class="o">.</span><span class="n">ERA5</span><span class="p">,</span>
+        <span class="n">time_stepper</span><span class="p">:</span> <span class="n">TimeStepperFunction</span> <span class="o">=</span> <span class="n">TimeStepperFunction</span><span class="o">.</span><span class="n">HEUN</span><span class="p">,</span>
     <span class="p">):</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
 
@@ -553,6 +564,7 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">sigma_max</span> <span class="o">=</span> <span class="n">sigma_max</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">sigma_min</span> <span class="o">=</span> <span class="n">sigma_min</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">sampler_steps</span> <span class="o">=</span> <span class="n">sampler_steps</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">time_stepper</span> <span class="o">=</span> <span class="n">time_stepper</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">seed</span> <span class="o">=</span> <span class="n">seed</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">dataset_modality</span> <span class="o">=</span> <span class="n">dataset_modality</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_mixture_model</span> <span class="o">=</span> <span class="n">core_model</span>
@@ -677,6 +689,7 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">core_model</span><span class="o">.</span><span class="n">sigma_min</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">sigma_min</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">core_model</span><span class="o">.</span><span class="n">sigma_max</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">sigma_max</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">core_model</span><span class="o">.</span><span class="n">num_steps</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">sampler_steps</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">core_model</span><span class="o">.</span><span class="n">time_stepper</span> <span class="o">=</span> <span class="n">TimeStepperFunction</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">time_stepper</span><span class="p">)</span><span class="o">.</span><span class="n">value</span>
 
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">lat_lon</span><span class="p">:</span>
             <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">condition_regridder</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">double</span><span class="p">())</span>
