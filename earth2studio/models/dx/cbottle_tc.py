@@ -108,6 +108,7 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
     """
 
     output_variables = VARIABLES
+    guidance_scale = 0.005  # 0.03 = strong, 0 = no guidance
 
     def __init__(
         self,
@@ -453,7 +454,10 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
 
             indices_where_tc = self._prepare_guidance_tensor(x[start_idx:end_idx])
             output, cb_coords = self.core_model.sample(
-                batch, guidance_pixels=indices_where_tc, seed=self.seed
+                batch,
+                guidance_pixels=indices_where_tc,
+                seed=self.seed,
+                guidance_scale=self.guidance_scale,
             )
 
             # If ICON, translate
