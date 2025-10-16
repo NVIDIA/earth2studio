@@ -109,7 +109,7 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
     Parameters
     ----------
     sr_model : torch.nn.Module
-        Core cBottle super-resolution helper implementing the diffusion process
+        Core cBottle super-resolution helper module implementing the diffusion process
     lat_lon : bool, optional, by default True
         Lat/lon toggle, if true the model will expect a lat/lon grid as input and output a lat/lon
         grid. If false, the native nested HealPix grid will be used for input and output.
@@ -143,22 +143,15 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
     ) -> None:
         super().__init__()
 
-        self._core_model = sr_model.net
         self.sr_model = sr_model
         self.seed = seed
         self.sampler_steps = sampler_steps
         self.sigma_max = sigma_max
         self._sample_index = 0
 
-        model_device_attr = getattr(sr_model, "device", None)
-        if model_device_attr is None:
-            model_device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        else:
-            model_device = torch.device(model_device_attr)
-
         self.register_buffer(
             "_device_buffer",
-            torch.empty(0, device=model_device),
+            torch.empty(0),
             persistent=False,
         )
 
@@ -185,7 +178,6 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
             torch.tensor(
                 [VARIABLES.index(CHANNEL_TO_VARIABLE[ch]) for ch in sr_channels],
                 dtype=torch.long,
-                device=model_device,
             ),
         )
         self.register_buffer(
@@ -193,7 +185,6 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
             torch.tensor(
                 [sr_channels.index(VARIABLE_TO_CHANNEL[var]) for var in VARIABLES],
                 dtype=torch.long,
-                device=model_device,
             ),
         )
 
