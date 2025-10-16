@@ -448,12 +448,10 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
 
     def _reorder_to_sr_channels(self, x: torch.Tensor) -> torch.Tensor:
         """Reorder channels to the super resolution model"""
-        print(x.device, self._to_sr_index.device)
         return torch.index_select(x, 0, self._to_sr_index)
 
     def _reorder_from_sr_channels(self, x: torch.Tensor) -> torch.Tensor:
         """Reorder channels from the super resolution model"""
-        print(x.device, self._to_sr_index.device)
         return torch.index_select(x, 0, self._from_sr_index)
 
     @torch.inference_mode()
@@ -471,8 +469,6 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
         self.sr_model.device = self.device  # Terrible software
 
         x = x.unsqueeze(0).unsqueeze(2)
-
-        print(x.device, "====")
 
         if self.seed is not None:
             rng_devices: list[torch.device] = []
@@ -495,8 +491,6 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
                 coords=replace(self._coords),
                 extents=self.super_resolution_extents,
             )
-
-        print(out.device, "====")
 
         self._sample_index += 1
 
