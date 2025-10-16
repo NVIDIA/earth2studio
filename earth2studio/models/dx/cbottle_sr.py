@@ -431,7 +431,7 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
 
         if distilled_model:
             sr_model = model_cls.from_pretrained(
-                state_path, window_function="uniform", window_alpha=1.0, device=device
+                state_path, window_function="KBD", window_alpha=1.0, device=device
             )
         else:
             sr_model = model_cls.from_pretrained(state_path, device=device)
