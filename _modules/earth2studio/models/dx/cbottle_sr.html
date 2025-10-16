@@ -858,7 +858,7 @@
 
         <span class="k">if</span> <span class="n">distilled_model</span><span class="p">:</span>
             <span class="n">sr_model</span> <span class="o">=</span> <span class="n">model_cls</span><span class="o">.</span><span class="n">from_pretrained</span><span class="p">(</span>
-                <span class="n">state_path</span><span class="p">,</span> <span class="n">window_function</span><span class="o">=</span><span class="s2">&quot;uniform&quot;</span><span class="p">,</span> <span class="n">window_alpha</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span>
+                <span class="n">state_path</span><span class="p">,</span> <span class="n">window_function</span><span class="o">=</span><span class="s2">&quot;KBD&quot;</span><span class="p">,</span> <span class="n">window_alpha</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span>
             <span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="n">sr_model</span> <span class="o">=</span> <span class="n">model_cls</span><span class="o">.</span><span class="n">from_pretrained</span><span class="p">(</span><span class="n">state_path</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">)</span>

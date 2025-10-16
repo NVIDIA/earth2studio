@@ -530,6 +530,7 @@
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="n">output_variables</span> <span class="o">=</span> <span class="n">VARIABLES</span>
+    <span class="n">guidance_scale</span> <span class="o">=</span> <span class="mf">0.005</span>  <span class="c1"># 0.03 = strong, 0 = no guidance</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
@@ -883,7 +884,10 @@
 
             <span class="n">indices_where_tc</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_prepare_guidance_tensor</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="n">start_idx</span><span class="p">:</span><span class="n">end_idx</span><span class="p">])</span>
             <span class="n">output</span><span class="p">,</span> <span class="n">cb_coords</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">core_model</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span>
-                <span class="n">batch</span><span class="p">,</span> <span class="n">guidance_pixels</span><span class="o">=</span><span class="n">indices_where_tc</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">seed</span>
+                <span class="n">batch</span><span class="p">,</span>
+                <span class="n">guidance_pixels</span><span class="o">=</span><span class="n">indices_where_tc</span><span class="p">,</span>
+                <span class="n">seed</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">seed</span><span class="p">,</span>
+                <span class="n">guidance_scale</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">guidance_scale</span><span class="p">,</span>
             <span class="p">)</span>
 
             <span class="c1"># If ICON, translate</span>
