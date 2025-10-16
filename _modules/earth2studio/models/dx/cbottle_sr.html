@@ -435,6 +435,7 @@
 <span class="c1"># limitations under the License.</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">collections</span><span class="w"> </span><span class="kn">import</span> <span class="n">OrderedDict</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">replace</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
@@ -454,29 +455,19 @@
 
 <span class="k">try</span><span class="p">:</span>
     <span class="kn">import</span><span class="w"> </span><span class="nn">earth2grid</span>
-    <span class="kn">from</span><span class="w"> </span><span class="nn">cbottle</span><span class="w"> </span><span class="kn">import</span> <span class="n">patchify</span>
-    <span class="kn">from</span><span class="w"> </span><span class="nn">cbottle.checkpointing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Checkpoint</span>
-    <span class="kn">from</span><span class="w"> </span><span class="nn">cbottle.datasets.base</span><span class="w"> </span><span class="kn">import</span> <span class="n">TimeUnit</span>
-    <span class="kn">from</span><span class="w"> </span><span class="nn">cbottle.datasets.dataset_3d</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_batch_info</span>
-    <span class="kn">from</span><span class="w"> </span><span class="nn">cbottle.denoiser_factories</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_denoiser</span>
-    <span class="kn">from</span><span class="w"> </span><span class="nn">cbottle.diffusion_samplers</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
-        <span class="n">StackedRandomGenerator</span><span class="p">,</span>
-        <span class="n">edm_sampler</span><span class="p">,</span>
-        <span class="n">edm_sampler_from_sigma</span><span class="p">,</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">cbottle.inference</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+        <span class="n">Coords</span><span class="p">,</span>
+        <span class="n">DistilledSuperResolutionModel</span><span class="p">,</span>
+        <span class="n">SuperResolutionModel</span><span class="p">,</span>
     <span class="p">)</span>
     <span class="kn">from</span><span class="w"> </span><span class="nn">earth2grid</span><span class="w"> </span><span class="kn">import</span> <span class="n">healpix</span>
 <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
     <span class="n">OptionalDependencyFailure</span><span class="p">(</span><span class="s2">&quot;cbottle&quot;</span><span class="p">)</span>
     <span class="n">earth2grid</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">healpix</span> <span class="o">=</span> <span class="kc">None</span>
-    <span class="n">patchify</span> <span class="o">=</span> <span class="kc">None</span>
-    <span class="n">Checkpoint</span> <span class="o">=</span> <span class="kc">None</span>
-    <span class="n">TimeUnit</span> <span class="o">=</span> <span class="kc">None</span>
-    <span class="n">get_batch_info</span> <span class="o">=</span> <span class="kc">None</span>
-    <span class="n">edm_sampler</span> <span class="o">=</span> <span class="kc">None</span>
-    <span class="n">StackedRandomGenerator</span> <span class="o">=</span> <span class="kc">None</span>
-    <span class="n">edm_sampler_from_sigma</span> <span class="o">=</span> <span class="kc">None</span>
-    <span class="n">get_denoiser</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">SuperResolutionModel</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">DistilledSuperResolutionModel</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">Coords</span> <span class="o">=</span> <span class="kc">None</span>
 
 <span class="n">VARIABLES</span> <span class="o">=</span> <span class="p">[</span>
     <span class="s2">&quot;tclw&quot;</span><span class="p">,</span>
@@ -492,6 +483,22 @@
     <span class="s2">&quot;sst&quot;</span><span class="p">,</span>
     <span class="s2">&quot;sic&quot;</span><span class="p">,</span>
 <span class="p">]</span>
+
+<span class="n">VARIABLE_TO_CHANNEL</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;tclw&quot;</span><span class="p">:</span> <span class="s2">&quot;cllvi&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;tciw&quot;</span><span class="p">:</span> <span class="s2">&quot;clivi&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;t2m&quot;</span><span class="p">:</span> <span class="s2">&quot;tas&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;u10m&quot;</span><span class="p">:</span> <span class="s2">&quot;uas&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;v10m&quot;</span><span class="p">:</span> <span class="s2">&quot;vas&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;rlut&quot;</span><span class="p">:</span> <span class="s2">&quot;rlut&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;rsut&quot;</span><span class="p">:</span> <span class="s2">&quot;rsut&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;msl&quot;</span><span class="p">:</span> <span class="s2">&quot;pres_msl&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;tpf&quot;</span><span class="p">:</span> <span class="s2">&quot;pr&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;rsds&quot;</span><span class="p">:</span> <span class="s2">&quot;rsds&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;sst&quot;</span><span class="p">:</span> <span class="s2">&quot;sst&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;sic&quot;</span><span class="p">:</span> <span class="s2">&quot;sic&quot;</span><span class="p">,</span>
+<span class="p">}</span>
+<span class="n">CHANNEL_TO_VARIABLE</span> <span class="o">=</span> <span class="p">{</span><span class="n">v</span><span class="p">:</span> <span class="n">k</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">VARIABLE_TO_CHANNEL</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
 
 <span class="n">HPX_LEVEL_LR</span> <span class="o">=</span> <span class="mi">6</span>
 <span class="n">HPX_LEVEL_HR</span> <span class="o">=</span> <span class="mi">10</span>
@@ -523,21 +530,21 @@
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
-<span class="sd">    core_model : torch.nn.Module</span>
-<span class="sd">        Core pytorch model implementing the diffusion-based super-resolution</span>
+<span class="sd">    sr_model : torch.nn.Module</span>
+<span class="sd">        Core cBottle super-resolution helper module implementing the diffusion process</span>
 <span class="sd">    lat_lon : bool, optional, by default True</span>
 <span class="sd">        Lat/lon toggle, if true the model will expect a lat/lon grid as input and output a lat/lon</span>
 <span class="sd">        grid. If false, the native nested HealPix grid will be used for input and output.</span>
-<span class="sd">        Input HEALPix is level 6 and output HEALPix is level 10 with NEST pixel ordering.</span>
+<span class="sd">        Input HEALPix is level 6 and output HEALPix is level 10 with NEST pixel ordering</span>
 <span class="sd">    output_resolution : Tuple[int, int], optional</span>
 <span class="sd">        High-resolution output dimensions for lat/lon output. Only used when</span>
 <span class="sd">        lat_lon=True, by default (2161, 4320)</span>
-<span class="sd">    super_resolution_window : Union[None, Tuple[int, int, int, int]], optional</span>
-<span class="sd">        Super-resolution window. If None, super-resolution is done</span>
-<span class="sd">        on the entire global grid. If provided, the super-resolution window is a tuple</span>
-<span class="sd">        of (lat_south, lon_west, lat_north, lon_east) and will only apply super-resolution</span>
-<span class="sd">        to the specified window. For lat/lon output, the result will just be returned for</span>
-<span class="sd">        the specified window with the specified output resolution.</span>
+<span class="sd">    super_resolution_window : Tuple[int, int, int, int] | None, optional</span>
+<span class="sd">        Super-resolution window. If None, super-resolution is done on the entire global grid</span>
+<span class="sd">        If provided, the super-resolution window is a tuple of (lat_south, lon_west, lat_north, lon_east)</span>
+<span class="sd">        and will only apply super-resolution to the specified window. For lat/lon output, the result will</span>
+<span class="sd">        just be returned for the specified window with the specified output resolution,</span>
+<span class="sd">        by default None</span>
 <span class="sd">    sampler_steps : int, optional</span>
 <span class="sd">        Number of diffusion steps, by default 18</span>
 <span class="sd">    sigma_max : int, optional</span>
@@ -548,17 +555,29 @@
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
-        <span class="n">core_model</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">,</span>
+        <span class="n">sr_model</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">,</span>
         <span class="n">lat_lon</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
         <span class="n">output_resolution</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="mi">2161</span><span class="p">,</span> <span class="mi">4320</span><span class="p">),</span>
         <span class="n">super_resolution_window</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">sampler_steps</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">18</span><span class="p">,</span>
         <span class="n">sigma_max</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">800</span><span class="p">,</span>
         <span class="n">seed</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-    <span class="p">):</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
 
-        <span class="c1"># Store grid types</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">sr_model</span> <span class="o">=</span> <span class="n">sr_model</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">seed</span> <span class="o">=</span> <span class="n">seed</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">sampler_steps</span> <span class="o">=</span> <span class="n">sampler_steps</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">sigma_max</span> <span class="o">=</span> <span class="n">sigma_max</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_sample_index</span> <span class="o">=</span> <span class="mi">0</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">register_buffer</span><span class="p">(</span>
+            <span class="s2">&quot;_device_buffer&quot;</span><span class="p">,</span>
+            <span class="n">torch</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span>
+            <span class="n">persistent</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="c1"># Configure grid types</span>
         <span class="k">if</span> <span class="n">lat_lon</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">input_type</span> <span class="o">=</span> <span class="s2">&quot;latlon&quot;</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">output_type</span> <span class="o">=</span> <span class="s2">&quot;latlon&quot;</span>
@@ -566,23 +585,34 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">input_type</span> <span class="o">=</span> <span class="s2">&quot;healpix&quot;</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">output_type</span> <span class="o">=</span> <span class="s2">&quot;healpix&quot;</span>
 
-        <span class="c1"># Model</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">core_model</span> <span class="o">=</span> <span class="n">core_model</span>
+        <span class="c1"># Validate batch info and create channel reorder indices</span>
+        <span class="c1"># NOTE: This should never fail but keep it here for safety</span>
+        <span class="n">sr_channels</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">sr_model</span><span class="o">.</span><span class="n">batch_info</span><span class="o">.</span><span class="n">channels</span><span class="p">)</span>
+        <span class="n">missing</span> <span class="o">=</span> <span class="p">[</span><span class="n">ch</span> <span class="k">for</span> <span class="n">ch</span> <span class="ow">in</span> <span class="n">sr_channels</span> <span class="k">if</span> <span class="n">ch</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">CHANNEL_TO_VARIABLE</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">missing</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;CBottleSR received unexpected channels from cBottle model: &quot;</span>
+                <span class="o">+</span> <span class="s2">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">missing</span><span class="p">)</span>
+            <span class="p">)</span>
 
-        <span class="c1"># Store seed</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">seed</span> <span class="o">=</span> <span class="n">seed</span>
-
-        <span class="c1"># Sampler</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">sampler_steps</span> <span class="o">=</span> <span class="n">sampler_steps</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">sigma_max</span> <span class="o">=</span> <span class="n">sigma_max</span>
-
-        <span class="c1"># High-resolution HEALPix grid (internal processing)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">hpx_high_res_grid</span> <span class="o">=</span> <span class="n">healpix</span><span class="o">.</span><span class="n">Grid</span><span class="p">(</span>
-            <span class="n">level</span><span class="o">=</span><span class="n">HPX_LEVEL_HR</span><span class="p">,</span> <span class="n">pixel_order</span><span class="o">=</span><span class="n">healpix</span><span class="o">.</span><span class="n">PixelOrder</span><span class="o">.</span><span class="n">NEST</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">register_buffer</span><span class="p">(</span>
+            <span class="s2">&quot;_to_sr_index&quot;</span><span class="p">,</span>
+            <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span>
+                <span class="p">[</span><span class="n">VARIABLES</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">CHANNEL_TO_VARIABLE</span><span class="p">[</span><span class="n">ch</span><span class="p">])</span> <span class="k">for</span> <span class="n">ch</span> <span class="ow">in</span> <span class="n">sr_channels</span><span class="p">],</span>
+                <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">long</span><span class="p">,</span>
+            <span class="p">),</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">register_buffer</span><span class="p">(</span>
+            <span class="s2">&quot;_from_sr_index&quot;</span><span class="p">,</span>
+            <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span>
+                <span class="p">[</span><span class="n">sr_channels</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">VARIABLE_TO_CHANNEL</span><span class="p">[</span><span class="n">var</span><span class="p">])</span> <span class="k">for</span> <span class="n">var</span> <span class="ow">in</span> <span class="n">VARIABLES</span><span class="p">],</span>
+                <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">long</span><span class="p">,</span>
+            <span class="p">),</span>
         <span class="p">)</span>
 
-        <span class="c1"># Set super resolution window (this will initialize output coords and patch index)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">set_super_resolution_window</span><span class="p">(</span><span class="n">super_resolution_window</span><span class="p">,</span> <span class="n">output_resolution</span><span class="p">)</span>
+        <span class="c1"># Setup grids and regridders</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">hpx_low_res_grid</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">sr_model</span><span class="o">.</span><span class="n">low_res_grid</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">hpx_high_res_grid</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">sr_model</span><span class="o">.</span><span class="n">high_res_grid</span>
 
         <span class="c1"># Setup grids and regridders based on input/output types</span>
         <span class="c1"># Input grids</span>
@@ -590,63 +620,28 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">input_grid</span> <span class="o">=</span> <span class="n">earth2grid</span><span class="o">.</span><span class="n">latlon</span><span class="o">.</span><span class="n">equiangular_lat_lon_grid</span><span class="p">(</span>
                 <span class="mi">721</span><span class="p">,</span> <span class="mi">1440</span><span class="p">,</span> <span class="n">includes_south_pole</span><span class="o">=</span><span class="kc">False</span>
             <span class="p">)</span>
-        <span class="k">else</span><span class="p">:</span>  <span class="c1"># healpix</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">input_grid</span> <span class="o">=</span> <span class="n">healpix</span><span class="o">.</span><span class="n">Grid</span><span class="p">(</span>
-                <span class="n">level</span><span class="o">=</span><span class="n">HPX_LEVEL_LR</span><span class="p">,</span> <span class="n">pixel_order</span><span class="o">=</span><span class="n">healpix</span><span class="o">.</span><span class="n">PixelOrder</span><span class="o">.</span><span class="n">NEST</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">regrid_input_to_hpx_low_res</span> <span class="o">=</span> <span class="n">earth2grid</span><span class="o">.</span><span class="n">get_regridder</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">input_grid</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">hpx_low_res_grid</span>
             <span class="p">)</span>
+            <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">regrid_input_to_hpx_low_res</span><span class="p">,</span> <span class="s2">&quot;to&quot;</span><span class="p">):</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">regrid_input_to_hpx_low_res</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">regrid_input_to_hpx_low_res</span><span class="o">.</span><span class="n">to</span><span class="p">(</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">device</span>
+                <span class="p">)</span><span class="o">.</span><span class="n">double</span><span class="p">()</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">input_grid</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">hpx_low_res_grid</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">regrid_input_to_hpx_low_res</span> <span class="o">=</span> <span class="kc">None</span>
 
-        <span class="c1"># Create regridders</span>
-        <span class="c1"># Input to high-res HEALPix (for internal processing)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">regrid_input_to_hpx_high_res</span> <span class="o">=</span> <span class="n">earth2grid</span><span class="o">.</span><span class="n">get_regridder</span><span class="p">(</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">input_grid</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">hpx_high_res_grid</span>
-        <span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">regrid_input_to_hpx_high_res</span><span class="o">.</span><span class="n">double</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">output_resolution</span> <span class="o">=</span> <span class="n">output_resolution</span>
 
-        <span class="c1"># Make global lat lon regridder</span>
-        <span class="n">lat</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="o">-</span><span class="mi">90</span><span class="p">,</span> <span class="mi">90</span><span class="p">,</span> <span class="mi">128</span><span class="p">)[:,</span> <span class="kc">None</span><span class="p">]</span>
-        <span class="n">lon</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">360</span><span class="p">,</span> <span class="mi">128</span><span class="p">)[</span><span class="kc">None</span><span class="p">,</span> <span class="p">:]</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">regrid_to_latlon</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">hpx_high_res_grid</span><span class="o">.</span><span class="n">get_bilinear_regridder_to</span><span class="p">(</span>
-            <span class="n">lat</span><span class="p">,</span> <span class="n">lon</span>
-        <span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+        <span class="c1"># Setup super resolution window (this will initialize output coords and patch index)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">set_super_resolution_window</span><span class="p">(</span><span class="n">super_resolution_window</span><span class="p">,</span> <span class="n">output_resolution</span><span class="p">)</span>
 
-        <span class="c1"># Hard set scale and center</span>
-        <span class="n">scale</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span>
-            <span class="p">[</span>
-                <span class="mf">1.4847e-01</span><span class="p">,</span>
-                <span class="mf">2.7247e-02</span><span class="p">,</span>
-                <span class="mf">1.5605e01</span><span class="p">,</span>
-                <span class="mf">5.1746e00</span><span class="p">,</span>
-                <span class="mf">4.6485e00</span><span class="p">,</span>
-                <span class="mf">4.1996e01</span><span class="p">,</span>
-                <span class="mf">1.2832e02</span><span class="p">,</span>
-                <span class="mf">1.1094e03</span><span class="p">,</span>
-                <span class="mf">1.0940e-04</span><span class="p">,</span>
-                <span class="mf">3.0466e02</span><span class="p">,</span>
-                <span class="mf">8.5142e00</span><span class="p">,</span>
-                <span class="mf">1.4541e-01</span><span class="p">,</span>
-            <span class="p">],</span>
-            <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float64</span><span class="p">,</span>
-        <span class="p">)[:,</span> <span class="kc">None</span><span class="p">]</span>
-        <span class="n">center</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span>
-            <span class="p">[</span>
-                <span class="mf">5.4994e-02</span><span class="p">,</span>
-                <span class="mf">1.1090e-02</span><span class="p">,</span>
-                <span class="mf">2.8609e02</span><span class="p">,</span>
-                <span class="o">-</span><span class="mf">1.5407e-01</span><span class="p">,</span>
-                <span class="o">-</span><span class="mf">3.8198e-01</span><span class="p">,</span>
-                <span class="mf">2.4358e02</span><span class="p">,</span>
-                <span class="mf">8.8927e01</span><span class="p">,</span>
-                <span class="mf">1.0116e05</span><span class="p">,</span>
-                <span class="mf">1.7416e-05</span><span class="p">,</span>
-                <span class="mf">2.1382e02</span><span class="p">,</span>
-                <span class="mf">2.9097e02</span><span class="p">,</span>
-                <span class="mf">2.5404e-02</span><span class="p">,</span>
-            <span class="p">],</span>
-            <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float64</span><span class="p">,</span>
-        <span class="p">)[:,</span> <span class="kc">None</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_coords</span> <span class="o">=</span> <span class="n">Coords</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">sr_model</span><span class="o">.</span><span class="n">batch_info</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">hpx_low_res_grid</span><span class="p">)</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">register_buffer</span><span class="p">(</span><span class="s2">&quot;scale&quot;</span><span class="p">,</span> <span class="n">scale</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">register_buffer</span><span class="p">(</span><span class="s2">&quot;center&quot;</span><span class="p">,</span> <span class="n">center</span><span class="p">)</span>
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">device</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">device</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Current device for model buffers&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_device_buffer</span><span class="o">.</span><span class="n">device</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">set_super_resolution_window</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
@@ -664,18 +659,14 @@
 <span class="sd">            to the specified window. By default None.</span>
 <span class="sd">        output_resolution : tuple[int, int] | None, optional</span>
 <span class="sd">            High-resolution output dimensions for lat/lon output. Only used when</span>
-<span class="sd">        lat_lon=True, by default (2161, 4320)</span>
+<span class="sd">            lat_lon=True, by default (2161, 4320)</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="c1"># Update super resolution window</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">super_resolution_window</span> <span class="o">=</span> <span class="n">super_resolution_window</span>
-
-        <span class="c1"># Update inbox patch index</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">super_resolution_extents</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="k">if</span> <span class="n">super_resolution_window</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">inbox_patch_index</span> <span class="o">=</span> <span class="n">patchify</span><span class="o">.</span><span class="n">patch_index_from_bounding_box</span><span class="p">(</span>
-                <span class="n">HPX_LEVEL_HR</span><span class="p">,</span> <span class="n">super_resolution_window</span><span class="p">,</span> <span class="mi">128</span><span class="p">,</span> <span class="mi">32</span><span class="p">,</span> <span class="s2">&quot;cpu&quot;</span>
-            <span class="p">)</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">inbox_patch_index</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="n">lat_south</span><span class="p">,</span> <span class="n">lon_west</span><span class="p">,</span> <span class="n">lat_north</span><span class="p">,</span> <span class="n">lon_east</span> <span class="o">=</span> <span class="n">super_resolution_window</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">super_resolution_extents</span> <span class="o">=</span> <span class="p">(</span><span class="n">lon_west</span><span class="p">,</span> <span class="n">lon_east</span><span class="p">,</span> <span class="n">lat_south</span><span class="p">,</span> <span class="n">lat_north</span><span class="p">)</span>
 
         <span class="c1"># Update output coordinates and grids based on output type</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">output_type</span> <span class="o">==</span> <span class="s2">&quot;latlon&quot;</span><span class="p">:</span>
@@ -710,7 +701,10 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">regrid_hpx_high_res_to_output</span> <span class="o">=</span> <span class="n">earth2grid</span><span class="o">.</span><span class="n">get_regridder</span><span class="p">(</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">hpx_high_res_grid</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">output_grid</span>
             <span class="p">)</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">regrid_hpx_high_res_to_output</span><span class="o">.</span><span class="n">double</span><span class="p">()</span>
+            <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">regrid_hpx_high_res_to_output</span><span class="p">,</span> <span class="s2">&quot;to&quot;</span><span class="p">):</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">regrid_hpx_high_res_to_output</span> <span class="o">=</span> <span class="p">(</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">regrid_hpx_high_res_to_output</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">device</span><span class="p">)</span><span class="o">.</span><span class="n">double</span><span class="p">()</span>
+                <span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>  <span class="c1"># healpix output</span>
             <span class="c1"># For healpix output, the output grid is always the high-res healpix grid</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">output_grid</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">hpx_high_res_grid</span>
@@ -754,7 +748,6 @@
 <span class="sd">        CoordSystem</span>
 <span class="sd">            Coordinate system dictionary</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-
         <span class="c1"># Validate input coordinates against expected input coords</span>
         <span class="n">target_input_coords</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">input_coords</span><span class="p">()</span>
         <span class="n">handshake_dim</span><span class="p">(</span><span class="n">input_coords</span><span class="p">,</span> <span class="s2">&quot;variable&quot;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
@@ -817,10 +810,12 @@
         <span class="n">package</span><span class="p">:</span> <span class="n">Package</span><span class="p">,</span>
         <span class="n">lat_lon</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
         <span class="n">output_resolution</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="mi">2161</span><span class="p">,</span> <span class="mi">4320</span><span class="p">),</span>
-        <span class="n">super_resolution_window</span><span class="p">:</span> <span class="kc">None</span> <span class="o">|</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">super_resolution_window</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">sampler_steps</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">18</span><span class="p">,</span>
         <span class="n">sigma_max</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">800</span><span class="p">,</span>
         <span class="n">seed</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">distilled_model</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">device</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;cpu&quot;</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">DiagnosticModel</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Load diagnostic model from package</span>
 
@@ -830,11 +825,11 @@
 <span class="sd">            CBottle AI model package</span>
 <span class="sd">        lat_lon : bool, optional, by default True</span>
 <span class="sd">            Lat/lon toggle, if true the model will expect a lat/lon grid as input and output a lat/lon</span>
-<span class="sd">            grid. If false, the native nested HealPix grid will be used for input and output.</span>
-<span class="sd">            Input HEALPix is level 6 and output HEALPix is level 10 with NEST pixel ordering.</span>
+<span class="sd">            grid. If false, the native nested HEALPix grid will be used for input and output</span>
+<span class="sd">            Input HEALPix is level 6 and output HEALPix is level 10 with NEST pixel ordering</span>
 <span class="sd">        output_resolution : tuple[int, int], optional</span>
 <span class="sd">            High-resolution output dimensions for lat/lon output, by default (2161, 4320)</span>
-<span class="sd">        super_resolution_window : None | tuple[int, int, int, int], optional</span>
+<span class="sd">        super_resolution_window : tuple[int, int, int, int] | None, optional</span>
 <span class="sd">            Super-resolution window for lat/lon output, by default None</span>
 <span class="sd">        sampler_steps : int, optional</span>
 <span class="sd">            Number of diffusion steps, by default 18</span>
@@ -842,22 +837,34 @@
 <span class="sd">            Noise amplitude used to generate latent variables, by default 800</span>
 <span class="sd">        seed : int, optional</span>
 <span class="sd">            Random generator seed for latent variables, by default None</span>
+<span class="sd">        distilled_model : bool, optional</span>
+<span class="sd">            Whether to use the distilled model, If True, the distilled helper is used,</span>
+<span class="sd">            enabling generation with fewer sampler steps, by default False</span>
+<span class="sd">        device : str</span>
+<span class="sd">            Device to load model onto, by default cpu</span>
 
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
 <span class="sd">        DiagnosticModel</span>
 <span class="sd">            Diagnostic model</span>
 <span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">checkpoint_name</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="s2">&quot;cBottle-SR-Distill.zip&quot;</span> <span class="k">if</span> <span class="n">distilled_model</span> <span class="k">else</span> <span class="s2">&quot;cBottle-SR.zip&quot;</span>
+        <span class="p">)</span>
+        <span class="n">model_cls</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">DistilledSuperResolutionModel</span> <span class="k">if</span> <span class="n">distilled_model</span> <span class="k">else</span> <span class="n">SuperResolutionModel</span>
+        <span class="p">)</span>
+        <span class="n">state_path</span> <span class="o">=</span> <span class="n">package</span><span class="o">.</span><span class="n">resolve</span><span class="p">(</span><span class="n">checkpoint_name</span><span class="p">)</span>
 
-        <span class="k">with</span> <span class="n">Checkpoint</span><span class="p">(</span><span class="n">package</span><span class="o">.</span><span class="n">resolve</span><span class="p">(</span><span class="s2">&quot;cBottle-SR.zip&quot;</span><span class="p">))</span> <span class="k">as</span> <span class="n">checkpoint</span><span class="p">:</span>
-            <span class="n">core_model</span> <span class="o">=</span> <span class="n">checkpoint</span><span class="o">.</span><span class="n">read_model</span><span class="p">()</span>
-
-        <span class="n">core_model</span><span class="o">.</span><span class="n">eval</span><span class="p">()</span>
-        <span class="n">core_model</span><span class="o">.</span><span class="n">requires_grad_</span><span class="p">(</span><span class="kc">False</span><span class="p">)</span>
-        <span class="n">core_model</span><span class="o">.</span><span class="n">float</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">distilled_model</span><span class="p">:</span>
+            <span class="n">sr_model</span> <span class="o">=</span> <span class="n">model_cls</span><span class="o">.</span><span class="n">from_pretrained</span><span class="p">(</span>
+                <span class="n">state_path</span><span class="p">,</span> <span class="n">window_function</span><span class="o">=</span><span class="s2">&quot;uniform&quot;</span><span class="p">,</span> <span class="n">window_alpha</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">sr_model</span> <span class="o">=</span> <span class="n">model_cls</span><span class="o">.</span><span class="n">from_pretrained</span><span class="p">(</span><span class="n">state_path</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">)</span>
 
         <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span>
-            <span class="n">core_model</span><span class="p">,</span>
+            <span class="n">sr_model</span><span class="p">,</span>
             <span class="n">lat_lon</span><span class="o">=</span><span class="n">lat_lon</span><span class="p">,</span>
             <span class="n">output_resolution</span><span class="o">=</span><span class="n">output_resolution</span><span class="p">,</span>
             <span class="n">super_resolution_window</span><span class="o">=</span><span class="n">super_resolution_window</span><span class="p">,</span>
@@ -867,90 +874,61 @@
         <span class="p">)</span></div>
 
 
+    <span class="k">def</span><span class="w"> </span><span class="nf">_reorder_to_sr_channels</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Reorder channels to the super resolution model&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">index_select</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_to_sr_index</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_reorder_from_sr_channels</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Reorder channels from the super resolution model&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">index_select</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_from_sr_index</span><span class="p">)</span>
+
     <span class="nd">@torch</span><span class="o">.</span><span class="n">inference_mode</span><span class="p">()</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">_forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Super resolve the input tensor&quot;&quot;&quot;</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_reorder_to_sr_channels</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
 
-        <span class="c1"># Regrid input to high-resolution HEALPix (internal processing grid)</span>
-        <span class="n">lr_hpx</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">regrid_input_to_hpx_high_res</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">double</span><span class="p">())</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">input_type</span> <span class="o">==</span> <span class="s2">&quot;latlon&quot;</span><span class="p">:</span>
+            <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">regrid_input_to_hpx_low_res</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">double</span><span class="p">())</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">x</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
 
-        <span class="c1"># Normalize</span>
-        <span class="n">lr_hpx</span> <span class="o">=</span> <span class="p">(</span><span class="n">lr_hpx</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">center</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">device</span><span class="p">))</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">scale</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">sr_model</span><span class="o">.</span><span class="n">num_steps</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">sampler_steps</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">sr_model</span><span class="o">.</span><span class="n">sigma_max</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">sigma_max</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">sr_model</span><span class="o">.</span><span class="n">device</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">device</span>  <span class="c1"># Terrible software</span>
 
-        <span class="c1"># Get global lat lon (for the denoiser conditioning)</span>
-        <span class="n">global_lr</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">regrid_to_latlon</span><span class="p">(</span><span class="n">lr_hpx</span><span class="p">)</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
 
-        <span class="c1"># Run denoiser</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">seed</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">generator</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">Generator</span><span class="p">(</span><span class="n">device</span><span class="o">=</span><span class="n">x</span><span class="o">.</span><span class="n">device</span><span class="p">)</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">seed</span><span class="p">)</span>
-            <span class="n">latents</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span>
-                <span class="n">lr_hpx</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">x</span><span class="o">.</span><span class="n">device</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float64</span><span class="p">,</span> <span class="n">generator</span><span class="o">=</span><span class="n">generator</span>
-            <span class="p">)</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="n">latents</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn_like</span><span class="p">(</span><span class="n">lr_hpx</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">x</span><span class="o">.</span><span class="n">device</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+            <span class="n">rng_devices</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">device</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">device</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="s2">&quot;cuda&quot;</span><span class="p">:</span>
+                <span class="n">rng_devices</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
 
-        <span class="c1"># Add 1 batch dimension</span>
-        <span class="n">latents</span> <span class="o">=</span> <span class="n">latents</span><span class="p">[</span><span class="kc">None</span><span class="p">,]</span><span class="o">.</span><span class="n">float</span><span class="p">()</span>
-        <span class="n">lr_hpx</span> <span class="o">=</span> <span class="n">lr_hpx</span><span class="p">[</span><span class="kc">None</span><span class="p">,]</span><span class="o">.</span><span class="n">float</span><span class="p">()</span>
-        <span class="n">global_lr</span> <span class="o">=</span> <span class="n">global_lr</span><span class="p">[</span><span class="kc">None</span><span class="p">,]</span>
-
-        <span class="c1"># Set device inbox patch index</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">inbox_patch_index</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">inbox_patch_index</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">inbox_patch_index</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
-
-        <span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">():</span>
-            <span class="c1"># scope with global_lr and other inputs present</span>
-            <span class="k">def</span><span class="w"> </span><span class="nf">denoiser</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">t</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
-                <span class="k">return</span> <span class="p">(</span>
-                    <span class="n">patchify</span><span class="o">.</span><span class="n">apply_on_patches</span><span class="p">(</span>
-                        <span class="bp">self</span><span class="o">.</span><span class="n">core_model</span><span class="p">,</span>
-                        <span class="n">patch_size</span><span class="o">=</span><span class="mi">128</span><span class="p">,</span>
-                        <span class="n">overlap_size</span><span class="o">=</span><span class="mi">32</span><span class="p">,</span>
-                        <span class="n">x_hat</span><span class="o">=</span><span class="n">x</span><span class="p">,</span>
-                        <span class="n">x_lr</span><span class="o">=</span><span class="n">lr_hpx</span><span class="p">,</span>
-                        <span class="n">t_hat</span><span class="o">=</span><span class="n">t</span><span class="p">,</span>
-                        <span class="n">class_labels</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-                        <span class="n">batch_size</span><span class="o">=</span><span class="mi">128</span><span class="p">,</span>
-                        <span class="n">global_lr</span><span class="o">=</span><span class="n">global_lr</span><span class="p">,</span>
-                        <span class="n">inbox_patch_index</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">inbox_patch_index</span><span class="p">,</span>
-                        <span class="n">device</span><span class="o">=</span><span class="n">x</span><span class="o">.</span><span class="n">device</span><span class="p">,</span>
-                    <span class="p">)</span>
-                    <span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
-                    <span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+            <span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">fork_rng</span><span class="p">(</span><span class="n">devices</span><span class="o">=</span><span class="n">rng_devices</span><span class="p">,</span> <span class="n">enabled</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+                <span class="n">seed</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">seed</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sample_index</span>
+                <span class="n">torch</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="n">seed</span><span class="p">)</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">device</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="s2">&quot;cuda&quot;</span><span class="p">:</span>
+                    <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">manual_seed_all</span><span class="p">(</span><span class="n">seed</span><span class="p">)</span>
+                <span class="n">out</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">sr_model</span><span class="p">(</span>
+                    <span class="n">x</span><span class="p">,</span>
+                    <span class="n">coords</span><span class="o">=</span><span class="n">replace</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_coords</span><span class="p">),</span>
+                    <span class="n">extents</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">super_resolution_extents</span><span class="p">,</span>
                 <span class="p">)</span>
-
-            <span class="n">denoiser</span><span class="o">.</span><span class="n">sigma_max</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">core_model</span><span class="o">.</span><span class="n">sigma_max</span>  <span class="c1"># type: ignore[attr-defined]</span>
-            <span class="n">denoiser</span><span class="o">.</span><span class="n">sigma_min</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">core_model</span><span class="o">.</span><span class="n">sigma_min</span>  <span class="c1"># type: ignore[attr-defined]</span>
-            <span class="n">denoiser</span><span class="o">.</span><span class="n">round_sigma</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">core_model</span><span class="o">.</span><span class="n">round_sigma</span>  <span class="c1"># type: ignore[attr-defined]</span>
-
-            <span class="n">pred</span> <span class="o">=</span> <span class="n">edm_sampler</span><span class="p">(</span>
-                <span class="n">denoiser</span><span class="p">,</span>
-                <span class="n">latents</span><span class="p">,</span>
-                <span class="n">num_steps</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">sampler_steps</span><span class="p">,</span>
-                <span class="n">sigma_max</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">sigma_max</span><span class="p">,</span>
-            <span class="p">)</span>
-
-        <span class="c1"># Unnormalize</span>
-        <span class="n">pred</span> <span class="o">=</span> <span class="n">pred</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">scale</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">device</span><span class="p">)</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">center</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
-
-        <span class="c1"># Convert to output format</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">output_type</span> <span class="o">==</span> <span class="s2">&quot;healpix&quot;</span><span class="p">:</span>
-            <span class="c1"># Return HEALPix output directly</span>
-            <span class="k">return</span> <span class="n">pred</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="c1"># Regrid to lat/lon output</span>
-            <span class="n">output</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span>
-                <span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">output_lat</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">output_lon</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
-                <span class="n">device</span><span class="o">=</span><span class="n">x</span><span class="o">.</span><span class="n">device</span><span class="p">,</span>
-                <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">,</span>
+            <span class="n">out</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">sr_model</span><span class="p">(</span>
+                <span class="n">x</span><span class="p">,</span>
+                <span class="n">coords</span><span class="o">=</span><span class="n">replace</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_coords</span><span class="p">),</span>
+                <span class="n">extents</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">super_resolution_extents</span><span class="p">,</span>
             <span class="p">)</span>
-            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]):</span>
-                <span class="n">output</span><span class="p">[</span><span class="n">i</span> <span class="p">:</span> <span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">regrid_hpx_high_res_to_output</span><span class="p">(</span>
-                    <span class="n">pred</span><span class="p">[</span><span class="n">i</span> <span class="p">:</span> <span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span>
-                <span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
 
-            <span class="k">return</span> <span class="n">output</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_sample_index</span> <span class="o">+=</span> <span class="mi">1</span>
+
+        <span class="n">out</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_reorder_from_sr_channels</span><span class="p">(</span><span class="n">out</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="p">:,</span> <span class="mi">0</span><span class="p">])</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">output_type</span> <span class="o">==</span> <span class="s2">&quot;healpix&quot;</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">out</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+
+        <span class="n">out</span> <span class="o">=</span> <span class="n">out</span><span class="p">[</span><span class="kc">None</span><span class="p">,]</span><span class="o">.</span><span class="n">double</span><span class="p">()</span>
+        <span class="n">out</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">regrid_hpx_high_res_to_output</span><span class="p">(</span><span class="n">out</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">out</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
 
 <div class="viewcode-block" id="CBottleSR.__call__">
 <a class="viewcode-back" href="../../../../modules/generated/models/dx/earth2studio.models.dx.CBottleSR.html#earth2studio.models.dx.CBottleSR.__call__">[docs]</a>
@@ -968,9 +946,9 @@
             <span class="n">device</span><span class="o">=</span><span class="n">x</span><span class="o">.</span><span class="n">device</span><span class="p">,</span>
             <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">,</span>
         <span class="p">)</span>
+
         <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">out</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]):</span>
             <span class="n">out</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_forward</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
-
         <span class="k">return</span> <span class="n">out</span><span class="p">,</span> <span class="n">output_coords</span></div>
 </div>
 

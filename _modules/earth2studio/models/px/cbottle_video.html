@@ -689,7 +689,7 @@
         <span class="n">out</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">core_model</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span><span class="n">input_batch</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">seed</span><span class="p">)</span>
         <span class="c1"># Regrid if needed</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">lat_lon</span><span class="p">:</span>
-            <span class="n">out</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">output_regridder</span><span class="p">(</span><span class="n">out</span><span class="o">.</span><span class="n">double</span><span class="p">())</span>
+            <span class="n">out</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">output_regridder</span><span class="p">(</span><span class="n">out</span><span class="o">.</span><span class="n">contiguous</span><span class="p">()</span><span class="o">.</span><span class="n">double</span><span class="p">())</span>
         <span class="c1"># [time, vars, lead, ...] -&gt; [time, lead, vars, ...]</span>
         <span class="n">out</span> <span class="o">=</span> <span class="n">out</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
 
