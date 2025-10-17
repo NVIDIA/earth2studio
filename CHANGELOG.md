@@ -29,6 +29,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - InferenceOutputSource can now accept an Xarray Dataset directly as an argument
 - InferenceOutputSource returns data consistently in `("time", "lead_time", "variable")`
   order
+- Changed the HRRR_X and HRRR_Y coordinates of the HRRR data source to match the native
+  LCC coordinates
 
 ### Deprecated
 
