@@ -21,7 +21,7 @@ from datetime import datetime, timedelta
 import numpy as np
 import pytest
 
-from earth2studio.data import ECMWFOpenData
+from earth2studio.data import AIFS, IFS
 
 
 def now6h():
@@ -56,7 +56,7 @@ def now6h():
 )
 @pytest.mark.parametrize("variable", ["tcwv", ["sp"]])
 def test_ifs_fetch(time, lead_time, variable):
-    ds = ECMWFOpenData(cache=False)
+    ds = IFS(cache=False)
     data = ds(time, lead_time, variable)
     shape = data.shape
 
@@ -91,7 +91,7 @@ def test_ifs_fetch(time, lead_time, variable):
 @pytest.mark.parametrize("variable", [["u10m", "tcwv"]])
 @pytest.mark.parametrize("cache", [True, False])
 def test_ifs_cache(time, lead_time, variable, cache):
-    ds = ECMWFOpenData(cache=cache)
+    ds = IFS(cache=cache)
     data = ds(time, lead_time, variable)
     shape = data.shape
 
@@ -134,7 +134,7 @@ def test_ifs_cache(time, lead_time, variable, cache):
 @pytest.mark.parametrize("variable", ["msl"])
 def test_ifs_time_available(time, lead_time, variable):
     with pytest.raises(ValueError):
-        ds = ECMWFOpenData(source="ecmwf")
+        ds = IFS(source="ecmwf")
         ds(time, lead_time, variable)
 
 
@@ -152,5 +152,40 @@ def test_ifs_time_available(time, lead_time, variable):
 @pytest.mark.parametrize("variable", ["msl"])
 def test_ifs_leadtime_available(time, lead_time, variable):
     with pytest.raises(ValueError):
-        ds = ECMWFOpenData()
+        ds = IFS()
+        ds(time, lead_time, variable)
+
+
+@pytest.mark.timeout(30)
+@pytest.mark.parametrize(
+    "time",
+    [
+        now6h() - timedelta(days=1, minutes=1),
+        now6h() + timedelta(days=5),
+        datetime(year=1993, month=4, day=5),
+    ],
+)
+@pytest.mark.parametrize("lead_time", [timedelta(hours=0)])
+@pytest.mark.parametrize("variable", ["msl"])
+def test_aifs_time_available(time, lead_time, variable):
+    with pytest.raises(ValueError):
+        ds = AIFS(source="ecmwf")
+        ds(time, lead_time, variable)
+
+
+@pytest.mark.timeout(30)
+@pytest.mark.parametrize("time", [now6h() - timedelta(days=2)])
+@pytest.mark.parametrize("lead_time", [timedelta(hours=0)])
+@pytest.mark.parametrize(
+    "lead_time",
+    [
+        timedelta(hours=3),
+        timedelta(hours=147),
+        timedelta(hours=366),
+    ],
+)
+@pytest.mark.parametrize("variable", ["msl"])
+def test_aifs_leadtime_available(time, lead_time, variable):
+    with pytest.raises(ValueError):
+        ds = AIFS()
         ds(time, lead_time, variable)
