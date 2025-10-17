@@ -18,11 +18,11 @@ from .arco import ARCOLexicon
 from .cbottle import CBottleLexicon
 from .cds import CDSLexicon
 from .cmip6 import CMIP6Lexicon
+from .ecmwf import AIFSLexicon, IFSLexicon
 from .gefs import GEFSLexicon, GEFSLexiconSel
 from .gfs import GFSLexicon
 from .goes import GOESLexicon
 from .hrrr import HRRRFXLexicon, HRRRLexicon
-from .ifs import IFSLexicon
 from .imerg import IMERGLexicon
 from .jpss import JPSSLexicon
 from .ncar import NCAR_ERA5Lexicon
