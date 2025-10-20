@@ -18,6 +18,7 @@ import asyncio
 import functools
 import os
 import pathlib
+import re
 import shutil
 from datetime import datetime
 
@@ -263,7 +264,7 @@ class ARCO:
         np.ndarray
             Data
         """
-        if self.zarr_group is None:
+        if self.zarr_group is None or self.ml_zarr_group is None:
             raise ValueError("Zarr group is not initialized")
         # Get time index (vanilla zarr doesnt support date indices)
         time_index = self._get_time_index(time)
@@ -278,8 +279,12 @@ class ARCO:
 
         parts = arco_name.split("::")
         arco_variable, level = parts[0], (parts[1] if len(parts) > 1 else "")
-        zarr_group = self.zarr_group
-        level_coords = self.level_coords
+        if self._is_mdl_level(variable):
+            zarr_group = self.ml_zarr_group
+            level_coords = self.ml_level_coords
+        else:
+            zarr_group = self.zarr_group
+            level_coords = self.level_coords
 
         zarr_array = await zarr_group.get(arco_variable)
         shape = zarr_array.shape
@@ -355,6 +360,22 @@ class ARCO:
         start_date = datetime(year=1900, month=1, day=1)
         duration = time - start_date
         return int(divmod(duration.total_seconds(), 3600)[0])
+
+    @classmethod
+    def _is_mdl_level(cls, variable: str) -> bool:
+        """Checks if given variable is a model level variable based on the lexicon pattern.
+
+        Parameters
+        ----------
+        variable : str
+            Variable to check
+
+        Returns
+        -------
+        bool
+            If variable is a model level variable
+        """
+        return bool(re.match(r"^[a-zA-Z0-9]+[0-9]+k$", variable))
 
     @classmethod
     def available(cls, time: datetime | np.datetime64) -> bool:
