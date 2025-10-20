@@ -522,7 +522,7 @@ wheels = [
 [[package]]
 name = "cbottle"
 version = "2025.5.1"
-source = { git = "https://github.com/NickGeneva/cBottle.git?rev=44e572521aca965cffadf840ec536c5b44d0ecae#44e572521aca965cffadf840ec536c5b44d0ecae" }
+source = { git = "https://github.com/NickGeneva/cBottle.git?rev=2efe844e772b5075f06f358eeeab587423628b61#2efe844e772b5075f06f358eeeab587423628b61" }
 dependencies = [
     { name = "cartopy", marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-aurora-fork') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-corrdiff') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-dlwp') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-fcn') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-precip-afno') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-sfno') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-stormcast')" },
     { name = "cftime", marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-aurora-fork') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-corrdiff') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-dlwp') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-fcn') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-precip-afno') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-sfno') or (extra == 'extra-12-earth2studio-aurora' and extra == 'extra-12-earth2studio-stormcast')" },
@@ -1371,6 +1371,7 @@ all = [
     { name = "ecmwf-opendata" },
     { name = "einops" },
     { name = "flax" },
+    { name = "globus-sdk" },
     { name = "graphcast" },
     { name = "hydra-core" },
     { name = "importlib-metadata" },
@@ -1414,6 +1415,7 @@ data = [
     { name = "cdsapi" },
     { name = "eccodes" },
     { name = "ecmwf-opendata" },
+    { name = "globus-sdk" },
     { name = "intake-esgf" },
     { name = "pyproj" },
     { name = "scipy" },
@@ -1530,8 +1532,8 @@ docs = [
 requires-dist = [
     { name = "anemoi-inference", extras = ["huggingface"], marker = "extra == 'aifs'", specifier = "==0.4.9" },
     { name = "anemoi-models", marker = "extra == 'aifs'", specifier = "==0.3.1" },
-    { name = "cbottle", marker = "python_full_version >= '3.12' and extra == 'all'", git = "https://github.com/NickGeneva/cBottle.git?rev=44e572521aca965cffadf840ec536c5b44d0ecae" },
-    { name = "cbottle", marker = "python_full_version >= '3.12' and extra == 'cbottle'", git = "https://github.com/NickGeneva/cBottle.git?rev=44e572521aca965cffadf840ec536c5b44d0ecae" },
+    { name = "cbottle", marker = "python_full_version >= '3.12' and extra == 'all'", git = "https://github.com/NickGeneva/cBottle.git?rev=2efe844e772b5075f06f358eeeab587423628b61" },
+    { name = "cbottle", marker = "python_full_version >= '3.12' and extra == 'cbottle'", git = "https://github.com/NickGeneva/cBottle.git?rev=2efe844e772b5075f06f358eeeab587423628b61" },
     { name = "cdsapi", marker = "extra == 'all'", specifier = ">=0.7.5" },
     { name = "cdsapi", marker = "extra == 'data'", specifier = ">=0.7.5" },
     { name = "cfgrib", specifier = ">=0.9.10.3" },
@@ -1557,6 +1559,8 @@ requires-dist = [
     { name = "flax", marker = "extra == 'graphcast'", specifier = ">=0.10.6" },
     { name = "fsspec", specifier = ">=2024.2.0" },
     { name = "gcsfs" },
+    { name = "globus-sdk", marker = "extra == 'all'", specifier = "<4.0.0" },
+    { name = "globus-sdk", marker = "extra == 'data'", specifier = "<4.0.0" },
     { name = "graphcast", marker = "extra == 'all'", git = "https://github.com/deepmind/graphcast.git?rev=7077d40a36db6541e3ed72ccaed1c0d202fa6014" },
     { name = "graphcast", marker = "extra == 'graphcast'", git = "https://github.com/deepmind/graphcast.git?rev=7077d40a36db6541e3ed72ccaed1c0d202fa6014" },
     { name = "h5netcdf", specifier = ">=1.0.0" },
@@ -1566,8 +1570,8 @@ requires-dist = [
     { name = "hydra-core", marker = "extra == 'dlesym'", specifier = ">=1.3.2" },
     { name = "importlib-metadata", marker = "extra == 'all'" },
     { name = "importlib-metadata", marker = "extra == 'dlwp'" },
-    { name = "intake-esgf", marker = "extra == 'all'", specifier = ">=0.9.4" },
-    { name = "intake-esgf", marker = "extra == 'data'", specifier = ">=0.9.4" },
+    { name = "intake-esgf", marker = "extra == 'all'", specifier = ">=2025.9.26" },
+    { name = "intake-esgf", marker = "extra == 'data'", specifier = ">=2025.9.26" },
     { name = "jax", extras = ["cuda12"], marker = "extra == 'all'", specifier = ">=0.4.26,<0.7.2" },
     { name = "jax", extras = ["cuda12"], marker = "extra == 'graphcast'", specifier = ">=0.4.26,<0.7.2" },
     { name = "loguru" },
@@ -2678,7 +2682,7 @@ wheels = [
 
 [[package]]
 name = "intake-esgf"
-version = "2025.7.16"
+version = "2025.9.26"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "dask" },
@@ -2692,9 +2696,9 @@ dependencies = [
     { name = "tqdm" },
     { name = "xarray" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/5f/37/46a0f5b60c5c1ffd68aa5c2e80e31060b98d1868dc47435e23a9671459d1/intake_esgf-2025.7.16.tar.gz", hash = "sha256:6b362d38b5a488283db76caea7c1c8af941d4c2e1eb07bb1de1ec372c28bd225", size = 86136, upload-time = "2025-07-16T20:14:17.531Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/9d/b6/50125d3e95bde3d721195243354019316ee06b70051ff3eb18ee92fe7b87/intake_esgf-2025.9.26.tar.gz", hash = "sha256:ba64d9605706f2f6d94c8418b34ca42ef2c1801301a44724170adc596ecd845d", size = 96771, upload-time = "2025-09-26T15:13:04.903Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/82/ea/581668e5ba34985d63c3073344fe9c68efaac12bc92fa20b862e846e34e1/intake_esgf-2025.7.16-py3-none-any.whl", hash = "sha256:f7f4168205fe1d69a80c2086e8ef4b00111faa057146961ac39ca6f4f54499d5", size = 47841, upload-time = "2025-07-16T20:14:16.639Z" },
+    { url = "https://files.pythonhosted.org/packages/eb/89/53e14108625330197661247eb67d45121149989ce200854fc8f6ccaa297f/intake_esgf-2025.9.26-py3-none-any.whl", hash = "sha256:759dc3913204248552f1c9fe2fff2b698eca1b8655ed233e4fbdf93277b94b2c", size = 61235, upload-time = "2025-09-26T15:13:03.633Z" },
 ]
 
 [[package]]
@@ -3765,6 +3769,11 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/71/96/d5d8859a6dac29f8ebc815ff8e75770bd513db9f08d7a711e21ae562a948/netCDF4-1.7.2-cp313-cp313-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:30d20e56b9ba2c48884eb89c91b63e6c0612b4927881707e34402719153ef17f", size = 9378149, upload-time = "2024-10-22T19:01:04.924Z" },
     { url = "https://files.pythonhosted.org/packages/d1/80/b9c19f1bb4ac6c5fa6f94a4f278bc68a778473d1814a86a375d7cffa193a/netCDF4-1.7.2-cp313-cp313-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:8d6bfd38ba0bde04d56f06c1554714a2ea9dab75811c89450dc3ec57a9d36b80", size = 9254471, upload-time = "2024-10-22T19:01:07.041Z" },
     { url = "https://files.pythonhosted.org/packages/66/b5/e04550fd53de57001dbd5a87242da7ff784c80790adc48897977b6ccf891/netCDF4-1.7.2-cp313-cp313-win_amd64.whl", hash = "sha256:5c5fbee6134ee1246c397e1508e5297d825aa19221fdf3fa8dc9727ad824d7a5", size = 6990521, upload-time = "2024-10-23T15:02:27.549Z" },
+    { url = "https://files.pythonhosted.org/packages/84/0a/182bb4fe5639699ba39d558b553b8e6f04fbfea6cf78404c0f21ef149bf7/netcdf4-1.7.2-cp311-abi3-macosx_13_0_x86_64.whl", hash = "sha256:7e81c3c47f2772eab0b93fba8bb05b17b58dce17720e1bed25e9d76551deecd0", size = 2751391, upload-time = "2025-10-13T18:32:22.749Z" },
+    { url = "https://files.pythonhosted.org/packages/2d/1f/54ac27c791360f7452ca27ed1cb2917946bbe1ea4337c590a5abcef6332d/netcdf4-1.7.2-cp311-abi3-macosx_14_0_arm64.whl", hash = "sha256:cb2791dba37fc98fd1ac4e236c97822909f54efbcdf7f1415c9777810e0a28f4", size = 2387513, upload-time = "2025-10-13T18:32:27.499Z" },
+    { url = "https://files.pythonhosted.org/packages/5c/5e/9bf3008a9e45c08f4c9fedce4d6f722ef5d970f56a9c5eb375a200dd2b66/netcdf4-1.7.2-cp311-abi3-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:bf11480f6b8a5b246818ffff6b4d90481e51f8b9555b41af0c372eb0aaf8b65f", size = 9621674, upload-time = "2025-10-13T18:32:29.193Z" },
+    { url = "https://files.pythonhosted.org/packages/a1/75/46871e85f2bbfb1efe229623d25d7c9daa17e2e968d5235572b2c8bb53e8/netcdf4-1.7.2-cp311-abi3-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:1ccc05328a8ff31921b539821791aeb20b054879f3fdf6d1d505bf6422824fec", size = 9453759, upload-time = "2025-10-13T18:32:31.136Z" },
+    { url = "https://files.pythonhosted.org/packages/cd/10/c52f12297965938d9b9be666ea1f9d8340c2aea31d6909d90aa650847248/netcdf4-1.7.2-cp311-abi3-win_amd64.whl", hash = "sha256:999bfc4acebf400ed724d5e7329e2e768accc7ee1fa1d82d505da782f730301b", size = 7148514, upload-time = "2025-10-13T18:32:33.121Z" },
 ]
 
 [[package]]
