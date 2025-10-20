@@ -23,7 +23,7 @@ from loguru import logger
 
 from earth2studio.utils.type import CoordSystem
 
-_warned_extrapolate = False
+_silence_extrapolation_warning = os.getenv("EARTH2STUDIO_SILENCE_WARNINGS", "False").lower() in ("true", "1", "t")
 
 
 def handshake_dim(
@@ -289,12 +289,12 @@ def map_coords(
 
         if method == "nearest":
             if min(outc) < min(inc) or max(outc) > max(inc):
-                global _warned_extrapolate
-                if not _warned_extrapolate:
+                global _silence_extrapolation_warning
+                if not _silence_extrapolation_warning:
                     logger.warning(
                         f"Coordinate {key} will be extrapolated. Future warnings of this kind will be suppressed."
                     )
-                    _warned_extrapolate = True  # warn only once
+                    _silence_extrapolation_warning = True  # warn only once
 
             # Method = nearest
             c1 = np.repeat(inc[:, np.newaxis], outc.shape[0], axis=1)
