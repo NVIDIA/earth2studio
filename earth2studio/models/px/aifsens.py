@@ -589,32 +589,50 @@ class AIFSENS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     ) -> torch.Tensor:
         """Update time based inputs."""
 
+        time0 = coords["time"][0] + coords["lead_time"][0]
+        time1 = coords["time"][0] + coords["lead_time"][1]
+
         # Select only inputs
         # From AnemoiModelInterface.DataIndices
         # https://anemoi.readthedocs.io/projects/models/en/latest/modules/data_indices.html#usage-information
         x = x[..., self.model.data_indices.data.input.full]
 
-        # Get cos, sin of Julian day
-        cos_julian_day, sin_julian_day = self.get_cos_sin_julian_day(
-            coords["time"][0] + coords["lead_time"][0], self.longitudes
+                # Get cos, sin of Julian day
+        cos_julian_day_0, sin_julian_day_0 = self.get_cos_sin_julian_day(
+            time0, self.longitudes
         )
+        cos_julian_day_1, sin_julian_day_1 = self.get_cos_sin_julian_day(
+            time1, self.longitudes
+        )
+        cos_julian_day = torch.cat([cos_julian_day_0, cos_julian_day_1], dim=1)
+        sin_julian_day = torch.cat([sin_julian_day_0, sin_julian_day_1], dim=1)
 
-        # Get cos, sin of local time
-        cos_local_time, sin_local_time = self.get_cos_sin_local_time(
-            coords["time"][0] + coords["lead_time"][0], self.longitudes
+        # Get cos, sin local time
+        cos_local_time_0, sin_local_time_0 = self.get_cos_sin_local_time(
+            time0, self.longitudes
         )
+        cos_local_time_1, sin_local_time_1 = self.get_cos_sin_local_time(
+            time1, self.longitudes
+        )
+        cos_local_time = torch.cat([cos_local_time_0, cos_local_time_1], dim=1)
+        sin_local_time = torch.cat([sin_local_time_0, sin_local_time_1], dim=1)
 
         # Get cosine zenith angle
-        cos_zenith_angle = self.get_cosine_zenith_fields(
-            coords["time"][0] + coords["lead_time"][0], self.latitudes, self.longitudes
+        # Add insolation / cosine zenith angle
+        cos_zenith_angle_0 = self.get_cosine_zenith_fields(
+            time0, self.latitudes, self.longitudes
         )
+        cos_zenith_angle_1 = self.get_cosine_zenith_fields(
+            time1, self.latitudes, self.longitudes
+        )
+        cos_zenith_angle = torch.cat([cos_zenith_angle_0, cos_zenith_angle_1], dim=1)
 
         # Add terms to x
-        x[:, 1:2, :, 94:95] = cos_julian_day
-        x[:, 1:2, :, 95:96] = cos_local_time
-        x[:, 1:2, :, 96:97] = sin_julian_day
-        x[:, 1:2, :, 97:98] = sin_local_time
-        x[:, 1:2, :, 98:99] = cos_zenith_angle
+        x[:, :, :, 94:95] = cos_julian_day
+        x[:, :, :, 95:96] = cos_local_time
+        x[:, :, :, 96:97] = sin_julian_day
+        x[:, :, :, 97:98] = sin_local_time
+        x[:, :, :, 98:99] = cos_zenith_angle
 
         return x
 
