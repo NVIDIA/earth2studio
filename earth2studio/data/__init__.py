@@ -20,7 +20,7 @@ from .cbottle import CBottle3D
 from .cds import CDS
 from .cmip6 import CMIP6
 from .const import Constant, Constant_FX
-from .ecmwf import AIFS, IFS
+from .ecmwf import AIFS, AIFS_ENS, IFS, IFS_ENS
 from .gefs import GEFS_FX, GEFS_FX_721x1440
 from .gfs import GFS, GFS_FX
 from .goes import GOES
