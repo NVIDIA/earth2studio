@@ -294,8 +294,12 @@ def model(model_cache_context) -> StormCast:
 
 @pytest.mark.ci_cache
 @pytest.mark.timeout(360)
+@pytest.mark.parametrize(
+    "cond_dims",
+    [["time", "variable", "lat", "lon"], ["variable", "time", "lat", "lon"]],
+)
 @pytest.mark.parametrize("device", ["cuda:0"])
-def test_stormcast_package(device, model):
+def test_stormcast_package(cond_dims, device, model):
     torch.cuda.empty_cache()
     time = np.array([np.datetime64("2020-04-05T00:00")])
     # Test the cached model package StormCast
@@ -311,7 +315,13 @@ def test_stormcast_package(device, model):
     )
     r = Random(dc)
 
-    r_condition = Random(
+    # returns dimensions in a different order
+    class _RandomWithSpecifiedOrder(Random):
+        def __call__(self, time, variable):
+            x = super().__call__(time, variable)
+            return x.transpose(*cond_dims)
+
+    r_condition = _RandomWithSpecifiedOrder(
         OrderedDict(
             [
                 ("lat", np.linspace(90, -90, num=721, endpoint=True)),

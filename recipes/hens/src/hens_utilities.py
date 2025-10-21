@@ -31,6 +31,7 @@ from physicsnemo.distributed import DistributedManager
 from earth2studio.data import DataSource
 from earth2studio.io import IOBackend, KVBackend, XarrayBackend
 from earth2studio.models.auto import Package
+from earth2studio.models.dx import CorrDiff
 from earth2studio.models.px import PrognosticModel
 from earth2studio.perturbation import Perturbation
 from earth2studio.utils.coords import CoordSystem, map_coords
@@ -346,10 +347,25 @@ class TCTracking:
         self.out_path = os.path.abspath(os.path.join(tracking_cfg.path, "cyclones"))
 
 
+class Downscaling:
+    """Class that stores the CorrDiff downscaling model and the output location.
+
+    Parameters
+    ----------
+    corrdiff : CorrDiff
+    path: str
+    """
+
+    def __init__(self, corrdiff: CorrDiff, path: str) -> None:
+        self.corrdiff = corrdiff
+        self.out_path = os.path.abspath(path)
+
+
 def initialise(
     cfg: DictConfig,
 ) -> tuple[
     list[Any],
+    dict[Any, Any],
     dict[Any, Any],
     dict[Any, Any],
     TCTracking | None,
@@ -375,6 +391,7 @@ def initialise(
         - ensemble_configs: list of tuples containing model package configurations.
         - model_dict: dictionary containing the model, model class, and package name.
         - dx_model_dict: dictionary containing diagnostic models.
+        - cd_model_dict: dictionary containing corrdiff models.
         - cyclone_tracking: instance of TCTrackerWuDuan if enabled, otherwise None.
         - data: DataSource object for obtaining initial conditions.
         - output_coords_dict: dictionary of output coordinates for different cropbox areas.
@@ -447,6 +464,9 @@ def initialise(
     # initialize diagnostic models
     dx_model_dict = initialize_diagnostic_models(cfg)
 
+    # initialize corrdiff models
+    cd_model_dict = initialize_corrdiff_models(cfg)
+
     # initialize output structures
     _, writer_executor, writer_threads = initialize_output_structures(cfg)
 
@@ -457,6 +477,7 @@ def initialise(
         ensemble_configs,
         model_dict,
         dx_model_dict,
+        cd_model_dict,
         cyclone_tracker,
         data_source,
         output_coords_dict,
@@ -501,6 +522,43 @@ def initialize_diagnostic_models(cfg: DictConfig) -> dict:
                 )
             dx_model_dict[k] = dx_model
     return dx_model_dict
+
+
+def initialize_corrdiff_models(cfg: DictConfig) -> dict:
+    """Initialize corrdiff models based on the provided configuration.
+
+    Parameters
+    ----------
+    cfg : DictConfig
+        Hydra configuration object containing the settings for diagnostic models.
+
+    Returns
+    -------
+    cd_model_dict : dict
+        A dictionary containing the corrdiff models, where the keys are the model names and the values are the models.
+    """
+    cd_model_dict = {}
+    if "corrdiff_models" in cfg:
+        for k in cfg["corrdiff_models"]:
+            cfg_cd_model = cfg["corrdiff_models"][k]
+            if "architecture" in cfg_cd_model:
+                cd_model = hydra.utils.get_class(cfg_cd_model.architecture)
+                if "package" in cfg_cd_model:
+                    if cfg_cd_model.package == "default":
+                        package = cd_model.load_default_package()
+                    else:
+                        package = Package(cfg_cd_model.package)
+                else:
+                    package = cd_model.load_default_package()
+                cd_model = cd_model.load_model(package=package)
+            elif "_target_" in cfg["corrdiff_models"][k]:
+                cd_model = hydra.utils.instantiate(cfg_cd_model)
+            else:
+                raise NotImplementedError(
+                    f"diagnostic model {k} not configured correctly. Either 'architecture' or '_target_' must be specified."
+                )
+            cd_model_dict[k] = Downscaling(cd_model, cfg_cd_model["path"])
+    return cd_model_dict
 
 
 def initialize_output_coords(
@@ -1013,3 +1071,59 @@ def cat_coords(
     coords[dim] = np.append(cox[dim], coy[dim])
 
     return zz, coords
+
+
+def save_corrdiff_output(cd_output_dict: dict, save_path: str) -> None:
+    """
+    Save CorrDiff model output to a NetCDF file as a Dataset with one variable per CorrDiff output.
+
+    Parameters
+    ----------
+    cd_output_dict : dict
+        Dictionary containing 'coords' and 'output' (list of tensors) for the CorrDiff model.
+    save_path : str
+        Path to save the NetCDF file.
+    """
+    cd_coords = cd_output_dict["coords"]
+    cd_tensor = torch.cat(cd_output_dict["output"], dim=2).cpu().numpy()
+
+    lat = cd_coords["lat"]
+    lon = cd_coords["lon"]
+
+    # Use lead_time from coords if present, else fallback to range
+    lead_time = cd_coords.get("lead_time", np.arange(cd_tensor.shape[2]))
+
+    # Handle both 1D and 2D lat/lon
+    if lat.ndim == 2 and lon.ndim == 2:
+        spatial_dims = ("y", "x")
+        lat_coord = (spatial_dims, lat)  # type: ignore
+        lon_coord = (spatial_dims, lon)  # type: ignore
+        dims = ["ensemble", "time", "lead_time", "sample", "y", "x"]
+    elif lat.ndim == 1 and lon.ndim == 1:
+        lat_coord = ("y", lat)  # type: ignore
+        lon_coord = ("x", lon)  # type: ignore
+        dims = ["ensemble", "time", "lead_time", "sample", "y", "x"]
+    else:
+        raise ValueError("lat/lon must both be 1D or both be 2D arrays.")
+
+    # Remove the variable dimension and create a Dataset with one variable per CorrDiff output
+    variables = cd_coords["variable"]
+    dataset_vars = {}
+    for i, var in enumerate(variables):
+        # Select only the i-th variable from the variable dimension (axis 4)
+        var_tensor = cd_tensor[..., i, :, :]
+        dataset_vars[str(var)] = (dims, var_tensor)
+
+    # Build coordinates dict (excluding 'variable')
+    coords = {
+        "ensemble": ("ensemble", cd_coords["ensemble"]),
+        "time": ("time", cd_coords["time"]),
+        "lead_time": ("lead_time", lead_time),
+        "sample": ("sample", cd_coords["sample"]),
+        "lat": lat_coord,
+        "lon": lon_coord,
+    }
+
+    ds = xr.Dataset(data_vars=dataset_vars, coords=coords)
+
+    ds.to_netcdf(save_path)
