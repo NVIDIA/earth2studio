@@ -78,7 +78,7 @@ class HRRR:
     model). This data source is provided on a Lambert conformal 3km grid at 1-hour
     intervals. The spatial dimensionality of HRRR data is [1059, 1799].
 
-    The `HRRR_X` and `HRRR_Y` coordinates of the resulting `DataArray` are the native
+    The `hrrr_x` and `hrrr_y` coordinates of the resulting `DataArray` are the native
     coordinates of the HRRR model. The corresponding CRS can be set up with cartopy:
 
     .. code-block:: python

@@ -145,16 +145,24 @@ import matplotlib.pyplot as plt
 forecast = f"{date}"
 step = nsteps  # 4 hours, since lead_time = 1 hr
 
+# Create a correct Lambert Conformal projection
+projection = ccrs.LambertConformal(
+    central_longitude=262.5,
+    central_latitude=38.5,
+    standard_parallels=(38.5, 38.5),
+    globe=ccrs.Globe(semimajor_axis=6371229, semiminor_axis=6371229),
+)
+
 
 # Get the lat lon arrays from the model
 def plot_(axi, data, title, cmap, vmin=None, vmax=None):
     """Convenience function for plotting pcolormesh."""
     # Plot the field using pcolormesh
     im = axi.pcolormesh(
-        model.lon,
-        model.lat,
+        model.hrrr_x,
+        model.hrrr_y,
         data,
-        transform=ccrs.PlateCarree(),
+        transform=projection,
         cmap=cmap,
         vmin=vmin,
         vmax=vmax,
@@ -175,14 +183,6 @@ def plot_(axi, data, title, cmap, vmin=None, vmax=None):
         zorder=2,
     )
 
-
-# Create a correct Lambert Conformal projection
-projection = ccrs.LambertConformal(
-    central_longitude=262.5,
-    central_latitude=38.5,
-    standard_parallels=(38.5, 38.5),
-    globe=ccrs.Globe(semimajor_axis=6371229, semiminor_axis=6371229),
-)
 
 # Plot refc
 variable = "refc"

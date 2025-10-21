@@ -76,10 +76,6 @@ CONDITIONING_VARIABLES = ["u10m", "v10m", "t2m", "tcwv", "sp", "msl"] + [
 
 INVARIANTS = ["lsm", "orography"]
 
-# Extent of domain in StormCastV1 paper (HRRR Lambert projection indices)
-X_START, X_END = 579, 1219
-Y_START, Y_END = 273, 785
-
 
 @check_optional_dependencies()
 class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
@@ -164,8 +160,8 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             hrrr_lat_lim[0] : hrrr_lat_lim[1], hrrr_lon_lim[0] : hrrr_lon_lim[1]
         ]
 
-        self.hrrr_x = np.arange(hrrr_lon_lim[0], hrrr_lon_lim[1], 1)
-        self.hrrr_y = np.arange(hrrr_lat_lim[0], hrrr_lat_lim[1], 1)
+        self.hrrr_x = HRRR.HRRR_X[hrrr_lon_lim[0] : hrrr_lon_lim[1]]
+        self.hrrr_y = HRRR.HRRR_Y[hrrr_lat_lim[0] : hrrr_lat_lim[1]]
 
         self.variables = variables
 

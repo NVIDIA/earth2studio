@@ -143,10 +143,10 @@ fig, ax = plt.subplots(subplot_kw={"projection": projection}, figsize=(10, 6))
 
 # Plot the field using pcolormesh
 im = ax.pcolormesh(
-    model.lon,
-    model.lat,
+    model.hrrr_x,
+    model.hrrr_y,
     io[variable][0, step],
-    transform=ccrs.PlateCarree(),
+    transform=projection,
     cmap="Spectral_r",
 )
 
