@@ -427,7 +427,7 @@ class ECMWFOpenDataSource(ABC):
 
 
 class IFS(ECMWFOpenDataSource):
-    """Integrated forecast system (IFS) HRES data on on an equirectangular grid at 0.25
+    """Integrated forecast system (IFS) HRES data on an equirectangular grid at 0.25
     degree resolution."""
 
     LEXICON = IFSLexicon
@@ -489,7 +489,7 @@ class IFS(ECMWFOpenDataSource):
 
 
 class IFS_ENS(ECMWFOpenDataSource):
-    """Integrated forecast system (IFS) ENS data on on an equirectangular grid at 0.25
+    """Integrated forecast system (IFS) ENS data on an equirectangular grid at 0.25
     degree resolution.
 
     The control member"""
@@ -567,7 +567,7 @@ class IFS_ENS(ECMWFOpenDataSource):
 
 
 class AIFS(ECMWFOpenDataSource):
-    """Artificial intelligence forecast system (AIFS) SINGLE data on on an
+    """Artificial intelligence forecast system (AIFS) SINGLE data on an
     equirectangular grid at 0.25 degree resolution."""
 
     LEXICON = AIFSLexicon
@@ -615,7 +615,7 @@ class AIFS(ECMWFOpenDataSource):
 
 
 class AIFS_ENS(ECMWFOpenDataSource):
-    """Artificial intelligence forecast system (AIFS) ENS data on on an
+    """Artificial intelligence forecast system (AIFS) ENS data on an
     equirectangular grid at 0.25 degree resolution."""
 
     LEXICON = AIFSLexicon
