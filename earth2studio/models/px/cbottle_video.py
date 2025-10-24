@@ -17,6 +17,7 @@
 from collections import OrderedDict
 from collections.abc import Generator, Iterator
 from datetime import datetime
+from enum import IntEnum, StrEnum
 
 import numpy as np
 import torch
@@ -51,6 +52,20 @@ except ImportError:
     MixtureOfExpertsDenoiser = None
 
 HPX_LEVEL = 6
+
+
+class DatasetModality(IntEnum):
+    """Dataset label"""
+
+    ICON = 0
+    ERA5 = 1
+
+
+class TimeStepperFunction(StrEnum):
+    """Supported time-stepper functions"""
+
+    HEUN = "heun"
+    EULER = "euler"
 
 
 @check_optional_dependencies()
@@ -98,9 +113,15 @@ class CBottleVideo(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     seed : int | None, optional
         If set, will fix the seed of the random generator for latent variables, by
         default None
+    dataset_modality: DatasetModality, optional
+        Dataset modality label to use when sampling (0=ICON, 1=ERA5), by default
+        DatasetModality.ERA5
+    time_stepper : TimeStepperFunction, optional
+        Sampler function used to denoise, by default TimeStepperFunction.HEUN
     """
 
     VARIABLES = np.array(list(CBottleLexicon.VOCAB.keys()))
+    torch_compile = False
 
     def __init__(
         self,
@@ -111,6 +132,8 @@ class CBottleVideo(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         sigma_max: float = 1000.0,
         sigma_min: float = 0.02,
         seed: int | None = None,
+        dataset_modality: DatasetModality = DatasetModality.ERA5,
+        time_stepper: TimeStepperFunction = TimeStepperFunction.HEUN,
     ):
         super().__init__()
 
@@ -119,7 +142,9 @@ class CBottleVideo(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self.sigma_max = sigma_max
         self.sigma_min = sigma_min
         self.sampler_steps = sampler_steps
+        self.time_stepper = time_stepper
         self.seed = seed
+        self.dataset_modality = dataset_modality
         self._mixture_model = core_model
         self.core_model = CBottle3d(core_model)
 
@@ -242,17 +267,20 @@ class CBottleVideo(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self.core_model.sigma_min = self.sigma_min
         self.core_model.sigma_max = self.sigma_max
         self.core_model.num_steps = self.sampler_steps
+        self.core_model.time_stepper = TimeStepperFunction(self.time_stepper).value
 
         if self.lat_lon:
             x = self.condition_regridder(x.double())
 
         # CBottle video expects [time, vars, time-step, hpx]
         x = x.transpose(1, 2)
-        input_batch = self.get_cbottle_input(x, times, device=device)
+        input_batch = self.get_cbottle_input(
+            x, times, dataset_modality=self.dataset_modality, device=device
+        )
         out, _ = self.core_model.sample(input_batch, seed=self.seed)
         # Regrid if needed
         if self.lat_lon:
-            out = self.output_regridder(out.double())
+            out = self.output_regridder(out.contiguous().double())
         # [time, vars, lead, ...] -> [time, lead, vars, ...]
         out = out.transpose(1, 2)
 
@@ -262,7 +290,7 @@ class CBottleVideo(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self,
         conditions: torch.Tensor,
         times: TimeArray,
-        label: int = 1,
+        dataset_modality: DatasetModality = DatasetModality.ERA5,
         device: torch.device = "cpu",
     ) -> dict[str, torch.Tensor]:
         """Creates batch input for cbottle
@@ -275,8 +303,8 @@ class CBottleVideo(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         times : TimeArray
             Array of np.datetime64 time stamps to be samples of size [time], must have
             SST that can be sampled from self.sst
-        label : int, optional
-            0 for ICON, 1 for ERA5, by default 1
+        dataset_modality : DatasetModality, optional
+            Dataset modality label, by default DatasetModality.ERA5
         device : torch.device, optional
             Torch device, by default "cpu"
 
@@ -371,8 +399,9 @@ class CBottleVideo(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         target = torch.empty(1, device=device)
 
         # Label tensor
+        dataset_modality = DatasetModality(dataset_modality)
         labels = torch.nn.functional.one_hot(
-            torch.tensor(label, device=device), num_classes=1024
+            torch.tensor(dataset_modality.value, device=device), num_classes=1024
         )
         labels = labels.unsqueeze(0).repeat(len(times), 1)
 
@@ -402,9 +431,11 @@ class CBottleVideo(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         cls,
         package: Package,
         lat_lon: bool = True,
+        sampler_steps: int = 18,
+        sigma_max: float = 1000,
         seed: int | None = None,
     ) -> PrognosticModel:
-        """Load AI datasource from package
+        """Load prognostic from package
 
         Parameters
         ----------
@@ -414,9 +445,13 @@ class CBottleVideo(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             Lat/lon toggle, if true prognostic input/output on a 0.25 deg lat/lon
             grid. If false, the native nested HealPix grid will be returned, by default
             True
-        seed : int | None, optional
-            If set, will fix the seed of the random generator for latent variables, by
-            default None
+        sampler_steps : int, optional
+            Number of diffusion steps, by default 18
+        sigma_max : float, optional
+            Noise amplitude used to generate latent variables, by default 200
+        seed : int, optional
+            Random generator seed for latent variables. If None, no seed will be used,
+            by default None
 
         Returns
         -------
@@ -449,6 +484,8 @@ class CBottleVideo(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             core_model,
             sst_ds,
             lat_lon=lat_lon,
+            sampler_steps=sampler_steps,
+            sigma_max=sigma_max,
             seed=seed,
         )
 

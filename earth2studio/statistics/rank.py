@@ -46,20 +46,27 @@ class rank_histogram:
     Parameters
     ----------
     ensemble_dimension: str
-        A name corresponding to a dimension to perform the
-        ranking over. Example: 'ensemble'
+        A name corresponding to a dimension to perform the ranking over.
+        Example: 'ensemble'
     reduction_dimensions: list[str]
-        A list of dimensions over which to bin the ranks.
-    number_of_bins: int
-        The number of bins to discretize the unit interval over.
-        by default, 10
+        A list of dimensions over which to bin the ranks
+    number_of_bins: int | None, optional
+        The number of bins to discretize the unit interval over. Best set to
+        ensemble_size + 1, which is set automatically when None, by default None
+    randomize_ties: bool, optional
+        When True randomize the rank in cases where multiple ensemble
+        members are exactly equal to the observation. This produces an unbiased
+        distribution of ranks in cases where ties occur frequently. If False, the rank
+        will be computed as if the observation were larger than the tied ensemble
+        members, by default True
     """
 
     def __init__(
         self,
         ensemble_dimension: str,
         reduction_dimensions: list[str],
-        number_of_bins: int = 10,
+        number_of_bins: int | None = None,
+        randomize_ties: bool = True,
     ):
         if not isinstance(ensemble_dimension, str):
             raise ValueError(
@@ -69,6 +76,7 @@ class rank_histogram:
         self.ensemble_dimension = ensemble_dimension
         self._reduction_dimensions = reduction_dimensions
         self.number_of_bins = number_of_bins
+        self.randomize_ties = randomize_ties
 
     def __str__(self) -> str:
         return "rank_histogram"
@@ -76,6 +84,12 @@ class rank_histogram:
     @property
     def reduction_dimensions(self) -> list[str]:
         return [self.ensemble_dimension] + self._reduction_dimensions
+
+    def _get_number_of_bins(self, input_coords: CoordSystem) -> int:
+        if self.number_of_bins is None:
+            return len(input_coords[self.ensemble_dimension]) + 1
+        else:
+            return self.number_of_bins
 
     def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
         """Output coordinate system of the computed statistic, corresponding to the given input coordinates
@@ -91,6 +105,7 @@ class rank_histogram:
             Coordinate system dictionary
         """
         output_coords = input_coords.copy()
+        number_of_bins = self._get_number_of_bins(input_coords)
         for dimension in self.reduction_dimensions:
             handshake_dim(input_coords, dimension)
             output_coords.pop(dimension)
@@ -99,7 +114,7 @@ class rank_histogram:
             OrderedDict(
                 {
                     "histogram_data": np.array(["bin_centers", "bin_counts"]),
-                    "bin": np.arange(self.number_of_bins),
+                    "bin": np.arange(number_of_bins),
                 }
             )
             | output_coords
@@ -161,6 +176,8 @@ class rank_histogram:
                 handshake_coords(y_coords, x_coords, c)
                 coord_count += 1
 
+        number_of_bins = self._get_number_of_bins(x_coords)
+
         # Get the dimension index of the ensemble dimension
         dim = list(x_coords).index(self.ensemble_dimension)
 
@@ -168,7 +185,16 @@ class rank_histogram:
         x = torch.movedim(x, dim, 0)
 
         # Compute the ranks over the ensemble dimension
-        _ranks = torch.mean(1.0 * torch.ge(y, x), dim=0)
+        _ranks = torch.sum(torch.ge(y, x).to(dtype=torch.int32), dim=0)
+
+        if self.randomize_ties:
+            _ranks_gt = torch.sum(torch.gt(y, x).to(dtype=torch.int32), dim=0)
+            rank_diff = _ranks - _ranks_gt
+            ties = rank_diff > 0
+            _ranks[ties] -= (
+                torch.rand_like(_ranks[ties], dtype=torch.float32)
+                * (rank_diff[ties] + 1)
+            ).to(dtype=torch.int32)
 
         # Reshape ranks using reduction dimensions
         dims = [list(y_coords).index(rd) for rd in self._reduction_dimensions]
@@ -179,9 +205,13 @@ class rank_histogram:
             end_dim=new_dims[-1],
         )
 
+        # Normalize ranks to [0, 1]
+        _ranks = _ranks / x.shape[0]
+
         # Compute histogram
+        # note: this version of linspace returns self.number_of_bins + 1 bin edges
         _bin_edges = linspace(
-            torch.zeros_like(_ranks[0]), torch.ones_like(_ranks[0]), self.number_of_bins
+            torch.zeros_like(_ranks[0]), torch.ones_like(_ranks[0]), number_of_bins
         )
         _rank_histogram = _count_bins(_ranks, _bin_edges)
 
@@ -195,7 +225,7 @@ class rank_histogram:
             OrderedDict(
                 {
                     "histogram_data": np.array(["bin_centers", "bin_counts"]),
-                    "bin": np.arange(self.number_of_bins),
+                    "bin": np.arange(number_of_bins),
                 }
             )
             | out_coords

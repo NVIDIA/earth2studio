@@ -62,7 +62,7 @@ class DataArrayFile:
         return self.da.sel(time=time, variable=variable)
 
 
-class InferenceOuputSource:
+class InferenceOutputSource:
     """Adapt a inference output into a data source.
 
     This data source loads an existing xarray Dataset, such as a NetCDF file or Zarr
@@ -88,8 +88,9 @@ class InferenceOuputSource:
 
     Parameters
     ----------
-    file_path : str
-        Path to an xarray-compatible dataset file (e.g., NetCDF/Zarr).
+    inference_output : str | xarray.Dataset
+        An Xarray dataset or a path to an xarray-compatible dataset file
+        (e.g., NetCDF/Zarr).
     filter_dict : dict, optional
         Dictionary of selections applied before transformation (e.g.
         ``{"ensemble": 0}``). Coordinates not in the required
@@ -98,13 +99,19 @@ class InferenceOuputSource:
         Additional keyword arguments forwarded to ``xarray.open_dataset``.
     """
 
-    def __init__(self, file_path: str, filter_dict: dict = {}, **xr_args: Any):
-        self.file_path = file_path
-        self.da = xr.open_dataset(self.file_path, **xr_args)
+    def __init__(
+        self, inference_output: str | xr.Dataset, filter_dict: dict = {}, **xr_args: Any
+    ):
+        if isinstance(inference_output, str):
+            self.da = xr.open_dataset(inference_output, **xr_args)
+        elif isinstance(inference_output, xr.Dataset):
+            self.da = inference_output
+        else:
+            raise TypeError(
+                f"Expected `inference_output` to be a string or xarray.Dataset, not {type(inference_output)}."
+            )
         self.da = self.da.to_array("variable")
 
-        # The following dimensions and their order is required for the data to be used as a datasource
-        required_dims = {"time", "lead_time", "variable"}
         # Need to keep these dims, so make then a list if scalar value
         for k in ("time", "lead_time"):
             if k in filter_dict and not isinstance(
@@ -114,8 +121,10 @@ class InferenceOuputSource:
 
         self.da = self.da.sel(filter_dict)
 
+        # The following dimensions and their order is required for the data to be used as a datasource
+        required_dims = ["time", "lead_time", "variable"]
         # Validate remaining dimensions
-        if not required_dims.issubset(set(self.da.dims)):
+        if not set(required_dims).issubset(set(self.da.dims)):
             raise ValueError(
                 f"Missing required dims. Data array loaded has dims {self.da.dims} but "
                 + f"needs {required_dims}. Use filter_dict to select a subset of the data."
@@ -127,6 +136,15 @@ class InferenceOuputSource:
                 + "Use filter_dict to select a subset of the data."
             )
 
+        # ensure ["time", "lead_time", "variable"] ordering of required_dims (other dims unaffected)
+        dims = list(self.da.dims)
+        required_dims_ind = [dims.index(dim) for dim in required_dims]
+        for i, ind in enumerate(sorted(required_dims_ind)):
+            dims[ind] = self.da.dims[required_dims_ind[i]]
+        if dims != list(self.da.dims):
+            self.da = self.da.transpose(*dims)
+
+        # add "time" and "lead_time" so that only "time" remains
         if self.da["lead_time"].shape[0] == 1:
             time_array = (
                 self.da.coords["time"].values + self.da.coords["lead_time"].values[0]
