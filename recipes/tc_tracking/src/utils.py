@@ -1,3 +1,4 @@
+from collections import OrderedDict
 from collections.abc import Callable
 from math import ceil
 from typing import Any
@@ -156,3 +157,70 @@ def great_circle_distance(lat1, lon1, lat2, lon2):
     cc = 2 * np.arctan2(np.sqrt(aa), np.sqrt(1 - aa))
 
     return 6371000 * cc
+
+
+class InstabilityDetection:
+    def __init__(
+        self,
+        vars: list[str],
+        thresholds: list[float],
+        input_coords: OrderedDict | None = None,
+    ) -> None:
+
+        self.vars = vars
+        self.thresh = torch.Tensor(thresholds)
+        self.reset(input_coords)
+
+        if not len(vars) == len(thresholds):
+            raise ValueError("please provide exactly one threshold per variable")
+
+    def reset(self, coords: OrderedDict = None):
+        self.baseline = None
+        self._input_coords = None
+        self._output_coords = None
+
+        if coords:
+            self.update_coords(coords)
+
+    def update_coords(self, coords):
+        # scrub time and lead_time dimensions if exist
+        coords.pop("time", None)
+        coords.pop("lead_time", None)
+        self._output_coords = OrderedDict({"ensemble": coords.pop("ensemble", None)})
+
+        self._input_coords = coords
+        self._input_coords["variable"] = self.vars
+
+    @property
+    def input_coords(self):
+        return self._input_coords
+
+    @property
+    def output_coords(self):
+        return self._output_coords
+
+    def __call__(self, xx: torch.Tensor, coords: OrderedDict):
+
+        var_dim = list(coords).index("variable")
+        batch_dim = list(coords).index("ensemble") if "ensemble" in coords else None
+        if "ensemble" in coords:
+            batch_dim = list(coords).index("ensemble")
+
+        if self.baseline is None:
+            self.baseline = xx.mean(
+                dim=tuple(
+                    [ii for ii in range(len(coords)) if not ii in (var_dim, batch_dim)]
+                )
+            )
+            comp = self.baseline
+            self.update_coords(coords)
+        else:
+            comp = xx.mean(
+                dim=tuple(
+                    [ii for ii in range(len(coords)) if not ii in (var_dim, batch_dim)]
+                )
+            )
+
+        return (torch.abs(comp - self.baseline) < self.thresh.to(xx.device)).all(
+            dim=-1
+        ), self._output_coords
