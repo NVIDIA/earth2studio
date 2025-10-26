@@ -72,6 +72,8 @@ LEVELS = [
     1000,
 ]
 
+MDL_LEVELS = np.arange(1, 138)
+
 
 class ARCOLexicon(metaclass=LexiconType):
     """ARCO Lexicon
@@ -96,6 +98,9 @@ class ARCOLexicon(metaclass=LexiconType):
         "tp": "total_precipitation::",
         "lsm": "land_sea_mask::",
         "z": "geopotential_at_surface::",
+        "mtdwswrf": "mean_top_downward_short_wave_radiation_flux::",
+        "skt": "skin_temperature::",
+        "sic": "sea_ice_cover::",
     }
     VOCAB.update({f"u{level}": f"u_component_of_wind::{level}" for level in LEVELS})
     VOCAB.update({f"v{level}": f"v_component_of_wind::{level}" for level in LEVELS})
@@ -103,6 +108,52 @@ class ARCOLexicon(metaclass=LexiconType):
     VOCAB.update({f"z{level}": f"geopotential::{level}" for level in LEVELS})
     VOCAB.update({f"t{level}": f"temperature::{level}" for level in LEVELS})
     VOCAB.update({f"q{level}": f"specific_humidity::{level}" for level in LEVELS})
+    VOCAB.update(
+        {
+            f"clwc{level}": f"specific_cloud_liquid_water_content::{level}"
+            for level in LEVELS
+        }
+    )
+    VOCAB.update(
+        {
+            f"ciwc{level}": f"specific_cloud_ice_water_content::{level}"
+            for level in LEVELS
+        }
+    )
+
+    # Model levels are stored in a separate Zarr group, but use the same base names
+    VOCAB.update(
+        {f"u{level}k": f"u_component_of_wind::{level}" for level in MDL_LEVELS}
+    )
+    VOCAB.update(
+        {f"v{level}k": f"v_component_of_wind::{level}" for level in MDL_LEVELS}
+    )
+    VOCAB.update({f"t{level}k": f"temperature::{level}" for level in MDL_LEVELS})
+    VOCAB.update({f"q{level}k": f"specific_humidity::{level}" for level in MDL_LEVELS})
+    VOCAB.update(
+        {
+            f"clwc{level}k": f"specific_cloud_liquid_water_content::{level}"
+            for level in MDL_LEVELS
+        }
+    )
+    VOCAB.update(
+        {
+            f"ciwc{level}k": f"specific_cloud_ice_water_content::{level}"
+            for level in MDL_LEVELS
+        }
+    )
+    VOCAB.update(
+        {
+            f"crwc{level}k": f"specific_rain_water_content::{level}"
+            for level in MDL_LEVELS
+        }
+    )
+    VOCAB.update(
+        {
+            f"cswc{level}k": f"specific_snow_water_content::{level}"
+            for level in MDL_LEVELS
+        }
+    )
 
     @classmethod
     def get_item(cls, val: str) -> tuple[str, Callable]:
