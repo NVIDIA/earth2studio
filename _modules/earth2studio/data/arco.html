@@ -438,6 +438,7 @@
 <span class="kn">import</span><span class="w"> </span><span class="nn">functools</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">pathlib</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">re</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">shutil</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">datetime</span><span class="w"> </span><span class="kn">import</span> <span class="n">datetime</span>
 
@@ -462,9 +463,10 @@
 <a class="viewcode-back" href="../../../modules/generated/data/earth2studio.data.ARCO.html#earth2studio.data.ARCO">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">ARCO</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Analysis-Ready, Cloud Optimized (ARCO) is a data store of ERA5 re-analysis data</span>
-<span class="sd">    currated by Google. This data is stored in Zarr format and contains 31 surface and</span>
-<span class="sd">    pressure level variables (for 37 pressure levels)  on a 0.25 degree lat lon grid.</span>
-<span class="sd">    Temporal resolution is 1 hour.</span>
+<span class="sd">    currated by Google. This data is stored in Zarr format and contains 31 surface</span>
+<span class="sd">    variables, pressure level variables defined on 37 pressure levels, and model level</span>
+<span class="sd">    variables defined on the 137 native ERA5 vertical levels, all on a 0.25 degree lat</span>
+<span class="sd">    lon grid. Temporal resolution is 1 hour.</span>
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
@@ -508,6 +510,9 @@
             <span class="c1"># we will init the group in the call function when we have the loop</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">zarr_group</span><span class="p">:</span> <span class="n">zarr</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">group</span><span class="o">.</span><span class="n">AsyncGroup</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">level_coords</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="c1"># Model-level store</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">ml_zarr_group</span><span class="p">:</span> <span class="n">zarr</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">group</span><span class="o">.</span><span class="n">AsyncGroup</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">ml_level_coords</span> <span class="o">=</span> <span class="kc">None</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">async_timeout</span> <span class="o">=</span> <span class="n">async_timeout</span>
 
@@ -539,12 +544,22 @@
             <span class="p">}</span>
             <span class="n">fs</span> <span class="o">=</span> <span class="n">AsyncCachingFileSystem</span><span class="p">(</span><span class="n">fs</span><span class="o">=</span><span class="n">fs</span><span class="p">,</span> <span class="o">**</span><span class="n">cache_options</span><span class="p">,</span> <span class="n">asynchronous</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
+        <span class="c1"># Pressure/surface store</span>
         <span class="n">zstore</span> <span class="o">=</span> <span class="n">zarr</span><span class="o">.</span><span class="n">storage</span><span class="o">.</span><span class="n">FsspecStore</span><span class="p">(</span>
             <span class="n">fs</span><span class="p">,</span>
             <span class="n">path</span><span class="o">=</span><span class="s2">&quot;/gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3&quot;</span><span class="p">,</span>
         <span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">zarr_group</span> <span class="o">=</span> <span class="k">await</span> <span class="n">zarr</span><span class="o">.</span><span class="n">api</span><span class="o">.</span><span class="n">asynchronous</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="n">store</span><span class="o">=</span><span class="n">zstore</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;r&quot;</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">level_coords</span> <span class="o">=</span> <span class="k">await</span> <span class="p">(</span><span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">zarr_group</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;level&quot;</span><span class="p">))</span><span class="o">.</span><span class="n">getitem</span><span class="p">(</span>
+            <span class="nb">slice</span><span class="p">(</span><span class="kc">None</span><span class="p">)</span>
+        <span class="p">)</span>
+        <span class="c1"># Model-level store</span>
+        <span class="n">ml_zstore</span> <span class="o">=</span> <span class="n">zarr</span><span class="o">.</span><span class="n">storage</span><span class="o">.</span><span class="n">FsspecStore</span><span class="p">(</span>
+            <span class="n">fs</span><span class="p">,</span>
+            <span class="n">path</span><span class="o">=</span><span class="s2">&quot;/gcp-public-data-arco-era5/ar/model-level-1h-0p25deg.zarr-v1&quot;</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ml_zarr_group</span> <span class="o">=</span> <span class="k">await</span> <span class="n">zarr</span><span class="o">.</span><span class="n">api</span><span class="o">.</span><span class="n">asynchronous</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="n">store</span><span class="o">=</span><span class="n">ml_zstore</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;r&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ml_level_coords</span> <span class="o">=</span> <span class="k">await</span> <span class="p">(</span><span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">ml_zarr_group</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;hybrid&quot;</span><span class="p">))</span><span class="o">.</span><span class="n">getitem</span><span class="p">(</span>
             <span class="nb">slice</span><span class="p">(</span><span class="kc">None</span><span class="p">)</span>
         <span class="p">)</span>
 
@@ -677,7 +692,7 @@
 <span class="sd">        np.ndarray</span>
 <span class="sd">            Data</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">zarr_group</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">zarr_group</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">ml_zarr_group</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Zarr group is not initialized&quot;</span><span class="p">)</span>
         <span class="c1"># Get time index (vanilla zarr doesnt support date indices)</span>
         <span class="n">time_index</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_time_index</span><span class="p">(</span><span class="n">time</span><span class="p">)</span>
@@ -690,9 +705,16 @@
             <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;variable id </span><span class="si">{</span><span class="n">variable</span><span class="si">}</span><span class="s2"> not found in ARCO lexicon&quot;</span><span class="p">)</span>
             <span class="k">raise</span> <span class="n">e</span>
 
-        <span class="n">arco_variable</span><span class="p">,</span> <span class="n">level</span> <span class="o">=</span> <span class="n">arco_name</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;::&quot;</span><span class="p">)</span>
+        <span class="n">parts</span> <span class="o">=</span> <span class="n">arco_name</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;::&quot;</span><span class="p">)</span>
+        <span class="n">arco_variable</span><span class="p">,</span> <span class="n">level</span> <span class="o">=</span> <span class="n">parts</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="p">(</span><span class="n">parts</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">parts</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="k">else</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_is_mdl_level</span><span class="p">(</span><span class="n">variable</span><span class="p">):</span>
+            <span class="n">zarr_group</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ml_zarr_group</span>
+            <span class="n">level_coords</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ml_level_coords</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">zarr_group</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">zarr_group</span>
+            <span class="n">level_coords</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">level_coords</span>
 
-        <span class="n">zarr_array</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">zarr_group</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">arco_variable</span><span class="p">)</span>
+        <span class="n">zarr_array</span> <span class="o">=</span> <span class="k">await</span> <span class="n">zarr_group</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">arco_variable</span><span class="p">)</span>
         <span class="n">shape</span> <span class="o">=</span> <span class="n">zarr_array</span><span class="o">.</span><span class="n">shape</span>
         <span class="c1"># Static variables</span>
         <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">shape</span><span class="p">)</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
@@ -705,7 +727,7 @@
         <span class="c1"># Atmospheric variable</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="c1"># Load levels coordinate system from Zarr store and check</span>
-            <span class="n">level_index</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">searchsorted</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">level_coords</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="n">level</span><span class="p">))</span>
+            <span class="n">level_index</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">searchsorted</span><span class="p">(</span><span class="n">level_coords</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="n">level</span><span class="p">))</span>
             <span class="n">data</span> <span class="o">=</span> <span class="k">await</span> <span class="n">zarr_array</span><span class="o">.</span><span class="n">getitem</span><span class="p">((</span><span class="n">time_index</span><span class="p">,</span> <span class="n">level_index</span><span class="p">))</span>
             <span class="n">output</span> <span class="o">=</span> <span class="n">modifier</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
 
@@ -766,6 +788,22 @@
         <span class="n">start_date</span> <span class="o">=</span> <span class="n">datetime</span><span class="p">(</span><span class="n">year</span><span class="o">=</span><span class="mi">1900</span><span class="p">,</span> <span class="n">month</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">day</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
         <span class="n">duration</span> <span class="o">=</span> <span class="n">time</span> <span class="o">-</span> <span class="n">start_date</span>
         <span class="k">return</span> <span class="nb">int</span><span class="p">(</span><span class="nb">divmod</span><span class="p">(</span><span class="n">duration</span><span class="o">.</span><span class="n">total_seconds</span><span class="p">(),</span> <span class="mi">3600</span><span class="p">)[</span><span class="mi">0</span><span class="p">])</span>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_is_mdl_level</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">variable</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Checks if given variable is a model level variable based on the lexicon pattern.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        variable : str</span>
+<span class="sd">            Variable to check</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        bool</span>
+<span class="sd">            If variable is a model level variable</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="nb">bool</span><span class="p">(</span><span class="n">re</span><span class="o">.</span><span class="n">match</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;^[a-zA-Z0-9]+[0-9]+k$&quot;</span><span class="p">,</span> <span class="n">variable</span><span class="p">))</span>
 
 <div class="viewcode-block" id="ARCO.available">
 <a class="viewcode-back" href="../../../modules/generated/data/earth2studio.data.ARCO.html#earth2studio.data.ARCO.available">[docs]</a>

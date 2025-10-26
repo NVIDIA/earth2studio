@@ -476,7 +476,7 @@
 <p>As discussed in detail in the <a class="reference internal" href="../about/data.html#data-userguide"><span class="std std-ref">Data Movement</span></a> section, Earth2Studio tracks the
 geo-physical representation of tensor data inside workflows.
 This includes the name of the variable / parameter / property the data represents, which
-is tacked explicitly via Earth2Studios lexicon.
+is tracked explicitly via Earth2Studios lexicon.
 Similar to ECMWF’s <a class="reference external" href="https://codes.ecmwf.int/grib/param-db/">parameter database</a>,
 Earth2Studio’s lexicon aims to provide an opinioned and explicit list of short variables
 names that is used across the package found in <code class="xref py py-obj docutils literal notranslate"><span class="pre">earth2studio.lexicon.base.E2STUDIO_VOCAB</span></code>.
@@ -484,20 +484,42 @@ Many of these names are based on ECMWF’s parameter database but not all.</p>
 <p>Below are a few examples:</p>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">t2m</span></code>: Temperature in Kelvin at 2 meters</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">u10m</span></code>: u-component of Zonal winds at 10 meters</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">v10m</span></code>: v-component of Zonal winds at 10 meters</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">u200</span></code>: u-component of Zonal winds at 200 hPa</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">u10m</span></code>: u-component (eastward/zonal) of winds at 10 meters</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">v10m</span></code>: v-component (northward/meridional) of winds at 10 meters</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">u200</span></code>: u-component of winds at 200 hPa</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">z250</span></code>: Geo-potential at 250 hPa</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">z500</span></code>: Geo-potential at 500 hPa</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">tcwv</span></code>: Total column water vapor</p></li>
 </ul>
-<div class="tip admonition">
-<p class="admonition-title">Altitude / Pressure Levels</p>
-<p>Note that 3D atmospheric variables are sliced to their individual pressure levels.
-This is better suited when working with various AI models that may use different
-pressure levels.
-Levels based on altitude contain an “m” at the end to distinguish height in meters.</p>
+<section id="altitude-pressure-levels">
+<h2>Altitude / Pressure Levels<a class="headerlink" href="#altitude-pressure-levels" title="Link to this heading">#</a></h2>
+<p>Note that there are a variety of ways to represent the vertical coordinates for 3D
+atmospheric variables. The most common method is to slice variables along pressure
+levels (surfaces of constant pressure), and this is considered the “default” in terms
+of variable names within the lexicon (e.g., <code class="docutils literal notranslate"><span class="pre">z500</span></code> is the geo-potential) at the 500 hPa
+pressure level. Variables which are represented based on altitude above the surface
+contain an “m” at the end, to denote height in meters, such as <code class="docutils literal notranslate"><span class="pre">u10m</span></code>.</p>
+<p>Some models or workflows, however, require using their own custom vertical coordinate
+which is neither pressure-level nor terrain-following. These are typically referred to
+as “native” or “hybrid” vertical levels, and are defined differently for different
+use-cases. The lexicon supports these custom levels by indexing the vertical level and
+appending a suffix to the variable name to denote it is a custom vertical level, as in
+<code class="docutils literal notranslate"><span class="pre">u100k</span></code> to indicate the u-component of winds at the custom vertical level with index
+100 (indexed by <code class="docutils literal notranslate"><span class="pre">k</span></code>). We leave the choice of suffix up to each use-case, and reserve
+the following special-case suffixes:</p>
+<ul class="simple">
+<li><p>No suffix: assumed to be pressure-level, as in <code class="docutils literal notranslate"><span class="pre">z500</span></code> for geo-potential at 500 hPa level</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">m</span></code>: altitude in meters above the surface</p></li>
+</ul>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>Only use custom vertical level data with caution. The definition of these vertical
+levels changes with each data source, model, or use-case, and thus they are not
+necessarily interoperable. Transforming between different custom vertical levels will
+likely require custom interpolation schemes, possibly using pressure-levels as an
+intermediate step.</p>
 </div>
+</section>
 <section id="datasource-lexicon">
 <h2>Datasource Lexicon<a class="headerlink" href="#datasource-lexicon" title="Link to this heading">#</a></h2>
 <p>A common challenge when working with different sources of weather/climate data is that
@@ -664,6 +686,7 @@ missing you would like to add? Open an issue!</p>
   </div>
   <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#altitude-pressure-levels">Altitude / Pressure Levels</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#datasource-lexicon">Datasource Lexicon</a></li>
 </ul>
   </nav></div>

@@ -565,9 +565,10 @@
 <dt class="sig sig-object py" id="earth2studio.data.ARCO">
 <em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">earth2studio.data.</span></span><span class="sig-name descname"><span class="pre">ARCO</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">cache</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">verbose</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">async_timeout</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">600</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/earth2studio/data/arco.html#ARCO"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.data.ARCO" title="Link to this definition">#</a></dt>
 <dd><p>Analysis-Ready, Cloud Optimized (ARCO) is a data store of ERA5 re-analysis data
-currated by Google. This data is stored in Zarr format and contains 31 surface and
-pressure level variables (for 37 pressure levels)  on a 0.25 degree lat lon grid.
-Temporal resolution is 1 hour.</p>
+currated by Google. This data is stored in Zarr format and contains 31 surface
+variables, pressure level variables defined on 37 pressure levels, and model level
+variables defined on the 137 native ERA5 vertical levels, all on a 0.25 degree lat
+lon grid. Temporal resolution is 1 hour.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
