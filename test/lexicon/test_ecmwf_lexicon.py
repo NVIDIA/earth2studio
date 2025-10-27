@@ -38,7 +38,7 @@ def test_ifs_lexicon(variable, device):
     "variable", [["t2m"], ["u10m", "v200"], ["hcc", "z500", "q700"]]
 )
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
-def test_ifs_lexicon(variable, device):
+def test_aifs_lexicon(variable, device):
     input = torch.randn(len(variable), 8).to(device)
     for v in variable:
         label, modifier = AIFSLexicon[v]
