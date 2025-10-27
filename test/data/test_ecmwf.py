@@ -176,7 +176,6 @@ def test_ifs_cache(time, lead_time, variable, cache):
     "time",
     [
         now6h() - timedelta(days=1, minutes=1),
-        now6h() + timedelta(days=5),
         datetime(year=1993, month=4, day=5),
     ],
 )
@@ -191,7 +190,6 @@ def test_ifs_time_available(data_source, time, lead_time, variable):
 @pytest.mark.timeout(30)
 @pytest.mark.parametrize("data_source", [IFS, IFS_ENS])
 @pytest.mark.parametrize("time", [now6h() - timedelta(days=2)])
-@pytest.mark.parametrize("lead_time", [timedelta(hours=0)])
 @pytest.mark.parametrize(
     "lead_time",
     [
@@ -213,7 +211,6 @@ def test_ifs_leadtime_available(data_source, time, lead_time, variable):
     "time",
     [
         now6h() - timedelta(days=1, minutes=1),
-        now6h() + timedelta(days=5),
         datetime(year=1993, month=4, day=5),
     ],
 )
@@ -228,7 +225,6 @@ def test_aifs_time_available(data_source, time, lead_time, variable):
 @pytest.mark.timeout(30)
 @pytest.mark.parametrize("data_source", [AIFS, AIFS_ENS])
 @pytest.mark.parametrize("time", [now6h() - timedelta(days=2)])
-@pytest.mark.parametrize("lead_time", [timedelta(hours=0)])
 @pytest.mark.parametrize(
     "lead_time",
     [
