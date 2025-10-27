@@ -159,10 +159,10 @@ def plot_(axi, data, title, cmap, vmin=None, vmax=None):
     """Convenience function for plotting pcolormesh."""
     # Plot the field using pcolormesh
     im = axi.pcolormesh(
-        model.hrrr_x,
-        model.hrrr_y,
+        model.lon,
+        model.lat,
         data,
-        transform=projection,
+        transform=ccrs.PlateCarree(),
         cmap=cmap,
         vmin=vmin,
         vmax=vmax,

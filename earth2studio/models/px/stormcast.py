@@ -32,6 +32,7 @@ from earth2studio.models.px.utils import PrognosticMixin
 from earth2studio.utils import (
     handshake_coords,
     handshake_dim,
+    handshake_size,
 )
 from earth2studio.utils.coords import map_coords
 from earth2studio.utils.imports import (
@@ -226,8 +227,9 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         handshake_dim(input_coords, "hrrr_x", 5)
         handshake_dim(input_coords, "hrrr_y", 4)
         handshake_dim(input_coords, "variable", 3)
-        handshake_coords(input_coords, target_input_coords, "hrrr_x")
-        handshake_coords(input_coords, target_input_coords, "hrrr_y")
+        # Index coords are arbitrary as long its on the HRRR grid, so just check size
+        handshake_size(input_coords, "hrrr_y", self.lat.shape[0])
+        handshake_size(input_coords, "hrrr_x", self.lat.shape[1])
         handshake_coords(input_coords, target_input_coords, "variable")
 
         output_coords["batch"] = input_coords["batch"]
